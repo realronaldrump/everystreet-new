@@ -9,6 +9,7 @@ import json
 import geojson
 from bounciepy import AsyncRESTAPIClient
 from bson import json_util
+import aiohttp
 
 load_dotenv()
 
@@ -19,20 +20,16 @@ socketio = SocketIO(app)
 # MongoDB setup
 try:
     mongo_uri = os.getenv('MONGO_URI')
-    # Parse the MongoDB URI
     from urllib.parse import urlparse, parse_qs
     parsed_uri = urlparse(mongo_uri)
     query_params = parse_qs(parsed_uri.query)
     
-    # Remove ssl and tls parameters from the URI
     for param in ['ssl', 'tls', 'tlsAllowInvalidCertificates']:
         query_params.pop(param, None)
     
-    # Reconstruct the URI without ssl and tls parameters
     new_query = '&'.join(f"{k}={v[0]}" for k, v in query_params.items())
     new_uri = f"{parsed_uri.scheme}://{parsed_uri.netloc}{parsed_uri.path}?{new_query}"
     
-    # Connect to MongoDB with custom SSL options
     client = MongoClient(new_uri, ssl=True, tls=True, tlsAllowInvalidCertificates=True)
     db = client['every_street']
     trips_collection = db['trips']
@@ -78,7 +75,6 @@ def get_trips():
                 '$lte': datetime.fromisoformat(end_date)
             }
         else:
-            # Default to last 4 years if no date range is provided
             end_date = datetime.now(timezone.utc)
             start_date = end_date - timedelta(days=4*365)
             query['startTime'] = {'$gte': start_date, '$lte': end_date}
@@ -87,7 +83,6 @@ def get_trips():
         
         trips = list(trips_collection.find(query, {'_id': 0}))
         
-        # Log trips count for each IMEI
         imei_counts = {}
         for trip in trips:
             imei = trip.get('imei')
@@ -99,7 +94,6 @@ def get_trips():
         for imei, count in imei_counts.items():
             print(f"Retrieved {count} trips for IMEI {imei}")
         
-        # Convert ObjectId to string for JSON serialization and ensure IMEI is included
         for trip in trips:
             if 'gps' in trip and isinstance(trip['gps'], dict):
                 trip['gps'] = json.dumps(trip['gps'])
@@ -122,7 +116,6 @@ def get_metrics():
             '$lte': datetime.fromisoformat(end_date)
         }
     else:
-        # Default to last 4 years if no date range is provided
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=4*365)
         query['startTime'] = {'$gte': start_date, '$lte': end_date}
@@ -153,6 +146,28 @@ def webhook():
         socketio.emit('live_route_update', data)
     return '', 204
 
+async def fetch_trips_for_device(imei, start_date, end_date):
+    all_trips = []
+    current_start = start_date
+    while current_start < end_date:
+        current_end = min(current_start + timedelta(days=7), end_date)
+        try:
+            trips = await bouncie_client.get_trips(
+                imei=imei,
+                gps_format="geojson",
+                starts_after=current_start.isoformat(),
+                ends_before=current_end.isoformat()
+            )
+            if trips:
+                all_trips.extend(trips)
+                print(f"Fetched {len(trips)} trips for IMEI {imei} from {current_start} to {current_end}")
+            else:
+                print(f"No trips found for IMEI {imei} from {current_start} to {current_end}")
+        except Exception as e:
+            print(f"Error fetching trips for IMEI {imei} from {current_start} to {current_end}: {e}")
+        current_start = current_end
+    return all_trips
+
 async def fetch_and_store_trips():
     try:
         print("Starting fetch_and_store_trips")
@@ -165,49 +180,25 @@ async def fetch_and_store_trips():
         all_trips = []
         for imei in AUTHORIZED_DEVICES:
             print(f"Fetching trips for IMEI: {imei}")
-            try:
-                trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson")
-                print(f"Trips fetched for IMEI {imei}: {len(trips) if trips else 0}")
-            except Exception as e:
-                print(f"Error fetching trips for IMEI {imei}: {e}")
-                continue
-
-            if not trips:
-                print(f"No trips fetched for IMEI {imei}")
-                continue
-
-            # Filter trips based on date range
-            trips = [trip for trip in trips if start_date <= datetime.fromisoformat(trip['startTime']) <= end_date]
+            device_trips = await fetch_trips_for_device(imei, start_date, end_date)
+            all_trips.extend(device_trips)
             
-            print(f"Filtered {len(trips)} trips for IMEI {imei}")
-            
-            if trips:
-                for trip in trips:
-                    try:
-                        trip['startTime'] = datetime.fromisoformat(trip['startTime'])
-                        trip['endTime'] = datetime.fromisoformat(trip['endTime'])
-                        trip['imei'] = imei  # Ensure IMEI is stored with each trip
-                        result = trips_collection.update_one(
-                            {'transactionId': trip['transactionId']},
-                            {'$set': trip},
-                            upsert=True
-                        )
-                        print(f"Updated trip {trip['transactionId']} for IMEI {imei}: {'Inserted' if result.upserted_id else 'Updated'}")
-                    except Exception as e:
-                        print(f"Error processing trip {trip.get('transactionId', 'Unknown')}: {e}")
-                all_trips.extend(trips)
-            
-            print(f"Successfully processed {len(trips)} trips for IMEI {imei}")
+        print(f"Total trips fetched: {len(all_trips)}")
         
-        print(f"Total trips processed: {len(all_trips)}")
+        for trip in all_trips:
+            trip['startTime'] = datetime.fromisoformat(trip['startTime'])
+            trip['endTime'] = datetime.fromisoformat(trip['endTime'])
+            result = trips_collection.update_one(
+                {'transactionId': trip['transactionId']},
+                {'$set': trip},
+                upsert=True
+            )
+            print(f"Updated trip {trip['transactionId']} for IMEI {trip['imei']}: {'Inserted' if result.upserted_id else 'Updated'}")
         
         # Log the count of trips in the database for each IMEI
         for imei in AUTHORIZED_DEVICES:
-            try:
-                count = trips_collection.count_documents({'imei': imei})
-                print(f"Trips in database for IMEI {imei}: {count}")
-            except Exception as e:
-                print(f"Error counting trips for IMEI {imei}: {e}")
+            count = trips_collection.count_documents({'imei': imei})
+            print(f"Trips in database for IMEI {imei}: {count}")
         
     except Exception as e:
         print(f"Error in fetch_and_store_trips: {e}")
