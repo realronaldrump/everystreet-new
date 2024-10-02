@@ -40,7 +40,7 @@ function fetchTrips() {
         .then(response => response.json())
         .then(trips => {
             console.log(`Received ${trips.length} trips`);
-            
+
             // Group trips by IMEI
             const tripsByImei = {};
             trips.forEach(trip => {
@@ -59,10 +59,23 @@ function fetchTrips() {
                 let geometry;
                 try {
                     geometry = typeof trip.gps === 'string' ? JSON.parse(trip.gps) : trip.gps;
+
+                    if (!geometry || !geometry.coordinates) throw new Error('Invalid GPS data');
+
+                    // Ensure correct coordinate order [longitude, latitude]
+                    if (geometry.type === 'LineString' || geometry.type === 'Point') {
+                        geometry.coordinates = geometry.coordinates.map(coord => {
+                            if (Array.isArray(coord) && coord.length === 2) {
+                                return [coord[0], coord[1]];  // [longitude, latitude]
+                            }
+                            return coord;
+                        });
+                    }
                 } catch (error) {
-                    console.error('Error parsing GPS data:', error);
-                    return null;
+                    console.error('Error parsing GPS data:', error, trip);
+                    return null;  // Skip invalid trip
                 }
+
                 return {
                     type: 'Feature',
                     geometry: geometry,
@@ -74,7 +87,7 @@ function fetchTrips() {
                         imei: trip.imei
                     }
                 };
-            }).filter(feature => feature !== null);
+            }).filter(feature => feature !== null);  // Filter out invalid features
 
             // Log unique IMEIs in the processed GeoJSON
             const uniqueImeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
@@ -112,6 +125,7 @@ function updateMap() {
         return;
     }
 
+    // Check if the source exists, otherwise add it
     if (map.getSource('routes')) {
         map.getSource('routes').setData(currentGeoJSON);
     } else {
@@ -122,26 +136,30 @@ function updateMap() {
 
         // Add a layer for each IMEI
         const imeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
-        const colors = ['#BB86FC', '#03DAC6', '#FF0266', '#CF6679']; // Add more colors if needed
-
+        const colors = ['#BB86FC', '#03DAC6', '#FF0266', '#CF6679'];  // Predefined colors
+        
         imeis.forEach((imei, index) => {
-            map.addLayer({
-                id: `routes-${imei}`,
-                type: 'line',
-                source: 'routes',
-                layout: {
-                    'line-join': 'round',
-                    'line-cap': 'round'
-                },
-                paint: {
-                    'line-color': colors[index % colors.length],
-                    'line-width': 2
-                },
-                filter: ['==', ['get', 'imei'], imei]
-            });
+            const layerId = `routes-${imei}`;
+            if (!map.getLayer(layerId)) {  // Only add the layer if it doesn't exist
+                map.addLayer({
+                    id: layerId,
+                    type: 'line',
+                    source: 'routes',
+                    layout: {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    paint: {
+                        'line-color': colors[index % colors.length],
+                        'line-width': 2
+                    },
+                    filter: ['==', ['get', 'imei'], imei]  // Filter to show only this IMEI's routes
+                });
+            }
         });
     }
 
+    // Fit the map bounds to the route's features
     const bounds = new mapboxgl.LngLatBounds();
     currentGeoJSON.features.forEach(feature => {
         if (feature.geometry && feature.geometry.coordinates) {
