@@ -136,17 +136,22 @@ async def fetch_and_store_trips():
         all_trips = []
         for imei in AUTHORIZED_DEVICES:
             print(f"Fetching trips for IMEI {imei}")
-            # Adjusted to use start_date and end_date
-            trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson", start_date=start_date, end_date=end_date)
+            trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson")
             
             if trips is None:
                 print(f"No trips fetched for IMEI {imei}")
                 continue  # Skip processing if trips is None
 
-            print(f"Fetched {len(trips)} trips for IMEI {imei}")
+            # Filter trips based on start_date and end_date
+            filtered_trips = [
+                trip for trip in trips
+                if start_date <= datetime.fromisoformat(trip['startTime']) <= end_date
+            ]
+
+            print(f"Fetched {len(filtered_trips)} trips for IMEI {imei}")
             
-            if trips:
-                for trip in trips:
+            if filtered_trips:
+                for trip in filtered_trips:
                     trip['startTime'] = datetime.fromisoformat(trip['startTime'])
                     trip['endTime'] = datetime.fromisoformat(trip['endTime'])
                     trip['imei'] = imei  # Ensure IMEI is stored with each trip
@@ -156,9 +161,9 @@ async def fetch_and_store_trips():
                         upsert=True
                     )
                     print(f"Updated trip {trip['transactionId']} for IMEI {imei}: {'Inserted' if result.upserted_id else 'Updated'}")
-                all_trips.extend(trips)
+                all_trips.extend(filtered_trips)
             
-            print(f"Successfully processed {len(trips)} trips for IMEI {imei}")
+            print(f"Successfully processed {len(filtered_trips)} trips for IMEI {imei}")
         print(f"Total trips processed: {len(all_trips)}")
         
         # Log the count of trips in the database for each IMEI
