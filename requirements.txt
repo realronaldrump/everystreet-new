@@ -5,3 +5,5 @@ pymongo
 geojson
 bounciepy
 gunicorn
+aiohttp
+asyncio

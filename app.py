@@ -1,15 +1,14 @@
 import asyncio
+import json
+from datetime import datetime, timedelta, timezone
+import aiohttp
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO
 import os
 from dotenv import load_dotenv
-from datetime import datetime, timedelta, timezone
 from pymongo import MongoClient
-import json
-import geojson
-from bounciepy import AsyncRESTAPIClient
-from bson import json_util
-import aiohttp
+from pymongo import MongoClient
+import certifi
 
 load_dotenv()
 
@@ -19,18 +18,12 @@ socketio = SocketIO(app)
 
 # MongoDB setup
 try:
-    mongo_uri = os.getenv('MONGO_URI')
-    from urllib.parse import urlparse, parse_qs
-    parsed_uri = urlparse(mongo_uri)
-    query_params = parse_qs(parsed_uri.query)
-    
-    for param in ['ssl', 'tls', 'tlsAllowInvalidCertificates']:
-        query_params.pop(param, None)
-    
-    new_query = '&'.join(f"{k}={v[0]}" for k, v in query_params.items())
-    new_uri = f"{parsed_uri.scheme}://{parsed_uri.netloc}{parsed_uri.path}?{new_query}"
-    
-    client = MongoClient(new_uri, ssl=True, tls=True, tlsAllowInvalidCertificates=True)
+    client = MongoClient(
+        os.getenv('MONGO_URI'),
+        tls=True,
+        tlsAllowInvalidCertificates=True,
+        tlsCAFile=certifi.where()
+    )
     db = client['every_street']
     trips_collection = db['trips']
     live_routes_collection = db['live_routes']
@@ -47,13 +40,91 @@ AUTH_CODE = os.getenv('AUTHORIZATION_CODE')
 AUTHORIZED_DEVICES = os.getenv('AUTHORIZED_DEVICES', '').split(',')
 MAPBOX_ACCESS_TOKEN = os.getenv('MAPBOX_ACCESS_TOKEN')
 
-# Create AsyncRESTAPIClient instance
-bouncie_client = AsyncRESTAPIClient(
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    redirect_url=REDIRECT_URI,
-    auth_code=AUTH_CODE
-)
+AUTH_URL = "https://auth.bouncie.com/oauth/token"
+API_BASE_URL = "https://api.bouncie.dev/v1"
+
+async def get_access_token(session):
+    payload = {
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "grant_type": "authorization_code",
+        "code": AUTH_CODE,
+        "redirect_uri": REDIRECT_URI
+    }
+    async with session.post(AUTH_URL, data=payload) as response:
+        data = await response.json()
+        return data.get('access_token')
+
+async def get_trips_from_api(session, access_token, imei, start_date, end_date):
+    headers = {"Authorization": access_token, "Content-Type": "application/json"}
+    params = {
+        "imei": imei,
+        "gps-format": "geojson",
+        "starts-after": start_date.isoformat(),
+        "ends-before": end_date.isoformat()
+    }
+    async with session.get(f"{API_BASE_URL}/trips", headers=headers, params=params) as response:
+        if response.status == 200:
+            return await response.json()
+        else:
+            print(f"Error fetching trips: {response.status}")
+            return []
+
+async def fetch_trips_in_intervals(session, access_token, imei, start_date, end_date):
+    all_trips = []
+    current_start = start_date
+    while current_start < end_date:
+        current_end = min(current_start + timedelta(days=7), end_date)
+        trips = await get_trips_from_api(session, access_token, imei, current_start, current_end)
+        all_trips.extend(trips)
+        current_start = current_end
+    return all_trips
+
+async def fetch_and_store_trips():
+    try:
+        print("Starting fetch_and_store_trips")
+        print(f"Authorized devices: {AUTHORIZED_DEVICES}")
+        async with aiohttp.ClientSession() as session:
+            access_token = await get_access_token(session)
+            print("Access token obtained")
+            
+            end_date = datetime.now(timezone.utc)
+            start_date = end_date - timedelta(days=365*4)  # Fetch last 4 years of trips
+            
+            all_trips = []
+            for imei in AUTHORIZED_DEVICES:
+                print(f"Fetching trips for IMEI: {imei}")
+                device_trips = await fetch_trips_in_intervals(session, access_token, imei, start_date, end_date)
+                print(f"Fetched {len(device_trips)} trips for IMEI {imei}")
+                all_trips.extend(device_trips)
+                
+            print(f"Total trips fetched: {len(all_trips)}")
+            
+            for trip in all_trips:
+                try:
+                    trip['startTime'] = datetime.fromisoformat(trip['startTime'])
+                    trip['endTime'] = datetime.fromisoformat(trip['endTime'])
+                    result = trips_collection.update_one(
+                        {'transactionId': trip['transactionId']},
+                        {'$set': trip},
+                        upsert=True
+                    )
+                    print(f"Updated trip {trip['transactionId']} for IMEI {trip.get('imei', 'Unknown')}: {'Inserted' if result.upserted_id else 'Updated'}")
+                except Exception as e:
+                    print(f"Error updating trip {trip['transactionId']}: {e}")
+            
+            # Log the count of trips in the database for each IMEI
+            for imei in AUTHORIZED_DEVICES:
+                try:
+                    count = trips_collection.count_documents({'imei': imei})
+                    print(f"Trips in database for IMEI {imei}: {count}")
+                except Exception as e:
+                    print(f"Error counting trips for IMEI {imei}: {e}")
+        
+    except Exception as e:
+        print(f"Error in fetch_and_store_trips: {e}")
+        import traceback
+        traceback.print_exc()
 
 @app.route('/')
 def index():
@@ -145,65 +216,6 @@ def webhook():
         live_routes_collection.insert_one(data)
         socketio.emit('live_route_update', data)
     return '', 204
-
-async def fetch_trips_for_device(imei, start_date, end_date):
-    all_trips = []
-    current_start = start_date
-    while current_start < end_date:
-        current_end = min(current_start + timedelta(days=7), end_date)
-        try:
-            trips = await bouncie_client.get_trips(
-                imei=imei,
-                gps_format="geojson",
-                starts_after=current_start.isoformat(),
-                ends_before=current_end.isoformat()
-            )
-            if trips:
-                all_trips.extend(trips)
-                print(f"Fetched {len(trips)} trips for IMEI {imei} from {current_start} to {current_end}")
-            else:
-                print(f"No trips found for IMEI {imei} from {current_start} to {current_end}")
-        except Exception as e:
-            print(f"Error fetching trips for IMEI {imei} from {current_start} to {current_end}: {e}")
-        current_start = current_end
-    return all_trips
-
-async def fetch_and_store_trips():
-    try:
-        print("Starting fetch_and_store_trips")
-        await bouncie_client.get_access_token()
-        print("Access token obtained")
-        
-        end_date = datetime.now(timezone.utc)
-        start_date = end_date - timedelta(days=4*365)
-        
-        all_trips = []
-        for imei in AUTHORIZED_DEVICES:
-            print(f"Fetching trips for IMEI: {imei}")
-            device_trips = await fetch_trips_for_device(imei, start_date, end_date)
-            all_trips.extend(device_trips)
-            
-        print(f"Total trips fetched: {len(all_trips)}")
-        
-        for trip in all_trips:
-            trip['startTime'] = datetime.fromisoformat(trip['startTime'])
-            trip['endTime'] = datetime.fromisoformat(trip['endTime'])
-            result = trips_collection.update_one(
-                {'transactionId': trip['transactionId']},
-                {'$set': trip},
-                upsert=True
-            )
-            print(f"Updated trip {trip['transactionId']} for IMEI {trip['imei']}: {'Inserted' if result.upserted_id else 'Updated'}")
-        
-        # Log the count of trips in the database for each IMEI
-        for imei in AUTHORIZED_DEVICES:
-            count = trips_collection.count_documents({'imei': imei})
-            print(f"Trips in database for IMEI {imei}: {count}")
-        
-    except Exception as e:
-        print(f"Error in fetch_and_store_trips: {e}")
-        import traceback
-        traceback.print_exc()
 
 async def start_background_tasks():
     await fetch_and_store_trips()
