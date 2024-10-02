@@ -18,7 +18,22 @@ socketio = SocketIO(app)
 
 # MongoDB setup
 try:
-    client = MongoClient(os.getenv('MONGO_URI'), tls=True, tlsAllowInvalidCertificates=True)
+    mongo_uri = os.getenv('MONGO_URI')
+    # Parse the MongoDB URI
+    from urllib.parse import urlparse, parse_qs
+    parsed_uri = urlparse(mongo_uri)
+    query_params = parse_qs(parsed_uri.query)
+    
+    # Remove ssl and tls parameters from the URI
+    for param in ['ssl', 'tls', 'tlsAllowInvalidCertificates']:
+        query_params.pop(param, None)
+    
+    # Reconstruct the URI without ssl and tls parameters
+    new_query = '&'.join(f"{k}={v[0]}" for k, v in query_params.items())
+    new_uri = f"{parsed_uri.scheme}://{parsed_uri.netloc}{parsed_uri.path}?{new_query}"
+    
+    # Connect to MongoDB with custom SSL options
+    client = MongoClient(new_uri, ssl=True, tls=True, tlsAllowInvalidCertificates=True)
     db = client['every_street']
     trips_collection = db['trips']
     live_routes_collection = db['live_routes']
@@ -32,7 +47,7 @@ CLIENT_ID = os.getenv('CLIENT_ID')
 CLIENT_SECRET = os.getenv('CLIENT_SECRET')
 REDIRECT_URI = os.getenv('REDIRECT_URI')
 AUTH_CODE = os.getenv('AUTHORIZATION_CODE')
-AUTHORIZED_DEVICES = os.getenv('AUTHORIZED_DEVICES').split(',')
+AUTHORIZED_DEVICES = os.getenv('AUTHORIZED_DEVICES', '').split(',')
 MAPBOX_ACCESS_TOKEN = os.getenv('MAPBOX_ACCESS_TOKEN')
 
 # Create AsyncRESTAPIClient instance
@@ -140,35 +155,46 @@ def webhook():
 
 async def fetch_and_store_trips():
     try:
+        print("Starting fetch_and_store_trips")
         await bouncie_client.get_access_token()
+        print("Access token obtained")
         
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=4*365)
         
         all_trips = []
         for imei in AUTHORIZED_DEVICES:
-            trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson")
-            
-            if trips is None:
+            print(f"Fetching trips for IMEI: {imei}")
+            try:
+                trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson")
+                print(f"Trips fetched for IMEI {imei}: {len(trips) if trips else 0}")
+            except Exception as e:
+                print(f"Error fetching trips for IMEI {imei}: {e}")
+                continue
+
+            if not trips:
                 print(f"No trips fetched for IMEI {imei}")
-                continue  # Skip processing if trips is None
-            
+                continue
+
             # Filter trips based on date range
             trips = [trip for trip in trips if start_date <= datetime.fromisoformat(trip['startTime']) <= end_date]
             
-            print(f"Fetched {len(trips)} trips for IMEI {imei}")
+            print(f"Filtered {len(trips)} trips for IMEI {imei}")
             
             if trips:
                 for trip in trips:
-                    trip['startTime'] = datetime.fromisoformat(trip['startTime'])
-                    trip['endTime'] = datetime.fromisoformat(trip['endTime'])
-                    trip['imei'] = imei  # Ensure IMEI is stored with each trip
-                    result = trips_collection.update_one(
-                        {'transactionId': trip['transactionId']},
-                        {'$set': trip},
-                        upsert=True
-                    )
-                    print(f"Updated trip {trip['transactionId']} for IMEI {imei}: {'Inserted' if result.upserted_id else 'Updated'}")
+                    try:
+                        trip['startTime'] = datetime.fromisoformat(trip['startTime'])
+                        trip['endTime'] = datetime.fromisoformat(trip['endTime'])
+                        trip['imei'] = imei  # Ensure IMEI is stored with each trip
+                        result = trips_collection.update_one(
+                            {'transactionId': trip['transactionId']},
+                            {'$set': trip},
+                            upsert=True
+                        )
+                        print(f"Updated trip {trip['transactionId']} for IMEI {imei}: {'Inserted' if result.upserted_id else 'Updated'}")
+                    except Exception as e:
+                        print(f"Error processing trip {trip.get('transactionId', 'Unknown')}: {e}")
                 all_trips.extend(trips)
             
             print(f"Successfully processed {len(trips)} trips for IMEI {imei}")
@@ -177,11 +203,16 @@ async def fetch_and_store_trips():
         
         # Log the count of trips in the database for each IMEI
         for imei in AUTHORIZED_DEVICES:
-            count = trips_collection.count_documents({'imei': imei})
-            print(f"Trips in database for IMEI {imei}: {count}")
+            try:
+                count = trips_collection.count_documents({'imei': imei})
+                print(f"Trips in database for IMEI {imei}: {count}")
+            except Exception as e:
+                print(f"Error counting trips for IMEI {imei}: {e}")
         
     except Exception as e:
         print(f"Error in fetch_and_store_trips: {e}")
+        import traceback
+        traceback.print_exc()
 
 async def start_background_tasks():
     await fetch_and_store_trips()
