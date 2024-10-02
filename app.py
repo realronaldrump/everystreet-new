@@ -134,7 +134,7 @@ async def fetch_and_store_trips():
         all_trips = []
         for imei in AUTHORIZED_DEVICES:
             print(f"Fetching trips for IMEI {imei}")
-            trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson", start_date=start_date, end_date=end_date)
+            trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson", start_time=start_date, end_time=end_date)
             
             if trips is None:
                 print(f"No trips fetched for IMEI {imei}")
@@ -156,7 +156,6 @@ async def fetch_and_store_trips():
                 all_trips.extend(trips)
             
             print(f"Successfully processed {len(trips)} trips for IMEI {imei}")
-        
         print(f"Total trips processed: {len(all_trips)}")
         
         # Log the count of trips in the database for each IMEI
@@ -166,10 +165,12 @@ async def fetch_and_store_trips():
         
     except Exception as e:
         print(f"Error in fetch_and_store_trips: {e}")
+    finally:
+        await bouncie_client.close()
 
 async def start_background_tasks():
     await fetch_and_store_trips()
 
 if __name__ == '__main__':
     asyncio.run(start_background_tasks())
-    socketio.run(app, port=8080, debug=True)
+    socketio.run(app, port=8080, debug=True, allow_unsafe_werkzeug=True)
