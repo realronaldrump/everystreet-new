@@ -4,40 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Every Street</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css">
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <div id="app">
         <header>
             <h1>Every Street</h1>
         </header>
+
         <nav>
             <div id="date-range">
-                <label for="start-date">Start Date:</label>
                 <input type="date" id="start-date">
-                <label for="end-date">End Date:</label>
                 <input type="date" id="end-date">
                 <button id="apply-date-range">Apply</button>
             </div>
-            <div id="imei-input">
-                <label for="imei">Enter IMEI:</label>
-                <input type="text" id="imei" placeholder="Comma-separated IMEIs">
-            </div>
+
             <div id="preset-periods">
                 <button data-period="24h">Last 24 Hours</button>
                 <button data-period="7d">Last 7 Days</button>
                 <button data-period="30d">Last 30 Days</button>
                 <button data-period="1y">Last Year</button>
+                <button data-period="4y">Last 4 Years</button>
             </div>
+
             <div id="live-routes-toggle">
-                <label for="show-live-routes">Show Live Routes</label>
-                <input type="checkbox" id="show-live-routes">
+                <label>
+                    <input type="checkbox" id="show-live-routes">
+                    Show Live Routes
+                </label>
             </div>
         </nav>
+
         <main>
             <div id="map"></div>
             <div id="metrics">
@@ -52,6 +50,11 @@
             </div>
         </main>
     </div>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="/static/js/three_animations.js"></script>
+    <script src="/static/js/app.js"></script>
 </body>
 </html>

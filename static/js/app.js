@@ -35,20 +35,12 @@ function initializeDateRange() {
 function fetchTrips() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
-    const imeis = document.getElementById('imei').value.split(',').map(imei => imei.trim()).filter(imei => imei); // Get IMEIs from input
-
-    if (imeis.length === 0) {
-        alert('Please enter at least one IMEI.');
-        return;
-    }
-
-    const imeisParam = imeis.join(','); // Convert IMEIs to a comma-separated string
-
-    fetch(`/api/trips?start_date=${startDate}&end_date=${endDate}&imei=${imeisParam}`)
+    
+    fetch(`/api/trips?start_date=${startDate}&end_date=${endDate}`)
         .then(response => response.json())
         .then(trips => {
             console.log(`Received ${trips.length} trips`);
-
+            
             // Group trips by IMEI
             const tripsByImei = {};
             trips.forEach(trip => {
@@ -67,23 +59,10 @@ function fetchTrips() {
                 let geometry;
                 try {
                     geometry = typeof trip.gps === 'string' ? JSON.parse(trip.gps) : trip.gps;
-
-                    if (!geometry || !geometry.coordinates) throw new Error('Invalid GPS data');
-
-                    // Ensure correct coordinate order [longitude, latitude]
-                    if (geometry.type === 'LineString' || geometry.type === 'Point') {
-                        geometry.coordinates = geometry.coordinates.map(coord => {
-                            if (Array.isArray(coord) && coord.length === 2) {
-                                return [coord[0], coord[1]];  // [longitude, latitude]
-                            }
-                            return coord;
-                        });
-                    }
                 } catch (error) {
-                    console.error('Error parsing GPS data:', error, trip);
-                    return null;  // Skip invalid trip
+                    console.error('Error parsing GPS data:', error);
+                    return null;
                 }
-
                 return {
                     type: 'Feature',
                     geometry: geometry,
@@ -95,7 +74,7 @@ function fetchTrips() {
                         imei: trip.imei
                     }
                 };
-            }).filter(feature => feature !== null);  // Filter out invalid features
+            }).filter(feature => feature !== null);
 
             // Log unique IMEIs in the processed GeoJSON
             const uniqueImeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
@@ -103,6 +82,7 @@ function fetchTrips() {
 
             updateMap(); // Update the map once the data is ready
             fetchMetrics(); // Fetch the metrics once trips are loaded
+            initThreeJSAnimations(); // Initialize Three.js animations
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
@@ -133,7 +113,6 @@ function updateMap() {
         return;
     }
 
-    // Check if the source exists, otherwise add it
     if (map.getSource('routes')) {
         map.getSource('routes').setData(currentGeoJSON);
     } else {
@@ -143,12 +122,12 @@ function updateMap() {
         });
 
         // Add a layer for each IMEI
-        // Add a layer for each IMEI
-        const uniqueImeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
+        const imeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
+        const colors = ['#BB86FC', '#03DAC6', '#FF0266', '#CF6679']; // Add more colors if needed
 
-        uniqueImeis.forEach(imei => {
+        imeis.forEach((imei, index) => {
             map.addLayer({
-                id: `route-${imei}`,
+                id: `routes-${imei}`,
                 type: 'line',
                 source: 'routes',
                 layout: {
@@ -156,65 +135,109 @@ function updateMap() {
                     'line-cap': 'round'
                 },
                 paint: {
-                    'line-color': '#888',
-                    'line-width': 4
+                    'line-color': colors[index % colors.length],
+                    'line-width': 2
                 },
-                filter: ['==', 'imei', imei]  // Filter by IMEI
+                filter: ['==', ['get', 'imei'], imei]
             });
         });
+    }
 
-        // Fit the map to the bounds of the current GeoJSON
-        const bounds = new mapboxgl.LngLatBounds();
-        currentGeoJSON.features.forEach(feature => {
-            if (feature.geometry && feature.geometry.coordinates) {
-                feature.geometry.coordinates.forEach(coord => {
-                    bounds.extend(coord);
-                });
+    const bounds = new mapboxgl.LngLatBounds();
+    currentGeoJSON.features.forEach(feature => {
+        if (feature.geometry && feature.geometry.coordinates) {
+            if (Array.isArray(feature.geometry.coordinates[0])) {
+                feature.geometry.coordinates.forEach(coord => bounds.extend(coord));
+            } else {
+                bounds.extend(feature.geometry.coordinates);
             }
-        });
+        }
+    });
 
-        if (bounds.isEmpty()) {
-            console.warn('No valid coordinates to fit the map to.');
-        } else {
-            map.fitBounds(bounds, { padding: 20 });
+    if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, { padding: 50 });
+    }
+}
+
+function handleLiveRouteUpdate(data) {
+    if (document.getElementById('show-live-routes').checked) {
+        try {
+            const newFeature = {
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: data.data.map(point => [point.gps.lon, point.gps.lat])
+                },
+                properties: {
+                    transactionId: data.transactionId,
+                    startTime: data.data[0].timestamp,
+                    endTime: data.data[data.data.length - 1].timestamp,
+                    distance: data.data[data.data.length - 1].distance - data.data[0].distance
+                }
+            };
+
+            currentGeoJSON.features.push(newFeature);
+            updateMap();
+        } catch (error) {
+            console.error('Error handling live route update:', error);
         }
     }
 }
 
-// Event listener for the date range apply button
-document.getElementById('apply-date-range').addEventListener('click', () => {
-    fetchTrips();  // Fetch trips when the date range is applied
-});
+document.addEventListener('DOMContentLoaded', () => {
+    initializeDateRange();
+    fetchTrips();
 
-// Event listeners for preset periods
-document.querySelectorAll('#preset-periods button').forEach(button => {
-    button.addEventListener('click', () => {
-        const period = button.getAttribute('data-period');
-        const endDate = new Date();
-        let startDate;
+    document.getElementById('apply-date-range').addEventListener('click', fetchTrips);
+    document.getElementById('preset-periods').addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            const today = new Date();
+            let startDate = new Date(today);
 
-        switch (period) {
-            case '24h':
-                startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
-                break;
-            case '7d':
-                startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
-                break;
-            case '30d':
-                startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
-                break;
-            case '1y':
-                startDate = new Date(endDate.getTime() - 365 * 24 * 60 * 60 * 1000);
-                break;
-            default:
-                return;
+            switch (e.target.dataset.period) {
+                case '24h':
+                    startDate.setDate(today.getDate() - 1);
+                    break;
+                case '7d':
+                    startDate.setDate(today.getDate() - 7);
+                    break;
+                case '30d':
+                    startDate.setMonth(today.getMonth() - 1);
+                    break;
+                case '1y':
+                    startDate.setFullYear(today.getFullYear() - 1);
+                    break;
+                case '4y':
+                    startDate.setFullYear(today.getFullYear() - 4);
+                    break;
+            }
+
+            document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
+            document.getElementById('end-date').value = today.toISOString().split('T')[0];
+            fetchTrips();
         }
-
-        document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
-        document.getElementById('end-date').value = endDate.toISOString().split('T')[0];
-        fetchTrips();  // Fetch trips with the new date range
     });
+
+    document.getElementById('show-live-routes').addEventListener('change', (e) => {
+        if (e.target.checked) {
+            console.log('Live routes enabled');
+        } else {
+            console.log('Live routes disabled');
+        }
+    });
+
+    socket.on('live_route_update', handleLiveRouteUpdate);
 });
 
-// Initialize date range on load
-initializeDateRange();
+// Basic error handling for MapBox
+if (map) {
+    map.on('error', (e) => {
+        console.error('MapBox error:', e.error);
+    });
+}
+
+// Initialize Three.js animations
+function initThreeJSAnimations() {
+    initBackgroundAnimation();
+    initMetricsAnimation();
+}

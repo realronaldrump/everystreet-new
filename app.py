@@ -10,7 +10,6 @@ import geojson
 from bounciepy import AsyncRESTAPIClient
 from bson import json_util
 
-# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
@@ -62,6 +61,11 @@ def get_trips():
             '$gte': datetime.fromisoformat(start_date),
             '$lte': datetime.fromisoformat(end_date)
         }
+    else:
+        # Default to last 4 years if no date range is provided
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=4*365)
+        query['startTime'] = {'$gte': start_date, '$lte': end_date}
     
     query['imei'] = {'$in': AUTHORIZED_DEVICES}
     
@@ -98,6 +102,11 @@ def get_metrics():
             '$gte': datetime.fromisoformat(start_date),
             '$lte': datetime.fromisoformat(end_date)
         }
+    else:
+        # Default to last 4 years if no date range is provided
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=4*365)
+        query['startTime'] = {'$gte': start_date, '$lte': end_date}
     
     trips = list(trips_collection.find(query))
     
@@ -125,7 +134,6 @@ def webhook():
         socketio.emit('live_route_update', data)
     return '', 204
 
-# Fetch trips and store in MongoDB
 async def fetch_and_store_trips():
     try:
         await bouncie_client.get_access_token()
@@ -135,23 +143,16 @@ async def fetch_and_store_trips():
         
         all_trips = []
         for imei in AUTHORIZED_DEVICES:
-            print(f"Fetching trips for IMEI {imei}")
-            trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson")
+            trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson", starts_after=start_date.isoformat(), ends_before=end_date.isoformat())
             
             if trips is None:
                 print(f"No trips fetched for IMEI {imei}")
                 continue  # Skip processing if trips is None
 
-            # Filter trips based on start_date and end_date
-            filtered_trips = [
-                trip for trip in trips
-                if start_date <= datetime.fromisoformat(trip['startTime']) <= end_date
-            ]
-
-            print(f"Fetched {len(filtered_trips)} trips for IMEI {imei}")
+            print(f"Fetched {len(trips)} trips for IMEI {imei}")
             
-            if filtered_trips:
-                for trip in filtered_trips:
+            if trips:
+                for trip in trips:
                     trip['startTime'] = datetime.fromisoformat(trip['startTime'])
                     trip['endTime'] = datetime.fromisoformat(trip['endTime'])
                     trip['imei'] = imei  # Ensure IMEI is stored with each trip
@@ -161,9 +162,10 @@ async def fetch_and_store_trips():
                         upsert=True
                     )
                     print(f"Updated trip {trip['transactionId']} for IMEI {imei}: {'Inserted' if result.upserted_id else 'Updated'}")
-                all_trips.extend(filtered_trips)
+                all_trips.extend(trips)
             
-            print(f"Successfully processed {len(filtered_trips)} trips for IMEI {imei}")
+            print(f"Successfully processed {len(trips)} trips for IMEI {imei}")
+        
         print(f"Total trips processed: {len(all_trips)}")
         
         # Log the count of trips in the database for each IMEI
@@ -173,13 +175,10 @@ async def fetch_and_store_trips():
         
     except Exception as e:
         print(f"Error in fetch_and_store_trips: {e}")
-    finally:
-        await bouncie_client._session.close()  # Ensure the session is closed
 
-# Start background tasks
 async def start_background_tasks():
     await fetch_and_store_trips()
 
 if __name__ == '__main__':
     asyncio.run(start_background_tasks())
-    socketio.run(app, port=8080, debug=True, allow_unsafe_werkzeug=True)
+    socketio.run(app, port=8080, debug=True)
