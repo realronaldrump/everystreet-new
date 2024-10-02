@@ -93,3 +93,26 @@ main {
         height: 50vh;
     }
 }
+
+#filters {
+    display: flex;
+    flex-direction: column; 
+    gap: 0.5rem; 
+    padding: 1rem;
+}
+
+#trips-list {
+    padding: 1rem;
+    overflow-x: auto; 
+}
+
+#trips-list table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#trips-list th, #trips-list td {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    text-align: left;
+}

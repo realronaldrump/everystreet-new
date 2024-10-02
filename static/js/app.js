@@ -154,9 +154,33 @@ function updateMap() {
     currentGeoJSON.features.forEach(feature => {
         if (feature.geometry && feature.geometry.coordinates) {
             if (Array.isArray(feature.geometry.coordinates[0])) {
-                feature.geometry.coordinates.forEach(coord => bounds.extend(coord));
+                feature.geometry.coordinates.forEach(coord => {
+                    // Check if coordinates are valid numbers or can be parsed as numbers
+                    if (typeof coord[0] === 'number' && typeof coord[1] === 'number') {
+                        bounds.extend(coord);
+                    } else {
+                        const lng = parseFloat(coord[0]);
+                        const lat = parseFloat(coord[1]);
+                        if (!isNaN(lng) && !isNaN(lat)) {
+                            bounds.extend([lng, lat]);
+                        } else {
+                            console.warn('Invalid coordinates:', coord, 'for feature:', feature);
+                        }
+                    }
+                });
             } else {
-                bounds.extend(feature.geometry.coordinates);
+                // Check if coordinates are valid numbers or can be parsed as numbers
+                if (typeof feature.geometry.coordinates[0] === 'number' && typeof feature.geometry.coordinates[1] === 'number') {
+                    bounds.extend(feature.geometry.coordinates);
+                } else {
+                    const lng = parseFloat(feature.geometry.coordinates[0]);
+                    const lat = parseFloat(feature.geometry.coordinates[1]);
+                    if (!isNaN(lng) && !isNaN(lat)) {
+                        bounds.extend([lng, lat]);
+                    } else {
+                        console.warn('Invalid coordinates:', feature.geometry.coordinates, 'for feature:', feature);
+                    }
+                }
             }
         }
     });

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Every Street - Trips</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Every Street - Trips</h1>
+        </header>
+
+        <main>
+            <div id="filters">
+                <h2>Filters</h2>
+                <label for="start-date">Start Date:</label>
+                <input type="date" id="start-date">
+                <label for="end-date">End Date:</label>
+                <input type="date" id="end-date">
+                <label for="imei">IMEI:</label>
+                <select id="imei">
+                    <option value="">All</option> 
+                    <!-- IMEI options will be added here -->
+                </select>
+                <button id="apply-filters">Apply Filters</button>
+            </div>
+
+            <div id="trips-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Transaction ID</th>
+                            <th>IMEI</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Distance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Trip data will be added here -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/trips.js"></script> 
+</body>
+</html>

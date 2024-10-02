@@ -89,7 +89,7 @@ async def fetch_and_store_trips():
             print("Access token obtained")
             
             end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(days=365*4)  # Fetch last 4 years of trips
+            start_date = end_date - timedelta(days=4)  # Fetch last 4 years of trips
             
             all_trips = []
             for imei in AUTHORIZED_DEVICES:
@@ -130,6 +130,10 @@ async def fetch_and_store_trips():
 def index():
     return render_template('index.html')
 
+@app.route('/trips')
+def trips_page():
+    return render_template('trips.html') 
+
 @app.route('/api/trips')
 def get_trips():
     if trips_collection is None:
@@ -147,7 +151,7 @@ def get_trips():
             }
         else:
             end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(days=4*365)
+            start_date = end_date - timedelta(days=4)
             query['startTime'] = {'$gte': start_date, '$lte': end_date}
         
         query['imei'] = {'$in': AUTHORIZED_DEVICES}
@@ -188,7 +192,7 @@ def get_metrics():
         }
     else:
         end_date = datetime.now(timezone.utc)
-        start_date = end_date - timedelta(days=4*365)
+        start_date = end_date - timedelta(days=4)
         query['startTime'] = {'$gte': start_date, '$lte': end_date}
     
     trips = list(trips_collection.find(query))
@@ -222,4 +226,4 @@ async def start_background_tasks():
 
 if __name__ == '__main__':
     asyncio.run(start_background_tasks())
-    socketio.run(app, port=8080, debug=True, allow_unsafe_werkzeug=True)
+    socketio.run(app, port=8080, debug=False, allow_unsafe_werkzeug=True)
