@@ -10,6 +10,7 @@ import geojson
 from bounciepy import AsyncRESTAPIClient
 from bson import json_util
 
+# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
@@ -124,6 +125,7 @@ def webhook():
         socketio.emit('live_route_update', data)
     return '', 204
 
+# Fetch trips and store in MongoDB
 async def fetch_and_store_trips():
     try:
         await bouncie_client.get_access_token()
@@ -134,7 +136,8 @@ async def fetch_and_store_trips():
         all_trips = []
         for imei in AUTHORIZED_DEVICES:
             print(f"Fetching trips for IMEI {imei}")
-            trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson", start_time=start_date, end_time=end_date)
+            # Adjusted to use start_date and end_date
+            trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson", start_date=start_date, end_date=end_date)
             
             if trips is None:
                 print(f"No trips fetched for IMEI {imei}")
@@ -166,8 +169,9 @@ async def fetch_and_store_trips():
     except Exception as e:
         print(f"Error in fetch_and_store_trips: {e}")
     finally:
-        await bouncie_client.close()
+        await bouncie_client._session.close()  # Ensure the session is closed
 
+# Start background tasks
 async def start_background_tasks():
     await fetch_and_store_trips()
 
