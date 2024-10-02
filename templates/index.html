@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Every Street</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Every Street</h1>
+        </header>
+        <nav>
+            <div id="date-range">
+                <label for="start-date">Start Date:</label>
+                <input type="date" id="start-date">
+                <label for="end-date">End Date:</label>
+                <input type="date" id="end-date">
+                <button id="apply-date-range">Apply</button>
+            </div>
+            <div id="preset-periods">
+                <button data-period="24h">Last 24 Hours</button>
+                <button data-period="7d">Last 7 Days</button>
+                <button data-period="30d">Last 30 Days</button>
+                <button data-period="1y">Last Year</button>
+            </div>
+            <div id="live-routes-toggle">
+                <label for="show-live-routes">Show Live Routes</label>
+                <input type="checkbox" id="show-live-routes">
+            </div>
+        </nav>
+        <main>
+            <div id="map"></div>
+            <div id="metrics">
+                <h2>Metrics</h2>
+                <ul>
+                    <li>Total Trips: <span id="total-trips"></span></li>
+                    <li>Total Distance: <span id="total-distance"></span> miles</li>
+                    <li>Average Distance: <span id="avg-distance"></span> miles</li>
+                    <li>Average Start Time: <span id="avg-start-time"></span></li>
+                    <li>Average Driving Time: <span id="avg-driving-time"></span></li>
+                </ul>
+            </div>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

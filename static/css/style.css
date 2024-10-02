@@ -1,0 +1,95 @@
+:root {
+    --bg-color: #121212;
+    --text-color: #ffffff;
+    --accent-color: #BB86FC;
+    --secondary-color: #03DAC6;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+header {
+    background-color: var(--accent-color);
+    color: var(--bg-color);
+    padding: 1rem;
+    text-align: center;
+}
+
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: #1E1E1E;
+}
+
+#date-range, #preset-periods {
+    display: flex;
+    gap: 0.5rem;
+}
+
+input[type="date"], button {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--accent-color);
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+
+button:hover {
+    background-color: var(--accent-color);
+    color: var(--bg-color);
+    cursor: pointer;
+}
+
+main {
+    display: flex;
+    flex: 1;
+}
+
+#map {
+    flex: 3;
+    height: 100%;
+}
+
+#metrics {
+    flex: 1;
+    padding: 1rem;
+    background-color: #1E1E1E;
+    overflow-y: auto;
+}
+
+#metrics h2 {
+    color: var(--secondary-color);
+}
+
+#metrics ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+#metrics li {
+    margin-bottom: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    nav, main {
+        flex-direction: column;
+    }
+
+    #map, #metrics {
+        width: 100%;
+        height: 50vh;
+    }
+}

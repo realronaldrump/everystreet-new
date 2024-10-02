@@ -1,0 +1,6 @@
+Flask
+flask-socketio
+python-dotenv
+pymongo
+geojson
+bounciepy
