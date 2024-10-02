@@ -7,3 +7,4 @@ bounciepy
 gunicorn
 aiohttp
 asyncio
+certifi
