@@ -35,8 +35,16 @@ function initializeDateRange() {
 function fetchTrips() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
-    
-    fetch(`/api/trips?start_date=${startDate}&end_date=${endDate}`)
+    const imeis = document.getElementById('imei').value.split(',').map(imei => imei.trim()).filter(imei => imei); // Get IMEIs from input
+
+    if (imeis.length === 0) {
+        alert('Please enter at least one IMEI.');
+        return;
+    }
+
+    const imeisParam = imeis.join(','); // Convert IMEIs to a comma-separated string
+
+    fetch(`/api/trips?start_date=${startDate}&end_date=${endDate}&imei=${imeisParam}`)
         .then(response => response.json())
         .then(trips => {
             console.log(`Received ${trips.length} trips`);
@@ -135,118 +143,78 @@ function updateMap() {
         });
 
         // Add a layer for each IMEI
-        const imeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
-        const colors = ['#BB86FC', '#03DAC6', '#FF0266', '#CF6679'];  // Predefined colors
-        
-        imeis.forEach((imei, index) => {
-            const layerId = `routes-${imei}`;
-            if (!map.getLayer(layerId)) {  // Only add the layer if it doesn't exist
-                map.addLayer({
-                    id: layerId,
-                    type: 'line',
-                    source: 'routes',
-                    layout: {
-                        'line-join': 'round',
-                        'line-cap': 'round'
-                    },
-                    paint: {
-                        'line-color': colors[index % colors.length],
-                        'line-width': 2
-                    },
-                    filter: ['==', ['get', 'imei'], imei]  // Filter to show only this IMEI's routes
+        // Add a layer for each IMEI
+        const uniqueImeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
+
+        uniqueImeis.forEach(imei => {
+            map.addLayer({
+                id: `route-${imei}`,
+                type: 'line',
+                source: 'routes',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#888',
+                    'line-width': 4
+                },
+                filter: ['==', 'imei', imei]  // Filter by IMEI
+            });
+        });
+
+        // Fit the map to the bounds of the current GeoJSON
+        const bounds = new mapboxgl.LngLatBounds();
+        currentGeoJSON.features.forEach(feature => {
+            if (feature.geometry && feature.geometry.coordinates) {
+                feature.geometry.coordinates.forEach(coord => {
+                    bounds.extend(coord);
                 });
             }
         });
-    }
 
-    // Fit the map bounds to the route's features
-    const bounds = new mapboxgl.LngLatBounds();
-    currentGeoJSON.features.forEach(feature => {
-        if (feature.geometry && feature.geometry.coordinates) {
-            if (Array.isArray(feature.geometry.coordinates[0])) {
-                feature.geometry.coordinates.forEach(coord => bounds.extend(coord));
-            } else {
-                bounds.extend(feature.geometry.coordinates);
-            }
-        }
-    });
-
-    if (!bounds.isEmpty()) {
-        map.fitBounds(bounds, { padding: 50 });
-    }
-}
-
-function handleLiveRouteUpdate(data) {
-    if (document.getElementById('show-live-routes').checked) {
-        try {
-            const newFeature = {
-                type: 'Feature',
-                geometry: {
-                    type: 'LineString',
-                    coordinates: data.data.map(point => [point.gps.lon, point.gps.lat])
-                },
-                properties: {
-                    transactionId: data.transactionId,
-                    startTime: data.data[0].timestamp,
-                    endTime: data.data[data.data.length - 1].timestamp,
-                    distance: data.data[data.data.length - 1].distance - data.data[0].distance
-                }
-            };
-
-            currentGeoJSON.features.push(newFeature);
-            updateMap();
-        } catch (error) {
-            console.error('Error handling live route update:', error);
-        }
-    }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    initializeDateRange();
-    fetchTrips();
-
-    document.getElementById('apply-date-range').addEventListener('click', fetchTrips);
-
-    document.getElementById('preset-periods').addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') {
-            const today = new Date();
-            let startDate = new Date(today);
-
-            switch (e.target.dataset.period) {
-                case '24h':
-                    startDate.setDate(today.getDate() - 1);
-                    break;
-                case '7d':
-                    startDate.setDate(today.getDate() - 7);
-                    break;
-                case '30d':
-                    startDate.setMonth(today.getMonth() - 1);
-                    break;
-                case '1y':
-                    startDate.setFullYear(today.getFullYear() - 1);
-                    break;
-            }
-
-            document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
-            document.getElementById('end-date').value = today.toISOString().split('T')[0];
-            fetchTrips();
-        }
-    });
-
-    document.getElementById('show-live-routes').addEventListener('change', (e) => {
-        if (e.target.checked) {
-            console.log('Live routes enabled');
+        if (bounds.isEmpty()) {
+            console.warn('No valid coordinates to fit the map to.');
         } else {
-            console.log('Live routes disabled');
+            map.fitBounds(bounds, { padding: 20 });
         }
-    });
+    }
+}
 
-    socket.on('live_route_update', handleLiveRouteUpdate);
+// Event listener for the date range apply button
+document.getElementById('apply-date-range').addEventListener('click', () => {
+    fetchTrips();  // Fetch trips when the date range is applied
 });
 
-// Basic error handling for MapBox
-if (map) {
-    map.on('error', (e) => {
-        console.error('MapBox error:', e.error);
+// Event listeners for preset periods
+document.querySelectorAll('#preset-periods button').forEach(button => {
+    button.addEventListener('click', () => {
+        const period = button.getAttribute('data-period');
+        const endDate = new Date();
+        let startDate;
+
+        switch (period) {
+            case '24h':
+                startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
+                break;
+            case '7d':
+                startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+                break;
+            case '30d':
+                startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+                break;
+            case '1y':
+                startDate = new Date(endDate.getTime() - 365 * 24 * 60 * 60 * 1000);
+                break;
+            default:
+                return;
+        }
+
+        document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
+        document.getElementById('end-date').value = endDate.toISOString().split('T')[0];
+        fetchTrips();  // Fetch trips with the new date range
     });
-}
+});
+
+// Initialize date range on load
+initializeDateRange();
