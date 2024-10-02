@@ -32,12 +32,18 @@ function initializeDateRange() {
     document.getElementById('end-date').value = today.toISOString().split('T')[0];
 }
 
+// In the fetchTrips function
 function fetchTrips() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
     
     fetch(`/api/trips?start_date=${startDate}&end_date=${endDate}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(trips => {
             console.log(`Received ${trips.length} trips`);
             
@@ -86,9 +92,10 @@ function fetchTrips() {
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
+            // Display an error message to the user
+            document.getElementById('map').innerHTML = '<p>Error loading trips. Please try again later.</p>';
         });
 }
-
 function fetchMetrics() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;

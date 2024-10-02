@@ -18,7 +18,7 @@ socketio = SocketIO(app)
 
 # MongoDB setup
 try:
-    client = MongoClient(os.getenv('MONGO_URI'))
+    client = MongoClient(os.getenv('MONGO_URI'), tls=True, tlsAllowInvalidCertificates=True)
     db = client['every_street']
     trips_collection = db['trips']
     live_routes_collection = db['live_routes']
@@ -52,44 +52,48 @@ def get_trips():
     if trips_collection is None:
         return jsonify({"error": "Database not connected"}), 500
     
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    
-    query = {}
-    if start_date and end_date:
-        query['startTime'] = {
-            '$gte': datetime.fromisoformat(start_date),
-            '$lte': datetime.fromisoformat(end_date)
-        }
-    else:
-        # Default to last 4 years if no date range is provided
-        end_date = datetime.now(timezone.utc)
-        start_date = end_date - timedelta(days=4*365)
-        query['startTime'] = {'$gte': start_date, '$lte': end_date}
-    
-    query['imei'] = {'$in': AUTHORIZED_DEVICES}
-    
-    trips = list(trips_collection.find(query, {'_id': 0}))
-    
-    # Log trips count for each IMEI
-    imei_counts = {}
-    for trip in trips:
-        imei = trip.get('imei')
-        if imei:
-            imei_counts[imei] = imei_counts.get(imei, 0) + 1
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        query = {}
+        if start_date and end_date:
+            query['startTime'] = {
+                '$gte': datetime.fromisoformat(start_date),
+                '$lte': datetime.fromisoformat(end_date)
+            }
         else:
-            print(f"Warning: Trip {trip.get('transactionId')} has no IMEI")
-    
-    for imei, count in imei_counts.items():
-        print(f"Retrieved {count} trips for IMEI {imei}")
-    
-    # Convert ObjectId to string for JSON serialization and ensure IMEI is included
-    for trip in trips:
-        if 'gps' in trip and isinstance(trip['gps'], dict):
-            trip['gps'] = json.dumps(trip['gps'])
-    
-    print(f"Returning {len(trips)} trips in total")
-    return jsonify(trips)
+            # Default to last 4 years if no date range is provided
+            end_date = datetime.now(timezone.utc)
+            start_date = end_date - timedelta(days=4*365)
+            query['startTime'] = {'$gte': start_date, '$lte': end_date}
+        
+        query['imei'] = {'$in': AUTHORIZED_DEVICES}
+        
+        trips = list(trips_collection.find(query, {'_id': 0}))
+        
+        # Log trips count for each IMEI
+        imei_counts = {}
+        for trip in trips:
+            imei = trip.get('imei')
+            if imei:
+                imei_counts[imei] = imei_counts.get(imei, 0) + 1
+            else:
+                print(f"Warning: Trip {trip.get('transactionId')} has no IMEI")
+        
+        for imei, count in imei_counts.items():
+            print(f"Retrieved {count} trips for IMEI {imei}")
+        
+        # Convert ObjectId to string for JSON serialization and ensure IMEI is included
+        for trip in trips:
+            if 'gps' in trip and isinstance(trip['gps'], dict):
+                trip['gps'] = json.dumps(trip['gps'])
+        
+        print(f"Returning {len(trips)} trips in total")
+        return jsonify(trips)
+    except Exception as e:
+        print(f"Error in get_trips: {e}")
+        return jsonify({"error": "An error occurred while fetching trips"}), 500
 
 @app.route('/api/metrics')
 def get_metrics():
@@ -145,13 +149,13 @@ async def fetch_and_store_trips():
         for imei in AUTHORIZED_DEVICES:
             trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson")
             
-            # Filter trips based on date range
-            trips = [trip for trip in trips if start_date <= datetime.fromisoformat(trip['startTime']) <= end_date]
-            
             if trips is None:
                 print(f"No trips fetched for IMEI {imei}")
                 continue  # Skip processing if trips is None
-
+            
+            # Filter trips based on date range
+            trips = [trip for trip in trips if start_date <= datetime.fromisoformat(trip['startTime']) <= end_date]
+            
             print(f"Fetched {len(trips)} trips for IMEI {imei}")
             
             if trips:
