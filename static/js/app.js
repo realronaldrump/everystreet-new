@@ -15,7 +15,7 @@ try {
     });
 
     map.on('load', () => {
-        updateMap(); // This will add the source and layer when the map is ready
+        updateMap();
     });
 } catch (error) {
     console.error('Error initializing MapBox map:', error);
@@ -32,7 +32,6 @@ function initializeDateRange() {
     document.getElementById('end-date').value = today.toISOString().split('T')[0];
 }
 
-// In the fetchTrips function
 function fetchTrips() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
@@ -47,7 +46,6 @@ function fetchTrips() {
         .then(trips => {
             console.log(`Received ${trips.length} trips`);
             
-            // Group trips by IMEI
             const tripsByImei = {};
             trips.forEach(trip => {
                 if (!tripsByImei[trip.imei]) {
@@ -56,7 +54,6 @@ function fetchTrips() {
                 tripsByImei[trip.imei].push(trip);
             });
             
-            // Log trips count for each IMEI
             Object.keys(tripsByImei).forEach(imei => {
                 console.log(`IMEI ${imei}: ${tripsByImei[imei].length} trips`);
             });
@@ -65,8 +62,12 @@ function fetchTrips() {
                 let geometry;
                 try {
                     geometry = typeof trip.gps === 'string' ? JSON.parse(trip.gps) : trip.gps;
+                    if (!geometry || !geometry.coordinates || geometry.coordinates.length === 0) {
+                        console.warn(`Invalid geometry for trip ${trip.transactionId}`);
+                        return null;
+                    }
                 } catch (error) {
-                    console.error('Error parsing GPS data:', error);
+                    console.error(`Error parsing GPS data for trip ${trip.transactionId}:`, error);
                     return null;
                 }
                 return {
@@ -82,20 +83,19 @@ function fetchTrips() {
                 };
             }).filter(feature => feature !== null);
 
-            // Log unique IMEIs in the processed GeoJSON
             const uniqueImeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
             console.log('Unique IMEIs in processed GeoJSON:', uniqueImeis);
 
-            updateMap(); // Update the map once the data is ready
-            fetchMetrics(); // Fetch the metrics once trips are loaded
-            initThreeJSAnimations(); // Initialize Three.js animations
+            updateMap();
+            fetchMetrics();
+            initThreeJSAnimations();
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
-            // Display an error message to the user
             document.getElementById('map').innerHTML = '<p>Error loading trips. Please try again later.</p>';
         });
 }
+
 function fetchMetrics() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
@@ -128,9 +128,8 @@ function updateMap() {
             data: currentGeoJSON
         });
 
-        // Add a layer for each IMEI
         const imeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
-        const colors = ['#BB86FC', '#03DAC6', '#FF0266', '#CF6679']; // Add more colors if needed
+        const colors = ['#BB86FC', '#03DAC6', '#FF0266', '#CF6679'];
 
         imeis.forEach((imei, index) => {
             map.addLayer({
@@ -155,10 +154,7 @@ function updateMap() {
         if (feature.geometry && feature.geometry.coordinates) {
             if (Array.isArray(feature.geometry.coordinates[0])) {
                 feature.geometry.coordinates.forEach(coord => {
-                    // Check if coordinates are valid numbers or can be parsed as numbers
-                    if (typeof coord[0] === 'number' && typeof coord[1] === 'number') {
-                        bounds.extend(coord);
-                    } else {
+                    if (Array.isArray(coord) && coord.length >= 2) {
                         const lng = parseFloat(coord[0]);
                         const lat = parseFloat(coord[1]);
                         if (!isNaN(lng) && !isNaN(lat)) {
@@ -168,18 +164,13 @@ function updateMap() {
                         }
                     }
                 });
-            } else {
-                // Check if coordinates are valid numbers or can be parsed as numbers
-                if (typeof feature.geometry.coordinates[0] === 'number' && typeof feature.geometry.coordinates[1] === 'number') {
-                    bounds.extend(feature.geometry.coordinates);
+            } else if (feature.geometry.coordinates.length >= 2) {
+                const lng = parseFloat(feature.geometry.coordinates[0]);
+                const lat = parseFloat(feature.geometry.coordinates[1]);
+                if (!isNaN(lng) && !isNaN(lat)) {
+                    bounds.extend([lng, lat]);
                 } else {
-                    const lng = parseFloat(feature.geometry.coordinates[0]);
-                    const lat = parseFloat(feature.geometry.coordinates[1]);
-                    if (!isNaN(lng) && !isNaN(lat)) {
-                        bounds.extend([lng, lat]);
-                    } else {
-                        console.warn('Invalid coordinates:', feature.geometry.coordinates, 'for feature:', feature);
-                    }
+                    console.warn('Invalid coordinates:', feature.geometry.coordinates, 'for feature:', feature);
                 }
             }
         }
@@ -203,7 +194,8 @@ function handleLiveRouteUpdate(data) {
                     transactionId: data.transactionId,
                     startTime: data.data[0].timestamp,
                     endTime: data.data[data.data.length - 1].timestamp,
-                    distance: data.data[data.data.length - 1].distance - data.data[0].distance
+                    distance: data.data[data.data.length - 1].distance - data.data[0].distance,
+                    imei: data.imei
                 }
             };
 
@@ -260,15 +252,16 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('live_route_update', handleLiveRouteUpdate);
 });
 
-// Basic error handling for MapBox
 if (map) {
     map.on('error', (e) => {
         console.error('MapBox error:', e.error);
     });
 }
 
-// Initialize Three.js animations
 function initThreeJSAnimations() {
     initBackgroundAnimation();
     initMetricsAnimation();
 }
+
+// The Three.js animations functions (initBackgroundAnimation and initMetricsAnimation) 
+// should be defined in the three_animations.js file, which is included in the HTML.

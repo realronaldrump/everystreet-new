@@ -7,8 +7,8 @@ from flask_socketio import SocketIO
 import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
-from pymongo import MongoClient
 import certifi
+import geojson
 
 load_dotenv()
 
@@ -80,6 +80,21 @@ async def fetch_trips_in_intervals(session, access_token, imei, start_date, end_
         current_start = current_end
     return all_trips
 
+def validate_trip_data(trip):
+    required_fields = ['transactionId', 'imei', 'startTime', 'endTime', 'distance', 'gps']
+    for field in required_fields:
+        if field not in trip:
+            return False, f"Missing required field: {field}"
+    
+    try:
+        geojson_obj = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
+        if not is_valid(geojson_obj):
+            return False, "Invalid GeoJSON data"
+    except Exception as e:
+        return False, f"Error validating GeoJSON: {str(e)}"
+    
+    return True, None
+
 async def fetch_and_store_trips():
     try:
         print("Starting fetch_and_store_trips")
@@ -89,7 +104,7 @@ async def fetch_and_store_trips():
             print("Access token obtained")
             
             end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(days=4)  # Fetch last 4 years of trips
+            start_date = end_date - timedelta(days=1460)  # Fetch last 4 years of trips
             
             all_trips = []
             for imei in AUTHORIZED_DEVICES:
@@ -102,8 +117,15 @@ async def fetch_and_store_trips():
             
             for trip in all_trips:
                 try:
+                    is_valid, error_message = validate_trip_data(trip)
+                    if not is_valid:
+                        print(f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}")
+                        continue
+
                     trip['startTime'] = datetime.fromisoformat(trip['startTime'])
                     trip['endTime'] = datetime.fromisoformat(trip['endTime'])
+                    if isinstance(trip['gps'], dict):
+                        trip['gps'] = json.dumps(trip['gps'])
                     result = trips_collection.update_one(
                         {'transactionId': trip['transactionId']},
                         {'$set': trip},
@@ -111,7 +133,7 @@ async def fetch_and_store_trips():
                     )
                     print(f"Updated trip {trip['transactionId']} for IMEI {trip.get('imei', 'Unknown')}: {'Inserted' if result.upserted_id else 'Updated'}")
                 except Exception as e:
-                    print(f"Error updating trip {trip['transactionId']}: {e}")
+                    print(f"Error updating trip {trip.get('transactionId', 'Unknown')}: {e}")
             
             # Log the count of trips in the database for each IMEI
             for imei in AUTHORIZED_DEVICES:
@@ -151,7 +173,7 @@ def get_trips():
             }
         else:
             end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(days=4)
+            start_date = end_date - timedelta(days=1460)
             query['startTime'] = {'$gte': start_date, '$lte': end_date}
         
         query['imei'] = {'$in': AUTHORIZED_DEVICES}
@@ -170,8 +192,11 @@ def get_trips():
             print(f"Retrieved {count} trips for IMEI {imei}")
         
         for trip in trips:
-            if 'gps' in trip and isinstance(trip['gps'], dict):
-                trip['gps'] = json.dumps(trip['gps'])
+            if 'gps' in trip and isinstance(trip['gps'], str):
+                try:
+                    trip['gps'] = json.loads(trip['gps'])
+                except json.JSONDecodeError:
+                    print(f"Error decoding GPS data for trip {trip.get('transactionId')}")
         
         print(f"Returning {len(trips)} trips in total")
         return jsonify(trips)
@@ -192,7 +217,7 @@ def get_metrics():
         }
     else:
         end_date = datetime.now(timezone.utc)
-        start_date = end_date - timedelta(days=4)
+        start_date = end_date - timedelta(days=1460)
         query['startTime'] = {'$gte': start_date, '$lte': end_date}
     
     trips = list(trips_collection.find(query))
