@@ -139,11 +139,14 @@ async def fetch_and_store_trips():
         await bouncie_client.get_access_token()
         
         end_date = datetime.now(timezone.utc)
-        start_date = end_date - timedelta(days=4*365)  # Fetch last 4 years of trips
+        start_date = end_date - timedelta(days=4*365)
         
         all_trips = []
         for imei in AUTHORIZED_DEVICES:
-            trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson", starts_after=start_date.isoformat(), ends_before=end_date.isoformat())
+            trips = await bouncie_client.get_trips(imei=imei, gps_format="geojson")
+            
+            # Filter trips based on date range
+            trips = [trip for trip in trips if start_date <= datetime.fromisoformat(trip['startTime']) <= end_date]
             
             if trips is None:
                 print(f"No trips fetched for IMEI {imei}")
@@ -181,4 +184,4 @@ async def start_background_tasks():
 
 if __name__ == '__main__':
     asyncio.run(start_background_tasks())
-    socketio.run(app, port=8080, debug=True)
+    socketio.run(app, port=8080, debug=True, allow_unsafe_werkzeug=True)
