@@ -11,3 +11,4 @@ certifi
 flask-cors
 Flask
 flask
+gunicorn
