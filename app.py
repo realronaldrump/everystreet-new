@@ -8,9 +8,8 @@ import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
 import certifi
-import geojson
-import certifi
 from geojson import loads as geojson_loads
+import certifi
 
 load_dotenv()
 

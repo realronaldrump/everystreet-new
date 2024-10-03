@@ -1,3 +1,5 @@
 venv/
 .DS_Store
 validate.py
+cleardatabase.py
+data_migrate.py
