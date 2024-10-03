@@ -10,6 +10,7 @@ from pymongo import MongoClient
 import certifi
 import geojson
 import certifi
+from geojson import loads as geojson_loads
 
 load_dotenv()
 
