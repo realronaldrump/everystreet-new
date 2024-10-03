@@ -9,3 +9,6 @@ aiohttp
 asyncio
 certifi
 arcgis
+flask-cors
+Flask
+flask
