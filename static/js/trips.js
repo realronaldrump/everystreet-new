@@ -22,7 +22,8 @@ function fetchTrips() {
     fetch(url)
         .then(response => response.json())
         .then(trips => {
-            const tripsList = document.getElementById('trips-list tbody');
+            console.log('Fetched trips:', trips); // Log the fetched trips
+            const tripsList = document.querySelector('#trips-list tbody');
             tripsList.innerHTML = ''; 
 
             trips.forEach(trip => {

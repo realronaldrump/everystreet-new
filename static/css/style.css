@@ -116,14 +116,15 @@ main {
     overflow-x: auto; 
 }
 
+/* Ensure the table and its contents are visible */
 #trips-list table {
     width: 100%;
     border-collapse: collapse;
 }
 
 #trips-list th, #trips-list td {
+    border: 1px solid var(--accent-color);
     padding: 0.5rem;
-    border: 1px solid #ddd;
     text-align: left;
 }
 

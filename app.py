@@ -2,7 +2,7 @@ import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 import aiohttp
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, make_response
 from flask_socketio import SocketIO
 import os
 from dotenv import load_dotenv
@@ -266,6 +266,15 @@ async def api_fetch_trips():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.after_request
+def add_header(response):
+    """
+    Add headers to prevent caching.
+    """
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 async def start_background_tasks():
     await fetch_and_store_trips()
 
