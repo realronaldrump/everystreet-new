@@ -81,6 +81,11 @@ async def fetch_trips_in_intervals(session, access_token, imei, start_date, end_
         current_start = current_end
     return all_trips
 
+def is_valid(geojson_obj):
+    if geojson_obj['type'] not in ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection']:
+        return False
+    return True
+
 def validate_trip_data(trip):
     required_fields = ['transactionId', 'imei', 'startTime', 'endTime', 'distance', 'gps']
     for field in required_fields:
