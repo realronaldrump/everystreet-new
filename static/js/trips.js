@@ -20,14 +20,17 @@ let tripsTable = null; // Initialize outside to reuse the table instance
 function initializeTabulator() {
     tripsTable = new Tabulator("#trips-table", {
         layout: "fitColumns",
+        pagination: "local",
+        paginationSize: 25,
+        responsiveLayout: "hide",
         columns: [
-            { title: "Transaction ID", field: "transactionId" },
-            { title: "IMEI", field: "imei" },
-            { title: "Start Time", field: "startTime", formatter: "datetime" },
-            { title: "End Time", field: "endTime", formatter: "datetime" },
-            { title: "Distance", field: "distance", formatter: "money", formatterParams: { precision: 2 } },
-            { title: "Destination", field: "destination" }
-        ],
+            { title: "Transaction ID", field: "transactionId", headerFilter: "input" },
+            { title: "IMEI", field: "imei", headerFilter: "input" },
+            { title: "Start Time", field: "startTime", formatter: "datetime", sorter: "datetime", headerFilter: "input" },
+            { title: "End Time", field: "endTime", formatter: "datetime", sorter: "datetime", headerFilter: "input" },
+            { title: "Distance (miles)", field: "distance", formatter: "money", formatterParams: { precision: 2 }, sorter: "number", headerFilter: "input" },
+            { title: "Destination", field: "destination", headerFilter: "input" }
+        ]
     });
 }
 
