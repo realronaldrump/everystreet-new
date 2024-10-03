@@ -1,13 +1,13 @@
-import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 import aiohttp
-from flask import Flask, render_template, request, jsonify, make_response
+from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO
 import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
 import certifi
+import geojson as geojson_module
 from geojson import loads as geojson_loads, dumps as geojson_dumps
 import traceback
 
@@ -29,8 +29,8 @@ try:
     trips_collection = db['trips']
     live_routes_collection = db['live_routes']
     print("Successfully connected to MongoDB")
-except Exception as e:
-    print(f"Error connecting to MongoDB: {e}")
+except Exception as mongo_error:
+    print(f"Error connecting to MongoDB: {mongo_error}")
     raise
 
 # Bouncie API setup
@@ -82,7 +82,7 @@ async def fetch_trips_in_intervals(session, access_token, imei, start_date, end_
         current_start = current_end
     return all_trips
 
-def is_valid(geojson_obj):
+def is_valid_geojson(geojson_obj):
     if geojson_obj['type'] not in ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection']:
         return False
     return True
@@ -95,53 +95,48 @@ def validate_trip_data(trip):
     
     try:
         geojson_obj = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
-        if not is_valid(geojson_obj):
+        if not is_valid_geojson(geojson_obj):
             return False, "Invalid GeoJSON data"
-    except Exception as e:
-        return False, f"Error validating GeoJSON: {str(e)}"
+    except Exception as validation_error:
+        return False, f"Error validating GeoJSON: {str(validation_error)}"
     
     return True, None
 
 async def reverse_geocode_nominatim(lat, lon):
     url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}&addressdetails=1"
     headers = {'User-Agent': 'EveryStreet/1.0'}
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    address = data.get('address', {})
-                    formatted_address = []
+    async with aiohttp.ClientSession() as session, session.get(url, headers=headers) as response:
+        if response.status == 200:
+            data = await response.json()
+            address = data.get('address', {})
+            formatted_address = []
 
-                    # Build the address from desired components
-                    if 'house_number' in address:
-                        formatted_address.append(address['house_number'])
-                    if 'road' in address:
-                        formatted_address.append(address['road'])
-                    if 'city' in address:
-                        formatted_address.append(address['city'])
-                    elif 'town' in address:
-                        formatted_address.append(address['town'])
-                    elif 'village' in address:
-                        formatted_address.append(address['village'])
-                    if 'state' in address:
-                        formatted_address.append(address['state'])
+            # Build the address from desired components
+            if 'house_number' in address:
+                formatted_address.append(address['house_number'])
+            if 'road' in address:
+                formatted_address.append(address['road'])
+            if 'city' in address:
+                formatted_address.append(address['city'])
+            elif 'town' in address:
+                formatted_address.append(address['town'])
+            elif 'village' in address:
+                formatted_address.append(address['village'])
+            if 'state' in address:
+                formatted_address.append(address['state'])
 
-                    return ', '.join(formatted_address)
-                else:
-                    print(f"Nominatim API error: {response.status}")
-                    return f"Location at {lat}, {lon}"
-    except Exception as e:
-        print(f"Error in Nominatim geocoding: {e}")
-        return f"Location at {lat}, {lon}"
+            return ', '.join(formatted_address)
+        else:
+            print(f"Nominatim API error: {response.status}")
+            return f"Location at {lat}, {lon}"
 
 def fetch_trips_for_geojson():
     trips = trips_collection.find()  # Adjust your query as needed
     features = []
     
     for trip in trips:
-        feature = geojson.Feature(
-            geometry=geojson.loads(trip['gps']),
+        feature = geojson_module.Feature(
+            geometry=geojson_loads(trip['gps']),
             properties={
                 "transactionId": trip['transactionId'],
                 "imei": trip['imei'],
@@ -153,7 +148,7 @@ def fetch_trips_for_geojson():
         )
         features.append(feature)
     
-    return geojson.FeatureCollection(features)
+    return geojson_module.FeatureCollection(features)
     
 async def fetch_and_store_trips():
     try:
@@ -205,8 +200,8 @@ async def fetch_and_store_trips():
                         upsert=True
                     )
                     print(f"Updated trip {trip['transactionId']} for IMEI {trip.get('imei', 'Unknown')}: {'Inserted' if result.upserted_id else 'Updated'}")
-                except Exception as e:
-                    print(f"Error updating trip {trip.get('transactionId', 'Unknown')}: {e}")
+                except Exception as trip_error:
+                    print(f"Error updating trip {trip.get('transactionId', 'Unknown')}: {trip_error}")
                     print(traceback.format_exc())
             
             # Log the count of trips in the database for each IMEI
@@ -214,11 +209,11 @@ async def fetch_and_store_trips():
                 try:
                     count = trips_collection.count_documents({'imei': imei})
                     print(f"Trips in database for IMEI {imei}: {count}")
-                except Exception as e:
-                    print(f"Error counting trips for IMEI {imei}: {e}")
+                except Exception as count_error:
+                    print(f"Error counting trips for IMEI {imei}: {count_error}")
         
-    except Exception as e:
-        print(f"Error in fetch_and_store_trips: {e}")
+    except Exception as fetch_error:
+        print(f"Error in fetch_and_store_trips: {fetch_error}")
         print(traceback.format_exc())
 
 async def fetch_and_store_trips_in_range(start_date, end_date):
@@ -266,19 +261,19 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                         upsert=True
                     )
                     print(f"Updated trip {trip['transactionId']} for IMEI {trip.get('imei', 'Unknown')}: {'Inserted' if result.upserted_id else 'Updated'}")
-                except Exception as e:
-                    print(f"Error updating trip {trip.get('transactionId', 'Unknown')}: {e}")
+                except Exception as trip_error:
+                    print(f"Error updating trip {trip.get('transactionId', 'Unknown')}: {trip_error}")
                     print(traceback.format_exc())
             
             for imei in AUTHORIZED_DEVICES:
                 try:
                     count = trips_collection.count_documents({'imei': imei})
                     print(f"Trips in database for IMEI {imei}: {count}")
-                except Exception as e:
-                    print(f"Error counting trips for IMEI {imei}: {e}")
+                except Exception as count_error:
+                    print(f"Error counting trips for IMEI {imei}: {count_error}")
         
-    except Exception as e:
-        print(f"Error in fetch_and_store_trips_in_range: {e}")
+    except Exception as fetch_error:
+        print(f"Error in fetch_and_store_trips_in_range: {fetch_error}")
         print(traceback.format_exc())
 
 @app.route('/')
@@ -357,12 +352,12 @@ def get_trips():
                     }
                 }
                 processed_trips.append(processed_trip)
-            except Exception as e:
-                print(f"Error processing trip {trip.get('transactionId', 'Unknown')}: {e}")
+            except Exception as trip_error:
+                print(f"Error processing trip {trip.get('transactionId', 'Unknown')}: {trip_error}")
                 print(f"Trip data: {trip}")
                 print(traceback.format_exc())
         
-        geojson = {
+        geojson_data = {
             'type': 'FeatureCollection',
             'features': processed_trips
         }
@@ -370,11 +365,11 @@ def get_trips():
         total_trips = len(processed_trips)
         print(f"Returning {total_trips} trips in total")
         
-        return jsonify(geojson)
-    except Exception as e:
-        print(f"Error in get_trips: {e}")
+        return jsonify(geojson_data)
+    except Exception as api_error:
+        print(f"Error in get_trips: {api_error}")
         print(traceback.format_exc())
-        return jsonify({"error": f"An error occurred while fetching trips: {str(e)}"}), 500
+        return jsonify({"error": f"An error occurred while fetching trips: {str(api_error)}"}), 500
 
 @app.route('/api/driving-insights')
 def get_driving_insights():
@@ -423,10 +418,10 @@ def get_driving_insights():
                 insight['lastVisit'] = insight['lastVisit'].isoformat()
         
         return jsonify(insights)
-    except Exception as e:
-        print(f"Error in get_driving_insights: {e}")
+    except Exception as insight_error:
+        print(f"Error in get_driving_insights: {insight_error}")
         print(traceback.format_exc())
-        return jsonify({"error": f"An error occurred while fetching driving insights: {str(e)}"}), 500
+        return jsonify({"error": f"An error occurred while fetching driving insights: {str(insight_error)}"}), 500
 
 @app.route('/api/metrics')
 def get_metrics():
@@ -500,8 +495,8 @@ async def api_fetch_trips():
     try:
         await fetch_and_store_trips()
         return jsonify({"status": "success", "message": "Trips fetched and stored successfully."}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+    except Exception as fetch_error:
+        return jsonify({"status": "error", "message": str(fetch_error)}), 500
 
 @app.route('/api/fetch_trips_in_range', methods=['POST'])
 async def api_fetch_trips_in_range():
@@ -511,8 +506,8 @@ async def api_fetch_trips_in_range():
         end_date = datetime.fromisoformat(data['end_date'])
         await fetch_and_store_trips_in_range(start_date, end_date)
         return jsonify({"status": "success", "message": "Trips fetched and stored successfully."}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+    except Exception as fetch_error:
+        return jsonify({"status": "error", "message": str(fetch_error)}), 500
 
 @app.after_request
 def add_header(response):
@@ -529,12 +524,12 @@ def export_geojson():
     try:
         geojson_data = fetch_trips_for_geojson()
         return jsonify(geojson_data)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception as export_error:
+        return jsonify({"error": str(export_error)}), 500
 
 async def start_background_tasks():
     await fetch_and_store_trips()
 
 if __name__ == '__main__':
-    port = int(os.getenv('PORT', 8080))
+    port = int(os.getenv('PORT', '8080'))
     socketio.run(app, port=port, debug=False, allow_unsafe_werkzeug=True)

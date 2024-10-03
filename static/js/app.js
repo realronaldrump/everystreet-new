@@ -1,8 +1,8 @@
-let map;
-let layerGroup;
+let map = null;
+let layerGroup = null;
 
-const socket = io();
-
+/* global io */
+const socket = io.connect();
 function initializeMap() {
     // Ensure the map container exists
     const mapElement = document.getElementById('map');
@@ -11,6 +11,7 @@ function initializeMap() {
         return;
     }
 
+    /* global L */
     try {
         map = L.map('map', {
             center: [37.0902, -95.7129],
@@ -186,7 +187,7 @@ function handleLiveRouteUpdate(data) {
 
 function handlePresetPeriodChange(e) {
     const today = new Date();
-    let startDate = new Date(today);
+    const startDate = new Date(today);
 
     switch (e.target.value) {
         case '24h':
