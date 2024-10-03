@@ -10,8 +10,6 @@ from pymongo import MongoClient
 import certifi
 from geojson import loads as geojson_loads, dumps as geojson_dumps
 import traceback
-from arcgis.gis import GIS
-from arcgis.geocoding import reverse_geocode
 
 load_dotenv()
 
@@ -43,10 +41,6 @@ AUTH_CODE = os.getenv('AUTHORIZATION_CODE')
 AUTHORIZED_DEVICES = os.getenv('AUTHORIZED_DEVICES', '').split(',')
 MAPBOX_ACCESS_TOKEN = os.getenv('MAPBOX_ACCESS_TOKEN')
 
-# ArcGIS setup
-ARCGIS_USERNAME = os.getenv('ARCGIS_USERNAME')
-ARCGIS_PASSWORD = os.getenv('ARCGIS_PASSWORD')
-gis = GIS("https://www.arcgis.com", ARCGIS_USERNAME, ARCGIS_PASSWORD)
 
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
@@ -124,21 +118,6 @@ async def reverse_geocode_nominatim(lat, lon):
         print(f"Error in Nominatim geocoding: {e}")
         return f"Location at {lat}, {lon}"
 
-async def reverse_geocode_location(lat, lon):
-    try:
-        print(f"Attempting to reverse geocode: Lat {lat}, Lon {lon}")
-        result = reverse_geocode((lon, lat))
-        if result:
-            print(f"Reverse geocoding result: {result}")
-            return result['address']['Match_addr']
-        else:
-            print("No result from ArcGIS reverse geocoding, falling back to Nominatim")
-            return await reverse_geocode_nominatim(lat, lon)
-    except Exception as e:
-        print(f"Error in ArcGIS reverse geocoding: {e}")
-        print(f"Error details: {traceback.format_exc()}")
-        print("Falling back to Nominatim geocoding")
-        return await reverse_geocode_nominatim(lat, lon)
 
 async def fetch_and_store_trips():
     try:
@@ -180,7 +159,7 @@ async def fetch_and_store_trips():
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
                     last_point = gps_data['coordinates'][-1]
                     print(f"Last point coordinates: {last_point}")
-                    trip['destination'] = await reverse_geocode_location(last_point[1], last_point[0])
+                    trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
                     
                     if isinstance(trip['gps'], dict):
                         trip['gps'] = geojson_dumps(trip['gps'])
