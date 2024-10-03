@@ -1,9 +1,49 @@
+let tripsTable;
+
 document.addEventListener('DOMContentLoaded', () => {
+    initializeDataTable();
     fetchTrips();
-    fetchUniqueImeis(); 
+    fetchUniqueImeis();
 
     document.getElementById('apply-filters').addEventListener('click', fetchTrips);
+    document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
+    document.getElementById('fetch-trips').addEventListener('click', fetchAndStoreTrips);
 });
+
+function initializeDataTable() {
+    tripsTable = $('#trips-table').DataTable({
+        responsive: true,
+        pageLength: 25,
+        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
+        columns: [
+            { data: 'transactionId' },
+            { data: 'imei' },
+            { 
+                data: 'startTime',
+                render: function(data) {
+                    return new Date(data).toLocaleString();
+                }
+            },
+            { 
+                data: 'endTime',
+                render: function(data) {
+                    return new Date(data).toLocaleString();
+                }
+            },
+            { 
+                data: 'distance',
+                render: function(data, type) {
+                    if (type === 'sort' || type === 'type') {
+                        return parseFloat(data);
+                    }
+                    return data.toFixed(2) + ' miles';
+                },
+                type: 'num'
+            }
+        ],
+        order: [[2, 'desc']] // Sort by start time, most recent first
+    });
+}
 
 function fetchTrips() {
     const startDate = document.getElementById('start-date').value;
@@ -16,27 +56,14 @@ function fetchTrips() {
         if (startDate) url += `start_date=${startDate}&`;
         if (endDate) url += `end_date=${endDate}&`;
         if (imei) url += `imei=${imei}`;
-        if (url.endsWith('&')) url = url.slice(0, -1); 
+        if (url.endsWith('&')) url = url.slice(0, -1);
     }
 
     fetch(url)
         .then(response => response.json())
         .then(trips => {
-            console.log('Fetched trips:', trips); // Log the fetched trips
-            const tripsList = document.querySelector('#trips-list tbody');
-            tripsList.innerHTML = ''; 
-
-            trips.forEach(trip => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${trip.transactionId}</td>
-                    <td>${trip.imei}</td>
-                    <td>${trip.startTime}</td>
-                    <td>${trip.endTime}</td>
-                    <td>${trip.distance}</td>
-                `;
-                tripsList.appendChild(row);
-            });
+            console.log('Fetched trips:', trips);
+            tripsTable.clear().rows.add(trips).draw();
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
@@ -44,7 +71,7 @@ function fetchTrips() {
 }
 
 function fetchUniqueImeis() {
-    fetch('/api/trips') 
+    fetch('/api/trips')
         .then(response => response.json())
         .then(trips => {
             const imeis = [...new Set(trips.map(trip => trip.imei))];
@@ -61,3 +88,38 @@ function fetchUniqueImeis() {
             console.error('Error fetching unique IMEIs:', error);
         });
 }
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const main = document.querySelector('main');
+    sidebar.classList.toggle('collapsed');
+    main.classList.toggle('expanded');
+}
+
+function fetchAndStoreTrips() {
+    fetch('/api/fetch_trips', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                fetchTrips(); // Refresh the trips list
+            } else {
+                alert(`Error: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching and storing trips:', error);
+            alert('An error occurred while fetching and storing trips.');
+        });
+}
+
+// Initialize date pickers
+flatpickr("#start-date", { 
+    dateFormat: "Y-m-d",
+    maxDate: "today"
+});
+
+flatpickr("#end-date", { 
+    dateFormat: "Y-m-d",
+    maxDate: "today"
+});

@@ -211,93 +211,63 @@ function handleLiveRouteUpdate(data) {
     }
 }
 
+function handlePresetPeriodChange(e) {
+    const today = new Date();
+    let startDate = new Date(today);
+
+    switch (e.target.value) {
+        case '24h':
+            startDate.setDate(today.getDate() - 1);
+            break;
+        case '7d':
+            startDate.setDate(today.getDate() - 7);
+            break;
+        case '30d':
+            startDate.setMonth(today.getMonth() - 1);
+            break;
+        case '1y':
+            startDate.setFullYear(today.getFullYear() - 1);
+            break;
+        case '4y':
+            startDate.setFullYear(today.getFullYear() - 4);
+            break;
+    }
+
+    document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
+    document.getElementById('end-date').value = today.toISOString().split('T')[0];
+    fetchTrips();
+}
+
+function handleLiveRoutesToggle(e) {
+    if (e.target.checked) {
+        console.log('Live routes enabled');
+    } else {
+        console.log('Live routes disabled');
+    }
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const main = document.querySelector('main');
+    sidebar.classList.toggle('collapsed');
+    main.classList.toggle('expanded');
+}
+
+function initThreeJSAnimations() {
+    // Placeholder for Three.js animations
+    // Implement your Three.js animations here
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initializeDateRange();
     fetchTrips();
 
     document.getElementById('apply-date-range').addEventListener('click', fetchTrips);
-    document.getElementById('preset-periods').addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') {
-            const today = new Date();
-            let startDate = new Date(today);
-
-            switch (e.target.dataset.period) {
-                case '24h':
-                    startDate.setDate(today.getDate() - 1);
-                    break;
-                case '7d':
-                    startDate.setDate(today.getDate() - 7);
-                    break;
-                case '30d':
-                    startDate.setMonth(today.getMonth() - 1);
-                    break;
-                case '1y':
-                    startDate.setFullYear(today.getFullYear() - 1);
-                    break;
-                case '4y':
-                    startDate.setFullYear(today.getFullYear() - 4);
-                    break;
-            }
-
-            document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
-            document.getElementById('end-date').value = today.toISOString().split('T')[0];
-            fetchTrips();
-        }
-    });
-
-    document.getElementById('show-live-routes').addEventListener('change', (e) => {
-        if (e.target.checked) {
-            console.log('Live routes enabled');
-        } else {
-            console.log('Live routes disabled');
-        }
-    });
+    document.getElementById('preset-periods-dropdown').addEventListener('change', handlePresetPeriodChange);
+    document.getElementById('show-live-routes').addEventListener('change', handleLiveRoutesToggle);
+    document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
 
     socket.on('live_route_update', handleLiveRouteUpdate);
-
-    document.getElementById('fetch-trips').addEventListener('click', () => {
-        fetch('/api/fetch_trips', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    alert(data.message);
-                    fetchTrips(); // Refresh the trips list
-                } else {
-                    alert(`Error: ${data.message}`);
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching and storing trips:', error);
-                alert('An error occurred while fetching and storing trips.');
-            });
-    });
-
-    document.getElementById('preset-periods-dropdown').addEventListener('change', (e) => {
-        const today = new Date();
-        let startDate = new Date(today);
-
-        switch (e.target.value) {
-            case '24h':
-                startDate.setDate(today.getDate() - 1);
-                break;
-            case '7d':
-                startDate.setDate(today.getDate() - 7);
-                break;
-            case '30d':
-                startDate.setMonth(today.getMonth() - 1);
-                break;
-            case '1y':
-                startDate.setFullYear(today.getFullYear() - 1);
-                break;
-            case '4y':
-                startDate.setFullYear(today.getFullYear() - 4);
-                break;
-        }
-
-        document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
-        document.getElementById('end-date').value = today.toISOString().split('T')[0];
-        fetchTrips();
-    });
 
     flatpickr("#start-date", { dateFormat: "Y-m-d" });
     flatpickr("#end-date", { dateFormat: "Y-m-d" });
@@ -307,8 +277,4 @@ if (map) {
     map.on('error', (e) => {
         console.error('MapBox error:', e.error);
     });
-}
-
-function initThreeJSAnimations() {
-
-}
+}   

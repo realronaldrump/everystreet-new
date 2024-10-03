@@ -5,31 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Every Street - Trips</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
 </head>
 <body>
     <div id="app">
-        <header>
-            <h1>Every Street - Trips</h1>
-        </header>
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>Every Street</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="/"><i class="fas fa-home"></i> Home</a></li>
+                <li><a href="/trips"><i class="fas fa-road"></i> Trips</a></li>
+            </ul>
+            <div class="sidebar-content">
+                <div id="filters">
+                    <h2>Filters</h2>
+                    <label for="start-date">Start Date:</label>
+                    <input type="date" id="start-date">
+                    <label for="end-date">End Date:</label>
+                    <input type="date" id="end-date">
+                    <label for="imei">IMEI:</label>
+                    <select id="imei">
+                        <option value="">All</option>
+                    </select>
+                    <button id="apply-filters">Apply Filters</button>
+                    <button id="fetch-trips">Fetch and Store Trips</button>
+                </div>
+            </div>
+        </nav>
 
         <main>
-            <div id="filters">
-                <h2>Filters</h2>
-                <label for="start-date">Start Date:</label>
-                <input type="date" id="start-date">
-                <label for="end-date">End Date:</label>
-                <input type="date" id="end-date">
-                <label for="imei">IMEI:</label>
-                <select id="imei">
-                    <option value="">All</option> 
-                    <!-- IMEI options will be added here -->
-                </select>
-                <button id="apply-filters">Apply Filters</button>
-                <button id="fetch-trips">Fetch and Store Trips</button>
-            </div>
-
             <div id="trips-list">
-                <table>
+                <table id="trips-table" class="display">
                     <thead>
                         <tr>
                             <th>Transaction ID</th>
@@ -47,6 +58,8 @@
         </main>
     </div>
 
-    <script src="/static/js/trips.js"></script> 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="/static/js/trips.js"></script>
 </body>
 </html>
