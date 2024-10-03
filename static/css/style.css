@@ -305,3 +305,27 @@ tr:hover {
     color: var(--text-color);
     font-size: 16px;
 }
+
+.circle-marker {
+    animation: pulse 2s infinite;
+    fill: rgba(0, 255, 0, 0.5); /* Green for active */
+    stroke: rgba(0, 255, 0, 1);
+}
+
+.circle-marker-off {
+    animation: pulse 2s infinite;
+    fill: rgba(255, 0, 0, 0.5); /* Red for inactive */
+    stroke: rgba(255, 0, 0, 1);
+}
+
+@keyframes pulse {
+    0% {
+        r: 5;
+    }
+    50% {
+        r: 10;
+    }
+    100% {
+        r: 5;
+    }
+}

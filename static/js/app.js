@@ -160,6 +160,9 @@ function updateMap(geojson) {
 function handleLiveRouteUpdate(data) {
     if (document.getElementById('show-live-routes').checked) {
         try {
+            const lastPoint = data.data[data.data.length - 1];
+            const isVehicleOff = data.isVehicleOff; // Assuming this data is available
+
             const newFeature = {
                 type: 'Feature',
                 geometry: {
@@ -169,8 +172,8 @@ function handleLiveRouteUpdate(data) {
                 properties: {
                     transactionId: data.transactionId,
                     startTime: data.data[0].timestamp,
-                    endTime: data.data[data.data.length - 1].timestamp,
-                    distance: data.data[data.data.length - 1].distance - data.data[0].distance,
+                    endTime: lastPoint.timestamp,
+                    distance: lastPoint.distance - data.data[0].distance,
                     imei: data.imei
                 }
             };
@@ -179,6 +182,13 @@ function handleLiveRouteUpdate(data) {
                 type: 'FeatureCollection',
                 features: [newFeature]
             });
+
+            // Add a circle marker for the live location
+            const circleMarker = L.circleMarker([lastPoint.gps.lat, lastPoint.gps.lon], {
+                radius: 5,
+                className: isVehicleOff ? 'circle-marker-off' : 'circle-marker'
+            }).addTo(layerGroup);
+
         } catch (error) {
             console.error('Error handling live route update:', error);
         }
