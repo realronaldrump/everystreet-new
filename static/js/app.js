@@ -71,11 +71,18 @@ function updateLoadingProgress(progress) {
 }
 
 function fetchTrips() {
+    const startDate = localStorage.getItem('startDate') || '';
+    const endDate = localStorage.getItem('endDate') || '';
+
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+
+    const url = `/api/trips?${params.toString()}`;
+
     showLoadingOverlay();
-    const startDate = document.getElementById('start-date').value;
-    const endDate = document.getElementById('end-date').value;
-    
-    fetch(`/api/trips?start_date=${startDate}&end_date=${endDate}`)
+
+    fetch(url)
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -224,8 +231,8 @@ function initThreeJSAnimations() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    initializeMap();
     initializeDatePickers();
+    initializeMap();
     initializeEventListeners();
     fetchTrips();
 });
