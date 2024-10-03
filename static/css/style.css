@@ -1,22 +1,33 @@
-/* static/css/style.css */
+/* General Styles */
 :root {
     --bg-color: #121212;
     --text-color: #ffffff;
     --accent-color: #BB86FC;
     --secondary-color: #03DAC6;
+    --hover-color: #333333;
 }
 
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Roboto', sans-serif;
     margin: 0;
     padding: 0;
     background-color: var(--bg-color);
     color: var(--text-color);
 }
 
+a {
+    color: var(--accent-color);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
 #app {
     display: flex;
     height: 100vh;
+    overflow: hidden;
 }
 
 .sidebar {
@@ -25,6 +36,10 @@ body {
     color: var(--text-color);
     transition: all 0.3s;
     overflow-y: auto;
+}
+
+.sidebar.collapsed {
+    width: 60px;
 }
 
 .sidebar-header {
@@ -49,17 +64,26 @@ body {
     list-style: none;
 }
 
+.sidebar-menu li {
+    width: 100%;
+}
+
 .sidebar-menu li a {
-    padding: 10px 20px;
-    display: block;
+    padding: 15px 20px;
+    display: flex;
+    align-items: center;
     color: var(--text-color);
     text-decoration: none;
-    transition: all 0.3s;
+    transition: background 0.3s;
+}
+
+.sidebar-menu li a i {
+    width: 30px;
+    text-align: center;
 }
 
 .sidebar-menu li a:hover {
-    background-color: var(--accent-color);
-    color: var(--bg-color);
+    background-color: var(--hover-color);
 }
 
 .sidebar-content {
@@ -75,19 +99,30 @@ main {
     overflow-y: auto;
 }
 
-#map {
-    flex-grow: 1;
-    margin-bottom: 20px;
+main.expanded {
+    margin-left: 60px;
 }
 
-#metrics, #summary-metrics {
-    background-color: rgba(30, 30, 30, 0.8);
-    padding: 20px;
-    border-radius: 5px;
-    margin-bottom: 20px;
+h1, h2 {
+    color: var(--accent-color);
 }
 
-input[type="date"], select, button {
+button {
+    cursor: pointer;
+    background-color: var(--accent-color);
+    color: var(--bg-color);
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    font-size: 1em;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background-color: var(--secondary-color);
+}
+
+input[type="text"], select {
     width: 100%;
     padding: 10px;
     margin-top: 5px;
@@ -98,15 +133,102 @@ input[type="date"], select, button {
     border-radius: 4px;
 }
 
-button {
-    cursor: pointer;
-    background-color: var(--accent-color);
-    color: var(--bg-color);
-    transition: all 0.3s;
+/* DataTables Styles */
+.dataTables_wrapper {
+    background-color: #1E1E1E;
+    padding: 20px;
+    border-radius: 5px;
+    margin-top: 20px;
 }
 
-button:hover {
-    background-color: var(--secondary-color);
+table.dataTable {
+    color: var(--text-color);
+    width: 100%;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    color: var(--text-color) !important;
+    background-color: #2C2C2C !important;
+    border: 1px solid var(--accent-color) !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background-color: var(--accent-color) !important;
+    color: var(--bg-color) !important;
+}
+
+/* Tabulator Styles */
+#trips-table {
+    margin-top: 20px;
+}
+
+.tabulator {
+    background-color: #1E1E1E;
+    color: var(--text-color);
+}
+
+.tabulator .tabulator-header {
+    background-color: #2C2C2C;
+}
+
+.tabulator .tabulator-header .tabulator-col {
+    background-color: #2C2C2C;
+    color: var(--text-color);
+    border-right: 1px solid var(--bg-color);
+}
+
+.tabulator .tabulator-row {
+    background-color: #1E1E1E;
+}
+
+.tabulator .tabulator-row:hover {
+    background-color: var(--hover-color);
+}
+
+.tabulator .tabulator-cell {
+    border-right: 1px solid var(--bg-color);
+}
+
+/* Responsive Adjustments */
+@media only screen and (max-width: 768px) {
+    .sidebar {
+        width: 60px;
+    }
+    .sidebar.collapsed {
+        width: 0;
+    }
+    main.expanded {
+        margin-left: 0;
+    }
+    .sidebar-toggle {
+        margin-left: auto;
+    }
+}
+
+/* Additional Styles */
+#filters h2 {
+    margin-top: 0;
+}
+
+#metrics, #summary-metrics {
+    background-color: rgba(30, 30, 30, 0.8);
+    padding: 20px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+#metrics ul, #summary-metrics ul {
+    list-style: none;
+    padding: 0;
+}
+
+#metrics ul li, #summary-metrics ul li {
+    margin-bottom: 10px;
+}
+
+#map {
+    flex-grow: 1;
+    margin-bottom: 20px;
 }
 
 .loading-overlay {
@@ -145,122 +267,4 @@ button:hover {
 #loading-text {
     color: var(--text-color);
     font-size: 16px;
-}
-
-/* DataTables styling */
-.dataTables_wrapper {
-    background-color: #1E1E1E;
-    padding: 20px;
-    border-radius: 5px;
-    margin-top: 20px;
-}
-
-table.dataTable {
-    color: var(--text-color);
-    border-collapse: collapse;
-}
-
-table.dataTable thead th,
-table.dataTable thead td {
-    border-bottom: 1px solid var(--accent-color);
-    color: var(--accent-color);
-}
-
-table.dataTable tbody tr {
-    background-color: #1E1E1E;
-}
-
-table.dataTable tbody tr:hover {
-    background-color: #2C2C2C;
-}
-
-.dataTables_info,
-.dataTables_paginate {
-    color: var(--text-color) !important;
-    margin-top: 10px;
-}
-
-.dataTables_paginate .paginate_button {
-    color: var(--text-color) !important;
-    background-color: #2C2C2C !important;
-    border: 1px solid var(--accent-color) !important;
-}
-
-.dataTables_paginate .paginate_button:hover,
-.dataTables_paginate .paginate_button.current {
-    color: var(--bg-color) !important;
-    background-color: var(--accent-color) !important;
-}
-
-.dataTables_filter input,
-.dataTables_length select {
-    background-color: #2C2C2C;
-    color: var(--text-color);
-    border: 1px solid var(--accent-color);
-}
-
-/* Leaflet specific styles */
-.leaflet-container {
-    background-color: #1E1E1E;
-}
-
-.leaflet-tile-pane {
-    filter: grayscale(100%) invert(100%);
-}
-
-.leaflet-control-attribution {
-    background-color: rgba(30, 30, 30, 0.8) !important;
-    color: var(--text-color) !important;
-}
-
-.leaflet-control-attribution a {
-    color: var(--accent-color) !important;
-}
-
-.leaflet-control-zoom a {
-    background-color: #1E1E1E !important;
-    color: var(--text-color) !important;
-    border-color: var(--accent-color) !important;
-}
-
-.leaflet-control-zoom a:hover {
-    background-color: var(--accent-color) !important;
-    color: var(--bg-color) !important;
-}
-
-/* Dark theme for tables */
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 20px;
-    background-color: #121212; /* Dark background */
-    color: var(--text-color); /* Light text */
-}
-
-th, td {
-    padding: 12px 15px;
-    border: 1px solid #2c2c2c; /* Dark border */
-    text-align: left;
-}
-
-th {
-    background-color: var(--accent-color); /* Purple accent for header */
-    color: var(--bg-color); /* Dark text for header */
-}
-
-tr:nth-child(even) {
-    background-color: #1E1E1E; /* Dark gray for even rows */
-}
-
-tr:hover {
-    background-color: #BB86FC; /* Purple highlight on hover */
-    color: var(--bg-color); /* Dark text on hover */
-}
-
-.table-container {
-    overflow-x: auto;
-    margin-top: 20px;
-    border-radius: 5px;
-    background-color: #1E1E1E; /* Dark gray background */
-    padding: 10px;
 }
