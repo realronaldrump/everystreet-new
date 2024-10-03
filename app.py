@@ -251,5 +251,6 @@ async def start_background_tasks():
     await fetch_and_store_trips()
 
 if __name__ == '__main__':
+    port = int(os.getenv('PORT', 8080))
     asyncio.run(start_background_tasks())
-    socketio.run(app, port=8080, debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, port=port, debug=False, allow_unsafe_werkzeug=True)
