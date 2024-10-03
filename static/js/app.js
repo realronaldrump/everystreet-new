@@ -259,9 +259,5 @@ if (map) {
 }
 
 function initThreeJSAnimations() {
-    initBackgroundAnimation();
-    initMetricsAnimation();
-}
 
-// The Three.js animations functions (initBackgroundAnimation and initMetricsAnimation) 
-// should be defined in the three_animations.js file, which is included in the HTML.
+}
