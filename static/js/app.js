@@ -1,22 +1,50 @@
 let map;
-let currentGeoJSON = {
-    type: 'FeatureCollection',
-    features: []
-};
 let layerGroup;
 
 const socket = io();
 
 function initializeMap() {
+    const mapElement = document.getElementById('map');
+    if (!mapElement) {
+        console.error('Map container not found');
+        showError('Error: Map container not found. Please refresh the page.');
+        return;
+    }
+
     try {
-        map = L.map('map').setView([37.0902, -95.7129], 4);
+        map = L.map('map', {
+            center: [37.0902, -95.7129],
+            zoom: 4,
+            zoomControl: true,
+            attributionControl: false  // Remove attribution control
+        });
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+            maxZoom: 19,
+            attribution: ''  // Empty string to remove attribution text
         }).addTo(map);
+
         layerGroup = L.layerGroup().addTo(map);
+
+        // Add zoom control to the top-right corner
+        L.control.zoom({
+            position: 'topright'
+        }).addTo(map);
+
+        // Add a scale control
+        L.control.scale({
+            imperial: true,
+            metric: true,
+            position: 'bottomright'
+        }).addTo(map);
+
+        // Disable wrap around the globe
+        map.setMaxBounds([[-90, -180], [90, 180]]);
+
+        console.log('Map initialized successfully');
     } catch (error) {
         console.error('Error initializing Leaflet map:', error);
-        document.getElementById('map').innerHTML = '<p>Error loading map. Please check your internet connection and try again.</p>';
+        showError(`Error initializing map: ${error.message}`);
     }
 }
 
@@ -55,35 +83,9 @@ function fetchTrips() {
             }
             return response.json();
         })
-        .then(trips => {
-            console.log(`Received ${trips.length} trips`);
-            
-            currentGeoJSON.features = trips.map(trip => {
-                let geometry;
-                try {
-                    geometry = typeof trip.gps === 'string' ? JSON.parse(trip.gps) : trip.gps;
-                    if (!geometry || !geometry.coordinates || geometry.coordinates.length === 0) {
-                        console.warn(`Invalid geometry for trip ${trip.transactionId}`);
-                        return null;
-                    }
-                } catch (error) {
-                    console.error(`Error parsing GPS data for trip ${trip.transactionId}:`, error);
-                    return null;
-                }
-                return {
-                    type: 'Feature',
-                    geometry: geometry,
-                    properties: {
-                        transactionId: trip.transactionId,
-                        startTime: trip.startTime,
-                        endTime: trip.endTime,
-                        distance: trip.distance,
-                        imei: trip.imei
-                    }
-                };
-            }).filter(feature => feature !== null);
-
-            updateMap();
+        .then(geojson => {
+            console.log(`Received ${geojson.features.length} trips`);
+            updateMap(geojson);
             fetchMetrics();
             initThreeJSAnimations();
             hideLoadingOverlay();
@@ -103,8 +105,8 @@ function fetchMetrics() {
         .then(response => response.json())
         .then(metrics => {
             document.getElementById('total-trips').textContent = metrics.total_trips;
-            document.getElementById('total-distance').textContent = metrics.total_distance.toFixed(2);
-            document.getElementById('avg-distance').textContent = metrics.avg_distance.toFixed(2);
+            document.getElementById('total-distance').textContent = metrics.total_distance;
+            document.getElementById('avg-distance').textContent = metrics.avg_distance;
             document.getElementById('avg-start-time').textContent = metrics.avg_start_time;
             document.getElementById('avg-driving-time').textContent = metrics.avg_driving_time;
         })
@@ -113,26 +115,34 @@ function fetchMetrics() {
         });
 }
 
-function updateMap() {
-    console.log('Updating map with currentGeoJSON:', currentGeoJSON);
+function updateMap(geojson) {
+    console.log('Updating map with GeoJSON:', geojson);
 
     layerGroup.clearLayers();
 
     const colors = ['#BB86FC', '#03DAC6', '#FF0266', '#CF6679'];
-    const imeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
+    const imeis = [...new Set(geojson.features.map(f => f.properties.imei))];
 
-    currentGeoJSON.features.forEach((feature, index) => {
-        const color = colors[imeis.indexOf(feature.properties.imei) % colors.length];
-        L.geoJSON(feature, {
-            style: {
+    L.geoJSON(geojson, {
+        style: (feature) => {
+            const color = colors[imeis.indexOf(feature.properties.imei) % colors.length];
+            return {
                 color: color,
                 weight: 2,
                 opacity: 0.7
-            }
-        }).addTo(layerGroup);
-    });
+            };
+        },
+        onEachFeature: (feature, layer) => {
+            layer.bindPopup(`
+                <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
+                <strong>Start Time:</strong> ${new Date(feature.properties.startTime).toLocaleString()}<br>
+                <strong>End Time:</strong> ${new Date(feature.properties.endTime).toLocaleString()}<br>
+                <strong>Distance:</strong> ${feature.properties.distance.toFixed(2)} miles
+            `);
+        }
+    }).addTo(layerGroup);
 
-    const bounds = L.geoJSON(currentGeoJSON).getBounds();
+    const bounds = L.geoJSON(geojson).getBounds();
     if (bounds.isValid()) {
         map.fitBounds(bounds);
     } else {
@@ -158,8 +168,10 @@ function handleLiveRouteUpdate(data) {
                 }
             };
 
-            currentGeoJSON.features.push(newFeature);
-            updateMap();
+            updateMap({
+                type: 'FeatureCollection',
+                features: [newFeature]
+            });
         } catch (error) {
             console.error('Error handling live route update:', error);
         }

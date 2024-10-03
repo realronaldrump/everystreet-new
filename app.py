@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 import certifi
 from geojson import loads as geojson_loads, dumps as geojson_dumps
-import certifi
+import traceback
 
 load_dotenv()
 
@@ -194,28 +194,60 @@ def get_trips():
         else:
             query['imei'] = {'$in': AUTHORIZED_DEVICES}
         
-        trips = list(trips_collection.find(query, {'_id': 0}))
+        print(f"Query: {query}")  # Debug print
         
+        # Projection to limit the fields returned
+        projection = {
+            '_id': 0,
+            'transactionId': 1,
+            'imei': 1,
+            'startTime': 1,
+            'endTime': 1,
+            'distance': 1,
+            'gps': 1
+        }
+        
+        trips = list(trips_collection.find(query, projection))
+        print(f"Found {len(trips)} trips")  # Debug print
+        
+        # Process trips on the server side
+        processed_trips = []
         for trip in trips:
-            if 'gps' in trip and isinstance(trip['gps'], str):
-                try:
-                    trip['gps'] = json.loads(trip['gps'])
-                except json.JSONDecodeError:
-                    print(f"Error decoding GPS data for trip {trip.get('transactionId')}")
-            trip['startTime'] = trip['startTime'].isoformat()
-            trip['endTime'] = trip['endTime'].isoformat()
+            try:
+                gps_data = trip['gps']
+                if isinstance(gps_data, str):
+                    gps_data = json.loads(gps_data)
+                
+                processed_trip = {
+                    'type': 'Feature',
+                    'geometry': gps_data,
+                    'properties': {
+                        'transactionId': trip['transactionId'],
+                        'imei': trip['imei'],
+                        'startTime': trip['startTime'].isoformat(),
+                        'endTime': trip['endTime'].isoformat(),
+                        'distance': trip['distance']
+                    }
+                }
+                processed_trips.append(processed_trip)
+            except Exception as e:
+                print(f"Error processing trip {trip.get('transactionId', 'Unknown')}: {e}")
+                print(f"Trip data: {trip}")
+                print(traceback.format_exc())
         
-        total_trips = len(trips)
+        geojson = {
+            'type': 'FeatureCollection',
+            'features': processed_trips
+        }
+        
+        total_trips = len(processed_trips)
         print(f"Returning {total_trips} trips in total")
         
-        # Calculate progress percentage
-        for i, trip in enumerate(trips):
-            socketio.emit('loading_progress', {'progress': int((i + 1) / total_trips * 100)})
-        
-        return jsonify(trips)
+        return jsonify(geojson)
     except Exception as e:
         print(f"Error in get_trips: {e}")
-        return jsonify({"error": "An error occurred while fetching trips"}), 500
+        print(traceback.format_exc())
+        return jsonify({"error": f"An error occurred while fetching trips: {str(e)}"}), 500
 
 @app.route('/api/metrics')
 def get_metrics():
@@ -239,23 +271,42 @@ def get_metrics():
     else:
         query['imei'] = {'$in': AUTHORIZED_DEVICES}
     
-    trips = list(trips_collection.find(query))
+    pipeline = [
+        {'$match': query},
+        {'$group': {
+            '_id': None,
+            'total_trips': {'$sum': 1},
+            'total_distance': {'$sum': '$distance'},
+            'avg_start_time': {'$avg': {'$hour': '$startTime'}},
+            'avg_driving_time': {'$avg': {'$subtract': ['$endTime', '$startTime']}}
+        }}
+    ]
     
-    total_trips = len(trips)
-    total_distance = sum(trip['distance'] for trip in trips)
-    avg_distance = total_distance / total_trips if total_trips > 0 else 0
-    avg_start_time = sum((trip['startTime'].hour * 60 + trip['startTime'].minute) for trip in trips) / total_trips if total_trips > 0 else 0
-    avg_driving_time = sum((trip['endTime'] - trip['startTime']).total_seconds() / 60 for trip in trips) / total_trips if total_trips > 0 else 0
+    result = list(trips_collection.aggregate(pipeline))
     
-    metrics = {
-        'total_trips': total_trips,
-        'total_distance': total_distance,
-        'avg_distance': avg_distance,
-        'avg_start_time': f"{int(avg_start_time // 60):02d}:{int(avg_start_time % 60):02d}",
-        'avg_driving_time': f"{int(avg_driving_time // 60):02d}:{int(avg_driving_time % 60):02d}"
-    }
-    
-    return jsonify(metrics)
+    if result:
+        metrics = result[0]
+        total_trips = metrics['total_trips']
+        total_distance = metrics['total_distance']
+        avg_distance = total_distance / total_trips if total_trips > 0 else 0
+        avg_start_time = metrics['avg_start_time']
+        avg_driving_time = metrics['avg_driving_time'] / 60000  # Convert to minutes
+        
+        return jsonify({
+            'total_trips': total_trips,
+            'total_distance': round(total_distance, 2),
+            'avg_distance': round(avg_distance, 2),
+            'avg_start_time': f"{int(avg_start_time):02d}:{int((avg_start_time % 1) * 60):02d}",
+            'avg_driving_time': f"{int(avg_driving_time // 60):02d}:{int(avg_driving_time % 60):02d}"
+        })
+    else:
+        return jsonify({
+            'total_trips': 0,
+            'total_distance': 0,
+            'avg_distance': 0,
+            'avg_start_time': "00:00",
+            'avg_driving_time': "00:00"
+        })
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
