@@ -118,6 +118,21 @@ function fetchAndStoreTrips() {
         });
 }
 
+document.getElementById('export-geojson').addEventListener('click', () => {
+    fetch('/export/geojson')
+        .then(response => response.json())
+        .then(geojson => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "trips.geojson");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        })
+        .catch(error => console.error('Error exporting GeoJSON:', error));
+});
+
 // Initialize date pickers
 flatpickr("#start-date", { 
     dateFormat: "Y-m-d",
