@@ -34,10 +34,11 @@ function initializeDataTable() {
         lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
         columns: [
             { data: '_id', title: 'Destination' },
-            { data: 'count', title: 'Visit Count' },
+            { data: 'count', title: 'Visit Count', type: 'num' },
             { 
                 data: 'totalDistance',
                 title: 'Total Distance',
+                type: 'num',
                 render: function(data) {
                     return `${data.toFixed(2)} miles`;
                 }
@@ -45,6 +46,7 @@ function initializeDataTable() {
             { 
                 data: 'averageDistance',
                 title: 'Average Distance',
+                type: 'num',
                 render: function(data) {
                     return `${data.toFixed(2)} miles`;
                 }
@@ -52,8 +54,10 @@ function initializeDataTable() {
             { 
                 data: 'lastVisit',
                 title: 'Last Visit',
+                type: 'date',
                 render: function(data) {
-                    return new Date(data).toLocaleString();
+                    const date = new Date(data);
+                    return date.toLocaleString();
                 }
             }
         ],
