@@ -1,5 +1,7 @@
 let map = null;
 let layerGroup = null;
+let liveRoutePolyline = null;
+let liveMarker = null;
 
 /* global io */
 const socket = io.connect();
@@ -58,10 +60,12 @@ function initializeDateRange() {
 
 function showLoadingOverlay() {
     document.getElementById('loading-overlay').style.display = 'flex';
+    document.body.classList.add('loading');
 }
 
 function hideLoadingOverlay() {
     document.getElementById('loading-overlay').style.display = 'none';
+    document.body.classList.remove('loading');
 }
 
 function updateLoadingProgress(progress) {
@@ -140,10 +144,14 @@ function updateMap(geojson) {
             };
         },
         onEachFeature: (feature, layer) => {
+            // Convert ISO date strings to Date objects and format them
+            const startTime = new Date(feature.properties.startTime);
+            const endTime = new Date(feature.properties.endTime);
+
             layer.bindPopup(`
                 <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
-                <strong>Start Time:</strong> ${new Date(feature.properties.startTime).toLocaleString()}<br>
-                <strong>End Time:</strong> ${new Date(feature.properties.endTime).toLocaleString()}<br>
+                <strong>Start Time:</strong> ${startTime.toLocaleString()}<br>
+                <strong>End Time:</strong> ${endTime.toLocaleString()}<br>
                 <strong>Distance:</strong> ${feature.properties.distance.toFixed(2)} miles
             `);
         }
@@ -160,34 +168,42 @@ function updateMap(geojson) {
 function handleLiveRouteUpdate(data) {
     if (document.getElementById('show-live-routes').checked) {
         try {
-            const lastPoint = data.data[data.data.length - 1];
+            const coordinates = data.data.map(point => [point.gps.lat, point.gps.lon]);
+            const lastPoint = coordinates[coordinates.length - 1];
             const isVehicleOff = data.isVehicleOff; // Assuming this data is available
 
-            const newFeature = {
-                type: 'Feature',
-                geometry: {
-                    type: 'LineString',
-                    coordinates: data.data.map(point => [point.gps.lon, point.gps.lat])
-                },
-                properties: {
-                    transactionId: data.transactionId,
-                    startTime: new Date(data.data[0].timestamp).toLocaleString(), // Convert to local time
-                    endTime: new Date(lastPoint.timestamp).toLocaleString(), // Convert to local time
-                    distance: lastPoint.distance - data.data[0].distance,
-                    imei: data.imei
-                }
-            };
+            // Remove existing polyline and marker if they exist
+            if (liveRoutePolyline) {
+                layerGroup.removeLayer(liveRoutePolyline);
+            }
+            if (liveMarker) {
+                layerGroup.removeLayer(liveMarker);
+            }
 
-            updateMap({
-                type: 'FeatureCollection',
-                features: [newFeature]
-            });
-
-            // Add a circle marker for the live location
-            const circleMarker = L.circleMarker([lastPoint.gps.lat, lastPoint.gps.lon], {
-                radius: 5,
-                className: isVehicleOff ? 'circle-marker-off' : 'circle-marker'
+            // Add or update the live route polyline
+            liveRoutePolyline = L.polyline(coordinates, {
+                color: isVehicleOff ? 'red' : 'green',
+                weight: 3,
+                opacity: 0.7,
             }).addTo(layerGroup);
+
+            // Add or update the live location marker
+            liveMarker = L.circleMarker(lastPoint, {
+                radius: 8,
+                color: '#fff',
+                fillColor: isVehicleOff ? '#f03' : '#0f0',
+                fillOpacity: 1,
+                className: 'live-marker',
+            }).addTo(layerGroup);
+
+            liveMarker.bindPopup(`
+                <strong>Vehicle Status:</strong> ${isVehicleOff ? 'Parked' : 'Driving'}<br>
+                <strong>Latitude:</strong> ${lastPoint[0].toFixed(5)}<br>
+                <strong>Longitude:</strong> ${lastPoint[1].toFixed(5)}
+            `);
+
+            // Optionally, center the map on the new point
+            map.panTo(lastPoint);
 
         } catch (error) {
             console.error('Error handling live route update:', error);
@@ -232,9 +248,7 @@ function handleLiveRoutesToggle(e) {
 
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
-    const main = document.querySelector('main');
-    sidebar.classList.toggle('collapsed');
-    main.classList.toggle('expanded');
+    sidebar.classList.toggle('active');
 }
 
 function initThreeJSAnimations() {

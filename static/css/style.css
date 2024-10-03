@@ -279,6 +279,11 @@ tr:hover {
     justify-content: center;
     align-items: center;
     z-index: 9999;
+    pointer-events: all;
+}
+
+body.loading {
+    pointer-events: none;
 }
 
 .loading-content {
@@ -327,5 +332,64 @@ tr:hover {
     }
     100% {
         r: 5;
+    }
+}
+
+.live-marker {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.5);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Adjust sidebar for mobile */
+@media only screen and (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: -250px;
+        top: 0;
+        height: 100%;
+        z-index: 1000;
+        transition: left 0.3s;
+    }
+
+    .sidebar.active {
+        left: 0;
+    }
+
+    main {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+/* Hamburger Menu */
+.sidebar-header .sidebar-toggle {
+    display: none;
+}
+
+@media only screen and (max-width: 768px) {
+    .sidebar-header .sidebar-toggle {
+        display: block;
+    }
+}
+
+#map, #insights-container, #trips-list {
+    width: 100%;
+    height: calc(100vh - 60px); /* Adjust height accordingly */
+}
+
+@media only screen and (max-width: 768px) {
+    #map, #insights-container, #trips-list {
+        height: calc(100vh - 60px);
     }
 }

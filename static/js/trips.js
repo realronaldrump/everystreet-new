@@ -6,8 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('end-date').value = today.toISOString().split('T')[0];
 
     initializeTabulator();
-    fetchTrips();
-    fetchUniqueImeis();
+    fetchUniqueImeis().then(fetchTrips);
 
     document.getElementById('apply-filters').addEventListener('click', fetchTrips);
     document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
@@ -29,8 +28,28 @@ function initializeTabulator() {
         columns: [
             { title: "Transaction ID", field: "transactionId", headerFilter: "input" },
             { title: "IMEI", field: "imei", headerFilter: "input" },
-            { title: "Start Time", field: "startTime", formatter: "datetime", sorter: "datetime", headerFilter: "input" },
-            { title: "End Time", field: "endTime", formatter: "datetime", sorter: "datetime", headerFilter: "input" },
+            { 
+                title: "Start Time", 
+                field: "startTime", 
+                formatter: "datetime", 
+                sorter: "datetime", 
+                headerFilter: "input",
+                formatterParams: {
+                    inputFormat: "YYYY-MM-DDTHH:mm:ss.SSSZ", // Assuming this is the format from the API
+                    outputFormat: "MM/DD/YYYY, h:mm:ss A" // Desired output format
+                } 
+            },
+            { 
+                title: "End Time", 
+                field: "endTime", 
+                formatter: "datetime", 
+                sorter: "datetime", 
+                headerFilter: "input",
+                formatterParams: {
+                    inputFormat: "YYYY-MM-DDTHH:mm:ss.SSSZ", // Assuming this is the format from the API
+                    outputFormat: "MM/DD/YYYY, h:mm:ss A" // Desired output format
+                }
+            },
             { title: "Distance (miles)", field: "distance", formatter: "money", formatterParams: { precision: 2 }, sorter: "number", headerFilter: "input" },
             { title: "Destination", field: "destination", headerFilter: "input" }
         ]
@@ -54,18 +73,13 @@ function fetchTrips() {
     }
 
     fetch(url)
-        .then(response => {
-            if (!response.ok) throw new Error('Network response was not ok');
-            return response.json();
-        })
+        .then(response => response.json())
         .then(geojson => {
             const trips = geojson.features.map(feature => ({
                 ...feature.properties,
                 gps: feature.geometry,
-                startTime: new Date(feature.properties.startTime).toLocaleString(), // Convert to local time
-                endTime: new Date(feature.properties.endTime).toLocaleString() // Convert to local time
             }));
-            tripsTable.setData(trips); // Use the existing Tabulator instance
+            tripsTable.setData(trips);
         })
         .catch(error => {
             console.error('Error fetching trips:', error);

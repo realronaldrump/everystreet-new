@@ -10,6 +10,8 @@ import certifi
 import geojson as geojson_module
 from geojson import loads as geojson_loads, dumps as geojson_dumps
 import traceback
+from timezonefinder import TimezoneFinder
+import pytz
 
 load_dotenv()
 
@@ -41,9 +43,11 @@ AUTH_CODE = os.getenv('AUTHORIZATION_CODE')
 AUTHORIZED_DEVICES = os.getenv('AUTHORIZED_DEVICES', '').split(',')
 MAPBOX_ACCESS_TOKEN = os.getenv('MAPBOX_ACCESS_TOKEN')
 
-
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
+
+# Initialize TimezoneFinder
+tf = TimezoneFinder()
 
 async def get_access_token(session):
     payload = {
@@ -140,8 +144,8 @@ def fetch_trips_for_geojson():
             properties={
                 "transactionId": trip['transactionId'],
                 "imei": trip['imei'],
-                "startTime": trip['startTime'].astimezone().isoformat(),  # Ensure timezone is considered
-                "endTime": trip['endTime'].astimezone().isoformat(),  # Ensure timezone is considered
+                "startTime": trip['startTime'].isoformat(), 
+                "endTime": trip['endTime'].isoformat(),
                 "distance": trip['distance'],
                 "destination": trip['destination']
             }
@@ -149,7 +153,24 @@ def fetch_trips_for_geojson():
         features.append(feature)
     
     return geojson_module.FeatureCollection(features)
-    
+
+def get_trip_timezone(trip):
+    """
+    Determines the timezone of a trip based on its GPS coordinates.
+    """
+    try:
+        gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
+        if gps_data['coordinates']:
+            # Get the coordinates of the first point in the trip
+            lon, lat = gps_data['coordinates'][0]
+            timezone_str = tf.timezone_at(lng=lon, lat=lat)
+            if timezone_str:
+                return timezone_str
+        return 'UTC'  # Default to UTC if timezone can't be determined
+    except Exception as e:
+        print(f"Error getting trip timezone: {e}")
+        return 'UTC'
+
 async def fetch_and_store_trips():
     try:
         print("Starting fetch_and_store_trips")
@@ -162,11 +183,16 @@ async def fetch_and_store_trips():
             start_date = end_date - timedelta(days=365*4)  # Fetch last x days of trips
             
             all_trips = []
-            for imei in AUTHORIZED_DEVICES:
+            total_devices = len(AUTHORIZED_DEVICES)
+            for device_count, imei in enumerate(AUTHORIZED_DEVICES, 1):
                 print(f"Fetching trips for IMEI: {imei}")
                 device_trips = await fetch_trips_in_intervals(session, access_token, imei, start_date, end_date)
                 print(f"Fetched {len(device_trips)} trips for IMEI {imei}")
                 all_trips.extend(device_trips)
+                
+                # Calculate and emit progress
+                progress = int((device_count / total_devices) * 100)
+                socketio.emit('loading_progress', {'progress': progress})
                 
             print(f"Total trips fetched: {len(all_trips)}")
             
@@ -183,8 +209,16 @@ async def fetch_and_store_trips():
                         print(f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}")
                         continue
 
-                    trip['startTime'] = datetime.fromisoformat(trip['startTime'])
-                    trip['endTime'] = datetime.fromisoformat(trip['endTime'])
+                    # Get the trip's timezone
+                    trip_timezone = get_trip_timezone(trip)
+
+                    # Convert startTime and endTime to naive datetime objects (ignoring Bouncie's timezone)
+                    trip['startTime'] = datetime.fromisoformat(trip['startTime']).replace(tzinfo=None)
+                    trip['endTime'] = datetime.fromisoformat(trip['endTime']).replace(tzinfo=None)
+
+                    # Localize the naive datetime objects to the correct timezone
+                    trip['startTime'] = pytz.timezone(trip_timezone).localize(trip['startTime'])
+                    trip['endTime'] = pytz.timezone(trip_timezone).localize(trip['endTime'])
                     
                     # Reverse geocode the last point of the trip
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
@@ -245,8 +279,16 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                         print(f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}")
                         continue
 
-                    trip['startTime'] = datetime.fromisoformat(trip['startTime'])
-                    trip['endTime'] = datetime.fromisoformat(trip['endTime'])
+                    # Get the trip's timezone
+                    trip_timezone = get_trip_timezone(trip)
+
+                    # Convert startTime and endTime to naive datetime objects (ignoring Bouncie's timezone)
+                    trip['startTime'] = datetime.fromisoformat(trip['startTime']).replace(tzinfo=None)
+                    trip['endTime'] = datetime.fromisoformat(trip['endTime']).replace(tzinfo=None)
+
+                    # Localize the naive datetime objects to the correct timezone
+                    trip['startTime'] = pytz.timezone(trip_timezone).localize(trip['startTime'])
+                    trip['endTime'] = pytz.timezone(trip_timezone).localize(trip['endTime'])
                     
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
                     last_point = gps_data['coordinates'][-1]
@@ -294,20 +336,22 @@ def get_trips():
         return jsonify({"error": "Database not connected"}), 500
     
     try:
-        start_date = request.args.get('start_date')
-        end_date = request.args.get('end_date')
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
         imei = request.args.get('imei')
-        
-        query = {}
-        if start_date and end_date:
-            query['startTime'] = {
-                '$gte': datetime.fromisoformat(start_date),
-                '$lte': datetime.fromisoformat(end_date)
-            }
+
+        # Handle date range filtering
+        if start_date_str and end_date_str:
+            start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
+            end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) + timedelta(days=1)  # Include the end date
         else:
+            # Default to last 1460 days (4 years)
             end_date = datetime.now(timezone.utc)
             start_date = end_date - timedelta(days=1460)
-            query['startTime'] = {'$gte': start_date, '$lte': end_date}
+        
+        query = {
+            'startTime': {'$gte': start_date, '$lte': end_date}
+        }
         
         if imei:
             query['imei'] = imei
@@ -377,15 +421,15 @@ def get_driving_insights():
         return jsonify({"error": "Database not connected"}), 500
     
     try:
-        start_date = request.args.get('start_date')
-        end_date = request.args.get('end_date')
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
         imei = request.args.get('imei')
         
         query = {}
-        if start_date and end_date:
+        if start_date_str and end_date_str:
             query['startTime'] = {
-                '$gte': datetime.fromisoformat(start_date),
-                '$lte': datetime.fromisoformat(end_date)
+                '$gte': datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc),
+                '$lte': datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc)
             }
         else:
             # Default to last 7 days
@@ -425,15 +469,15 @@ def get_driving_insights():
 
 @app.route('/api/metrics')
 def get_metrics():
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
     imei = request.args.get('imei')
     
     query = {}
-    if start_date and end_date:
+    if start_date_str and end_date_str:
         query['startTime'] = {
-            '$gte': datetime.fromisoformat(start_date),
-            '$lte': datetime.fromisoformat(end_date)
+            '$gte': datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc),
+            '$lte': datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc)
         }
     else:
         end_date = datetime.now(timezone.utc)
@@ -485,9 +529,14 @@ def get_metrics():
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
-    if data['eventType'] == 'tripData' and data['imei'] in AUTHORIZED_DEVICES:
-        live_routes_collection.insert_one(data)
-        socketio.emit('live_route_update', data)
+    if data['imei'] in AUTHORIZED_DEVICES:
+        if data['eventType'] == 'tripData':
+            live_routes_collection.insert_one(data)
+            data['isVehicleOff'] = False
+            socketio.emit('live_route_update', data)
+        elif data['eventType'] == 'tripEnd':
+            data['isVehicleOff'] = True
+            socketio.emit('live_route_update', data)
     return '', 204
 
 @app.route('/api/fetch_trips', methods=['POST'])
@@ -502,8 +551,8 @@ async def api_fetch_trips():
 async def api_fetch_trips_in_range():
     try:
         data = request.json
-        start_date = datetime.fromisoformat(data['start_date'])
-        end_date = datetime.fromisoformat(data['end_date'])
+        start_date = datetime.fromisoformat(data['start_date']).replace(tzinfo=timezone.utc)
+        end_date = datetime.fromisoformat(data['end_date']).replace(tzinfo=timezone.utc) + timedelta(days=1)  # Include end date
         await fetch_and_store_trips_in_range(start_date, end_date)
         return jsonify({"status": "success", "message": "Trips fetched and stored successfully."}), 200
     except Exception as fetch_error:
