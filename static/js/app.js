@@ -247,7 +247,11 @@ function initializeEventListeners() {
         fetchTrips();
     });
     document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
-
+    document.getElementById('fetch-trips-range').addEventListener('click', () => {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+        fetchTripsInRange(startDate, endDate);
+    });
 }
 
 socket.on('live_route_update', handleLiveRouteUpdate);
@@ -257,3 +261,26 @@ socket.on('loading_progress', (data) => {
 
 flatpickr("#start-date", { dateFormat: "Y-m-d" });
 flatpickr("#end-date", { dateFormat: "Y-m-d" });
+
+function fetchTripsInRange(startDate, endDate) {
+    fetch('/api/fetch_trips_in_range', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ start_date: startDate, end_date: endDate })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert(data.message);
+            fetchTrips(); // Refresh trips table after successful fetch
+        } else {
+            alert(`Error: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching trips in range:', error);
+        alert('An error occurred while fetching trips in range.');
+    });
+}

@@ -221,6 +221,66 @@ async def fetch_and_store_trips():
         print(f"Error in fetch_and_store_trips: {e}")
         print(traceback.format_exc())
 
+async def fetch_and_store_trips_in_range(start_date, end_date):
+    try:
+        print("Starting fetch_and_store_trips_in_range")
+        print(f"Authorized devices: {AUTHORIZED_DEVICES}")
+        async with aiohttp.ClientSession() as session:
+            access_token = await get_access_token(session)
+            print("Access token obtained")
+            
+            all_trips = []
+            for imei in AUTHORIZED_DEVICES:
+                print(f"Fetching trips for IMEI: {imei}")
+                device_trips = await fetch_trips_in_intervals(session, access_token, imei, start_date, end_date)
+                print(f"Fetched {len(device_trips)} trips for IMEI {imei}")
+                all_trips.extend(device_trips)
+                
+            print(f"Total trips fetched: {len(all_trips)}")
+            
+            for trip in all_trips:
+                try:
+                    existing_trip = trips_collection.find_one({'transactionId': trip['transactionId']})
+                    if existing_trip:
+                        print(f"Trip {trip['transactionId']} already exists in the database. Skipping.")
+                        continue
+
+                    is_valid, error_message = validate_trip_data(trip)
+                    if not is_valid:
+                        print(f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}")
+                        continue
+
+                    trip['startTime'] = datetime.fromisoformat(trip['startTime'])
+                    trip['endTime'] = datetime.fromisoformat(trip['endTime'])
+                    
+                    gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
+                    last_point = gps_data['coordinates'][-1]
+                    print(f"Last point coordinates: {last_point}")
+                    trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
+                    
+                    if isinstance(trip['gps'], dict):
+                        trip['gps'] = geojson_dumps(trip['gps'])
+                    result = trips_collection.update_one(
+                        {'transactionId': trip['transactionId']},
+                        {'$set': trip},
+                        upsert=True
+                    )
+                    print(f"Updated trip {trip['transactionId']} for IMEI {trip.get('imei', 'Unknown')}: {'Inserted' if result.upserted_id else 'Updated'}")
+                except Exception as e:
+                    print(f"Error updating trip {trip.get('transactionId', 'Unknown')}: {e}")
+                    print(traceback.format_exc())
+            
+            for imei in AUTHORIZED_DEVICES:
+                try:
+                    count = trips_collection.count_documents({'imei': imei})
+                    print(f"Trips in database for IMEI {imei}: {count}")
+                except Exception as e:
+                    print(f"Error counting trips for IMEI {imei}: {e}")
+        
+    except Exception as e:
+        print(f"Error in fetch_and_store_trips_in_range: {e}")
+        print(traceback.format_exc())
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -439,6 +499,17 @@ def webhook():
 async def api_fetch_trips():
     try:
         await fetch_and_store_trips()
+        return jsonify({"status": "success", "message": "Trips fetched and stored successfully."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/fetch_trips_in_range', methods=['POST'])
+async def api_fetch_trips_in_range():
+    try:
+        data = request.json
+        start_date = datetime.fromisoformat(data['start_date'])
+        end_date = datetime.fromisoformat(data['end_date'])
+        await fetch_and_store_trips_in_range(start_date, end_date)
         return jsonify({"status": "success", "message": "Trips fetched and stored successfully."}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
