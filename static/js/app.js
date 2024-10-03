@@ -20,7 +20,7 @@ function initializeMap() {
             attributionControl: false
         });
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
             attribution: ''
         }).addTo(map);
@@ -136,7 +136,7 @@ function updateMap(geojson) {
             return {
                 color: color,
                 weight: 2,
-                opacity: 0.7
+                opacity: 0.5
             };
         },
         onEachFeature: (feature, layer) => {
@@ -253,6 +253,7 @@ function initializeEventListeners() {
         const endDate = document.getElementById('end-date').value;
         fetchTripsInRange(startDate, endDate);
     });
+    document.getElementById('export-geojson').addEventListener('click', exportGeojson);
 }
 
 socket.on('live_route_update', handleLiveRouteUpdate);

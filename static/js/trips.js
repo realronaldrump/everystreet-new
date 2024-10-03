@@ -17,6 +17,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let tripsTable = null; // Initialize outside to reuse the table instance
 
+/* global Tabulator */
+/* global flatpickr */
+
 function initializeTabulator() {
     tripsTable = new Tabulator("#trips-table", {
         layout: "fitColumns",
