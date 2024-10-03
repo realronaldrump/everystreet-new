@@ -140,8 +140,8 @@ def fetch_trips_for_geojson():
             properties={
                 "transactionId": trip['transactionId'],
                 "imei": trip['imei'],
-                "startTime": trip['startTime'],
-                "endTime": trip['endTime'],
+                "startTime": trip['startTime'].astimezone().isoformat(),  # Ensure timezone is considered
+                "endTime": trip['endTime'].astimezone().isoformat(),  # Ensure timezone is considered
                 "distance": trip['distance'],
                 "destination": trip['destination']
             }

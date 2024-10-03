@@ -61,7 +61,9 @@ function fetchTrips() {
         .then(geojson => {
             const trips = geojson.features.map(feature => ({
                 ...feature.properties,
-                gps: feature.geometry
+                gps: feature.geometry,
+                startTime: new Date(feature.properties.startTime).toLocaleString(), // Convert to local time
+                endTime: new Date(feature.properties.endTime).toLocaleString() // Convert to local time
             }));
             tripsTable.setData(trips); // Use the existing Tabulator instance
         })

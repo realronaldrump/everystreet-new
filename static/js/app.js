@@ -171,8 +171,8 @@ function handleLiveRouteUpdate(data) {
                 },
                 properties: {
                     transactionId: data.transactionId,
-                    startTime: data.data[0].timestamp,
-                    endTime: lastPoint.timestamp,
+                    startTime: new Date(data.data[0].timestamp).toLocaleString(), // Convert to local time
+                    endTime: new Date(lastPoint.timestamp).toLocaleString(), // Convert to local time
                     distance: lastPoint.distance - data.data[0].distance,
                     imei: data.imei
                 }
