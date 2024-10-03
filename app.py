@@ -118,7 +118,26 @@ async def reverse_geocode_nominatim(lat, lon):
         print(f"Error in Nominatim geocoding: {e}")
         return f"Location at {lat}, {lon}"
 
-
+def fetch_trips_for_geojson():
+    trips = trips_collection.find()  # Adjust your query as needed
+    features = []
+    
+    for trip in trips:
+        feature = geojson.Feature(
+            geometry=geojson.loads(trip['gps']),
+            properties={
+                "transactionId": trip['transactionId'],
+                "imei": trip['imei'],
+                "startTime": trip['startTime'],
+                "endTime": trip['endTime'],
+                "distance": trip['distance'],
+                "destination": trip['destination']
+            }
+        )
+        features.append(feature)
+    
+    return geojson.FeatureCollection(features)
+    
 async def fetch_and_store_trips():
     try:
         print("Starting fetch_and_store_trips")
@@ -393,6 +412,14 @@ def add_header(response):
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     return response
+
+@app.route('/export/geojson')
+def export_geojson():
+    try:
+        geojson_data = fetch_trips_for_geojson()
+        return jsonify(geojson_data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 async def start_background_tasks():
     await fetch_and_store_trips()
