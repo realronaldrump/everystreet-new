@@ -133,17 +133,41 @@ input[type="text"], select {
     border-radius: 4px;
 }
 
-/* DataTables Styles */
+/* General table styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    background-color: #1E1E1E; /* Dark gray background */
+    color: var(--text-color);
+}
+
+th, td {
+    padding: 12px 15px;
+    border: 1px solid #2c2c2c; /* Dark border */
+    text-align: left;
+}
+
+th {
+    background-color: #2C2C2C;
+    color: var(--accent-color);
+    position: sticky; /* Keep headers visible when scrolling */
+    top: 0;
+}
+
+tr:nth-child(even) {
+    background-color: #2A2A2A;
+}
+
+tr:hover {
+    background-color: #333333;
+}
+
+/* DataTables specific styling */
 .dataTables_wrapper {
     background-color: #1E1E1E;
     padding: 20px;
     border-radius: 5px;
-    margin-top: 20px;
-}
-
-table.dataTable {
-    color: var(--text-color);
-    width: 100%;
 }
 
 .dataTables_wrapper .dataTables_paginate .paginate_button {
@@ -157,11 +181,19 @@ table.dataTable {
     color: var(--bg-color) !important;
 }
 
-/* Tabulator Styles */
-#trips-table {
-    margin-top: 20px;
+.dataTables_wrapper .dataTables_filter input {
+    background-color: #2C2C2C;
+    color: var(--text-color);
+    border: 1px solid var(--accent-color);
 }
 
+.dataTables_wrapper .dataTables_length select {
+    background-color: #2C2C2C;
+    color: var(--text-color);
+    border: 1px solid var(--accent-color);
+}
+
+/* Tabulator styles */
 .tabulator {
     background-color: #1E1E1E;
     color: var(--text-color);
@@ -187,6 +219,11 @@ table.dataTable {
 
 .tabulator .tabulator-cell {
     border-right: 1px solid var(--bg-color);
+}
+
+/* Ensure text is visible */
+.tabulator-cell, .tabulator-header {
+    color: var(--text-color);
 }
 
 /* Responsive Adjustments */
