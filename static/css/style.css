@@ -180,3 +180,40 @@ button:hover {
     background-color: var(--accent-color) !important;
     color: var(--bg-color) !important;
 }
+
+/* Dark theme for tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    background-color: #121212; /* Dark background */
+    color: var(--text-color); /* Light text */
+}
+
+th, td {
+    padding: 12px 15px;
+    border: 1px solid #2c2c2c; /* Dark border */
+    text-align: left;
+}
+
+th {
+    background-color: var(--accent-color); /* Purple accent for header */
+    color: var(--bg-color); /* Dark text for header */
+}
+
+tr:nth-child(even) {
+    background-color: #1E1E1E; /* Dark gray for even rows */
+}
+
+tr:hover {
+    background-color: #BB86FC; /* Purple highlight on hover */
+    color: var(--bg-color); /* Dark text on hover */
+}
+
+.table-container {
+    overflow-x: auto;
+    margin-top: 20px;
+    border-radius: 5px;
+    background-color: #1E1E1E; /* Dark gray background */
+    padding: 10px;
+}

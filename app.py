@@ -10,6 +10,8 @@ from pymongo import MongoClient
 import certifi
 from geojson import loads as geojson_loads, dumps as geojson_dumps
 import traceback
+from arcgis.gis import GIS
+from arcgis.geocoding import reverse_geocode
 
 load_dotenv()
 
@@ -40,6 +42,11 @@ REDIRECT_URI = os.getenv('REDIRECT_URI')
 AUTH_CODE = os.getenv('AUTHORIZATION_CODE')
 AUTHORIZED_DEVICES = os.getenv('AUTHORIZED_DEVICES', '').split(',')
 MAPBOX_ACCESS_TOKEN = os.getenv('MAPBOX_ACCESS_TOKEN')
+
+# ArcGIS setup
+ARCGIS_USERNAME = os.getenv('ARCGIS_USERNAME')
+ARCGIS_PASSWORD = os.getenv('ARCGIS_PASSWORD')
+gis = GIS("https://www.arcgis.com", ARCGIS_USERNAME, ARCGIS_PASSWORD)
 
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
@@ -101,6 +108,38 @@ def validate_trip_data(trip):
     
     return True, None
 
+async def reverse_geocode_nominatim(lat, lon):
+    url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}"
+    headers = {'User-Agent': 'EveryStreet/1.0'}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get('display_name', f"Location at {lat}, {lon}")
+                else:
+                    print(f"Nominatim API error: {response.status}")
+                    return f"Location at {lat}, {lon}"
+    except Exception as e:
+        print(f"Error in Nominatim geocoding: {e}")
+        return f"Location at {lat}, {lon}"
+
+async def reverse_geocode_location(lat, lon):
+    try:
+        print(f"Attempting to reverse geocode: Lat {lat}, Lon {lon}")
+        result = reverse_geocode((lon, lat))
+        if result:
+            print(f"Reverse geocoding result: {result}")
+            return result['address']['Match_addr']
+        else:
+            print("No result from ArcGIS reverse geocoding, falling back to Nominatim")
+            return await reverse_geocode_nominatim(lat, lon)
+    except Exception as e:
+        print(f"Error in ArcGIS reverse geocoding: {e}")
+        print(f"Error details: {traceback.format_exc()}")
+        print("Falling back to Nominatim geocoding")
+        return await reverse_geocode_nominatim(lat, lon)
+
 async def fetch_and_store_trips():
     try:
         print("Starting fetch_and_store_trips")
@@ -110,7 +149,7 @@ async def fetch_and_store_trips():
             print("Access token obtained")
             
             end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(days=10)  # Fetch last x days of trips
+            start_date = end_date - timedelta(days=365*4)  # Fetch last x days of trips
             
             all_trips = []
             for imei in AUTHORIZED_DEVICES:
@@ -136,6 +175,13 @@ async def fetch_and_store_trips():
 
                     trip['startTime'] = datetime.fromisoformat(trip['startTime'])
                     trip['endTime'] = datetime.fromisoformat(trip['endTime'])
+                    
+                    # Reverse geocode the last point of the trip
+                    gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
+                    last_point = gps_data['coordinates'][-1]
+                    print(f"Last point coordinates: {last_point}")
+                    trip['destination'] = await reverse_geocode_location(last_point[1], last_point[0])
+                    
                     if isinstance(trip['gps'], dict):
                         trip['gps'] = geojson_dumps(trip['gps'])
                     result = trips_collection.update_one(
@@ -146,6 +192,7 @@ async def fetch_and_store_trips():
                     print(f"Updated trip {trip['transactionId']} for IMEI {trip.get('imei', 'Unknown')}: {'Inserted' if result.upserted_id else 'Updated'}")
                 except Exception as e:
                     print(f"Error updating trip {trip.get('transactionId', 'Unknown')}: {e}")
+                    print(traceback.format_exc())
             
             # Log the count of trips in the database for each IMEI
             for imei in AUTHORIZED_DEVICES:
@@ -157,8 +204,7 @@ async def fetch_and_store_trips():
         
     except Exception as e:
         print(f"Error in fetch_and_store_trips: {e}")
-        import traceback
-        traceback.print_exc()
+        print(traceback.format_exc())
 
 @app.route('/')
 def index():
@@ -166,7 +212,11 @@ def index():
 
 @app.route('/trips')
 def trips_page():
-    return render_template('trips.html') 
+    return render_template('trips.html')
+
+@app.route('/driving-insights')
+def driving_insights_page():
+    return render_template('driving_insights.html')
 
 @app.route('/api/trips')
 def get_trips():
@@ -204,7 +254,8 @@ def get_trips():
             'startTime': 1,
             'endTime': 1,
             'distance': 1,
-            'gps': 1
+            'gps': 1,
+            'destination': 1
         }
         
         trips = list(trips_collection.find(query, projection))
@@ -226,7 +277,8 @@ def get_trips():
                         'imei': trip['imei'],
                         'startTime': trip['startTime'].isoformat(),
                         'endTime': trip['endTime'].isoformat(),
-                        'distance': trip['distance']
+                        'distance': trip['distance'],
+                        'destination': trip.get('destination', 'Unknown')
                     }
                 }
                 processed_trips.append(processed_trip)
@@ -248,6 +300,35 @@ def get_trips():
         print(f"Error in get_trips: {e}")
         print(traceback.format_exc())
         return jsonify({"error": f"An error occurred while fetching trips: {str(e)}"}), 500
+
+@app.route('/api/driving-insights')
+def get_driving_insights():
+    if trips_collection is None:
+        return jsonify({"error": "Database not connected"}), 500
+    
+    try:
+        pipeline = [
+            {
+                '$group': {
+                    '_id': '$destination',
+                    'count': {'$sum': 1},
+                    'totalDistance': {'$sum': '$distance'},
+                    'averageDistance': {'$avg': '$distance'},
+                    'lastVisit': {'$max': '$endTime'}
+                }
+            },
+            {
+                '$sort': {'count': -1}
+            }
+        ]
+        
+        insights = list(trips_collection.aggregate(pipeline))
+        
+        return jsonify(insights)
+    except Exception as e:
+        print(f"Error in get_driving_insights: {e}")
+        print(traceback.format_exc())
+        return jsonify({"error": f"An error occurred while fetching driving insights: {str(e)}"}), 500
 
 @app.route('/api/metrics')
 def get_metrics():

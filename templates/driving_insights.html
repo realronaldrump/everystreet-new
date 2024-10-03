@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Every Street - Trips</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <title>Every Street - Driving Insights</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body>
     <div id="app">
@@ -34,34 +35,45 @@
                         <option value="">All</option>
                     </select>
                     <button id="apply-filters">Apply Filters</button>
-                    <button id="fetch-trips">Fetch and Store Trips</button>
                 </div>
             </div>
         </nav>
 
         <main>
-            <div id="trips-list">
-                <table id="trips-table" class="display">
-                    <thead>
-                        <tr>
-                            <th>Transaction ID</th>
-                            <th>IMEI</th>
-                            <th>Start Time</th>
-                            <th>End Time</th>
-                            <th>Distance</th>
-                            <th>Destination</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Trip data will be added here -->
-                    </tbody>
-                </table>
+            <div id="insights-container">
+                <h1>Driving Insights</h1>
+                <div id="summary-metrics">
+                    <h2>Summary</h2>
+                    <ul>
+                        <li>Total Trips: <span id="total-trips">0</span></li>
+                        <li>Total Distance: <span id="total-distance">0</span> miles</li>
+                        <li>Most Visited Destination: <span id="most-visited">N/A</span></li>
+                    </ul>
+                </div>
+                <div id="insights-list">
+                    <h2>Destination Frequency</h2>
+                    <table id="insights-table" class="display">
+                        <thead>
+                            <tr>
+                                <th>Destination</th>
+                                <th>Visit Count</th>
+                                <th>Total Distance</th>
+                                <th>Average Distance</th>
+                                <th>Last Visit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Insights data will be added here -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </main>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
-    <script src="/static/js/trips.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="{{ url_for('static', filename='js/driving_insights.js') }}"></script>
 </body>
 </html>

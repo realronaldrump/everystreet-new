@@ -1,4 +1,4 @@
-Flask
+Flask[async]
 flask-socketio
 python-dotenv
 pymongo
@@ -8,3 +8,4 @@ gunicorn
 aiohttp
 asyncio
 certifi
+arcgis

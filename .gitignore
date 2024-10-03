@@ -3,3 +3,4 @@ venv/
 validate.py
 cleardatabase.py
 data_migrate.py
+.env

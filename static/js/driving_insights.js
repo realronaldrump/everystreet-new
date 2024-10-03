@@ -1,57 +1,51 @@
-let tripsTable;
+let insightsTable;
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeDataTable();
-    fetchTrips();
+    fetchDrivingInsights();
     fetchUniqueImeis();
 
-    document.getElementById('apply-filters').addEventListener('click', fetchTrips);
+    document.getElementById('apply-filters').addEventListener('click', fetchDrivingInsights);
     document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
-    document.getElementById('fetch-trips').addEventListener('click', fetchAndStoreTrips);
 });
 
 function initializeDataTable() {
-    tripsTable = $('#trips-table').DataTable({
+    insightsTable = $('#insights-table').DataTable({
         responsive: true,
         pageLength: 25,
         lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
         columns: [
-            { data: 'transactionId' },
-            { data: 'imei' },
+            { data: '_id' },
+            { data: 'count' },
             { 
-                data: 'startTime',
+                data: 'totalDistance',
                 render: function(data) {
-                    return new Date(data).toLocaleString();
-                }
-            },
-            { 
-                data: 'endTime',
-                render: function(data) {
-                    return new Date(data).toLocaleString();
-                }
-            },
-            { 
-                data: 'distance',
-                render: function(data, type) {
-                    if (type === 'sort' || type === 'type') {
-                        return parseFloat(data);
-                    }
                     return data.toFixed(2) + ' miles';
-                },
-                type: 'num'
+                }
             },
-            { data: 'destination' }
+            { 
+                data: 'averageDistance',
+                render: function(data) {
+                    return data.toFixed(2) + ' miles';
+                }
+            },
+            { 
+                data: 'lastVisit',
+                render: function(data) {
+                    return new Date(data).toLocaleString();
+                }
+            }
         ],
-        order: [[2, 'desc']] // Sort by start time, most recent first
+        order: [[1, 'desc']] // Sort by visit count, highest first
     });
 }
 
-function fetchTrips() {
+function fetchDrivingInsights() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
     const imei = document.getElementById('imei').value;
 
-    let url = '/api/trips';
+    let url = '/api/driving-insights';
     if (startDate || endDate || imei) {
         url += '?';
         if (startDate) url += `start_date=${startDate}&`;
@@ -62,24 +56,20 @@ function fetchTrips() {
 
     fetch(url)
         .then(response => response.json())
-        .then(geojson => {
-            console.log('Fetched trips:', geojson);
-            const trips = geojson.features.map(feature => ({
-                ...feature.properties,
-                gps: feature.geometry
-            }));
-            tripsTable.clear().rows.add(trips).draw();
+        .then(insights => {
+            console.log('Fetched driving insights:', insights);
+            insightsTable.clear().rows.add(insights).draw();
         })
         .catch(error => {
-            console.error('Error fetching trips:', error);
+            console.error('Error fetching driving insights:', error);
         });
 }
 
 function fetchUniqueImeis() {
     fetch('/api/trips')
         .then(response => response.json())
-        .then(geojson => {
-            const imeis = [...new Set(geojson.features.map(feature => feature.properties.imei))];
+        .then(trips => {
+            const imeis = [...new Set(trips.map(trip => trip.imei))];
             const imeiSelect = document.getElementById('imei');
 
             imeis.forEach(imei => {
@@ -99,23 +89,6 @@ function toggleSidebar() {
     const main = document.querySelector('main');
     sidebar.classList.toggle('collapsed');
     main.classList.toggle('expanded');
-}
-
-function fetchAndStoreTrips() {
-    fetch('/api/fetch_trips', { method: 'POST' })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert(data.message);
-                fetchTrips(); // Refresh the trips list
-            } else {
-                alert(`Error: ${data.message}`);
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching and storing trips:', error);
-            alert('An error occurred while fetching and storing trips.');
-        });
 }
 
 // Initialize date pickers
