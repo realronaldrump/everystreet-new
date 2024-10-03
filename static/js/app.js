@@ -4,10 +4,10 @@ let layerGroup;
 const socket = io();
 
 function initializeMap() {
+    // Ensure the map container exists
     const mapElement = document.getElementById('map');
     if (!mapElement) {
         console.error('Map container not found');
-        showError('Error: Map container not found. Please refresh the page.');
         return;
     }
 
@@ -16,12 +16,12 @@ function initializeMap() {
             center: [37.0902, -95.7129],
             zoom: 4,
             zoomControl: true,
-            attributionControl: false  // Remove attribution control
+            attributionControl: false
         });
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: ''  // Empty string to remove attribution text
+            attribution: ''
         }).addTo(map);
 
         layerGroup = L.layerGroup().addTo(map);
@@ -44,7 +44,6 @@ function initializeMap() {
         console.log('Map initialized successfully');
     } catch (error) {
         console.error('Error initializing Leaflet map:', error);
-        showError(`Error initializing map: ${error.message}`);
     }
 }
 
@@ -222,24 +221,32 @@ function toggleSidebar() {
 
 function initThreeJSAnimations() {
     // Placeholder for Three.js animations
-    // Implement your Three.js animations here
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeMap();
-    initializeDateRange();
+    initializeDatePickers();
+    initializeEventListeners();
     fetchTrips();
+});
 
-    document.getElementById('apply-date-range').addEventListener('click', fetchTrips);
-    document.getElementById('preset-periods-dropdown').addEventListener('change', handlePresetPeriodChange);
-    document.getElementById('show-live-routes').addEventListener('change', handleLiveRoutesToggle);
+function initializeEventListeners() {
+    document.getElementById('apply-filters').addEventListener('click', () => {
+        // Update localStorage with the selected dates
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+        localStorage.setItem('startDate', startDate);
+        localStorage.setItem('endDate', endDate);
+        fetchTrips();
+    });
     document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
 
-    socket.on('live_route_update', handleLiveRouteUpdate);
-    socket.on('loading_progress', (data) => {
-        updateLoadingProgress(data.progress);
-    });
+}
 
-    flatpickr("#start-date", { dateFormat: "Y-m-d" });
-    flatpickr("#end-date", { dateFormat: "Y-m-d" });
+socket.on('live_route_update', handleLiveRouteUpdate);
+socket.on('loading_progress', (data) => {
+    updateLoadingProgress(data.progress);
 });
+
+flatpickr("#start-date", { dateFormat: "Y-m-d" });
+flatpickr("#end-date", { dateFormat: "Y-m-d" });
