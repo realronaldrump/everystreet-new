@@ -62,8 +62,8 @@ function initializeDataTable() {
 }
 
 function fetchDrivingInsights() {
-    const startDate = document.getElementById('start-date').value || '';
-    const endDate = document.getElementById('end-date').value || '';
+    const startDate = localStorage.getItem('startDate') || '';
+    const endDate = localStorage.getItem('endDate') || '';
     const imei = document.getElementById('imei').value || '';
 
     const params = new URLSearchParams();
