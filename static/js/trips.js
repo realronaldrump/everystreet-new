@@ -1,7 +1,5 @@
-let tripsTable;
-
 document.addEventListener('DOMContentLoaded', () => {
-    initializeDataTable();
+    initializeTabulator();
     fetchTrips();
     fetchUniqueImeis();
 
@@ -10,39 +8,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('fetch-trips').addEventListener('click', fetchAndStoreTrips);
 });
 
-function initializeDataTable() {
-    tripsTable = $('#trips-table').DataTable({
-        responsive: true,
-        pageLength: 25,
-        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
+function initializeTabulator() {
+    new Tabulator("#trips-table", {
+        layout: "fitColumns",
         columns: [
-            { data: 'transactionId' },
-            { data: 'imei' },
-            { 
-                data: 'startTime',
-                render: function(data) {
-                    return new Date(data).toLocaleString();
-                }
-            },
-            { 
-                data: 'endTime',
-                render: function(data) {
-                    return new Date(data).toLocaleString();
-                }
-            },
-            { 
-                data: 'distance',
-                render: function(data, type) {
-                    if (type === 'sort' || type === 'type') {
-                        return parseFloat(data);
-                    }
-                    return data.toFixed(2) + ' miles';
-                },
-                type: 'num'
-            },
-            { data: 'destination' }
+            { title: "Transaction ID", field: "transactionId" },
+            { title: "IMEI", field: "imei" },
+            { title: "Start Time", field: "startTime", formatter: "datetime" },
+            { title: "End Time", field: "endTime", formatter: "datetime" },
+            { title: "Distance", field: "distance", formatter: "money", formatterParams: { precision: 2 } },
+            { title: "Destination", field: "destination" }
         ],
-        order: [[2, 'desc']] // Sort by start time, most recent first
     });
 }
 
@@ -63,12 +39,11 @@ function fetchTrips() {
     fetch(url)
         .then(response => response.json())
         .then(geojson => {
-            console.log('Fetched trips:', geojson);
             const trips = geojson.features.map(feature => ({
                 ...feature.properties,
                 gps: feature.geometry
             }));
-            tripsTable.clear().rows.add(trips).draw();
+            Tabulator("#trips-table").setData(trips);
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
@@ -107,7 +82,7 @@ function fetchAndStoreTrips() {
         .then(data => {
             if (data.status === 'success') {
                 alert(data.message);
-                fetchTrips(); // Refresh the trips list
+                fetchTrips();
             } else {
                 alert(`Error: ${data.message}`);
             }
