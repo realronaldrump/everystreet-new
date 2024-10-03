@@ -1,3 +1,4 @@
+/* static/css/style.css */
 :root {
     --bg-color: #121212;
     --text-color: #ffffff;
@@ -71,6 +72,7 @@ main {
     transition: all 0.3s;
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
 }
 
 #map {
@@ -78,14 +80,11 @@ main {
     margin-bottom: 20px;
 }
 
-#metrics {
+#metrics, #summary-metrics {
     background-color: rgba(30, 30, 30, 0.8);
     padding: 20px;
     border-radius: 5px;
-}
-
-#date-range, #preset-periods, #live-routes-toggle {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
 }
 
 input[type="date"], select, button {
@@ -108,10 +107,6 @@ button {
 
 button:hover {
     background-color: var(--secondary-color);
-}
-
-#trips-list {
-    margin-top: 20px;
 }
 
 .loading-overlay {
@@ -150,6 +145,58 @@ button:hover {
 #loading-text {
     color: var(--text-color);
     font-size: 16px;
+}
+
+/* DataTables styling */
+.dataTables_wrapper {
+    background-color: #1E1E1E;
+    padding: 20px;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+table.dataTable {
+    color: var(--text-color);
+    border-collapse: collapse;
+}
+
+table.dataTable thead th,
+table.dataTable thead td {
+    border-bottom: 1px solid var(--accent-color);
+    color: var(--accent-color);
+}
+
+table.dataTable tbody tr {
+    background-color: #1E1E1E;
+}
+
+table.dataTable tbody tr:hover {
+    background-color: #2C2C2C;
+}
+
+.dataTables_info,
+.dataTables_paginate {
+    color: var(--text-color) !important;
+    margin-top: 10px;
+}
+
+.dataTables_paginate .paginate_button {
+    color: var(--text-color) !important;
+    background-color: #2C2C2C !important;
+    border: 1px solid var(--accent-color) !important;
+}
+
+.dataTables_paginate .paginate_button:hover,
+.dataTables_paginate .paginate_button.current {
+    color: var(--bg-color) !important;
+    background-color: var(--accent-color) !important;
+}
+
+.dataTables_filter input,
+.dataTables_length select {
+    background-color: #2C2C2C;
+    color: var(--text-color);
+    border: 1px solid var(--accent-color);
 }
 
 /* Leaflet specific styles */

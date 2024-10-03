@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date();
+    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    document.getElementById('start-date').value = sevenDaysAgo.toISOString().split('T')[0];
+    document.getElementById('end-date').value = today.toISOString().split('T')[0];
+
     initializeTabulator();
     fetchTrips();
     fetchUniqueImeis();
@@ -6,10 +12,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('apply-filters').addEventListener('click', fetchTrips);
     document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
     document.getElementById('fetch-trips').addEventListener('click', fetchAndStoreTrips);
+    document.getElementById('export-geojson').addEventListener('click', exportGeojson);
 });
 
+let tripsTable = null; // Initialize outside to reuse the table instance
+
 function initializeTabulator() {
-    new Tabulator("#trips-table", {
+    tripsTable = new Tabulator("#trips-table", {
         layout: "fitColumns",
         columns: [
             { title: "Transaction ID", field: "transactionId" },
@@ -28,22 +37,27 @@ function fetchTrips() {
     const imei = document.getElementById('imei').value;
 
     let url = '/api/trips';
-    if (startDate || endDate || imei) {
-        url += '?';
-        if (startDate) url += `start_date=${startDate}&`;
-        if (endDate) url += `end_date=${endDate}&`;
-        if (imei) url += `imei=${imei}`;
-        if (url.endsWith('&')) url = url.slice(0, -1);
+    const params = new URLSearchParams();
+
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    if (imei) params.append('imei', imei);
+
+    if (params.toString()) {
+        url += `?${params.toString()}`;
     }
 
     fetch(url)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
         .then(geojson => {
             const trips = geojson.features.map(feature => ({
                 ...feature.properties,
                 gps: feature.geometry
             }));
-            Tabulator("#trips-table").setData(trips);
+            tripsTable.setData(trips); // Use the existing Tabulator instance
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
@@ -52,11 +66,15 @@ function fetchTrips() {
 
 function fetchUniqueImeis() {
     fetch('/api/trips')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
         .then(geojson => {
             const imeis = [...new Set(geojson.features.map(feature => feature.properties.imei))];
             const imeiSelect = document.getElementById('imei');
 
+            imeiSelect.innerHTML = ''; // Clear existing options
             imeis.forEach(imei => {
                 const option = document.createElement('option');
                 option.value = imei;
@@ -78,11 +96,14 @@ function toggleSidebar() {
 
 function fetchAndStoreTrips() {
     fetch('/api/fetch_trips', { method: 'POST' })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
         .then(data => {
             if (data.status === 'success') {
                 alert(data.message);
-                fetchTrips();
+                fetchTrips(); // Refresh trips table after successful fetch
             } else {
                 alert(`Error: ${data.message}`);
             }
@@ -93,9 +114,12 @@ function fetchAndStoreTrips() {
         });
 }
 
-document.getElementById('export-geojson').addEventListener('click', () => {
+function exportGeojson() {
     fetch('/export/geojson')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
         .then(geojson => {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson));
             const downloadAnchorNode = document.createElement('a');
@@ -105,10 +129,12 @@ document.getElementById('export-geojson').addEventListener('click', () => {
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
         })
-        .catch(error => console.error('Error exporting GeoJSON:', error));
-});
+        .catch(error => {
+            console.error('Error exporting GeoJSON:', error);
+        });
+}
 
-// Initialize date pickers
+// Initialize date pickers with Flatpickr
 flatpickr("#start-date", { 
     dateFormat: "Y-m-d",
     maxDate: "today"

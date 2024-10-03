@@ -1,6 +1,12 @@
 let insightsTable;
 
 document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date();
+    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    document.getElementById('start-date').value = sevenDaysAgo.toISOString().split('T')[0];
+    document.getElementById('end-date').value = today.toISOString().split('T')[0];
+
     initializeDataTable();
     fetchDrivingInsights();
     fetchUniqueImeis();

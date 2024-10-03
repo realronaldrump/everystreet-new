@@ -11,47 +11,7 @@
 </head>
 <body>
     <div id="app">
-        <nav id="sidebar" class="sidebar">
-            <div class="sidebar-header">
-                <h3>Every Street</h3>
-                <button id="sidebar-toggle" class="sidebar-toggle">
-                    <i class="fas fa-bars"></i>
-                </button>
-            </div>
-            <ul class="sidebar-menu">
-                <li><a href="/"><i class="fas fa-home"></i> Home</a></li>
-                <li><a href="/trips"><i class="fas fa-road"></i> Trips</a></li>
-                <li><a href="/driving-insights"><i class="fas fa-chart-line"></i> Driving Insights</a></li>
-            </ul>
-            <div class="sidebar-content">
-                <div id="date-range">
-                    <label for="start-date">Start Date:</label>
-                    <input type="date" id="start-date">
-                    <label for="end-date">End Date:</label>
-                    <input type="date" id="end-date">
-                    <button id="apply-date-range">Apply</button>
-                </div>
-
-                <div id="preset-periods">
-                    <label for="preset-periods-dropdown">Preset Periods:</label>
-                    <select id="preset-periods-dropdown">
-                        <option value="24h">Last 24 Hours</option>
-                        <option value="7d">Last 7 Days</option>
-                        <option value="30d">Last 30 Days</option>
-                        <option value="1y">Last Year</option>
-                        <option value="4y">Last 4 Years</option>
-                    </select>
-                </div>
-
-                <div id="live-routes-toggle">
-                    <label>
-                        <input type="checkbox" id="show-live-routes">
-                        Show Live Routes
-                    </label>
-                </div>
-            </div>
-        </nav>
-
+        {% include 'sidebar.html' %}
         <main>
             <div id="loading-overlay" class="loading-overlay">
                 <div class="loading-content">

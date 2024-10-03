@@ -50,9 +50,9 @@ function initializeMap() {
 
 function initializeDateRange() {
     const today = new Date();
-    const fourYearsAgo = new Date(today.getTime() - 4 * 365 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
     
-    document.getElementById('start-date').value = fourYearsAgo.toISOString().split('T')[0];
+    document.getElementById('start-date').value = sevenDaysAgo.toISOString().split('T')[0];
     document.getElementById('end-date').value = today.toISOString().split('T')[0];
 }
 
