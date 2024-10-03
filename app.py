@@ -8,7 +8,7 @@ import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
 import certifi
-from geojson import loads as geojson_loads
+from geojson import loads as geojson_loads, dumps as geojson_dumps
 import certifi
 
 load_dotenv()
@@ -137,7 +137,7 @@ async def fetch_and_store_trips():
                     trip['startTime'] = datetime.fromisoformat(trip['startTime'])
                     trip['endTime'] = datetime.fromisoformat(trip['endTime'])
                     if isinstance(trip['gps'], dict):
-                        trip['gps'] = json.dumps(trip['gps'])
+                        trip['gps'] = geojson_dumps(trip['gps'])
                     result = trips_collection.update_one(
                         {'transactionId': trip['transactionId']},
                         {'$set': trip},
@@ -176,6 +176,7 @@ def get_trips():
     try:
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
+        imei = request.args.get('imei')
         
         query = {}
         if start_date and end_date:
@@ -188,20 +189,12 @@ def get_trips():
             start_date = end_date - timedelta(days=1460)
             query['startTime'] = {'$gte': start_date, '$lte': end_date}
         
-        query['imei'] = {'$in': AUTHORIZED_DEVICES}
+        if imei:
+            query['imei'] = imei
+        else:
+            query['imei'] = {'$in': AUTHORIZED_DEVICES}
         
         trips = list(trips_collection.find(query, {'_id': 0}))
-        
-        imei_counts = {}
-        for trip in trips:
-            imei = trip.get('imei')
-            if imei:
-                imei_counts[imei] = imei_counts.get(imei, 0) + 1
-            else:
-                print(f"Warning: Trip {trip.get('transactionId')} has no IMEI")
-        
-        for imei, count in imei_counts.items():
-            print(f"Retrieved {count} trips for IMEI {imei}")
         
         for trip in trips:
             if 'gps' in trip and isinstance(trip['gps'], str):
@@ -209,8 +202,16 @@ def get_trips():
                     trip['gps'] = json.loads(trip['gps'])
                 except json.JSONDecodeError:
                     print(f"Error decoding GPS data for trip {trip.get('transactionId')}")
+            trip['startTime'] = trip['startTime'].isoformat()
+            trip['endTime'] = trip['endTime'].isoformat()
         
-        print(f"Returning {len(trips)} trips in total")
+        total_trips = len(trips)
+        print(f"Returning {total_trips} trips in total")
+        
+        # Calculate progress percentage
+        for i, trip in enumerate(trips):
+            socketio.emit('loading_progress', {'progress': int((i + 1) / total_trips * 100)})
+        
         return jsonify(trips)
     except Exception as e:
         print(f"Error in get_trips: {e}")
@@ -220,6 +221,7 @@ def get_trips():
 def get_metrics():
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
+    imei = request.args.get('imei')
     
     query = {}
     if start_date and end_date:
@@ -231,6 +233,11 @@ def get_metrics():
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=1460)
         query['startTime'] = {'$gte': start_date, '$lte': end_date}
+    
+    if imei:
+        query['imei'] = imei
+    else:
+        query['imei'] = {'$in': AUTHORIZED_DEVICES}
     
     trips = list(trips_collection.find(query))
     
@@ -275,6 +282,7 @@ def add_header(response):
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     return response
+
 async def start_background_tasks():
     await fetch_and_store_trips()
 

@@ -69,10 +69,12 @@ main {
     flex-grow: 1;
     padding: 20px;
     transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
 }
 
 #map {
-    height: 70vh;
+    flex-grow: 1;
     margin-bottom: 20px;
 }
 
@@ -112,61 +114,69 @@ button:hover {
     margin-top: 20px;
 }
 
-/* DataTables Styling */
-.dataTables_wrapper {
-    background-color: #2c2c2c;
-    padding: 20px;
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(18, 18, 18, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-content {
+    text-align: center;
+}
+
+.loading-bar-container {
+    width: 300px;
+    height: 10px;
+    background-color: #1E1E1E;
     border-radius: 5px;
-    color: #e0e0e0;
+    overflow: hidden;
+    margin-bottom: 10px;
 }
 
-table.dataTable {
-    color: #333;
-    border-collapse: separate;
-    border-spacing: 0 4px;
+.loading-bar {
+    width: 0;
+    height: 100%;
+    background-color: var(--accent-color);
+    transition: width 0.3s ease-in-out;
 }
 
-table.dataTable thead th {
-    background-color: #4a4a4a;
-    color: #fff;
-    padding: 12px 10px;
-    border-bottom: 2px solid #BB86FC;
+#loading-text {
+    color: var(--text-color);
+    font-size: 16px;
 }
 
-table.dataTable tbody td {
-    background-color: #f0f0f0;
-    padding: 10px;
-    border-top: 1px solid #ddd;
-    border-bottom: 1px solid #ddd;
+/* Leaflet specific styles */
+.leaflet-container {
+    background-color: #1E1E1E;
 }
 
-table.dataTable tbody tr:nth-of-type(odd) td {
-    background-color: #e0e0e0;
+.leaflet-tile-pane {
+    filter: grayscale(100%) invert(100%);
 }
 
-.dataTables_info,
-.dataTables_paginate {
-    color: #e0e0e0;
-    margin-top: 15px;
+.leaflet-control-attribution {
+    background-color: rgba(30, 30, 30, 0.8) !important;
+    color: var(--text-color) !important;
 }
 
-.dataTables_paginate .paginate_button {
-    color: #e0e0e0 !important;
-    background-color: #4a4a4a;
-    border: 1px solid #BB86FC;
-    border-radius: 4px;
-    padding: 5px 10px;
-    margin: 0 5px;
-    cursor: pointer;
+.leaflet-control-attribution a {
+    color: var(--accent-color) !important;
 }
 
-.dataTables_paginate .paginate_button:hover,
-.dataTables_paginate .paginate_button.current {
-    background-color: #BB86FC;
-    color: #121212 !important;
+.leaflet-control-zoom a {
+    background-color: #1E1E1E !important;
+    color: var(--text-color) !important;
+    border-color: var(--accent-color) !important;
 }
 
-/* Increase font size if needed */
-table.dataTable, .dataTables_info, .dataTables_paginate {
-    font-size: 14px;
+.leaflet-control-zoom a:hover {
+    background-color: var(--accent-color) !important;
+    color: var(--bg-color) !important;
 }

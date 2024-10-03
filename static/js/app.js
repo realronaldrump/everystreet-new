@@ -1,28 +1,24 @@
-mapboxgl.accessToken = 'pk.eyJ1IjoiZGF2aXNkZWF0b24iLCJhIjoiY2x6bG43d2lxMDQ2bjJxcGxnbHlkYXNnYiJ9.mNEfq94qzLyu21ZvpdiTRw';
-
 let map;
 let currentGeoJSON = {
     type: 'FeatureCollection',
     features: []
 };
-
-try {
-    map = new mapboxgl.Map({
-        container: 'map',
-        style: 'mapbox://styles/mapbox/dark-v10',
-        center: [-95.7129, 37.0902],
-        zoom: 3
-    });
-
-    map.on('load', () => {
-        updateMap();
-    });
-} catch (error) {
-    console.error('Error initializing MapBox map:', error);
-    document.getElementById('map').innerHTML = '<p>Error loading map. Please check your internet connection and try again.</p>';
-}
+let layerGroup;
 
 const socket = io();
+
+function initializeMap() {
+    try {
+        map = L.map('map').setView([37.0902, -95.7129], 4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        layerGroup = L.layerGroup().addTo(map);
+    } catch (error) {
+        console.error('Error initializing Leaflet map:', error);
+        document.getElementById('map').innerHTML = '<p>Error loading map. Please check your internet connection and try again.</p>';
+    }
+}
 
 function initializeDateRange() {
     const today = new Date();
@@ -32,7 +28,23 @@ function initializeDateRange() {
     document.getElementById('end-date').value = today.toISOString().split('T')[0];
 }
 
+function showLoadingOverlay() {
+    document.getElementById('loading-overlay').style.display = 'flex';
+}
+
+function hideLoadingOverlay() {
+    document.getElementById('loading-overlay').style.display = 'none';
+}
+
+function updateLoadingProgress(progress) {
+    const loadingBar = document.getElementById('loading-bar');
+    const loadingText = document.getElementById('loading-text');
+    loadingBar.style.width = `${progress}%`;
+    loadingText.textContent = `Loading trips: ${progress}%`;
+}
+
 function fetchTrips() {
+    showLoadingOverlay();
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
     
@@ -46,18 +58,6 @@ function fetchTrips() {
         .then(trips => {
             console.log(`Received ${trips.length} trips`);
             
-            const tripsByImei = {};
-            trips.forEach(trip => {
-                if (!tripsByImei[trip.imei]) {
-                    tripsByImei[trip.imei] = [];
-                }
-                tripsByImei[trip.imei].push(trip);
-            });
-            
-            Object.keys(tripsByImei).forEach(imei => {
-                console.log(`IMEI ${imei}: ${tripsByImei[imei].length} trips`);
-            });
-
             currentGeoJSON.features = trips.map(trip => {
                 let geometry;
                 try {
@@ -82,16 +82,16 @@ function fetchTrips() {
                     }
                 };
             }).filter(feature => feature !== null);
-            const uniqueImeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
-            console.log('Unique IMEIs in processed GeoJSON:', uniqueImeis);
 
             updateMap();
             fetchMetrics();
             initThreeJSAnimations();
+            hideLoadingOverlay();
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
             document.getElementById('map').innerHTML = '<p>Error loading trips. Please try again later.</p>';
+            hideLoadingOverlay();
         });
 }
 
@@ -114,72 +114,27 @@ function fetchMetrics() {
 }
 
 function updateMap() {
-    if (!map.loaded()) {
-        map.on('load', updateMap);
-        return;
-    }
+    console.log('Updating map with currentGeoJSON:', currentGeoJSON);
 
-    console.log('Map loaded, updating map with currentGeoJSON:', currentGeoJSON);
+    layerGroup.clearLayers();
 
-    if (map.getSource('routes')) {
-        map.getSource('routes').setData(currentGeoJSON);
-    } else {
-        map.addSource('routes', {
-            type: 'geojson',
-            data: currentGeoJSON
-        });
+    const colors = ['#BB86FC', '#03DAC6', '#FF0266', '#CF6679'];
+    const imeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
 
-        const imeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
-        const colors = ['#BB86FC', '#03DAC6', '#FF0266', '#CF6679'];
-
-        imeis.forEach((imei, index) => {
-            console.log(`Adding layer for IMEI: ${imei}`);
-            map.addLayer({
-                id: `routes-${imei}`,
-                type: 'line',
-                source: 'routes',
-                layout: {
-                    'line-join': 'round',
-                    'line-cap': 'round'
-                },
-                paint: {
-                    'line-color': colors[index % colors.length],
-                    'line-width': 2
-                },
-                filter: ['==', ['get', 'imei'], imei]
-            });
-        });
-    }
-
-    const bounds = new mapboxgl.LngLatBounds();
-    currentGeoJSON.features.forEach(feature => {
-        if (feature.geometry && feature.geometry.coordinates) {
-            if (Array.isArray(feature.geometry.coordinates[0])) {
-                feature.geometry.coordinates.forEach(coord => {
-                    if (Array.isArray(coord) && coord.length >= 2) {
-                        const lng = parseFloat(coord[0]);
-                        const lat = parseFloat(coord[1]);
-                        if (!isNaN(lng) && !isNaN(lat)) {
-                            bounds.extend([lng, lat]);
-                        } else {
-                            console.warn('Invalid coordinates:', coord, 'for feature:', feature);
-                        }
-                    }
-                });
-            } else if (feature.geometry.coordinates.length >= 2) {
-                const lng = parseFloat(feature.geometry.coordinates[0]);
-                const lat = parseFloat(feature.geometry.coordinates[1]);
-                if (!isNaN(lng) && !isNaN(lat)) {
-                    bounds.extend([lng, lat]);
-                } else {
-                    console.warn('Invalid coordinates:', feature.geometry.coordinates, 'for feature:', feature);
-                }
+    currentGeoJSON.features.forEach((feature, index) => {
+        const color = colors[imeis.indexOf(feature.properties.imei) % colors.length];
+        L.geoJSON(feature, {
+            style: {
+                color: color,
+                weight: 2,
+                opacity: 0.7
             }
-        }
+        }).addTo(layerGroup);
     });
 
-    if (!bounds.isEmpty()) {
-        map.fitBounds(bounds, { padding: 50 });
+    const bounds = L.geoJSON(currentGeoJSON).getBounds();
+    if (bounds.isValid()) {
+        map.fitBounds(bounds);
     } else {
         console.warn('No valid bounds to fit');
     }
@@ -259,6 +214,7 @@ function initThreeJSAnimations() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    initializeMap();
     initializeDateRange();
     fetchTrips();
 
@@ -268,13 +224,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
 
     socket.on('live_route_update', handleLiveRouteUpdate);
+    socket.on('loading_progress', (data) => {
+        updateLoadingProgress(data.progress);
+    });
 
     flatpickr("#start-date", { dateFormat: "Y-m-d" });
     flatpickr("#end-date", { dateFormat: "Y-m-d" });
 });
-
-if (map) {
-    map.on('error', (e) => {
-        console.error('MapBox error:', e.error);
-    });
-}   

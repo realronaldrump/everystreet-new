@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Every Street</title>
-    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -52,6 +52,14 @@
         </nav>
 
         <main>
+            <div id="loading-overlay" class="loading-overlay">
+                <div class="loading-content">
+                    <div class="loading-bar-container">
+                        <div id="loading-bar" class="loading-bar"></div>
+                    </div>
+                    <div id="loading-text">Loading trips: 0%</div>
+                </div>
+            </div>
             <div id="map"></div>
             <div id="metrics">
                 <h2>Metrics</h2>
@@ -66,7 +74,7 @@
         </main>
     </div>
 
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js"></script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="/static/js/three_animations.js"></script>
