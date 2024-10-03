@@ -4,3 +4,7 @@ validate.py
 cleardatabase.py
 data_migrate.py
 .env
+node_modules
+eslint.config.mjs
+package-lock.json
+package.json
