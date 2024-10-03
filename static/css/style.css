@@ -45,6 +45,16 @@ input[type="date"], button {
     border: 1px solid var(--accent-color);
     padding: 0.5rem;
     border-radius: 4px;
+    cursor: pointer;
+}
+
+#preset-periods-dropdown {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--accent-color);
+    padding: 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
 button:hover {
@@ -115,4 +125,13 @@ main {
     padding: 0.5rem;
     border: 1px solid #ddd;
     text-align: left;
+}
+
+#fetch-trips {
+    background-color: var(--accent-color);
+    color: var(--bg-color);
+    border: 1px solid var(--accent-color);
+    padding: 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
 }

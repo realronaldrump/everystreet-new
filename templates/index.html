@@ -6,6 +6,7 @@
     <title>Every Street</title>
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body>
     <div id="app">
@@ -24,11 +25,13 @@
             </div>
 
             <div id="preset-periods">
-                <button data-period="24h">Last 24 Hours</button>
-                <button data-period="7d">Last 7 Days</button>
-                <button data-period="30d">Last 30 Days</button>
-                <button data-period="1y">Last Year</button>
-                <button data-period="4y">Last 4 Years</button>
+                <select id="preset-periods-dropdown">
+                    <option value="24h">Last 24 Hours</option>
+                    <option value="7d">Last 7 Days</option>
+                    <option value="30d">Last 30 Days</option>
+                    <option value="1y">Last Year</option>
+                    <option value="4y">Last 4 Years</option>
+                </select>
             </div>
 
             <div id="live-routes-toggle">
@@ -59,5 +62,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="/static/js/three_animations.js"></script>
     <script src="/static/js/app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </body>
 </html>

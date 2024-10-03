@@ -110,7 +110,7 @@ async def fetch_and_store_trips():
             print("Access token obtained")
             
             end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(days=1460)  # Fetch last 4 years of trips
+            start_date = end_date - timedelta(days=10)  # Fetch last x days of trips
             
             all_trips = []
             for imei in AUTHORIZED_DEVICES:
@@ -123,6 +123,12 @@ async def fetch_and_store_trips():
             
             for trip in all_trips:
                 try:
+                    # Check if the trip already exists in the database
+                    existing_trip = trips_collection.find_one({'transactionId': trip['transactionId']})
+                    if existing_trip:
+                        print(f"Trip {trip['transactionId']} already exists in the database. Skipping.")
+                        continue
+
                     is_valid, error_message = validate_trip_data(trip)
                     if not is_valid:
                         print(f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}")
@@ -252,10 +258,17 @@ def webhook():
         socketio.emit('live_route_update', data)
     return '', 204
 
+@app.route('/api/fetch_trips', methods=['POST'])
+async def api_fetch_trips():
+    try:
+        await fetch_and_store_trips()
+        return jsonify({"status": "success", "message": "Trips fetched and stored successfully."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 async def start_background_tasks():
     await fetch_and_store_trips()
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8080))
-    asyncio.run(start_background_tasks())
     socketio.run(app, port=port, debug=False, allow_unsafe_werkzeug=True)

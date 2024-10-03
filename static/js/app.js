@@ -82,7 +82,6 @@ function fetchTrips() {
                     }
                 };
             }).filter(feature => feature !== null);
-
             const uniqueImeis = [...new Set(currentGeoJSON.features.map(f => f.properties.imei))];
             console.log('Unique IMEIs in processed GeoJSON:', uniqueImeis);
 
@@ -120,6 +119,8 @@ function updateMap() {
         return;
     }
 
+    console.log('Map loaded, updating map with currentGeoJSON:', currentGeoJSON);
+
     if (map.getSource('routes')) {
         map.getSource('routes').setData(currentGeoJSON);
     } else {
@@ -132,6 +133,7 @@ function updateMap() {
         const colors = ['#BB86FC', '#03DAC6', '#FF0266', '#CF6679'];
 
         imeis.forEach((imei, index) => {
+            console.log(`Adding layer for IMEI: ${imei}`);
             map.addLayer({
                 id: `routes-${imei}`,
                 type: 'line',
@@ -178,6 +180,8 @@ function updateMap() {
 
     if (!bounds.isEmpty()) {
         map.fitBounds(bounds, { padding: 50 });
+    } else {
+        console.warn('No valid bounds to fit');
     }
 }
 
@@ -250,6 +254,53 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('live_route_update', handleLiveRouteUpdate);
+
+    document.getElementById('fetch-trips').addEventListener('click', () => {
+        fetch('/api/fetch_trips', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    fetchTrips(); // Refresh the trips list
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching and storing trips:', error);
+                alert('An error occurred while fetching and storing trips.');
+            });
+    });
+
+    document.getElementById('preset-periods-dropdown').addEventListener('change', (e) => {
+        const today = new Date();
+        let startDate = new Date(today);
+
+        switch (e.target.value) {
+            case '24h':
+                startDate.setDate(today.getDate() - 1);
+                break;
+            case '7d':
+                startDate.setDate(today.getDate() - 7);
+                break;
+            case '30d':
+                startDate.setMonth(today.getMonth() - 1);
+                break;
+            case '1y':
+                startDate.setFullYear(today.getFullYear() - 1);
+                break;
+            case '4y':
+                startDate.setFullYear(today.getFullYear() - 4);
+                break;
+        }
+
+        document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
+        document.getElementById('end-date').value = today.toISOString().split('T')[0];
+        fetchTrips();
+    });
+
+    flatpickr("#start-date", { dateFormat: "Y-m-d" });
+    flatpickr("#end-date", { dateFormat: "Y-m-d" });
 });
 
 if (map) {
