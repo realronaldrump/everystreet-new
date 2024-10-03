@@ -12,3 +12,4 @@ flask-cors
 Flask
 flask
 gunicorn
+eventlet
