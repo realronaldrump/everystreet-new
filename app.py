@@ -305,7 +305,27 @@ def get_driving_insights():
         return jsonify({"error": "Database not connected"}), 500
     
     try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        imei = request.args.get('imei')
+        
+        query = {}
+        if start_date and end_date:
+            query['startTime'] = {
+                '$gte': datetime.fromisoformat(start_date),
+                '$lte': datetime.fromisoformat(end_date)
+            }
+        else:
+            # Default to last 7 days
+            end_date = datetime.now(timezone.utc)
+            start_date = end_date - timedelta(days=7)
+            query['startTime'] = {'$gte': start_date, '$lte': end_date}
+        
+        if imei:
+            query['imei'] = imei
+        
         pipeline = [
+            {'$match': query},
             {
                 '$group': {
                     '_id': '$destination',
@@ -315,12 +335,15 @@ def get_driving_insights():
                     'lastVisit': {'$max': '$endTime'}
                 }
             },
-            {
-                '$sort': {'count': -1}
-            }
+            {'$sort': {'count': -1}}
         ]
         
         insights = list(trips_collection.aggregate(pipeline))
+        
+        # Convert datetime objects to strings
+        for insight in insights:
+            if 'lastVisit' in insight:
+                insight['lastVisit'] = insight['lastVisit'].isoformat()
         
         return jsonify(insights)
     except Exception as e:
