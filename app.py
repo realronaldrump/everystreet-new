@@ -103,14 +103,31 @@ def validate_trip_data(trip):
     return True, None
 
 async def reverse_geocode_nominatim(lat, lon):
-    url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}"
+    url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}&addressdetails=1"
     headers = {'User-Agent': 'EveryStreet/1.0'}
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
-                    return data.get('display_name', f"Location at {lat}, {lon}")
+                    address = data.get('address', {})
+                    formatted_address = []
+
+                    # Build the address from desired components
+                    if 'house_number' in address:
+                        formatted_address.append(address['house_number'])
+                    if 'road' in address:
+                        formatted_address.append(address['road'])
+                    if 'city' in address:
+                        formatted_address.append(address['city'])
+                    elif 'town' in address:
+                        formatted_address.append(address['town'])
+                    elif 'village' in address:
+                        formatted_address.append(address['village'])
+                    if 'state' in address:
+                        formatted_address.append(address['state'])
+
+                    return ', '.join(formatted_address)
                 else:
                     print(f"Nominatim API error: {response.status}")
                     return f"Location at {lat}, {lon}"
