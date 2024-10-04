@@ -1,3 +1,7 @@
+let insightsTable = null;
+
+/* global flatpickr */
+
 document.addEventListener('DOMContentLoaded', () => {
     initializeDatePickers();
     initializeEventListeners();
@@ -10,15 +14,16 @@ function initializeDatePickers() {
     const today = new Date();
     const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    flatpickr("#start-date", { 
+    flatpickr("#start-date", {
         dateFormat: "Y-m-d",
         maxDate: "today",
-        defaultDate: sevenDaysAgo
+        defaultDate: sevenDaysAgo,
     });
-    flatpickr("#end-date", { 
+    
+    flatpickr("#end-date", {
         dateFormat: "Y-m-d",
         maxDate: "today",
-        defaultDate: today
+        defaultDate: today,
     });
 }
 
@@ -35,33 +40,29 @@ function initializeDataTable() {
         columns: [
             { data: '_id', title: 'Destination' },
             { data: 'count', title: 'Visit Count', type: 'num' },
-            { 
+            {
                 data: 'totalDistance',
                 title: 'Total Distance',
                 type: 'num',
-                render: function(data) {
-                    return `${data.toFixed(2)} miles`;
-                }
+                render: (data) => `${data.toFixed(2)} miles`,
             },
-            { 
+            {
                 data: 'averageDistance',
                 title: 'Average Distance',
                 type: 'num',
-                render: function(data) {
-                    return `${data.toFixed(2)} miles`;
-                }
+                render: (data) => `${data.toFixed(2)} miles`,
             },
-            { 
+            {
                 data: 'lastVisit',
                 title: 'Last Visit',
                 type: 'date',
-                render: function(data) {
+                render: (data) => {
                     const date = new Date(data);
                     return date.toLocaleString();
-                }
+                },
             }
         ],
-        order: [[1, 'desc']]
+        order: [[1, 'desc']],
     });
 }
 
@@ -80,32 +81,33 @@ function fetchDrivingInsights() {
     const url = `/api/driving-insights?${params.toString()}`;
 
     fetch(url)
-        .then(response => response.json())
-        .then(insights => {
+        .then((response) => response.json())
+        .then((insights) => {
             insightsTable.clear().rows.add(insights).draw();
             updateSummaryMetrics(insights);
             renderTripCountsChart(insights); // Call the function to render the chart
         })
-        .catch(error => {
+        .catch((error) => {
             console.error('Error fetching driving insights:', error);
         });
 }
 
 function fetchUniqueImeis() {
     fetch('/api/trips')
-        .then(response => response.json())
-        .then(data => {
+        .then((response) => response.json())
+        .then((data) => {
             const imeis = [...new Set(data.features.map(trip => trip.properties.imei))];
             const imeiSelect = document.getElementById('imei');
             imeiSelect.innerHTML = '<option value="">All</option>';
-            imeis.forEach(imei => {
+
+            imeis.forEach((imei) => {
                 const option = document.createElement('option');
                 option.value = imei;
                 option.text = imei;
                 imeiSelect.appendChild(option);
             });
         })
-        .catch(error => {
+        .catch((error) => {
             console.error('Error fetching unique IMEIs:', error);
         });
 }
@@ -134,7 +136,6 @@ function toggleSidebar() {
 function renderTripCountsChart(insights) {
     const labels = insights.map(item => item._id);
     const data = insights.map(item => item.count);
-
     const ctx = document.getElementById('tripCountsChart').getContext('2d');
 
     // Destroy existing chart instance if it exists
@@ -151,27 +152,27 @@ function renderTripCountsChart(insights) {
                 data: data,
                 backgroundColor: 'rgba(187, 134, 252, 0.6)',
                 borderColor: 'rgba(187, 134, 252, 1)',
-                borderWidth: 1
-            }]
+                borderWidth: 1,
+            }],
         },
         options: {
             scales: {
-                x: { 
+                x: {
                     beginAtZero: true,
                     ticks: { color: '#FFFFFF' },
-                    title: { display: true, text: 'Destination', color: '#FFFFFF' }
+                    title: { display: true, text: 'Destination', color: '#FFFFFF' },
                 },
-                y: { 
+                y: {
                     beginAtZero: true,
                     ticks: { color: '#FFFFFF' },
-                    title: { display: true, text: 'Count', color: '#FFFFFF' }
-                }
+                    title: { display: true, text: 'Count', color: '#FFFFFF' },
+                },
             },
             plugins: {
-                legend: { labels: { color: '#FFFFFF' } }
+                legend: { labels: { color: '#FFFFFF' } },
             },
             responsive: true,
-            maintainAspectRatio: false
-        }
+            maintainAspectRatio: false,
+        },
     });
 }

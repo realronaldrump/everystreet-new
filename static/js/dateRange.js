@@ -1,3 +1,4 @@
+/* global flatpickr */
 document.addEventListener('DOMContentLoaded', function() {
     const today = new Date();
     const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);

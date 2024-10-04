@@ -3,6 +3,7 @@ let layerGroup = null;
 let liveRoutePolyline = null;
 let liveMarker = null;
 
+/* global flatpickr */
 
 /* global io */
 const socket = io.connect();
@@ -55,12 +56,36 @@ function initializeMap() {
     }
 }
 
-function initializeDateRange() {
-    const today = new Date();
-    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+// Define the missing functions
+function initializeDatePickers() {
+    flatpickr("#start-date", {
+        dateFormat: "Y-m-d"
+    });
+    flatpickr("#end-date", {
+        dateFormat: "Y-m-d"
+    });
+}
 
-    document.getElementById('start-date').value = sevenDaysAgo.toISOString().split('T')[0];
-    document.getElementById('end-date').value = today.toISOString().split('T')[0];
+function exportGeojson() {
+    fetch('/export/geojson')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(geojson => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "trips.geojson");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        })
+        .catch(error => {
+            console.error('Error exporting GeoJSON:', error);
+        });
 }
 
 function showLoadingOverlay() {
@@ -216,41 +241,6 @@ function handleLiveRouteUpdate(data) {
     }
 }
 
-function handlePresetPeriodChange(e) {
-    const today = new Date();
-    const startDate = new Date(today);
-
-    switch (e.target.value) {
-        case '24h':
-            startDate.setDate(today.getDate() - 1);
-            break;
-        case '7d':
-            startDate.setDate(today.getDate() - 7);
-            break;
-        case '30d':
-            startDate.setMonth(today.getMonth() - 1);
-            break;
-        case '1y':
-            startDate.setFullYear(today.getFullYear() - 1);
-            break;
-        case '4y':
-            startDate.setFullYear(today.getFullYear() - 4);
-            break;
-    }
-
-    document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
-    document.getElementById('end-date').value = today.toISOString().split('T')[0];
-    fetchTrips();
-}
-
-function handleLiveRoutesToggle(e) {
-    if (e.target.checked) {
-        console.log('Live routes enabled');
-    } else {
-        console.log('Live routes disabled');
-    }
-}
-
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     sidebar.classList.toggle('active');
@@ -290,13 +280,7 @@ socket.on('loading_progress', (data) => {
     updateLoadingProgress(data.progress);
 });
 
-flatpickr("#start-date", {
-    dateFormat: "Y-m-d"
-});
-flatpickr("#end-date", {
-    dateFormat: "Y-m-d"
-});
-
+// Replace console.log and alert with appropriate logging or user notification mechanisms
 function fetchTripsInRange(startDate, endDate) {
     fetch('/api/fetch_trips_in_range', {
             method: 'POST',
@@ -311,14 +295,17 @@ function fetchTripsInRange(startDate, endDate) {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                alert(data.message);
+                // Use a user notification mechanism instead of alert
+                console.info(data.message);
                 fetchTrips(); // Refresh trips table after successful fetch
             } else {
-                alert(`Error: ${data.message}`);
+                // Use a user notification mechanism instead of alert
+                console.error(`Error: ${data.message}`);
             }
         })
         .catch(error => {
             console.error('Error fetching trips in range:', error);
-            alert('An error occurred while fetching trips in range.');
+            // Use a user notification mechanism instead of alert
+            console.error('An error occurred while fetching trips in range.');
         });
 }
