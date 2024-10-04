@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import aiohttp
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO
@@ -11,7 +11,7 @@ import geojson as geojson_module
 from geojson import loads as geojson_loads, dumps as geojson_dumps
 import traceback
 from timezonefinder import TimezoneFinder
-import pytz
+from pytz import timezone
 
 load_dotenv()
 
