@@ -1,4 +1,4 @@
-function initializeDatePickers() {
+document.addEventListener('DOMContentLoaded', function() {
     const today = new Date();
     const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -12,7 +12,7 @@ function initializeDatePickers() {
         dateFormat: "Y-m-d",
         maxDate: "today",
         defaultDate: startDate,
-        onChange: function(selectedDates) {
+        onChange(selectedDates) {
             const date = selectedDates[0];
             localStorage.setItem('startDate', date.toISOString().split('T')[0]);
         }
@@ -22,12 +22,9 @@ function initializeDatePickers() {
         dateFormat: "Y-m-d",
         maxDate: "today",
         defaultDate: endDate,
-        onChange: function(selectedDates) {
+        onChange(selectedDates) {
             const date = selectedDates[0];
             localStorage.setItem('endDate', date.toISOString().split('T')[0]);
         }
     });
-}
-
-// Export the function to be used in other scripts
-// If you're not using modules, ensure this function is globally accessible
+});

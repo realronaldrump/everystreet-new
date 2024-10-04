@@ -25,33 +25,53 @@ function initializeTabulator() {
         pagination: "local",
         paginationSize: 25,
         responsiveLayout: "hide",
-        columns: [
-            { title: "Transaction ID", field: "transactionId", headerFilter: "input" },
-            { title: "IMEI", field: "imei", headerFilter: "input" },
-            { 
-                title: "Start Time", 
-                field: "startTime", 
-                formatter: "datetime", 
-                sorter: "datetime", 
-                headerFilter: "input",
-                formatterParams: {
-                    inputFormat: "YYYY-MM-DDTHH:mm:ss.SSSZ", // Assuming this is the format from the API
-                    outputFormat: "MM/DD/YYYY, h:mm:ss A" // Desired output format
-                } 
+        columns: [{
+                title: "Transaction ID",
+                field: "transactionId",
+                headerFilter: "input"
             },
-            { 
-                title: "End Time", 
-                field: "endTime", 
-                formatter: "datetime", 
-                sorter: "datetime", 
+            {
+                title: "IMEI",
+                field: "imei",
+                headerFilter: "input"
+            },
+            {
+                title: "Start Time",
+                field: "startTime",
+                formatter: "datetime",
+                sorter: "datetime",
                 headerFilter: "input",
                 formatterParams: {
                     inputFormat: "YYYY-MM-DDTHH:mm:ss.SSSZ", // Assuming this is the format from the API
                     outputFormat: "MM/DD/YYYY, h:mm:ss A" // Desired output format
                 }
             },
-            { title: "Distance (miles)", field: "distance", formatter: "money", formatterParams: { precision: 2 }, sorter: "number", headerFilter: "input" },
-            { title: "Destination", field: "destination", headerFilter: "input" }
+            {
+                title: "End Time",
+                field: "endTime",
+                formatter: "datetime",
+                sorter: "datetime",
+                headerFilter: "input",
+                formatterParams: {
+                    inputFormat: "YYYY-MM-DDTHH:mm:ss.SSSZ", // Assuming this is the format from the API
+                    outputFormat: "MM/DD/YYYY, h:mm:ss A" // Desired output format
+                }
+            },
+            {
+                title: "Distance (miles)",
+                field: "distance",
+                formatter: "money",
+                formatterParams: {
+                    precision: 2
+                },
+                sorter: "number",
+                headerFilter: "input"
+            },
+            {
+                title: "Destination",
+                field: "destination",
+                headerFilter: "input"
+            }
         ]
     });
 }
@@ -117,7 +137,9 @@ function toggleSidebar() {
 }
 
 function fetchAndStoreTrips() {
-    fetch('/api/fetch_trips', { method: 'POST' })
+    fetch('/api/fetch_trips', {
+            method: 'POST'
+        })
         .then(response => {
             if (!response.ok) throw new Error('Network response was not ok');
             return response.json();
@@ -157,12 +179,12 @@ function exportGeojson() {
 }
 
 // Initialize date pickers with Flatpickr
-flatpickr("#start-date", { 
+flatpickr("#start-date", {
     dateFormat: "Y-m-d",
     maxDate: "today"
 });
 
-flatpickr("#end-date", { 
+flatpickr("#end-date", {
     dateFormat: "Y-m-d",
     maxDate: "today"
 });

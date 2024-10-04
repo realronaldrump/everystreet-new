@@ -3,8 +3,10 @@ let layerGroup = null;
 let liveRoutePolyline = null;
 let liveMarker = null;
 
+
 /* global io */
 const socket = io.connect();
+
 function initializeMap() {
     // Ensure the map container exists
     const mapElement = document.getElementById('map');
@@ -42,7 +44,10 @@ function initializeMap() {
         }).addTo(map);
 
         // Disable wrap around the globe
-        map.setMaxBounds([[-90, -180], [90, 180]]);
+        map.setMaxBounds([
+            [-90, -180],
+            [90, 180]
+        ]);
 
         console.log('Map initialized successfully');
     } catch (error) {
@@ -53,7 +58,7 @@ function initializeMap() {
 function initializeDateRange() {
     const today = new Date();
     const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    
+
     document.getElementById('start-date').value = sevenDaysAgo.toISOString().split('T')[0];
     document.getElementById('end-date').value = today.toISOString().split('T')[0];
 }
@@ -111,7 +116,7 @@ function fetchTrips() {
 function fetchMetrics() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
-    
+
     fetch(`/api/metrics?start_date=${startDate}&end_date=${endDate}`)
         .then(response => response.json())
         .then(metrics => {
@@ -285,28 +290,35 @@ socket.on('loading_progress', (data) => {
     updateLoadingProgress(data.progress);
 });
 
-flatpickr("#start-date", { dateFormat: "Y-m-d" });
-flatpickr("#end-date", { dateFormat: "Y-m-d" });
+flatpickr("#start-date", {
+    dateFormat: "Y-m-d"
+});
+flatpickr("#end-date", {
+    dateFormat: "Y-m-d"
+});
 
 function fetchTripsInRange(startDate, endDate) {
     fetch('/api/fetch_trips_in_range', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ start_date: startDate, end_date: endDate })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            alert(data.message);
-            fetchTrips(); // Refresh trips table after successful fetch
-        } else {
-            alert(`Error: ${data.message}`);
-        }
-    })
-    .catch(error => {
-        console.error('Error fetching trips in range:', error);
-        alert('An error occurred while fetching trips in range.');
-    });
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                start_date: startDate,
+                end_date: endDate
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                fetchTrips(); // Refresh trips table after successful fetch
+            } else {
+                alert(`Error: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching trips in range:', error);
+            alert('An error occurred while fetching trips in range.');
+        });
 }
