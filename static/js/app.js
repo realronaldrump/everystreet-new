@@ -334,6 +334,8 @@ function setTimeOffset(hours) {
     .then(response => response.json())
     .then(data => {
         console.log(data.message);
+        timeOffset += hours;
+        updateClock();
         fetchTrips();
     })
     .catch((error) => {
@@ -346,5 +348,28 @@ document.getElementById('time-forward').addEventListener('click', () => setTimeO
 
 // Load the time offset from localStorage when the page loads
 document.addEventListener('DOMContentLoaded', () => {
+    timeOffset = parseInt(localStorage.getItem('timeOffset') || '0');
+});
+
+function updateClock() {
+    const dateElement = document.getElementById('current-date');
+    const timeElement = document.getElementById('current-time');
+    if (dateElement && timeElement) {
+        const now = new Date();
+        now.setHours(now.getHours() + timeOffset);
+        
+        const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+        dateElement.textContent = now.toLocaleDateString(undefined, options);
+        timeElement.textContent = now.toLocaleTimeString();
+    }
+}
+
+function startClock() {
+    updateClock();
+    setInterval(updateClock, 1000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    startClock();
     timeOffset = parseInt(localStorage.getItem('timeOffset') || '0');
 });

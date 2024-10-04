@@ -415,3 +415,32 @@ body.loading {
     background-color: #3700B3;
     color: #fff;
 }
+
+#current-time {
+    font-size: 1.2em;
+    text-align: center;
+    padding: 10px 0;
+    border-top: 1px solid var(--accent-color);
+}
+
+.sidebar-clock {
+    padding: 10px;
+    border-top: 1px solid var(--accent-color);
+    text-align: center;
+}
+
+.sidebar-clock h4 {
+    margin: 0 0 5px 0;
+    font-size: 0.9em;
+    color: var(--accent-color);
+}
+
+#current-date {
+    font-size: 0.9em;
+    margin-bottom: 3px;
+}
+
+#current-time {
+    font-size: 1.2em;
+    font-weight: bold;
+}

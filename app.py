@@ -169,6 +169,7 @@ def fetch_trips_for_geojson():
 def get_trip_timezone(trip):
     """
     Determines the timezone of a trip based on its GPS coordinates.
+    If no timezone can be determined, defaults to Waco, TX timezone.
     """
     try:
         gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
@@ -178,10 +179,10 @@ def get_trip_timezone(trip):
             timezone_str = tf.timezone_at(lng=lon, lat=lat)
             if timezone_str:
                 return timezone_str
-        return 'UTC'  # Default to UTC if timezone can't be determined
+        return 'America/Chicago'  # Default to Waco, TX timezone
     except Exception as e:
         print(f"Error getting trip timezone: {e}")
-        return 'UTC'
+        return 'America/Chicago'  # Default to Waco, TX timezone
 
 async def fetch_and_store_trips():
     try:
@@ -358,8 +359,8 @@ def get_trips():
     trips = list(trips_collection.find(query))
     
     for trip in trips:
-        trip['startTime'] = apply_time_offset(trip['startTime'])
-        trip['endTime'] = apply_time_offset(trip['endTime'])
+        trip['startTime'] = apply_time_offset(trip['startTime'].astimezone(pytz.timezone('America/Chicago')))
+        trip['endTime'] = apply_time_offset(trip['endTime'].astimezone(pytz.timezone('America/Chicago')))
         trip['_id'] = str(trip['_id'])
 
     return jsonify(geojson_module.FeatureCollection([
@@ -371,7 +372,7 @@ def get_trips():
                 'startTime': trip['startTime'].isoformat(),
                 'endTime': trip['endTime'].isoformat(),
                 'distance': trip['distance'],
-                'timezone': trip['timezone']
+                'timezone': trip.get('timezone', 'America/Chicago')  # Use 'America/Chicago' as default if timezone is not present
             }
         ) for trip in trips
     ]))
@@ -420,7 +421,7 @@ def get_driving_insights():
         # Convert datetime objects to strings
         for insight in insights:
             if 'lastVisit' in insight:
-                insight['lastVisit'] = insight['lastVisit'].isoformat()
+                insight['lastVisit'] = insight['lastVisit'].astimezone(pytz.timezone('America/Chicago')).isoformat()
         
         return jsonify(insights)
     except Exception as insight_error:
@@ -457,7 +458,7 @@ def get_metrics():
             'total_trips': {'$sum': 1},
             'total_distance': {'$sum': '$distance'},
             'avg_start_time': {'$avg': {'$hour': '$startTime'}},
-            'avg_driving_time': {'$avg': {'$subtract': ['$endTime', '$startTime'}}
+            'avg_driving_time': {'$avg': {'$subtract': ['$endTime', '$startTime']}}
         }}
     ]
     
