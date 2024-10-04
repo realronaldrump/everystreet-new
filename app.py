@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 import aiohttp
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 from flask_socketio import SocketIO
 import os
 from dotenv import load_dotenv
@@ -48,6 +48,18 @@ API_BASE_URL = "https://api.bouncie.dev/v1"
 
 # Initialize TimezoneFinder
 tf = TimezoneFinder()
+
+time_offset = 0
+
+@app.route('/api/set_time_offset', methods=['POST'])
+def set_time_offset():
+    global time_offset
+    data = request.json
+    time_offset = data.get('offset', 0)
+    return jsonify({"status": "success", "message": f"Time offset set to {time_offset} hours"})
+
+def apply_time_offset(date):
+    return date + timedelta(hours=time_offset)
 
 async def get_access_token(session):
     payload = {
@@ -330,87 +342,39 @@ def driving_insights_page():
 
 @app.route('/api/trips')
 def get_trips():
-    if trips_collection is None:
-        return jsonify({"error": "Database not connected"}), 500
-    
-    try:
-        start_date_str = request.args.get('start_date')
-        end_date_str = request.args.get('end_date')
-        imei = request.args.get('imei')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    imei = request.args.get('imei')
 
-        # Handle date range filtering
-        if start_date_str and end_date_str:
-            start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
-            end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) + timedelta(days=1)  # Include the end date
-        else:
-            # Default to last 1460 days (4 years)
-            end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(days=1460)
-        
-        query = {
-            'startTime': {'$gte': start_date, '$lte': end_date}
+    query = {}
+    if start_date and end_date:
+        query['startTime'] = {
+            '$gte': datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc),
+            '$lte': datetime.fromisoformat(end_date).replace(tzinfo=timezone.utc)
         }
-        
-        if imei:
-            query['imei'] = imei
-        else:
-            query['imei'] = {'$in': AUTHORIZED_DEVICES}
-        
-        print(f"Query: {query}")  # Debug print
-        
-        # Projection to limit the fields returned
-        projection = {
-            '_id': 0,
-            'transactionId': 1,
-            'imei': 1,
-            'startTime': 1,
-            'endTime': 1,
-            'distance': 1,
-            'gps': 1,
-            'destination': 1
-        }
-        trips = list(trips_collection.find(query, projection))
-        print(f"Found {len(trips)} trips")  # Debug print
-        
-        # Process trips on the server side
-        processed_trips = []
-        for trip in trips:
-            try:
-                gps_data = trip['gps']
-                if isinstance(gps_data, str):
-                    gps_data = json.loads(gps_data)
-                
-                processed_trip = {
-                    'type': 'Feature',
-                    'geometry': gps_data,
-                    'properties': {
-                        'transactionId': trip['transactionId'],
-                        'imei': trip['imei'],
-                        'startTime': trip['startTime'].isoformat(),
-                        'endTime': trip['endTime'].isoformat(),
-                        'distance': trip['distance'],
-                        'destination': trip.get('destination', 'Unknown'),
-                        'timezone': str(trip['startTime'].tzinfo)
-                    }
-                }
-                processed_trips.append(processed_trip)
-            except Exception as trip_error:
-                print(f"Error processing trip {trip.get('transactionId', 'Unknown')}: {trip_error}")
-                print(f"Trip data: {trip}")
-                print(traceback.format_exc())
-        
-        geojson_data = {
-            'type': 'FeatureCollection',
-            'features': processed_trips
-        }
-        total_trips = len(processed_trips)
-        print(f"Returning {total_trips} trips in total")
-        
-        return jsonify(geojson_data)
-    except Exception as api_error:
-        print(f"Error in get_trips: {api_error}")
-        print(traceback.format_exc())
-        return jsonify({"error": f"An error occurred while fetching trips: {str(api_error)}"}), 500
+    if imei:
+        query['imei'] = imei
+
+    trips = list(trips_collection.find(query))
+    
+    for trip in trips:
+        trip['startTime'] = apply_time_offset(trip['startTime'])
+        trip['endTime'] = apply_time_offset(trip['endTime'])
+        trip['_id'] = str(trip['_id'])
+
+    return jsonify(geojson_module.FeatureCollection([
+        geojson_module.Feature(
+            geometry=geojson_loads(trip['gps']),
+            properties={
+                'transactionId': trip['transactionId'],
+                'imei': trip['imei'],
+                'startTime': trip['startTime'].isoformat(),
+                'endTime': trip['endTime'].isoformat(),
+                'distance': trip['distance'],
+                'timezone': trip['timezone']
+            }
+        ) for trip in trips
+    ]))
 
 @app.route('/api/driving-insights')
 def get_driving_insights():
@@ -493,7 +457,7 @@ def get_metrics():
             'total_trips': {'$sum': 1},
             'total_distance': {'$sum': '$distance'},
             'avg_start_time': {'$avg': {'$hour': '$startTime'}},
-            'avg_driving_time': {'$avg': {'$subtract': ['$endTime', '$startTime']}}
+            'avg_driving_time': {'$avg': {'$subtract': ['$endTime', '$startTime'}}
         }}
     ]
     

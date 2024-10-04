@@ -174,9 +174,8 @@ function updateMap(geojson) {
             };
         },
         onEachFeature: (feature, layer) => {
-            // Convert ISO date strings to Date objects and format them
-            const startTime = new Date(feature.properties.startTime);
-            const endTime = new Date(feature.properties.endTime);
+            const startTime = applyTimeOffset(feature.properties.startTime);
+            const endTime = applyTimeOffset(feature.properties.endTime);
 
             layer.bindPopup(`
                 <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
@@ -309,3 +308,43 @@ function fetchTripsInRange(startDate, endDate) {
             console.error('An error occurred while fetching trips in range.');
         });
 }
+
+let timeOffset = 0;
+
+function adjustTime(hours) {
+    timeOffset += hours;
+    localStorage.setItem('timeOffset', timeOffset);
+    fetchTrips();
+}
+
+function applyTimeOffset(dateString) {
+    const date = new Date(dateString);
+    date.setHours(date.getHours() + timeOffset);
+    return date;
+}
+
+function setTimeOffset(hours) {
+    fetch('/api/set_time_offset', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ offset: hours }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log(data.message);
+        fetchTrips();
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+    });
+}
+
+document.getElementById('time-backward').addEventListener('click', () => setTimeOffset(-1));
+document.getElementById('time-forward').addEventListener('click', () => setTimeOffset(1));
+
+// Load the time offset from localStorage when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    timeOffset = parseInt(localStorage.getItem('timeOffset') || '0');
+});

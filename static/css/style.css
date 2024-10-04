@@ -393,3 +393,25 @@ body.loading {
         height: calc(100vh - 60px);
     }
 }
+
+#time-calibration {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+#time-calibration button {
+    margin: 0 5px;
+    padding: 5px 10px;
+    background-color: #BB86FC;
+    color: #000;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#time-calibration button:hover {
+    background-color: #3700B3;
+    color: #fff;
+}
