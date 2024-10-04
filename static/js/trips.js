@@ -1,3 +1,5 @@
+let tripsTable = null;
+
 document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
     const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -5,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('start-date').value = sevenDaysAgo.toISOString().split('T')[0];
     document.getElementById('end-date').value = today.toISOString().split('T')[0];
 
-    initializeTabulator();
+    initializeDataTable();
     fetchUniqueImeis().then(fetchTrips);
 
     document.getElementById('apply-filters').addEventListener('click', fetchTrips);
@@ -14,79 +16,65 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('export-geojson').addEventListener('click', exportGeojson);
 });
 
-let tripsTable = null; // Initialize outside to reuse the table instance
-
-/* global Tabulator */
-/* global flatpickr */
-
-function initializeTabulator() {
-    tripsTable = new Tabulator("#trips-table", {
-        layout: "fitColumns",
-        pagination: "local",
-        paginationSize: 25,
-        responsiveLayout: "hide",
-        columns: [{
-                title: "Transaction ID",
-                field: "transactionId",
-                headerFilter: "input"
+function initializeDataTable() {
+    tripsTable = $('#trips-table').DataTable({
+        responsive: true,
+        pageLength: 25,
+        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
+        columns: [
+            { data: 'transactionId', title: 'Transaction ID' },
+            { data: 'imei', title: 'IMEI' },
+            { 
+                data: 'startTime', 
+                title: 'Start Time',
+                render: function(data, type, row) {
+                    if (type === 'display' || type === 'filter') {
+                        const date = new Date(data);
+                        return date.toLocaleString('en-US', { 
+                            year: 'numeric', 
+                            month: '2-digit', 
+                            day: '2-digit', 
+                            hour: '2-digit', 
+                            minute: '2-digit', 
+                            second: '2-digit',
+                            timeZone: row.timezone
+                        });
+                    }
+                    return data;
+                }
             },
-            {
-                title: "IMEI",
-                field: "imei",
-                headerFilter: "input"
+            { 
+                data: 'endTime', 
+                title: 'End Time',
+                render: function(data, type, row) {
+                    if (type === 'display' || type === 'filter') {
+                        const date = new Date(data);
+                        return date.toLocaleString('en-US', { 
+                            year: 'numeric', 
+                            month: '2-digit', 
+                            day: '2-digit', 
+                            hour: '2-digit', 
+                            minute: '2-digit', 
+                            second: '2-digit',
+                            timeZone: row.timezone
+                        });
+                    }
+                    return data;
+                }
             },
-            {
-                title: "Start Time",
-                field: "startTime",
-                formatter: function(cell, formatterParams, onRendered) {
-                    const date = new Date(cell.getValue());
-                    const options = { 
-                        year: 'numeric', 
-                        month: '2-digit', 
-                        day: '2-digit', 
-                        hour: '2-digit', 
-                        minute: '2-digit', 
-                        second: '2-digit',
-                        timeZone: cell.getData().timezone
-                    };
-                    return date.toLocaleString('en-US', options);
-                },
-                sorter: "datetime"
+            { 
+                data: 'distance', 
+                title: 'Distance (miles)',
+                render: function(data, type) {
+                    if (type === 'display') {
+                        return parseFloat(data).toFixed(2);
+                    }
+                    return data;
+                }
             },
-            {
-                title: "End Time",
-                field: "endTime",
-                formatter: function(cell, formatterParams, onRendered) {
-                    const date = new Date(cell.getValue());
-                    const options = { 
-                        year: 'numeric', 
-                        month: '2-digit', 
-                        day: '2-digit', 
-                        hour: '2-digit', 
-                        minute: '2-digit', 
-                        second: '2-digit',
-                        timeZone: cell.getData().timezone
-                    };
-                    return date.toLocaleString('en-US', options);
-                },
-                sorter: "datetime"
-            },
-            {
-                title: "Distance (miles)",
-                field: "distance",
-                formatter: "money",
-                formatterParams: {
-                    precision: 2
-                },
-                sorter: "number",
-                headerFilter: "input"
-            },
-            {
-                title: "Destination",
-                field: "destination",
-                headerFilter: "input"
-            }
-        ]
+            { data: 'destination', title: 'Destination' }
+        ],
+        order: [[2, 'desc']]
     });
 }
 
@@ -113,7 +101,7 @@ function fetchTrips() {
                 ...feature.properties,
                 gps: feature.geometry,
             }));
-            tripsTable.setData(trips);
+            tripsTable.clear().rows.add(trips).draw();
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
@@ -121,7 +109,7 @@ function fetchTrips() {
 }
 
 function fetchUniqueImeis() {
-    fetch('/api/trips')
+    return fetch('/api/trips')
         .then(response => {
             if (!response.ok) throw new Error('Network response was not ok');
             return response.json();
@@ -131,6 +119,11 @@ function fetchUniqueImeis() {
             const imeiSelect = document.getElementById('imei');
 
             imeiSelect.innerHTML = ''; // Clear existing options
+            const allOption = document.createElement('option');
+            allOption.value = '';
+            allOption.text = 'All';
+            imeiSelect.appendChild(allOption);
+
             imeis.forEach(imei => {
                 const option = document.createElement('option');
                 option.value = imei;

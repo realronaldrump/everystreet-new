@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link href="https://unpkg.com/tabulator-tables@5.0.7/dist/css/tabulator.min.css" rel="stylesheet">
 </head>
 <body>
     <div id="app">
@@ -16,14 +15,24 @@
         <main>
             <h1>Trips</h1>
             <div id="trips-list">
-                <div id="trips-table"></div>
+                <table id="trips-table" class="display nowrap" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Transaction ID</th>
+                            <th>IMEI</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Distance (miles)</th>
+                            <th>Destination</th>
+                        </tr>
+                    </thead>
+                </table>
             </div>
         </main>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
-    <script src="https://unpkg.com/tabulator-tables@5.0.7/dist/js/tabulator.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="/static/js/trips.js"></script>
     <script src="{{ url_for('static', filename='js/dateRange.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

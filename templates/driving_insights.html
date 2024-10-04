@@ -11,34 +11,7 @@
 </head>
 <body>
     <div id="app">
-        <nav id="sidebar" class="sidebar">
-            <div class="sidebar-header">
-                <h3>Every Street</h3>
-                <button id="sidebar-toggle" class="sidebar-toggle">
-                    <i class="fas fa-bars"></i>
-                </button>
-            </div>
-            <ul class="sidebar-menu">
-                <li><a href="/"><i class="fas fa-home"></i> Home</a></li>
-                <li><a href="/trips"><i class="fas fa-road"></i> Trips</a></li>
-                <li><a href="/driving-insights"><i class="fas fa-chart-line"></i> Driving Insights</a></li>
-            </ul>
-            <div class="sidebar-content">
-                <div id="filters">
-                    <h2>Filters</h2>
-                    <label for="start-date">Start Date:</label>
-                    <input type="date" id="start-date">
-                    <label for="end-date">End Date:</label>
-                    <input type="date" id="end-date">
-                    <label for="imei">IMEI:</label>
-                    <select id="imei">
-                        <option value="">All</option>
-                    </select>
-                    <button id="apply-filters">Apply Filters</button>
-                </div>
-            </div>
-        </nav>
-
+        {% include 'sidebar.html' %}
         <main>
             <div id="insights-container">
                 <h1>Driving Insights</h1>
