@@ -156,6 +156,9 @@ function renderTripCountsChart(insights) {
             }],
         },
         options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
             scales: {
                 x: {
                     beginAtZero: true,
@@ -171,8 +174,6 @@ function renderTripCountsChart(insights) {
             plugins: {
                 legend: { labels: { color: '#FFFFFF' } },
             },
-            responsive: true,
-            maintainAspectRatio: false,
         },
     });
 }
