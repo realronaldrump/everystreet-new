@@ -38,24 +38,38 @@ function initializeTabulator() {
             {
                 title: "Start Time",
                 field: "startTime",
-                formatter: "datetime",
-                sorter: "datetime",
-                headerFilter: "input",
-                formatterParams: {
-                    inputFormat: "YYYY-MM-DDTHH:mm:ss.SSSZ", // Assuming this is the format from the API
-                    outputFormat: "MM/DD/YYYY, h:mm:ss A" // Desired output format
-                }
+                formatter: function(cell, formatterParams, onRendered) {
+                    const date = new Date(cell.getValue());
+                    const options = { 
+                        year: 'numeric', 
+                        month: '2-digit', 
+                        day: '2-digit', 
+                        hour: '2-digit', 
+                        minute: '2-digit', 
+                        second: '2-digit',
+                        timeZone: cell.getData().timezone
+                    };
+                    return date.toLocaleString('en-US', options);
+                },
+                sorter: "datetime"
             },
             {
                 title: "End Time",
                 field: "endTime",
-                formatter: "datetime",
-                sorter: "datetime",
-                headerFilter: "input",
-                formatterParams: {
-                    inputFormat: "YYYY-MM-DDTHH:mm:ss.SSSZ", // Assuming this is the format from the API
-                    outputFormat: "MM/DD/YYYY, h:mm:ss A" // Desired output format
-                }
+                formatter: function(cell, formatterParams, onRendered) {
+                    const date = new Date(cell.getValue());
+                    const options = { 
+                        year: 'numeric', 
+                        month: '2-digit', 
+                        day: '2-digit', 
+                        hour: '2-digit', 
+                        minute: '2-digit', 
+                        second: '2-digit',
+                        timeZone: cell.getData().timezone
+                    };
+                    return date.toLocaleString('en-US', options);
+                },
+                sorter: "datetime"
             },
             {
                 title: "Distance (miles)",

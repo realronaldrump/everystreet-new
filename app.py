@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import aiohttp
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO
@@ -11,7 +11,7 @@ import geojson as geojson_module
 from geojson import loads as geojson_loads, dumps as geojson_dumps
 import traceback
 from timezonefinder import TimezoneFinder
-from pytz import timezone
+import pytz
 
 load_dotenv()
 
@@ -203,7 +203,6 @@ async def fetch_and_store_trips():
                     if existing_trip:
                         print(f"Trip {trip['transactionId']} already exists in the database. Skipping.")
                         continue
-
                     is_valid, error_message = validate_trip_data(trip)
                     if not is_valid:
                         print(f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}")
@@ -212,13 +211,13 @@ async def fetch_and_store_trips():
                     # Get the trip's timezone
                     trip_timezone = get_trip_timezone(trip)
 
-                    # Convert startTime and endTime to naive datetime objects (ignoring Bouncie's timezone)
-                    trip['startTime'] = datetime.fromisoformat(trip['startTime']).replace(tzinfo=None)
-                    trip['endTime'] = datetime.fromisoformat(trip['endTime']).replace(tzinfo=None)
+                    # Parse the timestamps as naive datetime objects
+                    trip['startTime'] = datetime.fromisoformat(trip['startTime'].replace('Z', '+00:00')).replace(tzinfo=None)
+                    trip['endTime'] = datetime.fromisoformat(trip['endTime'].replace('Z', '+00:00')).replace(tzinfo=None)
 
-                    # Localize the naive datetime objects to the correct timezone
-                    trip['startTime'] = pytz.timezone(trip_timezone).localize(trip['startTime'])
-                    trip['endTime'] = pytz.timezone(trip_timezone).localize(trip['endTime'])
+                    # Localize the naive datetime objects to UTC, then convert to the trip's timezone
+                    trip['startTime'] = pytz.utc.localize(trip['startTime']).astimezone(pytz.timezone(trip_timezone))
+                    trip['endTime'] = pytz.utc.localize(trip['endTime']).astimezone(pytz.timezone(trip_timezone))
                     
                     # Reverse geocode the last point of the trip
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
@@ -282,13 +281,13 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                     # Get the trip's timezone
                     trip_timezone = get_trip_timezone(trip)
 
-                    # Convert startTime and endTime to naive datetime objects (ignoring Bouncie's timezone)
-                    trip['startTime'] = datetime.fromisoformat(trip['startTime']).replace(tzinfo=None)
-                    trip['endTime'] = datetime.fromisoformat(trip['endTime']).replace(tzinfo=None)
+                    # Parse the timestamps as naive datetime objects
+                    trip['startTime'] = datetime.fromisoformat(trip['startTime'].replace('Z', '+00:00')).replace(tzinfo=None)
+                    trip['endTime'] = datetime.fromisoformat(trip['endTime'].replace('Z', '+00:00')).replace(tzinfo=None)
 
-                    # Localize the naive datetime objects to the correct timezone
-                    trip['startTime'] = pytz.timezone(trip_timezone).localize(trip['startTime'])
-                    trip['endTime'] = pytz.timezone(trip_timezone).localize(trip['endTime'])
+                    # Localize the naive datetime objects to UTC, then convert to the trip's timezone
+                    trip['startTime'] = pytz.utc.localize(trip['startTime']).astimezone(pytz.timezone(trip_timezone))
+                    trip['endTime'] = pytz.utc.localize(trip['endTime']).astimezone(pytz.timezone(trip_timezone))
                     
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
                     last_point = gps_data['coordinates'][-1]
@@ -313,7 +312,6 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                     print(f"Trips in database for IMEI {imei}: {count}")
                 except Exception as count_error:
                     print(f"Error counting trips for IMEI {imei}: {count_error}")
-        
     except Exception as fetch_error:
         print(f"Error in fetch_and_store_trips_in_range: {fetch_error}")
         print(traceback.format_exc())
@@ -371,7 +369,6 @@ def get_trips():
             'gps': 1,
             'destination': 1
         }
-        
         trips = list(trips_collection.find(query, projection))
         print(f"Found {len(trips)} trips")  # Debug print
         
@@ -392,7 +389,8 @@ def get_trips():
                         'startTime': trip['startTime'].isoformat(),
                         'endTime': trip['endTime'].isoformat(),
                         'distance': trip['distance'],
-                        'destination': trip.get('destination', 'Unknown')
+                        'destination': trip.get('destination', 'Unknown'),
+                        'timezone': str(trip['startTime'].tzinfo)
                     }
                 }
                 processed_trips.append(processed_trip)
@@ -405,7 +403,6 @@ def get_trips():
             'type': 'FeatureCollection',
             'features': processed_trips
         }
-        
         total_trips = len(processed_trips)
         print(f"Returning {total_trips} trips in total")
         
