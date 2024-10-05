@@ -236,6 +236,11 @@ async def fetch_and_store_trips():
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
                     last_point = gps_data['coordinates'][-1]
                     print(f"Last point coordinates: {last_point}")
+                    
+                    # Store the last point as a separate field
+                    trip['destinationGeoPoint'] = last_point
+                    
+                    # Use the last point for reverse geocoding
                     trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
                     
                     if isinstance(trip['gps'], dict):
@@ -302,9 +307,15 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                     trip['startTime'] = pytz.utc.localize(trip['startTime']).astimezone(pytz.timezone(trip_timezone))
                     trip['endTime'] = pytz.utc.localize(trip['endTime']).astimezone(pytz.timezone(trip_timezone))
                     
+                    # Reverse geocode the last point of the trip
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
                     last_point = gps_data['coordinates'][-1]
                     print(f"Last point coordinates: {last_point}")
+                    
+                    # Store the last point as a separate field
+                    trip['destinationGeoPoint'] = last_point
+                    
+                    # Use the last point for reverse geocoding
                     trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
                     
                     if isinstance(trip['gps'], dict):
