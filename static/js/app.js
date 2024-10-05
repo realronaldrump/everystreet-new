@@ -560,10 +560,15 @@ function fetchTripsInRange(startDate, endDate) {
             end_date: endDate
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.status === 'success') {
-            console.info(data.message);
+            console.log(data.message);
             fetchTrips(); // Refresh trips table after successful fetch
         } else {
             console.error(`Error: ${data.message}`);
@@ -571,7 +576,6 @@ function fetchTripsInRange(startDate, endDate) {
     })
     .catch(error => {
         console.error('Error fetching trips in range:', error);
-        console.error('An error occurred while fetching trips in range.');
     });
 }
 

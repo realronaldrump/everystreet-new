@@ -13,10 +13,8 @@ import traceback
 from timezonefinder import TimezoneFinder
 import pytz
 import asyncio
-from shapely.geometry import shape, Polygon, LineString, MultiPolygon
-import folium
+from shapely.geometry import Polygon, LineString, MultiPolygon
 import geopandas as gpd
-from flask import jsonify
 import requests
 
 load_dotenv()
@@ -59,15 +57,14 @@ time_offset = 0
 
 @app.route('/api/set_time_offset', methods=['POST'])
 def set_time_offset():
-    global time_offset
     data = request.json
-    time_offset = data.get('offset', 0)
-    return jsonify({"status": "success", "message": f"Time offset set to {time_offset} hours"})
+    offset_value = data.get('offset', 0)
+    return jsonify({"status": "success", "message": f"Time offset set to {offset_value} hours"})
 
 def apply_time_offset(date):
     return date + timedelta(hours=time_offset)
 
-async def get_access_token(session):
+async def get_access_token(client_session):
     payload = {
         "client_id": CLIENT_ID,
         "client_secret": CLIENT_SECRET,
@@ -75,11 +72,11 @@ async def get_access_token(session):
         "code": AUTH_CODE,
         "redirect_uri": REDIRECT_URI
     }
-    async with session.post(AUTH_URL, data=payload) as response:
-        data = await response.json()
+    async with client_session.post(AUTH_URL, data=payload) as auth_response:
+        data = await auth_response.json()
         return data.get('access_token')
 
-async def get_trips_from_api(session, access_token, imei, start_date, end_date):
+async def get_trips_from_api(client_session, access_token, imei, start_date, end_date):
     headers = {"Authorization": access_token, "Content-Type": "application/json"}
     params = {
         "imei": imei,
@@ -87,19 +84,19 @@ async def get_trips_from_api(session, access_token, imei, start_date, end_date):
         "starts-after": start_date.isoformat(),
         "ends-before": end_date.isoformat()
     }
-    async with session.get(f"{API_BASE_URL}/trips", headers=headers, params=params) as response:
+    async with client_session.get(f"{API_BASE_URL}/trips", headers=headers, params=params) as response:
         if response.status == 200:
             return await response.json()
         else:
             print(f"Error fetching trips: {response.status}")
             return []
 
-async def fetch_trips_in_intervals(session, access_token, imei, start_date, end_date):
+async def fetch_trips_in_intervals(main_session, access_token, imei, start_date, end_date):
     all_trips = []
     current_start = start_date
     while current_start < end_date:
         current_end = min(current_start + timedelta(days=7), end_date)
-        trips = await get_trips_from_api(session, access_token, imei, current_start, current_end)
+        trips = await get_trips_from_api(main_session, access_token, imei, current_start, current_end)
         all_trips.extend(trips)
         current_start = current_end
     return all_trips
@@ -127,31 +124,30 @@ def validate_trip_data(trip):
 async def reverse_geocode_nominatim(lat, lon):
     url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}&addressdetails=1"
     headers = {'User-Agent': 'EveryStreet/1.0'}
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers) as response:
-            if response.status == 200:
-                data = await response.json()
-                address = data.get('address', {})
-                formatted_address = []
+    async with aiohttp.ClientSession() as client_session, client_session.get(url, headers=headers) as response:
+        if response.status == 200:
+            data = await response.json()
+            address = data.get('address', {})
+            formatted_address = []
 
-                # Build the address from desired components
-                if 'house_number' in address:
-                    formatted_address.append(address['house_number'])
-                if 'road' in address:
-                    formatted_address.append(address['road'])
-                if 'city' in address:
-                    formatted_address.append(address['city'])
-                elif 'town' in address:
-                    formatted_address.append(address['town'])
-                elif 'village' in address:
-                    formatted_address.append(address['village'])
-                if 'state' in address:
-                    formatted_address.append(address['state'])
+            # Build the address from desired components
+            if 'house_number' in address:
+                formatted_address.append(address['house_number'])
+            if 'road' in address:
+                formatted_address.append(address['road'])
+            if 'city' in address:
+                formatted_address.append(address['city'])
+            elif 'town' in address:
+                formatted_address.append(address['town'])
+            elif 'village' in address:
+                formatted_address.append(address['village'])
+            if 'state' in address:
+                formatted_address.append(address['state'])
 
-                return ', '.join(formatted_address)
-            else:
-                print(f"Nominatim API error: {response.status}")
-                return f"Location at {lat}, {lon}"
+            return ', '.join(formatted_address)
+        else:
+            print(f"Nominatim API error: {response.status}")
+            return f"Location at {lat}, {lon}"
     
     # Add a small delay to avoid overwhelming the Nominatim service
     await asyncio.sleep(0.1)
@@ -199,8 +195,8 @@ async def fetch_and_store_trips():
     try:
         print("Starting fetch_and_store_trips")
         print(f"Authorized devices: {AUTHORIZED_DEVICES}")
-        async with aiohttp.ClientSession() as session:
-            access_token = await get_access_token(session)
+        async with aiohttp.ClientSession() as client_session:
+            access_token = await get_access_token(client_session)
             print("Access token obtained")
             
             end_date = datetime.now(timezone.utc)
@@ -290,19 +286,19 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
     try:
         print("Starting fetch_and_store_trips_in_range")
         print(f"Authorized devices: {AUTHORIZED_DEVICES}")
-        async with aiohttp.ClientSession() as session:
-            access_token = await get_access_token(session)
+        async with aiohttp.ClientSession() as client_session:
+            access_token = await get_access_token(client_session)
             print("Access token obtained")
-            
+
             all_trips = []
             for imei in AUTHORIZED_DEVICES:
                 print(f"Fetching trips for IMEI: {imei}")
-                device_trips = await fetch_trips_in_intervals(session, access_token, imei, start_date, end_date)
+                device_trips = await fetch_trips_in_intervals(client_session, access_token, imei, start_date, end_date)
                 print(f"Fetched {len(device_trips)} trips for IMEI {imei}")
                 all_trips.extend(device_trips)
-                
+
             print(f"Total trips fetched: {len(all_trips)}")
-            
+
             for trip in all_trips:
                 try:
                     existing_trip = trips_collection.find_one({'transactionId': trip['transactionId']})
@@ -325,38 +321,38 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                     # Localize the naive datetime objects to UTC, then convert to the trip's timezone
                     trip['startTime'] = pytz.utc.localize(trip['startTime']).astimezone(pytz.timezone(trip_timezone))
                     trip['endTime'] = pytz.utc.localize(trip['endTime']).astimezone(pytz.timezone(trip_timezone))
-                    
+
                     # Parse the GPS data
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
-                    
+
                     # Extract the first and last points
                     start_point = gps_data['coordinates'][0]
                     last_point = gps_data['coordinates'][-1]
-                    
+
                     # Store the start point as a separate field
                     trip['startGeoPoint'] = start_point
-                    
+
                     # Store the last point as a separate field
                     trip['destinationGeoPoint'] = last_point
-                    
+
                     # Use the last point for reverse geocoding
                     trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
-                    
+
                     # Use the first point for reverse geocoding the start location
                     trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
-                    
+
                     if isinstance(trip['gps'], dict):
                         trip['gps'] = geojson_dumps(trip['gps'])
-                    result = trips_collection.update_one(
+                    update_result = trips_collection.update_one(
                         {'transactionId': trip['transactionId']},
                         {'$set': trip},
                         upsert=True
                     )
-                    print(f"Updated trip {trip['transactionId']} for IMEI {trip.get('imei', 'Unknown')}: {'Inserted' if result.upserted_id else 'Updated'}")
+                    print(f"Updated trip {trip['transactionId']} for IMEI {trip.get('imei', 'Unknown')}: {'Inserted' if update_result.upserted_id else 'Updated'}")
                 except Exception as trip_error:
                     print(f"Error updating trip {trip.get('transactionId', 'Unknown')}: {trip_error}")
                     print(traceback.format_exc())
-            
+
             for imei in AUTHORIZED_DEVICES:
                 try:
                     count = trips_collection.count_documents({'imei': imei})
@@ -366,7 +362,6 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
     except Exception as fetch_error:
         print(f"Error in fetch_and_store_trips_in_range: {fetch_error}")
         print(traceback.format_exc())
-
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -549,13 +544,13 @@ async def api_fetch_trips():
     except Exception as fetch_error:
         return jsonify({"status": "error", "message": str(fetch_error)}), 500
 
-@app.route('/api/fetch_trips_in_range', methods=['POST'])
-async def api_fetch_trips_in_range():
+@app.route('/api/fetch_trips_range', methods=['POST'])
+def api_fetch_trips_range():
     try:
         data = request.json
         start_date = datetime.fromisoformat(data['start_date']).replace(tzinfo=timezone.utc)
         end_date = datetime.fromisoformat(data['end_date']).replace(tzinfo=timezone.utc) + timedelta(days=1)  # Include end date
-        await fetch_and_store_trips_in_range(start_date, end_date)
+        asyncio.run(fetch_and_store_trips_in_range(start_date, end_date))
         return jsonify({"status": "success", "message": "Trips fetched and stored successfully."}), 200
     except Exception as fetch_error:
         return jsonify({"status": "error", "message": str(fetch_error)}), 500
