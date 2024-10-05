@@ -33,8 +33,6 @@ function initializeEventListeners() {
     document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
 }
 
-
-
 function initializeDataTable() {
     insightsTable = $('#insights-table').DataTable({
         responsive: true,
@@ -44,18 +42,6 @@ function initializeDataTable() {
         columns: [
             { data: '_id', title: 'Destination' },
             { data: 'count', title: 'Visit Count', type: 'num' },
-            {
-                data: 'totalDistance',
-                title: 'Total Distance',
-                type: 'num',
-                render: (data) => `${data.toFixed(2)} miles`,
-            },
-            {
-                data: 'averageDistance',
-                title: 'Average Distance',
-                type: 'num',
-                render: (data) => `${data.toFixed(2)} miles`,
-            },
             {
                 data: 'lastVisit',
                 title: 'Last Visit',
@@ -118,15 +104,12 @@ function fetchUniqueImeis() {
 
 function updateSummaryMetrics(insights) {
     const totalTripsElement = document.getElementById('total-trips');
-    const totalDistanceElement = document.getElementById('total-distance');
     const mostVisitedElement = document.getElementById('most-visited');
 
     const totalTrips = insights.reduce((sum, item) => sum + item.count, 0);
-    const totalDistance = insights.reduce((sum, item) => sum + item.totalDistance, 0);
     const mostVisited = insights.length > 0 ? insights[0]._id : 'N/A';
 
     totalTripsElement.textContent = totalTrips;
-    totalDistanceElement.textContent = totalDistance.toFixed(2);
     mostVisitedElement.textContent = mostVisited;
 }
 
@@ -150,7 +133,7 @@ function renderTripCountsChart(insights) {
     tripCountsChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels,
+            labels: labels,
             datasets: [{
                 label: 'Trip Counts',
                 data,
