@@ -134,7 +134,7 @@ function fetchTrips() {
     fetch(url)
         .then(response => response.json())
         .then(geojson => {
-            console.log('Received GeoJSON:', geojson); // Add this line for debugging
+            console.log('Received GeoJSON:', geojson);
             const trips = geojson.features.map(feature => ({
                 ...feature.properties,
                 gps: feature.geometry,
