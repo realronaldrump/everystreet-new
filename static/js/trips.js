@@ -1,5 +1,7 @@
 let tripsTable = null;
 
+/* global flatpickr */
+
 const tableConfig = {
     defaultHiddenColumns: [0, 1] // Indices of columns to hide by default
 };

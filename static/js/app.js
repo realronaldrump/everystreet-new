@@ -199,7 +199,7 @@ function updateMap(geojson) {
         style: (feature) => {
             const color = colors[imeis.indexOf(feature.properties.imei) % colors.length];
             return {
-                color: color,
+                color,
                 weight: 2,
                 opacity: 0.5
             };
@@ -262,7 +262,7 @@ function handleLiveRouteUpdate(data) {
                 <strong>Longitude:</strong> ${lastPoint[1].toFixed(5)}
             `);
 
-            // Optionally, center the map on the new point
+            // Center the map on the new point
             map.panTo(lastPoint);
 
         } catch (error) {
@@ -276,8 +276,9 @@ function toggleSidebar() {
     sidebar.classList.toggle('active');
 }
 
+// skipcq: JS-0128
 function initThreeJSAnimations() {
-    // Placeholder for Three.js animations
+    // Placeholder for Three.js animations (if needed)
 }
 
 document.addEventListener('DOMContentLoaded', () => {

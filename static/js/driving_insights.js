@@ -150,10 +150,10 @@ function renderTripCountsChart(insights) {
     tripCountsChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: labels,
+            labels,
             datasets: [{
                 label: 'Trip Counts',
-                data: data,
+                data,
                 backgroundColor: 'rgba(187, 134, 252, 0.6)',
                 borderColor: 'rgba(187, 134, 252, 1)',
                 borderWidth: 1,
