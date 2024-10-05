@@ -2,6 +2,7 @@ let map = null;
 let layerGroup = null;
 let liveRoutePolyline = null;
 let liveMarker = null;
+let osmLayer = null;
 
 /* global flatpickr */
 
@@ -56,7 +57,6 @@ function initializeMap() {
     }
 }
 
-// Define the missing functions
 function initializeDatePickers() {
     flatpickr("#start-date", {
         dateFormat: "Y-m-d"
@@ -140,7 +140,9 @@ function fetchTrips() {
                 gps: feature.geometry,
                 destination: feature.properties.destination || 'N/A'
             }));
-            tripsTable.clear().rows.add(trips).draw();
+            if (tripsTable) {
+                tripsTable.clear().rows.add(trips).draw();
+            }
             console.log('Trips data:', trips);
             if (geojson.features && geojson.features.length > 0) {
                 updateMap(geojson);
@@ -407,3 +409,64 @@ document.addEventListener('DOMContentLoaded', () => {
     startClock();
     timeOffset = parseInt(localStorage.getItem('timeOffset') || '0');
 });
+
+function validateLocation() {
+    const location = document.getElementById('location-input').value;
+    const locationType = document.getElementById('location-type').value;
+
+    fetch('/api/validate_location', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ location, locationType }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data) {
+            alert('Location validated successfully!');
+            window.validatedLocation = data;
+        } else {
+            alert('Location not found. Please check your input.');
+        }
+    })
+    .catch(error => {
+        console.error('Error validating location:', error);
+    });
+}
+
+function generateOSMData(streetsOnly) {
+    if (!window.validatedLocation) {
+        alert('Please validate a location first.');
+        return;
+    }
+
+    fetch('/api/generate_geojson', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ location: window.validatedLocation, streetsOnly }),
+    })
+    .then(response => response.json())
+    .then(geojson => {
+        if (osmLayer) {
+            layerGroup.removeLayer(osmLayer);
+        }
+        osmLayer = L.geoJSON(geojson, {
+            style: {
+                color: streetsOnly ? '#03DAC6' : '#BB86FC',
+                weight: 2,
+                opacity: 0.7
+            }
+        }).addTo(layerGroup);
+        map.fitBounds(osmLayer.getBounds());
+    })
+    .catch(error => {
+        console.error('Error generating OSM data:', error);
+    });
+}
+
+document.getElementById('validate-location').addEventListener('click', validateLocation);
+document.getElementById('generate-boundary').addEventListener('click', () => generateOSMData(false));
+document.getElementById('generate-streets').addEventListener('click', () => generateOSMData(true));

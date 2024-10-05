@@ -15,3 +15,7 @@ gunicorn
 eventlet
 timezonefinder
 pytz
+shapely
+folium
+streamlit-folium
+geopandas

@@ -471,3 +471,21 @@ body.loading {
     font-size: 1.2em;
     font-weight: bold;
 }
+
+#osm-controls {
+    background-color: rgba(30, 30, 30, 0.8);
+    padding: 20px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+#osm-controls h2 {
+    margin-top: 0;
+}
+
+#osm-controls input,
+#osm-controls select,
+#osm-controls button {
+    margin-bottom: 10px;
+    width: 100%;
+}

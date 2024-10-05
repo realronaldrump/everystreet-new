@@ -36,6 +36,19 @@
                 <button id="time-backward">-1 Hour</button>
                 <button id="time-forward">+1 Hour</button>
             </div>
+            <div id="osm-controls">
+                <h2>OSM Data</h2>
+                <input type="text" id="location-input" placeholder="Enter location">
+                <select id="location-type">
+                    <option value="city">City</option>
+                    <option value="county">County</option>
+                    <option value="state">State</option>
+                    <option value="country">Country</option>
+                </select>
+                <button id="validate-location">Validate Location</button>
+                <button id="generate-boundary">Generate Boundary</button>
+                <button id="generate-streets">Generate Streets</button>
+            </div>
         </main>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

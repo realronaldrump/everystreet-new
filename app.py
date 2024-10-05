@@ -13,6 +13,11 @@ import traceback
 from timezonefinder import TimezoneFinder
 import pytz
 import asyncio
+from shapely.geometry import shape, Polygon, LineString, MultiPolygon
+import folium
+import geopandas as gpd
+from flask import jsonify
+import requests
 
 load_dotenv()
 
@@ -575,6 +580,102 @@ def export_geojson():
 
 async def start_background_tasks():
     await fetch_and_store_trips()
+
+@app.route('/api/validate_location', methods=['POST'])
+def validate_location():
+    data = request.json
+    location = data.get('location')
+    location_type = data.get('locationType')
+    validated_location = validate_location_osm(location, location_type)
+    return jsonify(validated_location)
+
+@app.route('/api/generate_geojson', methods=['POST'])
+def generate_geojson():
+    data = request.json
+    location = data.get('location')
+    streets_only = data.get('streetsOnly', False)
+    geojson_data, error_message = generate_geojson_osm(location, streets_only)
+    if geojson_data:
+        return jsonify(geojson_data)
+    else:
+        return jsonify({"error": error_message}), 400
+
+def validate_location_osm(location, location_type):
+    params = {'q': location, 'format': 'json', 'limit': 1, 'featuretype': location_type}
+    headers = {'User-Agent': 'GeojsonGenerator/1.0'}
+    response = requests.get("https://nominatim.openstreetmap.org/search", params=params, headers=headers)
+    if response.status_code == 200:
+        data = response.json()
+        return data[0] if data else None
+    return None
+
+def generate_geojson_osm(location, streets_only=False):
+    area_id = int(location['osm_id']) + 3600000000 if location['osm_type'] == 'relation' else int(location['osm_id'])
+    
+    if streets_only:
+        query = f"""
+        [out:json];
+        area({area_id})->.searchArea;
+        (
+          way["highway"](area.searchArea);
+        );
+        (._;>;);
+        out geom;
+        """
+    else:
+        query = f"""
+        [out:json];
+        ({location['osm_type']}({location['osm_id']});
+        >;
+        );
+        out geom;
+        """
+    
+    response = requests.get("http://overpass-api.de/api/interpreter", params={'data': query})
+    if response.status_code != 200:
+        return None, "Failed to get response from Overpass API"
+    
+    data = response.json()
+    features = process_elements(data['elements'], streets_only)
+    
+    if features:
+        gdf = gpd.GeoDataFrame.from_features(features)
+        gdf = gdf.set_geometry('geometry')
+        return json.loads(gdf.to_json()), None
+    else:
+        return None, f"No features found. Raw response: {json.dumps(data)}"
+
+def process_elements(elements, streets_only):
+    features = []
+    ways = {e['id']: e for e in elements if e['type'] == 'way'}
+    
+    for element in elements:
+        if element['type'] == 'way':
+            coords = [(node['lon'], node['lat']) for node in element.get('geometry', [])]
+            if len(coords) >= 2:
+                geom = LineString(coords) if streets_only else (Polygon(coords) if coords[0] == coords[-1] else LineString(coords))
+                features.append({
+                    'type': 'Feature',
+                    'geometry': geom.__geo_interface__,
+                    'properties': element.get('tags', {})
+                })
+        elif element['type'] == 'relation' and not streets_only:
+            outer_rings = []
+            for member in element.get('members', []):
+                if member['type'] == 'way' and member['role'] == 'outer':
+                    way = ways.get(member['ref'])
+                    if way:
+                        coords = [(node['lon'], node['lat']) for node in way.get('geometry', [])]
+                        if len(coords) >= 3 and coords[0] == coords[-1]:
+                            outer_rings.append(Polygon(coords))
+            if outer_rings:
+                geom = outer_rings[0] if len(outer_rings) == 1 else MultiPolygon(outer_rings)
+                features.append({
+                    'type': 'Feature',
+                    'geometry': geom.__geo_interface__,
+                    'properties': element.get('tags', {})
+                })
+    return features
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
