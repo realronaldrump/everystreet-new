@@ -89,13 +89,21 @@ function exportGeojson() {
 }
 
 function showLoadingOverlay() {
-    document.getElementById('loading-overlay').style.display = 'flex';
-    document.body.classList.add('loading');
+    const loadingOverlay = document.querySelector('.loading-overlay');
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'flex';
+    } else {
+        console.log('Loading overlay not found, skipping display');
+    }
 }
 
 function hideLoadingOverlay() {
-    document.getElementById('loading-overlay').style.display = 'none';
-    document.body.classList.remove('loading');
+    const loadingOverlay = document.querySelector('.loading-overlay');
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'none';
+    } else {
+        console.warn('Loading overlay element not found');
+    }
 }
 
 function updateLoadingProgress(progress) {
@@ -158,7 +166,10 @@ function fetchMetrics() {
 
 function updateMap(geojson) {
     console.log('Updating map with GeoJSON:', geojson);
-
+    if (!map || !layerGroup) {
+        console.log('Map or layerGroup not initialized, skipping map update');
+        return;
+    }
     layerGroup.clearLayers();
 
     const colors = ['#BB86FC', '#03DAC6', '#FF0266', '#CF6679'];
@@ -251,9 +262,11 @@ function initThreeJSAnimations() {
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeDatePickers();
-    initializeMap();
     initializeEventListeners();
-    fetchTrips();
+    if (document.getElementById('map')) {
+        initializeMap();
+        fetchTrips();
+    }
 });
 
 function initializeEventListeners() {

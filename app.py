@@ -393,7 +393,8 @@ def get_trips():
                 'startTime': trip['startTime'].isoformat(),
                 'endTime': trip['endTime'].isoformat(),
                 'distance': trip['distance'],
-                'timezone': trip.get('timezone', 'America/Chicago')  # Use 'America/Chicago' as default if timezone is not present
+                'timezone': trip.get('timezone', 'America/Chicago'),
+                'destination': trip.get('destination', 'N/A')  # Include the destination field
             }
         ) for trip in trips
     ]))

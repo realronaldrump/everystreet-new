@@ -4,22 +4,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
     const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    document.getElementById('start-date').value = sevenDaysAgo.toISOString().split('T')[0];
-    document.getElementById('end-date').value = today.toISOString().split('T')[0];
+    const startDateInput = document.getElementById('start-date');
+    const endDateInput = document.getElementById('end-date');
+    const applyFiltersButton = document.getElementById('apply-filters');
+    const sidebarToggleButton = document.getElementById('sidebar-toggle');
+    const fetchTripsButton = document.getElementById('fetch-trips');
+    const exportGeojsonButton = document.getElementById('export-geojson');
+
+    if (startDateInput) startDateInput.value = sevenDaysAgo.toISOString().split('T')[0];
+    if (endDateInput) endDateInput.value = today.toISOString().split('T')[0];
 
     initializeDataTable();
     fetchUniqueImeis().then(fetchTrips);
 
-    document.getElementById('apply-filters').addEventListener('click', fetchTrips);
-    document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
-    document.getElementById('fetch-trips').addEventListener('click', fetchAndStoreTrips);
-    document.getElementById('export-geojson').addEventListener('click', exportGeojson);
+    if (applyFiltersButton) applyFiltersButton.addEventListener('click', fetchTrips);
+    if (sidebarToggleButton) sidebarToggleButton.addEventListener('click', toggleSidebar);
+    if (fetchTripsButton) fetchTripsButton.addEventListener('click', fetchAndStoreTrips);
+    if (exportGeojsonButton) exportGeojsonButton.addEventListener('click', exportGeojson);
 });
 
 function initializeDataTable() {
     tripsTable = $('#trips-table').DataTable({
         responsive: true,
-        scrollX: true, // Enable horizontal scrolling
+        scrollX: true,
         pageLength: 25,
         lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
         columns: [
@@ -73,7 +80,13 @@ function initializeDataTable() {
                     return data;
                 }
             },
-            { data: 'destination', title: 'Destination' }
+            { 
+                data: 'destination', 
+                title: 'Destination',
+                render: function(data, type, row) {
+                    return data || 'N/A';
+                }
+            }
         ],
         order: [[2, 'desc']]
     });
@@ -101,8 +114,10 @@ function fetchTrips() {
             const trips = geojson.features.map(feature => ({
                 ...feature.properties,
                 gps: feature.geometry,
+                destination: feature.properties.destination || 'N/A'
             }));
             tripsTable.clear().rows.add(trips).draw();
+            console.log('Trips data:', trips); // Add this line for debugging
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
