@@ -206,7 +206,7 @@ function updateMap() {
         .sort((a, b) => a[1].order - b[1].order);
 
     orderedLayers.forEach(([layerName, layerInfo]) => {
-        if (layerInfo.layer) {
+        if (layerName === 'trips' && layerInfo.layer) {
             L.geoJSON(layerInfo.layer, {
                 style: {
                     color: layerInfo.color,
@@ -224,6 +224,16 @@ function updateMap() {
                         <strong>Distance:</strong> ${feature.properties.distance.toFixed(2)} miles
                     `);
                 }
+            }).addTo(layerGroup);
+        } else if (layerName === 'osmBoundary' && layerInfo.layer) {
+            layerInfo.layer.setStyle({ 
+                color: layerInfo.color,
+                opacity: layerInfo.opacity
+            }).addTo(layerGroup);
+        } else if (layerName === 'osmStreets' && layerInfo.layer) {
+            layerInfo.layer.setStyle({ 
+                color: layerInfo.color,
+                opacity: layerInfo.opacity
             }).addTo(layerGroup);
         }
     });
@@ -439,6 +449,10 @@ function generateOSMData(streetsOnly) {
     })
     .then(response => response.json())
     .then(geojson => {
+        if (!geojson || !geojson.type || geojson.type !== 'FeatureCollection') {
+            throw new Error('Invalid GeoJSON data');
+        }
+
         if (streetsOnly) {
             mapLayers.osmStreets.layer = L.geoJSON(geojson, {
                 style: {
