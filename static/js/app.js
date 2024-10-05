@@ -4,6 +4,12 @@ let liveRoutePolyline = null;
 let liveMarker = null;
 let osmLayer = null;
 
+let mapLayers = {
+    trips: { layer: null, visible: true, color: '#BB86FC', order: 1 },
+    osmBoundary: { layer: null, visible: false, color: '#03DAC6', order: 2 },
+    osmStreets: { layer: null, visible: false, color: '#FF0266', order: 3 }
+};
+
 /* global flatpickr */
 
 /* global io */
@@ -145,7 +151,8 @@ function fetchTrips() {
             }
             console.log('Trips data:', trips);
             if (geojson.features && geojson.features.length > 0) {
-                updateMap(geojson);
+                mapLayers.trips.layer = geojson;
+                updateMap();
             } else {
                 console.warn('No features found in GeoJSON data');
             }
@@ -164,7 +171,7 @@ function geocodeCoordinates(lat, lon) {
         .then(data => data.display_name)
         .catch(error => {
             console.error('Geocoding error:', error);
-            return 'Unknown';
+            return 'Unknown location';
         });
 }
 
@@ -186,44 +193,52 @@ function fetchMetrics() {
         });
 }
 
-function updateMap(geojson) {
-    console.log('Updating map with GeoJSON:', geojson);
+function updateMap() {
+    console.log('Updating map');
     if (!map || !layerGroup) {
         console.log('Map or layerGroup not initialized, skipping map update');
         return;
     }
     layerGroup.clearLayers();
 
-    const colors = ['#BB86FC', '#03DAC6', '#FF0266', '#CF6679'];
-    const imeis = [...new Set(geojson.features.map(f => f.properties.imei))];
+    const orderedLayers = Object.entries(mapLayers)
+        .filter(([_, layerInfo]) => layerInfo.visible)
+        .sort((a, b) => a[1].order - b[1].order);
 
-    L.geoJSON(geojson, {
-        style: (feature) => {
-            const color = colors[imeis.indexOf(feature.properties.imei) % colors.length];
-            return {
-                color,
-                weight: 2,
-                opacity: 0.5
-            };
-        },
-        onEachFeature: (feature, layer) => {
-            const startTime = applyTimeOffset(feature.properties.startTime);
-            const endTime = applyTimeOffset(feature.properties.endTime);
+    orderedLayers.forEach(([layerName, layerInfo]) => {
+        if (layerName === 'trips' && layerInfo.layer) {
+            L.geoJSON(layerInfo.layer, {
+                style: {
+                    color: layerInfo.color,
+                    weight: 2,
+                    opacity: 0.5
+                },
+                onEachFeature: (feature, layer) => {
+                    const startTime = applyTimeOffset(feature.properties.startTime);
+                    const endTime = applyTimeOffset(feature.properties.endTime);
 
-            layer.bindPopup(`
-                <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
-                <strong>Start Time:</strong> ${startTime.toLocaleString()}<br>
-                <strong>End Time:</strong> ${endTime.toLocaleString()}<br>
-                <strong>Distance:</strong> ${feature.properties.distance.toFixed(2)} miles
-            `);
+                    layer.bindPopup(`
+                        <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
+                        <strong>Start Time:</strong> ${startTime.toLocaleString()}<br>
+                        <strong>End Time:</strong> ${endTime.toLocaleString()}<br>
+                        <strong>Distance:</strong> ${feature.properties.distance.toFixed(2)} miles
+                    `);
+                }
+            }).addTo(layerGroup);
+        } else if (layerName === 'osmBoundary' && layerInfo.layer) {
+            layerInfo.layer.setStyle({ color: layerInfo.color }).addTo(layerGroup);
+        } else if (layerName === 'osmStreets' && layerInfo.layer) {
+            layerInfo.layer.setStyle({ color: layerInfo.color }).addTo(layerGroup);
         }
-    }).addTo(layerGroup);
+    });
 
-    const bounds = L.geoJSON(geojson).getBounds();
-    if (bounds.isValid()) {
-        map.fitBounds(bounds);
-    } else {
-        console.warn('No valid bounds to fit');
+    if (mapLayers.trips.layer) {
+        const bounds = L.geoJSON(mapLayers.trips.layer).getBounds();
+        if (bounds.isValid()) {
+            map.fitBounds(bounds);
+        } else {
+            console.warn('No valid bounds to fit');
+        }
     }
 }
 
@@ -234,7 +249,6 @@ function handleLiveRouteUpdate(data) {
             const lastPoint = coordinates[coordinates.length - 1];
             const isVehicleOff = data.isVehicleOff; // Assuming this data is available
 
-            // Remove existing polyline and marker if they exist
             if (liveRoutePolyline) {
                 layerGroup.removeLayer(liveRoutePolyline);
             }
@@ -278,19 +292,167 @@ function toggleSidebar() {
     sidebar.classList.toggle('active');
 }
 
-// skipcq: JS-0128
-function initThreeJSAnimations() {
-    // Placeholder for Three.js animations (if needed)
+function initializeLayerControls() {
+    const layerToggles = document.getElementById('layer-toggles');
+    const layerColors = document.getElementById('layer-colors');
+    const layerOrder = document.getElementById('layer-order');
+
+    for (const [layerName, layerInfo] of Object.entries(mapLayers)) {
+        // Create toggle
+        const toggle = document.createElement('div');
+        toggle.innerHTML = `
+            <input type="checkbox" id="${layerName}-toggle" ${layerInfo.visible ? 'checked' : ''}>
+            <label for="${layerName}-toggle">${layerName}</label>
+        `;
+        layerToggles.appendChild(toggle);
+
+        // Create color picker
+        const colorPicker = document.createElement('div');
+        colorPicker.innerHTML = `
+            <label for="${layerName}-color">${layerName} color:</label>
+            <input type="color" id="${layerName}-color" value="${layerInfo.color}">
+        `;
+        layerColors.appendChild(colorPicker);
+
+        // Add event listeners
+        document.getElementById(`${layerName}-toggle`).addEventListener('change', (e) => toggleLayer(layerName, e.target.checked));
+        document.getElementById(`${layerName}-color`).addEventListener('change', (e) => changeLayerColor(layerName, e.target.value));
+    }
+
+    updateLayerOrderUI();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    initializeDatePickers();
-    initializeEventListeners();
-    if (document.getElementById('map')) {
-        initializeMap();
-        fetchTrips();
+function toggleLayer(layerName, visible) {
+    mapLayers[layerName].visible = visible;
+    updateMap();
+    updateLayerOrderUI();
+}
+
+function changeLayerColor(layerName, color) {
+    mapLayers[layerName].color = color;
+    updateMap();
+}
+
+function updateLayerOrderUI() {
+    const layerOrder = document.getElementById('layer-order');
+    layerOrder.innerHTML = '<h3>Layer Order (Drag to reorder)</h3>';
+
+    const orderedLayers = Object.entries(mapLayers)
+        .filter(([_, layerInfo]) => layerInfo.visible)
+        .sort((a, b) => a[1].order - b[1].order);
+
+    const ul = document.createElement('ul');
+    ul.id = 'layer-order-list';
+    orderedLayers.forEach(([layerName, _]) => {
+        const li = document.createElement('li');
+        li.textContent = layerName;
+        li.draggable = true;
+        li.dataset.layer = layerName;
+        ul.appendChild(li);
+    });
+
+    layerOrder.appendChild(ul);
+    initializeDragAndDrop();
+}
+
+function initializeDragAndDrop() {
+    const layerList = document.getElementById('layer-order-list');
+    let draggedItem = null;
+
+    layerList.addEventListener('dragstart', (e) => {
+        draggedItem = e.target;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+    });
+
+    layerList.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const targetItem = e.target.closest('li');
+        if (targetItem && targetItem !== draggedItem) {
+            const rect = targetItem.getBoundingClientRect();
+            const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
+            layerList.insertBefore(draggedItem, next ? targetItem.nextSibling : targetItem);
+        }
+    });
+
+    layerList.addEventListener('dragend', () => {
+        updateLayerOrder();
+    });
+}
+
+function updateLayerOrder() {
+    const layerList = document.getElementById('layer-order-list');
+    const layers = layerList.querySelectorAll('li');
+    layers.forEach((layer, index) => {
+        mapLayers[layer.dataset.layer].order = index + 1;
+    });
+    updateMap();
+}
+
+function validateLocation() {
+    const location = document.getElementById('location-input').value;
+    const locationType = document.getElementById('location-type').value;
+
+    fetch('/api/validate_location', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ location, locationType }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data) {
+            alert('Location validated successfully!');
+            window.validatedLocation = data;
+        } else {
+            alert('Location not found. Please check your input.');
+        }
+    })
+    .catch(error => {
+        console.error('Error validating location:', error);
+    });
+}
+
+function generateOSMData(streetsOnly) {
+    if (!window.validatedLocation) {
+        alert('Please validate a location first.');
+        return;
     }
-});
+
+    fetch('/api/generate_geojson', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ location: window.validatedLocation, streetsOnly }),
+    })
+    .then(response => response.json())
+    .then(geojson => {
+        if (streetsOnly) {
+            mapLayers.osmStreets.layer = L.geoJSON(geojson, {
+                style: {
+                    color: mapLayers.osmStreets.color,
+                    weight: 2,
+                    opacity: 0.7
+                }
+            });
+        } else {
+            mapLayers.osmBoundary.layer = L.geoJSON(geojson, {
+                style: {
+                    color: mapLayers.osmBoundary.color,
+                    weight: 2,
+                    opacity: 0.7
+                }
+            });
+        }
+        updateMap();
+        updateLayerOrderUI();
+    })
+    .catch(error => {
+        console.error('Error generating OSM data:', error);
+    });
+}
 
 function initializeEventListeners() {
     document.getElementById('apply-filters').addEventListener('click', () => {
@@ -308,6 +470,10 @@ function initializeEventListeners() {
         fetchTripsInRange(startDate, endDate);
     });
     document.getElementById('export-geojson').addEventListener('click', exportGeojson);
+    document.getElementById('validate-location').addEventListener('click', validateLocation);
+    document.getElementById('generate-boundary').addEventListener('click', () => generateOSMData(false));
+    document.getElementById('generate-streets').addEventListener('click', () => generateOSMData(true));
+    initializeLayerControls();
 }
 
 socket.on('live_route_update', handleLiveRouteUpdate);
@@ -315,34 +481,30 @@ socket.on('loading_progress', (data) => {
     updateLoadingProgress(data.progress);
 });
 
-// Replace console.log and alert with appropriate logging or user notification mechanisms
 function fetchTripsInRange(startDate, endDate) {
-    fetch('/api/fetch_trips_in_range', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                start_date: startDate,
-                end_date: endDate
-            })
+    fetch('/api/fetch_trips_range', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            start_date: startDate,
+            end_date: endDate
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                // Use a user notification mechanism instead of alert
-                console.info(data.message);
-                fetchTrips(); // Refresh trips table after successful fetch
-            } else {
-                // Use a user notification mechanism instead of alert
-                console.error(`Error: ${data.message}`);
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching trips in range:', error);
-            // Use a user notification mechanism instead of alert
-            console.error('An error occurred while fetching trips in range.');
-        });
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            console.info(data.message);
+            fetchTrips(); // Refresh trips table after successful fetch
+        } else {
+            console.error(`Error: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching trips in range:', error);
+        console.error('An error occurred while fetching trips in range.');
+    });
 }
 
 let timeOffset = 0;
@@ -407,66 +569,10 @@ function startClock() {
 
 document.addEventListener('DOMContentLoaded', () => {
     startClock();
-    timeOffset = parseInt(localStorage.getItem('timeOffset') || '0');
-});
-
-function validateLocation() {
-    const location = document.getElementById('location-input').value;
-    const locationType = document.getElementById('location-type').value;
-
-    fetch('/api/validate_location', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ location, locationType }),
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data) {
-            alert('Location validated successfully!');
-            window.validatedLocation = data;
-        } else {
-            alert('Location not found. Please check your input.');
-        }
-    })
-    .catch(error => {
-        console.error('Error validating location:', error);
-    });
-}
-
-function generateOSMData(streetsOnly) {
-    if (!window.validatedLocation) {
-        alert('Please validate a location first.');
-        return;
+    initializeDatePickers();
+    initializeEventListeners();
+    if (document.getElementById('map')) {
+        initializeMap();
+        fetchTrips();
     }
-
-    fetch('/api/generate_geojson', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ location: window.validatedLocation, streetsOnly }),
-    })
-    .then(response => response.json())
-    .then(geojson => {
-        if (osmLayer) {
-            layerGroup.removeLayer(osmLayer);
-        }
-        osmLayer = L.geoJSON(geojson, {
-            style: {
-                color: streetsOnly ? '#03DAC6' : '#BB86FC',
-                weight: 2,
-                opacity: 0.7
-            }
-        }).addTo(layerGroup);
-        map.fitBounds(osmLayer.getBounds());
-    })
-    .catch(error => {
-        console.error('Error generating OSM data:', error);
-    });
-}
-
-document.getElementById('validate-location').addEventListener('click', validateLocation);
-document.getElementById('generate-boundary').addEventListener('click', () => generateOSMData(false));
-document.getElementById('generate-streets').addEventListener('click', () => generateOSMData(true));
+});

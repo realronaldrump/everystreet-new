@@ -489,3 +489,64 @@ body.loading {
     margin-bottom: 10px;
     width: 100%;
 }
+
+#map-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(30, 30, 30, 0.8);
+    padding: 10px;
+    border-radius: 5px;
+    z-index: 1000;
+    color: var(--text-color);
+}
+
+#layer-toggles, #layer-colors, #layer-order {
+    margin-bottom: 10px;
+}
+
+#layer-order-list {
+    list-style-type: none;
+    padding: 0;
+}
+
+#layer-order-list li {
+    padding: 5px;
+    background-color: rgba(50, 50, 50, 0.8);
+    margin-bottom: 5px;
+    cursor: move;
+    border-radius: 3px;
+}
+
+#layer-order-list li:hover {
+    background-color: rgba(70, 70, 70, 0.8);
+}
+
+#map-controls input[type="checkbox"] {
+    margin-right: 5px;
+}
+
+#map-controls input[type="color"] {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+}
+
+#map-controls label {
+    display: inline-block;
+    margin-bottom: 5px;
+}
+
+@media only screen and (max-width: 768px) {
+    #map-controls {
+        top: auto;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        max-height: 50vh;
+    }
+}
