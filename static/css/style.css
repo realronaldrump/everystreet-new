@@ -1,11 +1,12 @@
-/* General Styles */
+/* General Styles and Variables */
 :root {
-    --bg-color: #121212; /* Dark Background */
-    --text-color: #FFFFFF; /* Light Text */
-    --accent-color: #007bff; /* Blue Accent */
-    --secondary-color: #009688; /* Teal Secondary */
-    --hover-color: #212529; /* Darker Grey Hover */
-    --border-color: #333; /* Dark Grey Border */
+    --bg-color: #121212;
+    --text-color: #FFFFFF;
+    --accent-color: #007bff;
+    --secondary-color: #009688;
+    --hover-color: #212529;
+    --border-color: #333;
+    --dark-grey: #212529;
     --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
 }
 
@@ -19,6 +20,7 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* Links */
 a {
     color: var(--accent-color);
     text-decoration: none;
@@ -29,15 +31,25 @@ a:hover {
     opacity: 0.7;
 }
 
+/* Layout */
 #app {
     display: flex;
+    flex-direction: row;
     height: 100vh;
     overflow: hidden;
 }
 
+main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Sidebar */
 .sidebar {
     width: 250px;
-    background-color: #212529; /* Dark Grey Sidebar */
+    background-color: var(--dark-grey);
     color: var(--text-color);
     transition: all 0.3s ease;
     overflow-y: auto;
@@ -58,16 +70,25 @@ a:hover {
 }
 
 .sidebar-toggle {
-    background: none;
-    border: none;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: var(--accent-color);
     color: #FFFFFF;
-    font-size: 1.5em;
+    border: none;
+    font-size: 24px;
     cursor: pointer;
-    transition: transform 0.3s ease;
+    padding: 10px;
+    border-radius: 50%;
+    z-index: 1001; 
 }
 
 .sidebar-toggle:hover {
-    transform: scale(1.1);
+    background-color: var(--secondary-color);
+}
+
+.sidebar.collapsed ~ main .sidebar-toggle {
+    left: 20px; 
 }
 
 .sidebar-menu {
@@ -98,20 +119,37 @@ a:hover {
     background-color: var(--hover-color);
 }
 
-main {
-    flex-grow: 1;
+.sidebar-content {
     padding: 20px;
-    transition: all 0.3s ease;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    background-color: #282c34; /* Dark Grey Main Content */
 }
 
-main.expanded {
-    margin-left: 60px;
+.sidebar-clock {
+    padding: 15px;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
 }
 
+.sidebar-clock h4 {
+    margin: 0 0 5px 0;
+    font-size: 14px;
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+#current-date {
+    font-size: 14px;
+    margin-bottom: 3px;
+    color: var(--text-color);
+}
+
+#current-time {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+
+/* Typography */
 h1, h2 {
     color: var(--text-color);
     font-weight: 600;
@@ -128,16 +166,19 @@ h2 {
     margin-bottom: 15px;
 }
 
+/* Buttons */
 button {
     cursor: pointer;
     background-color: var(--accent-color);
     color: #FFFFFF;
     border: none;
-    padding: 10px 15px;
+    padding: 12px 15px;
     border-radius: 8px;
     font-size: 16px;
     font-weight: 500;
     transition: background-color 0.3s ease, transform 0.1s ease;
+    width: auto; 
+    box-sizing: border-box; 
 }
 
 button:hover {
@@ -148,13 +189,15 @@ button:active {
     transform: scale(0.98);
 }
 
+
+/* Forms and Inputs */
 input[type="text"], select {
     width: 100%;
     padding: 12px;
     margin-top: 5px;
     margin-bottom: 15px;
     border: 1px solid var(--border-color);
-    background-color: #212529; /* Dark Grey Input Background */
+    background-color: var(--dark-grey); 
     color: var(--text-color);
     border-radius: 8px;
     font-size: 16px;
@@ -166,12 +209,13 @@ input[type="text"]:focus, select:focus {
     border-color: var(--accent-color);
 }
 
+/* Tables */
 table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
     margin-bottom: 20px;
-    background-color: #212529; /* Dark Grey Table Background */
+    background-color: var(--dark-grey); 
     color: var(--text-color);
     border-radius: 8px;
     overflow: hidden;
@@ -185,7 +229,7 @@ th, td {
 }
 
 th {
-    background-color: #333; /* Darker Grey Table Header */
+    background-color: #333; 
     color: var(--text-color);
     font-weight: 600;
     position: sticky;
@@ -201,8 +245,9 @@ tr:hover {
     background-color: var(--hover-color);
 }
 
+/* DataTables */
 .dataTables_wrapper {
-    background-color: #212529; /* Dark Grey DataTables Wrapper */
+    background-color: var(--dark-grey); 
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
@@ -219,7 +264,7 @@ tr:hover {
 
 .dataTables_wrapper .dataTables_paginate .paginate_button {
     color: var(--text-color) !important;
-    background-color: #212529 !important; /* Dark Grey Pagination */
+    background-color: var(--dark-grey) !important; 
     border: 1px solid var(--border-color) !important;
     border-radius: 4px;
     padding: 5px 10px;
@@ -241,16 +286,16 @@ tr:hover {
 
 .dataTables_wrapper .dataTables_filter input,
 .dataTables_wrapper .dataTables_length select {
-    background-color: #212529 !important; /* Dark Grey Filter/Length Inputs */
+    background-color: var(--dark-grey) !important;
     color: var(--text-color) !important;
     border: 1px solid var(--border-color) !important;
     border-radius: 4px;
     padding: 5px 10px;
 }
 
-/* Tabulator styles */
+/* Tabulator */
 .tabulator {
-    background-color: #212529; /* Dark Grey Tabulator Background */
+    background-color: var(--dark-grey); 
     color: var(--text-color);
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -258,12 +303,12 @@ tr:hover {
 }
 
 .tabulator .tabulator-header {
-    background-color: #333; /* Darker Grey Tabulator Header */
+    background-color: #333; 
     border-bottom: 1px solid var(--border-color);
 }
 
 .tabulator .tabulator-header .tabulator-col {
-    background-color: #333; /* Darker Grey Tabulator Column Header */
+    background-color: #333; 
     color: var(--text-color);
     border-right: 1px solid var(--border-color);
     padding: 10px;
@@ -282,13 +327,14 @@ tr:hover {
     padding: 10px;
 }
 
+/* Loading Overlay */
 .loading-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.8); /* Dark Overlay */
+    background-color: rgba(0, 0, 0, 0.8); 
     display: flex;
     justify-content: center;
     align-items: center;
@@ -298,7 +344,7 @@ tr:hover {
 
 .loading-content {
     text-align: center;
-    background-color: #212529; /* Dark Grey Loading Content */
+    background-color: var(--dark-grey); 
     padding: 30px;
     border-radius: 12px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
@@ -326,6 +372,7 @@ tr:hover {
     font-weight: 500;
 }
 
+/* Map Markers and Animations */
 .circle-marker {
     animation: pulse 2s infinite;
     fill: rgba(0, 255, 0, 0.5);
@@ -357,37 +404,10 @@ tr:hover {
     animation: pulse 2s infinite;
 }
 
-@media only screen and (max-width: 768px) {
-    .sidebar {
-        position: fixed;
-        left: -250px;
-        top: 0;
-        height: 100%;
-        z-index: 1000;
-        transition: left 0.3s ease;
-    }
-
-    .sidebar.active {
-        left: 0;
-    }
-
-    main {
-        margin-left: 0;
-        width: 100%;
-    }
-
-    .sidebar-header .sidebar-toggle {
-        display: block;
-    }
-
-    #map, #insights-container, #trips-list {
-        height: calc(100vh - 60px);
-    }
-}
-
+/* Map and Map Controls */
 #map, #insights-container, #trips-list {
     width: 100%;
-    height: calc(100vh - 60px);
+    height: calc(100vh - 60px); 
 }
 
 #time-calibration {
@@ -418,33 +438,8 @@ tr:hover {
     transform: scale(0.98);
 }
 
-.sidebar-clock {
-    padding: 15px;
-    border-top: 1px solid var(--border-color);
-    text-align: center;
-}
-
-.sidebar-clock h4 {
-    margin: 0 0 5px 0;
-    font-size: 14px;
-    color: var(--text-color);
-    font-weight: 600;
-}
-
-#current-date {
-    font-size: 14px;
-    margin-bottom: 3px;
-    color: var(--text-color);
-}
-
-#current-time {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-color);
-}
-
 #osm-controls {
-    background-color: #212529; /* Dark Grey OSM Controls */
+    background-color: var(--dark-grey); 
     padding: 20px;
     border-radius: 8px;
     margin-bottom: 20px;
@@ -466,7 +461,7 @@ tr:hover {
     position: absolute;
     top: 10px;
     right: 10px;
-    background-color: #212529; /* Dark Grey Map Controls */
+    background-color: var(--dark-grey); 
     padding: 15px;
     border-radius: 8px;
     z-index: 1000;
@@ -485,7 +480,7 @@ tr:hover {
 
 #layer-order-list li {
     padding: 8px;
-    background-color: #333; /* Darker Grey Layer Order List */
+    background-color: #333; 
     margin-bottom: 5px;
     cursor: move;
     border-radius: 4px;
@@ -515,7 +510,71 @@ tr:hover {
     margin-bottom: 8px;
 }
 
+.layer-control {
+    margin-bottom: 10px;
+}
+
+.layer-control input[type="range"] {
+    width: 100%;
+    margin-top: 5px;
+}
+
+/* Map Controls Toggle Button */
+#map-controls .controls-toggle {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 16px;
+}
+
+#map-controls.minimized {
+    height: 40px;
+    overflow: hidden;
+}
+
+#map-controls.minimized h2,
+#map-controls.minimized #controls-content {
+    display: none;
+}
+
+
+/* Media Queries (Responsive Design) */
 @media only screen and (max-width: 768px) {
+    button {
+        padding: 14px 20px;
+        font-size: 18px;
+    }
+
+    .sidebar {
+        position: fixed;
+        left: -250px;
+        top: 0;
+        height: 100%;
+        z-index: 1000;
+        transition: left 0.3s ease;
+    }
+
+    .sidebar.active {
+        left: 0;
+    }
+
+    main {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .sidebar-header .sidebar-toggle {
+        display: block;
+    }
+
+    #map, #insights-container, #trips-list {
+        height: calc(100vh - 60px); 
+    }
+
     #map-controls {
         top: auto;
         bottom: 10px;

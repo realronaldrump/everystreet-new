@@ -5,9 +5,9 @@ let liveMarker = null;
 let osmLayer = null;
 
 let mapLayers = {
-    trips: { layer: null, visible: true, color: '#BB86FC', order: 1 },
-    osmBoundary: { layer: null, visible: false, color: '#03DAC6', order: 2 },
-    osmStreets: { layer: null, visible: false, color: '#FF0266', order: 3 }
+    trips: { layer: null, visible: true, color: '#BB86FC', order: 1, opacity: 0.7 },
+    osmBoundary: { layer: null, visible: false, color: '#03DAC6', order: 2, opacity: 0.7 },
+    osmStreets: { layer: null, visible: false, color: '#FF0266', order: 3, opacity: 0.7 }
 };
 
 /* global flatpickr */
@@ -206,12 +206,12 @@ function updateMap() {
         .sort((a, b) => a[1].order - b[1].order);
 
     orderedLayers.forEach(([layerName, layerInfo]) => {
-        if (layerName === 'trips' && layerInfo.layer) {
+        if (layerInfo.layer) {
             L.geoJSON(layerInfo.layer, {
                 style: {
                     color: layerInfo.color,
                     weight: 2,
-                    opacity: 0.5
+                    opacity: layerInfo.opacity
                 },
                 onEachFeature: (feature, layer) => {
                     const startTime = applyTimeOffset(feature.properties.startTime);
@@ -225,10 +225,6 @@ function updateMap() {
                     `);
                 }
             }).addTo(layerGroup);
-        } else if (layerName === 'osmBoundary' && layerInfo.layer) {
-            layerInfo.layer.setStyle({ color: layerInfo.color }).addTo(layerGroup);
-        } else if (layerName === 'osmStreets' && layerInfo.layer) {
-            layerInfo.layer.setStyle({ color: layerInfo.color }).addTo(layerGroup);
         }
     });
 
@@ -290,36 +286,42 @@ function handleLiveRouteUpdate(data) {
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     sidebar.classList.toggle('active');
+
+    // Update the sidebar toggle icon
+    const icon = document.getElementById('sidebar-toggle').querySelector('i');
+    if (sidebar.classList.contains('active')) {
+        icon.classList.remove('fa-bars');
+        icon.classList.add('fa-times');
+    } else {
+        icon.classList.remove('fa-times');
+        icon.classList.add('fa-bars');
+    }
 }
 
 function initializeLayerControls() {
     const layerToggles = document.getElementById('layer-toggles');
-    const layerColors = document.getElementById('layer-colors');
-    const layerOrder = document.getElementById('layer-order');
+    layerToggles.innerHTML = ''; // Clear previous content
 
     for (const [layerName, layerInfo] of Object.entries(mapLayers)) {
-        // Create toggle
-        const toggle = document.createElement('div');
-        toggle.innerHTML = `
+        const layerControl = document.createElement('div');
+        layerControl.classList.add('layer-control');
+        layerControl.dataset.layerName = layerName;
+
+        layerControl.innerHTML = `
             <input type="checkbox" id="${layerName}-toggle" ${layerInfo.visible ? 'checked' : ''}>
             <label for="${layerName}-toggle">${layerName}</label>
-        `;
-        layerToggles.appendChild(toggle);
-
-        // Create color picker
-        const colorPicker = document.createElement('div');
-        colorPicker.innerHTML = `
-            <label for="${layerName}-color">${layerName} color:</label>
             <input type="color" id="${layerName}-color" value="${layerInfo.color}">
+            <!-- Add opacity slider -->
+            <label for="${layerName}-opacity">Opacity:</label>
+            <input type="range" id="${layerName}-opacity" min="0" max="1" step="0.1" value="${layerInfo.opacity}">
         `;
-        layerColors.appendChild(colorPicker);
+        layerToggles.appendChild(layerControl);
 
         // Add event listeners
         document.getElementById(`${layerName}-toggle`).addEventListener('change', (e) => toggleLayer(layerName, e.target.checked));
         document.getElementById(`${layerName}-color`).addEventListener('change', (e) => changeLayerColor(layerName, e.target.value));
+        document.getElementById(`${layerName}-opacity`).addEventListener('input', (e) => changeLayerOpacity(layerName, e.target.value));
     }
-
-    updateLayerOrderUI();
 }
 
 function toggleLayer(layerName, visible) {
@@ -333,13 +335,18 @@ function changeLayerColor(layerName, color) {
     updateMap();
 }
 
+function changeLayerOpacity(layerName, opacity) {
+    mapLayers[layerName].opacity = parseFloat(opacity);
+    updateMap();
+}
+
 function updateLayerOrderUI() {
     const layerOrder = document.getElementById('layer-order');
     layerOrder.innerHTML = '<h3>Layer Order (Drag to reorder)</h3>';
 
     const orderedLayers = Object.entries(mapLayers)
         .filter(([_, layerInfo]) => layerInfo.visible)
-        .sort((a, b) => a[1].order - b[1].order);
+        .sort((a, b) => b[1].order - a[1].order); // Note the change here
 
     const ul = document.createElement('ul');
     ul.id = 'layer-order-list';
@@ -382,9 +389,12 @@ function initializeDragAndDrop() {
 
 function updateLayerOrder() {
     const layerList = document.getElementById('layer-order-list');
-    const layers = layerList.querySelectorAll('li');
+    const layers = Array.from(layerList.querySelectorAll('li'));
+    const totalLayers = layers.length;
     layers.forEach((layer, index) => {
-        mapLayers[layer.dataset.layer].order = index + 1;
+        // Since layers are displayed from top to bottom,
+        // the first layer should have the highest order
+        mapLayers[layer.dataset.layer].order = totalLayers - index;
     });
     updateMap();
 }
@@ -455,25 +465,69 @@ function generateOSMData(streetsOnly) {
 }
 
 function initializeEventListeners() {
-    document.getElementById('apply-filters').addEventListener('click', () => {
-        // Update localStorage with the selected dates
-        const startDate = document.getElementById('start-date').value;
-        const endDate = document.getElementById('end-date').value;
-        localStorage.setItem('startDate', startDate);
-        localStorage.setItem('endDate', endDate);
-        fetchTrips();
-    });
-    document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
-    document.getElementById('fetch-trips-range').addEventListener('click', () => {
-        const startDate = document.getElementById('start-date').value;
-        const endDate = document.getElementById('end-date').value;
-        fetchTripsInRange(startDate, endDate);
-    });
-    document.getElementById('export-geojson').addEventListener('click', exportGeojson);
-    document.getElementById('validate-location').addEventListener('click', validateLocation);
-    document.getElementById('generate-boundary').addEventListener('click', () => generateOSMData(false));
-    document.getElementById('generate-streets').addEventListener('click', () => generateOSMData(true));
+    const applyFiltersButton = document.getElementById('apply-filters');
+    if (applyFiltersButton) {
+        applyFiltersButton.addEventListener('click', () => {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            localStorage.setItem('startDate', startDate);
+            localStorage.setItem('endDate', endDate);
+            fetchTrips();
+        });
+    }
+
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', toggleSidebar);
+    }
+
+    const fetchTripsRangeButton = document.getElementById('fetch-trips-range');
+    if (fetchTripsRangeButton) {
+        fetchTripsRangeButton.addEventListener('click', () => {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            fetchTripsInRange(startDate, endDate);
+        });
+    }
+
+    const exportGeojsonButton = document.getElementById('export-geojson');
+    if (exportGeojsonButton) {
+        exportGeojsonButton.addEventListener('click', exportGeojson);
+    }
+
+    const validateLocationButton = document.getElementById('validate-location');
+    if (validateLocationButton) {
+        validateLocationButton.addEventListener('click', validateLocation);
+    }
+
+    const generateBoundaryButton = document.getElementById('generate-boundary');
+    if (generateBoundaryButton) {
+        generateBoundaryButton.addEventListener('click', () => generateOSMData(false));
+    }
+
+    const generateStreetsButton = document.getElementById('generate-streets');
+    if (generateStreetsButton) {
+        generateStreetsButton.addEventListener('click', () => generateOSMData(true));
+    }
+
     initializeLayerControls();
+
+    const mapControlsToggle = document.getElementById('map-controls-toggle');
+    if (mapControlsToggle) {
+        mapControlsToggle.addEventListener('click', function() {
+            console.log('Toggle button clicked');
+            const mapControls = document.getElementById('map-controls');
+            mapControls.classList.toggle('minimized');
+            const icon = this.querySelector('i');
+            if (mapControls.classList.contains('minimized')) {
+                icon.classList.remove('fa-angle-double-up');
+                icon.classList.add('fa-angle-double-down');
+            } else {
+                icon.classList.remove('fa-angle-double-down');
+                icon.classList.add('fa-angle-double-up');
+            }
+        });
+    }
 }
 
 socket.on('live_route_update', handleLiveRouteUpdate);
@@ -575,4 +629,5 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeMap();
         fetchTrips();
     }
+    fetchMetrics(); // Add this line to ensure metrics are fetched on page load
 });
