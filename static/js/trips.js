@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeDataTable() {
     tripsTable = $('#trips-table').DataTable({
         responsive: true,
+        scrollX: true, // Enable horizontal scrolling
         pageLength: 25,
         lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
         columns: [

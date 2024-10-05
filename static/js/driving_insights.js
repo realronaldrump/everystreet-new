@@ -1,6 +1,7 @@
 let insightsTable = null;
 
 /* global flatpickr */
+/* global $ */
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeDatePickers();
@@ -32,9 +33,12 @@ function initializeEventListeners() {
     document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
 }
 
+
+
 function initializeDataTable() {
     insightsTable = $('#insights-table').DataTable({
         responsive: true,
+        scrollX: true, // Enable horizontal scrolling
         pageLength: 25,
         lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
         columns: [
