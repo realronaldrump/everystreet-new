@@ -232,10 +232,15 @@ async def fetch_and_store_trips():
                     trip['startTime'] = pytz.utc.localize(trip['startTime']).astimezone(pytz.timezone(trip_timezone))
                     trip['endTime'] = pytz.utc.localize(trip['endTime']).astimezone(pytz.timezone(trip_timezone))
                     
-                    # Reverse geocode the last point of the trip
+                    # Parse the GPS data
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
+                    
+                    # Extract the first and last points
+                    start_point = gps_data['coordinates'][0]
                     last_point = gps_data['coordinates'][-1]
-                    print(f"Last point coordinates: {last_point}")
+                    
+                    # Store the start point as a separate field
+                    trip['startGeoPoint'] = start_point
                     
                     # Store the last point as a separate field
                     trip['destinationGeoPoint'] = last_point
@@ -307,10 +312,15 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                     trip['startTime'] = pytz.utc.localize(trip['startTime']).astimezone(pytz.timezone(trip_timezone))
                     trip['endTime'] = pytz.utc.localize(trip['endTime']).astimezone(pytz.timezone(trip_timezone))
                     
-                    # Reverse geocode the last point of the trip
+                    # Parse the GPS data
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
+                    
+                    # Extract the first and last points
+                    start_point = gps_data['coordinates'][0]
                     last_point = gps_data['coordinates'][-1]
-                    print(f"Last point coordinates: {last_point}")
+                    
+                    # Store the start point as a separate field
+                    trip['startGeoPoint'] = start_point
                     
                     # Store the last point as a separate field
                     trip['destinationGeoPoint'] = last_point
