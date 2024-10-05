@@ -1,5 +1,9 @@
 let tripsTable = null;
 
+const tableConfig = {
+    defaultHiddenColumns: [0, 1] // Indices of columns to hide by default
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
     const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -29,6 +33,10 @@ function initializeDataTable() {
         scrollX: true,
         pageLength: 25,
         lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
+        dom: 'Bfrtip',
+        buttons: [
+            'colvis'
+        ],
         columns: [
             { data: 'transactionId', title: 'Transaction ID' },
             { data: 'imei', title: 'IMEI' },
@@ -82,14 +90,35 @@ function initializeDataTable() {
             },
             { 
                 data: 'destination', 
-                title: 'Destination',
-                render: function(data, type, row) {
-                    return data || 'N/A';
-                }
+                title: 'Destination'
+            },
+            {
+                data: 'startLocation',
+                title: 'Start Location'
             }
         ],
-        order: [[2, 'desc']]
+        order: [[2, 'desc']],
+        columnDefs: [
+            {
+                targets: tableConfig.defaultHiddenColumns,
+                visible: false
+            }
+        ]
     });
+
+    // Apply the column visibility button
+    new $.fn.dataTable.Buttons(tripsTable, {
+        buttons: [
+            {
+                extend: 'colvis',
+                text: 'Column Visibility',
+                columns: ':not(.noVis)'
+            }
+        ]
+    });
+
+    tripsTable.buttons().container()
+        .appendTo($('#trips-table_wrapper .col-md-6:eq(0)'));
 }
 
 function fetchTrips() {

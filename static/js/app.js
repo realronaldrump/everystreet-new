@@ -114,35 +114,55 @@ function updateLoadingProgress(progress) {
 }
 
 function fetchTrips() {
-    const startDate = localStorage.getItem('startDate') || '';
-    const endDate = localStorage.getItem('endDate') || '';
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
+    const imei = document.getElementById('imei').value;
 
+    let url = '/api/trips';
     const params = new URLSearchParams();
+
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
+    if (imei) params.append('imei', imei);
 
-    const url = `/api/trips?${params.toString()}`;
+    if (params.toString()) {
+        url += `?${params.toString()}`;
+    }
 
     showLoadingOverlay();
 
     fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(geojson => {
-            console.log(`Received ${geojson.features.length} trips`);
-            updateMap(geojson);
-            fetchMetrics();
-            initThreeJSAnimations();
-            hideLoadingOverlay();
+            console.log('Received GeoJSON:', geojson); // Add this line for debugging
+            const trips = geojson.features.map(feature => ({
+                ...feature.properties,
+                gps: feature.geometry,
+                destination: feature.properties.destination || 'N/A'
+            }));
+            tripsTable.clear().rows.add(trips).draw();
+            console.log('Trips data:', trips);
+            if (geojson.features && geojson.features.length > 0) {
+                updateMap(geojson);
+            } else {
+                console.warn('No features found in GeoJSON data');
+            }
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
-            document.getElementById('map').innerHTML = '<p>Error loading trips. Please try again later.</p>';
+        })
+        .finally(() => {
             hideLoadingOverlay();
+        });
+}
+
+function geocodeCoordinates(lat, lon) {
+    return fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+        .then(response => response.json())
+        .then(data => data.display_name)
+        .catch(error => {
+            console.error('Geocoding error:', error);
+            return 'Unknown';
         });
 }
 

@@ -12,6 +12,7 @@ from geojson import loads as geojson_loads, dumps as geojson_dumps
 import traceback
 from timezonefinder import TimezoneFinder
 import pytz
+import asyncio
 
 load_dotenv()
 
@@ -121,30 +122,34 @@ def validate_trip_data(trip):
 async def reverse_geocode_nominatim(lat, lon):
     url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}&addressdetails=1"
     headers = {'User-Agent': 'EveryStreet/1.0'}
-    async with aiohttp.ClientSession() as session, session.get(url, headers=headers) as response:
-        if response.status == 200:
-            data = await response.json()
-            address = data.get('address', {})
-            formatted_address = []
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as response:
+            if response.status == 200:
+                data = await response.json()
+                address = data.get('address', {})
+                formatted_address = []
 
-            # Build the address from desired components
-            if 'house_number' in address:
-                formatted_address.append(address['house_number'])
-            if 'road' in address:
-                formatted_address.append(address['road'])
-            if 'city' in address:
-                formatted_address.append(address['city'])
-            elif 'town' in address:
-                formatted_address.append(address['town'])
-            elif 'village' in address:
-                formatted_address.append(address['village'])
-            if 'state' in address:
-                formatted_address.append(address['state'])
+                # Build the address from desired components
+                if 'house_number' in address:
+                    formatted_address.append(address['house_number'])
+                if 'road' in address:
+                    formatted_address.append(address['road'])
+                if 'city' in address:
+                    formatted_address.append(address['city'])
+                elif 'town' in address:
+                    formatted_address.append(address['town'])
+                elif 'village' in address:
+                    formatted_address.append(address['village'])
+                if 'state' in address:
+                    formatted_address.append(address['state'])
 
-            return ', '.join(formatted_address)
-        else:
-            print(f"Nominatim API error: {response.status}")
-            return f"Location at {lat}, {lon}"
+                return ', '.join(formatted_address)
+            else:
+                print(f"Nominatim API error: {response.status}")
+                return f"Location at {lat}, {lon}"
+    
+    # Add a small delay to avoid overwhelming the Nominatim service
+    await asyncio.sleep(0.1)
 
 def fetch_trips_for_geojson():
     trips = trips_collection.find()  # Adjust your query as needed
@@ -159,7 +164,8 @@ def fetch_trips_for_geojson():
                 "startTime": trip['startTime'].isoformat(), 
                 "endTime": trip['endTime'].isoformat(),
                 "distance": trip['distance'],
-                "destination": trip['destination']
+                "destination": trip['destination'],
+                "startLocation": trip.get('startLocation', 'N/A')  # Add this line
             }
         )
         features.append(feature)
@@ -248,6 +254,9 @@ async def fetch_and_store_trips():
                     # Use the last point for reverse geocoding
                     trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
                     
+                    # Use the first point for reverse geocoding the start location
+                    trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
+                    
                     if isinstance(trip['gps'], dict):
                         trip['gps'] = geojson_dumps(trip['gps'])
                     result = trips_collection.update_one(
@@ -328,6 +337,9 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                     # Use the last point for reverse geocoding
                     trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
                     
+                    # Use the first point for reverse geocoding the start location
+                    trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
+                    
                     if isinstance(trip['gps'], dict):
                         trip['gps'] = geojson_dumps(trip['gps'])
                     result = trips_collection.update_one(
@@ -394,7 +406,8 @@ def get_trips():
                 'endTime': trip['endTime'].isoformat(),
                 'distance': trip['distance'],
                 'timezone': trip.get('timezone', 'America/Chicago'),
-                'destination': trip.get('destination', 'N/A')  # Include the destination field
+                'destination': trip.get('destination', 'N/A'),
+                'startLocation': trip.get('startLocation', 'N/A')
             }
         ) for trip in trips
     ]))
