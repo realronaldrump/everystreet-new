@@ -1,8 +1,9 @@
 let insightsTable = null;
+let tripCountsChart = null;
 
 /* global flatpickr */
 /* global $ */
-
+/* global Chart */
 document.addEventListener('DOMContentLoaded', () => {
     initializeDatePickers();
     initializeEventListeners();
@@ -55,8 +56,6 @@ function initializeDataTable() {
         order: [[1, 'desc']],
     });
 }
-
-let tripCountsChart;
 
 function fetchDrivingInsights() {
     const startDate = localStorage.getItem('startDate') || '';
@@ -133,7 +132,7 @@ function renderTripCountsChart(insights) {
     tripCountsChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: labels,
+            labels,
             datasets: [{
                 label: 'Trip Counts',
                 data,
