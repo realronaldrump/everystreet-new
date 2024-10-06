@@ -422,6 +422,11 @@ def load_historical_data(start_date_str=None, end_date_str=None):
                         continue
 
                 all_trips.append(asyncio.run(process_historical_trip(trip)))
+
+    # Store geocoded historical trips in MongoDB
+    historical_trips_collection = db['historical_trips']
+    historical_trips_collection.insert_many(all_trips)
+
     return all_trips
 
 @app.route('/api/trips')
@@ -443,7 +448,14 @@ def get_trips():
         query['imei'] = imei
 
     trips = list(trips_collection.find(query))
-    trips.extend(load_historical_data(start_date_str, end_date_str))
+
+    # Retrieve historical trips from MongoDB
+    historical_trips_collection = db['historical_trips']
+    historical_query = query.copy()  # Create a copy of the query to avoid modifying the original
+    if 'imei' in historical_query:
+        del historical_query['imei']  # Remove imei filter for historical trips
+    historical_trips = list(historical_trips_collection.find(historical_query))
+    trips.extend(historical_trips)
 
     for trip in trips:
         trip['startTime'] = apply_time_offset(trip['startTime'].astimezone(pytz.timezone('America/Chicago')))
@@ -522,7 +534,16 @@ def get_driving_insights():
 def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
     start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
     end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
-    all_trips = load_historical_data(start_date_str, end_date_str)
+
+    # Retrieve historical trips from MongoDB
+    historical_trips_collection = db['historical_trips']
+    query = {}
+    if start_date and end_date:
+        query['startTime'] = {
+            '$gte': start_date,
+            '$lte': end_date
+        }
+    all_trips = list(historical_trips_collection.find(query))
 
     insights = {}
     for trip in all_trips:
@@ -553,17 +574,24 @@ def get_metrics():
     start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
     end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
 
-    all_trips = list(trips_collection.find())
-    all_trips.extend(load_historical_data(start_date_str, end_date_str))
+    trips = list(trips_collection.find())
+
+    # Retrieve historical trips from MongoDB
+    historical_trips_collection = db['historical_trips']
+    historical_query = {}
+    if start_date and end_date:
+        historical_query['startTime'] = {
+            '$gte': start_date,
+            '$lte': end_date
+        }
+    historical_trips = list(historical_trips_collection.find(historical_query))
+    trips.extend(historical_trips)
 
     filtered_trips = []
-    if start_date and end_date:
-        filtered_trips = [trip for trip in all_trips if start_date <= trip['startTime'].replace(tzinfo=timezone.utc) <= end_date]
-    else:
-        filtered_trips = all_trips
-
     if imei:
-        filtered_trips = [trip for trip in filtered_trips if trip['imei'] == imei]
+        filtered_trips = [trip for trip in trips if trip['imei'] == imei]
+    else:
+        filtered_trips = trips
 
     total_trips = len(filtered_trips)
     total_distance = sum(trip.get('distance', 0) for trip in filtered_trips)
