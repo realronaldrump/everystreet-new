@@ -22,7 +22,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-socketio = SocketIO(app, async_mode='eventlet') 
+socketio = SocketIO(app, async_mode='eventlet')
 
 # MongoDB setup
 try:
@@ -112,14 +112,14 @@ def validate_trip_data(trip):
     for field in required_fields:
         if field not in trip:
             return False, f"Missing required field: {field}"
-    
+
     try:
         geojson_obj = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
         if not is_valid_geojson(geojson_obj):
             return False, "Invalid GeoJSON data"
     except Exception as validation_error:
         return False, f"Error validating GeoJSON: {str(validation_error)}"
-    
+
     return True, None
 
 async def reverse_geocode_nominatim(lat, lon):
@@ -149,21 +149,21 @@ async def reverse_geocode_nominatim(lat, lon):
         else:
             print(f"Nominatim API error: {response.status}")
             return f"Location at {lat}, {lon}"
-    
+
     # Add a small delay to avoid overwhelming the Nominatim service
     await asyncio.sleep(0.1)
 
 def fetch_trips_for_geojson():
     trips = trips_collection.find()  # Adjust your query as needed
     features = []
-    
+
     for trip in trips:
         feature = geojson_module.Feature(
             geometry=geojson_loads(trip['gps']),
             properties={
                 "transactionId": trip['transactionId'],
                 "imei": trip['imei'],
-                "startTime": trip['startTime'].isoformat(), 
+                "startTime": trip['startTime'].isoformat(),
                 "endTime": trip['endTime'].isoformat(),
                 "distance": trip['distance'],
                 "destination": trip['destination'],
@@ -171,7 +171,7 @@ def fetch_trips_for_geojson():
             }
         )
         features.append(feature)
-    
+
     return geojson_module.FeatureCollection(features)
 
 def get_trip_timezone(trip):
@@ -199,10 +199,10 @@ async def fetch_and_store_trips():
         async with aiohttp.ClientSession() as client_session:
             access_token = await get_access_token(client_session)
             print("Access token obtained")
-            
+
             end_date = datetime.now(timezone.utc)
             start_date = end_date - timedelta(days=365*4)  # Fetch last x days of trips
-            
+
             all_trips = []
             total_devices = len(AUTHORIZED_DEVICES)
             for device_count, imei in enumerate(AUTHORIZED_DEVICES, 1):
@@ -210,13 +210,13 @@ async def fetch_and_store_trips():
                 device_trips = await fetch_trips_in_intervals(session, access_token, imei, start_date, end_date)
                 print(f"Fetched {len(device_trips)} trips for IMEI {imei}")
                 all_trips.extend(device_trips)
-                
+
                 # Calculate and emit progress
                 progress = int((device_count / total_devices) * 100)
                 socketio.emit('loading_progress', {'progress': progress})
-                
+
             print(f"Total trips fetched: {len(all_trips)}")
-            
+
             for trip in all_trips:
                 try:
                     # Check if the trip already exists in the database
@@ -239,26 +239,26 @@ async def fetch_and_store_trips():
                     # Localize the naive datetime objects to UTC, then convert to the trip's timezone
                     trip['startTime'] = pytz.utc.localize(trip['startTime']).astimezone(pytz.timezone(trip_timezone))
                     trip['endTime'] = pytz.utc.localize(trip['endTime']).astimezone(pytz.timezone(trip_timezone))
-                    
+
                     # Parse the GPS data
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
-                    
+
                     # Extract the first and last points
                     start_point = gps_data['coordinates'][0]
                     last_point = gps_data['coordinates'][-1]
-                    
+
                     # Store the start point as a separate field
                     trip['startGeoPoint'] = start_point
-                    
+
                     # Store the last point as a separate field
                     trip['destinationGeoPoint'] = last_point
-                    
+
                     # Use the last point for reverse geocoding
                     trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
-                    
+
                     # Use the first point for reverse geocoding the start location
                     trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
-                    
+
                     if isinstance(trip['gps'], dict):
                         trip['gps'] = geojson_dumps(trip['gps'])
                     result = trips_collection.update_one(
@@ -270,7 +270,7 @@ async def fetch_and_store_trips():
                 except Exception as trip_error:
                     print(f"Error updating trip {trip.get('transactionId', 'Unknown')}: {trip_error}")
                     print(traceback.format_exc())
-            
+
             # Log the count of trips in the database for each IMEI
             for imei in AUTHORIZED_DEVICES:
                 try:
@@ -278,7 +278,7 @@ async def fetch_and_store_trips():
                     print(f"Trips in database for IMEI {imei}: {count}")
                 except Exception as count_error:
                     print(f"Error counting trips for IMEI {imei}: {count_error}")
-        
+
     except Exception as fetch_error:
         print(f"Error in fetch_and_store_trips: {fetch_error}")
         print(traceback.format_exc())
@@ -376,7 +376,7 @@ def trips_page():
 def driving_insights_page():
     return render_template('driving_insights.html')
 
-def load_historical_data():
+def load_historical_data(start_date=None, end_date=None):
     all_trips = []
     for filename in glob.glob('olddrivingdata/*.geojson'):
         with open(filename, 'r') as f:
@@ -384,31 +384,40 @@ def load_historical_data():
             for feature in geojson_data['features']:
                 trip = feature['properties']
                 trip['gps'] = geojson_dumps(feature['geometry'])
-                trip['startTime'] = datetime.fromisoformat(trip['timestamp'])
-                trip['endTime'] = datetime.fromisoformat(trip['end_timestamp'])
+                trip['startTime'] = datetime.fromisoformat(trip['timestamp']).replace(tzinfo=timezone.utc)
+                trip['endTime'] = datetime.fromisoformat(trip['end_timestamp']).replace(tzinfo=timezone.utc)
                 trip['imei'] = 'HISTORICAL'
                 trip['transactionId'] = f"HISTORICAL-{trip['timestamp']}"
+
+                if start_date and trip['startTime'] < start_date:
+                    continue
+                if end_date and trip['endTime'] > end_date:
+                    continue
+
                 all_trips.append(trip)
     return all_trips
 
 @app.route('/api/trips')
 def get_trips():
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
     imei = request.args.get('imei')
+
+    start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
+    end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
 
     query = {}
     if start_date and end_date:
         query['startTime'] = {
-            '$gte': datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc),
-            '$lte': datetime.fromisoformat(end_date).replace(tzinfo=timezone.utc)
+            '$gte': start_date,
+            '$lte': end_date
         }
     if imei:
         query['imei'] = imei
 
     trips = list(trips_collection.find(query))
-    trips.extend(load_historical_data())
-    
+    trips.extend(load_historical_data(start_date, end_date))
+
     for trip in trips:
         trip['startTime'] = apply_time_offset(trip['startTime'].astimezone(pytz.timezone('America/Chicago')))
         trip['endTime'] = apply_time_offset(trip['endTime'].astimezone(pytz.timezone('America/Chicago')))
@@ -434,12 +443,12 @@ def get_trips():
 def get_driving_insights():
     if trips_collection is None:
         return jsonify({"error": "Database not connected"}), 500
-    
+
     try:
         start_date_str = request.args.get('start_date')
         end_date_str = request.args.get('end_date')
         imei = request.args.get('imei')
-        
+
         query = {}
         if start_date_str and end_date_str:
             query['startTime'] = {
@@ -451,10 +460,10 @@ def get_driving_insights():
             end_date = datetime.now(timezone.utc)
             start_date = end_date - timedelta(days=7)
             query['startTime'] = {'$gte': start_date, '$lte': end_date}
-        
+
         if imei:
             query['imei'] = imei
-        
+
         pipeline = [
             {'$match': query},
             {
@@ -468,15 +477,15 @@ def get_driving_insights():
             },
             {'$sort': {'count': -1}}
         ]
-        
+
         insights = list(trips_collection.aggregate(pipeline))
         insights.extend(calculate_insights_for_historical_data(start_date_str, end_date_str, imei))
-        
+
         # Convert datetime objects to strings
         for insight in insights:
             if 'lastVisit' in insight and isinstance(insight['lastVisit'], datetime):
                 insight['lastVisit'] = insight['lastVisit'].astimezone(pytz.timezone('America/Chicago')).isoformat()
-        
+
         return jsonify(insights)
     except Exception as insight_error:
         print(f"Error in get_driving_insights: {insight_error}")
@@ -484,7 +493,7 @@ def get_driving_insights():
         return jsonify({"error": f"An error occurred while fetching driving insights: {str(insight_error)}"}), 500
 
 def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
-    all_trips = load_historical_data()
+    all_trips = load_historical_data(start_date_str, end_date_str)
     filtered_trips = []
     if start_date_str and end_date_str:
         start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
@@ -492,7 +501,7 @@ def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
         filtered_trips = [trip for trip in all_trips if start_date <= trip['startTime'] <= end_date]
     else:
         filtered_trips = all_trips
-    
+
     insights = {}
     for trip in filtered_trips:
         destination = trip.get('destination', 'N/A')
@@ -507,10 +516,10 @@ def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
         insights[destination]['count'] += 1
         insights[destination]['totalDistance'] += trip.get('distance', 0)
         insights[destination]['lastVisit'] = max(insights[destination]['lastVisit'], trip['endTime'])
-    
+
     for destination in insights:
         insights[destination]['averageDistance'] = insights[destination]['totalDistance'] / insights[destination]['count'] if insights[destination]['count'] > 0 else 0
-    
+
     return list(insights.values())
 
 @app.route('/api/metrics')
@@ -518,7 +527,7 @@ def get_metrics():
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     imei = request.args.get('imei')
-    
+
     query = {}
     if start_date_str and end_date_str:
         query['startTime'] = {
@@ -529,12 +538,12 @@ def get_metrics():
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=1460)
         query['startTime'] = {'$gte': start_date, '$lte': end_date}
-    
+
     if imei:
         query['imei'] = imei
     else:
         query['imei'] = {'$in': AUTHORIZED_DEVICES}
-    
+
     pipeline = [
         {'$match': query},
         {'$group': {
@@ -545,9 +554,9 @@ def get_metrics():
             'avg_driving_time': {'$avg': {'$subtract': ['$endTime', '$startTime']}}
         }}
     ]
-    
+
     result = list(trips_collection.aggregate(pipeline))
-    
+
     if result:
         metrics = result[0]
         total_trips = metrics['total_trips']
@@ -555,7 +564,7 @@ def get_metrics():
         avg_distance = total_distance / total_trips if total_trips > 0 else 0
         avg_start_time = metrics['avg_start_time']
         avg_driving_time = metrics['avg_driving_time'] / 60000  # Convert to minutes
-        
+
         return jsonify({
             'total_trips': total_trips,
             'total_distance': round(total_distance, 2),
@@ -655,7 +664,7 @@ def validate_location_osm(location, location_type):
 
 def generate_geojson_osm(location, streets_only=False):
     area_id = int(location['osm_id']) + 3600000000 if location['osm_type'] == 'relation' else int(location['osm_id'])
-    
+
     if streets_only:
         query = f"""
         [out:json];
@@ -674,14 +683,14 @@ def generate_geojson_osm(location, streets_only=False):
         );
         out geom;
         """
-    
+
     response = requests.get("http://overpass-api.de/api/interpreter", params={'data': query})
     if response.status_code != 200:
         return None, "Failed to get response from Overpass API"
-    
+
     data = response.json()
     features = process_elements(data['elements'], streets_only)
-    
+
     if features:
         gdf = gpd.GeoDataFrame.from_features(features)
         gdf = gdf.set_geometry('geometry')
@@ -692,7 +701,7 @@ def generate_geojson_osm(location, streets_only=False):
 def process_elements(elements, streets_only):
     features = []
     ways = {e['id']: e for e in elements if e['type'] == 'way'}
-    
+
     for element in elements:
         if element['type'] == 'way':
             coords = [(node['lon'], node['lat']) for node in element.get('geometry', [])]
