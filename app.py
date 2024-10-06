@@ -376,7 +376,30 @@ def trips_page():
 def driving_insights_page():
     return render_template('driving_insights.html')
 
-def load_historical_data(start_date=None, end_date=None):
+async def process_historical_trip(trip):
+    # Get the trip's timezone
+    trip_timezone = get_trip_timezone(trip)
+
+    # Ensure startTime and endTime are timezone-aware
+    trip['startTime'] = trip['startTime'].astimezone(pytz.timezone(trip_timezone))
+    trip['endTime'] = trip['endTime'].astimezone(pytz.timezone(trip_timezone))
+
+    # Parse the GPS data
+    gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
+
+    # Extract the first and last points
+    start_point = gps_data['coordinates'][0]
+    last_point = gps_data['coordinates'][-1]
+
+    # Use the last point for reverse geocoding
+    trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
+
+    # Use the first point for reverse geocoding the start location
+    trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
+
+    return trip
+
+def load_historical_data(start_date_str=None, end_date_str=None):
     all_trips = []
     for filename in glob.glob('olddrivingdata/*.geojson'):
         with open(filename, 'r') as f:
@@ -389,12 +412,16 @@ def load_historical_data(start_date=None, end_date=None):
                 trip['imei'] = 'HISTORICAL'
                 trip['transactionId'] = f"HISTORICAL-{trip['timestamp']}"
 
-                if start_date and trip['startTime'] < start_date:
-                    continue
-                if end_date and trip['endTime'] > end_date:
-                    continue
+                if start_date_str:
+                    start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
+                    if trip['startTime'] < start_date:
+                        continue
+                if end_date_str:
+                    end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc)
+                    if trip['endTime'] > end_date:
+                        continue
 
-                all_trips.append(trip)
+                all_trips.append(asyncio.run(process_historical_trip(trip)))
     return all_trips
 
 @app.route('/api/trips')
@@ -416,7 +443,7 @@ def get_trips():
         query['imei'] = imei
 
     trips = list(trips_collection.find(query))
-    trips.extend(load_historical_data(start_date, end_date))
+    trips.extend(load_historical_data(start_date_str, end_date_str))
 
     for trip in trips:
         trip['startTime'] = apply_time_offset(trip['startTime'].astimezone(pytz.timezone('America/Chicago')))
@@ -493,17 +520,12 @@ def get_driving_insights():
         return jsonify({"error": f"An error occurred while fetching driving insights: {str(insight_error)}"}), 500
 
 def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
+    start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
+    end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
     all_trips = load_historical_data(start_date_str, end_date_str)
-    filtered_trips = []
-    if start_date_str and end_date_str:
-        start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
-        end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc)
-        filtered_trips = [trip for trip in all_trips if start_date <= trip['startTime'] <= end_date]
-    else:
-        filtered_trips = all_trips
 
     insights = {}
-    for trip in filtered_trips:
+    for trip in all_trips:
         destination = trip.get('destination', 'N/A')
         if destination not in insights:
             insights[destination] = {
@@ -511,7 +533,7 @@ def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
                 'count': 0,
                 'totalDistance': 0,
                 'averageDistance': 0,
-                'lastVisit': datetime.min
+                'lastVisit': datetime.min.replace(tzinfo=timezone.utc)  # Initialize with minimum datetime with UTC timezone
             }
         insights[destination]['count'] += 1
         insights[destination]['totalDistance'] += trip.get('distance', 0)
@@ -528,58 +550,38 @@ def get_metrics():
     end_date_str = request.args.get('end_date')
     imei = request.args.get('imei')
 
-    query = {}
-    if start_date_str and end_date_str:
-        query['startTime'] = {
-            '$gte': datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc),
-            '$lte': datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc)
-        }
+    start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
+    end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
+
+    all_trips = list(trips_collection.find())
+    all_trips.extend(load_historical_data(start_date_str, end_date_str))
+
+    filtered_trips = []
+    if start_date and end_date:
+        filtered_trips = [trip for trip in all_trips if start_date <= trip['startTime'].replace(tzinfo=timezone.utc) <= end_date]
     else:
-        end_date = datetime.now(timezone.utc)
-        start_date = end_date - timedelta(days=1460)
-        query['startTime'] = {'$gte': start_date, '$lte': end_date}
+        filtered_trips = all_trips
 
     if imei:
-        query['imei'] = imei
-    else:
-        query['imei'] = {'$in': AUTHORIZED_DEVICES}
+        filtered_trips = [trip for trip in filtered_trips if trip['imei'] == imei]
 
-    pipeline = [
-        {'$match': query},
-        {'$group': {
-            '_id': None,
-            'total_trips': {'$sum': 1},
-            'total_distance': {'$sum': '$distance'},
-            'avg_start_time': {'$avg': {'$hour': '$startTime'}},
-            'avg_driving_time': {'$avg': {'$subtract': ['$endTime', '$startTime']}}
-        }}
-    ]
+    total_trips = len(filtered_trips)
+    total_distance = sum(trip.get('distance', 0) for trip in filtered_trips)
+    avg_distance = total_distance / total_trips if total_trips > 0 else 0
 
-    result = list(trips_collection.aggregate(pipeline))
+    start_times = [trip['startTime'].astimezone(pytz.timezone('America/Chicago')).hour for trip in filtered_trips]
+    avg_start_time = sum(start_times) / len(start_times) if start_times else 0
 
-    if result:
-        metrics = result[0]
-        total_trips = metrics['total_trips']
-        total_distance = metrics['total_distance']
-        avg_distance = total_distance / total_trips if total_trips > 0 else 0
-        avg_start_time = metrics['avg_start_time']
-        avg_driving_time = metrics['avg_driving_time'] / 60000  # Convert to minutes
+    driving_times = [(trip['endTime'] - trip['startTime']).total_seconds() / 60 for trip in filtered_trips]
+    avg_driving_time = sum(driving_times) / len(driving_times) if driving_times else 0
 
-        return jsonify({
-            'total_trips': total_trips,
-            'total_distance': round(total_distance, 2),
-            'avg_distance': round(avg_distance, 2),
-            'avg_start_time': f"{int(avg_start_time):02d}:{int((avg_start_time % 1) * 60):02d}",
-            'avg_driving_time': f"{int(avg_driving_time // 60):02d}:{int(avg_driving_time % 60):02d}"
-        })
-    else:
-        return jsonify({
-            'total_trips': 0,
-            'total_distance': 0,
-            'avg_distance': 0,
-            'avg_start_time': "00:00",
-            'avg_driving_time': "00:00"
-        })
+    return jsonify({
+        'total_trips': total_trips,
+        'total_distance': round(total_distance, 2),
+        'avg_distance': round(avg_distance, 2),
+        'avg_start_time': f"{int(avg_start_time):02d}:{int((avg_start_time % 1) * 60):02d}",
+        'avg_driving_time': f"{int(avg_driving_time // 60):02d}:{int(avg_driving_time % 60):02d}"
+    })
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -712,7 +714,7 @@ def process_elements(elements, streets_only):
                     'geometry': geom.__geo_interface__,
                     'properties': element.get('tags', {})
                 })
-        elif element['type'] == 'relation' and not streets_only:
+        elif element['type'] == 'relation' and        not streets_only:
             outer_rings = []
             for member in element.get('members', []):
                 if member['type'] == 'way' and member['role'] == 'outer':
