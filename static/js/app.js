@@ -6,8 +6,9 @@ let osmLayer = null;
 
 let mapLayers = {
     trips: { layer: null, visible: true, color: '#BB86FC', order: 1, opacity: 0.7 },
-    osmBoundary: { layer: null, visible: false, color: '#03DAC6', order: 2, opacity: 0.7 },
-    osmStreets: { layer: null, visible: false, color: '#FF0266', order: 3, opacity: 0.7 }
+    historicalTrips: { layer: null, visible: true, color: '#03DAC6', order: 2, opacity: 0.7 },
+    osmBoundary: { layer: null, visible: false, color: '#03DAC6', order: 3, opacity: 0.7 },
+    osmStreets: { layer: null, visible: false, color: '#FF0266', order: 4, opacity: 0.7 }
 };
 
 /* global flatpickr */
@@ -141,21 +142,49 @@ function fetchTrips() {
         .then(response => response.json())
         .then(geojson => {
             console.log('Received GeoJSON:', geojson);
-            const trips = geojson.features.map(feature => ({
-                ...feature.properties,
-                gps: feature.geometry,
-                destination: feature.properties.destination || 'N/A'
-            }));
+
+            // Separate trips and historical trips
+            const trips = geojson.features
+                .filter(feature => feature.properties.imei !== 'HISTORICAL')
+                .map(feature => ({
+                    ...feature.properties,
+                    gps: feature.geometry,
+                    destination: feature.properties.destination || 'N/A'
+                }));
+
+            const historicalTrips = geojson.features
+                .filter(feature => feature.properties.imei === 'HISTORICAL')
+                .map(feature => ({
+                    ...feature.properties,
+                    gps: feature.geometry,
+                    destination: feature.properties.destination || 'N/A'
+                }));
+
             if (tripsTable) {
                 tripsTable.clear().rows.add(trips).draw();
             }
             console.log('Trips data:', trips);
-            if (geojson.features && geojson.features.length > 0) {
-                mapLayers.trips.layer = geojson;
-                updateMap();
-            } else {
-                console.warn('No features found in GeoJSON data');
-            }
+
+            // Update map layers
+            mapLayers.trips.layer = {
+                type: 'FeatureCollection',
+                features: trips.map(trip => ({
+                    type: 'Feature',
+                    geometry: trip.gps,
+                    properties: trip
+                }))
+            };
+
+            mapLayers.historicalTrips.layer = {
+                type: 'FeatureCollection',
+                features: historicalTrips.map(trip => ({
+                    type: 'Feature',
+                    geometry: trip.gps,
+                    properties: trip
+                }))
+            };
+
+            updateMap();
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
@@ -206,7 +235,7 @@ function updateMap() {
         .sort((a, b) => a[1].order - b[1].order);
 
     orderedLayers.forEach(([layerName, layerInfo]) => {
-        if (layerName === 'trips' && layerInfo.layer) {
+        if ((layerName === 'trips' || layerName === 'historicalTrips') && layerInfo.layer) {
             L.geoJSON(layerInfo.layer, {
                 style: {
                     color: layerInfo.color,
@@ -238,13 +267,19 @@ function updateMap() {
         }
     });
 
+    // Fit bounds based on both trips and historical trips
+    let bounds = L.latLngBounds(); // Start with an empty bounds
     if (mapLayers.trips.layer) {
-        const bounds = L.geoJSON(mapLayers.trips.layer).getBounds();
-        if (bounds.isValid()) {
-            map.fitBounds(bounds);
-        } else {
-            console.warn('No valid bounds to fit');
-        }
+        bounds.extend(L.geoJSON(mapLayers.trips.layer).getBounds());
+    }
+    if (mapLayers.historicalTrips.layer) {
+        bounds.extend(L.geoJSON(mapLayers.historicalTrips.layer).getBounds());
+    }
+
+    if (bounds.isValid()) {
+        map.fitBounds(bounds);
+    } else {
+        console.warn('No valid bounds to fit');
     }
 }
 

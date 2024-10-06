@@ -16,6 +16,7 @@ import asyncio
 from shapely.geometry import Polygon, LineString, MultiPolygon
 import geopandas as gpd
 import requests
+import glob
 
 load_dotenv()
 
@@ -362,6 +363,7 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
     except Exception as fetch_error:
         print(f"Error in fetch_and_store_trips_in_range: {fetch_error}")
         print(traceback.format_exc())
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -373,6 +375,21 @@ def trips_page():
 @app.route('/driving-insights')
 def driving_insights_page():
     return render_template('driving_insights.html')
+
+def load_historical_data():
+    all_trips = []
+    for filename in glob.glob('olddrivingdata/*.geojson'):
+        with open(filename, 'r') as f:
+            geojson_data = geojson_module.load(f)
+            for feature in geojson_data['features']:
+                trip = feature['properties']
+                trip['gps'] = geojson_dumps(feature['geometry'])
+                trip['startTime'] = datetime.fromisoformat(trip['timestamp'])
+                trip['endTime'] = datetime.fromisoformat(trip['end_timestamp'])
+                trip['imei'] = 'HISTORICAL'
+                trip['transactionId'] = f"HISTORICAL-{trip['timestamp']}"
+                all_trips.append(trip)
+    return all_trips
 
 @app.route('/api/trips')
 def get_trips():
@@ -390,11 +407,12 @@ def get_trips():
         query['imei'] = imei
 
     trips = list(trips_collection.find(query))
+    trips.extend(load_historical_data())
     
     for trip in trips:
         trip['startTime'] = apply_time_offset(trip['startTime'].astimezone(pytz.timezone('America/Chicago')))
         trip['endTime'] = apply_time_offset(trip['endTime'].astimezone(pytz.timezone('America/Chicago')))
-        trip['_id'] = str(trip['_id'])
+        # Removed line causing the error: trip['_id'] = str(trip['_id'])
 
     return jsonify(geojson_module.FeatureCollection([
         geojson_module.Feature(
@@ -404,7 +422,7 @@ def get_trips():
                 'imei': trip['imei'],
                 'startTime': trip['startTime'].isoformat(),
                 'endTime': trip['endTime'].isoformat(),
-                'distance': trip['distance'],
+                'distance': trip.get('distance', 0),  # Provide a default value for distance
                 'timezone': trip.get('timezone', 'America/Chicago'),
                 'destination': trip.get('destination', 'N/A'),
                 'startLocation': trip.get('startLocation', 'N/A')
@@ -452,10 +470,11 @@ def get_driving_insights():
         ]
         
         insights = list(trips_collection.aggregate(pipeline))
+        insights.extend(calculate_insights_for_historical_data(start_date_str, end_date_str, imei))
         
         # Convert datetime objects to strings
         for insight in insights:
-            if 'lastVisit' in insight:
+            if 'lastVisit' in insight and isinstance(insight['lastVisit'], datetime):
                 insight['lastVisit'] = insight['lastVisit'].astimezone(pytz.timezone('America/Chicago')).isoformat()
         
         return jsonify(insights)
@@ -463,6 +482,36 @@ def get_driving_insights():
         print(f"Error in get_driving_insights: {insight_error}")
         print(traceback.format_exc())
         return jsonify({"error": f"An error occurred while fetching driving insights: {str(insight_error)}"}), 500
+
+def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
+    all_trips = load_historical_data()
+    filtered_trips = []
+    if start_date_str and end_date_str:
+        start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
+        end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc)
+        filtered_trips = [trip for trip in all_trips if start_date <= trip['startTime'] <= end_date]
+    else:
+        filtered_trips = all_trips
+    
+    insights = {}
+    for trip in filtered_trips:
+        destination = trip.get('destination', 'N/A')
+        if destination not in insights:
+            insights[destination] = {
+                '_id': destination,
+                'count': 0,
+                'totalDistance': 0,
+                'averageDistance': 0,
+                'lastVisit': datetime.min
+            }
+        insights[destination]['count'] += 1
+        insights[destination]['totalDistance'] += trip.get('distance', 0)
+        insights[destination]['lastVisit'] = max(insights[destination]['lastVisit'], trip['endTime'])
+    
+    for destination in insights:
+        insights[destination]['averageDistance'] = insights[destination]['totalDistance'] / insights[destination]['count'] if insights[destination]['count'] > 0 else 0
+    
+    return list(insights.values())
 
 @app.route('/api/metrics')
 def get_metrics():
