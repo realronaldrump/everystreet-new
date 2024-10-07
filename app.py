@@ -101,6 +101,10 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
 async def fetch_trips_in_intervals(main_session, access_token, imei, start_date, end_date):
     all_trips = []
     current_start = start_date
+    if current_start.tzinfo is None:
+        current_start = current_start.replace(tzinfo=timezone.utc)
+    if end_date.tzinfo is None:
+        end_date = end_date.replace(tzinfo=timezone.utc)
     while current_start < end_date:
         current_end = min(current_start + timedelta(days=7), end_date)
         trips = await get_trips_from_api(main_session, access_token, imei, current_start, current_end)
@@ -120,6 +124,8 @@ def periodic_fetch_trips():
             last_trip = trips_collection.find_one(sort=[("endTime", -1)])
             if last_trip:
                 start_date = last_trip['endTime']
+                if start_date.tzinfo is None:
+                    start_date = start_date.replace(tzinfo=timezone.utc)
             else:
                 start_date = datetime.now(timezone.utc) - timedelta(days=1)  # Default to 1 day ago if no trips
 
@@ -132,6 +138,7 @@ def periodic_fetch_trips():
             threading.Timer(30 * 60, periodic_fetch_trips).start()
         except Exception as e:
             print(f"Error in periodic fetch: {e}")
+            print(traceback.format_exc())  # Add this line to print the full traceback
             # Reschedule even if there's an error
             threading.Timer(30 * 60, periodic_fetch_trips).start()
 
