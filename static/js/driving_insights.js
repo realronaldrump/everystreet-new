@@ -4,12 +4,14 @@ let tripCountsChart = null;
 /* global flatpickr */
 /* global $ */
 /* global Chart */
+
 document.addEventListener('DOMContentLoaded', () => {
     initializeDatePickers();
     initializeEventListeners();
     initializeDataTable();
     fetchUniqueImeis();
     fetchDrivingInsights();
+    initializeChart();
 });
 
 function initializeDatePickers() {
@@ -37,7 +39,7 @@ function initializeEventListeners() {
 function initializeDataTable() {
     insightsTable = $('#insights-table').DataTable({
         responsive: true,
-        scrollX: true, // Enable horizontal scrolling
+        scrollX: true,
         pageLength: 25,
         lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
         columns: [
@@ -58,27 +60,76 @@ function initializeDataTable() {
 }
 
 function fetchDrivingInsights() {
-    const startDate = localStorage.getItem('startDate') || '';
-    const endDate = localStorage.getItem('endDate') || '';
-    const imei = document.getElementById('imei').value || '';
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
+    const imei = document.getElementById('imei').value;
 
-    const params = new URLSearchParams();
-    if (startDate) params.append('start_date', startDate);
-    if (endDate) params.append('end_date', endDate);
-    if (imei) params.append('imei', imei);
-
-    const url = `/api/driving-insights?${params.toString()}`;
-
-    fetch(url)
-        .then((response) => response.json())
-        .then((insights) => {
-            insightsTable.clear().rows.add(insights).draw();
-            updateSummaryMetrics(insights);
-            renderTripCountsChart(insights); // Call the function to render the chart
+    fetch(`/api/driving-insights?start_date=${startDate}&end_date=${endDate}&imei=${imei}`)
+        .then(response => response.json())
+        .then(data => {
+            updateSummaryMetrics(data);
+            updateDataTable(data.destinationFrequency);
+            updateChart(data.tripCountsOverTime);
+            updateMostVisited(data.mostVisitedDestination);
         })
-        .catch((error) => {
+        .catch(error => {
             console.error('Error fetching driving insights:', error);
+            alert('An error occurred while fetching driving insights.');
         });
+}
+
+function updateSummaryMetrics(data) {
+    document.getElementById('total-trips').textContent = data.total_trips;
+    // Assuming the API provides the most visited destination
+    document.getElementById('most-visited').textContent = data.mostVisited || 'N/A';
+}
+
+function updateDataTable(destinationFrequency) {
+    insightsTable.clear();
+    insightsTable.rows.add(destinationFrequency);
+    insightsTable.draw();
+}
+
+function initializeChart() {
+    const ctx = document.getElementById('tripCountsChart').getContext('2d');
+    tripCountsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [], // Populate dynamically
+            datasets: [{
+                label: 'Trip Counts',
+                data: [],
+                backgroundColor: 'rgba(0, 123, 255, 0.5)',
+                borderColor: 'rgba(0, 123, 255, 1)',
+                borderWidth: 1,
+                fill: true,
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'day'
+                    }
+                },
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function updateChart(tripCountsOverTime) {
+    tripCountsChart.data.labels = tripCountsOverTime.map(entry => entry.date);
+    tripCountsChart.data.datasets[0].data = tripCountsOverTime.map(entry => entry.count);
+    tripCountsChart.update();
+}
+
+function updateMostVisited(destination) {
+    document.getElementById('most-visited').textContent = destination || 'N/A';
 }
 
 function fetchUniqueImeis() {
@@ -101,65 +152,9 @@ function fetchUniqueImeis() {
         });
 }
 
-function updateSummaryMetrics(insights) {
-    const totalTripsElement = document.getElementById('total-trips');
-    const mostVisitedElement = document.getElementById('most-visited');
-
-    const totalTrips = insights.reduce((sum, item) => sum + item.count, 0);
-    const mostVisited = insights.length > 0 ? insights[0]._id : 'N/A';
-
-    totalTripsElement.textContent = totalTrips;
-    mostVisitedElement.textContent = mostVisited;
-}
-
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const main = document.querySelector('main');
     sidebar.classList.toggle('collapsed');
     main.classList.toggle('expanded');
-}
-
-function renderTripCountsChart(insights) {
-    const labels = insights.map(item => item._id);
-    const data = insights.map(item => item.count);
-    const ctx = document.getElementById('tripCountsChart').getContext('2d');
-
-    // Destroy existing chart instance if it exists
-    if (tripCountsChart) {
-        tripCountsChart.destroy();
-    }
-
-    tripCountsChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Trip Counts',
-                data,
-                backgroundColor: 'rgba(187, 134, 252, 0.6)',
-                borderColor: 'rgba(187, 134, 252, 1)',
-                borderWidth: 1,
-            }],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: 2,
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    ticks: { color: '#FFFFFF' },
-                    title: { display: true, text: 'Destination', color: '#FFFFFF' },
-                },
-                y: {
-                    beginAtZero: true,
-                    ticks: { color: '#FFFFFF' },
-                    title: { display: true, text: 'Count', color: '#FFFFFF' },
-                },
-            },
-            plugins: {
-                legend: { labels: { color: '#FFFFFF' } },
-            },
-        },
-    });
 }

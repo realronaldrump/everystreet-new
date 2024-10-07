@@ -887,3 +887,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     fetchMetrics(); // Add this line to ensure metrics are fetched on page load
 });
+
+function initializeSidebarToggle() {
+    const sidebarToggleBtn = document.getElementById('sidebar-toggle');
+    const sidebar = document.getElementById('sidebar');
+
+    sidebarToggleBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+    });
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', (event) => {
+        if (!sidebar.contains(event.target) && !sidebarToggleBtn.contains(event.target) && sidebar.classList.contains('active')) {
+            sidebar.classList.remove('active');
+        }
+    });
+}

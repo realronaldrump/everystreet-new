@@ -1,40 +1,62 @@
-<nav id="sidebar" class="sidebar">
-    <div class="sidebar-header">
+<nav id="sidebar" class="sidebar bg-dark text-white vh-100 position-fixed">
+    <div class="sidebar-header p-3 bg-primary d-flex justify-content-between align-items-center">
         <h3>Every Street</h3>
-        <button id="sidebar-toggle" class="sidebar-toggle">
+        <button id="sidebar-toggle" class="btn btn-sm btn-primary">
             <i class="fas fa-bars"></i>
         </button>
     </div>
-    <ul class="sidebar-menu">
-        <li><a href="/"><i class="fas fa-map"></i> <span>Map</span></a></li>
-        <li><a href="/trips"><i class="fas fa-road"></i> <span>Trips</span></a></li>
-        <li><a href="/driving-insights"><i class="fas fa-chart-line"></i> <span>Driving Insights</span></a></li>
+    <ul class="sidebar-menu list-unstyled p-2">
+        <li class="mb-2">
+            <a href="/" class="text-white text-decoration-none">
+                <i class="fas fa-map me-2"></i> Map
+            </a>
+        </li>
+        <li class="mb-2">
+            <a href="/trips" class="text-white text-decoration-none">
+                <i class="fas fa-road me-2"></i> Trips
+            </a>
+        </li>
+        <li class="mb-2">
+            <a href="/driving-insights" class="text-white text-decoration-none">
+                <i class="fas fa-chart-line me-2"></i> Driving Insights
+            </a>
+        </li>
     </ul>
-    <div class="sidebar-content">
+    <div class="sidebar-content p-3">
         <div id="filters">
-            <h2>Filters</h2>
-            <label for="start-date">Start Date:</label>
-            <input type="text" id="start-date" placeholder="Select Start Date">
-            <label for="end-date">End Date:</label>
-            <input type="text" id="end-date" placeholder="Select End Date">
-            <label for="imei">IMEI:</label>
-            <select id="imei">
-                <option value="">All</option>
-            </select>
-            <label for="show-live-routes">
-                <input type="checkbox" id="show-live-routes" checked>
-                Show Live Routes
-            </label>
-            <button id="apply-filters">Apply Filters</button>
-            <button id="fetch-trips-range">Fetch Trips in Range</button>
-            <button id="export-geojson">Export GeoJSON</button>
-            <button id="export-gpx">Export GPX</button> 
-            <button id="map-match-trips">Map Match Trips</button> <!-- New button -->
-            <button id="map-match-historical-trips">Map Match Historical Trips</button> <!-- New button -->
+            <h5>Filters</h5>
+            <div class="mb-3">
+                <label for="start-date" class="form-label">Start Date:</label>
+                <input type="text" id="start-date" class="form-control" placeholder="Select Start Date">
+            </div>
+            <div class="mb-3">
+                <label for="end-date" class="form-label">End Date:</label>
+                <input type="text" id="end-date" class="form-control" placeholder="Select End Date">
+            </div>
+            <div class="mb-3">
+                <label for="imei" class="form-label">IMEI:</label>
+                <select id="imei" class="form-select">
+                    <option value="">All</option>
+                </select>
+            </div>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="show-live-routes" checked>
+                <label class="form-check-label" for="show-live-routes">
+                    Show Live Routes
+                </label>
+            </div>
+            <div class="d-grid gap-2">
+                <button id="apply-filters" class="btn btn-primary">Apply Filters</button>
+                <button id="fetch-trips-range" class="btn btn-secondary">Fetch Trips in Range</button>
+                <button id="export-geojson" class="btn btn-success">Export GeoJSON</button>
+                <button id="export-gpx" class="btn btn-info">Export GPX</button> 
+                <button id="map-match-trips" class="btn btn-warning">Map Match Trips</button>
+                <button id="map-match-historical-trips" class="btn btn-danger">Map Match Historical Trips</button>
+            </div>
         </div>
     </div>
-    <div class="sidebar-clock">
-        <h4>Adjusted Time</h4>
+    <div class="sidebar-clock p-3 border-top">
+        <h5>Adjusted Time</h5>
         <div id="current-date"></div>
         <div id="current-time"></div>
     </div>

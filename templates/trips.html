@@ -4,41 +4,61 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Every Street - Trips</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- DataTables CSS -->
     <link rel="stylesheet" href="//cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
+    <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <!-- DataTables Buttons CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.2.3/css/buttons.dataTables.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
 </head>
 <body>
-    <div id="app">
+    <div id="app" class="d-flex">
         {% include 'sidebar.html' %}
-        <main>
-            <h1>Trips</h1>
-            <div id="trips-list">
-                <table id="trips-table" class="display nowrap" style="width:100%">
-                    <thead>
-                        <tr>
-                            <th>Transaction ID</th>
-                            <th>IMEI</th>
-                            <th>Start Time</th>
-                            <th>End Time</th>
-                            <th>Distance (miles)</th>
-                            <th>Destination</th>
-                        </tr>
-                    </thead>
-                </table>
+        <main class="flex-grow-1 p-4">
+            <h1 class="mb-4">Trips</h1>
+            <div id="trips-list" class="mb-5">
+                <div class="table-responsive">
+                    <table id="trips-table" class="table table-striped table-bordered nowrap" style="width:100%">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Transaction ID</th>
+                                <th>IMEI</th>
+                                <th>Start Time</th>
+                                <th>End Time</th>
+                                <th>Distance (miles)</th>
+                                <th>Destination</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Data populated by DataTables -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </main>
     </div>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+
+    <!-- Bootstrap JS Bundle (includes Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous"></script>
+    <!-- DataTables JS -->
     <script src="//cdn.datatables.net/2.1.8/js/dataTables.min.js"></script>
+    <!-- Flatpickr JS -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <!-- DataTables Buttons JS -->
+    <script src="https://cdn.datatables.net/buttons/2.2.3/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.2.3/js/buttons.colVis.min.js"></script>
+    <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/dateRange.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="/static/js/trips.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.2.3/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.2.3/js/buttons.colVis.min.js"></script>
 </body>
 </html>
