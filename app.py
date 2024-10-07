@@ -27,7 +27,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-socketio = SocketIO(app, async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins="*")  # Ensure CORS is allowed as needed
 
 # MongoDB setup
 try:
@@ -1187,4 +1187,4 @@ if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
     # Start the periodic fetch
     threading.Timer(1, periodic_fetch_trips).start()
-    socketio.run(app, port=port, debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)

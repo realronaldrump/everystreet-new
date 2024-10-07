@@ -15,7 +15,10 @@ let mapLayers = {
 /* global flatpickr */
 
 /* global io */
-const socket = io.connect();
+const socket = io(); // Connects to the server that served the page
+
+// If your Socket.IO server is on a different URL or port, specify it explicitly:
+// const socket = io('http://localhost:8080');
 
 function initializeMap() {
     // Ensure the map container exists
@@ -432,6 +435,10 @@ function toggleSidebar() {
 
 function initializeLayerControls() {
     const layerToggles = document.getElementById('layer-toggles');
+    if (!layerToggles) {
+        console.error("Element with ID 'layer-toggles' not found.");
+        return;
+    }
     layerToggles.innerHTML = ''; // Clear previous content
 
     for (const [layerName, layerInfo] of Object.entries(mapLayers)) {
