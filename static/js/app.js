@@ -671,19 +671,22 @@ function initializeEventListeners() {
 
     initializeLayerControls();
 
-    const mapControlsToggle = document.getElementById('map-controls-toggle');
+    const mapControlsToggle = document.getElementById('controls-toggle'); 
     if (mapControlsToggle) {
         mapControlsToggle.addEventListener('click', function() {
             console.log('Toggle button clicked');
             const mapControls = document.getElementById('map-controls');
+            const controlsContent = document.getElementById('controls-content'); // Select the content div
             mapControls.classList.toggle('minimized');
             const icon = this.querySelector('i');
             if (mapControls.classList.contains('minimized')) {
-                icon.classList.remove('fa-angle-double-up');
-                icon.classList.add('fa-angle-double-down');
+                icon.classList.remove('fa-chevron-up'); // Use the correct icon classes
+                icon.classList.add('fa-chevron-down'); 
+                controlsContent.style.display = 'none'; // Hide the content
             } else {
-                icon.classList.remove('fa-angle-double-down');
-                icon.classList.add('fa-angle-double-up');
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+                controlsContent.style.display = 'block'; // Show the content
             }
         });
     }
