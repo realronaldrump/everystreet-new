@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 import aiohttp
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, Response
 from flask_socketio import SocketIO
 import os
 from dotenv import load_dotenv
@@ -17,6 +17,9 @@ from shapely.geometry import Polygon, LineString, MultiPolygon
 import geopandas as gpd
 import requests
 import glob
+import gpxpy
+import gpxpy.gpx
+from dateutil import parser  # Add this import for parsing dates
 
 load_dotenv()
 
@@ -660,6 +663,98 @@ def export_geojson():
         return jsonify(geojson_data)
     except Exception as export_error:
         return jsonify({"error": str(export_error)}), 500
+
+@app.route('/export/gpx')
+def export_gpx():
+    try:
+        # Extract filter parameters from query string
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        imei = request.args.get('imei')
+
+        # Parse the date strings into datetime objects
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) if start_date_str else None
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) if end_date_str else None
+
+        # Build the query based on provided filters
+        query = {}
+        if start_date:
+            query['startTime'] = {'$gte': start_date}
+        if end_date:
+            if 'startTime' in query:
+                query['startTime']['$lte'] = end_date
+            else:
+                query['startTime'] = {'$lte': end_date}
+        if imei:
+            query['imei'] = imei
+
+        # Debug: Print the query to verify
+        print(f"Export GPX Query: {query}")
+
+        # Fetch filtered trips from the database
+        trips_cursor = trips_collection.find(query)
+        trips = list(trips_cursor)
+
+        if not trips:
+            return jsonify({"error": "No trips found for the specified filters."}), 404
+
+        # Create a new GPX object
+        gpx = gpxpy.gpx.GPX()
+
+        for trip in trips:
+            # Create a new GPX track for each trip
+            gpx_track = gpxpy.gpx.GPXTrack()
+            gpx.tracks.append(gpx_track)
+
+            # Create a segment in the track
+            gpx_segment = gpxpy.gpx.GPXTrackSegment()
+            gpx_track.segments.append(gpx_segment)
+
+            # Parse the GPS data
+            gps_data = trip['gps']
+            if isinstance(gps_data, str):
+                try:
+                    gps_data = json.loads(gps_data)
+                except json.JSONDecodeError as json_error:
+                    print(f"Error decoding GPS JSON for trip {trip.get('transactionId', 'Unknown')}: {json_error}")
+                    continue  # Skip this trip if GPS data is invalid
+
+            # Ensure that gps_data is a LineString or similar
+            if gps_data.get('type') == 'LineString':
+                for coord in gps_data.get('coordinates', []):
+                    if isinstance(coord, list) and len(coord) >= 2:
+                        lon, lat = coord[0], coord[1]
+                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+            elif gps_data.get('type') == 'Point':
+                coord = gps_data.get('coordinates', [])
+                if isinstance(coord, list) and len(coord) >= 2:
+                    lon, lat = coord[0], coord[1]
+                    gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+            else:
+                # Handle other geometry types if necessary
+                print(f"Unsupported GPS type '{gps_data.get('type')}' for trip {trip.get('transactionId', 'Unknown')}. Skipping.")
+                continue
+
+            # Add metadata to the track
+            gpx_track.name = trip.get('transactionId', 'Unnamed Trip')
+            gpx_track.description = f"Trip from {trip.get('startLocation', 'Unknown')} to {trip.get('  sdestination', 'Unknown')}"
+
+        # Generate GPX XML
+        gpx_xml = gpx.to_xml()
+
+        # Return as downloadable file
+        return Response(
+            gpx_xml,
+            mimetype='application/gpx+xml',
+            headers={
+                'Content-Disposition': 'attachment;filename=trips.gpx'
+            }
+        )
+
+    except Exception as e:
+        print(f"Error exporting GPX: {e}")
+        print(traceback.format_exc())  # Print the full stack trace for debugging
+        return jsonify({"error": f"An error occurred while exporting GPX: {str(e)}"}), 500
 
 async def start_background_tasks():
     await fetch_and_store_trips()

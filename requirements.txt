@@ -19,3 +19,4 @@ shapely
 folium
 streamlit-folium
 geopandas
+gpxpy

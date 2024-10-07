@@ -232,6 +232,54 @@ function exportGeojson() {
         });
 }
 
+function exportGPX() {
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
+    const imei = document.getElementById('imei').value;
+
+    // Build query parameters based on current filters
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    if (imei) params.append('imei', imei);
+
+    // Construct the full URL with query parameters
+    let url = '/export/gpx';
+    if (params.toString()) {
+        url += `?${params.toString()}`;
+    }
+
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error('No trips found for the specified filters.');
+                } else {
+                    throw new Error('Network response was not ok');
+                }
+            }
+            return response.text(); // GPX is XML
+        })
+        .then(gpxData => {
+            const blob = new Blob([gpxData], { type: 'application/gpx+xml' });
+            const url = URL.createObjectURL(blob);
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", url);
+            downloadAnchorNode.setAttribute("download", "trips.gpx");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+            URL.revokeObjectURL(url);
+        })
+        .catch(error => {
+            console.error('Error exporting GPX:', error);
+            alert(error.message || 'An error occurred while exporting GPX.');
+        });
+}
+
+// Add event listener for the new Export GPX button in trips.js
+document.getElementById('export-gpx').addEventListener('click', exportGPX);
+
 // Initialize date pickers with Flatpickr
 flatpickr("#start-date", {
     dateFormat: "Y-m-d",
