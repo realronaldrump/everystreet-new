@@ -1,4 +1,5 @@
 import json
+import threading
 from datetime import datetime, timedelta, timezone
 import aiohttp
 from flask import Flask, render_template, request, jsonify, session, Response
@@ -111,6 +112,28 @@ def is_valid_geojson(geojson_obj):
     if geojson_obj['type'] not in ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection']:
         return False
     return True
+
+def periodic_fetch_trips():
+    with app.app_context():
+        try:
+            # Get the timestamp of the last trip
+            last_trip = trips_collection.find_one(sort=[("endTime", -1)])
+            if last_trip:
+                start_date = last_trip['endTime']
+            else:
+                start_date = datetime.now(timezone.utc) - timedelta(days=1)  # Default to 1 day ago if no trips
+
+            end_date = datetime.now(timezone.utc)
+
+            print(f"Fetching trips from {start_date} to {end_date}")
+            asyncio.run(fetch_and_store_trips_in_range(start_date, end_date))
+
+            # Schedule the next run
+            threading.Timer(30 * 60, periodic_fetch_trips).start()
+        except Exception as e:
+            print(f"Error in periodic fetch: {e}")
+            # Reschedule even if there's an error
+            threading.Timer(30 * 60, periodic_fetch_trips).start()
 
 def validate_trip_data(trip):
     required_fields = ['transactionId', 'imei', 'startTime', 'endTime', 'distance', 'gps']
@@ -1156,4 +1179,6 @@ def get_matched_trips():
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
+    # Start the periodic fetch
+    threading.Timer(1, periodic_fetch_trips).start()
     socketio.run(app, port=port, debug=False, allow_unsafe_werkzeug=True)

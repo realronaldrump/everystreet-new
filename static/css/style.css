@@ -40,10 +40,12 @@ a:hover {
 }
 
 main {
+    margin-left: 250px;
     flex-grow: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    width: calc(100% - 250px);
 }
 
 /* Sidebar */
@@ -54,10 +56,11 @@ main {
     transition: all 0.3s ease;
     overflow-y: auto;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-}
-
-.sidebar.collapsed {
-    width: 60px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 1000;
 }
 
 .sidebar-header {
@@ -72,7 +75,7 @@ main {
 .sidebar-toggle {
     position: fixed;
     top: 20px;
-    left: 20px;
+    left: 270px;
     background: var(--accent-color);
     color: #FFFFFF;
     border: none;
@@ -80,15 +83,11 @@ main {
     cursor: pointer;
     padding: 10px;
     border-radius: 50%;
-    z-index: 1001; 
+    z-index: 1001;
 }
 
 .sidebar-toggle:hover {
     background-color: var(--secondary-color);
-}
-
-.sidebar.collapsed ~ main .sidebar-toggle {
-    left: 20px; 
 }
 
 .sidebar-menu {
@@ -407,7 +406,7 @@ tr:hover {
 /* Map and Map Controls */
 #map, #insights-container, #trips-list {
     width: 100%;
-    height: calc(100vh - 60px); 
+    height: calc(100vh - 60px);
 }
 
 #time-calibration {
@@ -461,12 +460,14 @@ tr:hover {
     position: absolute;
     top: 10px;
     right: 10px;
-    background-color: var(--dark-grey); 
+    background-color: var(--dark-grey);
     padding: 15px;
     border-radius: 8px;
     z-index: 1000;
     color: var(--text-color);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
 }
 
 #layer-toggles, #layer-colors, #layer-order {
@@ -539,48 +540,4 @@ tr:hover {
 #map-controls.minimized h2,
 #map-controls.minimized #controls-content {
     display: none;
-}
-
-
-/* Media Queries (Responsive Design) */
-@media only screen and (max-width: 768px) {
-    button {
-        padding: 14px 20px;
-        font-size: 18px;
-    }
-
-    .sidebar {
-        position: fixed;
-        left: -250px;
-        top: 0;
-        height: 100%;
-        z-index: 1000;
-        transition: left 0.3s ease;
-    }
-
-    .sidebar.active {
-        left: 0;
-    }
-
-    main {
-        margin-left: 0;
-        width: 100%;
-    }
-
-    .sidebar-header .sidebar-toggle {
-        display: block;
-    }
-
-    #map, #insights-container, #trips-list {
-        height: calc(100vh - 60px); 
-    }
-
-    #map-controls {
-        top: auto;
-        bottom: 10px;
-        left: 10px;
-        right: 10px;
-        max-height: 50vh;
-        overflow-y: auto;
-    }
 }
