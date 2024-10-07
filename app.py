@@ -466,19 +466,18 @@ def load_historical_data(start_date_str=None, end_date_str=None):
 
 @app.route('/api/trips')
 def get_trips():
-    start_date_str = request.args.get('start_date')
-    end_date_str = request.args.get('end_date')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
     imei = request.args.get('imei')
 
-    start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
-    end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
+    if start_date:
+        start_date = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
+    if end_date:
+        end_date = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc)
 
     query = {}
     if start_date and end_date:
-        query['startTime'] = {
-            '$gte': start_date,
-            '$lte': end_date
-        }
+        query['startTime'] = {'$gte': start_date, '$lte': end_date}
     if imei:
         query['imei'] = imei
 

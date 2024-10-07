@@ -1,12 +1,12 @@
 /* global flatpickr */
 document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
-    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    today.setHours(0, 0, 0, 0);
 
     const storedStartDate = localStorage.getItem('startDate');
     const storedEndDate = localStorage.getItem('endDate');
 
-    const startDate = storedStartDate ? new Date(storedStartDate) : sevenDaysAgo;
+    const startDate = storedStartDate ? new Date(storedStartDate) : today;
     const endDate = storedEndDate ? new Date(storedEndDate) : today;
 
     flatpickr("#start-date", {

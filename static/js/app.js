@@ -66,11 +66,21 @@ function initializeMap() {
 }
 
 function initializeDatePickers() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     flatpickr("#start-date", {
-        dateFormat: "Y-m-d"
+        dateFormat: "Y-m-d",
+        defaultDate: today
     });
+
     flatpickr("#end-date", {
-        dateFormat: "Y-m-d"
+        dateFormat: "Y-m-d",
+        defaultDate: today,
+        onChange: function(selectedDates, dateStr, instance) {
+            // Set the time to 23:59:59
+            selectedDates[0].setHours(23, 59, 59, 999);
+        }
     });
 }
 

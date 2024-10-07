@@ -8,7 +8,7 @@ const tableConfig = {
 
 document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
-    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    today.setHours(0, 0, 0, 0);
 
     const startDateInput = document.getElementById('start-date');
     const endDateInput = document.getElementById('end-date');
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchTripsButton = document.getElementById('fetch-trips');
     const exportGeojsonButton = document.getElementById('export-geojson');
 
-    if (startDateInput) startDateInput.value = sevenDaysAgo.toISOString().split('T')[0];
+    if (startDateInput) startDateInput.value = today.toISOString().split('T')[0];
     if (endDateInput) endDateInput.value = today.toISOString().split('T')[0];
 
     initializeDataTable();
