@@ -20,6 +20,7 @@ import glob
 import gpxpy
 import gpxpy.gpx
 from dateutil import parser  # Add this import for parsing dates
+import math
 
 load_dotenv()
 
@@ -38,6 +39,7 @@ try:
     db = client['every_street']
     trips_collection = db['trips']
     live_routes_collection = db['live_routes']
+    matched_trips_collection = db['matched_trips']  # Collection for map-matched trips
     print("Successfully connected to MongoDB")
 except Exception as mongo_error:
     print(f"Error connecting to MongoDB: {mongo_error}")
@@ -788,7 +790,7 @@ def export_gpx():
 
             # Add metadata to the track
             gpx_track.name = trip.get('transactionId', 'Unnamed Trip')
-            gpx_track.description = f"Trip from {trip.get('startLocation', 'Unknown')} to {trip.get('  sdestination', 'Unknown')}"
+            gpx_track.description = f"Trip from {trip.get('startLocation', 'Unknown')} to {trip.get('destination', 'Unknown')}"
 
         # Generate GPX XML
         gpx_xml = gpx.to_xml()
@@ -888,7 +890,7 @@ def process_elements(elements, streets_only):
                     'geometry': geom.__geo_interface__,
                     'properties': element.get('tags', {})
                 })
-        elif element['type'] == 'relation' and        not streets_only:
+        elif element['type'] == 'relation' and not streets_only:
             outer_rings = []
             for member in element.get('members', []):
                 if member['type'] == 'way' and member['role'] == 'outer':
@@ -905,6 +907,252 @@ def process_elements(elements, streets_only):
                     'properties': element.get('tags', {})
                 })
     return features
+
+# Map Matching Functions
+MAX_MAPBOX_COORDINATES = 100
+
+async def map_match_coordinates(coordinates):
+    """Map match a list of coordinates using the Mapbox Map Matching API."""
+    if len(coordinates) < 2:
+        return {'code': 'Error', 'message': 'At least two coordinates are required for map matching.'}
+
+    url = 'https://api.mapbox.com/matching/v5/mapbox/driving/'
+
+    # Split coordinates into chunks if exceeding the API limit
+    chunks = [coordinates[i:i + MAX_MAPBOX_COORDINATES] for i in range(0, len(coordinates), MAX_MAPBOX_COORDINATES)]
+    matched_geometries = []
+
+    async with aiohttp.ClientSession() as session:
+        for chunk in chunks:
+            coordinates_str = ';'.join([f'{lon},{lat}' for lon, lat in chunk])
+            url_with_coords = url + coordinates_str
+
+            # Set radiuses for each chunk
+            params = {
+                'access_token': MAPBOX_ACCESS_TOKEN,
+                'geometries': 'geojson',
+                'radiuses': ';'.join(['25' for _ in chunk])  # Radiuses for the current chunk
+            }
+
+            async with session.get(url_with_coords, params=params) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data['code'] == 'Ok':
+                        matched_geometries.extend(data['matchings'][0]['geometry']['coordinates'])
+                    else:
+                        print(f"Error map-matching chunk: {data.get('message', 'Map Matching API Error')}")
+                        return {'code': 'Error', 'message': data.get('message', 'Map Matching API Error')}
+                elif response.status == 422:  # Enhanced error logging for 422 errors
+                    error_data = await response.json()
+                    print(f"Error map-matching chunk: Status 422, Message: {error_data.get('message', 'No message')}, Coordinates: {chunk}")
+                    return {'code': 'Error', 'message': error_data.get('message', 'Map Matching API Error 422')}
+                else:
+                    print(f"Error map-matching chunk: Map Matching API request failed with status {response.status}")
+                    return {'code': 'Error', 'message': f'Map Matching API request failed with status {response.status}'}
+
+    return {'code': 'Ok', 'matchings': [{'geometry': {'coordinates': matched_geometries, 'type': 'LineString'}}]}
+
+def simplify_geometry(geometry, tolerance=0.0001):
+    """Simplifies a GeoJSON geometry using the Ramer-Douglas-Peucker algorithm."""
+    if geometry['type'] == 'LineString':
+        return {
+            'type': 'LineString',
+            'coordinates': ramer_douglas_peucker(geometry['coordinates'], tolerance)
+        }
+    elif geometry['type'] == 'MultiLineString':
+        return {
+            'type': 'MultiLineString',
+            'coordinates': [ramer_douglas_peucker(line, tolerance) for line in geometry['coordinates']]
+        }
+    else:
+        return geometry
+
+def ramer_douglas_peucker(points, epsilon):
+    """Ramer-Douglas-Peucker algorithm implementation."""
+    dmax = 0
+    index = 0
+    end = len(points) - 1
+    for i in range(1, end):
+        d = perpendicular_distance(points[i], points[0], points[end])
+        if d > dmax:
+            index = i
+            dmax = d
+    if dmax > epsilon:
+        results1 = ramer_douglas_peucker(points[:index+1], epsilon)
+        results2 = ramer_douglas_peucker(points[index:], epsilon)
+        results = results1[:-1] + results2
+    else:
+        results = [points[0], points[end]]
+    return results
+
+def perpendicular_distance(point, line_start, line_end):
+    """Calculates the perpendicular distance from a point to a line segment."""
+    x, y = point
+    x1, y1 = line_start
+    x2, y2 = line_end
+
+    # Handle case where line segment has zero length
+    if x1 == x2 and y1 == y2:
+        return math.sqrt((x - x1)**2 + (y - y1)**2)  # Distance to the single point
+
+    return abs((y2 - y1) * x - (x2 - x1) * y + x2 * y1 - y2 * x1) / math.sqrt((y2 - y1)**2 + (x2 - x1)**2)
+
+def is_valid_coordinate(coord):
+    """Checks if a coordinate is within valid ranges."""
+    lon, lat = coord
+    return -90 <= lat <= 90 and -180 <= lon <= 180
+
+async def process_and_map_match_trip(trip):
+    """Processes a trip, map matches its coordinates, and stores the result."""
+    try:
+        # Check if the trip is already map-matched
+        existing_matched_trip = matched_trips_collection.find_one({'transactionId': trip['transactionId']})
+        if existing_matched_trip:
+            print(f"Trip {trip['transactionId']} already map-matched. Skipping.")
+            return
+
+        # Simplify the trip geometry before map matching, but only for historical trips
+        if trip['imei'] == 'HISTORICAL':
+            trip['gps'] = geojson_dumps(simplify_geometry(geojson_loads(trip['gps'])))
+
+            # Calculate distance for historical trips
+            coords = geojson_loads(trip['gps'])['coordinates']
+            total_distance = 0
+            for i in range(len(coords) - 1):
+                total_distance += haversine_distance(coords[i], coords[i + 1])
+            trip['distance'] = total_distance
+
+        # Extract coordinates from the trip's GPS data
+        gps_data = geojson_loads(trip['gps'])
+        coordinates = gps_data['coordinates']
+
+        # Check for empty coordinates
+        if not coordinates:
+            print(f"Error: Trip {trip['transactionId']} has no coordinates. Skipping.")
+            return
+
+        # Validate coordinates
+        if not all(is_valid_coordinate(coord) for coord in coordinates):
+            print(f"Error: Trip {trip['transactionId']} has invalid coordinates. Skipping.")
+            return
+
+        # Map match the coordinates
+        map_match_result = await map_match_coordinates(coordinates)
+
+        if map_match_result['code'] == 'Ok':
+            # Store the map-matched trip
+            matched_trip = trip.copy()
+            matched_trip['matchedGps'] = geojson_dumps(map_match_result['matchings'][0]['geometry'])
+            matched_trips_collection.insert_one(matched_trip)
+            print(f"Trip {trip['transactionId']} map-matched and stored.")
+        else:
+            print(f"Error map-matching trip {trip['transactionId']}: {map_match_result['message']}")
+
+    except Exception as e:
+        print(f"Error processing and map-matching trip {trip.get('transactionId', 'Unknown')}: {e}")
+        print(traceback.format_exc())
+
+def haversine_distance(coord1, coord2):
+    """Calculates the distance between two coordinates using the Haversine formula."""
+    R = 6371  # Radius of Earth in kilometers
+    lat1, lon1 = math.radians(coord1[1]), math.radians(coord1[0])
+    lat2, lon2 = math.radians(coord2[1]), math.radians(coord2[0])
+
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+
+    a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    distance = R * c
+    return distance * 0.621371  # Convert to miles
+
+@app.route('/api/map_match_trips', methods=['POST'])
+async def map_match_trips():
+    """Map matches trips in the database within the specified date range."""
+    try:
+        data = request.json
+        start_date_str = data.get('start_date')
+        end_date_str = data.get('end_date')
+
+        start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
+        end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
+
+        query = {}
+        if start_date and end_date:
+            query['startTime'] = {
+                '$gte': start_date,
+                '$lte': end_date
+            }
+
+        trips = trips_collection.find(query)
+        for trip in trips:
+            await process_and_map_match_trip(trip)
+        return jsonify({'status': 'success', 'message': 'Map matching initiated for trips within the date range.'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/map_match_historical_trips', methods=['POST'])
+async def map_match_historical_trips():
+    """Map matches historical trips in the database within the specified date range."""
+    try:
+        data = request.json
+        start_date_str = data.get('start_date')
+        end_date_str = data.get('end_date')
+
+        start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
+        end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
+
+        query = {}
+        if start_date and end_date:
+            query['startTime'] = {
+                '$gte': start_date,
+                '$lte': end_date
+            }
+
+        historical_trips = db['historical_trips'].find(query)
+        for trip in historical_trips:
+            await process_and_map_match_trip(trip)
+        return jsonify({'status': 'success', 'message': 'Map matching initiated for historical trips within the date range.'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/matched_trips')
+def get_matched_trips():
+    """Returns map-matched trips as GeoJSON."""
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    imei = request.args.get('imei')
+
+    start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
+    end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
+
+    query = {}
+    if start_date and end_date:
+        query['startTime'] = {
+            '$gte': start_date,
+            '$lte': end_date
+        }
+    if imei:
+        query['imei'] = imei
+
+    matched_trips = list(matched_trips_collection.find(query))
+
+    return jsonify(geojson_module.FeatureCollection([
+        geojson_module.Feature(
+            geometry=geojson_loads(trip['matchedGps']),
+            properties={
+                'transactionId': trip['transactionId'],
+                'imei': trip['imei'],
+                'startTime': trip['startTime'].isoformat(),
+                'endTime': trip['endTime'].isoformat(),
+                'distance': trip.get('distance', 0),
+                'timezone': trip.get('timezone', 'America/Chicago'),
+                'destination': trip.get('destination', 'N/A'),
+                'startLocation': trip.get('startLocation', 'N/A')
+            }
+        ) for trip in matched_trips
+    ]))
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))

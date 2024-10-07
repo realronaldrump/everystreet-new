@@ -7,8 +7,9 @@ let osmLayer = null;
 let mapLayers = {
     trips: { layer: null, visible: true, color: '#BB86FC', order: 1, opacity: 0.7 },
     historicalTrips: { layer: null, visible: true, color: '#03DAC6', order: 2, opacity: 0.7 },
-    osmBoundary: { layer: null, visible: false, color: '#03DAC6', order: 3, opacity: 0.7 },
-    osmStreets: { layer: null, visible: false, color: '#FF0266', order: 4, opacity: 0.7 }
+    matchedTrips: { layer: null, visible: true, color: '#CF6679', order: 3, opacity: 0.7 }, // Add matchedTrips layer
+    osmBoundary: { layer: null, visible: false, color: '#03DAC6', order: 4, opacity: 0.7 },
+    osmStreets: { layer: null, visible: false, color: '#FF0266', order: 5, opacity: 0.7 }
 };
 
 /* global flatpickr */
@@ -253,7 +254,15 @@ function fetchTrips() {
                 }))
             };
 
-            updateMap();
+            // Fetch and update matched trips
+            fetchMatchedTrips(startDate, endDate, imei)
+                .then(() => {
+                    updateMap();
+                })
+                .catch(error => {
+                    console.error('Error fetching matched trips:', error);
+                    updateMap(); // Update the map even if there's an error fetching matched trips
+                });
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
@@ -304,7 +313,7 @@ function updateMap() {
         .sort((a, b) => a[1].order - b[1].order);
 
     orderedLayers.forEach(([layerName, layerInfo]) => {
-        if ((layerName === 'trips' || layerName === 'historicalTrips') && layerInfo.layer) {
+        if ((layerName === 'trips' || layerName === 'historicalTrips' || layerName === 'matchedTrips') && layerInfo.layer) {
             L.geoJSON(layerInfo.layer, {
                 style: {
                     color: layerInfo.color,
@@ -336,13 +345,12 @@ function updateMap() {
         }
     });
 
-    // Fit bounds based on both trips and historical trips
+    // Fit bounds based on all visible layers
     let bounds = L.latLngBounds(); // Start with an empty bounds
-    if (mapLayers.trips.layer) {
-        bounds.extend(L.geoJSON(mapLayers.trips.layer).getBounds());
-    }
-    if (mapLayers.historicalTrips.layer) {
-        bounds.extend(L.geoJSON(mapLayers.historicalTrips.layer).getBounds());
+    for (const layerName in mapLayers) {
+        if (mapLayers[layerName].visible && mapLayers[layerName].layer) {
+            bounds.extend(L.geoJSON(mapLayers[layerName].layer).getBounds());
+        }
     }
 
     if (bounds.isValid()) {
@@ -633,6 +641,17 @@ function initializeEventListeners() {
         generateStreetsButton.addEventListener('click', () => generateOSMData(true));
     }
 
+    // Add event listeners for map matching buttons
+    const mapMatchTripsButton = document.getElementById('map-match-trips');
+    if (mapMatchTripsButton) {
+        mapMatchTripsButton.addEventListener('click', mapMatchTrips);
+    }
+
+    const mapMatchHistoricalTripsButton = document.getElementById('map-match-historical-trips');
+    if (mapMatchHistoricalTripsButton) {
+        mapMatchHistoricalTripsButton.addEventListener('click', mapMatchHistoricalTrips);
+    }
+
     initializeLayerControls();
 
     const mapControlsToggle = document.getElementById('map-controls-toggle');
@@ -651,6 +670,106 @@ function initializeEventListeners() {
             }
         });
     }
+}
+
+// Function to fetch and display matched trips
+async function fetchMatchedTrips(startDate, endDate, imei) {
+    let url = '/api/matched_trips';
+    const params = new URLSearchParams();
+
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    if (imei) params.append('imei', imei);
+
+    if (params.toString()) {
+        url += `?${params.toString()}`;
+    }
+
+    try {
+        const response = await fetch(url);
+        const geojson = await response.json();
+
+        mapLayers.matchedTrips.layer = geojson;
+    } catch (error) {
+        console.error('Error fetching matched trips:', error);
+    }
+}
+
+// Functions to initiate map matching
+function mapMatchTrips() {
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
+
+    showLoadingOverlay(); // Show loading overlay before starting the process
+
+    fetch('/api/map_match_trips', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            start_date: startDate,
+            end_date: endDate
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.status === 'success') {
+            alert(data.message);
+            fetchTrips(); // Refresh the map to show the matched trips
+        } else {
+            console.error(`Error: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error initiating map matching for trips:', error);
+    })
+    .finally(() => {
+        hideLoadingOverlay(); // Hide loading overlay after the process is complete
+    });
+}
+
+function mapMatchHistoricalTrips() {
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
+
+    showLoadingOverlay(); // Show loading overlay before starting the process
+
+    fetch('/api/map_match_historical_trips', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            start_date: startDate,
+            end_date: endDate
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.status === 'success') {
+            alert(data.message);
+            fetchTrips(); // Refresh the map to show the matched trips
+        } else {
+            console.error(`Error: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error initiating map matching for historical trips:', error);
+    })
+    .finally(() => {
+        hideLoadingOverlay(); // Hide loading overlay after the process is complete
+    });
 }
 
 socket.on('live_route_update', handleLiveRouteUpdate);

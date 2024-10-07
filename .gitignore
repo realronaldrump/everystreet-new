@@ -9,3 +9,5 @@ eslint.config.mjs
 package-lock.json
 package.json
 new_functionality.py
+new_functionality/
+clearmapmatchdatabase.py
