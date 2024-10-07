@@ -74,10 +74,30 @@ function initializeDatePickers() {
 }
 
 function exportGeojson() {
-    fetch('/export/geojson')
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
+    const imei = document.getElementById('imei').value;
+
+    // Build query parameters based on current filters
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    if (imei) params.append('imei', imei);
+
+    // Construct the full URL with query parameters
+    let url = '/export/geojson';
+    if (params.toString()) {
+        url += `?${params.toString()}`;
+    }
+
+    fetch(url)
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                if (response.status === 404) {
+                    throw new Error('No trips found for the specified filters.');
+                } else {
+                    throw new Error('Network response was not ok');
+                }
             }
             return response.json();
         })
@@ -92,6 +112,7 @@ function exportGeojson() {
         })
         .catch(error => {
             console.error('Error exporting GeoJSON:', error);
+            alert(error.message || 'An error occurred while exporting GeoJSON.');
         });
 }
 

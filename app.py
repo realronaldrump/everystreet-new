@@ -659,10 +659,61 @@ def add_header(response):
 @app.route('/export/geojson')
 def export_geojson():
     try:
-        geojson_data = fetch_trips_for_geojson()
-        return jsonify(geojson_data)
-    except Exception as export_error:
-        return jsonify({"error": str(export_error)}), 500
+        # Extract filter parameters from query string
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        imei = request.args.get('imei')
+
+        # Parse the date strings into datetime objects
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) if start_date_str else None
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) if end_date_str else None
+
+        # Build the query based on provided filters
+        query = {}
+        if start_date:
+            query['startTime'] = {'$gte': start_date}
+        if end_date:
+            if 'startTime' in query:
+                query['startTime']['$lte'] = end_date
+            else:
+                query['startTime'] = {'$lte': end_date}
+        if imei:
+            query['imei'] = imei
+
+        # Debug: Print the query to verify
+        print(f"Export GeoJSON Query: {query}")
+
+        # Fetch filtered trips from the database
+        trips_cursor = trips_collection.find(query)
+        trips = list(trips_cursor)
+
+        if not trips:
+            return jsonify({"error": "No trips found for the specified filters."}), 404
+
+        # Convert trips to GeoJSON
+        geojson = {
+            "type": "FeatureCollection",
+            "features": []
+        }
+
+        for trip in trips:
+            feature = {
+                "type": "Feature",
+                "geometry": trip['gps'],
+                "properties": {
+                    "transactionId": trip['transactionId'],
+                    "startTime": trip['startTime'].isoformat(),
+                    "endTime": trip['endTime'].isoformat(),
+                    "distance": trip['distance'],
+                    "imei": trip['imei']
+                }
+            }
+            geojson["features"].append(feature)
+
+        return jsonify(geojson)
+    except Exception as e:
+        print(f"Error exporting GeoJSON: {str(e)}")
+        return jsonify({"error": "An error occurred while exporting GeoJSON."}), 500
 
 @app.route('/export/gpx')
 def export_gpx():
