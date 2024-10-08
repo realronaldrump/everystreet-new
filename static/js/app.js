@@ -298,8 +298,9 @@ function geocodeCoordinates(lat, lon) {
 function fetchMetrics() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
+    const imei = document.getElementById('imei').value;
 
-    fetch(`/api/metrics?start_date=${startDate}&end_date=${endDate}`)
+    fetch(`/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`)
         .then(response => response.json())
         .then(metrics => {
             document.getElementById('total-trips').textContent = metrics.total_trips;
@@ -436,7 +437,7 @@ function toggleSidebar() {
 function initializeLayerControls() {
     const layerToggles = document.getElementById('layer-toggles');
     if (!layerToggles) {
-        console.error("Element with ID 'layer-toggles' not found.");
+        console.warn("Element with ID 'layer-toggles' not found.");
         return;
     }
     layerToggles.innerHTML = ''; // Clear previous content
@@ -464,6 +465,10 @@ function initializeLayerControls() {
 }
 
 function toggleLayer(layerName, visible) {
+    if (!mapLayers[layerName]) {
+        console.warn(`Layer ${layerName} not found`);
+        return;
+    }
     mapLayers[layerName].visible = visible;
     updateMap();
     updateLayerOrderUI();
@@ -481,6 +486,10 @@ function changeLayerOpacity(layerName, opacity) {
 
 function updateLayerOrderUI() {
     const layerOrder = document.getElementById('layer-order');
+    if (!layerOrder) {
+        console.warn('Layer order element not found');
+        return;
+    }
     layerOrder.innerHTML = '<h3>Layer Order (Drag to reorder)</h3>';
 
     const orderedLayers = Object.entries(mapLayers)
@@ -616,6 +625,7 @@ function initializeEventListeners() {
             localStorage.setItem('startDate', startDate);
             localStorage.setItem('endDate', endDate);
             fetchTrips();
+            fetchMetrics(); // Add this line to update metrics when filters are applied
         });
     }
 
@@ -888,13 +898,14 @@ function startClock() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('map')) {
+        initializeMap();
+        initializeLayerControls();
+        fetchTrips();
+    }
     startClock();
     initializeDatePickers();
     initializeEventListeners();
-    if (document.getElementById('map')) {
-        initializeMap();
-        fetchTrips();
-    }
     fetchMetrics(); // Add this line to ensure metrics are fetched on page load
 });
 

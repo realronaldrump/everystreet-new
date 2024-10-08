@@ -7,6 +7,11 @@ const tableConfig = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    if ($.fn.DataTable) {
+        initializeDataTable();
+    } else {
+        console.error('DataTables is not loaded');
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -20,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (startDateInput) startDateInput.value = today.toISOString().split('T')[0];
     if (endDateInput) endDateInput.value = today.toISOString().split('T')[0];
 
-    initializeDataTable();
     fetchUniqueImeis().then(fetchTrips);
 
     if (applyFiltersButton) applyFiltersButton.addEventListener('click', fetchTrips);
@@ -30,6 +34,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeDataTable() {
+    if (!$.fn.DataTable) {
+        console.error('DataTables is not available');
+        return;
+    }
     tripsTable = $('#trips-table').DataTable({
         responsive: true,
         scrollX: true,
