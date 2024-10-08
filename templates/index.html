@@ -29,7 +29,7 @@
             </div>
             <div id="map" class="flex-grow-1"></div>
             <div id="map-controls" class="bg-dark text-white p-3">
-                <button class="controls-toggle btn btn-sm btn-secondary float-end">
+                <button id="controls-toggle" class="btn btn-sm btn-secondary float-end">
                     <i class="fas fa-chevron-up"></i>
                 </button>
                 <h2>Map Controls</h2>
@@ -76,30 +76,10 @@
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div id="layer-controls">
-                                <h3>Layer Controls</h3>
-                                <div class="layer-control">
-                                    <label for="trips-opacity">Trips Opacity</label>
-                                    <input type="range" id="trips-opacity" min="0" max="1" step="0.1" value="0.7">
-                                </div>
-                                <div class="layer-control">
-                                    <label for="heatmap-opacity">Heatmap Opacity</label>
-                                    <input type="range" id="heatmap-opacity" min="0" max="1" step="0.1" value="0.7">
-                                </div>
-                                <div class="layer-control">
-                                    <label for="heatmap-radius">Heatmap Radius</label>
-                                    <input type="range" id="heatmap-radius" min="1" max="30" step="1" value="15">
-                                </div>
-                                <div class="layer-control">
-                                    <label for="trip-color">Trip Color</label>
-                                    <input type="color" id="trip-color" value="#3388ff">
-                                </div>
+                            <div id="layer-toggles">
+                                <!-- Layer controls will be dynamically inserted here by JavaScript -->
                             </div>
                         </div>
-                    </div>
-                    <!-- Add the layer-toggles div here -->
-                    <div id="layer-toggles" class="mt-4">
-                        <!-- Layer controls will be dynamically inserted here by JavaScript -->
                     </div>
                 </div>
             </div>
