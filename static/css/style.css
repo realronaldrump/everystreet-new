@@ -481,3 +481,35 @@ footer {
 #map-controls.minimized #controls-toggle {
     transform: rotate(180deg);
 }
+
+.export-card {
+    background-color: var(--surface-color);
+    color: var(--on-surface-color);
+}
+
+.export-card .card-header {
+    background-color: var(--primary-color);
+    color: var(--background-color);
+}
+
+.export-card .form-label {
+    color: var(--on-surface-color);
+}
+
+.export-card .form-control,
+.export-card .form-select {
+    background-color: var(--background-color);
+    color: var(--on-background-color);
+    border-color: var(--primary-color);
+}
+
+.export-card .btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--background-color);
+}
+
+.export-card .btn-primary:hover {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+}

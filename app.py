@@ -2,7 +2,7 @@ import json
 import threading
 from datetime import datetime, timedelta, timezone
 import aiohttp
-from flask import Flask, render_template, request, jsonify, session, Response
+from flask import Flask, render_template, request, jsonify, session, Response, send_file
 from flask_socketio import SocketIO
 import os
 from dotenv import load_dotenv
@@ -22,6 +22,8 @@ import gpxpy
 import gpxpy.gpx
 from dateutil import parser  # Add this import for parsing dates
 import math
+import io
+import zipfile
 
 load_dotenv()
 
@@ -1186,6 +1188,210 @@ def get_matched_trips():
             }
         ) for trip in matched_trips
     ]))
+
+@app.route('/export')
+def export_page():
+    return render_template('export.html')
+
+@app.route('/api/export/trips')
+def export_trips():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    export_format = request.args.get('format')
+
+    # Fetch trips from the database based on the date range
+    trips = fetch_trips(start_date, end_date)
+
+    if export_format == 'geojson':
+        geojson_data = create_geojson(trips)
+        return send_file(
+            io.BytesIO(geojson_data.encode()),
+            mimetype='application/geo+json',
+            as_attachment=True,
+            attachment_filename='trips.geojson'
+        )
+    elif export_format == 'gpx':
+        gpx_data = create_gpx(trips)
+        return send_file(
+            io.BytesIO(gpx_data.encode()),
+            mimetype='application/gpx+xml',
+            as_attachment=True,
+            attachment_filename='trips.gpx'
+        )
+
+@app.route('/api/export/matched_trips')
+def export_matched_trips():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    export_format = request.args.get('format')
+
+    # Fetch matched trips from the database based on the date range
+    matched_trips = fetch_matched_trips(start_date, end_date)
+
+    if export_format == 'geojson':
+        geojson_data = create_geojson(matched_trips)
+        return send_file(
+            io.BytesIO(geojson_data.encode()),
+            mimetype='application/geo+json',
+            as_attachment=True,
+            attachment_filename='matched_trips.geojson'
+        )
+    elif export_format == 'gpx':
+        gpx_data = create_gpx(matched_trips)
+        return send_file(
+            io.BytesIO(gpx_data.encode()),
+            mimetype='application/gpx+xml',
+            as_attachment=True,
+            attachment_filename='matched_trips.gpx'
+        )
+
+@app.route('/api/export/streets')
+def export_streets():
+    location = request.args.get('location')
+    export_format = request.args.get('format')
+
+    # Generate streets layer for the given location
+    streets_data = generate_geojson_osm(location, streets_only=True)
+
+    if export_format == 'geojson':
+        return send_file(
+            io.BytesIO(json.dumps(streets_data).encode()),
+            mimetype='application/geo+json',
+            as_attachment=True,
+            attachment_filename='streets.geojson'
+        )
+    elif export_format == 'shapefile':
+        gdf = gpd.GeoDataFrame.from_features(streets_data['features'])
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w') as zf:
+            for ext in ['shp', 'shx', 'dbf', 'prj']:
+                temp_file = io.BytesIO()
+                gdf.to_file(temp_file, driver='ESRI Shapefile')
+                temp_file.seek(0)
+                zf.writestr(f'streets.{ext}', temp_file.getvalue())
+        buffer.seek(0)
+        return send_file(
+            buffer,
+            mimetype='application/zip',
+            as_attachment=True,
+            attachment_filename='streets.zip'
+        )
+
+@app.route('/api/export/boundary')
+def export_boundary():
+    location = request.args.get('location')
+    export_format = request.args.get('format')
+
+    # Generate boundary layer for the given location
+    boundary_data = generate_geojson_osm(location, streets_only=False)
+
+    if export_format == 'geojson':
+        return send_file(
+            io.BytesIO(json.dumps(boundary_data).encode()),
+            mimetype='application/geo+json',
+            as_attachment=True,
+            attachment_filename='boundary.geojson'
+        )
+    elif export_format == 'shapefile':
+        gdf = gpd.GeoDataFrame.from_features(boundary_data['features'])
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w') as zf:
+            for ext in ['shp', 'shx', 'dbf', 'prj']:
+                temp_file = io.BytesIO()
+                gdf.to_file(temp_file, driver='ESRI Shapefile')
+                temp_file.seek(0)
+                zf.writestr(f'boundary.{ext}', temp_file.getvalue())
+        buffer.seek(0)
+        return send_file(
+            buffer,
+            mimetype='application/zip',
+            as_attachment=True,
+            attachment_filename='boundary.zip'
+        )
+
+def fetch_trips(start_date, end_date):
+    start_date = parser.parse(start_date)
+    end_date = parser.parse(end_date)
+    query = {
+        'startTime': {
+            '$gte': start_date,
+            '$lte': end_date
+        }
+    }
+    return list(trips_collection.find(query))
+
+def fetch_matched_trips(start_date, end_date):
+    start_date = parser.parse(start_date)
+    end_date = parser.parse(end_date)
+    query = {
+        'startTime': {
+            '$gte': start_date,
+            '$lte': end_date
+        }
+    }
+    return list(matched_trips_collection.find(query))
+
+def create_geojson(trips):
+    features = []
+    for trip in trips:
+        gps_data = trip['gps']
+        if isinstance(gps_data, str):
+            gps_data = json.loads(gps_data)
+        feature = {
+            "type": "Feature",
+            "geometry": gps_data,
+            "properties": {
+                "transactionId": trip.get('transactionId'),
+                "startTime": trip.get('startTime').isoformat(),
+                "endTime": trip.get('endTime').isoformat(),
+                "distance": trip.get('distance'),
+                "startLocation": trip.get('startLocation'),
+                "destination": trip.get('destination')
+            }
+        }
+        features.append(feature)
+    
+    geojson = {
+        "type": "FeatureCollection",
+        "features": features
+    }
+    return json.dumps(geojson)
+
+def create_gpx(trips):
+    gpx = gpxpy.gpx.GPX()
+
+    for trip in trips:
+        # Create a new GPX track for each trip
+        gpx_track = gpxpy.gpx.GPXTrack()
+        gpx.tracks.append(gpx_track)
+
+        # Create a segment in the track
+        gpx_segment = gpxpy.gpx.GPXTrackSegment()
+        gpx_track.segments.append(gpx_segment)
+
+        # Parse the GPS data
+        gps_data = trip['gps']
+        if isinstance(gps_data, str):
+            gps_data = json.loads(gps_data)
+
+        # Ensure that gps_data is a LineString or similar
+        if gps_data.get('type') == 'LineString':
+            for coord in gps_data.get('coordinates', []):
+                if isinstance(coord, list) and len(coord) >= 2:
+                    lon, lat = coord[0], coord[1]
+                    gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+        elif gps_data.get('type') == 'Point':
+            coord = gps_data.get('coordinates', [])
+            if isinstance(coord, list) and len(coord) >= 2:
+                lon, lat = coord[0], coord[1]
+                gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+
+        # Add metadata to the track
+        gpx_track.name = trip.get('transactionId', 'Unnamed Trip')
+        gpx_track.description = f"Trip from {trip.get('startLocation', 'Unknown')} to {trip.get('destination', 'Unknown')}"
+
+    # Generate GPX XML
+    return gpx.to_xml()
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
