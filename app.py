@@ -671,7 +671,7 @@ def api_fetch_trips_range():
     try:
         data = request.json
         start_date = datetime.fromisoformat(data['start_date']).replace(tzinfo=timezone.utc)
-        end_date = datetime.fromisoformat(data['end_date']).replace(tzinfo=timezone.utc) + timedelta(days=1)  # Include end date
+        end_date = datetime.fromisoformat(data['end_date']).replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) + timedelta(days=1)  # Include end date
         asyncio.run(fetch_and_store_trips_in_range(start_date, end_date))
         return jsonify({"status": "success", "message": "Trips fetched and stored successfully."}), 200
     except Exception as fetch_error:
@@ -697,8 +697,7 @@ def export_geojson():
 
         # Parse the date strings into datetime objects
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) if start_date_str else None
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) if end_date_str else None
-
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) if end_date_str else None
         # Build the query based on provided filters
         query = {}
         if start_date:
@@ -728,9 +727,14 @@ def export_geojson():
         }
 
         for trip in trips:
+            # Ensure gps is a dictionary (parse if it's a string)
+            gps_data = trip['gps']
+            if isinstance(gps_data, str):
+                gps_data = json.loads(gps_data)
+
             feature = {
                 "type": "Feature",
-                "geometry": trip['gps'],
+                "geometry": gps_data,  # Use the parsed gps_data dictionary
                 "properties": {
                     "transactionId": trip['transactionId'],
                     "startTime": trip['startTime'].isoformat(),
@@ -756,7 +760,7 @@ def export_gpx():
 
         # Parse the date strings into datetime objects
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) if start_date_str else None
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) if end_date_str else None
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) if end_date_str else None
 
         # Build the query based on provided filters
         query = {}
@@ -1105,7 +1109,7 @@ async def map_match_trips():
         end_date_str = data.get('end_date')
 
         start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
-        end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
+        end_date = datetime.fromisoformat(end_date_str).replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) if end_date_str else None
 
         query = {}
         if start_date and end_date:
@@ -1130,7 +1134,7 @@ async def map_match_historical_trips():
         end_date_str = data.get('end_date')
 
         start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
-        end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
+        end_date = datetime.fromisoformat(end_date_str).replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) if end_date_str else None
 
         query = {}
         if start_date and end_date:
@@ -1154,7 +1158,7 @@ def get_matched_trips():
     imei = request.args.get('imei')
 
     start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
-    end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
+    end_date = datetime.fromisoformat(end_date_str).replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) if end_date_str else None
 
     query = {}
     if start_date and end_date:
