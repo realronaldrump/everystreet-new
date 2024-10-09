@@ -255,8 +255,9 @@ async def fetch_and_store_trips():
 
                     trip_timezone = get_trip_timezone(trip)
 
-                    trip['startTime'] = datetime.fromisoformat(trip['startTime'].replace('Z', '+00:00')).replace(tzinfo=None)
-                    trip['endTime'] = datetime.fromisoformat(trip['endTime'].replace('Z', '+00:00')).replace(tzinfo=None)
+                    # Apply the 5-hour offset to startTime and endTime
+                    trip['startTime'] = datetime.fromisoformat(trip['startTime'].replace('Z', '+00:00')).replace(tzinfo=None) - timedelta(hours=5)
+                    trip['endTime'] = datetime.fromisoformat(trip['endTime'].replace('Z', '+00:00')).replace(tzinfo=None) - timedelta(hours=5)
 
                     trip['startTime'] = pytz.utc.localize(trip['startTime']).astimezone(pytz.timezone(trip_timezone))
                     trip['endTime'] = pytz.utc.localize(trip['endTime']).astimezone(pytz.timezone(trip_timezone))
@@ -326,8 +327,9 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
 
                     trip_timezone = get_trip_timezone(trip)
 
-                    trip['startTime'] = datetime.fromisoformat(trip['startTime'].replace('Z', '+00:00')).replace(tzinfo=None)
-                    trip['endTime'] = datetime.fromisoformat(trip['endTime'].replace('Z', '+00:00')).replace(tzinfo=None)
+                    # Apply the 5-hour offset to startTime and endTime
+                    trip['startTime'] = datetime.fromisoformat(trip['startTime'].replace('Z', '+00:00')).replace(tzinfo=None) - timedelta(hours=5)
+                    trip['endTime'] = datetime.fromisoformat(trip['endTime'].replace('Z', '+00:00')).replace(tzinfo=None) - timedelta(hours=5)
 
                     trip['startTime'] = pytz.utc.localize(trip['startTime']).astimezone(pytz.timezone(trip_timezone))
                     trip['endTime'] = pytz.utc.localize(trip['endTime']).astimezone(pytz.timezone(trip_timezone))
