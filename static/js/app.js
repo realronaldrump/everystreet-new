@@ -494,7 +494,7 @@ function initializeDragAndDrop() {
     layerList.addEventListener('dragstart', (e) => {
         draggedItem = e.target;
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', ''); 
+        e.dataTransfer.setData('text/plain', '');
     });
 
     layerList.addEventListener('dragover', (e) => {
@@ -843,10 +843,22 @@ function setTimeOffset(hours) {
     });
 }
 
-document.getElementById('time-backward').addEventListener('click', () => setTimeOffset(-1));
-document.getElementById('time-forward').addEventListener('click', () => setTimeOffset(1));
-
 document.addEventListener('DOMContentLoaded', () => {
+    const timeBackwardButton = document.getElementById('time-backward');
+    const timeForwardButton = document.getElementById('time-forward');
+
+    if (timeBackwardButton) {
+        timeBackwardButton.addEventListener('click', () => setTimeOffset(-1));
+    } else {
+        console.warn('Element with ID "time-backward" not found.');
+    }
+
+    if (timeForwardButton) {
+        timeForwardButton.addEventListener('click', () => setTimeOffset(1));
+    } else {
+        console.warn('Element with ID "time-forward" not found.');
+    }
+
     timeOffset = parseInt(localStorage.getItem('timeOffset') || '0');
 });
 

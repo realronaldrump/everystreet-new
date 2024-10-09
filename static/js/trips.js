@@ -119,6 +119,7 @@ function initializeDataTable() {
         ]
     });
 
+    // Add buttons to the DataTable
     new $.fn.dataTable.Buttons(tripsTable, {
         buttons: [
             {
