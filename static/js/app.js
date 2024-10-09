@@ -7,7 +7,7 @@ let osmLayer = null;
 let mapLayers = {
     trips: { layer: null, visible: true, color: '#BB86FC', order: 1, opacity: 0.7 },
     historicalTrips: { layer: null, visible: true, color: '#03DAC6', order: 2, opacity: 0.7 },
-    matchedTrips: { layer: null, visible: true, color: '#CF6679', order: 3, opacity: 0.7 }, // Add matchedTrips layer
+    matchedTrips: { layer: null, visible: true, color: '#CF6679', order: 3, opacity: 0.7 },
     osmBoundary: { layer: null, visible: false, color: '#03DAC6', order: 4, opacity: 0.7 },
     osmStreets: { layer: null, visible: false, color: '#FF0266', order: 5, opacity: 0.7 }
 };
@@ -15,13 +15,9 @@ let mapLayers = {
 /* global flatpickr */
 
 /* global io */
-const socket = io(); // Connects to the server that served the page
-
-// If your Socket.IO server is on a different URL or port, specify it explicitly:
-// const socket = io('http://localhost:8080');
+const socket = io(); 
 
 function initializeMap() {
-    // Ensure the map container exists
     const mapElement = document.getElementById('map');
     if (!mapElement) {
         console.error('Map container not found');
@@ -44,19 +40,16 @@ function initializeMap() {
 
         layerGroup = L.layerGroup().addTo(map);
 
-        // Add zoom control to the top-right corner
         L.control.zoom({
             position: 'topright'
         }).addTo(map);
 
-        // Add a scale control
         L.control.scale({
             imperial: true,
             metric: true,
             position: 'bottomright'
         }).addTo(map);
 
-        // Disable wrap around the globe
         map.setMaxBounds([
             [-90, -180],
             [90, 180]
@@ -81,7 +74,6 @@ function initializeDatePickers() {
         dateFormat: "Y-m-d",
         defaultDate: today,
         onChange: function(selectedDates, dateStr, instance) {
-            // Set the time to 23:59:59
             selectedDates[0].setHours(23, 59, 59, 999);
         }
     });
@@ -92,13 +84,11 @@ function exportGeojson() {
     const endDate = document.getElementById('end-date').value;
     const imei = document.getElementById('imei').value;
 
-    // Build query parameters based on current filters
     const params = new URLSearchParams();
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
     if (imei) params.append('imei', imei);
 
-    // Construct the full URL with query parameters
     let url = '/export/geojson';
     if (params.toString()) {
         url += `?${params.toString()}`;
@@ -135,13 +125,11 @@ function exportGPX() {
     const endDate = document.getElementById('end-date').value;
     const imei = document.getElementById('imei').value;
 
-    // Build query parameters based on current filters
     const params = new URLSearchParams();
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
     if (imei) params.append('imei', imei);
 
-    // Construct the full URL with query parameters
     let url = '/export/gpx';
     if (params.toString()) {
         url += `?${params.toString()}`;
@@ -156,7 +144,7 @@ function exportGPX() {
                     throw new Error('Network response was not ok');
                 }
             }
-            return response.text(); // GPX is XML
+            return response.text();
         })
         .then(gpxData => {
             const blob = new Blob([gpxData], { type: 'application/gpx+xml' });
@@ -175,7 +163,6 @@ function exportGPX() {
         });
 }
 
-// Add event listener for the Export GPX button
 document.getElementById('export-gpx').addEventListener('click', exportGPX);
 
 function showLoadingOverlay() {
@@ -226,7 +213,6 @@ function fetchTrips() {
         .then(geojson => {
             console.log('Received GeoJSON:', geojson);
 
-            // Separate trips and historical trips
             const trips = geojson.features
                 .filter(feature => feature.properties.imei !== 'HISTORICAL')
                 .map(feature => ({
@@ -248,7 +234,6 @@ function fetchTrips() {
             }
             console.log('Trips data:', trips);
 
-            // Update map layers
             mapLayers.trips.layer = {
                 type: 'FeatureCollection',
                 features: trips.map(trip => ({
@@ -267,14 +252,13 @@ function fetchTrips() {
                 }))
             };
 
-            // Fetch and update matched trips
             fetchMatchedTrips(startDate, endDate, imei)
                 .then(() => {
                     updateMap();
                 })
                 .catch(error => {
                     console.error('Error fetching matched trips:', error);
-                    updateMap(); // Update the map even if there's an error fetching matched trips
+                    updateMap();
                 });
         })
         .catch(error => {
@@ -359,8 +343,7 @@ function updateMap() {
         }
     });
 
-    // Fit bounds based on all visible layers
-    let bounds = L.latLngBounds(); // Start with an empty bounds
+    let bounds = L.latLngBounds();
     for (const layerName in mapLayers) {
         if (mapLayers[layerName].visible && mapLayers[layerName].layer) {
             bounds.extend(L.geoJSON(mapLayers[layerName].layer).getBounds());
@@ -379,7 +362,7 @@ function handleLiveRouteUpdate(data) {
         try {
             const coordinates = data.data.map(point => [point.gps.lat, point.gps.lon]);
             const lastPoint = coordinates[coordinates.length - 1];
-            const isVehicleOff = data.isVehicleOff; // Assuming this data is available
+            const isVehicleOff = data.isVehicleOff;
 
             if (liveRoutePolyline) {
                 layerGroup.removeLayer(liveRoutePolyline);
@@ -388,14 +371,12 @@ function handleLiveRouteUpdate(data) {
                 layerGroup.removeLayer(liveMarker);
             }
 
-            // Add or update the live route polyline
             liveRoutePolyline = L.polyline(coordinates, {
                 color: isVehicleOff ? 'red' : 'green',
                 weight: 3,
                 opacity: 0.7,
             }).addTo(layerGroup);
 
-            // Add or update the live location marker
             liveMarker = L.circleMarker(lastPoint, {
                 radius: 8,
                 color: '#fff',
@@ -410,7 +391,6 @@ function handleLiveRouteUpdate(data) {
                 <strong>Longitude:</strong> ${lastPoint[1].toFixed(5)}
             `);
 
-            // Center the map on the new point
             map.panTo(lastPoint);
 
         } catch (error) {
@@ -423,7 +403,6 @@ function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     sidebar.classList.toggle('active');
 
-    // Update the sidebar toggle icon
     const icon = document.getElementById('sidebar-toggle').querySelector('i');
     if (sidebar.classList.contains('active')) {
         icon.classList.remove('fa-bars');
@@ -440,7 +419,7 @@ function initializeLayerControls() {
         console.warn("Element with ID 'layer-toggles' not found.");
         return;
     }
-    layerToggles.innerHTML = ''; // Clear previous content
+    layerToggles.innerHTML = ''; 
 
     for (const [layerName, layerInfo] of Object.entries(mapLayers)) {
         const layerControl = document.createElement('div');
@@ -451,13 +430,11 @@ function initializeLayerControls() {
             <input type="checkbox" id="${layerName}-toggle" ${layerInfo.visible ? 'checked' : ''}>
             <label for="${layerName}-toggle">${layerName}</label>
             <input type="color" id="${layerName}-color" value="${layerInfo.color}">
-            <!-- Add opacity slider -->
             <label for="${layerName}-opacity">Opacity:</label>
             <input type="range" id="${layerName}-opacity" min="0" max="1" step="0.1" value="${layerInfo.opacity}">
         `;
         layerToggles.appendChild(layerControl);
 
-        // Add event listeners
         document.getElementById(`${layerName}-toggle`).addEventListener('change', (e) => toggleLayer(layerName, e.target.checked));
         document.getElementById(`${layerName}-color`).addEventListener('change', (e) => changeLayerColor(layerName, e.target.value));
         document.getElementById(`${layerName}-opacity`).addEventListener('input', (e) => changeLayerOpacity(layerName, e.target.value));
@@ -494,7 +471,7 @@ function updateLayerOrderUI() {
 
     const orderedLayers = Object.entries(mapLayers)
         .filter(([_, layerInfo]) => layerInfo.visible)
-        .sort((a, b) => b[1].order - a[1].order); // Note the change here
+        .sort((a, b) => b[1].order - a[1].order);
 
     const ul = document.createElement('ul');
     ul.id = 'layer-order-list';
@@ -517,7 +494,7 @@ function initializeDragAndDrop() {
     layerList.addEventListener('dragstart', (e) => {
         draggedItem = e.target;
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+        e.dataTransfer.setData('text/plain', ''); 
     });
 
     layerList.addEventListener('dragover', (e) => {
@@ -540,8 +517,6 @@ function updateLayerOrder() {
     const layers = Array.from(layerList.querySelectorAll('li'));
     const totalLayers = layers.length;
     layers.forEach((layer, index) => {
-        // Since layers are displayed from top to bottom,
-        // the first layer should have the highest order
         mapLayers[layer.dataset.layer].order = totalLayers - index;
     });
     updateMap();
@@ -625,7 +600,7 @@ function initializeEventListeners() {
             localStorage.setItem('startDate', startDate);
             localStorage.setItem('endDate', endDate);
             fetchTrips();
-            fetchMetrics(); // Add this line to update metrics when filters are applied
+            fetchMetrics();
         });
     }
 
@@ -668,7 +643,6 @@ function initializeEventListeners() {
         generateStreetsButton.addEventListener('click', () => generateOSMData(true));
     }
 
-    // Add event listeners for map matching buttons
     const mapMatchTripsButton = document.getElementById('map-match-trips');
     if (mapMatchTripsButton) {
         mapMatchTripsButton.addEventListener('click', mapMatchTrips);
@@ -686,23 +660,22 @@ function initializeEventListeners() {
         mapControlsToggle.addEventListener('click', function() {
             console.log('Toggle button clicked');
             const mapControls = document.getElementById('map-controls');
-            const controlsContent = document.getElementById('controls-content'); // Select the content div
+            const controlsContent = document.getElementById('controls-content'); 
             mapControls.classList.toggle('minimized');
             const icon = this.querySelector('i');
             if (mapControls.classList.contains('minimized')) {
-                icon.classList.remove('fa-chevron-up'); // Use the correct icon classes
+                icon.classList.remove('fa-chevron-up'); 
                 icon.classList.add('fa-chevron-down'); 
-                controlsContent.style.display = 'none'; // Hide the content
+                controlsContent.style.display = 'none'; 
             } else {
                 icon.classList.remove('fa-chevron-down');
                 icon.classList.add('fa-chevron-up');
-                controlsContent.style.display = 'block'; // Show the content
+                controlsContent.style.display = 'block'; 
             }
         });
     }
 }
 
-// Function to fetch and display matched trips
 async function fetchMatchedTrips(startDate, endDate, imei) {
     let url = '/api/matched_trips';
     const params = new URLSearchParams();
@@ -725,12 +698,11 @@ async function fetchMatchedTrips(startDate, endDate, imei) {
     }
 }
 
-// Functions to initiate map matching
 function mapMatchTrips() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
 
-    showLoadingOverlay(); // Show loading overlay before starting the process
+    showLoadingOverlay();
 
     fetch('/api/map_match_trips', {
         method: 'POST',
@@ -751,7 +723,7 @@ function mapMatchTrips() {
     .then(data => {
         if (data.status === 'success') {
             alert(data.message);
-            fetchTrips(); // Refresh the map to show the matched trips
+            fetchTrips(); 
         } else {
             console.error(`Error: ${data.message}`);
         }
@@ -760,7 +732,7 @@ function mapMatchTrips() {
         console.error('Error initiating map matching for trips:', error);
     })
     .finally(() => {
-        hideLoadingOverlay(); // Hide loading overlay after the process is complete
+        hideLoadingOverlay(); 
     });
 }
 
@@ -768,7 +740,7 @@ function mapMatchHistoricalTrips() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
 
-    showLoadingOverlay(); // Show loading overlay before starting the process
+    showLoadingOverlay(); 
 
     fetch('/api/map_match_historical_trips', {
         method: 'POST',
@@ -789,7 +761,7 @@ function mapMatchHistoricalTrips() {
     .then(data => {
         if (data.status === 'success') {
             alert(data.message);
-            fetchTrips(); // Refresh the map to show the matched trips
+            fetchTrips(); 
         } else {
             console.error(`Error: ${data.message}`);
         }
@@ -798,7 +770,7 @@ function mapMatchHistoricalTrips() {
         console.error('Error initiating map matching for historical trips:', error);
     })
     .finally(() => {
-        hideLoadingOverlay(); // Hide loading overlay after the process is complete
+        hideLoadingOverlay();
     });
 }
 
@@ -827,7 +799,7 @@ function fetchTripsInRange(startDate, endDate) {
     .then(data => {
         if (data.status === 'success') {
             console.log(data.message);
-            fetchTrips(); // Refresh trips table after successful fetch
+            fetchTrips(); 
         } else {
             console.error(`Error: ${data.message}`);
         }
@@ -874,7 +846,6 @@ function setTimeOffset(hours) {
 document.getElementById('time-backward').addEventListener('click', () => setTimeOffset(-1));
 document.getElementById('time-forward').addEventListener('click', () => setTimeOffset(1));
 
-// Load the time offset from localStorage when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     timeOffset = parseInt(localStorage.getItem('timeOffset') || '0');
 });
@@ -906,7 +877,7 @@ document.addEventListener('DOMContentLoaded', () => {
     startClock();
     initializeDatePickers();
     initializeEventListeners();
-    fetchMetrics(); // Add this line to ensure metrics are fetched on page load
+    fetchMetrics(); 
 });
 
 function initializeSidebarToggle() {
@@ -917,7 +888,6 @@ function initializeSidebarToggle() {
         sidebar.classList.toggle('active');
     });
 
-    // Close sidebar when clicking outside on mobile
     document.addEventListener('click', (event) => {
         if (!sidebar.contains(event.target) && !sidebarToggleBtn.contains(event.target) && sidebar.classList.contains('active')) {
             sidebar.classList.remove('active');

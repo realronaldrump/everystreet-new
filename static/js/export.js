@@ -4,25 +4,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportStreetsForm = document.getElementById('export-streets-form');
     const exportBoundaryForm = document.getElementById('export-boundary-form');
 
-    exportTripsForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        exportTrips();
-    });
+    if (exportTripsForm) {
+        exportTripsForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            exportTrips();
+        });
+    }
 
-    exportMatchedTripsForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        exportMatchedTrips();
-    });
+    if (exportMatchedTripsForm) {
+        exportMatchedTripsForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            exportMatchedTrips();
+        });
+    }
 
-    exportStreetsForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        exportStreets();
-    });
+    if (exportStreetsForm) {
+        exportStreetsForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            exportStreets();
+        });
+    }
 
-    exportBoundaryForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        exportBoundary();
-    });
+    if (exportBoundaryForm) {
+        exportBoundaryForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            exportBoundary();
+        });
+    }
 });
 
 function exportTrips() {
@@ -47,7 +55,13 @@ function exportStreets() {
     const location = document.getElementById('streets-location').value;
     const format = document.getElementById('streets-format').value;
 
-    const url = `/api/export/streets?location=${encodeURIComponent(location)}&format=${format}`;
+    // Validate location input
+    if (!location) {
+        alert('Please enter a location.');
+        return;
+    }
+
+    const url = `/api/export/streets?location=${encodeURIComponent(JSON.stringify(location))}&format=${format}`;
     downloadFile(url, `streets.${format}`);
 }
 
@@ -55,7 +69,13 @@ function exportBoundary() {
     const location = document.getElementById('boundary-location').value;
     const format = document.getElementById('boundary-format').value;
 
-    const url = `/api/export/boundary?location=${encodeURIComponent(location)}&format=${format}`;
+    // Validate location input
+    if (!location) {
+        alert('Please enter a location.');
+        return;
+    }
+
+    const url = `/api/export/boundary?location=${encodeURIComponent(JSON.stringify(location))}&format=${format}`;
     downloadFile(url, `boundary.${format}`);
 }
 

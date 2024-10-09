@@ -68,9 +68,8 @@ function fetchDrivingInsights() {
         .then(response => response.json())
         .then(data => {
             updateSummaryMetrics(data);
-            updateDataTable(data.destinationFrequency);
-            updateChart(data.tripCountsOverTime);
-            updateMostVisited(data.mostVisitedDestination);
+            updateDataTable(data); // Update the data table directly with fetched data
+            updateChart(data); // Update the chart directly with fetched data
         })
         .catch(error => {
             console.error('Error fetching driving insights:', error);
@@ -79,14 +78,24 @@ function fetchDrivingInsights() {
 }
 
 function updateSummaryMetrics(data) {
-    document.getElementById('total-trips').textContent = data.total_trips;
-    // Assuming the API provides the most visited destination
-    document.getElementById('most-visited').textContent = data.mostVisited || 'N/A';
+    // Assuming your API returns total trips in a field called 'totalTrips'
+    document.getElementById('total-trips').textContent = data.length; 
+
+    // Find the most visited destination
+    let mostVisited = '';
+    let maxVisits = 0;
+    data.forEach(item => {
+        if (item.count > maxVisits) {
+            mostVisited = item._id;
+            maxVisits = item.count;
+        }
+    });
+    document.getElementById('most-visited').textContent = mostVisited || 'N/A';
 }
 
-function updateDataTable(destinationFrequency) {
+function updateDataTable(data) {
     insightsTable.clear();
-    insightsTable.rows.add(destinationFrequency);
+    insightsTable.rows.add(data);
     insightsTable.draw();
 }
 
@@ -95,7 +104,7 @@ function initializeChart() {
     tripCountsChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: [], // Populate dynamically
+            labels: [], 
             datasets: [{
                 label: 'Trip Counts',
                 data: [],
@@ -122,14 +131,12 @@ function initializeChart() {
     });
 }
 
-function updateChart(tripCountsOverTime) {
+function updateChart(data) {
+    // Assuming your API returns data in the format: [{ date: 'YYYY-MM-DD', count: number }, ...]
+    const tripCountsOverTime = data.map(item => ({ date: item.lastVisit.split('T')[0], count: item.count }));
     tripCountsChart.data.labels = tripCountsOverTime.map(entry => entry.date);
     tripCountsChart.data.datasets[0].data = tripCountsOverTime.map(entry => entry.count);
     tripCountsChart.update();
-}
-
-function updateMostVisited(destination) {
-    document.getElementById('most-visited').textContent = destination || 'N/A';
 }
 
 function fetchUniqueImeis() {

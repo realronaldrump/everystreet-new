@@ -20,7 +20,7 @@ import requests
 import glob
 import gpxpy
 import gpxpy.gpx
-from dateutil import parser  # Add this import for parsing dates
+from dateutil import parser
 import math
 import io
 import zipfile
@@ -29,7 +29,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-socketio = SocketIO(app, cors_allowed_origins="*")  # Ensure CORS is allowed as needed
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # MongoDB setup
 try:
@@ -42,7 +42,8 @@ try:
     db = client['every_street']
     trips_collection = db['trips']
     live_routes_collection = db['live_routes']
-    matched_trips_collection = db['matched_trips']  # Collection for map-matched trips
+    matched_trips_collection = db['matched_trips']
+    historical_trips_collection = db['historical_trips']  # Collection for historical trips
     print("Successfully connected to MongoDB")
 except Exception as mongo_error:
     print(f"Error connecting to MongoDB: {mongo_error}")
@@ -66,8 +67,10 @@ time_offset = 0
 
 @app.route('/api/set_time_offset', methods=['POST'])
 def set_time_offset():
+    global time_offset  # Declare time_offset as global
     data = request.json
     offset_value = data.get('offset', 0)
+    time_offset = offset_value  # Update the global time_offset
     return jsonify({"status": "success", "message": f"Time offset set to {offset_value} hours"})
 
 def apply_time_offset(date):
@@ -115,9 +118,7 @@ async def fetch_trips_in_intervals(main_session, access_token, imei, start_date,
     return all_trips
 
 def is_valid_geojson(geojson_obj):
-    if geojson_obj['type'] not in ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection']:
-        return False
-    return True
+    return geojson_obj['type'] in ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection']
 
 def periodic_fetch_trips():
     with app.app_context():
@@ -129,7 +130,7 @@ def periodic_fetch_trips():
                 if start_date.tzinfo is None:
                     start_date = start_date.replace(tzinfo=timezone.utc)
             else:
-                start_date = datetime.now(timezone.utc) - timedelta(days=1)  # Default to 1 day ago if no trips
+                start_date = datetime.now(timezone.utc) - timedelta(days=1)
 
             end_date = datetime.now(timezone.utc)
 
@@ -140,7 +141,7 @@ def periodic_fetch_trips():
             threading.Timer(30 * 60, periodic_fetch_trips).start()
         except Exception as e:
             print(f"Error in periodic fetch: {e}")
-            print(traceback.format_exc())  # Add this line to print the full traceback
+            print(traceback.format_exc())
             # Reschedule even if there's an error
             threading.Timer(30 * 60, periodic_fetch_trips).start()
 
@@ -168,30 +169,19 @@ async def reverse_geocode_nominatim(lat, lon):
             address = data.get('address', {})
             formatted_address = []
 
-            # Build the address from desired components
-            if 'house_number' in address:
-                formatted_address.append(address['house_number'])
-            if 'road' in address:
-                formatted_address.append(address['road'])
-            if 'city' in address:
-                formatted_address.append(address['city'])
-            elif 'town' in address:
-                formatted_address.append(address['town'])
-            elif 'village' in address:
-                formatted_address.append(address['village'])
-            if 'state' in address:
-                formatted_address.append(address['state'])
+            for component in ['house_number', 'road', 'city', 'town', 'village', 'state']:
+                if component in address:
+                    formatted_address.append(address[component])
 
             return ', '.join(formatted_address)
         else:
             print(f"Nominatim API error: {response.status}")
             return f"Location at {lat}, {lon}"
 
-    # Add a small delay to avoid overwhelming the Nominatim service
     await asyncio.sleep(0.1)
 
 def fetch_trips_for_geojson():
-    trips = trips_collection.find()  # Adjust your query as needed
+    trips = trips_collection.find()
     features = []
 
     for trip in trips:
@@ -204,7 +194,7 @@ def fetch_trips_for_geojson():
                 "endTime": trip['endTime'].isoformat(),
                 "distance": trip['distance'],
                 "destination": trip['destination'],
-                "startLocation": trip.get('startLocation', 'N/A')  # Add this line
+                "startLocation": trip.get('startLocation', 'N/A')
             }
         )
         features.append(feature)
@@ -219,15 +209,14 @@ def get_trip_timezone(trip):
     try:
         gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
         if gps_data['coordinates']:
-            # Get the coordinates of the first point in the trip
             lon, lat = gps_data['coordinates'][0]
             timezone_str = tf.timezone_at(lng=lon, lat=lat)
             if timezone_str:
                 return timezone_str
-        return 'America/Chicago'  # Default to Waco, TX timezone
+        return 'America/Chicago'
     except Exception as e:
         print(f"Error getting trip timezone: {e}")
-        return 'America/Chicago'  # Default to Waco, TX timezone
+        return 'America/Chicago'
 
 async def fetch_and_store_trips():
     try:
@@ -238,17 +227,16 @@ async def fetch_and_store_trips():
             print("Access token obtained")
 
             end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(days=365*4)  # Fetch last x days of trips
+            start_date = end_date - timedelta(days=365*4)
 
             all_trips = []
             total_devices = len(AUTHORIZED_DEVICES)
             for device_count, imei in enumerate(AUTHORIZED_DEVICES, 1):
                 print(f"Fetching trips for IMEI: {imei}")
-                device_trips = await fetch_trips_in_intervals(session, access_token, imei, start_date, end_date)
+                device_trips = await fetch_trips_in_intervals(client_session, access_token, imei, start_date, end_date)
                 print(f"Fetched {len(device_trips)} trips for IMEI {imei}")
                 all_trips.extend(device_trips)
 
-                # Calculate and emit progress
                 progress = int((device_count / total_devices) * 100)
                 socketio.emit('loading_progress', {'progress': progress})
 
@@ -256,7 +244,6 @@ async def fetch_and_store_trips():
 
             for trip in all_trips:
                 try:
-                    # Check if the trip already exists in the database
                     existing_trip = trips_collection.find_one({'transactionId': trip['transactionId']})
                     if existing_trip:
                         print(f"Trip {trip['transactionId']} already exists in the database. Skipping.")
@@ -266,34 +253,23 @@ async def fetch_and_store_trips():
                         print(f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}")
                         continue
 
-                    # Get the trip's timezone
                     trip_timezone = get_trip_timezone(trip)
 
-                    # Parse the timestamps as naive datetime objects
                     trip['startTime'] = datetime.fromisoformat(trip['startTime'].replace('Z', '+00:00')).replace(tzinfo=None)
                     trip['endTime'] = datetime.fromisoformat(trip['endTime'].replace('Z', '+00:00')).replace(tzinfo=None)
 
-                    # Localize the naive datetime objects to UTC, then convert to the trip's timezone
                     trip['startTime'] = pytz.utc.localize(trip['startTime']).astimezone(pytz.timezone(trip_timezone))
                     trip['endTime'] = pytz.utc.localize(trip['endTime']).astimezone(pytz.timezone(trip_timezone))
 
-                    # Parse the GPS data
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
 
-                    # Extract the first and last points
                     start_point = gps_data['coordinates'][0]
                     last_point = gps_data['coordinates'][-1]
 
-                    # Store the start point as a separate field
                     trip['startGeoPoint'] = start_point
-
-                    # Store the last point as a separate field
                     trip['destinationGeoPoint'] = last_point
 
-                    # Use the last point for reverse geocoding
                     trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
-
-                    # Use the first point for reverse geocoding the start location
                     trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
 
                     if isinstance(trip['gps'], dict):
@@ -308,7 +284,6 @@ async def fetch_and_store_trips():
                     print(f"Error updating trip {trip.get('transactionId', 'Unknown')}: {trip_error}")
                     print(traceback.format_exc())
 
-            # Log the count of trips in the database for each IMEI
             for imei in AUTHORIZED_DEVICES:
                 try:
                     count = trips_collection.count_documents({'imei': imei})
@@ -349,34 +324,23 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                         print(f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}")
                         continue
 
-                    # Get the trip's timezone
                     trip_timezone = get_trip_timezone(trip)
 
-                    # Parse the timestamps as naive datetime objects
                     trip['startTime'] = datetime.fromisoformat(trip['startTime'].replace('Z', '+00:00')).replace(tzinfo=None)
                     trip['endTime'] = datetime.fromisoformat(trip['endTime'].replace('Z', '+00:00')).replace(tzinfo=None)
 
-                    # Localize the naive datetime objects to UTC, then convert to the trip's timezone
                     trip['startTime'] = pytz.utc.localize(trip['startTime']).astimezone(pytz.timezone(trip_timezone))
                     trip['endTime'] = pytz.utc.localize(trip['endTime']).astimezone(pytz.timezone(trip_timezone))
 
-                    # Parse the GPS data
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
 
-                    # Extract the first and last points
                     start_point = gps_data['coordinates'][0]
                     last_point = gps_data['coordinates'][-1]
 
-                    # Store the start point as a separate field
                     trip['startGeoPoint'] = start_point
-
-                    # Store the last point as a separate field
                     trip['destinationGeoPoint'] = last_point
 
-                    # Use the last point for reverse geocoding
                     trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
-
-                    # Use the first point for reverse geocoding the start location
                     trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
 
                     if isinstance(trip['gps'], dict):
@@ -414,24 +378,17 @@ def driving_insights_page():
     return render_template('driving_insights.html')
 
 async def process_historical_trip(trip):
-    # Get the trip's timezone
     trip_timezone = get_trip_timezone(trip)
 
-    # Ensure startTime and endTime are timezone-aware
     trip['startTime'] = trip['startTime'].astimezone(pytz.timezone(trip_timezone))
     trip['endTime'] = trip['endTime'].astimezone(pytz.timezone(trip_timezone))
 
-    # Parse the GPS data
     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
 
-    # Extract the first and last points
     start_point = gps_data['coordinates'][0]
     last_point = gps_data['coordinates'][-1]
 
-    # Use the last point for reverse geocoding
     trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
-
-    # Use the first point for reverse geocoding the start location
     trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
 
     return trip
@@ -460,22 +417,17 @@ def load_historical_data(start_date_str=None, end_date_str=None):
 
                 all_trips.append(asyncio.run(process_historical_trip(trip)))
 
-    # Store geocoded historical trips in MongoDB
-    historical_trips_collection = db['historical_trips']
     historical_trips_collection.insert_many(all_trips)
-
     return all_trips
 
 @app.route('/api/trips')
 def get_trips():
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
     imei = request.args.get('imei')
 
-    if start_date:
-        start_date = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
-    if end_date:
-        end_date = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc)
+    start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
+    end_date = datetime.fromisoformat(end_date_str).replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) if end_date_str else None
 
     query = {}
     if start_date and end_date:
@@ -485,18 +437,15 @@ def get_trips():
 
     trips = list(trips_collection.find(query))
 
-    # Retrieve historical trips from MongoDB
-    historical_trips_collection = db['historical_trips']
-    historical_query = query.copy()  # Create a copy of the query to avoid modifying the original
+    historical_query = query.copy()
     if 'imei' in historical_query:
-        del historical_query['imei']  # Remove imei filter for historical trips
+        del historical_query['imei']
     historical_trips = list(historical_trips_collection.find(historical_query))
     trips.extend(historical_trips)
 
     for trip in trips:
         trip['startTime'] = apply_time_offset(trip['startTime'].astimezone(pytz.timezone('America/Chicago')))
         trip['endTime'] = apply_time_offset(trip['endTime'].astimezone(pytz.timezone('America/Chicago')))
-        # Removed line causing the error: trip['_id'] = str(trip['_id'])
 
     return jsonify(geojson_module.FeatureCollection([
         geojson_module.Feature(
@@ -506,7 +455,7 @@ def get_trips():
                 'imei': trip['imei'],
                 'startTime': trip['startTime'].isoformat(),
                 'endTime': trip['endTime'].isoformat(),
-                'distance': trip.get('distance', 0),  # Provide a default value for distance
+                'distance': trip.get('distance', 0),
                 'timezone': trip.get('timezone', 'America/Chicago'),
                 'destination': trip.get('destination', 'N/A'),
                 'startLocation': trip.get('startLocation', 'N/A')
@@ -524,14 +473,13 @@ def get_driving_insights():
         end_date_str = request.args.get('end_date')
         imei = request.args.get('imei')
 
+        start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
+        end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
+
         query = {}
-        if start_date_str and end_date_str:
-            query['startTime'] = {
-                '$gte': datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc),
-                '$lte': datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc)
-            }
+        if start_date and end_date:
+            query['startTime'] = {'$gte': start_date, '$lte': end_date}
         else:
-            # Default to last 7 days
             end_date = datetime.now(timezone.utc)
             start_date = end_date - timedelta(days=7)
             query['startTime'] = {'$gte': start_date, '$lte': end_date}
@@ -556,7 +504,6 @@ def get_driving_insights():
         insights = list(trips_collection.aggregate(pipeline))
         insights.extend(calculate_insights_for_historical_data(start_date_str, end_date_str, imei))
 
-        # Convert datetime objects to strings
         for insight in insights:
             if 'lastVisit' in insight and isinstance(insight['lastVisit'], datetime):
                 insight['lastVisit'] = insight['lastVisit'].astimezone(pytz.timezone('America/Chicago')).isoformat()
@@ -571,14 +518,9 @@ def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
     start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
     end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc) if end_date_str else None
 
-    # Retrieve historical trips from MongoDB
-    historical_trips_collection = db['historical_trips']
     query = {}
     if start_date and end_date:
-        query['startTime'] = {
-            '$gte': start_date,
-            '$lte': end_date
-        }
+        query['startTime'] = {'$gte': start_date, '$lte': end_date}
     all_trips = list(historical_trips_collection.find(query))
 
     insights = {}
@@ -590,7 +532,7 @@ def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
                 'count': 0,
                 'totalDistance': 0,
                 'averageDistance': 0,
-                'lastVisit': datetime.min.replace(tzinfo=timezone.utc)  # Initialize with minimum datetime with UTC timezone
+                'lastVisit': datetime.min.replace(tzinfo=timezone.utc)
             }
         insights[destination]['count'] += 1
         insights[destination]['totalDistance'] += trip.get('distance', 0)
@@ -612,22 +554,13 @@ def get_metrics():
 
     trips = list(trips_collection.find())
 
-    # Retrieve historical trips from MongoDB
-    historical_trips_collection = db['historical_trips']
     historical_query = {}
     if start_date and end_date:
-        historical_query['startTime'] = {
-            '$gte': start_date,
-            '$lte': end_date
-        }
+        historical_query['startTime'] = {'$gte': start_date, '$lte': end_date}
     historical_trips = list(historical_trips_collection.find(historical_query))
     trips.extend(historical_trips)
 
-    filtered_trips = []
-    if imei:
-        filtered_trips = [trip for trip in trips if trip['imei'] == imei]
-    else:
-        filtered_trips = trips
+    filtered_trips = [trip for trip in trips if trip['imei'] == imei] if imei else trips
 
     total_trips = len(filtered_trips)
     total_distance = sum(trip.get('distance', 0) for trip in filtered_trips)
@@ -673,7 +606,7 @@ def api_fetch_trips_range():
     try:
         data = request.json
         start_date = datetime.fromisoformat(data['start_date']).replace(tzinfo=timezone.utc)
-        end_date = datetime.fromisoformat(data['end_date']).replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) + timedelta(days=1)  # Include end date
+        end_date = datetime.fromisoformat(data['end_date']).replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) + timedelta(days=1)
         asyncio.run(fetch_and_store_trips_in_range(start_date, end_date))
         return jsonify({"status": "success", "message": "Trips fetched and stored successfully."}), 200
     except Exception as fetch_error:
@@ -681,9 +614,6 @@ def api_fetch_trips_range():
 
 @app.after_request
 def add_header(response):
-    """
-    Add headers to prevent caching.
-    """
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
@@ -692,15 +622,13 @@ def add_header(response):
 @app.route('/export/geojson')
 def export_geojson():
     try:
-        # Extract filter parameters from query string
         start_date_str = request.args.get('start_date')
         end_date_str = request.args.get('end_date')
         imei = request.args.get('imei')
 
-        # Parse the date strings into datetime objects
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) if start_date_str else None
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) if end_date_str else None
-        # Build the query based on provided filters
+
         query = {}
         if start_date:
             query['startTime'] = {'$gte': start_date}
@@ -712,31 +640,27 @@ def export_geojson():
         if imei:
             query['imei'] = imei
 
-        # Debug: Print the query to verify
         print(f"Export GeoJSON Query: {query}")
 
-        # Fetch filtered trips from the database
         trips_cursor = trips_collection.find(query)
         trips = list(trips_cursor)
 
         if not trips:
             return jsonify({"error": "No trips found for the specified filters."}), 404
 
-        # Convert trips to GeoJSON
         geojson = {
             "type": "FeatureCollection",
             "features": []
         }
 
         for trip in trips:
-            # Ensure gps is a dictionary (parse if it's a string)
             gps_data = trip['gps']
             if isinstance(gps_data, str):
                 gps_data = json.loads(gps_data)
 
             feature = {
                 "type": "Feature",
-                "geometry": gps_data,  # Use the parsed gps_data dictionary
+                "geometry": gps_data,
                 "properties": {
                     "transactionId": trip['transactionId'],
                     "startTime": trip['startTime'].isoformat(),
@@ -755,16 +679,13 @@ def export_geojson():
 @app.route('/export/gpx')
 def export_gpx():
     try:
-        # Extract filter parameters from query string
         start_date_str = request.args.get('start_date')
         end_date_str = request.args.get('end_date')
         imei = request.args.get('imei')
 
-        # Parse the date strings into datetime objects
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc) if start_date_str else None
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) if end_date_str else None
 
-        # Build the query based on provided filters
         query = {}
         if start_date:
             query['startTime'] = {'$gte': start_date}
@@ -776,38 +697,31 @@ def export_gpx():
         if imei:
             query['imei'] = imei
 
-        # Debug: Print the query to verify
         print(f"Export GPX Query: {query}")
 
-        # Fetch filtered trips from the database
         trips_cursor = trips_collection.find(query)
         trips = list(trips_cursor)
 
         if not trips:
             return jsonify({"error": "No trips found for the specified filters."}), 404
 
-        # Create a new GPX object
         gpx = gpxpy.gpx.GPX()
 
         for trip in trips:
-            # Create a new GPX track for each trip
             gpx_track = gpxpy.gpx.GPXTrack()
             gpx.tracks.append(gpx_track)
 
-            # Create a segment in the track
             gpx_segment = gpxpy.gpx.GPXTrackSegment()
             gpx_track.segments.append(gpx_segment)
 
-            # Parse the GPS data
             gps_data = trip['gps']
             if isinstance(gps_data, str):
                 try:
                     gps_data = json.loads(gps_data)
                 except json.JSONDecodeError as json_error:
                     print(f"Error decoding GPS JSON for trip {trip.get('transactionId', 'Unknown')}: {json_error}")
-                    continue  # Skip this trip if GPS data is invalid
+                    continue
 
-            # Ensure that gps_data is a LineString or similar
             if gps_data.get('type') == 'LineString':
                 for coord in gps_data.get('coordinates', []):
                     if isinstance(coord, list) and len(coord) >= 2:
@@ -819,18 +733,14 @@ def export_gpx():
                     lon, lat = coord[0], coord[1]
                     gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
             else:
-                # Handle other geometry types if necessary
                 print(f"Unsupported GPS type '{gps_data.get('type')}' for trip {trip.get('transactionId', 'Unknown')}. Skipping.")
                 continue
 
-            # Add metadata to the track
             gpx_track.name = trip.get('transactionId', 'Unnamed Trip')
             gpx_track.description = f"Trip from {trip.get('startLocation', 'Unknown')} to {trip.get('destination', 'Unknown')}"
 
-        # Generate GPX XML
         gpx_xml = gpx.to_xml()
 
-        # Return as downloadable file
         return Response(
             gpx_xml,
             mimetype='application/gpx+xml',
@@ -841,7 +751,7 @@ def export_gpx():
 
     except Exception as e:
         print(f"Error exporting GPX: {e}")
-        print(traceback.format_exc())  # Print the full stack trace for debugging
+        print(traceback.format_exc())
         return jsonify({"error": f"An error occurred while exporting GPX: {str(e)}"}), 500
 
 async def start_background_tasks():
@@ -953,7 +863,6 @@ async def map_match_coordinates(coordinates):
 
     url = 'https://api.mapbox.com/matching/v5/mapbox/driving/'
 
-    # Split coordinates into chunks if exceeding the API limit
     chunks = [coordinates[i:i + MAX_MAPBOX_COORDINATES] for i in range(0, len(coordinates), MAX_MAPBOX_COORDINATES)]
     matched_geometries = []
 
@@ -962,11 +871,10 @@ async def map_match_coordinates(coordinates):
             coordinates_str = ';'.join([f'{lon},{lat}' for lon, lat in chunk])
             url_with_coords = url + coordinates_str
 
-            # Set radiuses for each chunk
             params = {
                 'access_token': MAPBOX_ACCESS_TOKEN,
                 'geometries': 'geojson',
-                'radiuses': ';'.join(['25' for _ in chunk])  # Radiuses for the current chunk
+                'radiuses': ';'.join(['25' for _ in chunk])
             }
 
             async with session.get(url_with_coords, params=params) as response:
@@ -977,7 +885,7 @@ async def map_match_coordinates(coordinates):
                     else:
                         print(f"Error map-matching chunk: {data.get('message', 'Map Matching API Error')}")
                         return {'code': 'Error', 'message': data.get('message', 'Map Matching API Error')}
-                elif response.status == 422:  # Enhanced error logging for 422 errors
+                elif response.status == 422:
                     error_data = await response.json()
                     print(f"Error map-matching chunk: Status 422, Message: {error_data.get('message', 'No message')}, Coordinates: {chunk}")
                     return {'code': 'Error', 'message': error_data.get('message', 'Map Matching API Error 422')}
@@ -1026,9 +934,8 @@ def perpendicular_distance(point, line_start, line_end):
     x1, y1 = line_start
     x2, y2 = line_end
 
-    # Handle case where line segment has zero length
     if x1 == x2 and y1 == y2:
-        return math.sqrt((x - x1)**2 + (y - y1)**2)  # Distance to the single point
+        return math.sqrt((x - x1)**2 + (y - y1)**2)
 
     return abs((y2 - y1) * x - (x2 - x1) * y + x2 * y1 - y2 * x1) / math.sqrt((y2 - y1)**2 + (x2 - x1)**2)
 
@@ -1040,42 +947,34 @@ def is_valid_coordinate(coord):
 async def process_and_map_match_trip(trip):
     """Processes a trip, map matches its coordinates, and stores the result."""
     try:
-        # Check if the trip is already map-matched
         existing_matched_trip = matched_trips_collection.find_one({'transactionId': trip['transactionId']})
         if existing_matched_trip:
             print(f"Trip {trip['transactionId']} already map-matched. Skipping.")
             return
 
-        # Simplify the trip geometry before map matching, but only for historical trips
         if trip['imei'] == 'HISTORICAL':
             trip['gps'] = geojson_dumps(simplify_geometry(geojson_loads(trip['gps'])))
 
-            # Calculate distance for historical trips
             coords = geojson_loads(trip['gps'])['coordinates']
             total_distance = 0
             for i in range(len(coords) - 1):
                 total_distance += haversine_distance(coords[i], coords[i + 1])
             trip['distance'] = total_distance
 
-        # Extract coordinates from the trip's GPS data
         gps_data = geojson_loads(trip['gps'])
         coordinates = gps_data['coordinates']
 
-        # Check for empty coordinates
         if not coordinates:
             print(f"Error: Trip {trip['transactionId']} has no coordinates. Skipping.")
             return
 
-        # Validate coordinates
         if not all(is_valid_coordinate(coord) for coord in coordinates):
             print(f"Error: Trip {trip['transactionId']} has invalid coordinates. Skipping.")
             return
 
-        # Map match the coordinates
         map_match_result = await map_match_coordinates(coordinates)
 
         if map_match_result['code'] == 'Ok':
-            # Store the map-matched trip
             matched_trip = trip.copy()
             matched_trip['matchedGps'] = geojson_dumps(map_match_result['matchings'][0]['geometry'])
             matched_trips_collection.insert_one(matched_trip)
@@ -1089,7 +988,7 @@ async def process_and_map_match_trip(trip):
 
 def haversine_distance(coord1, coord2):
     """Calculates the distance between two coordinates using the Haversine formula."""
-    R = 6371  # Radius of Earth in kilometers
+    R = 6371
     lat1, lon1 = math.radians(coord1[1]), math.radians(coord1[0])
     lat2, lon2 = math.radians(coord2[1]), math.radians(coord2[0])
 
@@ -1100,7 +999,7 @@ def haversine_distance(coord1, coord2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     distance = R * c
-    return distance * 0.621371  # Convert to miles
+    return distance * 0.621371
 
 @app.route('/api/map_match_trips', methods=['POST'])
 async def map_match_trips():
@@ -1145,7 +1044,7 @@ async def map_match_historical_trips():
                 '$lte': end_date
             }
 
-        historical_trips = db['historical_trips'].find(query)
+        historical_trips = historical_trips_collection.find(query)
         for trip in historical_trips:
             await process_and_map_match_trip(trip)
         return jsonify({'status': 'success', 'message': 'Map matching initiated for historical trips within the date range.'})
@@ -1199,7 +1098,6 @@ def export_trips():
     end_date = request.args.get('end_date')
     export_format = request.args.get('format')
 
-    # Fetch trips from the database based on the date range
     trips = fetch_trips(start_date, end_date)
 
     if export_format == 'geojson':
@@ -1225,7 +1123,6 @@ def export_matched_trips():
     end_date = request.args.get('end_date')
     export_format = request.args.get('format')
 
-    # Fetch matched trips from the database based on the date range
     matched_trips = fetch_matched_trips(start_date, end_date)
 
     if export_format == 'geojson':
@@ -1250,8 +1147,7 @@ def export_streets():
     location = request.args.get('location')
     export_format = request.args.get('format')
 
-    # Generate streets layer for the given location
-    streets_data = generate_geojson_osm(location, streets_only=True)
+    streets_data, _ = generate_geojson_osm(json.loads(location), streets_only=True)
 
     if export_format == 'geojson':
         return send_file(
@@ -1282,8 +1178,7 @@ def export_boundary():
     location = request.args.get('location')
     export_format = request.args.get('format')
 
-    # Generate boundary layer for the given location
-    boundary_data = generate_geojson_osm(location, streets_only=False)
+    boundary_data, _ = generate_geojson_osm(json.loads(location), streets_only=False)
 
     if export_format == 'geojson':
         return send_file(
@@ -1361,20 +1256,16 @@ def create_gpx(trips):
     gpx = gpxpy.gpx.GPX()
 
     for trip in trips:
-        # Create a new GPX track for each trip
         gpx_track = gpxpy.gpx.GPXTrack()
         gpx.tracks.append(gpx_track)
 
-        # Create a segment in the track
         gpx_segment = gpxpy.gpx.GPXTrackSegment()
         gpx_track.segments.append(gpx_segment)
 
-        # Parse the GPS data
         gps_data = trip['gps']
         if isinstance(gps_data, str):
             gps_data = json.loads(gps_data)
 
-        # Ensure that gps_data is a LineString or similar
         if gps_data.get('type') == 'LineString':
             for coord in gps_data.get('coordinates', []):
                 if isinstance(coord, list) and len(coord) >= 2:
@@ -1386,15 +1277,12 @@ def create_gpx(trips):
                 lon, lat = coord[0], coord[1]
                 gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
 
-        # Add metadata to the track
         gpx_track.name = trip.get('transactionId', 'Unnamed Trip')
         gpx_track.description = f"Trip from {trip.get('startLocation', 'Unknown')} to {trip.get('destination', 'Unknown')}"
 
-    # Generate GPX XML
     return gpx.to_xml()
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
-    # Start the periodic fetch
     threading.Timer(1, periodic_fetch_trips).start()
     socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)

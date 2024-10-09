@@ -1,6 +1,7 @@
 let tripsTable = null;
 
 /* global flatpickr */
+/* global $ */
 
 const tableConfig = {
     defaultHiddenColumns: [0, 1] // Indices of columns to hide by default
@@ -21,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sidebarToggleButton = document.getElementById('sidebar-toggle');
     const fetchTripsButton = document.getElementById('fetch-trips');
     const exportGeojsonButton = document.getElementById('export-geojson');
+    const exportGpxButton = document.getElementById('export-gpx'); // Get the export GPX button
 
     if (startDateInput) startDateInput.value = today.toISOString().split('T')[0];
     if (endDateInput) endDateInput.value = today.toISOString().split('T')[0];
@@ -31,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sidebarToggleButton) sidebarToggleButton.addEventListener('click', toggleSidebar);
     if (fetchTripsButton) fetchTripsButton.addEventListener('click', fetchAndStoreTrips);
     if (exportGeojsonButton) exportGeojsonButton.addEventListener('click', exportGeojson);
+    if (exportGpxButton) exportGpxButton.addEventListener('click', exportGPX); // Add event listener for GPX export
 });
 
 function initializeDataTable() {
@@ -116,7 +119,6 @@ function initializeDataTable() {
         ]
     });
 
-    // Apply the column visibility button
     new $.fn.dataTable.Buttons(tripsTable, {
         buttons: [
             {
@@ -155,8 +157,10 @@ function fetchTrips() {
                 gps: feature.geometry,
                 destination: feature.properties.destination || 'N/A'
             }));
-            tripsTable.clear().rows.add(trips).draw();
-            console.log('Trips data:', trips); // Add this line for debugging
+            if (tripsTable) {
+                tripsTable.clear().rows.add(trips).draw();
+            }
+            console.log('Trips data:', trips);
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
@@ -209,7 +213,7 @@ function fetchAndStoreTrips() {
         .then(data => {
             if (data.status === 'success') {
                 alert(data.message);
-                fetchTrips(); // Refresh trips table after successful fetch
+                fetchTrips(); 
             } else {
                 alert(`Error: ${data.message}`);
             }
@@ -245,13 +249,11 @@ function exportGPX() {
     const endDate = document.getElementById('end-date').value;
     const imei = document.getElementById('imei').value;
 
-    // Build query parameters based on current filters
     const params = new URLSearchParams();
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
     if (imei) params.append('imei', imei);
 
-    // Construct the full URL with query parameters
     let url = '/export/gpx';
     if (params.toString()) {
         url += `?${params.toString()}`;
@@ -266,7 +268,7 @@ function exportGPX() {
                     throw new Error('Network response was not ok');
                 }
             }
-            return response.text(); // GPX is XML
+            return response.text(); 
         })
         .then(gpxData => {
             const blob = new Blob([gpxData], { type: 'application/gpx+xml' });
@@ -285,10 +287,6 @@ function exportGPX() {
         });
 }
 
-// Add event listener for the new Export GPX button in trips.js
-document.getElementById('export-gpx').addEventListener('click', exportGPX);
-
-// Initialize date pickers with Flatpickr
 flatpickr("#start-date", {
     dateFormat: "Y-m-d",
     maxDate: "today"

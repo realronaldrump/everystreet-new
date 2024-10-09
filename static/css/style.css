@@ -513,3 +513,39 @@ footer {
     background-color: var(--secondary-color);
     border-color: var(--secondary-color);
 }
+
+.loading-overlay {
+    display: none; /* Hidden by default */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 10000; /* Ensure it's on top of other elements */
+    justify-content: center;
+    align-items: center;
+}
+
+.loading-content {
+    background-color: var(--surface-color);
+    padding: 20px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.loading-bar-container {
+    width: 100%;
+    height: 10px;
+    background-color: #ccc;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.loading-bar {
+    height: 100%;
+    background-color: var(--primary-color);
+    width: 0%; /* Initial width */
+    transition: width 0.5s ease-in-out;
+}
