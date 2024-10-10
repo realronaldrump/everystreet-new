@@ -24,6 +24,11 @@ from dateutil import parser
 import math
 import io
 import zipfile
+import osmnx as ox
+import geopandas as gpd
+from shapely.geometry import shape, LineString
+from shapely.ops import linemerge
+import pickle  # For caching
 
 load_dotenv()
 
@@ -788,40 +793,85 @@ def validate_location_osm(location, location_type):
     return None
 
 def generate_geojson_osm(location, streets_only=False):
-    area_id = int(location['osm_id']) + 3600000000 if location['osm_type'] == 'relation' else int(location['osm_id'])
+    try:
+        # Extract the bounding box from the GeoJSON
+        if location['type'] == 'Feature':
+            bbox = shape(location['geometry']).bounds
+        elif location['type'] == 'FeatureCollection':
+            bbox = shape(location['features'][0]['geometry']).bounds
+        else:
+            return None, "Invalid GeoJSON format"
 
-    if streets_only:
-        query = f"""
-        [out:json];
-        area({area_id})->.searchArea;
-        (
-          way["highway"](area.searchArea);
-        );
-        (._;>;);
-        out geom;
-        """
-    else:
-        query = f"""
-        [out:json];
-        ({location['osm_type']}({location['osm_id']});
-        >;
-        );
-        out geom;
-        """
+        # Use the bounding box to fetch OSM data
+        north, south, east, west = bbox[3], bbox[1], bbox[2], bbox[0]
 
-    response = requests.get("http://overpass-api.de/api/interpreter", params={'data': query})
-    if response.status_code != 200:
-        return None, "Failed to get response from Overpass API"
+        # Define the query to fetch data from OpenStreetMap
+        if streets_only:
+            query = f"""
+            [out:json];
+            (
+              way["highway"]["highway"!~"footway|path|cycleway|steps|service|track"]({south},{west},{north},{east});
+            );
+            out body;
+            >;
+            out skel qt;
+            """
+        else:
+            query = f"""
+            [out:json];
+            (
+              relation["boundary"="administrative"]({south},{west},{north},{east});
+              way["highway"]["highway"!~"footway|path|cycleway|steps|service|track"]({south},{west},{north},{east});
+            );
+            out body;
+            >;
+            out skel qt;
+            """
 
-    data = response.json()
-    features = process_elements(data['elements'], streets_only)
+        # Send the query to the Overpass API
+        response = requests.get(OVERPASS_URL, params={'data': query})
+        data = response.json()
 
-    if features:
-        gdf = gpd.GeoDataFrame.from_features(features)
-        gdf = gdf.set_geometry('geometry')
-        return json.loads(gdf.to_json()), None
-    else:
-        return None, f"No features found. Raw response: {json.dumps(data)}"
+        if 'elements' not in data:
+            return None, "No data returned from Overpass API"
+
+        # Convert OSM data to GeoJSON
+        geojson_data = {"type": "FeatureCollection", "features": []}
+
+        for element in data['elements']:
+            if element['type'] == 'way':
+                coordinates = [[node['lon'], node['lat']] for node in element['geometry']]
+                feature = {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": coordinates
+                    },
+                    "properties": element['tags'] if 'tags' in element else {}
+                }
+                geojson_data['features'].append(feature)
+            elif element['type'] == 'relation' and not streets_only:
+                # For relations, we need to construct the geometry from the ways
+                outer_ways = [member for member in element['members'] if member['role'] == 'outer']
+                if outer_ways:
+                    coordinates = []
+                    for way in outer_ways:
+                        way_data = next((w for w in data['elements'] if w['type'] == 'way' and w['id'] == way['ref']), None)
+                        if way_data:
+                            coordinates.extend([[node['lon'], node['lat']] for node in way_data['geometry']])
+                    feature = {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [coordinates]
+                        },
+                        "properties": element['tags'] if 'tags' in element else {}
+                    }
+                    geojson_data['features'].append(feature)
+
+        return geojson_data, None
+    except Exception as e:
+        return None, str(e)
 
 def process_elements(elements, streets_only):
     features = []
@@ -1283,6 +1333,108 @@ def create_gpx(trips):
         gpx_track.description = f"Trip from {trip.get('startLocation', 'Unknown')} to {trip.get('destination', 'Unknown')}"
 
     return gpx.to_xml()
+
+@app.route('/api/progress', methods=['POST'])
+def get_progress():
+    drawn_area = request.json.get('location')
+    if not drawn_area or not isinstance(drawn_area, dict):
+        return jsonify({'status': 'error', 'message': 'Invalid drawn area data.'}), 400
+
+    try:
+        # Convert drawn area to a GeoDataFrame
+        area_gdf = gpd.GeoDataFrame.from_features([drawn_area], crs="EPSG:4326")
+        
+        # Get streets within the drawn area
+        streets_data, error_message = generate_geojson_osm(drawn_area, streets_only=True)
+        if streets_data is None:
+            return jsonify({'status': 'error', 'message': f'Error fetching street data: {error_message}'}), 500
+
+        streets_gdf = gpd.GeoDataFrame.from_features(streets_data['features'], crs="EPSG:4326")
+        
+        # Clip streets to the drawn area
+        streets_in_area = gpd.clip(streets_gdf, area_gdf)
+
+        # Get user's trip data
+        trips = list(trips_collection.find())
+        trip_geometries = []
+        for trip in trips:
+            gps_data = trip['gps']
+            if isinstance(gps_data, str):
+                gps_data = json.loads(gps_data)
+            geom = shape(gps_data)
+            if isinstance(geom, LineString):
+                trip_geometries.append(geom)
+            elif isinstance(geom, MultiLineString):
+                trip_geometries.extend(geom.geoms)
+
+        if not trip_geometries:
+            return jsonify({'status': 'success', 'progress': 0.0, 'total_streets': len(streets_in_area), 'driven_streets': 0})
+
+        trips_gdf = gpd.GeoDataFrame(geometry=trip_geometries, crs="EPSG:4326")
+        
+        # Clip trips to the drawn area
+        trips_in_area = gpd.clip(trips_gdf, area_gdf)
+
+        # Calculate driven streets
+        streets_in_area['driven'] = streets_in_area.intersects(trips_in_area.unary_union)
+
+        total_streets = len(streets_in_area)
+        driven_streets = streets_in_area['driven'].sum()
+        progress_percentage = (driven_streets / total_streets) * 100 if total_streets > 0 else 0
+
+        return jsonify({
+            'status': 'success',
+            'progress': progress_percentage,
+            'total_streets': total_streets,
+            'driven_streets': int(driven_streets)
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'An error occurred: {str(e)}'}), 500
+
+@app.route('/api/streets', methods=['POST'])
+def get_streets():
+    location = request.json.get('location')
+    
+    if not location or not isinstance(location, dict) or 'type' not in location:
+        return jsonify({'status': 'error', 'message': 'Invalid location data.'}), 400
+
+    try:
+        streets_data, error_message = generate_geojson_osm(location, streets_only=True)
+        
+        if streets_data is None:
+            return jsonify({'status': 'error', 'message': f'Error fetching street data: {error_message}'}), 500
+
+        # Prepare user's trip data
+        trips = list(trips_collection.find())
+        trip_geometries = []
+        for trip in trips:
+            gps_data = trip['gps']
+            if isinstance(gps_data, str):
+                gps_data = json.loads(gps_data)
+            geom = shape(gps_data)
+            if isinstance(geom, LineString):
+                trip_geometries.append(geom)
+            elif isinstance(geom, MultiLineString):
+                trip_geometries.extend(geom.geoms)
+
+        streets_gdf = gpd.GeoDataFrame.from_features(streets_data['features'])
+        streets_gdf.set_crs(epsg=4326, inplace=True)
+
+        if trip_geometries:
+            trips_merged = linemerge(trip_geometries)
+            streets_gdf['driven'] = streets_gdf.geometry.intersects(trips_merged)
+        else:
+            streets_gdf['driven'] = False
+
+        # Convert streets to GeoJSON
+        streets_json = json.loads(streets_gdf.to_json())
+        return jsonify(streets_json)
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'An error occurred: {str(e)}'}), 500
+
+@app.route('/progress')
+def progress_page():
+    return render_template('progress.html')
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
