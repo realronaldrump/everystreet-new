@@ -947,50 +947,6 @@ async def map_match_coordinates(coordinates):
 
     return {'code': 'Ok', 'matchings': [{'geometry': {'coordinates': matched_geometries, 'type': 'LineString'}}]}
 
-def simplify_geometry(geometry, tolerance=0.0001):
-    """Simplifies a GeoJSON geometry using the Ramer-Douglas-Peucker algorithm."""
-    if geometry['type'] == 'LineString':
-        return {
-            'type': 'LineString',
-            'coordinates': ramer_douglas_peucker(geometry['coordinates'], tolerance)
-        }
-    elif geometry['type'] == 'MultiLineString':
-        return {
-            'type': 'MultiLineString',
-            'coordinates': [ramer_douglas_peucker(line, tolerance) for line in geometry['coordinates']]
-        }
-    else:
-        return geometry
-
-def ramer_douglas_peucker(points, epsilon):
-    """Ramer-Douglas-Peucker algorithm implementation."""
-    dmax = 0
-    index = 0
-    end = len(points) - 1
-    for i in range(1, end):
-        d = perpendicular_distance(points[i], points[0], points[end])
-        if d > dmax:
-            index = i
-            dmax = d
-    if dmax > epsilon:
-        results1 = ramer_douglas_peucker(points[:index+1], epsilon)
-        results2 = ramer_douglas_peucker(points[index:], epsilon)
-        results = results1[:-1] + results2
-    else:
-        results = [points[0], points[end]]
-    return results
-
-def perpendicular_distance(point, line_start, line_end):
-    """Calculates the perpendicular distance from a point to a line segment."""
-    x, y = point
-    x1, y1 = line_start
-    x2, y2 = line_end
-
-    if x1 == x2 and y1 == y2:
-        return math.sqrt((x - x1)**2 + (y - y1)**2)
-
-    return abs((y2 - y1) * x - (x2 - x1) * y + x2 * y1 - y2 * x1) / math.sqrt((y2 - y1)**2 + (x2 - x1)**2)
-
 def is_valid_coordinate(coord):
     """Checks if a coordinate is within valid ranges."""
     lon, lat = coord
@@ -1004,8 +960,9 @@ async def process_and_map_match_trip(trip):
             print(f"Trip {trip['transactionId']} already map-matched. Skipping.")
             return
 
+        # Remove the simplification step for historical trips
         if trip['imei'] == 'HISTORICAL':
-            trip['gps'] = geojson_dumps(simplify_geometry(geojson_loads(trip['gps'])))
+            # trip['gps'] = geojson_dumps(simplify_geometry(geojson_loads(trip['gps'])))
 
             coords = geojson_loads(trip['gps'])['coordinates']
             total_distance = 0
