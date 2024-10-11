@@ -91,8 +91,10 @@ body {
     transition: color 0.3s ease;
 }
 
-#sidebar .sidebar-menu li a:hover {
-    color: var(--primary-color);
+#sidebar .sidebar-menu li a:hover,
+#sidebar .sidebar-menu li a.active { /* Highlight active link */
+    background-color: var(--primary-color);
+    color: var(--background-color);
 }
 
 #sidebar .sidebar-menu li a i {
@@ -132,15 +134,71 @@ body {
     margin-bottom: 10px;
 }
 
-#sidebar .btn-primary {
+/* Button Styles (Consolidated) */
+.btn-primary {
     background-color: var(--primary-color);
     border-color: var(--primary-color);
     color: var(--background-color);
 }
 
-#sidebar .btn-primary:hover {
+.btn-primary:hover {
     background-color: #9f6dce;
     border-color: #9f6dce;
+}
+
+.btn-secondary {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: var(--background-color);
+}
+
+.btn-secondary:hover {
+    background-color: #02c0af;
+    border-color: #02c0af;
+}
+
+.btn-success {
+    background-color: #4CAF50; /* Example success color */
+    border-color: #4CAF50;
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #45a049; /* Darker success color on hover */
+    border-color: #45a049;
+}
+
+.btn-info {
+    background-color: #2196F3; /* Example info color */
+    border-color: #2196F3;
+    color: white;
+}
+
+.btn-info:hover {
+    background-color: #1976D2; /* Darker info color on hover */
+    border-color: #1976D2;
+}
+
+.btn-warning {
+    background-color: #ff9800; /* Example warning color */
+    border-color: #ff9800;
+    color: white;
+}
+
+.btn-warning:hover {
+    background-color: #e68a00; /* Darker warning color on hover */
+    border-color: #e68a00;
+}
+
+.btn-danger {
+    background-color: #f44336; /* Example danger color */
+    border-color: #f44336;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #d32f2f; /* Darker danger color on hover */
+    border-color: #d32f2f;
 }
 
 #sidebar .sidebar-clock {
@@ -215,32 +273,6 @@ h1 {
     box-shadow: 0 0 0 0.2rem rgba(187, 134, 252, 0.25);
 }
 
-/* Buttons */
-.btn {
-    border-radius: 4px;
-}
-
-.btn-primary {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
-    color: var(--background-color);
-}
-
-.btn-primary:hover {
-    background-color: #9f6dce;
-    border-color: #9f6dce;
-}
-
-.btn-secondary {
-    background-color: var(--secondary-color);
-    border-color: var(--secondary-color);
-    color: var(--background-color);
-}
-
-.btn-secondary:hover {
-    background-color: #02c0af;
-    border-color: #02c0af;
-}
 
 /* Tables */
 .table {
@@ -388,82 +420,6 @@ canvas {
 
 /* Map Controls */
 #map-controls {
-    background-color: var(--surface-color);
-    border-radius: 5px;
-    padding: 15px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-#map-controls h5 {
-    color: var(--primary-color);
-}
-
-#map-controls .form-check-label {
-    color: var(--on-surface-color);
-}
-
-#map-controls .form-check-input:checked {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
-}
-
-/* Toast Notifications */
-.toast {
-    background-color: var(--surface-color);
-    color: var(--on-surface-color);
-}
-
-.toast-header {
-    background-color: var(--primary-color);
-    color: var(--background-color);
-}
-
-/* Footer */
-footer {
-    background-color: var(--surface-color);
-    color: var(--on-surface-color);
-    padding: 15px;
-    text-align: center;
-}
-
-/* Flatpickr Overrides */
-.flatpickr-calendar {
-    background: var(--surface-color);
-    border-color: var(--primary-color);
-    box-shadow: 0 3px 13px rgba(0,0,0,0.08);
-}
-
-.flatpickr-day {
-    color: var(--on-surface-color);
-}
-
-.flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange, .flatpickr-day.selected.inRange, .flatpickr-day.startRange.inRange, .flatpickr-day.endRange.inRange, .flatpickr-day.selected:focus, .flatpickr-day.startRange:focus, .flatpickr-day.endRange:focus, .flatpickr-day.selected:hover, .flatpickr-day.startRange:hover, .flatpickr-day.endRange:hover, .flatpickr-day.selected.prevMonthDay, .flatpickr-day.startRange.prevMonthDay, .flatpickr-day.endRange.prevMonthDay, .flatpickr-day.selected.nextMonthDay, .flatpickr-day.startRange.nextMonthDay, .flatpickr-day.endRange.nextMonthDay {
-    background: var(--primary-color);
-    border-color: var(--primary-color);
-}
-
-.flatpickr-months .flatpickr-prev-month, .flatpickr-months .flatpickr-next-month {
-    color: var(--on-surface-color);
-}
-
-.flatpickr-months .flatpickr-prev-month:hover svg, .flatpickr-months .flatpickr-next-month:hover svg {
-    fill: var(--primary-color);
-}
-
-.flatpickr-current-month .flatpickr-monthDropdown-months {
-    background: var(--surface-color);
-    color: var(--on-surface-color);
-}
-
-.flatpickr-current-month .flatpickr-monthDropdown-months .flatpickr-monthDropdown-month {
-    background-color: var(--surface-color);
-}
-
-.flatpickr-time input, .flatpickr-time .flatpickr-time-separator, .flatpickr-time .flatpickr-am-pm {
-    color: var(--on-surface-color);
-}
-
-#map-controls {
     transition: all 0.3s ease;
     max-height: 80vh;
     overflow-y: auto;
@@ -503,12 +459,7 @@ footer {
     border-color: var(--primary-color);
 }
 
-.export-card .btn-primary {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
-    color: var(--background-color);
-}
-
+/* Export Card Button (Using existing .btn-primary styles) */
 .export-card .btn-primary:hover {
     background-color: var(--secondary-color);
     border-color: var(--secondary-color);
@@ -550,7 +501,74 @@ footer {
     transition: width 0.5s ease-in-out;
 }
 
-#sidebar .sidebar-menu li a.active {
+/* Flatpickr Overrides */
+.flatpickr-calendar {
+    background: var(--surface-color);
+    border-color: var(--primary-color);
+    box-shadow: 0 3px 13px rgba(0,0,0,0.08);
+}
+
+.flatpickr-day {
+    color: var(--on-surface-color);
+}
+
+.flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange, .flatpickr-day.selected.inRange, .flatpickr-day.startRange.inRange, .flatpickr-day.endRange.inRange, .flatpickr-day.selected:focus, .flatpickr-day.startRange:focus, .flatpickr-day.endRange:focus, .flatpickr-day.selected:hover, .flatpickr-day.startRange:hover, .flatpickr-day.endRange:hover, .flatpickr-day.selected.prevMonthDay, .flatpickr-day.startRange.prevMonthDay, .flatpickr-day.endRange.prevMonthDay, .flatpickr-day.selected.nextMonthDay, .flatpickr-day.startRange.nextMonthDay, .flatpickr-day.endRange.nextMonthDay {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.flatpickr-months .flatpickr-prev-month, .flatpickr-months .flatpickr-next-month {
+    color: var(--on-surface-color);
+}
+
+.flatpickr-months .flatpickr-prev-month:hover svg, .flatpickr-months .flatpickr-next-month:hover svg {
+    fill: var(--primary-color);
+}
+
+.flatpickr-current-month .flatpickr-monthDropdown-months {
+    background: var(--surface-color);
+    color: var(--on-surface-color);
+}
+
+.flatpickr-current-month .flatpickr-monthDropdown-months .flatpickr-monthDropdown-month {
+    background-color: var(--surface-color);
+}
+
+.flatpickr-time input, .flatpickr-time .flatpickr-time-separator, .flatpickr-time .flatpickr-am-pm {
+    color: var(--on-surface-color);
+}
+
+/* Toast Notifications */
+.toast {
+    background-color: var(--surface-color);
+    color: var(--on-surface-color);
+}
+
+.toast-header {
     background-color: var(--primary-color);
     color: var(--background-color);
+}
+
+/* Footer */
+footer {
+    background-color: var(--surface-color);
+    color: var(--on-surface-color);
+    padding: 15px;
+    text-align: center;
+}
+
+/* List Group Item (used in metrics, etc.) */
+.list-group-item {
+    background-color: var(--surface-color);
+    color: var(--on-surface-color);
+    border-color: #444; 
+}
+
+.list-group-item:hover {
+    background-color: var(--background-color);
+}
+
+.list-group-item.active {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
 }

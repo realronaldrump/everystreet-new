@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block title %}Every Street - Export Data{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <h1 class="mb-4">Export Data</h1>
@@ -110,6 +112,6 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script src="{{ url_for('static', filename='js/export.js') }}"></script>
 {% endblock %}

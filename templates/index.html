@@ -1,111 +1,72 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Every Street</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Flatpickr CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
-</head>
-<body>
-    <div id="app" class="d-flex">
-        {% include 'sidebar.html' %}
-        <main class="flex-grow-1 d-flex flex-column">
-            <div id="loading-overlay" class="loading-overlay">
-                <div class="loading-content">
-                    <div class="loading-bar-container">
-                        <div id="loading-bar" class="loading-bar"></div>
-                    </div>
-                    <div id="loading-text">Loading trips: 0%</div>
-                </div>
-            </div>
-            <div id="map" class="flex-grow-1"></div>
-            <div id="map-controls" class="bg-dark text-white p-3">
-                <button id="controls-toggle" class="btn btn-sm btn-secondary float-end">
-                    <i class="fas fa-chevron-up"></i>
-                </button>
-                <h2>Map Controls</h2>
-                <div id="controls-content">
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div id="metrics">
-                                <h3>Metrics</h3>
-                                <ul class="list-group">
-                                    <li class="list-group-item bg-dark text-white">Total Trips: <span id="total-trips"></span></li>
-                                    <li class="list-group-item bg-dark text-white">Total Distance: <span id="total-distance"></span> miles</li>
-                                    <li class="list-group-item bg-dark text-white">Average Distance: <span id="avg-distance"></span> miles</li>
-                                    <li class="list-group-item bg-dark text-white">Average Start Time: <span id="avg-start-time"></span></li>
-                                    <li class="list-group-item bg-dark text-white">Average Driving Time: <span id="avg-driving-time"></span></li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div id="time-calibration" class="mb-3">
-                                <h3>Time Calibration</h3>
-                                <div class="btn-group">
-                                    <button id="time-backward" class="btn btn-secondary">-1 Hour</button>
-                                    <button id="time-forward" class="btn btn-secondary">+1 Hour</button>
-                                </div>
-                            </div>
-                            <div id="osm-controls">
-                                <h3>OSM Data</h3>
-                                <div class="mb-2">
-                                    <input type="text" id="location-input" class="form-control" placeholder="Enter location">
-                                </div>
-                                <div class="mb-2">
-                                    <select id="location-type" class="form-select">
-                                        <option value="city">City</option>
-                                        <option value="county">County</option>
-                                        <option value="state">State</option>
-                                        <option value="country">Country</option>
-                                    </select>
-                                </div>
-                                <div class="btn-group">
-                                    <button id="validate-location" class="btn btn-primary">Validate Location</button>
-                                    <button id="generate-boundary" class="btn btn-success">Generate Boundary</button>
-                                    <button id="generate-streets" class="btn btn-success">Generate Streets</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div id="layer-toggles">
-                                <!-- Layer controls will be dynamically inserted here by JavaScript -->
-                            </div>
-                            <div id="layer-order" class="mb-3">
-                                <h3>Layer Order (Drag to reorder)</h3>
-                                <ul id="layer-order-list" class="list-group">
-                                    <!-- Layer items will be dynamically inserted here -->
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
+{% extends "base.html" %}
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Socket.IO -->
-    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <!-- Bootstrap JS Bundle (includes Popper) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Flatpickr JS -->
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/dateRange.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/trips.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-</body>
-</html>
+{% block title %}Every Street - Map{% endblock %}
+
+{% block content %}
+<div id="map" class="flex-grow-1"></div>
+<div id="map-controls" class="bg-dark text-white p-3">
+    <button id="controls-toggle" class="btn btn-sm btn-secondary float-end">
+        <i class="fas fa-chevron-up"></i>
+    </button>
+    <h2>Map Controls</h2>
+    <div id="controls-content">
+        <div class="row">
+            <div class="col-md-4">
+                <div id="metrics">
+                    <h3>Metrics</h3>
+                    <ul class="list-group">
+                        <li class="list-group-item bg-dark text-white">Total Trips: <span id="total-trips"></span></li>
+                        <li class="list-group-item bg-dark text-white">Total Distance: <span id="total-distance"></span> miles</li>
+                        <li class="list-group-item bg-dark text-white">Average Distance: <span id="avg-distance"></span> miles</li>
+                        <li class="list-group-item bg-dark text-white">Average Start Time: <span id="avg-start-time"></span></li>
+                        <li class="list-group-item bg-dark text-white">Average Driving Time: <span id="avg-driving-time"></span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div id="time-calibration" class="mb-3">
+                    <h3>Time Calibration</h3>
+                    <div class="btn-group">
+                        <button id="time-backward" class="btn btn-secondary">-1 Hour</button>
+                        <button id="time-forward" class="btn btn-secondary">+1 Hour</button>
+                    </div>
+                </div>
+                <div id="osm-controls">
+                    <h3>OSM Data</h3>
+                    <div class="mb-2">
+                        <input type="text" id="location-input" class="form-control" placeholder="Enter location">
+                    </div>
+                    <div class="mb-2">
+                        <select id="location-type" class="form-select">
+                            <option value="city">City</option>
+                            <option value="county">County</option>
+                            <option value="state">State</option>
+                            <option value="country">Country</option>
+                        </select>
+                    </div>
+                    <div class="btn-group">
+                        <button id="validate-location" class="btn btn-primary">Validate Location</button>
+                        <button id="generate-boundary" class="btn btn-success">Generate Boundary</button>
+                        <button id="generate-streets" class="btn btn-success">Generate Streets</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div id="layer-toggles">
+                    <!-- Layer controls will be dynamically inserted here by JavaScript -->
+                </div>
+                <div id="layer-order" class="mb-3">
+                    <h3>Layer Order (Drag to reorder)</h3>
+                    <ul id="layer-order-list" class="list-group">
+                        <!-- Layer items will be dynamically inserted here -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script> 
+{% endblock %}
