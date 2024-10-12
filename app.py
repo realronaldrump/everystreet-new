@@ -14,7 +14,7 @@ import traceback
 from timezonefinder import TimezoneFinder
 import pytz
 import asyncio
-from shapely.geometry import Polygon, LineString, MultiPolygon
+from shapely.geometry import Polygon, LineString, MultiPolygon, MultiLineString
 import geopandas as gpd
 import requests
 import glob
@@ -64,6 +64,8 @@ MAPBOX_ACCESS_TOKEN = os.getenv('MAPBOX_ACCESS_TOKEN')
 
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
+
+OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
 # Initialize TimezoneFinder
 tf = TimezoneFinder()

@@ -1,3 +1,4 @@
+    /* global L, map, mapLayers, layerGroup */
 document.addEventListener('DOMContentLoaded', () => {
     initializeMap();
     // fetchProgress(); // We'll call this after the user selects an area
