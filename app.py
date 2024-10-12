@@ -776,14 +776,18 @@ def validate_location():
 
 @app.route('/api/generate_geojson', methods=['POST'])
 def generate_geojson():
-    data = request.json
-    location = data.get('location')
-    streets_only = data.get('streetsOnly', False)
-    geojson_data, error_message = generate_geojson_osm(location, streets_only)
-    if geojson_data:
-        return jsonify(geojson_data)
-    else:
-        return jsonify({"error": error_message}), 400
+    try:
+        data = request.json
+        print('Received data:', data)  # Add this line
+        location = data.get('location')
+        streets_only = data.get('streetsOnly', False)
+        geojson_data, error_message = generate_geojson_osm(location, streets_only)
+        if geojson_data:
+            return jsonify(geojson_data)
+        else:
+            return jsonify({"error": error_message}), 400
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'An error occurred: {str(e)}'}), 500
 
 def validate_location_osm(location, location_type):
     params = {'q': location, 'format': 'json', 'limit': 1, 'featuretype': location_type}
@@ -794,86 +798,42 @@ def validate_location_osm(location, location_type):
         return data[0] if data else None
     return None
 
+
 def generate_geojson_osm(location, streets_only=False):
-    try:
-        # Extract the bounding box from the GeoJSON
-        if location['type'] == 'Feature':
-            bbox = shape(location['geometry']).bounds
-        elif location['type'] == 'FeatureCollection':
-            bbox = shape(location['features'][0]['geometry']).bounds
-        else:
-            return None, "Invalid GeoJSON format"
+    area_id = int(location['osm_id']) + 3600000000 if location['osm_type'] == 'relation' else int(location['osm_id'])
 
-        # Use the bounding box to fetch OSM data
-        north, south, east, west = bbox[3], bbox[1], bbox[2], bbox[0]
+    if streets_only:
+        query = f"""
+        [out:json];
+        area({area_id})->.searchArea;
+        (
+          way["highway"](area.searchArea);
+        );
+        (._;>;);
+        out geom;
+        """
+    else:
+        query = f"""
+        [out:json];
+        ({location['osm_type']}({location['osm_id']});
+        >;
+        );
+        out geom;
+        """
 
-        # Define the query to fetch data from OpenStreetMap
-        if streets_only:
-            query = f"""
-            [out:json];
-            (
-              way["highway"]["highway"!~"footway|path|cycleway|steps|service|track"]({south},{west},{north},{east});
-            );
-            out body;
-            >;
-            out skel qt;
-            """
-        else:
-            query = f"""
-            [out:json];
-            (
-              relation["boundary"="administrative"]({south},{west},{north},{east});
-              way["highway"]["highway"!~"footway|path|cycleway|steps|service|track"]({south},{west},{north},{east});
-            );
-            out body;
-            >;
-            out skel qt;
-            """
+    response = requests.get("http://overpass-api.de/api/interpreter", params={'data': query})
+    if response.status_code != 200:
+        return None, "Failed to get response from Overpass API"
 
-        # Send the query to the Overpass API
-        response = requests.get(OVERPASS_URL, params={'data': query})
-        data = response.json()
+    data = response.json()
+    features = process_elements(data['elements'], streets_only)
 
-        if 'elements' not in data:
-            return None, "No data returned from Overpass API"
-
-        # Convert OSM data to GeoJSON
-        geojson_data = {"type": "FeatureCollection", "features": []}
-
-        for element in data['elements']:
-            if element['type'] == 'way':
-                coordinates = [[node['lon'], node['lat']] for node in element['geometry']]
-                feature = {
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "LineString",
-                        "coordinates": coordinates
-                    },
-                    "properties": element['tags'] if 'tags' in element else {}
-                }
-                geojson_data['features'].append(feature)
-            elif element['type'] == 'relation' and not streets_only:
-                # For relations, we need to construct the geometry from the ways
-                outer_ways = [member for member in element['members'] if member['role'] == 'outer']
-                if outer_ways:
-                    coordinates = []
-                    for way in outer_ways:
-                        way_data = next((w for w in data['elements'] if w['type'] == 'way' and w['id'] == way['ref']), None)
-                        if way_data:
-                            coordinates.extend([[node['lon'], node['lat']] for node in way_data['geometry']])
-                    feature = {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Polygon",
-                            "coordinates": [coordinates]
-                        },
-                        "properties": element['tags'] if 'tags' in element else {}
-                    }
-                    geojson_data['features'].append(feature)
-
-        return geojson_data, None
-    except Exception as e:
-        return None, str(e)
+    if features:
+        gdf = gpd.GeoDataFrame.from_features(features)
+        gdf = gdf.set_geometry('geometry')
+        return json.loads(gdf.to_json()), None
+    else:
+        return None, f"No features found. Raw response: {json.dumps(data)}"
 
 def process_elements(elements, streets_only):
     features = []
