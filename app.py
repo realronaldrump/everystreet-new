@@ -1077,7 +1077,7 @@ def export_trips():
             io.BytesIO(geojson_data.encode()),
             mimetype='application/geo+json',
             as_attachment=True,
-            attachment_filename='trips.geojson'
+            download_name='trips.geojson'
         )
     elif export_format == 'gpx':
         gpx_data = create_gpx(trips)
@@ -1085,7 +1085,7 @@ def export_trips():
             io.BytesIO(gpx_data.encode()),
             mimetype='application/gpx+xml',
             as_attachment=True,
-            attachment_filename='trips.gpx'
+            download_name='trips.gpx'
         )
 
 @app.route('/api/export/matched_trips')
@@ -1102,7 +1102,7 @@ def export_matched_trips():
             io.BytesIO(geojson_data.encode()),
             mimetype='application/geo+json',
             as_attachment=True,
-            attachment_filename='matched_trips.geojson'
+            download_name='matched_trips.geojson'
         )
     elif export_format == 'gpx':
         gpx_data = create_gpx(matched_trips)
@@ -1110,7 +1110,7 @@ def export_matched_trips():
             io.BytesIO(gpx_data.encode()),
             mimetype='application/gpx+xml',
             as_attachment=True,
-            attachment_filename='matched_trips.gpx'
+            download_name='matched_trips.gpx'
         )
 
 @app.route('/api/export/streets')
@@ -1125,7 +1125,7 @@ def export_streets():
             io.BytesIO(json.dumps(streets_data).encode()),
             mimetype='application/geo+json',
             as_attachment=True,
-            attachment_filename='streets.geojson'
+            download_name='streets.geojson'
         )
     elif export_format == 'shapefile':
         gdf = gpd.GeoDataFrame.from_features(streets_data['features'])
@@ -1141,7 +1141,7 @@ def export_streets():
             buffer,
             mimetype='application/zip',
             as_attachment=True,
-            attachment_filename='streets.zip'
+            download_name='streets.zip'
         )
 
 @app.route('/api/export/boundary')
@@ -1156,7 +1156,7 @@ def export_boundary():
             io.BytesIO(json.dumps(boundary_data).encode()),
             mimetype='application/geo+json',
             as_attachment=True,
-            attachment_filename='boundary.geojson'
+            download_name='boundary.geojson'
         )
     elif export_format == 'shapefile':
         gdf = gpd.GeoDataFrame.from_features(boundary_data['features'])
@@ -1172,7 +1172,7 @@ def export_boundary():
             buffer,
             mimetype='application/zip',
             as_attachment=True,
-            attachment_filename='boundary.zip'
+            download_name='boundary.zip'
         )
 
 def fetch_trips(start_date, end_date):

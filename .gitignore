@@ -18,3 +18,4 @@ undo_mapmatched_times.py
 cache/
 app.log
 app.log.*
+.deepsource.toml
