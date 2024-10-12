@@ -273,14 +273,14 @@ function exportGPX() {
         })
         .then(gpxData => {
             const blob = new Blob([gpxData], { type: 'application/gpx+xml' });
-            const url = URL.createObjectURL(blob);
+            const blobUrl = URL.createObjectURL(blob);
             const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", url);
+            downloadAnchorNode.setAttribute("href", blobUrl);
             downloadAnchorNode.setAttribute("download", "trips.gpx");
             document.body.appendChild(downloadAnchorNode);
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
-            URL.revokeObjectURL(url);
+            URL.revokeObjectURL(blobUrl);
         })
         .catch(error => {
             console.error('Error exporting GPX:', error);

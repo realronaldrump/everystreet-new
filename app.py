@@ -14,7 +14,7 @@ import traceback
 from timezonefinder import TimezoneFinder
 import pytz
 import asyncio
-from shapely.geometry import Polygon, LineString, MultiPolygon, MultiLineString
+from shapely.geometry import Polygon, LineString, MultiPolygon, MultiLineString, shape
 import geopandas as gpd
 import requests
 import glob
@@ -24,11 +24,7 @@ from dateutil import parser
 import math
 import io
 import zipfile
-import osmnx as ox
-import geopandas as gpd
-from shapely.geometry import shape, LineString
 from shapely.ops import linemerge
-import pickle  # For caching
 
 load_dotenv()
 
@@ -571,6 +567,9 @@ def get_driving_insights():
         insights.extend(calculate_insights_for_historical_data(
             start_date_str, end_date_str, imei))
 
+        for destination, data in insights.items():
+            data['averageDistance'] = data['totalDistance'] / data['count'] if data['count'] > 0 else 0
+
         for insight in insights:
             if 'lastVisit' in insight and isinstance(insight['lastVisit'], datetime):
                 insight['lastVisit'] = insight['lastVisit'].astimezone(
@@ -983,7 +982,7 @@ async def map_match_coordinates(coordinates):
               for i in range(0, len(coordinates), MAX_MAPBOX_COORDINATES)]
     matched_geometries = []
 
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession() as client_session:
         for chunk in chunks:
             coordinates_str = ';'.join([f'{lon},{lat}' for lon, lat in chunk])
             url_with_coords = url + coordinates_str
@@ -994,7 +993,7 @@ async def map_match_coordinates(coordinates):
                 'radiuses': ';'.join(['25' for _ in chunk])
             }
 
-            async with session.get(url_with_coords, params=params) as response:
+            async with client_session.get(url_with_coords, params=params) as response:
                 if response.status == 200:
                     data = await response.json()
                     if data['code'] == 'Ok':
@@ -1033,9 +1032,7 @@ async def process_and_map_match_trip(trip):
                 f"Trip {trip['transactionId']} already map-matched. Skipping.")
             return
 
-        # Remove the simplification step for historical trips
         if trip['imei'] == 'HISTORICAL':
-            # trip['gps'] = geojson_dumps(simplify_geometry(geojson_loads(trip['gps'])))
 
             coords = geojson_loads(trip['gps'])['coordinates']
             total_distance = 0

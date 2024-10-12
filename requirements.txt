@@ -20,4 +20,3 @@ folium
 streamlit-folium
 geopandas
 gpxpy
-osmnx
