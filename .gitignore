@@ -15,3 +15,4 @@ fix_bouncie_trip_times.py
 undo_bouncie_trip_times.py
 fix_mapmatched_times.py
 undo_mapmatched_times.py
+cache/
