@@ -106,9 +106,8 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
     async with client_session.get(f"{API_BASE_URL}/trips", headers=headers, params=params) as response:
         if response.status == 200:
             return await response.json()
-        else:
-            print(f"Error fetching trips: {response.status}")
-            return []
+        print(f"Error fetching trips: {response.status}")
+        return []
 
 async def fetch_trips_in_intervals(main_session, access_token, imei, start_date, end_date):
     all_trips = []
@@ -181,9 +180,8 @@ async def reverse_geocode_nominatim(lat, lon):
                     formatted_address.append(address[component])
 
             return ', '.join(formatted_address)
-        else:
-            print(f"Nominatim API error: {response.status}")
-            return f"Location at {lat}, {lon}"
+        print(f"Nominatim API error: {response.status}")
+        return f"Location at {lat}, {lon}"
 
     await asyncio.sleep(0.1)
 
@@ -784,8 +782,7 @@ def generate_geojson():
         geojson_data, error_message = generate_geojson_osm(location, streets_only)
         if geojson_data:
             return jsonify(geojson_data)
-        else:
-            return jsonify({"error": error_message}), 400
+        return jsonify({"error": error_message}), 400
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'An error occurred: {str(e)}'}), 500
 
@@ -832,8 +829,7 @@ def generate_geojson_osm(location, streets_only=False):
         gdf = gpd.GeoDataFrame.from_features(features)
         gdf = gdf.set_geometry('geometry')
         return json.loads(gdf.to_json()), None
-    else:
-        return None, f"No features found. Raw response: {json.dumps(data)}"
+    return None, f"No features found. Raw response: {json.dumps(data)}"
 
 def process_elements(elements, streets_only):
     features = []
@@ -1079,7 +1075,7 @@ def export_trips():
             as_attachment=True,
             download_name='trips.geojson'
         )
-    elif export_format == 'gpx':
+    if export_format == 'gpx':
         gpx_data = create_gpx(trips)
         return send_file(
             io.BytesIO(gpx_data.encode()),
@@ -1104,7 +1100,7 @@ def export_matched_trips():
             as_attachment=True,
             download_name='matched_trips.geojson'
         )
-    elif export_format == 'gpx':
+    if export_format == 'gpx':
         gpx_data = create_gpx(matched_trips)
         return send_file(
             io.BytesIO(gpx_data.encode()),
@@ -1127,7 +1123,7 @@ def export_streets():
             as_attachment=True,
             download_name='streets.geojson'
         )
-    elif export_format == 'shapefile':
+    if export_format == 'shapefile':
         gdf = gpd.GeoDataFrame.from_features(streets_data['features'])
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, 'w') as zf:
@@ -1158,7 +1154,7 @@ def export_boundary():
             as_attachment=True,
             download_name='boundary.geojson'
         )
-    elif export_format == 'shapefile':
+    if export_format == 'shapefile':
         gdf = gpd.GeoDataFrame.from_features(boundary_data['features'])
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, 'w') as zf:
