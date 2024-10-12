@@ -568,7 +568,8 @@ def get_driving_insights():
             start_date_str, end_date_str, imei))
 
         for destination, data in insights.items():
-            data['averageDistance'] = data['totalDistance'] / data['count'] if data['count'] > 0 else 0
+            data['averageDistance'] = data['totalDistance'] / \
+                data['count'] if data['count'] > 0 else 0
 
         for insight in insights:
             if 'lastVisit' in insight and isinstance(insight['lastVisit'], datetime):
