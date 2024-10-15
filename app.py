@@ -67,21 +67,6 @@ OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 # Initialize TimezoneFinder
 tf = TimezoneFinder()
 
-time_offset = 0
-
-
-@app.route('/api/set_time_offset', methods=['POST'])
-def set_time_offset():
-    global time_offset  # Declare time_offset as global
-    data = request.json
-    offset_value = data.get('offset', 0)
-    time_offset = offset_value  # Update the global time_offset
-    return jsonify({"status": "success", "message": f"Time offset set to {offset_value} hours"})
-
-
-def apply_time_offset(date):
-    return date + timedelta(hours=time_offset)
-
 
 async def get_access_token(client_session):
     payload = {
@@ -501,10 +486,8 @@ def get_trips():
     trips.extend(historical_trips)
 
     for trip in trips:
-        trip['startTime'] = apply_time_offset(
-            trip['startTime'].astimezone(pytz.timezone('America/Chicago')))
-        trip['endTime'] = apply_time_offset(
-            trip['endTime'].astimezone(pytz.timezone('America/Chicago')))
+        trip['startTime'] = trip['startTime'].astimezone(pytz.timezone('America/Chicago'))
+        trip['endTime'] = trip['endTime'].astimezone(pytz.timezone('America/Chicago'))
 
     return jsonify(geojson_module.FeatureCollection([
         geojson_module.Feature(

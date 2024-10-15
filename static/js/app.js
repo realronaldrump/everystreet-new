@@ -336,9 +336,9 @@ function updateMap() {
                     opacity: layerInfo.opacity
                 },
                 onEachFeature: (feature, layer) => {
-                    const startTime = applyTimeOffset(feature.properties.startTime);
-                    const endTime = applyTimeOffset(feature.properties.endTime);
-
+                    const startTime = new Date(feature.properties.startTime);
+                    const endTime = new Date(feature.properties.endTime);
+                
                     layer.bindPopup(`
                         <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
                         <strong>Start Time:</strong> ${startTime.toLocaleString()}<br>
@@ -834,32 +834,6 @@ function adjustTime(hours) {
     fetchTrips();
 }
 
-function applyTimeOffset(dateString) {
-    const date = new Date(dateString);
-    date.setHours(date.getHours() + timeOffset);
-    return date;
-}
-
-function setTimeOffset(hours) {
-    fetch('/api/set_time_offset', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ offset: hours }),
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log(data.message);
-        timeOffset += hours;
-        updateClock();
-        fetchTrips();
-    })
-    .catch((error) => {
-        console.error('Error:', error);
-    });
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -873,22 +847,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Automatically fetch trips for today's date range on page load
     fetchTripsInRange(startDateInput.value, endDateInput.value);
 
-    const timeBackwardButton = document.getElementById('time-backward');
-    const timeForwardButton = document.getElementById('time-forward');
-
-    if (timeBackwardButton) {
-        timeBackwardButton.addEventListener('click', () => setTimeOffset(-1));
-    } else {
-        console.warn('Element with ID "time-backward" not found.');
-    }
-
-    if (timeForwardButton) {
-        timeForwardButton.addEventListener('click', () => setTimeOffset(1));
-    } else {
-        console.warn('Element with ID "time-forward" not found.');
-    }
-
-    timeOffset = parseInt(localStorage.getItem('timeOffset') || '0');
 });
 
 function updateClock() {
