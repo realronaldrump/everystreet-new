@@ -861,6 +861,18 @@ function setTimeOffset(hours) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startDateInput = document.getElementById('start-date');
+    const endDateInput = document.getElementById('end-date');
+
+    if (startDateInput) startDateInput.value = today.toISOString().split('T')[0];
+    if (endDateInput) endDateInput.value = today.toISOString().split('T')[0];
+
+    // Automatically fetch trips for today's date range on page load
+    fetchTripsInRange(startDateInput.value, endDateInput.value);
+
     const timeBackwardButton = document.getElementById('time-backward');
     const timeForwardButton = document.getElementById('time-forward');
 

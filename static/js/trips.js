@@ -22,18 +22,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const sidebarToggleButton = document.getElementById('sidebar-toggle');
     const fetchTripsButton = document.getElementById('fetch-trips');
     const exportGeojsonButton = document.getElementById('export-geojson');
-    const exportGpxButton = document.getElementById('export-gpx'); // Get the export GPX button
+    const exportGpxButton = document.getElementById('export-gpx');
 
     if (startDateInput) startDateInput.value = today.toISOString().split('T')[0];
     if (endDateInput) endDateInput.value = today.toISOString().split('T')[0];
 
-    fetchUniqueImeis().then(fetchTrips);
+    // Automatically apply the date filter on page load
+    if (applyFiltersButton) applyFiltersButton.click();
 
     if (applyFiltersButton) applyFiltersButton.addEventListener('click', fetchTrips);
     if (sidebarToggleButton) sidebarToggleButton.addEventListener('click', toggleSidebar);
     if (fetchTripsButton) fetchTripsButton.addEventListener('click', fetchAndStoreTrips);
     if (exportGeojsonButton) exportGeojsonButton.addEventListener('click', exportGeojson);
-    if (exportGpxButton) exportGpxButton.addEventListener('click', exportGPX); // Add event listener for GPX export
+    if (exportGpxButton) exportGpxButton.addEventListener('click', exportGPX);
 });
 
 function initializeDataTable() {
