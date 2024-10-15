@@ -62,8 +62,8 @@ function initializeDataTable() {
                         const date = new Date(data);
                         return date.toLocaleString('en-US', { 
                             year: 'numeric', 
-                            month: '2-digit', 
-                            day: '2-digit', 
+                            month: 'long', 
+                            day: 'numeric', 
                             hour: '2-digit', 
                             minute: '2-digit', 
                             second: '2-digit',
@@ -81,8 +81,8 @@ function initializeDataTable() {
                         const date = new Date(data);
                         return date.toLocaleString('en-US', { 
                             year: 'numeric', 
-                            month: '2-digit', 
-                            day: '2-digit', 
+                            month: 'long', 
+                            day: 'numeric', 
                             hour: '2-digit', 
                             minute: '2-digit', 
                             second: '2-digit',
@@ -102,13 +102,13 @@ function initializeDataTable() {
                     return data;
                 }
             },
-            { 
-                data: 'destination', 
-                title: 'Destination'
-            },
             {
                 data: 'startLocation',
                 title: 'Start Location'
+            },
+            { 
+                data: 'destination', 
+                title: 'Destination'
             }
         ],
         order: [[2, 'desc']],
