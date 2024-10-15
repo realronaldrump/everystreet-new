@@ -69,5 +69,25 @@
     <button id="sidebar-toggle" class="btn btn-sm btn-primary position-fixed" style="left: 10px; top: 10px; z-index: 1001;">
         <i class="fas fa-bars"></i>
     </button>
+
+    <!-- Modal Structure -->
+    <div class="modal fade" id="customModal" tabindex="-1" aria-labelledby="customModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="customModalLabel">Modal title</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <!-- Modal content will be injected here -->
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary" id="modalConfirmButton">Confirm</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/customModal.js') }}"></script>
 </body>
 </html>

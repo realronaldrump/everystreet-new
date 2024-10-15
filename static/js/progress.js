@@ -52,12 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayProgress(data);
             } else {
                 console.error('Error fetching progress:', data.message);
-                alert('Error fetching progress: ' + data.message);
+                showModal('Progress Error', 'Error fetching progress: ' + data.message);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An error occurred while fetching progress.');
+            showModal('Progress Error', 'An error occurred while fetching progress.');
         });
     }
 
@@ -108,3 +108,4 @@ document.addEventListener('DOMContentLoaded', () => {
         map.fitBounds(mapLayers.streetsLayer.getBounds());
     }
 });
+

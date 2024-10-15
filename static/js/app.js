@@ -2,7 +2,7 @@ let map = null;
 let layerGroup = null;
 let liveRoutePolyline = null;
 let liveMarker = null;
-let osmLayer = null;
+
 
 let mapLayers = {
     trips: { layer: null, visible: true, color: '#BB86FC', order: 1, opacity: 0.7 },
@@ -133,7 +133,7 @@ function exportGeojson() {
         })
         .catch(error => {
             console.error('Error exporting GeoJSON:', error);
-            alert(error.message || 'An error occurred while exporting GeoJSON.');
+            showModal('Export Error', error.message || 'An error occurred while exporting GeoJSON.');
         });
 }
 
@@ -176,7 +176,7 @@ function exportGPX() {
         })
         .catch(error => {
             console.error('Error exporting GPX:', error);
-            alert(error.message || 'An error occurred while exporting GPX.');
+            showModal('Export Error', error.message || 'An error occurred while exporting GPX.');
         });
 }
 
@@ -246,6 +246,7 @@ function fetchTrips() {
                     destination: feature.properties.destination || 'N/A'
                 }));
 
+            const tripsTable = document.getElementById('trips-table'); // Define tripsTable
             if (tripsTable) {
                 tripsTable.clear().rows.add(trips).draw();
             }
@@ -286,15 +287,7 @@ function fetchTrips() {
         });
 }
 
-function geocodeCoordinates(lat, lon) {
-    return fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
-        .then(response => response.json())
-        .then(data => data.display_name)
-        .catch(error => {
-            console.error('Geocoding error:', error);
-            return 'Unknown location';
-        });
-}
+// Removed unused function geocodeCoordinates
 
 function fetchMetrics() {
     const startDate = document.getElementById('start-date').value;
@@ -324,7 +317,7 @@ function updateMap() {
     layerGroup.clearLayers();
 
     const orderedLayers = Object.entries(mapLayers)
-        .filter(([_, layerInfo]) => layerInfo.visible)
+        .filter(([, layerInfo]) => layerInfo.visible)
         .sort((a, b) => a[1].order - b[1].order);
 
     orderedLayers.forEach(([layerName, layerInfo]) => {
@@ -487,12 +480,12 @@ function updateLayerOrderUI() {
     layerOrder.innerHTML = '<h3>Layer Order (Drag to reorder)</h3>';
 
     const orderedLayers = Object.entries(mapLayers)
-        .filter(([_, layerInfo]) => layerInfo.visible)
+        .filter(([, layerInfo]) => layerInfo.visible)
         .sort((a, b) => b[1].order - a[1].order);
 
     const ul = document.createElement('ul');
     ul.id = 'layer-order-list';
-    orderedLayers.forEach(([layerName, _]) => {
+    orderedLayers.forEach(([layerName]) => {
         const li = document.createElement('li');
         li.textContent = layerName;
         li.draggable = true;
@@ -553,14 +546,15 @@ function validateLocation() {
     .then(response => response.json())
     .then(data => {
         if (data) {
-            alert('Location validated successfully!');
+            showModal('Validation Success', 'Location validated successfully!');
             window.validatedLocation = data;
         } else {
-            alert('Location not found. Please check your input.');
+            showModal('Validation Error', 'Location not found. Please check your input.');
         }
     })
     .catch(error => {
         console.error('Error validating location:', error);
+        showModal('Validation Error', 'An error occurred while validating the location.');
     });
 }
 
@@ -828,11 +822,7 @@ function fetchTripsInRange(startDate, endDate) {
 
 let timeOffset = 0;
 
-function adjustTime(hours) {
-    timeOffset += hours;
-    localStorage.setItem('timeOffset', timeOffset);
-    fetchTrips();
-}
+// Removed unused function adjustTime
 
 document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
@@ -877,6 +867,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeDatePickers();
     initializeEventListeners();
     fetchMetrics(); 
+    initializeSidebarToggle(); // Call the function here
 });
 
 function initializeSidebarToggle() {

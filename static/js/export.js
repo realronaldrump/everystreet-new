@@ -57,7 +57,7 @@ function exportStreets() {
 
     // Validate location input
     if (!location) {
-        alert('Please enter a location.');
+        showModal('Validation Error', 'Please enter a location.');
         return;
     }
 
@@ -71,7 +71,7 @@ function exportBoundary() {
 
     // Validate location input
     if (!location) {
-        alert('Please enter a location.');
+        showModal('Validation Error', 'Please enter a location.');
         return;
     }
 
@@ -99,6 +99,6 @@ function downloadFile(url, filename) {
         })
         .catch(error => {
             console.error('Error downloading file:', error);
-            alert('An error occurred while downloading the file. Please try again.');
+            showModal('Download Error', 'An error occurred while downloading the file. Please try again.');
         });
 }
