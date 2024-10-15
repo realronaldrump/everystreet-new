@@ -418,15 +418,22 @@ function handleLiveRouteUpdate(data) {
 
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
-    sidebar.classList.toggle('active');
+    sidebar.classList.toggle('collapsed');
 
-    const icon = document.getElementById('sidebar-toggle').querySelector('i');
+    // Update icons for both sidebar toggle buttons
+    const iconMain = document.getElementById('sidebar-toggle-main').querySelector('i');
+    const iconNav = document.getElementById('sidebar-toggle-nav').querySelector('i');
+
     if (sidebar.classList.contains('active')) {
-        icon.classList.remove('fa-bars');
-        icon.classList.add('fa-times');
+        iconMain.classList.remove('fa-bars');
+        iconMain.classList.add('fa-times');
+        iconNav.classList.remove('fa-bars');
+        iconNav.classList.add('fa-times');
     } else {
-        icon.classList.remove('fa-times');
-        icon.classList.add('fa-bars');
+        iconMain.classList.remove('fa-times');
+        iconMain.classList.add('fa-bars');
+        iconNav.classList.remove('fa-times');
+        iconNav.classList.add('fa-bars');
     }
 }
 
@@ -621,9 +628,15 @@ function initializeEventListeners() {
         });
     }
 
-    const sidebarToggle = document.getElementById('sidebar-toggle');
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', toggleSidebar);
+    // Attach toggleSidebar to both sidebar toggle buttons
+    const sidebarToggleMain = document.getElementById('sidebar-toggle-main');
+    if (sidebarToggleMain) {
+        sidebarToggleMain.addEventListener('click', toggleSidebar);
+    }
+
+    const sidebarToggleNav = document.getElementById('sidebar-toggle-nav');
+    if (sidebarToggleNav) {
+        sidebarToggleNav.addEventListener('click', toggleSidebar);
     }
 
     const fetchTripsRangeButton = document.getElementById('fetch-trips-range');
@@ -878,18 +891,3 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeEventListeners();
     fetchMetrics(); 
 });
-
-function initializeSidebarToggle() {
-    const sidebarToggleBtn = document.getElementById('sidebar-toggle');
-    const sidebar = document.getElementById('sidebar');
-
-    sidebarToggleBtn.addEventListener('click', () => {
-        sidebar.classList.toggle('active');
-    });
-
-    document.addEventListener('click', (event) => {
-        if (!sidebar.contains(event.target) && !sidebarToggleBtn.contains(event.target) && sidebar.classList.contains('active')) {
-            sidebar.classList.remove('active');
-        }
-    });
-}

@@ -59,6 +59,7 @@ body {
 
 #sidebar.collapsed {
     width: var(--sidebar-collapsed-width);
+    overflow: hidden; 
 }
 
 #sidebar .sidebar-header {
@@ -358,40 +359,9 @@ canvas {
 }
 
 /* Responsive Styles */
-@media (max-width: 992px) {
+@media (max-width: 992px) { 
     #sidebar {
-        position: fixed;
-        height: 100%;
-        transform: translateX(-100%);
-    }
-
-    #sidebar.active {
-        transform: translateX(0);
-    }
-
-    #sidebar.collapsed {
-        width: var(--sidebar-width);
-    }
-
-    #sidebar-toggle {
-        position: fixed;
-        top: 15px;
-        left: 15px;
-        z-index: 1001;
-        color: var(--on-background-color);
-    }
-
-    main {
-        padding: 10px;
-        margin-left: 0;
-    }
-
-    main.expanded {
-        margin-left: 0;
-    }
-
-    #map {
-        height: 400px;
+        transform: translateX(-100%); /* Hide the sidebar off-screen */
     }
 }
 

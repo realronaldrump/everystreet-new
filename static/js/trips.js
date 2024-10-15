@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const startDateInput = document.getElementById('start-date');
     const endDateInput = document.getElementById('end-date');
     const applyFiltersButton = document.getElementById('apply-filters');
-    const sidebarToggleButton = document.getElementById('sidebar-toggle');
     const fetchTripsButton = document.getElementById('fetch-trips');
     const exportGeojsonButton = document.getElementById('export-geojson');
     const exportGpxButton = document.getElementById('export-gpx');
@@ -31,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (applyFiltersButton) applyFiltersButton.click();
 
     if (applyFiltersButton) applyFiltersButton.addEventListener('click', fetchTrips);
-    if (sidebarToggleButton) sidebarToggleButton.addEventListener('click', toggleSidebar);
     if (fetchTripsButton) fetchTripsButton.addEventListener('click', fetchAndStoreTrips);
     if (exportGeojsonButton) exportGeojsonButton.addEventListener('click', exportGeojson);
     if (exportGpxButton) exportGpxButton.addEventListener('click', exportGPX);
@@ -197,12 +195,6 @@ function fetchUniqueImeis() {
         });
 }
 
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const main = document.querySelector('main');
-    sidebar.classList.toggle('collapsed');
-    main.classList.toggle('expanded');
-}
 
 function fetchAndStoreTrips() {
     fetch('/api/fetch_trips', {

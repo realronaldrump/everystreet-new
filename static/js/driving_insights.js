@@ -33,7 +33,6 @@ function initializeDatePickers() {
 
 function initializeEventListeners() {
     document.getElementById('apply-filters').addEventListener('click', fetchDrivingInsights);
-    document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
 }
 
 function initializeDataTable() {
@@ -132,7 +131,6 @@ function initializeChart() {
 }
 
 function updateChart(data) {
-    // Assuming your API returns data in the format: [{ date: 'YYYY-MM-DD', count: number }, ...]
     const tripCountsOverTime = data.map(item => ({ date: item.lastVisit.split('T')[0], count: item.count }));
     tripCountsChart.data.labels = tripCountsOverTime.map(entry => entry.date);
     tripCountsChart.data.datasets[0].data = tripCountsOverTime.map(entry => entry.count);
@@ -157,11 +155,4 @@ function fetchUniqueImeis() {
         .catch((error) => {
             console.error('Error fetching unique IMEIs:', error);
         });
-}
-
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const main = document.querySelector('main');
-    sidebar.classList.toggle('collapsed');
-    main.classList.toggle('expanded');
 }
