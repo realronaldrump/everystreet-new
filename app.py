@@ -415,7 +415,8 @@ async def process_historical_trip(trip):
     """Processes a single historical trip, reverse geocodes locations, and sets timezone."""
     trip_timezone = get_trip_timezone(trip)
 
-    trip['startTime'] = trip['startTime'].astimezone(pytz.timezone(trip_timezone))
+    trip['startTime'] = trip['startTime'].astimezone(
+        pytz.timezone(trip_timezone))
     trip['endTime'] = trip['endTime'].astimezone(pytz.timezone(trip_timezone))
 
     gps_data = geojson_module.loads(trip['gps'])
@@ -427,6 +428,7 @@ async def process_historical_trip(trip):
 
     return trip
 
+
 def load_historical_data(start_date_str=None, end_date_str=None):
     """Loads historical data from GeoJSON files within a date range, handles duplicates and errors."""
     all_trips = []  # Initialize all_trips here
@@ -437,23 +439,29 @@ def load_historical_data(start_date_str=None, end_date_str=None):
                 for feature in geojson_data['features']:
                     trip = feature['properties']
                     trip['gps'] = geojson_dumps(feature['geometry'])
-                    trip['startTime'] = datetime.fromisoformat(trip['timestamp']).replace(tzinfo=timezone.utc)
-                    trip['endTime'] = datetime.fromisoformat(trip['end_timestamp']).replace(tzinfo=timezone.utc)
+                    trip['startTime'] = datetime.fromisoformat(
+                        trip['timestamp']).replace(tzinfo=timezone.utc)
+                    trip['endTime'] = datetime.fromisoformat(
+                        trip['end_timestamp']).replace(tzinfo=timezone.utc)
                     trip['imei'] = 'HISTORICAL'
                     trip['transactionId'] = f"HISTORICAL-{trip['timestamp']}"
 
                     if start_date_str:
-                        start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
+                        start_date = datetime.fromisoformat(
+                            start_date_str).replace(tzinfo=timezone.utc)
                         if trip['startTime'] < start_date:
                             continue
                     if end_date_str:
-                        end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc)
+                        end_date = datetime.fromisoformat(
+                            end_date_str).replace(tzinfo=timezone.utc)
                         if trip['endTime'] > end_date:
                             continue
 
-                    all_trips.append(trip)  # Add the trip to be processed later
+                    # Add the trip to be processed later
+                    all_trips.append(trip)
 
-            except (json.JSONDecodeError, TypeError) as e:  # Catch JSON errors and potential TypeErrors
+            # Catch JSON errors and potential TypeErrors
+            except (json.JSONDecodeError, TypeError) as e:
                 print(f"Error processing file {filename}: {e}")
 
     # Process all trips asynchronously to improve performance
@@ -461,7 +469,8 @@ def load_historical_data(start_date_str=None, end_date_str=None):
         tasks = [process_historical_trip(trip) for trip in all_trips]
         return await asyncio.gather(*tasks)
 
-    processed_trips = asyncio.run(process_all_trips())  # No need to pass all_trips here
+    # No need to pass all_trips here
+    processed_trips = asyncio.run(process_all_trips())
 
     # Insert processed trips into the database, checking for duplicates
     for trip in processed_trips:
@@ -470,9 +479,11 @@ def load_historical_data(start_date_str=None, end_date_str=None):
                 historical_trips_collection.insert_one(trip)
                 print(f"Inserted historical trip: {trip['transactionId']}")
             else:
-                print(f"Historical trip already exists: {trip['transactionId']}")
+                print(
+                    f"Historical trip already exists: {trip['transactionId']}")
         except pymongo.errors.PyMongoError as e:
-            print(f"Error inserting trip {trip.get('transactionId', 'Unknown')} into database: {e}")
+            print(
+                f"Error inserting trip {trip.get('transactionId', 'Unknown')} into database: {e}")
 
 
 @app.route('/api/trips')
@@ -501,8 +512,10 @@ def get_trips():
     trips.extend(historical_trips)
 
     for trip in trips:
-        trip['startTime'] = trip['startTime'].astimezone(pytz.timezone('America/Chicago'))
-        trip['endTime'] = trip['endTime'].astimezone(pytz.timezone('America/Chicago'))
+        trip['startTime'] = trip['startTime'].astimezone(
+            pytz.timezone('America/Chicago'))
+        trip['endTime'] = trip['endTime'].astimezone(
+            pytz.timezone('America/Chicago'))
 
     return jsonify(geojson_module.FeatureCollection([
         geojson_module.Feature(
@@ -566,7 +579,8 @@ def get_driving_insights():
             start_date_str, end_date_str, imei))
 
         for destination, data in insights.items():
-            data['averageDistance'] = data['totalDistance'] / data['count'] if data['count'] > 0 else 0
+            data['averageDistance'] = data['totalDistance'] / \
+                data['count'] if data['count'] > 0 else 0
 
         for insight in insights:
             if 'lastVisit' in insight and isinstance(insight['lastVisit'], datetime):
@@ -1501,7 +1515,8 @@ def progress_page():
 
 
 if __name__ == '__main__':
-    load_historical_data() # Load historical data on startup
+    load_historical_data()  # Load historical data on startup
     port = int(os.getenv('PORT', '8080'))
     threading.Timer(1, periodic_fetch_trips).start()
-    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=port,
+                 debug=False, allow_unsafe_werkzeug=True)
