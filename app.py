@@ -263,12 +263,6 @@ async def fetch_and_store_trips():
 
                     trip_timezone = get_trip_timezone(trip)
 
-                    # Apply the 5-hour offset to startTime and endTime
-                    trip['startTime'] = datetime.fromisoformat(trip['startTime'].replace(
-                        'Z', '+00:00')).replace(tzinfo=None) - timedelta(hours=5)
-                    trip['endTime'] = datetime.fromisoformat(trip['endTime'].replace(
-                        'Z', '+00:00')).replace(tzinfo=None) - timedelta(hours=5)
-
                     trip['startTime'] = pytz.utc.localize(
                         trip['startTime']).astimezone(pytz.timezone(trip_timezone))
                     trip['endTime'] = pytz.utc.localize(
@@ -347,12 +341,6 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
 
                     trip_timezone = get_trip_timezone(trip)
 
-                    # Apply the 5-hour offset to startTime and endTime
-                    trip['startTime'] = datetime.fromisoformat(trip['startTime'].replace(
-                        'Z', '+00:00')).replace(tzinfo=None) - timedelta(hours=5)
-                    trip['endTime'] = datetime.fromisoformat(trip['endTime'].replace(
-                        'Z', '+00:00')).replace(tzinfo=None) - timedelta(hours=5)
-
                     trip['startTime'] = pytz.utc.localize(
                         trip['startTime']).astimezone(pytz.timezone(trip_timezone))
                     trip['endTime'] = pytz.utc.localize(
@@ -427,7 +415,7 @@ async def process_historical_trip(trip):
 
     return trip
 
-def load_historical_data(start_date_str=None, end_date_str=None):
+async def load_historical_data(start_date_str=None, end_date_str=None):
     """Loads historical data from GeoJSON files within a date range, handles duplicates and errors."""
     all_trips = []  # Initialize all_trips here
     for filename in glob.glob('olddrivingdata/*.geojson'):
@@ -453,7 +441,7 @@ def load_historical_data(start_date_str=None, end_date_str=None):
 
                     all_trips.append(trip)  # Add the trip to be processed later
 
-            except (json.JSONDecodeError, TypeError) as e:  # Catch JSON errors and potential TypeErrors
+            except (json.JSONDecodeError, TypeError) as e:
                 print(f"Error processing file {filename}: {e}")
 
     # Process all trips asynchronously to improve performance
@@ -461,18 +449,22 @@ def load_historical_data(start_date_str=None, end_date_str=None):
         tasks = [process_historical_trip(trip) for trip in all_trips]
         return await asyncio.gather(*tasks)
 
-    processed_trips = asyncio.run(process_all_trips())  # No need to pass all_trips here
+    processed_trips = await process_all_trips()
 
     # Insert processed trips into the database, checking for duplicates
+    inserted_count = 0
     for trip in processed_trips:
         try:
             if not historical_trips_collection.find_one({'transactionId': trip['transactionId']}):
                 historical_trips_collection.insert_one(trip)
+                inserted_count += 1
                 print(f"Inserted historical trip: {trip['transactionId']}")
             else:
                 print(f"Historical trip already exists: {trip['transactionId']}")
         except pymongo.errors.PyMongoError as e:
             print(f"Error inserting trip {trip.get('transactionId', 'Unknown')} into database: {e}")
+
+    return inserted_count
 
 
 @app.route('/api/trips')
@@ -1500,8 +1492,15 @@ def progress_page():
     return render_template('progress.html')
 
 
+@app.route('/load_historical_data', methods=['POST'])
+async def load_historical_data_endpoint():
+    start_date = request.json.get('start_date')
+    end_date = request.json.get('end_date')
+    inserted_count = await load_historical_data(start_date, end_date)
+    return jsonify({"message": f"Historical data loaded successfully. {inserted_count} new trips inserted."})
+
+
 if __name__ == '__main__':
-    load_historical_data() # Load historical data on startup
     port = int(os.getenv('PORT', '8080'))
     threading.Timer(1, periodic_fetch_trips).start()
     socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)

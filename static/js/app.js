@@ -661,6 +661,11 @@ function initializeEventListeners() {
         mapMatchHistoricalTripsButton.addEventListener('click', mapMatchHistoricalTrips);
     }
 
+    const loadHistoricalDataButton = document.getElementById('load-historical-data');
+    if (loadHistoricalDataButton) {
+        loadHistoricalDataButton.addEventListener('click', loadHistoricalData);
+    }
+
     initializeLayerControls();
 
     const mapControlsToggle = document.getElementById('controls-toggle'); 
@@ -877,5 +882,30 @@ function initializeSidebarToggle() {
         if (!sidebar.contains(event.target) && !sidebarToggleBtn.contains(event.target) && sidebar.classList.contains('active')) {
             sidebar.classList.remove('active');
         }
+    });
+}
+
+function loadHistoricalData() {
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
+
+    fetch('/load_historical_data', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            start_date: startDate,
+            end_date: endDate
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+        fetchTrips(); // Refresh the trips data after loading historical data
+    })
+    .catch(error => {
+        console.error('Error loading historical data:', error);
+        alert('An error occurred while loading historical data.');
     });
 }
