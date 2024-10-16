@@ -286,15 +286,6 @@ function fetchTrips() {
         });
 }
 
-function geocodeCoordinates(lat, lon) {
-    return fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
-        .then(response => response.json())
-        .then(data => data.display_name)
-        .catch(error => {
-            console.error('Geocoding error:', error);
-            return 'Unknown location';
-        });
-}
 
 function fetchMetrics() {
     const startDate = document.getElementById('start-date').value;
@@ -826,13 +817,6 @@ function fetchTripsInRange(startDate, endDate) {
     });
 }
 
-let timeOffset = 0;
-
-function adjustTime(hours) {
-    timeOffset += hours;
-    localStorage.setItem('timeOffset', timeOffset);
-    fetchTrips();
-}
 
 document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
@@ -854,7 +838,7 @@ function updateClock() {
     const timeElement = document.getElementById('current-time');
     if (dateElement && timeElement) {
         const now = new Date();
-        now.setHours(now.getHours() + timeOffset);
+
         
         const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
         dateElement.textContent = now.toLocaleDateString(undefined, options);
@@ -877,6 +861,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeDatePickers();
     initializeEventListeners();
     fetchMetrics(); 
+    initializeSidebarToggle();
+    updateLayerOrderUI();
 });
 
 function initializeSidebarToggle() {
