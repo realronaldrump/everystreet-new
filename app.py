@@ -25,6 +25,8 @@ import math
 import io
 import zipfile
 from shapely.ops import linemerge
+import pymongo
+import time
 
 load_dotenv()
 
@@ -410,54 +412,67 @@ def driving_insights_page():
 
 
 async def process_historical_trip(trip):
+    """Processes a single historical trip, reverse geocodes locations, and sets timezone."""
     trip_timezone = get_trip_timezone(trip)
 
-    trip['startTime'] = trip['startTime'].astimezone(
-        pytz.timezone(trip_timezone))
+    trip['startTime'] = trip['startTime'].astimezone(pytz.timezone(trip_timezone))
     trip['endTime'] = trip['endTime'].astimezone(pytz.timezone(trip_timezone))
 
-    gps_data = geojson_loads(trip['gps'] if isinstance(
-        trip['gps'], str) else json.dumps(trip['gps']))
-
+    gps_data = geojson_module.loads(trip['gps'])
     start_point = gps_data['coordinates'][0]
     last_point = gps_data['coordinates'][-1]
 
-    trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
-    trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
+    # trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
+    # trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
 
     return trip
 
-
 def load_historical_data(start_date_str=None, end_date_str=None):
-    all_trips = []
+    """Loads historical data from GeoJSON files within a date range, handles duplicates and errors."""
+    all_trips = []  # Initialize all_trips here
     for filename in glob.glob('olddrivingdata/*.geojson'):
         with open(filename, 'r') as f:
-            geojson_data = geojson_module.load(f)
-            for feature in geojson_data['features']:
-                trip = feature['properties']
-                trip['gps'] = geojson_dumps(feature['geometry'])
-                trip['startTime'] = datetime.fromisoformat(
-                    trip['timestamp']).replace(tzinfo=timezone.utc)
-                trip['endTime'] = datetime.fromisoformat(
-                    trip['end_timestamp']).replace(tzinfo=timezone.utc)
-                trip['imei'] = 'HISTORICAL'
-                trip['transactionId'] = f"HISTORICAL-{trip['timestamp']}"
+            try:
+                geojson_data = geojson_module.load(f)
+                for feature in geojson_data['features']:
+                    trip = feature['properties']
+                    trip['gps'] = geojson_dumps(feature['geometry'])
+                    trip['startTime'] = datetime.fromisoformat(trip['timestamp']).replace(tzinfo=timezone.utc)
+                    trip['endTime'] = datetime.fromisoformat(trip['end_timestamp']).replace(tzinfo=timezone.utc)
+                    trip['imei'] = 'HISTORICAL'
+                    trip['transactionId'] = f"HISTORICAL-{trip['timestamp']}"
 
-                if start_date_str:
-                    start_date = datetime.fromisoformat(
-                        start_date_str).replace(tzinfo=timezone.utc)
-                    if trip['startTime'] < start_date:
-                        continue
-                if end_date_str:
-                    end_date = datetime.fromisoformat(
-                        end_date_str).replace(tzinfo=timezone.utc)
-                    if trip['endTime'] > end_date:
-                        continue
+                    if start_date_str:
+                        start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
+                        if trip['startTime'] < start_date:
+                            continue
+                    if end_date_str:
+                        end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc)
+                        if trip['endTime'] > end_date:
+                            continue
 
-                all_trips.append(asyncio.run(process_historical_trip(trip)))
+                    all_trips.append(trip)  # Add the trip to be processed later
 
-    historical_trips_collection.insert_many(all_trips)
-    return all_trips
+            except (json.JSONDecodeError, TypeError) as e:  # Catch JSON errors and potential TypeErrors
+                print(f"Error processing file {filename}: {e}")
+
+    # Process all trips asynchronously to improve performance
+    async def process_all_trips():
+        tasks = [process_historical_trip(trip) for trip in all_trips]
+        return await asyncio.gather(*tasks)
+
+    processed_trips = asyncio.run(process_all_trips())  # No need to pass all_trips here
+
+    # Insert processed trips into the database, checking for duplicates
+    for trip in processed_trips:
+        try:
+            if not historical_trips_collection.find_one({'transactionId': trip['transactionId']}):
+                historical_trips_collection.insert_one(trip)
+                print(f"Inserted historical trip: {trip['transactionId']}")
+            else:
+                print(f"Historical trip already exists: {trip['transactionId']}")
+        except pymongo.errors.PyMongoError as e:
+            print(f"Error inserting trip {trip.get('transactionId', 'Unknown')} into database: {e}")
 
 
 @app.route('/api/trips')
@@ -1486,7 +1501,7 @@ def progress_page():
 
 
 if __name__ == '__main__':
+    load_historical_data() # Load historical data on startup
     port = int(os.getenv('PORT', '8080'))
     threading.Timer(1, periodic_fetch_trips).start()
-    socketio.run(app, host='0.0.0.0', port=port,
-                 debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
