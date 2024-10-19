@@ -5,9 +5,9 @@ let liveMarker = null;
 let osmLayer = null;
 
 let mapLayers = {
-    trips: { layer: null, visible: true, color: '#BB86FC', order: 1, opacity: 0.7 },
-    historicalTrips: { layer: null, visible: true, color: '#03DAC6', order: 2, opacity: 0.7 },
-    matchedTrips: { layer: null, visible: true, color: '#CF6679', order: 3, opacity: 0.7 },
+    trips: { layer: null, visible: true, color: '#BB86FC', order: 1, opacity: 0.4 },
+    historicalTrips: { layer: null, visible: true, color: '#03DAC6', order: 2, opacity: 0.4 },
+    matchedTrips: { layer: null, visible: true, color: '#CF6679', order: 3, opacity: 0.4 },
     osmBoundary: { layer: null, visible: false, color: '#03DAC6', order: 4, opacity: 0.7 },
     osmStreets: { layer: null, visible: false, color: '#FF0266', order: 5, opacity: 0.7 }
 };
