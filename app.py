@@ -94,7 +94,14 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
     }
     async with client_session.get(f"{API_BASE_URL}/trips", headers=headers, params=params) as response:
         if response.status == 200:
-            return await response.json()
+            trips = await response.json()
+            for trip in trips:
+                # Parse the startTime and endTime
+                if 'startTime' in trip and isinstance(trip['startTime'], str):
+                    trip['startTime'] = parser.isoparse(trip['startTime'])
+                if 'endTime' in trip and isinstance(trip['endTime'], str):
+                    trip['endTime'] = parser.isoparse(trip['endTime'])
+            return trips
         print(f"Error fetching trips: {response.status}")
         return []
 
@@ -152,12 +159,18 @@ def validate_trip_data(trip):
             return False, f"Missing required field: {field}"
 
     try:
+        # Parse startTime and endTime if they are strings
+        if isinstance(trip['startTime'], str):
+            trip['startTime'] = parser.isoparse(trip['startTime'])
+        if isinstance(trip['endTime'], str):
+            trip['endTime'] = parser.isoparse(trip['endTime'])
+
         geojson_obj = geojson_loads(trip['gps'] if isinstance(
             trip['gps'], str) else json.dumps(trip['gps']))
         if not is_valid_geojson(geojson_obj):
             return False, "Invalid GeoJSON data"
     except Exception as validation_error:
-        return False, f"Error validating GeoJSON: {str(validation_error)}"
+        return False, f"Error validating trip data: {str(validation_error)}"
 
     return True, None
 
@@ -207,12 +220,18 @@ def fetch_trips_for_geojson():
 def get_trip_timezone(trip):
     """
     Determines the timezone of a trip based on its GPS coordinates.
-    If no timezone can be determined, defaults to Waco, TX timezone.
+    If no timezone can be determined, defaults to America/Chicago timezone.
     """
     try:
         gps_data = geojson_loads(trip['gps'] if isinstance(
             trip['gps'], str) else json.dumps(trip['gps']))
-        if gps_data['coordinates']:
+        if gps_data['type'] == 'Point':
+            lon, lat = gps_data['coordinates']
+            timezone_str = tf.timezone_at(lng=lon, lat=lat)
+            if timezone_str:
+                return timezone_str
+        elif gps_data['type'] in ['LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon']:
+            # Use the first coordinate to determine timezone
             lon, lat = gps_data['coordinates'][0]
             timezone_str = tf.timezone_at(lng=lon, lat=lat)
             if timezone_str:
@@ -263,10 +282,14 @@ async def fetch_and_store_trips():
 
                     trip_timezone = get_trip_timezone(trip)
 
-                    trip['startTime'] = pytz.utc.localize(
-                        trip['startTime']).astimezone(pytz.timezone(trip_timezone))
-                    trip['endTime'] = pytz.utc.localize(
-                        trip['endTime']).astimezone(pytz.timezone(trip_timezone))
+                    # Ensure startTime and endTime are datetime objects
+                    if isinstance(trip['startTime'], str):
+                        trip['startTime'] = parser.isoparse(trip['startTime'])
+                    if isinstance(trip['endTime'], str):
+                        trip['endTime'] = parser.isoparse(trip['endTime'])
+
+                    trip['startTime'] = trip['startTime'].astimezone(pytz.timezone(trip_timezone))
+                    trip['endTime'] = trip['endTime'].astimezone(pytz.timezone(trip_timezone))
 
                     gps_data = geojson_loads(trip['gps'] if isinstance(
                         trip['gps'], str) else json.dumps(trip['gps']))
@@ -301,7 +324,6 @@ async def fetch_and_store_trips():
                 except Exception as count_error:
                     print(
                         f"Error counting trips for IMEI {imei}: {count_error}")
-
     except Exception as fetch_error:
         print(f"Error in fetch_and_store_trips: {fetch_error}")
         print(traceback.format_exc())
@@ -341,10 +363,14 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
 
                     trip_timezone = get_trip_timezone(trip)
 
-                    trip['startTime'] = pytz.utc.localize(
-                        trip['startTime']).astimezone(pytz.timezone(trip_timezone))
-                    trip['endTime'] = pytz.utc.localize(
-                        trip['endTime']).astimezone(pytz.timezone(trip_timezone))
+                    # Ensure startTime and endTime are datetime objects
+                    if isinstance(trip['startTime'], str):
+                        trip['startTime'] = parser.isoparse(trip['startTime'])
+                    if isinstance(trip['endTime'], str):
+                        trip['endTime'] = parser.isoparse(trip['endTime'])
+
+                    trip['startTime'] = trip['startTime'].astimezone(pytz.timezone(trip_timezone))
+                    trip['endTime'] = trip['endTime'].astimezone(pytz.timezone(trip_timezone))
 
                     gps_data = geojson_loads(trip['gps'] if isinstance(
                         trip['gps'], str) else json.dumps(trip['gps']))
@@ -403,12 +429,19 @@ async def process_historical_trip(trip):
     """Processes a single historical trip, reverse geocodes locations, and sets timezone."""
     trip_timezone = get_trip_timezone(trip)
 
+    # Ensure startTime and endTime are datetime objects
+    if isinstance(trip['startTime'], str):
+        trip['startTime'] = parser.isoparse(trip['startTime'])
+    if isinstance(trip['endTime'], str):
+        trip['endTime'] = parser.isoparse(trip['endTime'])
+
     trip['startTime'] = trip['startTime'].astimezone(pytz.timezone(trip_timezone))
     trip['endTime'] = trip['endTime'].astimezone(pytz.timezone(trip_timezone))
 
     gps_data = geojson_module.loads(trip['gps'])
     start_point = gps_data['coordinates'][0]
     last_point = gps_data['coordinates'][-1]
+
 
     # trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
     # trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
