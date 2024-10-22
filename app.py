@@ -112,7 +112,8 @@ def is_valid_geojson(geojson_obj):
 
 def validate_gps_data(gps_data, trip):
     if not is_valid_geojson(gps_data):
-        logger.error(f"Invalid GPS data for trip {trip.get('transactionId', 'Unknown')}")
+        logger.error(
+            f"Invalid GPS data for trip {trip.get('transactionId', 'Unknown')}")
         return False
     return True
 
@@ -213,7 +214,8 @@ async def fetch_and_store_trips(start_date=None, end_date=None):
             for device_count, imei in enumerate(AUTHORIZED_DEVICES, 1):
                 logger.info(f"Fetching trips for IMEI: {imei}")
                 device_trips = await fetch_trips_in_intervals(client_session, access_token, imei, start_date, end_date)
-                logger.info(f"Fetched {len(device_trips)} trips for IMEI {imei}")
+                logger.info(
+                    f"Fetched {len(device_trips)} trips for IMEI {imei}")
                 all_trips.extend(device_trips)
 
                 progress = int((device_count / total_devices) * 100)
@@ -228,7 +230,8 @@ async def fetch_and_store_trips(start_date=None, end_date=None):
                     count = trips_collection.count_documents({'imei': imei})
                     logger.info(f"Trips in database for IMEI {imei}: {count}")
                 except Exception as count_error:
-                    logger.error(f"Error counting trips for IMEI {imei}: {count_error}")
+                    logger.error(
+                        f"Error counting trips for IMEI {imei}: {count_error}")
 
     except Exception as fetch_error:
         logger.error(f"Error in fetch_and_store_trips: {fetch_error}")
@@ -242,22 +245,26 @@ async def process_and_store_trips(all_trips, client_session):
 
 async def process_single_trip(trip, client_session):
     try:
-        existing_trip = trips_collection.find_one({'transactionId': trip['transactionId']})
+        existing_trip = trips_collection.find_one(
+            {'transactionId': trip['transactionId']})
         if existing_trip:
-            logger.info(f"Trip {trip['transactionId']} already exists in the database. Skipping.")
+            logger.info(
+                f"Trip {trip['transactionId']} already exists in the database. Skipping.")
             return
 
         is_valid, error_message = validate_trip_data(trip)
         if not is_valid:
-            logger.error(f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}")
+            logger.error(
+                f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}")
             return
 
         # Parse startTime and endTime strings into datetime objects
         if isinstance(trip['startTime'], str):
-            trip['startTime'] = datetime.fromisoformat(trip['startTime'].replace('Z', '+00:00'))
+            trip['startTime'] = datetime.fromisoformat(
+                trip['startTime'].replace('Z', '+00:00'))
         if isinstance(trip['endTime'], str):
-            trip['endTime'] = datetime.fromisoformat(trip['endTime'].replace('Z', '+00:00'))
-
+            trip['endTime'] = datetime.fromisoformat(
+                trip['endTime'].replace('Z', '+00:00'))
 
         gps_data = trip['gps']
         if isinstance(gps_data, str):
@@ -265,7 +272,8 @@ async def process_single_trip(trip, client_session):
 
         # Ensure gps_data is valid
         if not is_valid_geojson(gps_data):
-            logger.error(f"Invalid GPS data for trip {trip.get('transactionId', 'Unknown')}")
+            logger.error(
+                f"Invalid GPS data for trip {trip.get('transactionId', 'Unknown')}")
             return
 
         start_point = gps_data['coordinates'][0]
@@ -276,8 +284,10 @@ async def process_single_trip(trip, client_session):
 
         # Fetch address data concurrently
         trip['destination'], trip['startLocation'] = await asyncio.gather(
-            reverse_geocode_nominatim(last_point[1], last_point[0], client_session),
-            reverse_geocode_nominatim(start_point[1], start_point[0], client_session)
+            reverse_geocode_nominatim(
+                last_point[1], last_point[0], client_session),
+            reverse_geocode_nominatim(
+                start_point[1], start_point[0], client_session)
         )
 
         if isinstance(trip['gps'], dict):
@@ -288,10 +298,13 @@ async def process_single_trip(trip, client_session):
             {'$set': trip},
             upsert=True
         )
-        logger.info(f"Updated trip {trip['transactionId']} for IMEI {trip.get('imei', 'Unknown')}: {'Inserted' if result.upserted_id else 'Updated'}")
+        logger.info(
+            f"Updated trip {trip['transactionId']} for IMEI {trip.get('imei', 'Unknown')}: {'Inserted' if result.upserted_id else 'Updated'}")
     except Exception as trip_error:
-        logger.error(f"Error updating trip {trip.get('transactionId', 'Unknown')}: {trip_error}")
+        logger.error(
+            f"Error updating trip {trip.get('transactionId', 'Unknown')}: {trip_error}")
         logger.error(f"Exception details:\n{traceback.format_exc()}")
+
 
 async def load_historical_data(start_date_str=None, end_date_str=None):
     all_trips = []
@@ -302,8 +315,10 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
                 for feature in geojson_data['features']:
                     trip = feature['properties']
                     trip['gps'] = geojson_dumps(feature['geometry'])
-                    trip['startTime'] = datetime.fromisoformat(trip['timestamp'])
-                    trip['endTime'] = datetime.fromisoformat(trip['end_timestamp'])
+                    trip['startTime'] = datetime.fromisoformat(
+                        trip['timestamp'])
+                    trip['endTime'] = datetime.fromisoformat(
+                        trip['end_timestamp'])
                     trip['imei'] = 'HISTORICAL'
                     trip['transactionId'] = f"HISTORICAL-{trip['timestamp']}"
 
@@ -333,11 +348,14 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
             if not historical_trips_collection.find_one({'transactionId': trip['transactionId']}):
                 historical_trips_collection.insert_one(trip)
                 inserted_count += 1
-                logger.info(f"Inserted historical trip: {trip['transactionId']}")
+                logger.info(
+                    f"Inserted historical trip: {trip['transactionId']}")
             else:
-                logger.info(f"Historical trip already exists: {trip['transactionId']}")
+                logger.info(
+                    f"Historical trip already exists: {trip['transactionId']}")
         except pymongo.errors.PyMongoError as e:
-            logger.error(f"Error inserting trip {trip.get('transactionId', 'Unknown')} into database: {e}")
+            logger.error(
+                f"Error inserting trip {trip.get('transactionId', 'Unknown')} into database: {e}")
 
     return inserted_count
 
@@ -371,7 +389,8 @@ def get_trips():
     end_date_str = request.args.get('end_date')
     imei = request.args.get('imei')
 
-    start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
+    start_date = datetime.fromisoformat(
+        start_date_str) if start_date_str else None
     end_date = datetime.fromisoformat(end_date_str).replace(
         hour=23, minute=59, second=59, microsecond=999999) if end_date_str else None
 
@@ -417,7 +436,8 @@ def get_driving_insights():
 
         start_date = datetime.fromisoformat(
             start_date_str) if start_date_str else None
-        end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
+        end_date = datetime.fromisoformat(
+            end_date_str) if end_date_str else None
 
         query = {}
         if start_date and end_date:
@@ -1309,7 +1329,6 @@ def get_streets():
         return jsonify({'status': 'error', 'message': f'An error occurred: {str(e)}'}), 500
 
 
-
 @app.route('/load_historical_data', methods=['POST'])
 async def load_historical_data_endpoint():
     start_date = request.json.get('start_date')
@@ -1322,4 +1341,4 @@ if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
     threading.Timer(1, periodic_fetch_trips).start()
     socketio.run(app, host='0.0.0.0', port=port,
-                  debug=False, allow_unsafe_werkzeug=True)
+                 debug=False, allow_unsafe_werkzeug=True)
