@@ -1380,69 +1380,6 @@ def create_gpx(trips):
     return gpx.to_xml()
 
 
-@app.route('/api/progress', methods=['POST'])
-def get_progress():
-    drawn_area = request.json.get('location')
-    if not drawn_area or not isinstance(drawn_area, dict):
-        return jsonify({'status': 'error', 'message': 'Invalid drawn area data.'}), 400
-
-    try:
-        # Convert drawn area to a GeoDataFrame
-        area_gdf = gpd.GeoDataFrame.from_features(
-            [drawn_area], crs="EPSG:4326")
-
-        # Get streets within the drawn area
-        streets_data, error_message = generate_geojson_osm(
-            drawn_area, streets_only=True)
-        if streets_data is None:
-            return jsonify({'status': 'error', 'message': f'Error fetching street data: {error_message}'}), 500
-
-        streets_gdf = gpd.GeoDataFrame.from_features(
-            streets_data['features'], crs="EPSG:4326")
-
-        # Clip streets to the drawn area
-        streets_in_area = gpd.clip(streets_gdf, area_gdf)
-
-        # Get user's trip data
-        trips = list(trips_collection.find())
-        trip_geometries = []
-        for trip in trips:
-            gps_data = trip['gps']
-            if isinstance(gps_data, str):
-                gps_data = json.loads(gps_data)
-            geom = shape(gps_data)
-            if isinstance(geom, LineString):
-                trip_geometries.append(geom)
-            elif isinstance(geom, MultiLineString):
-                trip_geometries.extend(geom.geoms)
-
-        if not trip_geometries:
-            return jsonify({'status': 'success', 'progress': 0.0, 'total_streets': len(streets_in_area), 'driven_streets': 0})
-
-        trips_gdf = gpd.GeoDataFrame(geometry=trip_geometries, crs="EPSG:4326")
-
-        # Clip trips to the drawn area
-        trips_in_area = gpd.clip(trips_gdf, area_gdf)
-
-        # Calculate driven streets
-        streets_in_area['driven'] = streets_in_area.intersects(
-            trips_in_area.unary_union)
-
-        total_streets = len(streets_in_area)
-        driven_streets = streets_in_area['driven'].sum()
-        progress_percentage = (driven_streets / total_streets) * \
-            100 if total_streets > 0 else 0
-
-        return jsonify({
-            'status': 'success',
-            'progress': progress_percentage,
-            'total_streets': total_streets,
-            'driven_streets': int(driven_streets)
-        })
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': f'An error occurred: {str(e)}'}), 500
-
-
 @app.route('/api/streets', methods=['POST'])
 def get_streets():
     location = request.json.get('location')
@@ -1485,11 +1422,6 @@ def get_streets():
         return jsonify(streets_json)
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'An error occurred: {str(e)}'}), 500
-
-
-@app.route('/progress')
-def progress_page():
-    return render_template('progress.html')
 
 
 @app.route('/load_historical_data', methods=['POST'])
