@@ -57,39 +57,17 @@ function initializeDataTable() {
             { 
                 data: 'startTime', 
                 title: 'Start Time',
-                render: function(data, type, row) {
-                    if (type === 'display' || type === 'filter') {
-                        const date = new Date(data);
-                        return date.toLocaleString('en-US', { 
-                            year: 'numeric', 
-                            month: '2-digit', 
-                            day: '2-digit', 
-                            hour: '2-digit', 
-                            minute: '2-digit', 
-                            second: '2-digit',
-                            timeZone: row.timezone
-                        });
-                    }
-                    return data;
+                render: function(data) {
+                    const date = new Date(data);
+                    return date.toLocaleString(); 
                 }
             },
             { 
                 data: 'endTime', 
                 title: 'End Time',
-                render: function(data, type, row) {
-                    if (type === 'display' || type === 'filter') {
-                        const date = new Date(data);
-                        return date.toLocaleString('en-US', { 
-                            year: 'numeric', 
-                            month: '2-digit', 
-                            day: '2-digit', 
-                            hour: '2-digit', 
-                            minute: '2-digit', 
-                            second: '2-digit',
-                            timeZone: row.timezone
-                        });
-                    }
-                    return data;
+                render: function(data) {
+                    const date = new Date(data);
+                    return date.toLocaleString(); 
                 }
             },
             { 
