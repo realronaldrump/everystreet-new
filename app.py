@@ -203,7 +203,8 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
         'addressdetails': 1
     }
     headers = {
-        'User-Agent': 'YourAppName/1.0 (your.email@example.com)'  # Replace with your app name and contact info
+        # Replace with your app name and contact info
+        'User-Agent': 'YourAppName/1.0 (your.email@example.com)'
     }
 
     for attempt in range(1, retries + 1):
@@ -213,10 +214,12 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
                     response.raise_for_status()  # Raise exception for HTTP errors
                     data = await response.json()
                     address = data.get('display_name', None)
-                    logger.info(f"Reverse geocoding successful for ({lat}, {lon}): {address}")
+                    logger.info(
+                        f"Reverse geocoding successful for ({lat}, {lon}): {address}")
                     return address
         except ClientResponseError as e:
-            logger.error(f"HTTP error on attempt {attempt}: {e.status} {e.message}")
+            logger.error(
+                f"HTTP error on attempt {attempt}: {e.status} {e.message}")
             if 500 <= e.status < 600:
                 # Server-side error, retry
                 pass
@@ -235,7 +238,8 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
             logger.info(f"Retrying in {sleep_time} seconds...")
             await asyncio.sleep(sleep_time)
         else:
-            logger.error(f"All {retries} attempts to reverse geocode failed for ({lat}, {lon})")
+            logger.error(
+                f"All {retries} attempts to reverse geocode failed for ({lat}, {lon})")
             return None
 
 
@@ -332,8 +336,10 @@ async def fetch_and_store_trips():
                     if isinstance(trip['endTime'], str):
                         trip['endTime'] = parser.isoparse(trip['endTime'])
 
-                    trip['startTime'] = trip['startTime'].astimezone(pytz.timezone(trip_timezone))
-                    trip['endTime'] = trip['endTime'].astimezone(pytz.timezone(trip_timezone))
+                    trip['startTime'] = trip['startTime'].astimezone(
+                        pytz.timezone(trip_timezone))
+                    trip['endTime'] = trip['endTime'].astimezone(
+                        pytz.timezone(trip_timezone))
 
                     gps_data = geojson_loads(trip['gps'] if isinstance(
                         trip['gps'], str) else json.dumps(trip['gps']))
@@ -413,8 +419,10 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                     if isinstance(trip['endTime'], str):
                         trip['endTime'] = parser.isoparse(trip['endTime'])
 
-                    trip['startTime'] = trip['startTime'].astimezone(pytz.timezone(trip_timezone))
-                    trip['endTime'] = trip['endTime'].astimezone(pytz.timezone(trip_timezone))
+                    trip['startTime'] = trip['startTime'].astimezone(
+                        pytz.timezone(trip_timezone))
+                    trip['endTime'] = trip['endTime'].astimezone(
+                        pytz.timezone(trip_timezone))
 
                     gps_data = geojson_loads(trip['gps'] if isinstance(
                         trip['gps'], str) else json.dumps(trip['gps']))
@@ -480,18 +488,19 @@ async def process_historical_trip(trip):
     if isinstance(trip['endTime'], str):
         trip['endTime'] = parser.isoparse(trip['endTime'])
 
-    trip['startTime'] = trip['startTime'].astimezone(pytz.timezone(trip_timezone))
+    trip['startTime'] = trip['startTime'].astimezone(
+        pytz.timezone(trip_timezone))
     trip['endTime'] = trip['endTime'].astimezone(pytz.timezone(trip_timezone))
 
     gps_data = geojson_module.loads(trip['gps'])
     start_point = gps_data['coordinates'][0]
     last_point = gps_data['coordinates'][-1]
 
-
     # trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
     # trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
 
     return trip
+
 
 async def load_historical_data(start_date_str=None, end_date_str=None):
     """Loads historical data from GeoJSON files within a date range, handles duplicates and errors."""
@@ -503,21 +512,26 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
                 for feature in geojson_data['features']:
                     trip = feature['properties']
                     trip['gps'] = geojson_dumps(feature['geometry'])
-                    trip['startTime'] = datetime.fromisoformat(trip['timestamp']).replace(tzinfo=timezone.utc)
-                    trip['endTime'] = datetime.fromisoformat(trip['end_timestamp']).replace(tzinfo=timezone.utc)
+                    trip['startTime'] = datetime.fromisoformat(
+                        trip['timestamp']).replace(tzinfo=timezone.utc)
+                    trip['endTime'] = datetime.fromisoformat(
+                        trip['end_timestamp']).replace(tzinfo=timezone.utc)
                     trip['imei'] = 'HISTORICAL'
                     trip['transactionId'] = f"HISTORICAL-{trip['timestamp']}"
 
                     if start_date_str:
-                        start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
+                        start_date = datetime.fromisoformat(
+                            start_date_str).replace(tzinfo=timezone.utc)
                         if trip['startTime'] < start_date:
                             continue
                     if end_date_str:
-                        end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc)
+                        end_date = datetime.fromisoformat(
+                            end_date_str).replace(tzinfo=timezone.utc)
                         if trip['endTime'] > end_date:
                             continue
 
-                    all_trips.append(trip)  # Add the trip to be processed later
+                    # Add the trip to be processed later
+                    all_trips.append(trip)
 
             except (json.JSONDecodeError, TypeError) as e:
                 print(f"Error processing file {filename}: {e}")
@@ -538,9 +552,11 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
                 inserted_count += 1
                 print(f"Inserted historical trip: {trip['transactionId']}")
             else:
-                print(f"Historical trip already exists: {trip['transactionId']}")
+                print(
+                    f"Historical trip already exists: {trip['transactionId']}")
         except pymongo.errors.PyMongoError as e:
-            print(f"Error inserting trip {trip.get('transactionId', 'Unknown')} into database: {e}")
+            print(
+                f"Error inserting trip {trip.get('transactionId', 'Unknown')} into database: {e}")
 
     return inserted_count
 
@@ -571,8 +587,10 @@ def get_trips():
     trips.extend(historical_trips)
 
     for trip in trips:
-        trip['startTime'] = trip['startTime'].astimezone(pytz.timezone('America/Chicago'))
-        trip['endTime'] = trip['endTime'].astimezone(pytz.timezone('America/Chicago'))
+        trip['startTime'] = trip['startTime'].astimezone(
+            pytz.timezone('America/Chicago'))
+        trip['endTime'] = trip['endTime'].astimezone(
+            pytz.timezone('America/Chicago'))
 
     return jsonify(geojson_module.FeatureCollection([
         geojson_module.Feature(
@@ -636,7 +654,8 @@ def get_driving_insights():
             start_date_str, end_date_str, imei))
 
         for destination, data in insights.items():
-            data['averageDistance'] = data['totalDistance'] / data['count'] if data['count'] > 0 else 0
+            data['averageDistance'] = data['totalDistance'] / \
+                data['count'] if data['count'] > 0 else 0
 
         for insight in insights:
             if 'lastVisit' in insight and isinstance(insight['lastVisit'], datetime):
@@ -1513,4 +1532,5 @@ async def load_historical_data_endpoint():
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
     threading.Timer(1, periodic_fetch_trips).start()
-    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=port,
+                 debug=False, allow_unsafe_werkzeug=True)
