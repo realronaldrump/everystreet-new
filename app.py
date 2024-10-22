@@ -27,6 +27,12 @@ import zipfile
 from shapely.ops import linemerge
 import pymongo
 import time
+import logging  # Added import
+from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -175,24 +181,62 @@ def validate_trip_data(trip):
     return True, None
 
 
-async def reverse_geocode_nominatim(lat, lon):
-    url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}&addressdetails=1"
-    headers = {'User-Agent': 'EveryStreet/1.0'}
-    async with aiohttp.ClientSession() as client_session, client_session.get(url, headers=headers) as response:
-        if response.status == 200:
-            data = await response.json()
-            address = data.get('address', {})
-            formatted_address = []
+async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
+    """
+    Reverse geocodes latitude and longitude to an address using Nominatim.
 
-            for component in ['house_number', 'road', 'city', 'town', 'village', 'state']:
-                if component in address:
-                    formatted_address.append(address[component])
+    Args:
+        lat (float): Latitude.
+        lon (float): Longitude.
+        retries (int): Number of retry attempts.
+        backoff_factor (int): Factor for exponential backoff.
 
-            return ', '.join(formatted_address)
-        print(f"Nominatim API error: {response.status}")
-        return f"Location at {lat}, {lon}"
+    Returns:
+        str or None: The formatted address or None if failed.
+    """
+    url = 'https://nominatim.openstreetmap.org/reverse'
+    params = {
+        'format': 'jsonv2',
+        'lat': lat,
+        'lon': lon,
+        'zoom': 18,
+        'addressdetails': 1
+    }
+    headers = {
+        'User-Agent': 'YourAppName/1.0 (your.email@example.com)'  # Replace with your app name and contact info
+    }
 
-    await asyncio.sleep(0.1)
+    for attempt in range(1, retries + 1):
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
+                async with session.get(url, params=params, headers=headers) as response:
+                    response.raise_for_status()  # Raise exception for HTTP errors
+                    data = await response.json()
+                    address = data.get('display_name', None)
+                    logger.info(f"Reverse geocoding successful for ({lat}, {lon}): {address}")
+                    return address
+        except ClientResponseError as e:
+            logger.error(f"HTTP error on attempt {attempt}: {e.status} {e.message}")
+            if 500 <= e.status < 600:
+                # Server-side error, retry
+                pass
+            else:
+                # Client-side error, do not retry
+                break
+        except ClientConnectorError as e:
+            logger.error(f"Connection error on attempt {attempt}: {e}")
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout error on attempt {attempt}")
+        except Exception as e:
+            logger.error(f"Unexpected error on attempt {attempt}: {e}")
+
+        if attempt < retries:
+            sleep_time = backoff_factor * (2 ** (attempt - 1))
+            logger.info(f"Retrying in {sleep_time} seconds...")
+            await asyncio.sleep(sleep_time)
+        else:
+            logger.error(f"All {retries} attempts to reverse geocode failed for ({lat}, {lon})")
+            return None
 
 
 def fetch_trips_for_geojson():
@@ -381,7 +425,8 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                     trip['startGeoPoint'] = start_point
                     trip['destinationGeoPoint'] = last_point
 
-                    trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
+                    lat, lon = last_point[1], last_point[0]
+                    trip['destination'] = await reverse_geocode_nominatim(lat, lon)
                     trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
 
                     if isinstance(trip['gps'], dict):
@@ -406,8 +451,8 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                     print(
                         f"Error counting trips for IMEI {imei}: {count_error}")
     except Exception as fetch_error:
-        print(f"Error in fetch_and_store_trips_in_range: {fetch_error}")
-        print(traceback.format_exc())
+        logger.error(f"Error in fetch_and_store_trips_in_range: {fetch_error}")
+        logger.debug(traceback.format_exc())
 
 
 @app.route('/')
