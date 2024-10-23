@@ -93,9 +93,66 @@ function getFilterParams() {
 }
 
 function initializeEventListeners() {
-    document.getElementById('apply-filters').addEventListener('click', fetchTrips);
-    document.getElementById('export-geojson').addEventListener('click', () => exportTrips('geojson'));
-    document.getElementById('export-gpx').addEventListener('click', () => exportTrips('gpx'));
+    const applyFilters = document.getElementById('apply-filters');
+    if (applyFilters) {
+        applyFilters.addEventListener('click', fetchTrips);
+    }
+
+    // Add date preset functionality
+    document.querySelectorAll('.date-preset').forEach(button => {
+        button.addEventListener('click', function() {
+            const range = this.dataset.range;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            let startDate = new Date(today);
+            let endDate = new Date(today);
+
+            switch(range) {
+                case 'today':
+                    break;
+                case 'yesterday':
+                    startDate.setDate(startDate.getDate() - 1);
+                    endDate.setDate(endDate.getDate() - 1);
+                    break;
+                case 'last-week':
+                    startDate.setDate(startDate.getDate() - 7);
+                    break;
+                case 'last-month':
+                    startDate.setDate(startDate.getDate() - 30);
+                    break;
+                case 'last-6-months':
+                    startDate.setMonth(startDate.getMonth() - 6);
+                    break;
+                case 'last-year':
+                    startDate.setFullYear(startDate.getFullYear() - 1);
+                    break;
+            }
+
+            // Update the flatpickr instances
+            const startDatePicker = document.getElementById('start-date')._flatpickr;
+            const endDatePicker = document.getElementById('end-date')._flatpickr;
+            
+            startDatePicker.setDate(startDate);
+            endDatePicker.setDate(endDate);
+
+            // Store the new dates in localStorage
+            localStorage.setItem('startDate', startDate.toISOString().split('T')[0]);
+            localStorage.setItem('endDate', endDate.toISOString().split('T')[0]);
+
+            // Fetch new data
+            fetchTrips();
+        });
+    });
+
+    // Keep existing export button listeners
+    const exportGeojson = document.getElementById('export-geojson');
+    const exportGpx = document.getElementById('export-gpx');
+    if (exportGeojson) {
+        exportGeojson.addEventListener('click', () => exportTrips('geojson'));
+    }
+    if (exportGpx) {
+        exportGpx.addEventListener('click', () => exportTrips('gpx'));
+    }
 }
 
 function exportTrips(format) {

@@ -593,9 +593,7 @@ def get_trips():
 
 @app.route('/api/driving-insights')
 def get_driving_insights():
-    if trips_collection is None:
-        return jsonify({"error": "Database not connected"}), 500
-
+    """Returns driving insights excluding historical data."""
     try:
         start_date_str = request.args.get('start_date')
         end_date_str = request.args.get('end_date')
@@ -604,27 +602,27 @@ def get_driving_insights():
         start_date = datetime.fromisoformat(start_date_str).replace(
             tzinfo=timezone.utc) if start_date_str else None
         end_date = datetime.fromisoformat(end_date_str).replace(
-            tzinfo=timezone.utc) if end_date_str else None
+            hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) if end_date_str else None
 
-        query = {}
+        # Build the query to exclude historical trips
+        query = {
+            'source': {'$ne': 'historical'}  # Exclude historical trips
+        }
         if start_date and end_date:
-            query['startTime'] = {'$gte': start_date, '$lte': end_date}
-        else:
-            end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(days=7)
-            query['startTime'] = {'$gte': start_date, '$lte': end_date}
-
+            query['startTime'] = {
+                '$gte': start_date,
+                '$lte': end_date
+            }
         if imei:
             query['imei'] = imei
 
+        # Aggregate to get insights
         pipeline = [
             {'$match': query},
             {
                 '$group': {
                     '_id': '$destination',
                     'count': {'$sum': 1},
-                    'totalDistance': {'$sum': '$distance'},
-                    'averageDistance': {'$avg': '$distance'},
                     'lastVisit': {'$max': '$endTime'}
                 }
             },
@@ -632,22 +630,22 @@ def get_driving_insights():
         ]
 
         insights = list(trips_collection.aggregate(pipeline))
-        insights.extend(calculate_insights_for_historical_data(
-            start_date_str, end_date_str, imei))
+        
+        # Format the results
+        formatted_results = []
+        for result in insights:
+            if result['_id']:  # Only include non-null destinations
+                formatted_results.append({
+                    '_id': result['_id'],
+                    'count': result['count'],
+                    'lastVisit': result['lastVisit'].isoformat()
+                })
 
-        for destination, data in insights.items():
-            data['averageDistance'] = data['totalDistance'] / data['count'] if data['count'] > 0 else 0
+        return jsonify(formatted_results)
 
-        for insight in insights:
-            if 'lastVisit' in insight and isinstance(insight['lastVisit'], datetime):
-                insight['lastVisit'] = insight['lastVisit'].astimezone(
-                    pytz.timezone('America/Chicago')).isoformat()
-
-        return jsonify(insights)
-    except Exception as insight_error:
-        print(f"Error in get_driving_insights: {insight_error}")
-        print(traceback.format_exc())
-        return jsonify({"error": f"An error occurred while fetching driving insights: {str(insight_error)}"}), 500
+    except Exception as e:
+        logger.error(f"Error in get_driving_insights: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 
 def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
