@@ -509,3 +509,12 @@ body.sidebar-collapsed {
 .sidebar-body::-webkit-scrollbar-thumb:hover {
     background-color: rgba(255, 255, 255, 0.3);
 }
+
+.location-input::placeholder {
+    color: #ffffff !important;
+    opacity: 0.5;
+}
+
+.location-input {
+    color: #ffffff !important; /* This changes the text color when typing */
+}

@@ -10,9 +10,9 @@ window.EveryStreet = (function() {
     let socket = null;
 
     const mapLayers = {
-        trips: { layer: null, visible: true, color: '#BB86FC', order: 1, opacity: 0.4 },
-        historicalTrips: { layer: null, visible: true, color: '#03DAC6', order: 2, opacity: 0.4 },
-        matchedTrips: { layer: null, visible: true, color: '#CF6679', order: 3, opacity: 0.4 },
+        trips: { layer: null, visible: true, color: '#BB86FC', order: 1, opacity: 0.4, displayName: 'Trips' },
+        historicalTrips: { layer: null, visible: false, color: '#03DAC6', order: 2, opacity: 0.4, displayName: 'Historical Trips' },
+        matchedTrips: { layer: null, visible: false, color: '#CF6679', order: 3, opacity: 0.4, displayName: 'Matched Trips' },
         osmBoundary: { layer: null, visible: false, color: '#03DAC6', order: 4, opacity: 0.7 },
         osmStreets: { layer: null, visible: false, color: '#FF0266', order: 5, opacity: 0.7 }
     };
@@ -327,6 +327,14 @@ window.EveryStreet = (function() {
         }
         layerToggles.innerHTML = '';
 
+        const displayNames = {
+            'trips': 'Trips',
+            'historicalTrips': 'Historical Trips',
+            'matchedTrips': 'Matched Trips',
+            'osmBoundary': 'OSM Boundary',
+            'osmStreets': 'OSM Streets'
+        };
+
         for (const [layerName, layerInfo] of Object.entries(mapLayers)) {
             const layerControl = document.createElement('div');
             layerControl.classList.add('layer-control');
@@ -334,7 +342,7 @@ window.EveryStreet = (function() {
 
             layerControl.innerHTML = `
                 <input type="checkbox" id="${layerName}-toggle" ${layerInfo.visible ? 'checked' : ''}>
-                <label for="${layerName}-toggle">${layerName}</label>
+                <label for="${layerName}-toggle">${displayNames[layerName]}</label>
                 <input type="color" id="${layerName}-color" value="${layerInfo.color}">
                 <label for="${layerName}-opacity">Opacity:</label>
                 <input type="range" id="${layerName}-opacity" min="0" max="1" step="0.1" value="${layerInfo.opacity}">
@@ -374,6 +382,14 @@ window.EveryStreet = (function() {
         }
         layerOrder.innerHTML = '<h3>Layer Order (Drag to reorder)</h3>';
 
+        const displayNames = {
+            'trips': 'Trips',
+            'historicalTrips': 'Historical Trips',
+            'matchedTrips': 'Matched Trips',
+            'osmBoundary': 'OSM Boundary',
+            'osmStreets': 'OSM Streets'
+        };
+
         const orderedLayers = Object.entries(mapLayers)
             .filter(([, layerInfo]) => layerInfo.visible)
             .sort((a, b) => b[1].order - a[1].order);
@@ -382,7 +398,7 @@ window.EveryStreet = (function() {
         ul.id = 'layer-order-list';
         orderedLayers.forEach(([layerName]) => {
             const li = document.createElement('li');
-            li.textContent = layerName;
+            li.textContent = displayNames[layerName];
             li.draggable = true;
             li.dataset.layer = layerName;
             ul.appendChild(li);
@@ -746,6 +762,20 @@ window.EveryStreet = (function() {
                 fetchMetrics();
             });
         });
+    }
+
+    function addLayerControl() {
+        const overlayMaps = {
+            'Trips': mapLayers.trips.layer,
+            'Historical Trips': mapLayers.historicalTrips.layer,
+            'Matched Trips': mapLayers.matchedTrips.layer,
+            'OSM Boundary': mapLayers.osmBoundary.layer,
+            'OSM Streets': mapLayers.osmStreets.layer
+        };
+
+        L.control.layers(null, overlayMaps, {
+            collapsed: false
+        }).addTo(map);
     }
 
     // Public API
