@@ -17,6 +17,9 @@ window.EveryStreet = (function() {
         osmStreets: { layer: null, visible: false, color: '#FF0266', order: 5, opacity: 0.7 }
     };
 
+    // At the top of app.js, add this flag
+    let isInitialized = false;
+
     // Private functions
     function initializeMap() {
         const mapElement = document.getElementById('map');
@@ -61,38 +64,39 @@ window.EveryStreet = (function() {
         }
     }
 
+    function setInitialDates() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
+        
+        // Only set if not already set during this session
+        if (!window.datesInitialized) {
+            localStorage.setItem('startDate', todayStr);
+            localStorage.setItem('endDate', todayStr);
+            window.datesInitialized = true;
+        }
+    }
+
     function initializeDatePickers() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const storedStartDate = localStorage.getItem('startDate');
-        const storedEndDate = localStorage.getItem('endDate');
-
-        const startDate = storedStartDate ? new Date(storedStartDate) : today;
-        const endDate = storedEndDate ? new Date(storedEndDate) : today;
+        const commonConfig = {
+            dateFormat: "Y-m-d",
+            maxDate: "today",
+            defaultDate: today,
+            enableTime: false,
+            onChange: function() {}, // Empty onChange to prevent automatic updates
+            onClose: function() {}, // Empty onClose to prevent automatic updates
+            static: true // Prevents automatic updates on initialization
+        };
 
         if (document.getElementById('start-date')) {
-            flatpickr("#start-date", {
-                dateFormat: "Y-m-d",
-                maxDate: "today",
-                defaultDate: startDate,
-                onChange(selectedDates) {
-                    const date = selectedDates[0];
-                    localStorage.setItem('startDate', date.toISOString().split('T')[0]);
-                }
-            });
+            flatpickr("#start-date", commonConfig);
         }
 
         if (document.getElementById('end-date')) {
-            flatpickr("#end-date", {
-                dateFormat: "Y-m-d",
-                maxDate: "today",
-                defaultDate: endDate,
-                onChange(selectedDates) {
-                    const date = selectedDates[0];
-                    localStorage.setItem('endDate', date.toISOString().split('T')[0]);
-                }
-            });
+            flatpickr("#end-date", commonConfig);
         }
     }
     function showLoadingOverlay() {
@@ -123,6 +127,7 @@ window.EveryStreet = (function() {
     }
 
     async function fetchTrips() {
+        console.log('fetchTrips called from:', new Error().stack); // Debug line
         const startDate = document.getElementById('start-date').value;
         const endDate = document.getElementById('end-date').value;
         const imei = document.getElementById('imei').value;
@@ -499,7 +504,8 @@ window.EveryStreet = (function() {
     function initializeEventListeners() {
         // Apply filters button
         const applyFiltersButton = document.getElementById('apply-filters');
-        if (applyFiltersButton) {
+        if (applyFiltersButton && !applyFiltersButton.hasListener) {
+            applyFiltersButton.hasListener = true;
             applyFiltersButton.addEventListener('click', () => {
                 const startDate = document.getElementById('start-date').value;
                 const endDate = document.getElementById('end-date').value;
@@ -697,6 +703,12 @@ window.EveryStreet = (function() {
     return {
         // Initialization
         initialize: function() {
+            // Guard against multiple initializations
+            if (isInitialized) {
+                console.log('App already initialized, skipping...');
+                return;
+            }
+            
             socket = io();
             
             socket.on('live_route_update', handleLiveRouteUpdate);
@@ -704,6 +716,8 @@ window.EveryStreet = (function() {
                 updateLoadingProgress(data.progress);
             });
 
+            setInitialDates(); // Set initial dates once
+            
             if (document.getElementById('map')) {
                 initializeMap();
                 initializeLayerControls();
@@ -714,6 +728,9 @@ window.EveryStreet = (function() {
             initializeEventListeners();
             fetchMetrics();
             updateLayerOrderUI();
+            
+            // Mark as initialized
+            isInitialized = true;
         },
 
         // Public methods
@@ -744,3 +761,4 @@ window.EveryStreet = (function() {
 document.addEventListener('DOMContentLoaded', () => {
     EveryStreet.initialize();
 });
+
