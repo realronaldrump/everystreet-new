@@ -15,6 +15,11 @@ window.EveryStreet = (function() {
         osmStreets: { layer: null, visible: false, color: '#FF0266', order: 5, opacity: 0.7 }
     };
 
+    // Add to the private variables at the top of the IIFE
+    const mapSettings = {
+        highlightRecentTrips: true
+    };
+
     // At the top of app.js, add this flag
     let isInitialized = false;
 
@@ -207,25 +212,27 @@ window.EveryStreet = (function() {
                     style: (feature) => {
                         const startTime = new Date(feature.properties.startTime);
                         const isRecent = startTime > sixHoursAgo;
+                        const shouldHighlight = mapSettings.highlightRecentTrips && isRecent;
                         
                         return {
-                            color: isRecent ? '#FF5722' : layerInfo.color, // Use a bright color for recent trips
-                            weight: isRecent ? 4 : 2,
-                            opacity: isRecent ? 0.8 : layerInfo.opacity,
-                            className: isRecent ? 'recent-trip' : ''
+                            color: shouldHighlight ? '#FF5722' : layerInfo.color,
+                            weight: shouldHighlight ? 4 : 2,
+                            opacity: shouldHighlight ? 0.8 : layerInfo.opacity,
+                            className: shouldHighlight ? 'recent-trip' : ''
                         };
                     },
                     onEachFeature: (feature, layer) => {
                         const startTime = new Date(feature.properties.startTime);
                         const endTime = new Date(feature.properties.endTime);
                         const isRecent = startTime > sixHoursAgo;
+                        const shouldHighlight = mapSettings.highlightRecentTrips && isRecent;
                         
                         layer.bindPopup(`
                             <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
                             <strong>Start Time:</strong> ${startTime.toLocaleString()}<br>
                             <strong>End Time:</strong> ${endTime.toLocaleString()}<br>
                             <strong>Distance:</strong> ${feature.properties.distance.toFixed(2)} miles
-                            ${isRecent ? '<br><strong>(Recent Trip)</strong>' : ''}
+                            ${shouldHighlight ? '<br><strong>(Recent Trip)</strong>' : ''}
                         `);
                     }
                 }).addTo(layerGroup);
@@ -565,6 +572,34 @@ window.EveryStreet = (function() {
         if (fetchTripsButton) {
             fetchTripsButton.addEventListener('click', fetchTripsInRange);
         }
+
+        // Add highlight recent trips toggle listener
+        const highlightToggle = document.getElementById('highlight-recent-trips');
+        if (highlightToggle) {
+            highlightToggle.addEventListener('change', function() {
+                mapSettings.highlightRecentTrips = this.checked;
+                updateMap();
+            });
+        }
+
+        const highlightButton = document.getElementById('highlight-recent-trips');
+        if (highlightButton) {
+            highlightButton.addEventListener('click', function() {
+                mapSettings.highlightRecentTrips = !mapSettings.highlightRecentTrips;
+                this.classList.toggle('inactive');
+                const buttonText = this.querySelector('.button-text');
+                buttonText.textContent = mapSettings.highlightRecentTrips 
+                    ? 'Disable Recent Trips Highlight' 
+                    : 'Enable Recent Trips Highlight';
+                updateMap();
+            });
+
+            // Set initial state
+            if (!mapSettings.highlightRecentTrips) {
+                highlightButton.classList.add('inactive');
+                highlightButton.querySelector('.button-text').textContent = 'Enable Recent Trips Highlight';
+            }
+        }
     }
 
     function fetchMetrics() {
@@ -843,7 +878,8 @@ window.EveryStreet = (function() {
         toggleLayer: toggleLayer,
         changeLayerColor: changeLayerColor,
         changeLayerOpacity: changeLayerOpacity,
-        updateLayerOrder: updateLayerOrder
+        updateLayerOrder: updateLayerOrder,
+        mapSettings: mapSettings,
     };
 })();
 

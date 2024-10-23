@@ -537,3 +537,58 @@ body.sidebar-collapsed {
 .recent-trip {
   animation: pulse 2s ease-in-out infinite;
 }
+
+/* Add these styles for the toggle */
+.form-check {
+    background-color: var(--surface-color);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 1rem;
+    transition: all var(--transition-speed) ease;
+}
+
+.form-check:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.form-check-input {
+    background-color: var(--background-color);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+}
+
+.form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.form-check-input:focus {
+    box-shadow: 0 0 0 0.2rem rgba(187, 134, 252, 0.25);
+    border-color: var(--primary-color);
+}
+
+.form-check-label {
+    color: var(--on-surface);
+    font-size: 0.95rem;
+    cursor: pointer;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Map Display Options */
+#highlight-recent-trips.inactive {
+    background-color: var(--surface-color);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--on-surface);
+}
+
+#highlight-recent-trips.inactive:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+}
