@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeEventListeners();
     initializeDataTable();
     initializeChart();
-    fetchUniqueImeis();
     fetchDrivingInsights();
 });
 
@@ -22,16 +21,17 @@ function fetchDrivingInsights() {
         })
         .then(data => {
             if (Array.isArray(data)) {
-                updateSummaryMetrics(data);
-                updateDataTable(data);
-                updateChart(data);
+                // Filter out historical data
+                const filteredData = data.filter(item => item._id !== 'HISTORICAL');
+                updateSummaryMetrics(filteredData);
+                updateDataTable(filteredData);
+                updateChart(filteredData);
             } else {
                 throw new Error('Invalid data format received from server');
             }
         })
         .catch(error => {
             console.error('Error fetching driving insights:', error);
-            // Show error message to user
             const errorMessage = document.createElement('div');
             errorMessage.className = 'alert alert-danger';
             errorMessage.textContent = 'Error loading driving insights. Please try again later.';
@@ -175,8 +175,6 @@ function getFilterParams() {
     const params = new URLSearchParams();
     params.append('start_date', document.getElementById('start-date').value);
     params.append('end_date', document.getElementById('end-date').value);
-    const imei = document.getElementById('imei').value;
-    if (imei) params.append('imei', imei);
     return params;
 }
 

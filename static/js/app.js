@@ -126,22 +126,16 @@ window.EveryStreet = (function() {
         }
     }
 
-    async function fetchTrips() {
-        console.log('fetchTrips called from:', new Error().stack); // Debug line
-        const startDate = document.getElementById('start-date').value;
-        const endDate = document.getElementById('end-date').value;
-        const imei = document.getElementById('imei').value;
-
-        let url = '/api/trips';
+    function getFilterParams() {
         const params = new URLSearchParams();
+        params.append('start_date', document.getElementById('start-date').value);
+        params.append('end_date', document.getElementById('end-date').value);
+        return params;
+    }
 
-        if (startDate) params.append('start_date', startDate);
-        if (endDate) params.append('end_date', endDate);
-        if (imei) params.append('imei', imei);
-
-        if (params.toString()) {
-            url += `?${params.toString()}`;
-        }
+    async function fetchTrips() {
+        const params = getFilterParams();
+        const url = `/api/trips?${params.toString()}`;
 
         showLoadingOverlay();
 
@@ -158,14 +152,6 @@ window.EveryStreet = (function() {
                     destination: feature.properties.destination || 'N/A'
                 }));
 
-            const historicalTrips = geojson.features
-                .filter(feature => feature.properties.imei === 'HISTORICAL')
-                .map(feature => ({
-                    ...feature.properties,
-                    gps: feature.geometry,
-                    destination: feature.properties.destination || 'N/A'
-                }));
-
             mapLayers.trips.layer = {
                 type: 'FeatureCollection',
                 features: trips.map(trip => ({
@@ -175,16 +161,7 @@ window.EveryStreet = (function() {
                 }))
             };
 
-            mapLayers.historicalTrips.layer = {
-                type: 'FeatureCollection',
-                features: historicalTrips.map(trip => ({
-                    type: 'Feature',
-                    geometry: trip.gps,
-                    properties: trip
-                }))
-            };
-
-            await fetchMatchedTrips(startDate, endDate, imei);
+            await fetchMatchedTrips();
             updateMap();
         } catch (error) {
             console.error('Error fetching trips:', error);
@@ -193,13 +170,12 @@ window.EveryStreet = (function() {
         }
     }
 
-    async function fetchMatchedTrips(startDate, endDate, imei) {
+    async function fetchMatchedTrips() {
         let url = '/api/matched_trips';
         const params = new URLSearchParams();
 
-        if (startDate) params.append('start_date', startDate);
-        if (endDate) params.append('end_date', endDate);
-        if (imei) params.append('imei', imei);
+        if (document.getElementById('start-date')) params.append('start_date', document.getElementById('start-date').value);
+        if (document.getElementById('end-date')) params.append('end_date', document.getElementById('end-date').value);
 
         if (params.toString()) {
             url += `?${params.toString()}`;

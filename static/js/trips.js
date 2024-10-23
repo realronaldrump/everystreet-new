@@ -5,7 +5,6 @@ let tripsTable = null;
 document.addEventListener('DOMContentLoaded', () => {
     initializeDataTable();
     initializeEventListeners();
-    fetchUniqueImeis();
     fetchTrips();
 });
 
@@ -56,39 +55,20 @@ function fetchTrips() {
 }
 
 function populateTripsTable(trips) {
-    const formattedTrips = trips.map(trip => ({
-        ...trip.properties,
-        gps: trip.geometry,
-        destination: trip.properties.destination || 'N/A'
-    }));
+    const formattedTrips = trips
+        .filter(trip => trip.properties.imei !== 'HISTORICAL')
+        .map(trip => ({
+            ...trip.properties,
+            gps: trip.geometry,
+            destination: trip.properties.destination || 'N/A'
+        }));
     tripsTable.clear().rows.add(formattedTrips).draw();
-}
-
-function fetchUniqueImeis() {
-    fetch('/api/trips')
-        .then(response => response.json())
-        .then(geojson => populateUniqueImeis(geojson.features))
-        .catch(error => console.error('Error fetching unique IMEIs:', error));
-}
-
-function populateUniqueImeis(features) {
-    const imeis = [...new Set(features.map(trip => trip.properties.imei))];
-    const imeiSelect = document.getElementById('imei');
-    imeiSelect.innerHTML = '<option value="">All</option>';
-    imeis.forEach(imei => {
-        const option = document.createElement('option');
-        option.value = imei;
-        option.text = imei;
-        imeiSelect.appendChild(option);
-    });
 }
 
 function getFilterParams() {
     const params = new URLSearchParams();
     params.append('start_date', document.getElementById('start-date').value);
     params.append('end_date', document.getElementById('end-date').value);
-    const imei = document.getElementById('imei').value;
-    if (imei) params.append('imei', imei);
     return params;
 }
 
