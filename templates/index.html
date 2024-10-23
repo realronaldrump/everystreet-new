@@ -3,56 +3,99 @@
 {% block title %}Every Street - Map{% endblock %}
 
 {% block content %}
-<div id="map" class="flex-grow-1"></div>
-<div id="map-controls" class="bg-dark text-white p-3">
-    <button id="controls-toggle" class="btn btn-sm btn-secondary float-end">
-        <i class="fas fa-chevron-up"></i>
-    </button>
-    <h2>Map Controls</h2>
-    <div id="controls-content">
-        <div class="row">
-            <div class="col-md-4">
-                <div id="metrics">
-                    <h3>Metrics</h3>
-                    <ul class="list-group">
-                        <li class="list-group-item bg-dark text-white">Total Trips: <span id="total-trips"></span></li>
-                        <li class="list-group-item bg-dark text-white">Total Distance: <span id="total-distance"></span> miles</li>
-                        <li class="list-group-item bg-dark text-white">Average Distance: <span id="avg-distance"></span> miles</li>
-                        <li class="list-group-item bg-dark text-white">Average Start Time: <span id="avg-start-time"></span></li>
-                        <li class="list-group-item bg-dark text-white">Average Driving Time: <span id="avg-driving-time"></span></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div id="osm-controls">
-                    <h3>OSM Data</h3>
-                    <div class="mb-2">
-                        <input type="text" id="location-input" class="form-control" placeholder="Enter location">
+<div class="d-flex flex-column h-100">
+    <!-- Map Container -->
+    <div id="map" class="flex-grow-1"></div>
+
+    <!-- Controls Panel -->
+    <div id="map-controls" class="bg-dark text-white p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h5 mb-0">Map Controls</h2>
+            <button id="controls-toggle" class="btn btn-sm btn-secondary" aria-label="Toggle Controls">
+                <i class="fas fa-chevron-up"></i>
+            </button>
+        </div>
+
+        <div id="controls-content" class="collapse show">
+            <div class="row g-3">
+                <!-- Metrics Section -->
+                <div class="col-12 col-md-4">
+                    <div class="card bg-dark border-secondary">
+                        <div class="card-header border-secondary">
+                            <h3 class="h6 mb-0">Metrics</h3>
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between">
+                                <span>Total Trips:</span>
+                                <strong id="total-trips">0</strong>
+                            </li>
+                            <li class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between">
+                                <span>Total Distance:</span>
+                                <strong><span id="total-distance">0</span> miles</strong>
+                            </li>
+                            <li class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between">
+                                <span>Average Distance:</span>
+                                <strong><span id="avg-distance">0</span> miles</strong>
+                            </li>
+                            <li class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between">
+                                <span>Average Start Time:</span>
+                                <strong id="avg-start-time">--:--</strong>
+                            </li>
+                            <li class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between">
+                                <span>Average Driving Time:</span>
+                                <strong id="avg-driving-time">--:--</strong>
+                            </li>
+                        </ul>
                     </div>
-                    <div class="mb-2">
-                        <select id="location-type" class="form-select">
-                            <option value="city">City</option>
-                            <option value="county">County</option>
-                            <option value="state">State</option>
-                            <option value="country">Country</option>
-                        </select>
-                    </div>
-                    <div class="btn-group">
-                        <button id="validate-location" class="btn btn-primary">Validate Location</button>
-                        <button id="generate-boundary" class="btn btn-success">Generate Boundary</button>
-                        <button id="generate-streets" class="btn btn-success">Generate Streets</button>
+                </div>
+
+                <!-- OSM Controls Section -->
+                <div class="col-12 col-md-4">
+                    <div class="card bg-dark border-secondary">
+                        <div class="card-header border-secondary">
+                            <h3 class="h6 mb-0">OSM Data</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <input type="text" id="location-input" class="form-control" placeholder="Enter location">
+                            </div>
+                            <div class="mb-3">
+                                <select id="location-type" class="form-select">
+                                    <option value="city">City</option>
+                                    <option value="county">County</option>
+                                    <option value="state">State</option>
+                                    <option value="country">Country</option>
+                                </select>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button id="validate-location" class="btn btn-primary">Validate Location</button>
+                                <div class="btn-group">
+                                    <button id="generate-boundary" class="btn btn-success">Generate Boundary</button>
+                                    <button id="generate-streets" class="btn btn-success">Generate Streets</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div id="layer-toggles">
-                    <!-- Layer controls will be dynamically inserted here by JavaScript -->
-                </div>
-                <div id="layer-order" class="mb-3">
-                    <h3>Layer Order (Drag to reorder)</h3>
-                    <ul id="layer-order-list" class="list-group">
-                        <!-- Layer items will be dynamically inserted here -->
-                    </ul>
+
+                <!-- Layer Controls Section -->
+                <div class="col-12 col-md-4">
+                    <div class="card bg-dark border-secondary">
+                        <div class="card-header border-secondary">
+                            <h3 class="h6 mb-0">Layer Controls</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="layer-toggles" class="mb-3">
+                                <!-- Layer toggles inserted by JavaScript -->
+                            </div>
+                            <div id="layer-order">
+                                <h4 class="h6">Layer Order</h4>
+                                <ul id="layer-order-list" class="list-group bg-dark">
+                                    <!-- Layer items inserted by JavaScript -->
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -61,5 +104,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/app.js') }}"></script> 
+<script src="{{ url_for('static', filename='js/map-controls.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
 {% endblock %}

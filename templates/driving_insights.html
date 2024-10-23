@@ -3,43 +3,66 @@
 {% block title %}Every Street - Driving Insights{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
+<div class="container-fluid px-4 py-3">
     <h1 class="mb-4">Driving Insights</h1>
 
-    <section id="summary-metrics" class="mb-5">
-        <h2>Summary</h2>
-        <ul class="list-group">
-            <li class="list-group-item">Total Trips: <span id="total-trips">0</span></li>
-            <li class="list-group-item">Most Visited Destination: <span id="most-visited">N/A</span></li>
-        </ul>
-    </section>
+    <div class="row">
+        <div class="col-12 col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Summary</h2>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Total Trips:</span>
+                            <strong id="total-trips">0</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Most Visited:</span>
+                            <strong id="most-visited">N/A</strong>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
 
-    <section id="insights-list" class="mb-5">
-        <h2>Destination Frequency</h2>
-        <table id="insights-table" class="table table-striped table-bordered nowrap" style="width:100%">
-            <thead class="table-dark">
-                <tr>
-                    <th>Destination</th>
-                    <th>Visit Count</th>
-                    <th>Last Visit</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </section>
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Destination Frequency</h2>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="insights-table" class="table table-striped table-hover w-100">
+                            <thead>
+                                <tr>
+                                    <th>Destination</th>
+                                    <th>Visit Count</th>
+                                    <th>Last Visit</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    <section id="chart-container" class="mb-5">
-        <h2>Trip Counts Over Time</h2>
-        <canvas id="tripCountsChart" class="w-100" height="400"></canvas>
-    </section>
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Trip Counts Over Time</h2>
+                </div>
+                <div class="card-body">
+                    <canvas id="tripCountsChart" height="400"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/driving_insights.js') }}"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 {% endblock %}
