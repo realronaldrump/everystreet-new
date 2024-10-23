@@ -199,23 +199,33 @@ window.EveryStreet = (function() {
             .filter(([, layerInfo]) => layerInfo.visible)
             .sort((a, b) => a[1].order - b[1].order);
 
+        const sixHoursAgo = new Date(Date.now() - (6 * 60 * 60 * 1000));
+
         orderedLayers.forEach(([layerName, layerInfo]) => {
             if ((layerName === 'trips' || layerName === 'historicalTrips' || layerName === 'matchedTrips') && layerInfo.layer) {
                 L.geoJSON(layerInfo.layer, {
-                    style: {
-                        color: layerInfo.color,
-                        weight: 2,
-                        opacity: layerInfo.opacity
+                    style: (feature) => {
+                        const startTime = new Date(feature.properties.startTime);
+                        const isRecent = startTime > sixHoursAgo;
+                        
+                        return {
+                            color: isRecent ? '#FF5722' : layerInfo.color, // Use a bright color for recent trips
+                            weight: isRecent ? 4 : 2,
+                            opacity: isRecent ? 0.8 : layerInfo.opacity,
+                            className: isRecent ? 'recent-trip' : ''
+                        };
                     },
                     onEachFeature: (feature, layer) => {
                         const startTime = new Date(feature.properties.startTime);
                         const endTime = new Date(feature.properties.endTime);
-                    
+                        const isRecent = startTime > sixHoursAgo;
+                        
                         layer.bindPopup(`
                             <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
                             <strong>Start Time:</strong> ${startTime.toLocaleString()}<br>
                             <strong>End Time:</strong> ${endTime.toLocaleString()}<br>
                             <strong>Distance:</strong> ${feature.properties.distance.toFixed(2)} miles
+                            ${isRecent ? '<br><strong>(Recent Trip)</strong>' : ''}
                         `);
                     }
                 }).addTo(layerGroup);
