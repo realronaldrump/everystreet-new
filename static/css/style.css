@@ -17,6 +17,8 @@
     --header-height: 60px;
     --transition-speed: 0.3s;
     --bs-heading-color: #ffffff
+    --bs-body-color: white;
+
 }
 
 /* Base Styles */
@@ -163,6 +165,7 @@ main.expanded {
 .card-header {
     background-color: rgba(255, 255, 255, 0.05);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    --bs-card-cap-color: #ffffff;
 }
 
 /* Buttons */
@@ -198,6 +201,7 @@ main.expanded {
 .table {
     color: var(--on-surface);
     border-color: rgba(255, 255, 255, 0.1);
+    background-color: #9f6dce;
 }
 
 .table th {
@@ -303,6 +307,9 @@ main.expanded {
     }
 }
 
+.form-label {
+    color: var(--on-surface);
+}
 /* Utilities */
 .text-primary { color: var(--primary-color) !important; }
 .text-secondary { color: var(--secondary-color) !important; }
@@ -438,11 +445,11 @@ body.sidebar-collapsed {
 }
 
 /* Dark Mode Enhancements */
-@media (prefers-color-scheme: dark) {
+/* @media (prefers-color-scheme: dark) {
     .leaflet-tile {
         filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
     }
-}
+} */
 
 /* Print Styles */
 @media print {
