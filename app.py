@@ -690,39 +690,44 @@ def get_metrics():
     end_date_str = request.args.get('end_date')
     imei = request.args.get('imei')
 
+    # Create proper datetime objects with timezone
     start_date = datetime.fromisoformat(start_date_str).replace(
         tzinfo=timezone.utc) if start_date_str else None
     end_date = datetime.fromisoformat(end_date_str).replace(
+        hour=23, minute=59, second=59, microsecond=999999, 
         tzinfo=timezone.utc) if end_date_str else None
 
-    trips = list(trips_collection.find())
-
-    historical_query = {}
+    # Build query
+    query = {}
     if start_date and end_date:
-        historical_query['startTime'] = {'$gte': start_date, '$lte': end_date}
-    historical_trips = list(historical_trips_collection.find(historical_query))
-    trips.extend(historical_trips)
+        query['startTime'] = {'$gte': start_date, '$lte': end_date}
+    if imei:
+        query['imei'] = imei
 
-    filtered_trips = [trip for trip in trips if trip['imei']
-                      == imei] if imei else trips
+    # Get trips from both collections
+    trips = list(trips_collection.find(query))
+    historical_trips = list(historical_trips_collection.find(query))
+    all_trips = trips + historical_trips
 
-    total_trips = len(filtered_trips)
-    total_distance = sum(trip.get('distance', 0) for trip in filtered_trips)
+    # Calculate metrics
+    total_trips = len(all_trips)
+    total_distance = sum(trip.get('distance', 0) for trip in all_trips)
     avg_distance = total_distance / total_trips if total_trips > 0 else 0
 
+    # Calculate average start time
     start_times = [trip['startTime'].astimezone(pytz.timezone(
-        'America/Chicago')).hour for trip in filtered_trips]
+        'America/Chicago')).hour for trip in all_trips]
     avg_start_time = sum(start_times) / len(start_times) if start_times else 0
 
+    # Calculate average driving time
     driving_times = [(trip['endTime'] - trip['startTime']
-                      ).total_seconds() / 60 for trip in filtered_trips]
-    avg_driving_time = sum(driving_times) / \
-        len(driving_times) if driving_times else 0
+                    ).total_seconds() / 60 for trip in all_trips]
+    avg_driving_time = sum(driving_times) / len(driving_times) if driving_times else 0
 
     return jsonify({
         'total_trips': total_trips,
-        'total_distance': round(total_distance, 2),
-        'avg_distance': round(avg_distance, 2),
+        'total_distance': f"{round(total_distance, 2)}",
+        'avg_distance': f"{round(avg_distance, 2)}",
         'avg_start_time': f"{int(avg_start_time):02d}:{int((avg_start_time % 1) * 60):02d}",
         'avg_driving_time': f"{int(avg_driving_time // 60):02d}:{int(avg_driving_time % 60):02d}"
     })

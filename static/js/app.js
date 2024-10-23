@@ -10,9 +10,9 @@ window.EveryStreet = (function() {
     let socket = null;
 
     const mapLayers = {
-        trips: { layer: null, visible: true, color: '#BB86FC', order: 1, opacity: 0.4, displayName: 'Trips' },
-        historicalTrips: { layer: null, visible: false, color: '#03DAC6', order: 2, opacity: 0.4, displayName: 'Historical Trips' },
-        matchedTrips: { layer: null, visible: false, color: '#CF6679', order: 3, opacity: 0.4, displayName: 'Matched Trips' },
+        trips: { layer: null, visible: true, color: '#BB86FC', order: 1, opacity: 0.4 },
+        historicalTrips: { layer: null, visible: false, color: '#03DAC6', order: 2, opacity: 0.4 },
+        matchedTrips: { layer: null, visible: false, color: '#CF6679', order: 3, opacity: 0.4 },
         osmBoundary: { layer: null, visible: false, color: '#03DAC6', order: 4, opacity: 0.7 },
         osmStreets: { layer: null, visible: false, color: '#FF0266', order: 5, opacity: 0.7 }
     };
@@ -327,14 +327,6 @@ window.EveryStreet = (function() {
         }
         layerToggles.innerHTML = '';
 
-        const displayNames = {
-            'trips': 'Trips',
-            'historicalTrips': 'Historical Trips',
-            'matchedTrips': 'Matched Trips',
-            'osmBoundary': 'OSM Boundary',
-            'osmStreets': 'OSM Streets'
-        };
-
         for (const [layerName, layerInfo] of Object.entries(mapLayers)) {
             const layerControl = document.createElement('div');
             layerControl.classList.add('layer-control');
@@ -342,7 +334,7 @@ window.EveryStreet = (function() {
 
             layerControl.innerHTML = `
                 <input type="checkbox" id="${layerName}-toggle" ${layerInfo.visible ? 'checked' : ''}>
-                <label for="${layerName}-toggle">${displayNames[layerName]}</label>
+                <label for="${layerName}-toggle">${layerName}</label>
                 <input type="color" id="${layerName}-color" value="${layerInfo.color}">
                 <label for="${layerName}-opacity">Opacity:</label>
                 <input type="range" id="${layerName}-opacity" min="0" max="1" step="0.1" value="${layerInfo.opacity}">
@@ -382,13 +374,7 @@ window.EveryStreet = (function() {
         }
         layerOrder.innerHTML = '<h3>Layer Order (Drag to reorder)</h3>';
 
-        const displayNames = {
-            'trips': 'Trips',
-            'historicalTrips': 'Historical Trips',
-            'matchedTrips': 'Matched Trips',
-            'osmBoundary': 'OSM Boundary',
-            'osmStreets': 'OSM Streets'
-        };
+
 
         const orderedLayers = Object.entries(mapLayers)
             .filter(([, layerInfo]) => layerInfo.visible)
@@ -398,7 +384,7 @@ window.EveryStreet = (function() {
         ul.id = 'layer-order-list';
         orderedLayers.forEach(([layerName]) => {
             const li = document.createElement('li');
-            li.textContent = displayNames[layerName];
+            li.textContent = layerName;
             li.draggable = true;
             li.dataset.layer = layerName;
             ul.appendChild(li);
@@ -528,7 +514,7 @@ window.EveryStreet = (function() {
                 localStorage.setItem('startDate', startDate);
                 localStorage.setItem('endDate', endDate);
                 fetchTrips();
-                fetchMetrics();
+                fetchMetrics();  // Add this line
             });
         }
 
@@ -582,6 +568,54 @@ window.EveryStreet = (function() {
         if (loadHistoricalDataButton) {
             loadHistoricalDataButton.addEventListener('click', loadHistoricalData);
         }
+
+        // Date preset buttons
+        document.querySelectorAll('.date-preset').forEach(button => {
+            button.addEventListener('click', function() {
+                const range = this.dataset.range;
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                let startDate = new Date(today);
+                let endDate = new Date(today);
+
+                switch(range) {
+                    case 'today':
+                        // Start and end are already today
+                        break;
+                    case 'yesterday':
+                        startDate.setDate(startDate.getDate() - 1);
+                        endDate.setDate(endDate.getDate() - 1);
+                        break;
+                    case 'last-week':
+                        startDate.setDate(startDate.getDate() - 7);
+                        break;
+                    case 'last-month':
+                        startDate.setDate(startDate.getDate() - 30);
+                        break;
+                    case 'last-6-months':
+                        startDate.setMonth(startDate.getMonth() - 6);
+                        break;
+                    case 'last-year':
+                        startDate.setFullYear(startDate.getFullYear() - 1);
+                        break;
+                }
+
+                // Update the flatpickr instances
+                const startDatePicker = document.getElementById('start-date')._flatpickr;
+                const endDatePicker = document.getElementById('end-date')._flatpickr;
+                
+                startDatePicker.setDate(startDate);
+                endDatePicker.setDate(endDate);
+
+                // Store the new dates in localStorage
+                localStorage.setItem('startDate', startDate.toISOString().split('T')[0]);
+                localStorage.setItem('endDate', endDate.toISOString().split('T')[0]);
+
+                // Fetch new data
+                fetchTrips();
+                fetchMetrics();  // Add metrics update
+            });
+        });
     }
 
     function fetchMetrics() {
@@ -762,20 +796,6 @@ window.EveryStreet = (function() {
                 fetchMetrics();
             });
         });
-    }
-
-    function addLayerControl() {
-        const overlayMaps = {
-            'Trips': mapLayers.trips.layer,
-            'Historical Trips': mapLayers.historicalTrips.layer,
-            'Matched Trips': mapLayers.matchedTrips.layer,
-            'OSM Boundary': mapLayers.osmBoundary.layer,
-            'OSM Streets': mapLayers.osmStreets.layer
-        };
-
-        L.control.layers(null, overlayMaps, {
-            collapsed: false
-        }).addTo(map);
     }
 
     // Public API
