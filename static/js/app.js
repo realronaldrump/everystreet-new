@@ -1,12 +1,10 @@
-/* global L, flatpickr, io */
+/* global L, flatpickr */
 
 // Create namespace for the application using IIFE pattern
 window.EveryStreet = (function() {
     // Private variables
     let map = null;
     let layerGroup = null;
-    let liveRoutePolyline = null;
-    let liveMarker = null;
     let socket = null;
 
     const mapLayers = {
@@ -254,46 +252,6 @@ window.EveryStreet = (function() {
         }
     }
 
-    function handleLiveRouteUpdate(data) {
-        if (document.getElementById('show-live-routes')?.checked) {
-            try {
-                const coordinates = data.data.map(point => [point.gps.lat, point.gps.lon]);
-                const lastPoint = coordinates[coordinates.length - 1];
-                const isVehicleOff = data.isVehicleOff;
-
-                if (liveRoutePolyline) {
-                    layerGroup.removeLayer(liveRoutePolyline);
-                }
-                if (liveMarker) {
-                    layerGroup.removeLayer(liveMarker);
-                }
-
-                liveRoutePolyline = L.polyline(coordinates, {
-                    color: isVehicleOff ? 'red' : 'green',
-                    weight: 3,
-                    opacity: 0.7,
-                }).addTo(layerGroup);
-
-                liveMarker = L.circleMarker(lastPoint, {
-                    radius: 8,
-                    color: '#fff',
-                    fillColor: isVehicleOff ? '#f03' : '#0f0',
-                    fillOpacity: 1,
-                    className: 'live-marker',
-                }).addTo(layerGroup);
-
-                liveMarker.bindPopup(`
-                    <strong>Vehicle Status:</strong> ${isVehicleOff ? 'Parked' : 'Driving'}<br>
-                    <strong>Latitude:</strong> ${lastPoint[0].toFixed(5)}<br>
-                    <strong>Longitude:</strong> ${lastPoint[1].toFixed(5)}
-                `);
-
-                map.panTo(lastPoint);
-            } catch (error) {
-                console.error('Error handling live route update:', error);
-            }
-        }
-    }
 
     function initializeLayerControls() {
         const layerToggles = document.getElementById('layer-toggles');
@@ -784,12 +742,8 @@ window.EveryStreet = (function() {
                 return;
             }
             
-            socket = io();
-            
-            socket.on('live_route_update', handleLiveRouteUpdate);
-            socket.on('loading_progress', (data) => {
-                updateLoadingProgress(data.progress);
-            });
+            // Remove this problematic line that's causing the syntax error
+            // updateLoadingProgress(data.progress);
 
             setInitialDates(); // Set initial dates once
             

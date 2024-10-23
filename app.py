@@ -50,7 +50,6 @@ try:
     )
     db = client['every_street']
     trips_collection = db['trips']
-    live_routes_collection = db['live_routes']
     matched_trips_collection = db['matched_trips']
     # Collection for historical trips
     historical_trips_collection = db['historical_trips']
@@ -716,6 +715,15 @@ def get_metrics():
     start_times = [trip['startTime'].astimezone(pytz.timezone(
         'America/Chicago')).hour for trip in all_trips]
     avg_start_time = sum(start_times) / len(start_times) if start_times else 0
+    
+    # Convert to 12-hour format
+    hour = int(avg_start_time)
+    minutes = int((avg_start_time % 1) * 60)
+    period = 'AM' if hour < 12 else 'PM'
+    if hour == 0:
+        hour = 12
+    elif hour > 12:
+        hour -= 12
 
     # Calculate average driving time
     driving_times = [(trip['endTime'] - trip['startTime']
@@ -726,23 +734,9 @@ def get_metrics():
         'total_trips': total_trips,
         'total_distance': f"{round(total_distance, 2)}",
         'avg_distance': f"{round(avg_distance, 2)}",
-        'avg_start_time': f"{int(avg_start_time):02d}:{int((avg_start_time % 1) * 60):02d}",
+        'avg_start_time': f"{hour:02d}:{minutes:02d} {period}",
         'avg_driving_time': f"{int(avg_driving_time // 60):02d}:{int(avg_driving_time % 60):02d}"
     })
-
-
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    data = request.json
-    if data['imei'] in AUTHORIZED_DEVICES:
-        if data['eventType'] == 'tripData':
-            live_routes_collection.insert_one(data)
-            data['isVehicleOff'] = False
-            socketio.emit('live_route_update', data)
-        elif data['eventType'] == 'tripEnd':
-            data['isVehicleOff'] = True
-            socketio.emit('live_route_update', data)
-    return '', 204
 
 
 @app.route('/api/fetch_trips', methods=['POST'])
