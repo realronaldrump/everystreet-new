@@ -699,6 +699,55 @@ window.EveryStreet = (function() {
         });
     }
 
+    function initializeDatePresets() {
+        document.querySelectorAll('.date-preset').forEach(button => {
+            button.addEventListener('click', function() {
+                const range = this.dataset.range;
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                let startDate = new Date(today);
+                let endDate = new Date(today);
+
+                switch(range) {
+                    case 'today':
+                        // Start and end are already today
+                        break;
+                    case 'yesterday':
+                        startDate.setDate(startDate.getDate() - 1);
+                        endDate.setDate(endDate.getDate() - 1);
+                        break;
+                    case 'last-week':
+                        startDate.setDate(startDate.getDate() - 7);
+                        break;
+                    case 'last-month':
+                        startDate.setDate(startDate.getDate() - 30);
+                        break;
+                    case 'last-6-months':
+                        startDate.setMonth(startDate.getMonth() - 6);
+                        break;
+                    case 'last-year':
+                        startDate.setFullYear(startDate.getFullYear() - 1);
+                        break;
+                }
+
+                // Update the flatpickr instances
+                const startDatePicker = document.getElementById('start-date')._flatpickr;
+                const endDatePicker = document.getElementById('end-date')._flatpickr;
+                
+                startDatePicker.setDate(startDate);
+                endDatePicker.setDate(endDate);
+
+                // Store the new dates in localStorage
+                localStorage.setItem('startDate', startDate.toISOString().split('T')[0]);
+                localStorage.setItem('endDate', endDate.toISOString().split('T')[0]);
+
+                // Fetch new data
+                fetchTrips();
+                fetchMetrics();
+            });
+        });
+    }
+
     // Public API
     return {
         // Initialization
@@ -728,6 +777,7 @@ window.EveryStreet = (function() {
             initializeEventListeners();
             fetchMetrics();
             updateLayerOrderUI();
+            initializeDatePresets();
             
             // Mark as initialized
             isInitialized = true;

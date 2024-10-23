@@ -469,3 +469,43 @@ body.sidebar-collapsed {
         padding: 0 !important;
     }
 }
+
+/* Sidebar structure */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    width: 280px;
+    z-index: 1000;
+}
+
+.sidebar-header {
+    flex-shrink: 0;
+}
+
+.sidebar-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Custom scrollbar styling */
+.sidebar-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar-body::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-body::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.sidebar-body::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
