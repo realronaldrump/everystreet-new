@@ -550,6 +550,11 @@ window.EveryStreet = (function() {
                 fetchMetrics();  // Add metrics update
             });
         });
+
+        const fetchTripsButton = document.getElementById('fetch-trips-range');
+        if (fetchTripsButton) {
+            fetchTripsButton.addEventListener('click', fetchTripsInRange);
+        }
     }
 
     function fetchMetrics() {
@@ -729,6 +734,51 @@ window.EveryStreet = (function() {
                 fetchTrips();
                 fetchMetrics();
             });
+        });
+    }
+
+    function fetchTripsInRange() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        if (!startDate || !endDate) {
+            alert('Please select both start and end dates');
+            return;
+        }
+
+        showLoadingOverlay();
+
+        fetch('/api/fetch_trips_range', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                start_date: startDate,
+                end_date: endDate
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                fetchTrips(); // Refresh the trips display
+            } else {
+                console.error(`Error: ${data.message}`);
+                alert('Error fetching trips. Please check the console for details.');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching trips in range:', error);
+            alert('Error fetching trips. Please check the console for details.');
+        })
+        .finally(() => {
+            hideLoadingOverlay();
         });
     }
 
