@@ -1621,11 +1621,15 @@ def get_street_coverage():
         logger.info(f"Found {len(matched_trips)} matched trips")
         
         if not matched_trips:
+            # Return empty but valid GeoJSON
             return jsonify({
                 'total_length': 0,
                 'driven_length': 0,
                 'coverage_percentage': 0,
-                'streets_data': streets_data
+                'streets_data': {
+                    'type': 'FeatureCollection',
+                    'features': []
+                }
             })
         
         logger.info("Calculating coverage...")
@@ -1634,6 +1638,13 @@ def get_street_coverage():
             streets_data,
             matched_trips
         )
+        
+        # Validate GeoJSON structure before returning
+        if not coverage_data.get('streets_data') or \
+           not isinstance(coverage_data['streets_data'], dict) or \
+           coverage_data['streets_data'].get('type') != 'FeatureCollection' or \
+           not isinstance(coverage_data['streets_data'].get('features'), list):
+            raise ValueError("Invalid GeoJSON structure in coverage data")
         
         logger.info("Coverage calculation complete")
         return jsonify(coverage_data)

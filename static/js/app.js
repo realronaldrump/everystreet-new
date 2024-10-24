@@ -200,22 +200,20 @@ window.EveryStreet = (function() {
             console.error('Error fetching matched trips:', error);
         }
     }
-    function updateMap() {
-        console.log('Updating map');
-        if (!map || !layerGroup) {
-            console.log('Map or layerGroup not initialized, skipping map update');
-            return;
-        }
+    function updateMap(fitBounds = false) {
         layerGroup.clearLayers();
-
+        
         const orderedLayers = Object.entries(mapLayers)
-            .filter(([, layerInfo]) => layerInfo.visible)
             .sort((a, b) => a[1].order - b[1].order);
-
+    
         const sixHoursAgo = new Date(Date.now() - (6 * 60 * 60 * 1000));
-
+    
         orderedLayers.forEach(([layerName, layerInfo]) => {
-            if ((layerName === 'trips' || layerName === 'historicalTrips' || layerName === 'matchedTrips') && layerInfo.layer) {
+            if (!layerInfo.visible || !layerInfo.layer) return;
+    
+            if (layerName === 'streetCoverage') {
+                layerInfo.layer.addTo(layerGroup);
+            } else if (layerName === 'trips' || layerName === 'historicalTrips' || layerName === 'matchedTrips') {
                 L.geoJSON(layerInfo.layer, {
                     style: (feature) => {
                         const startTime = new Date(feature.properties.startTime);
@@ -244,36 +242,46 @@ window.EveryStreet = (function() {
                         `);
                     }
                 }).addTo(layerGroup);
-            } else if (layerName === 'osmBoundary' && layerInfo.layer) {
-                layerInfo.layer.setStyle({ 
-                    color: layerInfo.color,
-                    opacity: layerInfo.opacity
-                }).addTo(layerGroup);
-            } else if (layerName === 'osmStreets' && layerInfo.layer) {
+            } else if ((layerName === 'osmBoundary' || layerName === 'osmStreets') && layerInfo.layer) {
                 layerInfo.layer.setStyle({ 
                     color: layerInfo.color,
                     opacity: layerInfo.opacity
                 }).addTo(layerGroup);
             }
         });
-
-        let bounds = L.latLngBounds();
-        let validBoundsFound = false;
-
-        for (const layerName in mapLayers) {
-            if (mapLayers[layerName].visible && mapLayers[layerName].layer) {
-                const layerBounds = L.geoJSON(mapLayers[layerName].layer).getBounds();
-                if (layerBounds.isValid()) {
-                    bounds.extend(layerBounds);
-                    validBoundsFound = true;
+    
+        // Only fit bounds if explicitly requested
+        if (fitBounds) {
+            let bounds = L.latLngBounds();
+            let validBoundsFound = false;
+    
+            for (const layerName in mapLayers) {
+                if (mapLayers[layerName].visible && mapLayers[layerName].layer) {
+                    try {
+                        const layerBounds = L.geoJSON(mapLayers[layerName].layer).getBounds();
+                        if (layerBounds.isValid()) {
+                            bounds.extend(layerBounds);
+                            validBoundsFound = true;
+                        }
+                    } catch (e) {
+                        console.warn(`Could not get bounds for layer ${layerName}:`, e);
+                        // If the layer is already a Leaflet layer (like streetCoverage)
+                        if (mapLayers[layerName].layer.getBounds) {
+                            const layerBounds = mapLayers[layerName].layer.getBounds();
+                            if (layerBounds.isValid()) {
+                                bounds.extend(layerBounds);
+                                validBoundsFound = true;
+                            }
+                        }
+                    }
                 }
             }
-        }
-
-        if (validBoundsFound) {
-            map.fitBounds(bounds);
-        } else {
-            console.warn('No valid bounds to fit');
+    
+            if (validBoundsFound) {
+                map.fitBounds(bounds);
+            } else {
+                console.warn('No valid bounds to fit');
+            }
         }
     }
 
@@ -841,17 +849,21 @@ window.EveryStreet = (function() {
     }
 
     function visualizeStreetCoverage(coverageData) {
+        // Clear existing layer if it exists
         if (mapLayers.streetCoverage.layer) {
-            mapLayers.streetCoverage.layer.clearLayers();
+            layerGroup.removeLayer(mapLayers.streetCoverage.layer);
         }
         
+        // Create new GeoJSON layer
         mapLayers.streetCoverage.layer = L.geoJSON(coverageData.streets_data, {
-            style: (feature) => ({
-                color: feature.properties.driven ? '#00FF00' : '#FF4444',
-                weight: 3,
-                opacity: feature.properties.driven ? 0.8 : 0.4
-            }),
-            onEachFeature: (feature, layer) => {
+            style: function(feature) {
+                return {
+                    color: feature.properties.driven ? '#00FF00' : '#FF4444',
+                    weight: 3,
+                    opacity: feature.properties.driven ? 0.8 : 0.4
+                };
+            },
+            onEachFeature: function(feature, layer) {
                 layer.bindPopup(`
                     <strong>${feature.properties.name || 'Unnamed Street'}</strong><br>
                     Status: ${feature.properties.driven ? 'Driven' : 'Not driven yet'}
