@@ -29,6 +29,10 @@ import pymongo
 import time
 import logging  # Added import
 from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
+from shapely.ops import linemerge
+from multiprocessing import Pool
+from functools import partial
+from shapely.geometry import mapping
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -1505,6 +1509,137 @@ async def load_historical_data_endpoint():
     end_date = request.json.get('end_date')
     inserted_count = await load_historical_data(start_date, end_date)
     return jsonify({"message": f"Historical data loaded successfully. {inserted_count} new trips inserted."})
+
+
+def process_street_chunk(streets_chunk, all_trips):
+    return streets_chunk.intersects(all_trips)
+
+
+def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
+    try:
+        logger.info("Converting streets to GeoDataFrame...")
+        streets_gdf = gpd.GeoDataFrame.from_features(streets_geojson['features'])
+        streets_gdf.set_crs(epsg=4326, inplace=True)
+        
+        # Convert to a projected CRS for accurate measurements (using UTM)
+        logger.info("Converting to projected CRS...")
+        # Get center point of data to determine UTM zone
+        center_lat = streets_gdf.geometry.centroid.y.mean()
+        center_lon = streets_gdf.geometry.centroid.x.mean()
+        utm_zone = int((center_lon + 180) / 6) + 1
+        utm_crs = f'EPSG:326{utm_zone:02d}' if center_lat >= 0 else f'EPSG:327{utm_zone:02d}'
+        
+        streets_gdf = streets_gdf.to_crs(utm_crs)
+        
+        logger.info("Processing matched trips...")
+        chunk_size = 100
+        all_lines = []
+        
+        for i in range(0, len(matched_trips), chunk_size):
+            chunk = matched_trips[i:i + chunk_size]
+            logger.info(f"Processing chunk {i//chunk_size + 1}/{len(matched_trips)//chunk_size + 1}")
+            
+            for trip in chunk:
+                try:
+                    trip_geom = shape(json.loads(trip['matchedGps']))
+                    if isinstance(trip_geom, LineString):
+                        all_lines.append(trip_geom)
+                    elif isinstance(trip_geom, MultiLineString):
+                        all_lines.extend(list(trip_geom.geoms))
+                except Exception as e:
+                    logger.error(f"Error processing trip: {e}")
+                    continue
+        
+        logger.info("Merging trip lines...")
+        all_trips = linemerge(all_lines)
+        
+        logger.info("Creating trips GeoDataFrame...")
+        trips_gdf = gpd.GeoDataFrame(geometry=[all_trips], crs=4326)
+        trips_gdf = trips_gdf.to_crs(utm_crs)
+        
+        logger.info("Performing spatial join...")
+        joined = gpd.sjoin(streets_gdf, trips_gdf, predicate='intersects', how='left')
+        streets_gdf['driven'] = ~joined.index_right.isna()
+        
+        logger.info("Calculating final statistics...")
+        total_length = streets_gdf.geometry.length.sum()
+        driven_length = streets_gdf[streets_gdf['driven']].geometry.length.sum()
+        coverage_percentage = (driven_length / total_length) * 100
+        
+        # Convert back to WGS84 (EPSG:4326) for GeoJSON output
+        logger.info("Converting back to WGS84 for output...")
+        streets_gdf = streets_gdf.to_crs(epsg=4326)
+        
+        # Ensure valid GeoJSON output
+        geojson_data = {
+            'type': 'FeatureCollection',
+            'features': []
+        }
+        
+        for idx, row in streets_gdf.iterrows():
+            feature = {
+                'type': 'Feature',
+                'geometry': mapping(row.geometry),
+                'properties': {
+                    'driven': bool(row['driven']),
+                    'name': row.get('name', 'Unknown Street')
+                }
+            }
+            geojson_data['features'].append(feature)
+        
+        return {
+            'total_length': float(total_length),
+            'driven_length': float(driven_length),
+            'coverage_percentage': float(coverage_percentage),
+            'streets_data': geojson_data
+        }
+    except Exception as e:
+        logger.error(f"Error in calculate_street_coverage: {str(e)}\n{traceback.format_exc()}")
+        raise
+
+
+@app.route('/api/street_coverage', methods=['POST'])
+def get_street_coverage():
+    try:
+        logger.info("Starting street coverage calculation")
+        location = request.json.get('location')
+        if not location:
+            return jsonify({'error': 'No location provided'}), 400
+            
+        logger.info("Fetching OSM street network...")
+        streets_data, streets_error = generate_geojson_osm(location, streets_only=True)
+        if not streets_data:
+            return jsonify({'error': f'Error getting streets: {streets_error}'}), 500
+            
+        logger.info("Fetching boundary data...")
+        boundary_data, boundary_error = generate_geojson_osm(location, streets_only=False)
+        if not boundary_data:
+            return jsonify({'error': f'Error getting boundary: {boundary_error}'}), 500
+        
+        logger.info("Fetching matched trips...")
+        matched_trips = list(matched_trips_collection.find())
+        logger.info(f"Found {len(matched_trips)} matched trips")
+        
+        if not matched_trips:
+            return jsonify({
+                'total_length': 0,
+                'driven_length': 0,
+                'coverage_percentage': 0,
+                'streets_data': streets_data
+            })
+        
+        logger.info("Calculating coverage...")
+        coverage_data = calculate_street_coverage(
+            boundary_data,
+            streets_data,
+            matched_trips
+        )
+        
+        logger.info("Coverage calculation complete")
+        return jsonify(coverage_data)
+    except Exception as e:
+        logger.error(f"Error in street coverage calculation: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':

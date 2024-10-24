@@ -12,7 +12,15 @@ window.EveryStreet = (function() {
         historicalTrips: { layer: null, visible: false, color: '#03DAC6', order: 2, opacity: 0.4 },
         matchedTrips: { layer: null, visible: false, color: '#CF6679', order: 3, opacity: 0.4 },
         osmBoundary: { layer: null, visible: false, color: '#03DAC6', order: 4, opacity: 0.7 },
-        osmStreets: { layer: null, visible: false, color: '#FF0266', order: 5, opacity: 0.7 }
+        osmStreets: { layer: null, visible: false, color: '#FF0266', order: 5, opacity: 0.7 },
+        streetCoverage: { 
+            layer: null, 
+            visible: true, 
+            color: '#00FF00', 
+            order: 6, 
+            opacity: 0.7,
+            name: 'Street Coverage'
+        }
     };
 
     // Add to the private variables at the top of the IIFE
@@ -600,6 +608,11 @@ window.EveryStreet = (function() {
                 highlightButton.querySelector('.button-text').textContent = 'Enable Recent Trips Highlight';
             }
         }
+
+        const generateCoverageBtn = document.getElementById('generate-coverage');
+        if (generateCoverageBtn) {
+            generateCoverageBtn.addEventListener('click', () => EveryStreet.generateStreetCoverage());
+        }
     }
 
     function fetchMetrics() {
@@ -827,6 +840,87 @@ window.EveryStreet = (function() {
         });
     }
 
+    function visualizeStreetCoverage(coverageData) {
+        if (mapLayers.streetCoverage.layer) {
+            mapLayers.streetCoverage.layer.clearLayers();
+        }
+        
+        mapLayers.streetCoverage.layer = L.geoJSON(coverageData.streets_data, {
+            style: (feature) => ({
+                color: feature.properties.driven ? '#00FF00' : '#FF4444',
+                weight: 3,
+                opacity: feature.properties.driven ? 0.8 : 0.4
+            }),
+            onEachFeature: (feature, layer) => {
+                layer.bindPopup(`
+                    <strong>${feature.properties.name || 'Unnamed Street'}</strong><br>
+                    Status: ${feature.properties.driven ? 'Driven' : 'Not driven yet'}
+                `);
+            }
+        });
+        
+        updateCoverageStats(coverageData);
+        updateMap();
+    }
+
+    // Add helper function to update the coverage stats UI
+    function updateCoverageStats(coverageData) {
+        const statsDiv = document.getElementById('coverage-stats');
+        const progressBar = document.getElementById('coverage-progress');
+        const detailsSpan = document.getElementById('coverage-details');
+        
+        statsDiv.classList.remove('d-none');
+        
+        const percentage = coverageData.coverage_percentage;
+        progressBar.style.width = `${percentage}%`;
+        progressBar.setAttribute('aria-valuenow', percentage);
+        
+        const totalMiles = (coverageData.total_length * 0.000621371).toFixed(2);
+        const drivenMiles = (coverageData.driven_length * 0.000621371).toFixed(2);
+        
+        detailsSpan.innerHTML = `
+            ${percentage.toFixed(1)}% complete<br>
+            ${drivenMiles} / ${totalMiles} miles driven
+        `;
+    }
+
+    function generateStreetCoverage() {
+        if (!window.validatedLocation) {
+            alert('Please validate a location first.');
+            return;
+        }
+        
+        const coverageButton = document.getElementById('generate-coverage');
+        const originalText = coverageButton.innerHTML;
+        coverageButton.disabled = true;
+        coverageButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+        
+        fetch('/api/street_coverage', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ location: window.validatedLocation })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            visualizeStreetCoverage(data);
+        })
+        .catch(error => {
+            console.error('Error generating street coverage:', error);
+            alert('Error generating street coverage. Please try again.');
+        })
+        .finally(() => {
+            coverageButton.disabled = false;
+            coverageButton.innerHTML = originalText;
+        });
+    }
+
     // Public API
     return {
         // Initialization
@@ -836,9 +930,6 @@ window.EveryStreet = (function() {
                 console.log('App already initialized, skipping...');
                 return;
             }
-            
-            // Remove this problematic line that's causing the syntax error
-            // updateLoadingProgress(data.progress);
 
             setInitialDates(); // Set initial dates once
             
@@ -880,6 +971,9 @@ window.EveryStreet = (function() {
         changeLayerOpacity: changeLayerOpacity,
         updateLayerOrder: updateLayerOrder,
         mapSettings: mapSettings,
+        generateStreetCoverage: generateStreetCoverage,
+        updateCoverageStats: updateCoverageStats,
+        visualizeStreetCoverage: visualizeStreetCoverage,
     };
 })();
 
