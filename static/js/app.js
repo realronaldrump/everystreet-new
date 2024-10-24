@@ -41,7 +41,7 @@ window.EveryStreet = (function() {
 
         try {
             map = L.map('map', {
-                center: [37.0902, -95.7129],
+                center: [37.0902, -95.7129], // Default center
                 zoom: 4,
                 zoomControl: true,
                 attributionControl: false
@@ -68,6 +68,17 @@ window.EveryStreet = (function() {
                 [-90, -180],
                 [90, 180]
             ]);
+
+            // Fetch the last point of the most recent trip and center the map
+            fetch('/api/last_trip_point')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.lastPoint) {
+                        const [lng, lat] = data.lastPoint;
+                        map.setView([lat, lng], 12); // Center map on the last point
+                    }
+                })
+                .catch(error => console.error('Error fetching last trip point:', error));
 
             console.log('Map initialized successfully');
         } catch (error) {

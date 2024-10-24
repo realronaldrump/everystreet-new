@@ -1653,6 +1653,27 @@ def get_street_coverage():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/last_trip_point')
+def get_last_trip_point():
+    """Fetch the last point of the most recent trip."""
+    try:
+        # Find the most recent trip
+        most_recent_trip = trips_collection.find_one(
+            sort=[('endTime', pymongo.DESCENDING)]
+        )
+        if not most_recent_trip:
+            return jsonify({"error": "No trips found."}), 404
+
+        # Extract the last point from the GPS data
+        gps_data = geojson_loads(most_recent_trip['gps'])
+        last_point = gps_data['coordinates'][-1]
+
+        return jsonify({"lastPoint": last_point})
+    except Exception as e:
+        logger.error(f"Error fetching last trip point: {str(e)}")
+        return jsonify({"error": "An error occurred while fetching the last trip point."}), 500
+
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
     threading.Timer(1, periodic_fetch_trips).start()
