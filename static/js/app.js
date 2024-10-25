@@ -80,7 +80,7 @@ window.EveryStreet = (function() {
                 })
                 .catch(error => console.error('Error fetching last trip point:', error));
 
-            console.log('Map initialized successfully');
+            
         } catch (error) {
             console.error('Error initializing Leaflet map:', error);
         }
@@ -126,7 +126,7 @@ window.EveryStreet = (function() {
         if (loadingOverlay) {
             loadingOverlay.style.display = 'flex';
         } else {
-            console.log('Loading overlay not found, skipping display');
+            
         }
     }
 
@@ -164,7 +164,7 @@ window.EveryStreet = (function() {
         try {
             const response = await fetch(url);
             const geojson = await response.json();
-            console.log('Received GeoJSON:', geojson);
+            
 
             const trips = geojson.features
                 .filter(feature => feature.properties.imei !== 'HISTORICAL')
@@ -950,7 +950,7 @@ window.EveryStreet = (function() {
         initialize: function() {
             // Guard against multiple initializations
             if (isInitialized) {
-                console.log('App already initialized, skipping...');
+                
                 return;
             }
 
