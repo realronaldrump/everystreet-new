@@ -34,6 +34,8 @@ from multiprocessing import Pool
 from functools import partial
 from shapely.geometry import mapping
 from bson import ObjectId
+from pymongo.errors import DuplicateKeyError
+from bson.objectid import ObjectId
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -62,6 +64,9 @@ try:
 except Exception as mongo_error:
     print(f"Error connecting to MongoDB: {mongo_error}")
     raise
+
+uploaded_trips_collection.create_index('transactionId', unique=True)
+matched_trips_collection.create_index('transactionId', unique=True)
 
 # Bouncie API setup
 CLIENT_ID = os.getenv('CLIENT_ID')
@@ -500,22 +505,27 @@ def get_trips():
     uploaded_trips = list(uploaded_trips_collection.find(query))
     all_trips = regular_trips + uploaded_trips
 
-    return jsonify(geojson_module.FeatureCollection([
-        geojson_module.Feature(
-            geometry=geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps'])),
-            properties={
+    features = []
+    for trip in all_trips:
+        try:
+            geometry = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
+            properties = {
                 'transactionId': trip['transactionId'],
                 'imei': trip.get('imei', 'UPLOAD'),
                 'startTime': trip['startTime'].isoformat(),
                 'endTime': trip['endTime'].isoformat(),
-                'distance': trip.get('distance', 0),
+                'distance': float(trip.get('distance', 0)),  # Ensure distance is a float
                 'timezone': trip.get('timezone', 'America/Chicago'),
                 'destination': trip.get('destination', 'N/A'),
                 'startLocation': trip.get('startLocation', 'N/A'),
                 'source': trip.get('source', 'regular')
             }
-        ) for trip in all_trips
-    ]))
+            feature = geojson_module.Feature(geometry=geometry, properties=properties)
+            features.append(feature)
+        except Exception as e:
+            logger.error(f"Error processing trip {trip.get('transactionId', 'Unknown')}: {e}")
+
+    return jsonify(geojson_module.FeatureCollection(features))
 
 @app.route('/api/driving-insights')
 def get_driving_insights():
@@ -1458,12 +1468,23 @@ def upload_page():
 def meters_to_miles(meters):
     return meters * 0.000621371  # Convert meters to miles
 
+def calculate_gpx_distance(coordinates):
+    """Calculate distance in meters between a series of [lon, lat] coordinates"""
+    total_distance = 0
+    for i in range(len(coordinates) - 1):
+        lon1, lat1 = coordinates[i]
+        lon2, lat2 = coordinates[i + 1]
+        # Calculate distance using haversine formula
+        distance = gpxpy.geo.haversine_distance(lat1, lon1, lat2, lon2)
+        total_distance += distance
+    return total_distance
+
 @app.route('/api/upload_gpx', methods=['POST'])
 async def upload_gpx():
     try:
         files = request.files.getlist('files[]')
         uploaded_trips = []
-
+        
         for file in files:
             gpx_data = file.read()
             gpx = gpxpy.parse(gpx_data)
@@ -1472,6 +1493,7 @@ async def upload_gpx():
                 for segment in track.segments:
                     coordinates = [[point.longitude, point.latitude] for point in segment.points]
                     if len(coordinates) < 2:
+                        logger.warning(f"Segment in {file.filename} has less than 2 points. Skipping.")
                         continue
 
                     points_with_time = [point for point in segment.points if point.time]
@@ -1487,16 +1509,20 @@ async def upload_gpx():
                         'coordinates': coordinates
                     }
 
-                    # Calculate distance in meters and convert to miles
-                    distance_meters = gpxpy.geo.length_2d(segment.points)
+                    # Calculate distance using the coordinates
+                    distance_meters = calculate_gpx_distance(coordinates)
                     distance_miles = meters_to_miles(distance_meters)
+
+                    logger.info(f"Processing file: {file.filename}")
+                    logger.info(f"Number of points: {len(coordinates)}")
+                    logger.info(f"Distance calculated: {distance_meters} meters ({distance_miles} miles)")
 
                     trip = {
                         'transactionId': f"GPX-{start_time.strftime('%Y%m%d%H%M%S')}-{file.filename}",
                         'startTime': start_time,
                         'endTime': end_time,
                         'gps': json.dumps(gps_data),
-                        'distance': round(distance_miles, 2),  # Round to 2 decimal places
+                        'distance': round(distance_miles, 2),
                         'source': 'upload',
                         'filename': file.filename
                     }
@@ -1507,8 +1533,17 @@ async def upload_gpx():
                     trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
                     trip['destination'] = await reverse_geocode_nominatim(end_point[1], end_point[0])
 
-                    uploaded_trips.append(trip)
-                    uploaded_trips_collection.insert_one(trip)
+                    # Prevent duplicate trips by using upsert
+                    try:
+                        uploaded_trips_collection.update_one(
+                            {'transactionId': trip['transactionId']},
+                            {'$set': trip},
+                            upsert=True
+                        )
+                        uploaded_trips.append(trip)
+                    except DuplicateKeyError:
+                        logger.warning(f"Duplicate trip encountered: {trip['transactionId']}. Skipping.")
+                        continue
 
         return jsonify({
             'status': 'success',
@@ -1542,6 +1577,47 @@ def delete_uploaded_trip(trip_id):
     except Exception as e:
         logger.error(f"Error deleting uploaded trip: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/uploaded_trips/bulk_delete', methods=['DELETE'])
+def bulk_delete_uploaded_trips():
+    try:
+        data = request.json
+        trip_ids = data.get('trip_ids', [])
+        if not trip_ids:
+            return jsonify({'status': 'error', 'message': 'No trip IDs provided.'}), 400
+
+        # Convert trip_ids to ObjectId, handle invalid IDs
+        valid_trip_ids = []
+        for trip_id in trip_ids:
+            try:
+                valid_trip_ids.append(ObjectId(trip_id))
+            except:
+                continue  # skip invalid IDs
+
+        if not valid_trip_ids:
+            return jsonify({'status': 'error', 'message': 'No valid trip IDs provided.'}), 400
+
+        # Find trips to be deleted
+        trips_to_delete = uploaded_trips_collection.find({'_id': {'$in': valid_trip_ids}})
+        transaction_ids = [trip['transactionId'] for trip in trips_to_delete]
+
+        # Delete from uploaded_trips_collection
+        delete_result = uploaded_trips_collection.delete_many({'_id': {'$in': valid_trip_ids}})
+
+        # Delete from matched_trips_collection
+        if transaction_ids:
+            matched_delete_result = matched_trips_collection.delete_many({'transactionId': {'$in': transaction_ids}})
+        else:
+            matched_delete_result = None
+
+        return jsonify({
+            'status': 'success',
+            'deleted_uploaded_trips': delete_result.deleted_count,
+            'deleted_matched_trips': matched_delete_result.deleted_count if matched_delete_result else 0
+        })
+    except Exception as e:
+        logger.error(f"Error in bulk_delete_uploaded_trips: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while deleting trips.'}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))

@@ -26,3 +26,4 @@ olddrivingdata/historical_data_*.geojson
 olddrivingdata/*.geojson
 drivingdatainapi/*.geojson
 gpxexamples/
+database_utilities.py

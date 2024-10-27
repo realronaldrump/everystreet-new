@@ -60,7 +60,8 @@ function populateTripsTable(trips) {
         .map(trip => ({
             ...trip.properties,
             gps: trip.geometry,
-            destination: trip.properties.destination || 'N/A'
+            destination: trip.properties.destination || 'N/A',
+            distance: parseFloat(trip.distance).toFixed(2)  // Ensure distance is a number with 2 decimal places
         }));
     tripsTable.clear().rows.add(formattedTrips).draw();
 }

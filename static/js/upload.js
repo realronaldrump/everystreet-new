@@ -71,7 +71,7 @@ function parseGPX(file, gpxContent) {
         let trkpt = trkpts[i];
         let lat = parseFloat(trkpt.getAttribute('lat'));
         let lon = parseFloat(trkpt.getAttribute('lon'));
-        coordinates.push([lat, lon]);
+        coordinates.push([lon, lat]);  // GeoJSON format expects [longitude, latitude]
         let timeElems = trkpt.getElementsByTagName('time');
         if (timeElems.length > 0) {
             times.push(new Date(timeElems[0].textContent));
@@ -123,7 +123,8 @@ function updatePreviewMap() {
     previewLayer.clearLayers();
 
     selectedFiles.forEach((entry) => {
-        let latlngs = entry.coordinates.map(coord => [coord[0], coord[1]]);
+        // Swap [lon, lat] to [lat, lon] for Leaflet
+        let latlngs = entry.coordinates.map(coord => [coord[1], coord[0]]);
         let polyline = L.polyline(latlngs, { color: 'red' }).addTo(previewLayer);
 
         polyline.on('click', () => {
@@ -218,32 +219,144 @@ function displayUploadedTrips(trips) {
     let tbody = document.getElementById('historicalTripsBody');
     tbody.innerHTML = '';
 
-    trips.forEach(trip => {
+    trips.forEach((trip, index) => {
         let row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${trip.transactionId}</td>
-            <td>${trip.filename}</td>
-            <td>${trip.startTime ? new Date(trip.startTime).toLocaleString() : '-'}</td>
-            <td>${trip.endTime ? new Date(trip.endTime).toLocaleString() : '-'}</td>
-            <td>${trip.source || 'upload'}</td>
-            <td><button class="btn btn-sm btn-danger" onclick="deleteUploadedTrip('${trip._id}')">Delete</button></td>
-        `;
+        
+        // Checkbox cell
+        let checkboxCell = document.createElement('td');
+        let checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.classList.add('trip-checkbox');
+        checkbox.value = trip._id;
+        checkboxCell.appendChild(checkbox);
+        row.appendChild(checkboxCell);
+
+        // Transaction ID
+        let transactionIdCell = document.createElement('td');
+        transactionIdCell.textContent = trip.transactionId;
+        row.appendChild(transactionIdCell);
+
+        // Filename
+        let filenameCell = document.createElement('td');
+        filenameCell.textContent = trip.filename;
+        row.appendChild(filenameCell);
+
+        // Start Time
+        let startTimeCell = document.createElement('td');
+        startTimeCell.textContent = trip.startTime ? new Date(trip.startTime).toLocaleString() : '-';
+        row.appendChild(startTimeCell);
+
+        // End Time
+        let endTimeCell = document.createElement('td');
+        endTimeCell.textContent = trip.endTime ? new Date(trip.endTime).toLocaleString() : '-';
+        row.appendChild(endTimeCell);
+
+        // Source
+        let sourceCell = document.createElement('td');
+        sourceCell.textContent = trip.source || 'upload';
+        row.appendChild(sourceCell);
+
+        // Actions
+        let actionsCell = document.createElement('td');
+        let deleteButton = document.createElement('button');
+        deleteButton.classList.add('btn', 'btn-sm', 'btn-danger');
+        deleteButton.textContent = 'Delete';
+        deleteButton.onclick = () => deleteUploadedTrip(trip._id);
+        actionsCell.appendChild(deleteButton);
+        row.appendChild(actionsCell);
+
         tbody.appendChild(row);
+    });
+
+    // Update event listeners for checkboxes and 'select all'
+    addCheckboxEventListeners();
+
+    updateBulkDeleteButtonState();
+}
+
+function addCheckboxEventListeners() {
+    const selectAllCheckbox = document.getElementById('select-all');
+    selectAllCheckbox.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.trip-checkbox');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateBulkDeleteButtonState();
+    });
+
+    const individualCheckboxes = document.querySelectorAll('.trip-checkbox');
+    individualCheckboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            const allCheckboxes = document.querySelectorAll('.trip-checkbox');
+            const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+            selectAllCheckbox.checked = allChecked;
+            updateBulkDeleteButtonState();
+        });
     });
 }
 
+function updateBulkDeleteButtonState() {
+    const selectedCheckboxes = document.querySelectorAll('.trip-checkbox:checked');
+    const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+    bulkDeleteBtn.disabled = selectedCheckboxes.length === 0;
+
+    // Add event listener if not already added
+    if (!bulkDeleteBtn.dataset.listenerAdded) {
+        bulkDeleteBtn.addEventListener('click', bulkDeleteTrips);
+        bulkDeleteBtn.dataset.listenerAdded = true;
+    }
+}
+
+function bulkDeleteTrips() {
+    const selectedCheckboxes = document.querySelectorAll('.trip-checkbox:checked');
+    const tripIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+
+    if (tripIds.length === 0) {
+        alert('No trips selected for deletion.');
+        return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${tripIds.length} selected trips?`)) {
+        return;
+    }
+
+    fetch('/api/uploaded_trips/bulk_delete', {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ trip_ids: tripIds })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert(`${data.deleted_uploaded_trips} uploaded trips and ${data.deleted_matched_trips} matched trips deleted successfully.`);
+            loadUploadedTrips();
+        } else {
+            alert('Error deleting trips: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting trips:', error);
+        alert('An error occurred while deleting trips.');
+    });
+}
+
+// Ensure that individual trip deletion also removes the corresponding matched trip
 function deleteUploadedTrip(tripId) {
     if (!confirm('Are you sure you want to delete this trip?')) {
         return;
     }
 
-    fetch(`/api/uploaded_trips/${tripId}`, {
-        method: 'DELETE'
+    fetch('/api/uploaded_trips/bulk_delete', {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ trip_ids: [tripId] })
     })
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            alert(data.message);
+            alert(`Trip deleted successfully. Matched trips deleted: ${data.deleted_matched_trips}`);
             loadUploadedTrips();
         } else {
             alert('Error deleting trip: ' + data.message);

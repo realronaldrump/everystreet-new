@@ -76,6 +76,7 @@
                         <table class="table table-dark" id="historicalTripsTable">
                             <thead>
                                 <tr>
+                                    <th><input type="checkbox" id="select-all"></th>
                                     <th>Transaction ID</th>
                                     <th>Filename</th>
                                     <th>Start Time</th>
@@ -87,6 +88,7 @@
                             <tbody id="historicalTripsBody"></tbody>
                         </table>
                     </div>
+                    <button id="bulk-delete-btn" class="btn btn-danger mt-3" disabled>Delete Selected</button>
                 </div>
             </div>
         </div>

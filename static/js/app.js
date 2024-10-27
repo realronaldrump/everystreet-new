@@ -239,7 +239,7 @@ window.EveryStreet = (function() {
                             <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
                             <strong>Start Time:</strong> ${startTime.toLocaleString()}<br>
                             <strong>End Time:</strong> ${endTime.toLocaleString()}<br>
-                            <strong>Distance:</strong> ${feature.properties.distance.toFixed(2)} miles
+                            <strong>Distance:</strong> ${parseFloat(feature.properties.distance).toFixed(2)} miles
                             ${shouldHighlight ? '<br><strong>(Recent Trip)</strong>' : ''}
                         `);
                     }
