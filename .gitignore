@@ -25,3 +25,4 @@ drivingdatainapi/historical_data_*.geojson
 olddrivingdata/historical_data_*.geojson
 olddrivingdata/*.geojson
 drivingdatainapi/*.geojson
+gpxexamples/
