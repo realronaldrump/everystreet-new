@@ -25,7 +25,7 @@ function initializeDataTable() {
             { data: 'startTime', title: 'Start Time', render: formatDateTime },
             { data: 'endTime', title: 'End Time', render: formatDateTime },
             { data: 'distance', title: 'Distance (miles)', render: formatDistance },
-            { data: 'destination', title: 'Destination' },
+            { data: 'destination', title: 'Destination', render: formatDestination },
             { data: 'startLocation', title: 'Start Location' }
         ],
         order: [[2, 'desc']]
@@ -42,6 +42,13 @@ function formatDateTime(data, type, row) {
 
 function formatDistance(data, type) {
     return type === 'display' ? parseFloat(data).toFixed(2) : data;
+}
+
+function formatDestination(data, type, row) {
+    if (type === 'display') {
+        return `${data} ${row.isCustomPlace ? '<span class="badge bg-primary">Custom Place</span>' : ''}`;
+    }
+    return data;
 }
 
 function fetchTrips() {
@@ -61,8 +68,10 @@ function populateTripsTable(trips) {
             ...trip.properties,
             gps: trip.geometry,
             destination: trip.properties.destination || 'N/A',
-            distance: parseFloat(trip.distance).toFixed(2)  // Ensure distance is a number with 2 decimal places
+            isCustomPlace: trip.properties.isCustomPlace || false,
+            distance: parseFloat(trip.distance).toFixed(2)
         }));
+
     tripsTable.clear().rows.add(formattedTrips).draw();
 }
 

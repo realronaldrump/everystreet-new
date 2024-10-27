@@ -133,8 +133,12 @@ function updateSummaryMetrics(data) {
         const mostVisitedDestination = data.reduce((prev, current) => 
             (prev.count > current.count) ? prev : current
         );
-        document.getElementById('most-visited').textContent = 
-            `${mostVisitedDestination._id} (${mostVisitedDestination.count} visits)`;
+        const destinationName = mostVisitedDestination._id;
+        const isCustomPlace = mostVisitedDestination.isCustomPlace;
+        
+        document.getElementById('most-visited').innerHTML = 
+            `${destinationName} ${isCustomPlace ? '<span class="badge bg-primary">Custom Place</span>' : ''} ` +
+            `(${mostVisitedDestination.count} visits)`;
     }
 }
 
@@ -165,10 +169,15 @@ function initializeDataTable() {
 }
 
 function updateDataTable(data) {
-    if (!Array.isArray(data) || !insightsTable) return;
-    
-    insightsTable.clear();
-    insightsTable.rows.add(data).draw();
+    const tableData = data.map(item => ({
+        destination: item._id,
+        visits: item.count,
+        lastVisit: new Date(item.lastVisit).toLocaleDateString(),
+        avgTime: (item.totalTime / item.count).toFixed(1),
+        isCustomPlace: item.isCustomPlace
+    }));
+
+    insightsTable.clear().rows.add(tableData).draw();
 }
 
 function getFilterParams() {

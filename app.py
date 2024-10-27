@@ -36,6 +36,7 @@ from shapely.geometry import mapping
 from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
 from bson.objectid import ObjectId
+from shapely.geometry import shape, Point, Polygon
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -555,27 +556,71 @@ def get_driving_insights():
         if imei:
             query['imei'] = imei
 
+        # Get regular trip statistics
         pipeline = [
             {'$match': query},
             {
                 '$group': {
                     '_id': '$destination',
                     'count': {'$sum': 1},
-                    'lastVisit': {'$max': '$endTime'}
+                    'lastVisit': {'$max': '$endTime'},
+                    'totalTime': {
+                        '$sum': {
+                            '$divide': [
+                                {'$subtract': ['$endTime', '$startTime']},
+                                60000  # Convert to minutes
+                            ]
+                        }
+                    }
                 }
             },
             {'$sort': {'count': -1}}
         ]
 
-        insights = list(trips_collection.aggregate(pipeline))
+        results = list(trips_collection.aggregate(pipeline))
         
+        # Add custom places statistics
+        for place in places_collection.find():
+            place_shape = shape(place['geometry'])
+            visits = []
+            total_time = 0
+            last_visit = None
+            
+            for trip in trips_collection.find(query):
+                try:
+                    gps_data = geojson_loads(trip['gps'])
+                    last_point = Point(gps_data['coordinates'][-1])
+                    
+                    if place_shape.contains(last_point):
+                        duration = (trip['endTime'] - trip['startTime']).total_seconds() / 60
+                        visits.append({
+                            'date': trip['endTime'],
+                            'duration': duration
+                        })
+                        total_time += duration
+                        if not last_visit or trip['endTime'] > last_visit:
+                            last_visit = trip['endTime']
+                except Exception as e:
+                    logger.error(f"Error processing trip for place {place['name']}: {e}")
+            
+            if visits:
+                results.append({
+                    '_id': place['name'],
+                    'count': len(visits),
+                    'lastVisit': last_visit,
+                    'totalTime': total_time,
+                    'isCustomPlace': True
+                })
+
         formatted_results = []
-        for result in insights:
-            if result['_id']:
+        for result in results:
+            if result['_id']:  # Skip entries with no destination
                 formatted_results.append({
                     '_id': result['_id'],
                     'count': result['count'],
-                    'lastVisit': result['lastVisit'].isoformat()
+                    'lastVisit': result['lastVisit'].isoformat(),
+                    'totalTime': result['totalTime'],
+                    'isCustomPlace': result.get('isCustomPlace', False)
                 })
 
         return jsonify(formatted_results)
@@ -1635,20 +1680,19 @@ def handle_places():
         places = list(places_collection.find())
         return jsonify([{
             '_id': str(place['_id']),
-            'name': place['name'],
-            'geometry': place['geometry']
+            **CustomPlace.from_dict(place).to_dict()
         } for place in places])
     
     elif request.method == 'POST':
         place_data = request.json
-        result = places_collection.insert_one({
-            'name': place_data['name'],
-            'geometry': place_data['geometry']
-        })
+        place = CustomPlace(
+            name=place_data['name'],
+            geometry=place_data['geometry']
+        )
+        result = places_collection.insert_one(place.to_dict())
         return jsonify({
             '_id': str(result.inserted_id),
-            'name': place_data['name'],
-            'geometry': place_data['geometry']
+            **place.to_dict()
         })
 
 @app.route('/api/places/<place_id>', methods=['DELETE'])
@@ -1663,27 +1707,53 @@ def place_statistics(place_id):
         return jsonify({'error': 'Place not found'}), 404
 
     place_shape = shape(place['geometry'])
-    
-    # Find trips that end within this place
     visits = []
+    total_time_spent = 0
+
     for trip in trips_collection.find():
         try:
             gps_data = geojson_loads(trip['gps'])
             last_point = Point(gps_data['coordinates'][-1])
             
             if place_shape.contains(last_point):
-                visits.append({
+                visit_data = {
                     'date': trip['endTime'],
-                    'tripId': str(trip['_id'])
-                })
+                    'tripId': str(trip['_id']),
+                    'duration': (trip['endTime'] - trip['startTime']).total_seconds() / 60  # minutes
+                }
+                visits.append(visit_data)
+                total_time_spent += visit_data['duration']
         except Exception as e:
             print(f"Error processing trip: {e}")
     
     return jsonify({
         'totalVisits': len(visits),
         'lastVisit': max(visit['date'] for visit in visits) if visits else None,
+        'averageTimeSpent': total_time_spent / len(visits) if visits else 0,
         'visits': visits
     })
+
+async def process_trip_destination(trip):
+    gps_data = geojson_loads(trip['gps'])
+    last_point = Point(gps_data['coordinates'][-1])
+    
+    # Check custom places first
+    custom_place = places_collection.find_one({
+        'geometry': {
+            '$geoIntersects': {
+                '$geometry': {
+                    'type': 'Point',
+                    'coordinates': [last_point.x, last_point.y]
+                }
+            }
+        }
+    })
+    
+    if custom_place:
+        return custom_place['name']
+    
+    # Fall back to reverse geocoding
+    return await reverse_geocode_nominatim(last_point.y, last_point.x)
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
