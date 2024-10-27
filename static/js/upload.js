@@ -5,16 +5,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize map
     function initializePreviewMap() {
-        previewMap = L.map('previewMap', {
-            center: [37.0902, -95.7129],
-            zoom: 4
-        });
+        if (!previewMap) {
+            previewMap = L.map('previewMap', {
+                center: [37.0902, -95.7129],
+                zoom: 4
+            });
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19
-        }).addTo(previewMap);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(previewMap);
 
-        previewLayerGroup = L.layerGroup().addTo(previewMap);
+            previewLayerGroup = L.featureGroup().addTo(previewMap);
+        }
     }
 
     // Initialize drag and drop
@@ -225,7 +227,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 }
                 alert('Files uploaded successfully!');
-                window.location.href = '/';
+                
+                // Refresh the historical trips table
+                await loadHistoricalTrips();
+                
+                // Refresh the main map if EveryStreet.refreshMap exists
+                if (window.EveryStreet && window.EveryStreet.refreshMap) {
+                    window.EveryStreet.refreshMap();
+                }
+                
+                // Clear the upload form
+                files.clear();
+                updateFileList();
+                updatePreviewMap();
+                updateUploadSummary();
+                
             } else {
                 alert('Error uploading files: ' + result.message);
             }
@@ -263,4 +279,144 @@ document.addEventListener('DOMContentLoaded', function() {
             console.warn('Loading overlay element not found');
         }
     }
+
+    // Add to your existing upload.js file
+    async function loadHistoricalTrips() {
+        try {
+            const response = await fetch('/api/historical_trips');
+            const data = await response.json();
+            
+            if (!data.trips) {
+                console.error('No trips data in response:', data);
+                return;
+            }
+
+            const tbody = document.getElementById('historicalTripsBody');
+            tbody.innerHTML = '';
+
+            data.trips.forEach(trip => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${trip.transactionId}</td>
+                    <td>${trip.filename}</td>
+                    <td>${new Date(trip.startTime).toLocaleString()}</td>
+                    <td>${new Date(trip.endTime).toLocaleString()}</td>
+                    <td>${trip.source}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info me-2" onclick="editTrip('${trip.id}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteTrip('${trip.id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        } catch (error) {
+            console.error('Error loading historical trips:', error);
+        }
+    }
+
+    async function deleteTrip(tripId) {
+        if (confirm('Are you sure you want to delete this trip?')) {
+            try {
+                const response = await fetch(`/api/historical_trips/${tripId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    loadHistoricalTrips();
+                } else {
+                    alert('Error deleting trip: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error deleting trip:', error);
+                alert('Error deleting trip');
+            }
+        }
+    }
+
+    async function editTrip(tripId) {
+        // Create a modal for editing
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.id = 'editTripModal';
+        modal.innerHTML = `
+            <div class="modal-dialog">
+                <div class="modal-content bg-dark">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Trip</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editTripForm">
+                            <div class="mb-3">
+                                <label class="form-label">Transaction ID</label>
+                                <input type="text" class="form-control" id="editTransactionId" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Filename</label>
+                                <input type="text" class="form-control" id="editFilename">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Source</label>
+                                <input type="text" class="form-control" id="editSource">
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" onclick="saveTrip('${tripId}')">Save changes</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        const modalInstance = new bootstrap.Modal(modal);
+        modalInstance.show();
+
+        // Load trip data
+        const response = await fetch(`/api/historical_trips/${tripId}`);
+        const trip = await response.json();
+        
+        document.getElementById('editTransactionId').value = trip.transactionId;
+        document.getElementById('editFilename').value = trip.filename;
+        document.getElementById('editSource').value = trip.source;
+    }
+
+    async function saveTrip(tripId) {
+        const updates = {
+            filename: document.getElementById('editFilename').value,
+            source: document.getElementById('editSource').value
+        };
+
+        try {
+            const response = await fetch(`/api/historical_trips/${tripId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updates)
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editTripModal'));
+                modal.hide();
+                loadHistoricalTrips();
+            } else {
+                alert('Error updating trip: ' + result.message);
+            }
+        } catch (error) {
+            console.error('Error updating trip:', error);
+            alert('Error updating trip');
+        }
+    }
+
+    // Call loadHistoricalTrips when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        loadHistoricalTrips();
+    });
 });

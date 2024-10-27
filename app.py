@@ -33,6 +33,7 @@ from shapely.ops import linemerge
 from multiprocessing import Pool
 from functools import partial
 from shapely.geometry import mapping
+from bson import ObjectId
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -495,35 +496,42 @@ def get_trips():
             query['imei'] = imei
 
         trips = list(trips_collection.find(query))
-
         historical_query = query.copy()
-        if 'imei' in historical_query:
-            del historical_query['imei']
+        historical_query['imei'] = 'HISTORICAL'
         historical_trips = list(historical_trips_collection.find(historical_query))
+        
         trips.extend(historical_trips)
 
+        features = []
         for trip in trips:
-            trip['startTime'] = trip['startTime'].astimezone(pytz.timezone('America/Chicago'))
-            trip['endTime'] = trip['endTime'].astimezone(pytz.timezone('America/Chicago'))
+            # Skip trips without required fields
+            if not all(key in trip for key in ['gps', 'startTime', 'endTime']):
+                logger.warning(f"Skipping trip due to missing required fields: {trip.get('_id')}")
+                continue
 
-        return jsonify(geojson_module.FeatureCollection([
-            geojson_module.Feature(
-                geometry=geojson_loads(trip['gps']) if isinstance(trip['gps'], str) else trip['gps'],
-                properties={
-                    'transactionId': trip['transactionId'],
-                    'imei': trip['imei'],
-                    'startTime': trip['startTime'].isoformat(),
-                    'endTime': trip['endTime'].isoformat(),
-                    'distance': trip.get('distance', 0),
-                    'timezone': trip.get('timezone', 'America/Chicago'),
-                    'destination': trip.get('destination', 'N/A'),
-                    'startLocation': trip.get('startLocation', 'N/A')
-                }
-            ) for trip in trips
-        ]))
+            try:
+                feature = geojson_module.Feature(
+                    geometry=geojson_loads(trip['gps']) if isinstance(trip['gps'], str) else trip['gps'],
+                    properties={
+                        'transactionId': trip.get('transactionId', str(trip['_id'])),  # Use _id if no transactionId
+                        'imei': trip.get('imei', 'unknown'),
+                        'startTime': trip['startTime'].isoformat(),
+                        'endTime': trip['endTime'].isoformat(),
+                        'distance': trip.get('distance', 0),
+                        'timezone': trip.get('timezone', 'America/Chicago'),
+                        'destination': trip.get('destination', 'N/A'),
+                        'startLocation': trip.get('startLocation', 'N/A')
+                    }
+                )
+                features.append(feature)
+            except Exception as e:
+                logger.warning(f"Error processing trip {trip.get('_id')}: {str(e)}")
+                continue
+
+        return jsonify(geojson_module.FeatureCollection(features))
 
     except Exception as e:
-        print(f"Error in get_trips: {str(e)}")
+        logger.error(f"Error in get_trips: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/driving-insights')
@@ -1465,7 +1473,7 @@ def upload_page():
     return render_template('upload.html')
 
 @app.route('/api/upload_gpx', methods=['POST'])
-def upload_gpx():
+async def upload_gpx():
     try:
         if 'files' not in request.files:
             return jsonify({'success': False, 'message': 'No files provided'})
@@ -1473,6 +1481,8 @@ def upload_gpx():
         uploaded_files = request.files.getlist('files')
         processed_count = 0
         trip_ids = []
+
+        current_count = historical_trips_collection.count_documents({})
 
         for file in uploaded_files:
             if file.filename.endswith('.gpx'):
@@ -1488,24 +1498,35 @@ def upload_gpx():
                             times.append(point.time)
 
                         if points:
-                            # Generate a unique transaction ID
-                            transaction_id = f"GPX_{int(time.time())}_{os.urandom(4).hex()}"
+                            current_count += 1
+                            trip_date = times[0].strftime('%Y%m%d')
+                            transaction_id = f"{trip_date}_{current_count:04d}"
                             
-                            # Create GeoJSON structure
                             gps_geojson = {
                                 'type': 'LineString',
                                 'coordinates': points
                             }
                             
+                            # Get timezone from first point
+                            tf = TimezoneFinder()
+                            timezone_str = tf.timezone_at(lat=points[0][1], lng=points[0][0]) or 'America/Chicago'
+                            
                             trip_data = {
                                 'imei': 'HISTORICAL',
                                 'startTime': times[0],
                                 'endTime': times[-1],
-                                'gps': json.dumps(gps_geojson),  # Convert to JSON string
+                                'gps': json.dumps(gps_geojson),
                                 'source': 'gpx_upload',
                                 'filename': file.filename,
-                                'transactionId': transaction_id
+                                'transactionId': transaction_id,
+                                'timezone': timezone_str
                             }
+
+                            # Add geocoding for start and end points
+                            trip_data['startGeoPoint'] = points[0]
+                            trip_data['destinationGeoPoint'] = points[-1]
+                            trip_data['startLocation'] = await reverse_geocode_nominatim(points[0][1], points[0][0])
+                            trip_data['destination'] = await reverse_geocode_nominatim(points[-1][1], points[-1][0])
                             
                             result = historical_trips_collection.insert_one(trip_data)
                             trip_ids.append(str(result.inserted_id))
@@ -1523,6 +1544,51 @@ def upload_gpx():
             'success': False,
             'message': str(e)
         }), 500
+
+@app.route('/api/historical_trips')
+def get_historical_trips():
+    try:
+        historical_trips = historical_trips_collection.find({'imei': 'HISTORICAL'})
+        trips_list = []
+        
+        for trip in historical_trips:
+            trips_list.append({
+                'id': str(trip['_id']),
+                'transactionId': trip.get('transactionId', ''),
+                'filename': trip.get('filename', 'N/A'),
+                'startTime': trip['startTime'].isoformat() if isinstance(trip['startTime'], datetime) else trip['startTime'],
+                'endTime': trip['endTime'].isoformat() if isinstance(trip['endTime'], datetime) else trip['endTime'],
+                'source': trip.get('source', 'gpx_upload')
+            })
+            
+        return jsonify({'trips': trips_list})
+    except Exception as e:
+        logger.error(f"Error fetching historical trips: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/historical_trips/<trip_id>', methods=['DELETE'])
+def delete_historical_trip(trip_id):
+    try:
+        result = historical_trips_collection.delete_one({'_id': ObjectId(trip_id)})
+        if result.deleted_count:
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'message': 'Trip not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/historical_trips/<trip_id>', methods=['PUT'])
+def update_historical_trip(trip_id):
+    try:
+        updates = request.json
+        result = historical_trips_collection.update_one(
+            {'_id': ObjectId(trip_id)},
+            {'$set': updates}
+        )
+        if result.modified_count:
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'message': 'Trip not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
