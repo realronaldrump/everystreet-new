@@ -83,6 +83,27 @@ API_BASE_URL = "https://api.bouncie.dev/v1"
 
 OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
+class CustomPlace:
+    def __init__(self, name, geometry, created_at=None):
+        self.name = name
+        self.geometry = geometry
+        self.created_at = created_at or datetime.utcnow()
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'geometry': self.geometry,
+            'created_at': self.created_at
+        }
+
+    @staticmethod
+    def from_dict(data):
+        return CustomPlace(
+            name=data['name'],
+            geometry=data['geometry'],
+            created_at=data.get('created_at', datetime.utcnow())
+        )
+
 # Initialize TimezoneFinder
 tf = TimezoneFinder()
 
