@@ -646,3 +646,51 @@ body.sidebar-collapsed {
 .file-item .progress {
     height: 4px;
 }
+
+.leaflet-draw-tooltip {
+    background: rgb(54, 54, 54);
+    background: rgba(54, 54, 54, 0.9);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: #fff;
+    font: 12px/18px "Helvetica Neue", Arial, Helvetica, sans-serif;
+    margin-left: 20px;
+    margin-top: -21px;
+    padding: 4px 8px;
+    position: absolute;
+    white-space: nowrap;
+    z-index: 6;
+}
+
+.custom-place-popup .leaflet-popup-content-wrapper {
+    background: rgba(54, 54, 54, 0.9);
+    color: #fff;
+}
+
+.custom-place-popup .leaflet-popup-tip {
+    background: rgba(54, 54, 54, 0.9);
+}
+
+.place-marker {
+    background-color: rgba(187, 134, 252, 0.8);
+    border: 2px solid #fff;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+#manage-places-modal .modal-content {
+    background-color: #1e1e1e;
+    color: #fff;
+}
+
+#manage-places-modal .modal-header {
+    border-bottom: 1px solid #333;
+}
+
+#manage-places-modal .modal-footer {
+    border-top: 1px solid #333;
+}
+
+#manage-places-modal .close {
+    color: #fff;
+}

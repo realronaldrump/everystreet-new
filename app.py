@@ -14,7 +14,7 @@ import traceback
 from timezonefinder import TimezoneFinder
 import pytz
 import asyncio
-from shapely.geometry import Polygon, LineString, MultiPolygon, MultiLineString, shape
+from shapely.geometry import Polygon, LineString, MultiPolygon, MultiLineString, shape, Point
 import geopandas as gpd
 import requests
 import glob
@@ -60,6 +60,7 @@ try:
     matched_trips_collection = db['matched_trips']
     historical_trips_collection = db['historical_trips']
     uploaded_trips_collection = db['uploaded_trips']
+    places_collection = db['places']
     print("Successfully connected to MongoDB")
 except Exception as mongo_error:
     print(f"Error connecting to MongoDB: {mongo_error}")
@@ -1627,6 +1628,62 @@ def bulk_delete_uploaded_trips():
     except Exception as e:
         logger.error(f"Error in bulk_delete_uploaded_trips: {e}")
         return jsonify({'status': 'error', 'message': 'An error occurred while deleting trips.'}), 500
+
+@app.route('/api/places', methods=['GET', 'POST'])
+def handle_places():
+    if request.method == 'GET':
+        places = list(places_collection.find())
+        return jsonify([{
+            '_id': str(place['_id']),
+            'name': place['name'],
+            'geometry': place['geometry']
+        } for place in places])
+    
+    elif request.method == 'POST':
+        place_data = request.json
+        result = places_collection.insert_one({
+            'name': place_data['name'],
+            'geometry': place_data['geometry']
+        })
+        return jsonify({
+            '_id': str(result.inserted_id),
+            'name': place_data['name'],
+            'geometry': place_data['geometry']
+        })
+
+@app.route('/api/places/<place_id>', methods=['DELETE'])
+def delete_place(place_id):
+    places_collection.delete_one({'_id': ObjectId(place_id)})
+    return '', 204
+
+@app.route('/api/places/<place_id>/statistics')
+def place_statistics(place_id):
+    place = places_collection.find_one({'_id': ObjectId(place_id)})
+    if not place:
+        return jsonify({'error': 'Place not found'}), 404
+
+    place_shape = shape(place['geometry'])
+    
+    # Find trips that end within this place
+    visits = []
+    for trip in trips_collection.find():
+        try:
+            gps_data = geojson_loads(trip['gps'])
+            last_point = Point(gps_data['coordinates'][-1])
+            
+            if place_shape.contains(last_point):
+                visits.append({
+                    'date': trip['endTime'],
+                    'tripId': str(trip['_id'])
+                })
+        except Exception as e:
+            print(f"Error processing trip: {e}")
+    
+    return jsonify({
+        'totalVisits': len(visits),
+        'lastVisit': max(visit['date'] for visit in visits) if visits else None,
+        'visits': visits
+    })
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
