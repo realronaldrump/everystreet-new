@@ -480,46 +480,51 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
 
 @app.route('/api/trips')
 def get_trips():
-    start_date_str = request.args.get('start_date')
-    end_date_str = request.args.get('end_date')
-    imei = request.args.get('imei')
+    try:
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        imei = request.args.get('imei')
 
-    start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
-    end_date = datetime.fromisoformat(end_date_str).replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) if end_date_str else None
+        start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc) if start_date_str else None
+        end_date = datetime.fromisoformat(end_date_str).replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc) if end_date_str else None
 
-    query = {}
-    if start_date and end_date:
-        query['startTime'] = {'$gte': start_date, '$lte': end_date}
-    if imei:
-        query['imei'] = imei
+        query = {}
+        if start_date and end_date:
+            query['startTime'] = {'$gte': start_date, '$lte': end_date}
+        if imei:
+            query['imei'] = imei
 
-    trips = list(trips_collection.find(query))
+        trips = list(trips_collection.find(query))
 
-    historical_query = query.copy()
-    if 'imei' in historical_query:
-        del historical_query['imei']
-    historical_trips = list(historical_trips_collection.find(historical_query))
-    trips.extend(historical_trips)
+        historical_query = query.copy()
+        if 'imei' in historical_query:
+            del historical_query['imei']
+        historical_trips = list(historical_trips_collection.find(historical_query))
+        trips.extend(historical_trips)
 
-    for trip in trips:
-        trip['startTime'] = trip['startTime'].astimezone(pytz.timezone('America/Chicago'))
-        trip['endTime'] = trip['endTime'].astimezone(pytz.timezone('America/Chicago'))
+        for trip in trips:
+            trip['startTime'] = trip['startTime'].astimezone(pytz.timezone('America/Chicago'))
+            trip['endTime'] = trip['endTime'].astimezone(pytz.timezone('America/Chicago'))
 
-    return jsonify(geojson_module.FeatureCollection([
-        geojson_module.Feature(
-            geometry=geojson_loads(trip['gps']),
-            properties={
-                'transactionId': trip['transactionId'],
-                'imei': trip['imei'],
-                'startTime': trip['startTime'].isoformat(),
-                'endTime': trip['endTime'].isoformat(),
-                'distance': trip.get('distance', 0),
-                'timezone': trip.get('timezone', 'America/Chicago'),
-                'destination': trip.get('destination', 'N/A'),
-                'startLocation': trip.get('startLocation', 'N/A')
-            }
-        ) for trip in trips
-    ]))
+        return jsonify(geojson_module.FeatureCollection([
+            geojson_module.Feature(
+                geometry=geojson_loads(trip['gps']) if isinstance(trip['gps'], str) else trip['gps'],
+                properties={
+                    'transactionId': trip['transactionId'],
+                    'imei': trip['imei'],
+                    'startTime': trip['startTime'].isoformat(),
+                    'endTime': trip['endTime'].isoformat(),
+                    'distance': trip.get('distance', 0),
+                    'timezone': trip.get('timezone', 'America/Chicago'),
+                    'destination': trip.get('destination', 'N/A'),
+                    'startLocation': trip.get('startLocation', 'N/A')
+                }
+            ) for trip in trips
+        ]))
+
+    except Exception as e:
+        print(f"Error in get_trips: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/driving-insights')
 def get_driving_insights():
