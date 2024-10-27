@@ -27,3 +27,4 @@ olddrivingdata/*.geojson
 drivingdatainapi/*.geojson
 gpxexamples/
 database_utilities.py
+bouncie_api.py

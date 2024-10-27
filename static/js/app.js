@@ -230,16 +230,32 @@ window.EveryStreet = (function() {
                         };
                     },
                     onEachFeature: (feature, layer) => {
-                        const startTime = new Date(feature.properties.startTime);
-                        const endTime = new Date(feature.properties.endTime);
+                        // Log the raw timestamp data
+                        console.log('Raw startTime:', feature.properties.startTime);
+                        
+                        // Create Date objects without timezone conversion
+                        // Treat the incoming times as already being in local time
+                        const startTime = new Date(feature.properties.startTime.replace('Z', ''));
+                        const endTime = new Date(feature.properties.endTime.replace('Z', ''));
+                        
+                        // Format without timezone conversion
+                        const startTimeStr = startTime.toLocaleString('en-US', {
+                            dateStyle: 'short',
+                            timeStyle: 'short'
+                        });
+                        const endTimeStr = endTime.toLocaleString('en-US', {
+                            dateStyle: 'short',
+                            timeStyle: 'short'
+                        });
+
                         const isRecent = startTime > sixHoursAgo;
                         const shouldHighlight = mapSettings.highlightRecentTrips && isRecent;
                         
                         layer.bindPopup(`
                             <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
-                            <strong>Start Time:</strong> ${startTime.toLocaleString()}<br>
-                            <strong>End Time:</strong> ${endTime.toLocaleString()}<br>
-                            <strong>Distance:</strong> ${parseFloat(feature.properties.distance).toFixed(2)} miles
+                            <strong>Start Time:</strong> ${startTimeStr}<br>
+                            <strong>End Time:</strong> ${endTimeStr}<br>
+                            <strong>Distance:</strong> ${parseFloat(feature.properties.distance).toFixed(2)} miles<br>
                             ${shouldHighlight ? '<br><strong>(Recent Trip)</strong>' : ''}
                         `);
                     }

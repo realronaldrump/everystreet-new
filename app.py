@@ -109,9 +109,12 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
             trips = await response.json()
             for trip in trips:
                 if 'startTime' in trip and isinstance(trip['startTime'], str):
-                    trip['startTime'] = parser.isoparse(trip['startTime'])
+                    # Parse time and subtract 5 hours to get actual trip time
+                    parsed_time = parser.isoparse(trip['startTime'])
+                    trip['startTime'] = parsed_time - timedelta(hours=5)
                 if 'endTime' in trip and isinstance(trip['endTime'], str):
-                    trip['endTime'] = parser.isoparse(trip['endTime'])
+                    parsed_time = parser.isoparse(trip['endTime'])
+                    trip['endTime'] = parsed_time - timedelta(hours=5)
             return trips
         print(f"Error fetching trips: {response.status}")
         return []
@@ -299,8 +302,10 @@ async def fetch_and_store_trips():
                     if isinstance(trip['endTime'], str):
                         trip['endTime'] = parser.isoparse(trip['endTime'])
 
-                    trip['startTime'] = trip['startTime'].astimezone(pytz.timezone(trip_timezone))
-                    trip['endTime'] = trip['endTime'].astimezone(pytz.timezone(trip_timezone))
+                    if isinstance(trip['startTime'], str):
+                        trip['startTime'] = parser.isoparse(trip['startTime'])
+                    if isinstance(trip['endTime'], str):
+                        trip['endTime'] = parser.isoparse(trip['endTime'])
 
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
 
@@ -371,8 +376,10 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                     if isinstance(trip['endTime'], str):
                         trip['endTime'] = parser.isoparse(trip['endTime'])
 
-                    trip['startTime'] = trip['startTime'].astimezone(pytz.timezone(trip_timezone))
-                    trip['endTime'] = trip['endTime'].astimezone(pytz.timezone(trip_timezone))
+                    if isinstance(trip['startTime'], str):
+                        trip['startTime'] = parser.isoparse(trip['startTime'])
+                    if isinstance(trip['endTime'], str):
+                        trip['endTime'] = parser.isoparse(trip['endTime'])
 
                     gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
 
@@ -428,8 +435,10 @@ async def process_historical_trip(trip):
     if isinstance(trip['endTime'], str):
         trip['endTime'] = parser.isoparse(trip['endTime'])
 
-    trip['startTime'] = trip['startTime'].astimezone(pytz.timezone(trip_timezone))
-    trip['endTime'] = trip['endTime'].astimezone(pytz.timezone(trip_timezone))
+    if isinstance(trip['startTime'], str):
+        trip['startTime'] = parser.isoparse(trip['startTime'])
+    if isinstance(trip['endTime'], str):
+        trip['endTime'] = parser.isoparse(trip['endTime'])
 
     gps_data = geojson_module.loads(trip['gps'])
     start_point = gps_data['coordinates'][0]
