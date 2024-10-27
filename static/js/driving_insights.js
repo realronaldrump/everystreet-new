@@ -218,14 +218,13 @@ function initializeEventListeners() {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             let startDate = new Date(today);
-            let endDate = new Date(today);
+            let endDate = new Date(); // Note: Not setting hours to 0 to keep current time
 
             switch(range) {
                 case 'today':
                     break;
                 case 'yesterday':
                     startDate.setDate(startDate.getDate() - 1);
-                    endDate.setDate(endDate.getDate() - 1);
                     break;
                 case 'last-week':
                     startDate.setDate(startDate.getDate() - 7);

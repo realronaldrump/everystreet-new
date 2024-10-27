@@ -1455,6 +1455,70 @@ def get_last_trip_point():
         logger.error(f"Error fetching last trip point: {str(e)}")
         return jsonify({"error": "An error occurred while fetching the last trip point."}), 500
 
+@app.route('/upload')
+def upload_page():
+    return render_template('upload.html')
+
+@app.route('/api/upload_gpx', methods=['POST'])
+def upload_gpx():
+    try:
+        if 'files' not in request.files:
+            return jsonify({'success': False, 'message': 'No files provided'})
+
+        uploaded_files = request.files.getlist('files')
+        processed_count = 0
+        trip_ids = []
+
+        for file in uploaded_files:
+            if file.filename.endswith('.gpx'):
+                gpx = gpxpy.parse(file)
+                
+                for track in gpx.tracks:
+                    for segment in track.segments:
+                        points = []
+                        times = []
+                        
+                        for point in segment.points:
+                            points.append([point.longitude, point.latitude])
+                            times.append(point.time)
+
+                        if points:
+                            # Generate a unique transaction ID
+                            transaction_id = f"GPX_{int(time.time())}_{os.urandom(4).hex()}"
+                            
+                            # Create GeoJSON structure
+                            gps_geojson = {
+                                'type': 'LineString',
+                                'coordinates': points
+                            }
+                            
+                            trip_data = {
+                                'imei': 'HISTORICAL',
+                                'startTime': times[0],
+                                'endTime': times[-1],
+                                'gps': json.dumps(gps_geojson),  # Convert to JSON string
+                                'source': 'gpx_upload',
+                                'filename': file.filename,
+                                'transactionId': transaction_id
+                            }
+                            
+                            result = historical_trips_collection.insert_one(trip_data)
+                            trip_ids.append(str(result.inserted_id))
+                            processed_count += 1
+
+        return jsonify({
+            'success': True,
+            'message': f'Successfully processed {processed_count} trips',
+            'trip_ids': trip_ids
+        })
+
+    except Exception as e:
+        logger.error(f"Upload error: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
     threading.Timer(1, periodic_fetch_trips).start()

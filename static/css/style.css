@@ -617,3 +617,32 @@ body.sidebar-collapsed {
 #coverage-stats .text-muted {
     color: rgba(255, 255, 255, 0.75) !important;
 }
+
+.upload-zone {
+    border: 2px dashed var(--primary-color);
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.upload-zone.drag-over {
+    background-color: rgba(187, 134, 252, 0.1);
+    border-color: var(--primary-variant);
+}
+
+.upload-zone i {
+    color: var(--primary-color);
+}
+
+.file-item {
+    background-color: var(--surface-color);
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+}
+
+.file-item .progress {
+    height: 4px;
+}

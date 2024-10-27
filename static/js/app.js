@@ -543,17 +543,18 @@ window.EveryStreet = (function() {
             button.addEventListener('click', function() {
                 const range = this.dataset.range;
                 const today = new Date();
-                today.setHours(0, 0, 0, 0);
                 let startDate = new Date(today);
-                let endDate = new Date(today);
+                let endDate = new Date(); // Keep current time
+
+                startDate.setHours(0, 0, 0, 0); // Set start date to beginning of day
 
                 switch(range) {
                     case 'today':
-                        // Start and end are already today
+                        // Start is beginning of today, end is current time
                         break;
                     case 'yesterday':
                         startDate.setDate(startDate.getDate() - 1);
-                        endDate.setDate(endDate.getDate() - 1);
+                        // End remains current time
                         break;
                     case 'last-week':
                         startDate.setDate(startDate.getDate() - 7);
@@ -582,7 +583,7 @@ window.EveryStreet = (function() {
 
                 // Fetch new data
                 fetchTrips();
-                fetchMetrics();  // Add metrics update
+                fetchMetrics();
             });
         });
 
