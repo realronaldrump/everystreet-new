@@ -39,9 +39,20 @@ class CustomPlacesManager {
         const savePlaceBtn = document.getElementById('save-place');
         const managePlacesBtn = document.getElementById('manage-places');
 
-        startDrawingBtn.addEventListener('click', () => this.startDrawing());
-        savePlaceBtn.addEventListener('click', () => this.savePlace());
-        managePlacesBtn.addEventListener('click', () => this.showManagePlacesModal());
+        startDrawingBtn.addEventListener('click', () => {
+            console.log('Start Drawing button clicked');
+            this.startDrawing();
+        });
+
+        savePlaceBtn.addEventListener('click', () => {
+            console.log('Save Place button clicked');
+            this.savePlace();
+        });
+
+        managePlacesBtn.addEventListener('click', () => {
+            console.log('Manage Places button clicked');
+            this.showManagePlacesModal();
+        });
 
         this.map.on(L.Draw.Event.CREATED, (e) => {
             this.currentPolygon = e.layer;
@@ -153,22 +164,37 @@ class CustomPlacesManager {
     }
 
     showManagePlacesModal() {
-        const placesList = document.getElementById('places-list');
-        placesList.innerHTML = '';
+        const placesTableBody = document.getElementById('placesTableBody');
+        if (!placesTableBody) {
+            console.error("Element with id 'placesTableBody' not found.");
+            return;
+        }
+        placesTableBody.innerHTML = '';
 
-        this.places.forEach(place => {
-            const item = document.createElement('div');
-            item.className = 'list-group-item d-flex justify-content-between align-items-center bg-dark text-white';
-            item.innerHTML = `
-                <span>${place.name}</span>
-                <button class="btn btn-danger btn-sm" onclick="customPlaces.deletePlace('${place._id}')">
-                    <i class="fas fa-trash"></i>
-                </button>
+        if (this.places.size === 0) {
+            placesTableBody.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center">No places available.</td>
+                </tr>
             `;
-            placesList.appendChild(item);
-        });
+        } else {
+            this.places.forEach(place => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${place.name}</td>
+                    <td>${new Date(place.created_at).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" onclick="customPlaces.deletePlace('${place._id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                placesTableBody.appendChild(row);
+            });
+        }
 
-        new bootstrap.Modal(document.getElementById('manage-places-modal')).show();
+        const managePlacesModal = new bootstrap.Modal(document.getElementById('managePlacesModal'));
+        managePlacesModal.show();
     }
 
     async deletePlace(placeId) {

@@ -79,6 +79,11 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" 
             integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" 
             crossorigin="anonymous"></script>
+    {% block extra_js %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="{{ url_for('static', filename='js/custom-places.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% endblock %}
 
     <!-- Map & Data Libraries -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
@@ -97,7 +102,6 @@
 
     <!-- Application Scripts -->
     <script src="{{ url_for('static', filename='js/sidebar.js') }}" defer></script>
-    {% block extra_js %}{% endblock %}
 
     <!-- Inline Script for Critical Functionality -->
     <script>

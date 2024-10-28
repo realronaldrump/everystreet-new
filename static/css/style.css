@@ -678,19 +678,20 @@ body.sidebar-collapsed {
     cursor: pointer;
 }
 
-#manage-places-modal .modal-content {
+/* Corrected ID to match HTML */
+#managePlacesModal .modal-content {
     background-color: #1e1e1e;
     color: #fff;
 }
 
-#manage-places-modal .modal-header {
+#managePlacesModal .modal-header {
     border-bottom: 1px solid #333;
 }
 
-#manage-places-modal .modal-footer {
+#managePlacesModal .modal-footer {
     border-top: 1px solid #333;
 }
 
-#manage-places-modal .close {
+#managePlacesModal .close {
     color: #fff;
 }

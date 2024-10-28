@@ -153,8 +153,8 @@ function initializeDataTable() {
         scrollX: true,
         pageLength: 25,
         columns: [
-            { data: '_id', title: 'Destination' },
-            { data: 'count', title: 'Visit Count' },
+            { data: 'destination', title: 'Destination' },
+            { data: 'visits', title: 'Visit Count' },
             { 
                 data: 'lastVisit',
                 title: 'Last Visit',

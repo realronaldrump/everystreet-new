@@ -87,7 +87,7 @@ class CustomPlace:
     def __init__(self, name, geometry, created_at=None):
         self.name = name
         self.geometry = geometry
-        self.created_at = created_at or datetime.utcnow()
+        self.created_at = created_at or datetime.now(timezone.utc)
 
     def to_dict(self):
         return {
@@ -101,7 +101,7 @@ class CustomPlace:
         return CustomPlace(
             name=data['name'],
             geometry=data['geometry'],
-            created_at=data.get('created_at', datetime.utcnow())
+            created_at=data.get('created_at', datetime.now(timezone.utc))
         )
 
 # Initialize TimezoneFinder
