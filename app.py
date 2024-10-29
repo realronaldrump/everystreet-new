@@ -450,6 +450,10 @@ def trips_page():
 def driving_insights_page():
     return render_template('driving_insights.html')
 
+@app.route('/visits')
+def visits_page():
+    return render_template('visits.html')
+
 async def process_historical_trip(trip):
     trip_timezone = get_trip_timezone(trip)
 
@@ -1722,37 +1726,70 @@ def delete_place(place_id):
     return '', 204
 
 @app.route('/api/places/<place_id>/statistics')
-def place_statistics(place_id):
-    place = places_collection.find_one({'_id': ObjectId(place_id)})
-    if not place:
-        return jsonify({'error': 'Place not found'}), 404
+def get_place_statistics(place_id):
+    try:
+        place = places_collection.find_one({'_id': ObjectId(place_id)})
+        if not place:
+            return jsonify({'error': 'Place not found'}), 404
 
-    place_shape = shape(place['geometry'])
-    visits = []
-    total_time_spent = 0
-
-    for trip in trips_collection.find():
-        try:
-            gps_data = geojson_loads(trip['gps'])
-            last_point = Point(gps_data['coordinates'][-1])
-            
-            if place_shape.contains(last_point):
-                visit_data = {
-                    'date': trip['endTime'],
-                    'tripId': str(trip['_id']),
-                    'duration': (trip['endTime'] - trip['startTime']).total_seconds() / 60  # minutes
-                }
-                visits.append(visit_data)
-                total_time_spent += visit_data['duration']
-        except Exception as e:
-            print(f"Error processing trip: {e}")
-    
-    return jsonify({
-        'totalVisits': len(visits),
-        'lastVisit': max(visit['date'] for visit in visits) if visits else None,
-        'averageTimeSpent': total_time_spent / len(visits) if visits else 0,
-        'visits': visits
-    })
+        place_shape = shape(place['geometry'])
+        visits = []
+        last_visit = None
+        
+        # Get all trips sorted by start time
+        all_trips = list(trips_collection.find().sort('startTime', 1))
+        current_time = datetime.now(timezone.utc)
+        
+        # Process each trip
+        for i, trip in enumerate(all_trips):
+            try:
+                gps_data = geojson_loads(trip['gps'])
+                last_point = Point(gps_data['coordinates'][-1])
+                
+                if place_shape.contains(last_point):
+                    # Ensure end_time is timezone-aware
+                    trip_end = trip['endTime'].replace(tzinfo=timezone.utc) if trip['endTime'].tzinfo is None else trip['endTime']
+                    
+                    # Calculate duration until next trip starts
+                    if i < len(all_trips) - 1:
+                        next_trip = all_trips[i + 1]
+                        next_start = next_trip['startTime'].replace(tzinfo=timezone.utc) if next_trip['startTime'].tzinfo is None else next_trip['startTime']
+                        duration = (next_start - trip_end).total_seconds() / 60
+                    else:
+                        # For the last trip, calculate duration until now
+                        duration = (current_time - trip_end).total_seconds() / 60
+                    
+                    # Store visit information
+                    visits.append(duration)
+                    
+                    # Update last visit time if this is the most recent
+                    if last_visit is None or trip_end > last_visit:
+                        last_visit = trip_end
+                        
+            except Exception as e:
+                logger.error(f"Error processing trip for place {place['name']}: {e}")
+                continue
+        
+        # Calculate statistics
+        total_visits = len(visits)
+        if total_visits > 0:
+            avg_minutes = sum(visits) / total_visits
+            hours = int(avg_minutes // 60)
+            minutes = int(avg_minutes % 60)
+            avg_time_str = f"{hours}h {minutes}m"
+        else:
+            avg_time_str = "0h 0m"
+        
+        return jsonify({
+            'totalVisits': total_visits,
+            'averageTimeSpent': avg_time_str,
+            'lastVisit': last_visit.isoformat() if last_visit else None,
+            'name': place['name']
+        })
+        
+    except Exception as e:
+        logger.error(f"Error calculating place statistics: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 async def process_trip_destination(trip):
     gps_data = geojson_loads(trip['gps'])
