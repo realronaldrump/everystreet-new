@@ -1813,6 +1813,86 @@ async def process_trip_destination(trip):
     # Fall back to reverse geocoding
     return await reverse_geocode_nominatim(last_point.y, last_point.x)
 
+def organize_daily_data(results):
+    """
+    Organize aggregated results into daily distance totals
+    """
+    daily_data = {}
+    for result in results:
+        date = result['_id']['date']
+        if date not in daily_data:
+            daily_data[date] = {'distance': 0, 'count': 0}
+        daily_data[date]['distance'] += result['totalDistance']
+        daily_data[date]['count'] += result['tripCount']
+    
+    return [
+        {
+            'date': date,
+            'distance': data['distance'],
+            'count': data['count']
+        }
+        for date, data in sorted(daily_data.items())
+    ]
+
+def organize_hourly_data(results):
+    """
+    Organize aggregated results into hourly distribution
+    """
+    hourly_data = {}
+    for result in results:
+        hour = result['_id']['hour']
+        if hour not in hourly_data:
+            hourly_data[hour] = 0
+        hourly_data[hour] += result['tripCount']
+    
+    return [
+        {
+            'hour': hour,
+            'count': count
+        }
+        for hour, count in sorted(hourly_data.items())
+    ]
+
+@app.route('/api/trip-analytics')
+def get_trip_analytics():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    if not start_date or not end_date:
+        return jsonify({'error': 'Missing date parameters'}), 400
+    
+    try:
+        pipeline = [
+            {
+                "$match": {
+                    "startTime": {
+                        "$gte": datetime.fromisoformat(start_date),
+                        "$lte": datetime.fromisoformat(end_date)
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$startTime"}},
+                        "hour": {"$hour": "$startTime"}
+                    },
+                    "totalDistance": {"$sum": "$distance"},
+                    "tripCount": {"$sum": 1}
+                }
+            }
+        ]
+        
+        results = list(trips_collection.aggregate(pipeline))
+        
+        return jsonify({
+            "daily_distances": organize_daily_data(results),
+            "time_distribution": organize_hourly_data(results)
+        })
+    except Exception as e:
+        logging.error(f"Error in trip analytics: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
     threading.Timer(1, periodic_fetch_trips).start()
