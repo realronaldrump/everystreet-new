@@ -137,4 +137,18 @@ class LiveTripTracker {
 
         this.updateStatus();
     }
+
+    updateStatus() {
+        if (this.activeTripsCount) {
+            this.activeTripsCount.textContent = this.activeTrips.size;
+        }
+        
+        if (this.statusText) {
+            if (this.activeTrips.size > 0) {
+                this.statusText.textContent = `Tracking ${this.activeTrips.size} active trip${this.activeTrips.size > 1 ? 's' : ''}`;
+            } else {
+                this.statusText.textContent = 'No active trips';
+            }
+        }
+    }
 } 
