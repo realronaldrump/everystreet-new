@@ -21,7 +21,7 @@ class RouteOptimizer:
             # Process each street segment
             for feature in streets_geojson['features']:
                 coords = feature['geometry']['coordinates']
-                street_id = feature['properties']['id']
+                street_id = feature['properties'].get('id')
                 name = feature['properties'].get('name', 'Unknown Street')
                 length = feature['properties'].get('length', 0)
                 is_driven = feature['properties'].get('driven', False)
@@ -139,8 +139,53 @@ class RouteOptimizer:
     def _solve_component_cpp(self, graph: nx.DiGraph, start_node: Tuple[float, float]) -> List:
         """Solve CPP for a single component"""
         # Create an Eulerian circuit if possible
-        eulerian_circuit = list(nx.eulerian_circuit(graph, source=start_node))
-        return [node for edge in eulerian_circuit for node in edge]
+        try:
+            eulerian_circuit = list(nx.eulerian_circuit(graph, source=start_node))
+            return [node for edge in eulerian_circuit for node in edge]
+        except nx.NetworkXError:
+            # If not Eulerian, find minimum cost path that covers all edges
+            return self._find_minimum_cost_path(graph, start_node)
+
+    def _find_minimum_cost_path(self, graph: nx.DiGraph, start_node: Tuple[float, float]) -> List:
+        """Find minimum cost path that covers all edges"""
+        # Get all edges that need to be covered
+        edges_to_cover = set(graph.edges())
+        current_node = start_node
+        path = [current_node]
+        
+        while edges_to_cover:
+            # Find nearest uncovered edge
+            min_dist = float('inf')
+            next_edge = None
+            
+            for edge in edges_to_cover:
+                dist = nx.shortest_path_length(
+                    graph,
+                    current_node,
+                    edge[0],
+                    weight='length'
+                )
+                if dist < min_dist:
+                    min_dist = dist
+                    next_edge = edge
+            
+            # Add path to next edge
+            next_path = nx.shortest_path(
+                graph,
+                current_node,
+                next_edge[0],
+                weight='length'
+            )
+            path.extend(next_path[1:])
+            
+            # Add the edge itself
+            path.append(next_edge[1])
+            
+            # Update current position and remove covered edge
+            current_node = next_edge[1]
+            edges_to_cover.remove(next_edge)
+            
+        return path
 
     def _route_to_geojson(self, route: List) -> dict:
         """Convert route to GeoJSON format"""

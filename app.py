@@ -1962,19 +1962,24 @@ def handle_disconnect():
 @app.route('/api/optimize-route', methods=['POST'])
 def optimize_route():
     try:
-        # Get current location from request
+        logger.info("Starting route optimization")
+        
+        # Get request data
         data = request.json
         current_location = data.get('current_location')
-        if not current_location:
-            return jsonify({'error': 'Current location is required'}), 400
-            
-        # Get street coverage data
         location = data.get('location')
+        
+        if not current_location or not location:
+            return jsonify({'error': 'Current location and target location are required'}), 400
+            
+        # Get street coverage data first
+        logger.info("Fetching street network data...")
         streets_data, streets_error = generate_geojson_osm(location, streets_only=True)
         if not streets_data:
             return jsonify({'error': f'Error getting streets: {streets_error}'}), 500
             
-        # Get driven segments
+        # Get driven segments from matched trips
+        logger.info("Fetching matched trips...")
         matched_trips = list(matched_trips_collection.find())
         
         # Initialize route optimizer
@@ -1986,11 +1991,12 @@ def optimize_route():
         # Find optimal route
         route_data = optimizer.find_optimal_route(current_location)
         
+        logger.info("Route optimization completed successfully")
         return jsonify(route_data)
         
     except Exception as e:
         logger.error(f"Error optimizing route: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
