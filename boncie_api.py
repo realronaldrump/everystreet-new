@@ -15,6 +15,7 @@ AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
 AUTHORIZED_DEVICES = os.getenv('AUTHORIZED_DEVICES', '').split(',')
 
+
 async def get_raw_trip_data():
     try:
         async with aiohttp.ClientSession() as session:
@@ -26,7 +27,7 @@ async def get_raw_trip_data():
                 "code": AUTH_CODE,
                 "redirect_uri": REDIRECT_URI
             }
-            
+
             print("Getting access token...")
             async with session.post(AUTH_URL, data=payload) as auth_response:
                 if auth_response.status != 200:
@@ -44,11 +45,11 @@ async def get_raw_trip_data():
                 "Authorization": access_token,
                 "Content-Type": "application/json"
             }
-            
+
             # Get last 24 hours of trips
             end_date = datetime.now(timezone.utc)
             start_date = end_date - timedelta(days=1)
-            
+
             for imei in AUTHORIZED_DEVICES:
                 print(f"\nFetching trips for device {imei}")
                 params = {
@@ -63,10 +64,10 @@ async def get_raw_trip_data():
                         error_text = await response.text()
                         print(f"API Error ({response.status}): {error_text}")
                         continue
-                        
+
                     trips = await response.json()
                     print(f"Found {len(trips)} trips")
-                    
+
                     for trip in trips:
                         print("\nRaw Trip Data:")
                         print(json.dumps({
