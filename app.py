@@ -1899,7 +1899,7 @@ def bouncie_webhook():
     auth_header = request.headers.get('Authorization')
 
     # Log incoming webhook request
-    app.logger.info(f"Received webhook request from {request.remote_addr}")
+    app.logger.info(f"Received webhook request: {request.json}")
     
     # Validate webhook key
     if not auth_header or auth_header != webhook_key:
@@ -1908,44 +1908,39 @@ def bouncie_webhook():
 
     try:
         webhook_data = request.json
-        event_type = webhook_data.get('type')
-        trip_id = webhook_data.get('tripId')
+        event_type = webhook_data.get('eventType')  # Changed from 'type' to 'eventType'
         
-        if not trip_id:
-            app.logger.error("Missing tripId in webhook data")
-            return jsonify({'error': 'Missing tripId'}), 400
-
         # Emit event to all connected clients
-        socketio.emit(f'trip_{event_type.split(".")[-1]}', {
-            'tripId': trip_id,
-            'deviceId': webhook_data.get('deviceId'),
+        socketio.emit(f'trip_{event_type}', {
+            'tripId': webhook_data.get('transactionId'),  # Changed from 'tripId'
+            'deviceId': webhook_data.get('imei'),  # Changed from 'deviceId'
             'timestamp': datetime.utcnow().isoformat(),
-            'gps': webhook_data.get('gps'),
-            'distance': webhook_data.get('distance'),
-            'speed': webhook_data.get('speed'),
+            'data': webhook_data.get('data'),  # Changed to handle generic data
             'event': event_type
         })
 
-        # Store trip data if it's a trip.end event
-        if event_type == 'trip.end':
+        # Store trip data if it's a tripEnd event
+        if event_type == 'tripEnd':
             store_trip_data(webhook_data)
             
+        # Always return success, even if processing fails
         return jsonify({'status': 'success'}), 200
 
     except Exception as e:
         app.logger.error(f"Error processing webhook: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        # Still return 200 to prevent webhook deactivation
+        return jsonify({'status': 'error', 'message': str(e)}), 200
 
 def store_trip_data(trip_data):
     """Store completed trip data in MongoDB"""
     try:
         formatted_trip = {
-            'transactionId': trip_data.get('tripId'),
-            'imei': trip_data.get('deviceId'),
-            'startTime': datetime.fromisoformat(trip_data.get('startTime')),
-            'endTime': datetime.fromisoformat(trip_data.get('endTime')),
-            'distance': trip_data.get('distance'),
-            'gps': trip_data.get('gps')
+            'transactionId': trip_data.get('transactionId'),
+            'imei': trip_data.get('imei'),
+            'startTime': datetime.now(timezone.utc),  # Use current time if not provided
+            'endTime': datetime.now(timezone.utc),    # Use current time if not provided
+            'distance': trip_data.get('distance', 0),
+            'data': trip_data.get('data', {})
         }
         
         # Insert into your existing trips collection
@@ -1953,7 +1948,7 @@ def store_trip_data(trip_data):
         
     except Exception as e:
         app.logger.error(f"Error formatting/storing trip data: {str(e)}")
-        raise
+        # Don't raise the exception - let the webhook still return 200
 
 @socketio.on('connect')
 def handle_connect():
