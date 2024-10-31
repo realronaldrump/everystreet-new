@@ -765,21 +765,28 @@ body.sidebar-collapsed {
     color: #999;
 }
 
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
-}
 
-.recent-trip {
-    stroke-dasharray: 8;
-    animation: dash 20s linear infinite;
-    stroke-width: 4;
-    stroke-opacity: 0.8;
-}
 
 @keyframes dash {
     to {
         stroke-dashoffset: -1000;
+    }
+}
+
+/* Recent Trip Glow Effect */
+.recent-trip {
+    filter: drop-shadow(0 0 4px rgba(255, 87, 34, 0.8));
+    animation: glow 2s ease-in-out infinite;
+}
+
+@keyframes glow {
+    0% {
+        filter: drop-shadow(0 0 2px rgba(255, 87, 34, 0.6));
+    }
+    50% {
+        filter: drop-shadow(0 0 6px rgba(255, 87, 34, 0.9));
+    }
+    100% {
+        filter: drop-shadow(0 0 2px rgba(255, 87, 34, 0.6));
     }
 }
