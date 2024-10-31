@@ -522,21 +522,6 @@ body.sidebar-collapsed {
     color: #ffffff !important; /* This changes the text color when typing */
 }
 
-@keyframes pulse {
-  0% {
-    stroke-width: 2;
-    stroke-opacity: 0.4;
-  }
-  50% {
-    stroke-width: 4;
-    stroke-opacity: 0.8;
-  }
-  100% {
-    stroke-width: 2;
-    stroke-opacity: 0.4;
-  }
-}
-
 .recent-trip {
   animation: pulse 2s ease-in-out infinite;
 }
