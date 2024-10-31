@@ -6,6 +6,7 @@ window.EveryStreet = (function() {
     let map = null;
     let layerGroup = null;
     let socket = null;
+    let liveTracker = null;
 
     const mapLayers = {
         trips: { layer: null, visible: true, color: '#BB86FC', order: 1, opacity: 0.4 },
@@ -959,6 +960,12 @@ window.EveryStreet = (function() {
         // Add any other keys you want to clear
     }
 
+    function initializeLiveTracking() {
+        if (map) {
+            liveTracker = new LiveTripTracker(map);
+        }
+    }
+
     // Public API
     return {
         // Initialization
@@ -1017,6 +1024,7 @@ window.EveryStreet = (function() {
         generateStreetCoverage: generateStreetCoverage,
         updateCoverageStats: updateCoverageStats,
         visualizeStreetCoverage: visualizeStreetCoverage,
+        initializeLiveTracking: initializeLiveTracking,
     };
 })();
 

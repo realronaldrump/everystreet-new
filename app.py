@@ -3,7 +3,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 import aiohttp
 from flask import Flask, render_template, request, jsonify, session, Response, send_file
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, emit
 import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
@@ -1892,6 +1892,77 @@ def get_trip_analytics():
     except Exception as e:
         logging.error(f"Error in trip analytics: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/webhook/bouncie', methods=['POST'])
+def bouncie_webhook():
+    webhook_key = os.getenv('WEBHOOK_KEY')
+    auth_header = request.headers.get('Authorization')
+
+    # Log incoming webhook request
+    app.logger.info(f"Received webhook request from {request.remote_addr}")
+    
+    # Validate webhook key
+    if not auth_header or auth_header != webhook_key:
+        app.logger.error(f"Invalid webhook key: {auth_header}")
+        return jsonify({'error': 'Invalid webhook key'}), 401
+
+    try:
+        webhook_data = request.json
+        event_type = webhook_data.get('type')
+        
+        app.logger.info(f"Processing {event_type} event")
+        
+        # Handle different event types
+        if event_type == 'trip.start':
+            socketio.emit('trip_start', webhook_data)
+            app.logger.info(f"Trip started: {webhook_data.get('tripId')}")
+            
+        elif event_type == 'trip.data':
+            socketio.emit('trip_update', webhook_data)
+            app.logger.debug(f"Trip update: {webhook_data.get('tripId')}")
+            
+        elif event_type == 'trip.end':
+            socketio.emit('trip_end', webhook_data)
+            app.logger.info(f"Trip ended: {webhook_data.get('tripId')}")
+            
+            # Store completed trip
+            try:
+                store_trip_data(webhook_data)
+            except Exception as e:
+                app.logger.error(f"Error storing trip data: {str(e)}")
+        
+        return jsonify({'status': 'success'}), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error processing webhook: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+def store_trip_data(trip_data):
+    """Store completed trip data in MongoDB"""
+    try:
+        formatted_trip = {
+            'transactionId': trip_data.get('tripId'),
+            'imei': trip_data.get('deviceId'),
+            'startTime': datetime.fromisoformat(trip_data.get('startTime')),
+            'endTime': datetime.fromisoformat(trip_data.get('endTime')),
+            'distance': trip_data.get('distance'),
+            'gps': trip_data.get('gps')
+        }
+        
+        # Insert into your existing trips collection
+        db.trips.insert_one(formatted_trip)
+        
+    except Exception as e:
+        app.logger.error(f"Error formatting/storing trip data: {str(e)}")
+        raise
+
+@socketio.on('connect')
+def handle_connect():
+    logger.info('Client connected')
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    logger.info('Client disconnected')
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
