@@ -37,6 +37,7 @@ from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
 from bson.objectid import ObjectId
 from shapely.geometry import shape, Point, Polygon
+from services.route_optimizer import RouteOptimizer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -1957,6 +1958,39 @@ def handle_connect():
 @socketio.on('disconnect')
 def handle_disconnect():
     logger.info('Client disconnected')
+
+@app.route('/api/optimize-route', methods=['POST'])
+def optimize_route():
+    try:
+        # Get current location from request
+        data = request.json
+        current_location = data.get('current_location')
+        if not current_location:
+            return jsonify({'error': 'Current location is required'}), 400
+            
+        # Get street coverage data
+        location = data.get('location')
+        streets_data, streets_error = generate_geojson_osm(location, streets_only=True)
+        if not streets_data:
+            return jsonify({'error': f'Error getting streets: {streets_error}'}), 500
+            
+        # Get driven segments
+        matched_trips = list(matched_trips_collection.find())
+        
+        # Initialize route optimizer
+        optimizer = RouteOptimizer()
+        
+        # Create graph from street data
+        optimizer.create_graph_from_streets(streets_data, matched_trips)
+        
+        # Find optimal route
+        route_data = optimizer.find_optimal_route(current_location)
+        
+        return jsonify(route_data)
+        
+    except Exception as e:
+        logger.error(f"Error optimizing route: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))

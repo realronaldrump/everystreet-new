@@ -1,0 +1,51 @@
+.route-optimizer-control {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    width: 300px;
+}
+
+.direction-step {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.direction-step:last-child {
+    border-bottom: none;
+}
+
+.step-number {
+    width: 24px;
+    height: 24px;
+    background: #007bff;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+}
+
+.step-details {
+    flex: 1;
+}
+
+.step-instruction {
+    font-weight: 500;
+}
+
+.step-distance {
+    font-size: 0.875rem;
+    color: #666;
+}
+
+.driven {
+    background-color: rgba(0, 255, 0, 0.1);
+}
+
+.undriven {
+    background-color: rgba(255, 68, 68, 0.1);
+}

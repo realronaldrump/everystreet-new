@@ -82,6 +82,14 @@ window.EveryStreet = (function() {
                 .catch(error => console.error('Error fetching last trip point:', error));
 
             console.log('Map initialized successfully');
+
+            // Initialize route optimizer
+            window.routeOptimizer = new RouteOptimizer(map);
+
+            // Enable optimize button when location is validated
+            document.addEventListener('locationValidated', function() {
+                document.getElementById('optimize-route').disabled = false;
+            });
         } catch (error) {
             console.error('Error initializing Leaflet map:', error);
         }
@@ -922,6 +930,7 @@ window.EveryStreet = (function() {
         }
         
         const coverageButton = document.getElementById('generate-coverage');
+        const optimizeButton = document.getElementById('optimize-route');
         const originalText = coverageButton.innerHTML;
         coverageButton.disabled = true;
         coverageButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
@@ -941,9 +950,12 @@ window.EveryStreet = (function() {
         })
         .then(data => {
             visualizeStreetCoverage(data);
+            // Enable route optimization after coverage is generated
+            document.getElementById('route-optimization').classList.remove('d-none');
+            optimizeButton.disabled = false; // Enable the button
         })
         .catch(error => {
-            console.error('Error generating street coverage:', error);
+            console.error('Error:', error);
             alert('Error generating street coverage. Please try again.');
         })
         .finally(() => {
@@ -980,6 +992,26 @@ window.EveryStreet = (function() {
         socket.on('error', (error) => {
             console.error('WebSocket error:', error);
         });
+    }
+
+    function toggleDirectionsPanel() {
+        const panel = document.getElementById('directions-panel');
+        panel.classList.toggle('d-none');
+    }
+
+    function handleLocationValidationSuccess(data) {
+        window.validatedLocation = data.location;
+        
+        // Enable relevant buttons
+        document.getElementById('generate-boundary').disabled = false;
+        document.getElementById('generate-streets').disabled = false;
+        document.getElementById('generate-coverage').disabled = false;
+        
+        // Show success message
+        showSuccess('Location validated successfully!');
+        
+        // Dispatch location validated event
+        document.dispatchEvent(new Event('locationValidated'));
     }
 
     // Public API
@@ -1044,6 +1076,7 @@ window.EveryStreet = (function() {
         updateCoverageStats: updateCoverageStats,
         visualizeStreetCoverage: visualizeStreetCoverage,
         initializeLiveTracking: initializeLiveTracking,
+        toggleDirectionsPanel: toggleDirectionsPanel,
     };
 })();
 
@@ -1051,4 +1084,3 @@ window.EveryStreet = (function() {
 document.addEventListener('DOMContentLoaded', () => {
     EveryStreet.initialize();
 });
-
