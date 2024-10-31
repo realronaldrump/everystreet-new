@@ -1909,30 +1909,29 @@ def bouncie_webhook():
     try:
         webhook_data = request.json
         event_type = webhook_data.get('type')
+        trip_id = webhook_data.get('tripId')
         
-        app.logger.info(f"Processing {event_type} event")
-        
-        # Handle different event types
-        if event_type == 'trip.start':
-            socketio.emit('trip_start', webhook_data)
-            app.logger.info(f"Trip started: {webhook_data.get('tripId')}")
+        if not trip_id:
+            app.logger.error("Missing tripId in webhook data")
+            return jsonify({'error': 'Missing tripId'}), 400
+
+        # Emit event to all connected clients
+        socketio.emit(f'trip_{event_type.split(".")[-1]}', {
+            'tripId': trip_id,
+            'deviceId': webhook_data.get('deviceId'),
+            'timestamp': datetime.utcnow().isoformat(),
+            'gps': webhook_data.get('gps'),
+            'distance': webhook_data.get('distance'),
+            'speed': webhook_data.get('speed'),
+            'event': event_type
+        })
+
+        # Store trip data if it's a trip.end event
+        if event_type == 'trip.end':
+            store_trip_data(webhook_data)
             
-        elif event_type == 'trip.data':
-            socketio.emit('trip_update', webhook_data)
-            app.logger.debug(f"Trip update: {webhook_data.get('tripId')}")
-            
-        elif event_type == 'trip.end':
-            socketio.emit('trip_end', webhook_data)
-            app.logger.info(f"Trip ended: {webhook_data.get('tripId')}")
-            
-            # Store completed trip
-            try:
-                store_trip_data(webhook_data)
-            except Exception as e:
-                app.logger.error(f"Error storing trip data: {str(e)}")
-        
         return jsonify({'status': 'success'}), 200
-        
+
     except Exception as e:
         app.logger.error(f"Error processing webhook: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500

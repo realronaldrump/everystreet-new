@@ -961,9 +961,25 @@ window.EveryStreet = (function() {
     }
 
     function initializeLiveTracking() {
-        if (map) {
-            liveTracker = new LiveTripTracker(map);
+        if (typeof LiveTripTracker !== 'undefined') {
+            window.liveTripTracker = new LiveTripTracker(map);
         }
+    }
+
+    function initializeSocketIO() {
+        socket = io();
+        
+        socket.on('connect', () => {
+            console.log('Connected to WebSocket server');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from WebSocket server');
+        });
+
+        socket.on('error', (error) => {
+            console.error('WebSocket error:', error);
+        });
     }
 
     // Public API
@@ -997,6 +1013,9 @@ window.EveryStreet = (function() {
 
             // Mark as initialized
             isInitialized = true;
+
+            initializeSocketIO();
+            initializeLiveTracking();
         },
 
         // Public methods

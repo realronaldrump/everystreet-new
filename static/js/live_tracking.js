@@ -4,15 +4,31 @@ class LiveTripTracker {
         this.activeTrips = new Map();
         this.socket = io();
         this.setupSocketListeners();
+        this.statusIndicator = document.querySelector('.status-indicator');
+        this.activeTripsCount = document.querySelector('.active-trips-count');
+        this.statusText = document.querySelector('.status-text');
+        this.updateStatus();
     }
 
     setupSocketListeners() {
+        this.socket.on('connect', () => {
+            console.log('Connected to WebSocket');
+            this.statusIndicator.classList.add('active');
+            this.statusText.textContent = 'Live Tracking Connected';
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log('Disconnected from WebSocket');
+            this.statusIndicator.classList.remove('active');
+            this.statusText.textContent = 'Live Tracking Disconnected';
+        });
+
         this.socket.on('trip_start', (data) => {
             console.log('Trip started:', data);
             this.initializeTrip(data);
         });
 
-        this.socket.on('trip_update', (data) => {
+        this.socket.on('trip_data', (data) => {
             console.log('Trip update:', data);
             this.updateTrip(data);
         });
@@ -44,6 +60,8 @@ class LiveTripTracker {
                 html: '<i class="fas fa-play"></i>'
             })
         }).addTo(this.map);
+
+        this.updateStatus();
     }
 
     updateTrip(tripData) {
@@ -104,5 +122,7 @@ class LiveTripTracker {
         if (window.fetchTrips) {
             window.fetchTrips();
         }
+
+        this.updateStatus();
     }
 } 

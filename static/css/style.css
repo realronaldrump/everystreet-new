@@ -721,11 +721,65 @@ body.sidebar-collapsed {
 .vehicle-marker i {
     font-size: 24px;
     color: #2196F3;
-    animation: pulse 1.5s infinite;
+    animation: marker-pulse 1.5s infinite;
 }
 
-/* @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.2); }
-    100% { transform: scale(1); }
-} */
+@keyframes marker-pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.live-tracking-status {
+    padding: 10px 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    margin: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #666;
+    transition: background-color 0.3s ease;
+}
+
+.status-indicator.active {
+    background: #4CAF50;
+    animation: status-pulse 2s infinite;
+}
+
+@keyframes status-pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.active-trips-count {
+    margin-left: auto;
+    font-size: 0.8em;
+    color: #999;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.recent-trip {
+    stroke-dasharray: 8;
+    animation: dash 20s linear infinite;
+    stroke-width: 4;
+    stroke-opacity: 0.8;
+}
+
+@keyframes dash {
+    to {
+        stroke-dashoffset: -1000;
+    }
+}
