@@ -37,6 +37,18 @@ class LiveTripTracker {
             console.log('Trip ended:', data);
             this.finalizeTrip(data);
         });
+
+        this.socket.on('error', (error) => {
+            console.error('Socket error:', error);
+            this.statusIndicator.classList.remove('active');
+            this.statusText.textContent = 'Live Tracking Error';
+        });
+
+        this.socket.on('reconnect', (attemptNumber) => {
+            console.log('Reconnected after', attemptNumber, 'attempts');
+            this.statusIndicator.classList.add('active');
+            this.statusText.textContent = 'Live Tracking Connected';
+        });
     }
 
     initializeTrip(tripData) {
