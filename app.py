@@ -116,9 +116,23 @@ async def get_access_token(client_session):
         "code": AUTH_CODE,
         "redirect_uri": REDIRECT_URI
     }
+    
+    logger.info("Requesting access token with payload: " + str({k: v[:10] + '...' if k != 'grant_type' else v for k, v in payload.items()}))
+    
     async with client_session.post(AUTH_URL, data=payload) as auth_response:
-        data = await auth_response.json()
-        return data.get('access_token')
+        logger.info(f"Auth Response Status: {auth_response.status}")
+        logger.info(f"Auth Response Headers: {auth_response.headers}")
+        
+        response_text = await auth_response.text()
+        logger.info(f"Auth Response Body: {response_text}")
+        
+        if auth_response.status == 200:
+            data = json.loads(response_text)
+            return data.get('access_token')
+        else:
+            logger.error(f"Error getting access token: {auth_response.status}")
+            logger.error(f"Error response: {response_text}")
+            return None
 
 async def get_trips_from_api(client_session, access_token, imei, start_date, end_date):
     headers = {"Authorization": access_token, "Content-Type": "application/json"}
@@ -128,19 +142,39 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
         "starts-after": start_date.isoformat(),
         "ends-before": end_date.isoformat()
     }
-    async with client_session.get(f"{API_BASE_URL}/trips", headers=headers, params=params) as response:
-        if response.status == 200:
-            trips = await response.json()
-            for trip in trips:
-                if 'startTime' in trip and isinstance(trip['startTime'], str):
-                    # Parse time and subtract 5 hours to get actual trip time
-                    parsed_time = parser.isoparse(trip['startTime'])
-                    trip['startTime'] = parsed_time - timedelta(hours=5)
-                if 'endTime' in trip and isinstance(trip['endTime'], str):
-                    parsed_time = parser.isoparse(trip['endTime'])
-                    trip['endTime'] = parsed_time - timedelta(hours=5)
-            return trips
-        print(f"Error fetching trips: {response.status}")
+    
+    logger.info(f"Making API request with params: {params}")
+    logger.info(f"Using Authorization token: {access_token[:10]}...")  # Log first 10 chars of token
+    
+    try:
+        async with client_session.get(f"{API_BASE_URL}/trips", headers=headers, params=params) as response:
+            logger.info(f"API Response Status: {response.status}")
+            logger.info(f"API Response Headers: {response.headers}")
+            
+            response_text = await response.text()
+            logger.info(f"API Response Body: {response_text}")
+            
+            if response.status == 200:
+                trips = json.loads(response_text)
+                for trip in trips:
+                    if 'startTime' in trip and isinstance(trip['startTime'], str):
+                        parsed_time = parser.isoparse(trip['startTime'])
+                        trip['startTime'] = parsed_time - timedelta(hours=5)
+                    if 'endTime' in trip and isinstance(trip['endTime'], str):
+                        parsed_time = parser.isoparse(trip['endTime'])
+                        trip['endTime'] = parsed_time - timedelta(hours=5)
+                return trips
+            elif response.status == 401:
+                logger.error("Authentication error - token may be expired")
+                return []
+            else:
+                logger.error(f"Error fetching trips: {response.status}")
+                logger.error(f"Error response: {response_text}")
+                return []
+                
+    except Exception as e:
+        logger.error(f"Exception in get_trips_from_api: {str(e)}")
+        logger.debug(traceback.format_exc())
         return []
 
 async def fetch_trips_in_intervals(main_session, access_token, imei, start_date, end_date):
@@ -166,20 +200,17 @@ def periodic_fetch_trips():
             last_trip = trips_collection.find_one(sort=[("endTime", -1)])
             if last_trip:
                 start_date = last_trip['endTime']
-                if start_date.tzinfo is None:
-                    start_date = start_date.replace(tzinfo=timezone.utc)
             else:
-                start_date = datetime.now(timezone.utc) - timedelta(days=1)
+                start_date = datetime.now(timezone.utc) - timedelta(days=7)  # Last week if no trips
 
             end_date = datetime.now(timezone.utc)
-
-            print(f"Fetching trips from {start_date} to {end_date}")
+            
+            logger.info(f"Fetching trips from {start_date} to {end_date}")
             asyncio.run(fetch_and_store_trips_in_range(start_date, end_date))
-
-            threading.Timer(30 * 60, periodic_fetch_trips).start()
+            
         except Exception as e:
-            print(f"Error in periodic fetch: {e}")
-            print(traceback.format_exc())
+            logger.error(f"Error in periodic fetch: {str(e)}")
+        finally:
             threading.Timer(30 * 60, periodic_fetch_trips).start()
 
 def validate_trip_data(trip):
@@ -364,77 +395,95 @@ async def fetch_and_store_trips():
         print(f"Error in fetch_and_store_trips: {fetch_error}")
         print(traceback.format_exc())
 
+def process_trip(trip):
+    try:
+        # Ensure gps field exists and is properly formatted
+        if 'gps' not in trip:
+            logger.error(f"Trip {trip.get('transactionId', 'Unknown')} missing gps field")
+            return None
+            
+        # Convert gps to string if it's a dict
+        if isinstance(trip['gps'], dict):
+            trip['gps'] = json.dumps(trip['gps'])
+            
+        # Parse times
+        if isinstance(trip['startTime'], str):
+            trip['startTime'] = parser.isoparse(trip['startTime'])
+        if isinstance(trip['endTime'], str):
+            trip['endTime'] = parser.isoparse(trip['endTime'])
+            
+        # Extract points from GPS data
+        gps_data = geojson_loads(trip['gps'])
+        if not gps_data.get('coordinates'):
+            logger.error(f"Trip {trip.get('transactionId', 'Unknown')} has invalid GPS coordinates")
+            return None
+            
+        start_point = gps_data['coordinates'][0]
+        last_point = gps_data['coordinates'][-1]
+        
+        trip['startGeoPoint'] = start_point
+        trip['destinationGeoPoint'] = last_point
+        
+        return trip
+        
+    except Exception as e:
+        logger.error(f"Error processing trip {trip.get('transactionId', 'Unknown')}: {str(e)}")
+        logger.debug(traceback.format_exc())
+        return None
+
 async def fetch_and_store_trips_in_range(start_date, end_date):
     try:
-        print("Starting fetch_and_store_trips_in_range")
-        print(f"Authorized devices: {AUTHORIZED_DEVICES}")
+        logger.info("Starting fetch_and_store_trips_in_range")
+        logger.info(f"Authorized devices: {AUTHORIZED_DEVICES}")
+        
         async with aiohttp.ClientSession() as client_session:
             access_token = await get_access_token(client_session)
-            print("Access token obtained")
-
+            logger.info("Access token obtained")
+            
             all_trips = []
             for imei in AUTHORIZED_DEVICES:
-                print(f"Fetching trips for IMEI: {imei}")
+                logger.info(f"Fetching trips for IMEI: {imei}")
                 device_trips = await fetch_trips_in_intervals(client_session, access_token, imei, start_date, end_date)
-                print(f"Fetched {len(device_trips)} trips for IMEI {imei}")
+                logger.info(f"Fetched {len(device_trips)} trips for IMEI {imei}")
                 all_trips.extend(device_trips)
-
-            print(f"Total trips fetched: {len(all_trips)}")
-
+                
+            logger.info(f"Total trips fetched: {len(all_trips)}")
+            
             for trip in all_trips:
                 try:
+                    # Check if trip already exists
                     existing_trip = trips_collection.find_one({'transactionId': trip['transactionId']})
                     if existing_trip:
-                        print(f"Trip {trip['transactionId']} already exists in the database. Skipping.")
+                        logger.info(f"Trip {trip['transactionId']} already exists in the database. Skipping.")
                         continue
-
-                    is_valid, error_message = validate_trip_data(trip)
-                    if not is_valid:
-                        print(f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}")
+                        
+                    # Process the trip
+                    processed_trip = process_trip(trip)
+                    if not processed_trip:
+                        logger.warning(f"Failed to process trip {trip.get('transactionId', 'Unknown')}. Skipping.")
                         continue
-
-                    trip_timezone = get_trip_timezone(trip)
-
-                    if isinstance(trip['startTime'], str):
-                        trip['startTime'] = parser.isoparse(trip['startTime'])
-                    if isinstance(trip['endTime'], str):
-                        trip['endTime'] = parser.isoparse(trip['endTime'])
-
-                    if isinstance(trip['startTime'], str):
-                        trip['startTime'] = parser.isoparse(trip['startTime'])
-                    if isinstance(trip['endTime'], str):
-                        trip['endTime'] = parser.isoparse(trip['endTime'])
-
-                    gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
-
-                    start_point = gps_data['coordinates'][0]
-                    last_point = gps_data['coordinates'][-1]
-
-                    trip['startGeoPoint'] = start_point
-                    trip['destinationGeoPoint'] = last_point
-
-                    lat, lon = last_point[1], last_point[0]
-                    trip['destination'] = await reverse_geocode_nominatim(lat, lon)
-                    trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
-
-                    if isinstance(trip['gps'], dict):
-                        trip['gps'] = geojson_dumps(trip['gps'])
-                    update_result = trips_collection.update_one(
-                        {'transactionId': trip['transactionId']},
-                        {'$set': trip},
+                        
+                    # Store the processed trip
+                    trips_collection.update_one(
+                        {'transactionId': processed_trip['transactionId']},
+                        {'$set': processed_trip},
                         upsert=True
                     )
-                    print(f"Updated trip {trip['transactionId']} for IMEI {trip.get('imei', 'Unknown')}: {'Inserted' if update_result.upserted_id else 'Updated'}")
-                except Exception as trip_error:
-                    print(f"Error updating trip {trip.get('transactionId', 'Unknown')}: {trip_error}")
-                    print(traceback.format_exc())
-
+                    logger.info(f"Successfully stored trip {processed_trip['transactionId']}")
+                    
+                except Exception as e:
+                    logger.error(f"Error storing trip {trip.get('transactionId', 'Unknown')}: {str(e)}")
+                    logger.debug(traceback.format_exc())
+                    continue
+                    
+            # Log final counts
             for imei in AUTHORIZED_DEVICES:
                 try:
                     count = trips_collection.count_documents({'imei': imei})
-                    print(f"Trips in database for IMEI {imei}: {count}")
+                    logger.info(f"Trips in database for IMEI {imei}: {count}")
                 except Exception as count_error:
-                    print(f"Error counting trips for IMEI {imei}: {count_error}")
+                    logger.error(f"Error counting trips for IMEI {imei}: {count_error}")
+                    
     except Exception as fetch_error:
         logger.error(f"Error in fetch_and_store_trips_in_range: {fetch_error}")
         logger.debug(traceback.format_exc())
@@ -1997,6 +2046,131 @@ def optimize_route():
     except Exception as e:
         logger.error(f"Error optimizing route: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+def get_trip_from_db(trip_id):
+    try:
+        trip = trips_collection.find_one({'transactionId': trip_id})
+        if not trip:
+            logger.warning(f"Trip {trip_id} not found in database")
+            return None
+            
+        # Ensure GPS data is properly formatted
+        if 'gps' not in trip:
+            logger.error(f"Trip {trip_id} missing GPS data")
+            return None
+            
+        # Convert string GPS data to dict if needed
+        if isinstance(trip['gps'], str):
+            try:
+                trip['gps'] = json.loads(trip['gps'])
+            except json.JSONDecodeError:
+                logger.error(f"Failed to parse GPS data for trip {trip_id}")
+                return None
+                
+        return trip
+    except Exception as e:
+        logger.error(f"Error retrieving trip {trip_id}: {str(e)}")
+        return None
+
+def store_trip(trip):
+    try:
+        # Ensure GPS data is stored as a string
+        if isinstance(trip['gps'], dict):
+            trip['gps'] = json.dumps(trip['gps'])
+            
+        # Parse times if they're strings
+        for time_field in ['startTime', 'endTime']:
+            if isinstance(trip[time_field], str):
+                trip[time_field] = parser.isoparse(trip[time_field])
+                
+        # Store the trip
+        result = trips_collection.update_one(
+            {'transactionId': trip['transactionId']},
+            {'$set': trip},
+            upsert=True
+        )
+        
+        logger.info(f"Successfully stored trip {trip['transactionId']}")
+        return True
+    except Exception as e:
+        logger.error(f"Error storing trip {trip.get('transactionId', 'Unknown')}: {str(e)}")
+        return False
+
+async def process_trip_data(trip):
+    try:
+        # Convert GPS to dict if it's a string
+        gps_data = trip['gps'] if isinstance(trip['gps'], dict) else json.loads(trip['gps'])
+        
+        if not gps_data or 'coordinates' not in gps_data:
+            logger.error(f"Invalid GPS data for trip {trip.get('transactionId')}")
+            return None
+            
+        start_point = gps_data['coordinates'][0]
+        last_point = gps_data['coordinates'][-1]
+        
+        # Add processed data
+        trip['startGeoPoint'] = start_point
+        trip['destinationGeoPoint'] = last_point
+        trip['destination'] = await reverse_geocode_nominatim(last_point[1], last_point[0])
+        trip['startLocation'] = await reverse_geocode_nominatim(start_point[1], start_point[0])
+        
+        return trip
+    except Exception as e:
+        logger.error(f"Error processing trip data: {str(e)}")
+        return None
+
+async def fetch_and_store_trips_in_range(start_date, end_date):
+    try:
+        logger.info("Starting fetch_and_store_trips_in_range")
+        logger.info(f"Authorized devices: {AUTHORIZED_DEVICES}")
+        
+        async with aiohttp.ClientSession() as client_session:
+            access_token = await get_access_token(client_session)
+            if not access_token:
+                logger.error("Failed to obtain access token")
+                return
+                
+            logger.info("Access token obtained")
+            
+            all_trips = []
+            for imei in AUTHORIZED_DEVICES:
+                logger.info(f"Fetching trips for IMEI: {imei}")
+                device_trips = await fetch_trips_in_intervals(client_session, access_token, imei, start_date, end_date)
+                logger.info(f"Fetched {len(device_trips)} trips for IMEI {imei}")
+                all_trips.extend(device_trips)
+                
+            logger.info(f"Total trips fetched: {len(all_trips)}")
+            
+            for trip in all_trips:
+                try:
+                    # Check if trip exists and is valid
+                    existing_trip = get_trip_from_db(trip['transactionId'])
+                    if existing_trip:
+                        logger.info(f"Trip {trip['transactionId']} already exists in the database. Skipping.")
+                        continue
+                        
+                    # Process new trip data
+                    processed_trip = await process_trip_data(trip)
+                    if not processed_trip:
+                        logger.warning(f"Failed to process trip {trip['transactionId']}. Skipping.")
+                        continue
+                        
+                    # Store the processed trip
+                    if not store_trip(processed_trip):
+                        logger.error(f"Failed to store trip {trip['transactionId']}")
+                        continue
+                        
+                except Exception as e:
+                    logger.error(f"Error processing trip {trip.get('transactionId', 'Unknown')}: {str(e)}")
+                    continue
+                    
+            # Log final counts
+            for imei in AUTHORIZED_DEVICES:
+                count = trips_collection.count_documents({'imei': imei})
+                logger.info(f"Trips in database for IMEI {imei}: {count}")
+                
+    except Exception as e:
+        logger.error(f"Error in fetch_and_store_trips_in_range: {str(e)}")
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))

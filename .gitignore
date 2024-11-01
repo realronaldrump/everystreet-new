@@ -28,3 +28,4 @@ drivingdatainapi/*.geojson
 gpxexamples/
 database_utilities.py
 bouncie_api.py
+services/__pycache__/
