@@ -17,6 +17,7 @@ import math
 from timezonefinder import TimezoneFinder
 import aiohttp
 import asyncio
+import traceback
 # Load environment variables
 load_dotenv()
 
@@ -33,11 +34,13 @@ try:
     matched_trips_collection = db['matched_trips']
     historical_trips_collection = db['historical_trips']
     uploaded_trips_collection = db['uploaded_trips']
+    places_collection = db['places']
     collections = {
         'trips': trips_collection,
         'matched_trips': matched_trips_collection,
         'historical_trips': historical_trips_collection,
-        'uploaded_trips': uploaded_trips_collection
+        'uploaded_trips': uploaded_trips_collection,
+        'places': places_collection
     }
     print("Successfully connected to MongoDB")
 except Exception as mongo_error:
@@ -71,6 +74,7 @@ class DatabaseUtilitiesGUI(tk.Tk):
         self.undo_time_frame = ttk.Frame(self.nb)
         self.backup_frame = ttk.Frame(self.nb)
         self.restore_frame = ttk.Frame(self.nb)
+        self.places_frame = ttk.Frame(self.nb)
 
         # Add frames as tabs
         self.nb.add(self.stats_frame, text='Collection Stats')
@@ -87,6 +91,7 @@ class DatabaseUtilitiesGUI(tk.Tk):
         self.nb.add(self.undo_time_frame, text='Undo Time Fixes')
         self.nb.add(self.backup_frame, text='Backup Collection')
         self.nb.add(self.restore_frame, text='Restore Collection')
+        self.nb.add(self.places_frame, text='Manage Places')
 
         # Create widgets for each tab
         self.create_stats_tab()
@@ -103,6 +108,7 @@ class DatabaseUtilitiesGUI(tk.Tk):
         self.create_undo_time_tab()
         self.create_backup_tab()
         self.create_restore_tab()
+        self.create_places_tab()
 
     def create_stats_tab(self):
         ttk.Label(self.stats_frame, text="Collection Document Counts:", font=('Helvetica', 14)).pack(pady=10)
@@ -409,11 +415,23 @@ class DatabaseUtilitiesGUI(tk.Tk):
         self.fix_missing_locations_text.pack()
 
     async def reverse_geocode_nominatim(self, lat, lon):
-        url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                data = await resp.json()
-                return data.get('display_name', '')
+        """Get location name from coordinates using Nominatim"""
+        try:
+            # Add delay to respect Nominatim's usage policy
+            await asyncio.sleep(1)
+            
+            url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}"
+            headers = {'User-Agent': 'EveryStreet/1.0'}
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return data.get('display_name', '')
+                    return ''
+        except Exception as e:
+            print(f"Error in reverse geocoding: {e}")
+            return ''
 
     def preview_fix_missing_locations(self):
         collection_name = self.fix_missing_locations_collection_var.get()
@@ -421,7 +439,14 @@ class DatabaseUtilitiesGUI(tk.Tk):
 
         self.fix_missing_locations_text.delete(1.0, tk.END)
         query = {
-            '$or': [{'startLocation': {'$exists': False}}, {'destination': {'$exists': False}}]
+            '$or': [
+                {'startLocation': {'$exists': False}}, 
+                {'destination': {'$exists': False}},
+                {'startLocation': None},
+                {'destination': None},
+                {'startLocation': ''},
+                {'destination': ''}
+            ]
         }
         samples = list(collection.find(query).limit(5))
         total_count = collection.count_documents(query)
@@ -443,39 +468,83 @@ class DatabaseUtilitiesGUI(tk.Tk):
     def _fix_missing_locations_thread(self, collection):
         try:
             query = {
-                '$or': [{'startLocation': {'$exists': False}}, {'destination': {'$exists': False}}]
+                '$or': [
+                    {'startLocation': {'$exists': False}}, 
+                    {'destination': {'$exists': False}},
+                    {'startLocation': None},
+                    {'destination': None},
+                    {'startLocation': ''},
+                    {'destination': ''}
+                ]
             }
             cursor = collection.find(query)
             updated_count = 0
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            tasks = []
-            for doc in cursor:
-                gps_data = doc['gps']
-                if isinstance(gps_data, str):
-                    gps_data = json.loads(gps_data)
-                coordinates = gps_data.get('coordinates', [])
-                if not coordinates:
-                    continue
-                start_point = coordinates[0]
-                end_point = coordinates[-1]
-                tasks.append(self.update_location_fields(collection, doc['_id'], start_point, end_point))
-                updated_count += 1
-            loop.run_until_complete(asyncio.gather(*tasks))
-            messagebox.showinfo("Success", f"Fixed missing locations for {updated_count} documents in '{collection.name}'.")
-        except Exception as e:
-            messagebox.showerror("Error", f"Error fixing locations: {e}")
 
-    async def update_location_fields(self, collection, doc_id, start_point, end_point):
-        start_location = await self.reverse_geocode_nominatim(start_point[1], start_point[0])
-        destination = await self.reverse_geocode_nominatim(end_point[1], end_point[0])
-        collection.update_one(
-            {'_id': doc_id},
-            {'$set': {
-                'startLocation': start_location,
-                'destination': destination
-            }}
-        )
+            for doc in cursor:
+                try:
+                    # Handle GPS data which might be a string or dict
+                    gps_data = doc.get('gps')
+                    if not gps_data:
+                        continue
+
+                    # Parse GPS data if it's a string
+                    if isinstance(gps_data, str):
+                        try:
+                            gps_data = json.loads(gps_data)
+                        except json.JSONDecodeError:
+                            continue
+
+                    # Extract coordinates
+                    coordinates = gps_data.get('coordinates', [])
+                    if not coordinates or len(coordinates) < 2:
+                        continue
+
+                    # Get start and end points
+                    start_point = coordinates[0]  # [lon, lat]
+                    end_point = coordinates[-1]   # [lon, lat]
+
+                    # Create async event loop
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+
+                    # Get location names
+                    start_location = loop.run_until_complete(
+                        self.reverse_geocode_nominatim(start_point[1], start_point[0]))
+                    destination = loop.run_until_complete(
+                        self.reverse_geocode_nominatim(end_point[1], end_point[0]))
+                    
+                    loop.close()
+
+                    # Update document with new locations
+                    if start_location or destination:
+                        update_dict = {}
+                        if start_location:
+                            update_dict['startLocation'] = start_location
+                        if destination:
+                            update_dict['destination'] = destination
+
+                        collection.update_one(
+                            {'_id': doc['_id']},
+                            {'$set': update_dict}
+                        )
+                        updated_count += 1
+
+                        # Update preview text
+                        self.fix_missing_locations_text.insert(tk.END, 
+                            f"Updated document {doc.get('transactionId', 'Unknown')}:\n"
+                            f"Start: {start_location}\n"
+                            f"End: {destination}\n\n")
+
+                except Exception as doc_error:
+                    print(f"Error processing document {doc.get('transactionId', 'Unknown')}: {doc_error}")
+                    continue
+
+            messagebox.showinfo("Success", f"Fixed missing locations for {updated_count} documents in '{collection.name}'.")
+            
+        except Exception as e:
+            error_msg = f"Error fixing locations: {str(e)}\n{traceback.format_exc()}"
+            print(error_msg)
+            messagebox.showerror("Error", error_msg)
 
     def create_validate_geojson_tab(self):
         ttk.Label(self.validate_geojson_frame, text="Validate and Fix GeoJSON Data", font=('Helvetica', 14)).pack(pady=10)
@@ -978,6 +1047,81 @@ class DatabaseUtilitiesGUI(tk.Tk):
                 messagebox.showinfo("Info", "No data to restore.")
         except Exception as e:
             messagebox.showerror("Error", f"Error restoring collection: {e}")
+
+    def create_places_tab(self):
+        ttk.Label(self.places_frame, text="Manage Places Collection", font=('Helvetica', 14)).pack(pady=10)
+        
+        # Add buttons for common places operations
+        ttk.Button(self.places_frame, text="View Places", command=self.view_places).pack(pady=5)
+        ttk.Button(self.places_frame, text="Validate Place Geometries", command=self.validate_place_geometries).pack(pady=5)
+        ttk.Button(self.places_frame, text="Recalculate Visit Statistics", command=self.recalculate_visit_stats).pack(pady=5)
+        
+        self.places_text = ScrolledText(self.places_frame, height=20, width=90)
+        self.places_text.pack(pady=10)
+
+    def view_places(self):
+        self.places_text.delete(1.0, tk.END)
+        try:
+            places = list(places_collection.find().limit(5))
+            if places:
+                for place in places:
+                    self.places_text.insert(tk.END, json.dumps(place, default=str, indent=4) + "\n\n")
+            else:
+                self.places_text.insert(tk.END, "No places found in the collection.")
+        except Exception as e:
+            self.places_text.insert(tk.END, f"Error viewing places: {e}")
+
+    def validate_place_geometries(self):
+        try:
+            places = places_collection.find()
+            invalid_places = []
+            for place in places:
+                try:
+                    shape(place['geometry'])
+                except Exception:
+                    invalid_places.append(place['_id'])
+            
+            if invalid_places:
+                self.places_text.delete(1.0, tk.END)
+                self.places_text.insert(tk.END, f"Found {len(invalid_places)} invalid place geometries:\n")
+                for place_id in invalid_places:
+                    self.places_text.insert(tk.END, f"Place ID: {place_id}\n")
+            else:
+                messagebox.showinfo("Success", "All place geometries are valid.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error validating place geometries: {e}")
+
+    def recalculate_visit_stats(self):
+        try:
+            places = places_collection.find()
+            for place in places:
+                geometry = shape(place['geometry'])
+                visits = 0
+                last_visit = None
+                
+                # Check trips that might intersect with this place
+                for trip in trips_collection.find():
+                    if 'gps' in trip:
+                        trip_coords = json.loads(trip['gps'])['coordinates']
+                        trip_line = LineString(trip_coords)
+                        if geometry.intersects(trip_line):
+                            visits += 1
+                            trip_time = trip['endTime']
+                            if not last_visit or trip_time > last_visit:
+                                last_visit = trip_time
+                
+                # Update place statistics
+                places_collection.update_one(
+                    {'_id': place['_id']},
+                    {'$set': {
+                        'visitCount': visits,
+                        'lastVisit': last_visit
+                    }}
+                )
+            
+            messagebox.showinfo("Success", "Visit statistics have been recalculated for all places.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error recalculating visit statistics: {e}")
 
 if __name__ == "__main__":
     app = DatabaseUtilitiesGUI()
