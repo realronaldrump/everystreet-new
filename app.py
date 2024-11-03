@@ -2172,6 +2172,65 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
     except Exception as e:
         logger.error(f"Error in fetch_and_store_trips_in_range: {str(e)}")
 
+@app.route('/api/first_trip_date')
+def get_first_trip_date():
+    try:
+        # Query all three collections for the earliest trip
+        regular_first = trips_collection.find_one(
+            {},
+            sort=[("startTime", 1)]
+        )
+        uploaded_first = uploaded_trips_collection.find_one(
+            {},
+            sort=[("startTime", 1)]
+        )
+        historical_first = historical_trips_collection.find_one(
+            {},
+            sort=[("startTime", 1)]
+        )
+        
+        dates = []
+        if regular_first and 'startTime' in regular_first:
+            dates.append(regular_first['startTime'])
+        if uploaded_first and 'startTime' in uploaded_first:
+            dates.append(uploaded_first['startTime'])
+        if historical_first and 'startTime' in historical_first:
+            dates.append(historical_first['startTime'])
+            
+        if not dates:
+            # If no trips found, return today's date
+            return jsonify({
+                'first_trip_date': datetime.now(timezone.utc).isoformat()
+            })
+            
+        # Return the earliest date
+        first_date = min(dates)
+        
+        # Ensure timezone is UTC
+        if first_date.tzinfo is None:
+            first_date = first_date.replace(tzinfo=timezone.utc)
+            
+        logger.info(f"Found earliest trip date: {first_date.isoformat()}")
+        
+        return jsonify({
+            'first_trip_date': first_date.isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting first trip date: {str(e)}")
+        return jsonify({
+            'error': 'Failed to get first trip date',
+            'message': str(e)
+        }), 500
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return jsonify({'error': 'Endpoint not found'}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({'error': 'Internal server error'}), 500
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
     threading.Timer(1, periodic_fetch_trips).start()

@@ -572,9 +572,40 @@ window.EveryStreet = (function() {
                 let startDate = new Date(today);
                 let endDate = new Date(today);
 
+                if (range === 'all-time') {
+                    // Fetch first trip date from API
+                    showLoadingOverlay();
+                    fetch('/api/first_trip_date')
+                        .then(response => response.json())
+                        .then(data => {
+                            startDate = new Date(data.first_trip_date);
+                            
+                            // Update the flatpickr instances
+                            const startDatePicker = document.getElementById('start-date')._flatpickr;
+                            const endDatePicker = document.getElementById('end-date')._flatpickr;
+                            
+                            startDatePicker.setDate(startDate);
+                            endDatePicker.setDate(endDate);
+                            
+                            // Store the new dates in localStorage
+                            localStorage.setItem('startDate', startDate.toISOString().split('T')[0]);
+                            localStorage.setItem('endDate', endDate.toISOString().split('T')[0]);
+                            
+                            // Fetch new data
+                            fetchTrips();
+                            fetchMetrics();
+                        })
+                        .catch(error => {
+                            console.error('Error fetching first trip date:', error);
+                        })
+                        .finally(() => {
+                            hideLoadingOverlay();
+                        });
+                    return; // Exit early since we're handling the update in the promise
+                }
+
                 switch(range) {
                     case 'today':
-                        // Start and end are already today
                         break;
                     case 'yesterday':
                         startDate.setDate(startDate.getDate() - 1);
@@ -607,7 +638,7 @@ window.EveryStreet = (function() {
 
                 // Fetch new data
                 fetchTrips();
-                fetchMetrics();  // Add metrics update
+                fetchMetrics();
             });
         });
 
@@ -760,17 +791,35 @@ window.EveryStreet = (function() {
     }
 
     function loadHistoricalData() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        if (!startDate || !endDate) {
+            alert('Please select both start and end dates');
+            return;
+        }
+
         showLoadingOverlay();
 
-        fetch('/api/load_historical_data', {
-            method: 'POST'
+        fetch('/load_historical_data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                start_date: startDate,
+                end_date: endDate
+            })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             alert(data.message);
-            if (data.status === 'success') {
-                fetchTrips();
-            }
+            fetchTrips(); // Refresh the trips display
         })
         .catch(error => {
             console.error('Error loading historical data:', error);
@@ -790,9 +839,40 @@ window.EveryStreet = (function() {
                 let startDate = new Date(today);
                 let endDate = new Date(today);
 
+                if (range === 'all-time') {
+                    // Fetch first trip date from API
+                    showLoadingOverlay();
+                    fetch('/api/first_trip_date')
+                        .then(response => response.json())
+                        .then(data => {
+                            startDate = new Date(data.first_trip_date);
+                            
+                            // Update the flatpickr instances
+                            const startDatePicker = document.getElementById('start-date')._flatpickr;
+                            const endDatePicker = document.getElementById('end-date')._flatpickr;
+                            
+                            startDatePicker.setDate(startDate);
+                            endDatePicker.setDate(endDate);
+                            
+                            // Store the new dates in localStorage
+                            localStorage.setItem('startDate', startDate.toISOString().split('T')[0]);
+                            localStorage.setItem('endDate', endDate.toISOString().split('T')[0]);
+                            
+                            // Fetch new data
+                            fetchTrips();
+                            fetchMetrics();
+                        })
+                        .catch(error => {
+                            console.error('Error fetching first trip date:', error);
+                        })
+                        .finally(() => {
+                            hideLoadingOverlay();
+                        });
+                    return; // Exit early since we're handling the update in the promise
+                }
+
                 switch(range) {
                     case 'today':
-                        // Start and end are already today
                         break;
                     case 'yesterday':
                         startDate.setDate(startDate.getDate() - 1);

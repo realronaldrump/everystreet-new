@@ -116,6 +116,29 @@ function initializeEventListeners() {
                 case 'last-year':
                     startDate.setFullYear(startDate.getFullYear() - 1);
                     break;
+                case 'all-time':
+                    // Get first trip's date from API
+                    fetch('/api/first_trip_date')
+                        .then(response => response.json())
+                        .then(data => {
+                            startDate = new Date(data.first_trip_date);
+                            const startDatePicker = document.getElementById('start-date')._flatpickr;
+                            const endDatePicker = document.getElementById('end-date')._flatpickr;
+                            
+                            startDatePicker.setDate(startDate);
+                            endDatePicker.setDate(endDate);
+                            
+                            // Store the new dates in localStorage
+                            localStorage.setItem('startDate', startDate.toISOString().split('T')[0]);
+                            localStorage.setItem('endDate', endDate.toISOString().split('T')[0]);
+                            
+                            // Fetch new data
+                            fetchTrips();
+                        })
+                        .catch(error => {
+                            console.error('Error fetching first trip date:', error);
+                        });
+                    return; // Exit the switch statement early since we're handling the update in the promise
             }
 
             // Update the flatpickr instances
