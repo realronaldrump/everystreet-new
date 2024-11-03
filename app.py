@@ -214,23 +214,34 @@ def periodic_fetch_trips():
             threading.Timer(30 * 60, periodic_fetch_trips).start()
 
 def validate_trip_data(trip):
-    required_fields = ['transactionId', 'imei', 'startTime', 'endTime', 'distance', 'gps']
+    required_fields = ['transactionId', 'startTime', 'endTime', 'gps']
+    
+    # Check for required fields
     for field in required_fields:
         if field not in trip:
             return False, f"Missing required field: {field}"
-
+            
+    # Validate GPS data
     try:
-        if isinstance(trip['startTime'], str):
-            trip['startTime'] = parser.isoparse(trip['startTime'])
-        if isinstance(trip['endTime'], str):
-            trip['endTime'] = parser.isoparse(trip['endTime'])
-
-        geojson_obj = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
-        if not is_valid_geojson(geojson_obj):
-            return False, "Invalid GeoJSON data"
-    except Exception as validation_error:
-        return False, f"Error validating trip data: {str(validation_error)}"
-
+        if isinstance(trip['gps'], str):
+            gps_data = json.loads(trip['gps'])
+        else:
+            gps_data = trip['gps']
+            
+        if not isinstance(gps_data, dict):
+            return False, "GPS data must be a GeoJSON object"
+            
+        if 'type' not in gps_data or 'coordinates' not in gps_data:
+            return False, "Invalid GeoJSON structure"
+            
+        if not isinstance(gps_data['coordinates'], list):
+            return False, "Coordinates must be a list"
+            
+    except json.JSONDecodeError:
+        return False, "Invalid GPS JSON data"
+    except Exception as e:
+        return False, f"GPS validation error: {str(e)}"
+        
     return True, None
 
 async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
@@ -1087,6 +1098,12 @@ def is_valid_coordinate(coord):
 
 async def process_and_map_match_trip(trip):
     try:
+        # Validate trip data before processing
+        is_valid, error_message = validate_trip_data(trip)
+        if not is_valid:
+            logger.error(f"Invalid trip data for map matching: {error_message}")
+            return None
+            
         existing_matched_trip = matched_trips_collection.find_one({'transactionId': trip['transactionId']})
         if existing_matched_trip:
             print(f"Trip {trip['transactionId']} already map-matched. Skipping.")
@@ -1121,8 +1138,8 @@ async def process_and_map_match_trip(trip):
             print(f"Error map-matching trip {trip['transactionId']}: {map_match_result['message']}")
 
     except Exception as e:
-        print(f"Error processing and map-matching trip {trip.get('transactionId', 'Unknown')}: {e}")
-        print(traceback.format_exc())
+        logger.error(f"Error processing and map-matching trip {trip.get('transactionId', 'Unknown')}: {str(e)}")
+        return None
 
 def haversine_distance(coord1, coord2):
     R = 6371
@@ -2074,6 +2091,12 @@ def get_trip_from_db(trip_id):
 
 def store_trip(trip):
     try:
+        # Validate trip data
+        is_valid, error_message = validate_trip_data(trip)
+        if not is_valid:
+            logger.error(f"Invalid trip data: {error_message}")
+            return False
+            
         # Ensure GPS data is stored as a string
         if isinstance(trip['gps'], dict):
             trip['gps'] = json.dumps(trip['gps'])
@@ -2230,6 +2253,22 @@ def not_found_error(error):
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
+
+async def cleanup_invalid_trips():
+    try:
+        all_trips = list(trips_collection.find({}))
+        for trip in all_trips:
+            is_valid, error_message = validate_trip_data(trip)
+            if not is_valid:
+                logger.warning(f"Found invalid trip {trip.get('transactionId')}: {error_message}")
+                # Option 1: Delete invalid trips
+                trips_collection.delete_one({'_id': trip['_id']})
+                # Option 2: Mark them as invalid
+                # trips_collection.update_one({'_id': trip['_id']}, {'$set': {'invalid': True}})
+                
+        logger.info("Trip cleanup completed")
+    except Exception as e:
+        logger.error(f"Error during trip cleanup: {str(e)}")
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
