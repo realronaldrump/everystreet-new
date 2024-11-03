@@ -1,6 +1,6 @@
 import json
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 import aiohttp
 from flask import Flask, render_template, request, jsonify, session, Response, send_file
 from flask_socketio import SocketIO, emit
@@ -88,7 +88,7 @@ class CustomPlace:
     def __init__(self, name, geometry, created_at=None):
         self.name = name
         self.geometry = geometry
-        self.created_at = created_at or datetime.utcnow()
+        self.created_at = created_at or datetime.now(UTC)
 
     def to_dict(self):
         return {
@@ -102,7 +102,7 @@ class CustomPlace:
         return CustomPlace(
             name=data['name'],
             geometry=data['geometry'],
-            created_at=data.get('created_at', datetime.utcnow())
+            created_at=data.get('created_at', datetime.now(UTC))
         )
 
 # Initialize TimezoneFinder
@@ -1981,7 +1981,7 @@ def bouncie_webhook():
         socketio.emit(f'trip_{event_type}', {
             'tripId': webhook_data.get('transactionId'),  # Changed from 'tripId'
             'deviceId': webhook_data.get('imei'),  # Changed from 'deviceId'
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(UTC).isoformat(),
             'data': webhook_data.get('data'),  # Changed to handle generic data
             'event': event_type
         })
