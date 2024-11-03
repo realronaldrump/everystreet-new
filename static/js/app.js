@@ -1128,6 +1128,17 @@ window.EveryStreet = (function() {
 
             initializeSocketIO();
             initializeLiveTracking();
+
+            fetch('/load_historical_data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => console.log('Historical data loaded:', data))
+            .catch(error => console.error('Error:', error));
         },
 
         // Public methods
