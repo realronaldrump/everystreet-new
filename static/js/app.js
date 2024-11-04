@@ -83,10 +83,8 @@ window.EveryStreet = (function() {
 
             console.log('Map initialized successfully');
 
-            // Initialize route optimizer after DOM is fully loaded
-            document.addEventListener('DOMContentLoaded', () => {
-                window.routeOptimizer = new RouteOptimizer(map);
-            });
+            // Initialize route optimizer
+            window.routeOptimizer = new RouteOptimizer(map);
 
             // Enable optimize button when location is validated
             document.addEventListener('locationValidated', function() {
