@@ -3,32 +3,31 @@ class RouteOptimizer {
         this.map = map;
         this.currentRoute = null;
         this.routeLayer = null;
-        
-        // Wait a short moment to ensure DOM is ready
-        setTimeout(() => {
-            this.elements = {
-                directionsPanel: document.getElementById('directions-panel'),
-                turnByTurnDiv: document.getElementById('turn-by-turn'),
-                routeStats: document.getElementById('route-stats'),
-                routeProgress: document.getElementById('route-progress'),
-                routeDetails: document.getElementById('route-details'),
-                optimizeButton: document.getElementById('optimize-route')
-            };
-            
-            if (!this.validateElements()) {
-                console.error('Required elements not found. DOM structure:', {
-                    directionsPanel: !!this.elements.directionsPanel,
-                    turnByTurnDiv: !!this.elements.turnByTurnDiv,
-                    routeStats: !!this.elements.routeStats,
-                    routeProgress: !!this.elements.routeProgress,
-                    routeDetails: !!this.elements.routeDetails,
-                    optimizeButton: !!this.elements.optimizeButton
-                });
-                return;
-            }
-            
-            this.initialize();
-        }, 0);
+        this.initializeElements();
+    }
+
+    initializeElements() {
+        // Initialize element references
+        this.elements = {
+            directionsPanel: document.getElementById('directions-panel'),
+            turnByTurnDiv: document.getElementById('turn-by-turn'),
+            routeStats: document.getElementById('route-stats'),
+            routeProgress: document.getElementById('route-progress'),
+            routeDetails: document.getElementById('route-details'),
+            optimizeButton: document.getElementById('optimize-route')
+        };
+
+        // Log element status for debugging
+        console.log('Route Optimizer Elements Status:', {
+            directionsPanel: !!this.elements.directionsPanel,
+            turnByTurnDiv: !!this.elements.turnByTurnDiv,
+            routeStats: !!this.elements.routeStats,
+            routeProgress: !!this.elements.routeProgress,
+            routeDetails: !!this.elements.routeDetails,
+            optimizeButton: !!this.elements.optimizeButton
+        });
+
+        this.initialize();
     }
 
     initialize() {
@@ -51,20 +50,16 @@ class RouteOptimizer {
     }
 
     initializeUI() {
-        const routeOptDiv = document.getElementById('route-optimization');
-        if (!routeOptDiv) {
-            console.error('Route optimization container not found');
-            return;
-        }
-
-        // Use the stored button reference
         if (this.elements.optimizeButton) {
             this.elements.optimizeButton.addEventListener('click', () => {
                 console.log('Optimize button clicked');
                 this.optimizeRoute();
             });
-        } else {
-            console.error('Optimize button not found');
+        }
+
+        // Initialize route stats container
+        if (this.elements.routeStats) {
+            this.elements.routeStats.classList.add('d-none');
         }
     }
 
@@ -124,40 +119,30 @@ class RouteOptimizer {
     }
 
     async getCurrentLocation() {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             if (!navigator.geolocation) {
-                alert('Geolocation is not supported by your browser');
-                reject(new Error('Geolocation not supported'));
+                console.warn('Geolocation not supported. Falling back to last known location.');
+                const lastLocation = await this.getLastKnownLocation();
+                if (lastLocation) {
+                    resolve(lastLocation);
+                } else {
+                    reject(new Error('Unable to get current location.'));
+                }
                 return;
             }
 
-            // Show loading state
-            const button = document.getElementById('optimize-route');
-            button.disabled = true;
-            button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Getting location...';
-
             navigator.geolocation.getCurrentPosition(
                 position => {
-                    // Swap coordinates to [latitude, longitude] format
-                    resolve([position.coords.latitude, position.coords.longitude]);
+                    resolve([position.coords.longitude, position.coords.latitude]);
                 },
-                error => {
-                    let errorMessage;
-                    switch(error.code) {
-                        case error.PERMISSION_DENIED:
-                            errorMessage = 'Location access denied. Please enable location services in your browser settings.';
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            errorMessage = 'Location information is unavailable. Please try again.';
-                            break;
-                        case error.TIMEOUT:
-                            errorMessage = 'Location request timed out. Please check your connection and try again.';
-                            break;
-                        default:
-                            errorMessage = 'An unknown error occurred getting your location.';
+                async error => {
+                    console.warn('Geolocation failed:', error);
+                    const lastLocation = await this.getLastKnownLocation();
+                    if (lastLocation) {
+                        resolve(lastLocation);
+                    } else {
+                        reject(new Error('Unable to get current location.'));
                     }
-                    alert(errorMessage);
-                    reject(error);
                 },
                 {
                     enableHighAccuracy: true,
@@ -168,97 +153,143 @@ class RouteOptimizer {
         });
     }
 
-    displayRoute(routeData) {
-        // Clear existing route
-        if (this.routeLayer) {
-            this.map.removeLayer(this.routeLayer);
+    async getLastKnownLocation() {
+        try {
+            const response = await fetch('/api/last_trip_point');
+            const data = await response.json();
+            return data.lastPoint || null;
+        } catch (error) {
+            console.error('Error fetching last known location:', error);
+            return null;
         }
-
-        // Display new route
-        this.routeLayer = L.geoJSON(routeData.route, {
-            style: feature => ({
-                color: feature.properties.is_driven ? '#00FF00' : '#FF4444',
-                weight: 5,
-                opacity: 0.8,
-                dashArray: feature.properties.is_driven ? null : '10, 10'
-            }),
-            onEachFeature: (feature, layer) => {
-                layer.bindPopup(`
-                    <strong>${feature.properties.name}</strong><br>
-                    Distance: ${(feature.properties.length * 0.000621371).toFixed(2)} miles<br>
-                    Status: ${feature.properties.is_driven ? 'Driven' : 'Not driven yet'}<br>
-                    Sequence: ${feature.properties.sequence_number + 1}
-                `);
-            }
-        }).addTo(this.map);
-
-        // Update stats
-        this.updateStats(routeData.statistics);
-
-        // Update directions
-        this.updateDirections(routeData.turn_by_turn);
-
-        // Fit map to route bounds
-        this.map.fitBounds(this.routeLayer.getBounds());
-
-        // Show directions panel
-        this.showDirectionsPanel();
     }
 
-    updateStats(stats) {
-        if (!this.elements.statsDiv || !this.elements.progressBar || !this.elements.detailsDiv) {
-            console.error('Stats elements not found');
+    displayRoute(routeData) {
+        try {
+            // Clear existing route
+            if (this.routeLayer) {
+                this.map.removeLayer(this.routeLayer);
+            }
+
+            // Add the new route to the map
+            this.routeLayer = L.geoJSON(routeData.route, {
+                style: feature => ({
+                    color: feature.properties.is_driven ? '#00FF00' : '#FF4444',
+                    weight: 5,
+                    opacity: 0.8,
+                    dashArray: feature.properties.is_driven ? null : '10, 10'
+                }),
+                onEachFeature: (feature, layer) => {
+                    layer.bindPopup(`
+                        <strong>${feature.properties.name || 'Unnamed Street'}</strong><br>
+                        Distance: ${(feature.properties.length || 0).toFixed(2)} km<br>
+                        Status: ${feature.properties.is_driven ? 'Driven' : 'Not driven yet'}
+                    `);
+                }
+            }).addTo(this.map);
+
+            // Fit the map to show the entire route
+            this.map.fitBounds(this.routeLayer.getBounds());
+
+            // Update statistics and directions
+            if (routeData.statistics) {
+                this.updateStats(routeData.statistics);
+            }
+
+            if (routeData.turn_by_turn) {
+                this.updateDirections(routeData.turn_by_turn);
+            }
+
+            // Show the directions panel
+            this.showDirectionsPanel();
+
+        } catch (error) {
+            console.error('Error displaying route:', error);
+            this.showError('Error displaying route. Please try again.');
+        }
+    }
+
+    updateStats(statistics) {
+        if (!this.elements.routeStats || !this.elements.routeProgress || !this.elements.routeDetails) {
+            console.error('Stats elements not found:', {
+                routeStats: !!this.elements.routeStats,
+                routeProgress: !!this.elements.routeProgress,
+                routeDetails: !!this.elements.routeDetails
+            });
             return;
         }
 
-        this.elements.statsDiv.classList.remove('d-none');
+        try {
+            // Show the stats container
+            this.elements.routeStats.classList.remove('d-none');
 
-        const completionPercentage = ((stats.total_distance - stats.undriven_distance) / stats.total_distance) * 100;
+            // Calculate completion percentage
+            const totalDistance = statistics.total_distance || 0;
+            const drivenDistance = statistics.driven_distance || 0;
+            const completionPercentage = totalDistance > 0 ? (drivenDistance / totalDistance) * 100 : 0;
 
-        this.elements.progressBar.style.width = `${completionPercentage}%`;
-        this.elements.progressBar.setAttribute('aria-valuenow', completionPercentage);
+            // Update progress bar
+            this.elements.routeProgress.style.width = `${completionPercentage}%`;
+            this.elements.routeProgress.setAttribute('aria-valuenow', completionPercentage);
 
-        this.elements.detailsDiv.innerHTML = `
-            Total Distance: ${(stats.total_distance * 0.000621371).toFixed(2)} miles<br>
-            Remaining: ${(stats.undriven_distance * 0.000621371).toFixed(2)} miles<br>
-            Est. Time: ${Math.round(stats.estimated_time)} minutes
-        `;
+            // Update details text
+            this.elements.routeDetails.innerHTML = `
+                <div class="row">
+                    <div class="col-6">
+                        <strong>Total Distance:</strong> ${totalDistance.toFixed(2)} km<br>
+                        <strong>Driven:</strong> ${drivenDistance.toFixed(2)} km<br>
+                        <strong>Remaining:</strong> ${(totalDistance - drivenDistance).toFixed(2)} km
+                    </div>
+                    <div class="col-6">
+                        <strong>Estimated Time:</strong> ${statistics.estimated_time || 'N/A'}<br>
+                        <strong>Turn Count:</strong> ${statistics.turn_count || 0}<br>
+                        <strong>Coverage:</strong> ${completionPercentage.toFixed(1)}%
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Error updating stats:', error);
+        }
     }
 
     updateDirections(directions) {
         if (!this.elements.turnByTurnDiv) {
-            console.error('Turn-by-turn div not found');
+            console.error('Turn-by-turn container not found');
             return;
         }
 
-        this.elements.turnByTurnDiv.innerHTML = directions.map((step, index) => `
-            <div class="direction-step ${step.is_driven ? 'driven' : 'undriven'}">
-                <div class="step-number">${index + 1}</div>
-                <div class="step-details">
-                    <div class="step-instruction">
-                        ${step.turn} on ${step.street_name}
-                    </div>
-                    <div class="step-distance">
-                        ${(step.distance * 0.000621371).toFixed(2)} miles
+        try {
+            const directionsHtml = directions.map((step, index) => `
+                <div class="direction-step ${step.is_driven ? 'driven' : 'undriven'}">
+                    <div class="step-number">${index + 1}</div>
+                    <div class="step-details">
+                        <div class="step-instruction">${step.instruction}</div>
+                        <div class="step-distance">${step.distance.toFixed(2)} km</div>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            `).join('');
+
+            this.elements.turnByTurnDiv.innerHTML = directionsHtml;
+            this.elements.turnByTurnDiv.classList.remove('d-none');
+        } catch (error) {
+            console.error('Error updating directions:', error);
+        }
     }
 
     showDirectionsPanel() {
-        const panel = document.getElementById('directions-panel');
-        panel.classList.remove('d-none');
+        if (this.elements.directionsPanel) {
+            this.elements.directionsPanel.classList.remove('d-none');
+        }
     }
 
     hideDirectionsPanel() {
-        const panel = document.getElementById('directions-panel');
-        panel.classList.add('d-none');
+        if (this.elements.directionsPanel) {
+            this.elements.directionsPanel.classList.add('d-none');
+        }
     }
 
     showLoadingState() {
-        if (this.elements.directionsPanel) {
-            this.elements.directionsPanel.classList.remove('d-none');
+        if (this.elements.turnByTurnDiv) {
             this.elements.turnByTurnDiv.innerHTML = `
                 <div class="text-center p-4">
                     <div class="spinner-border" role="status">
@@ -271,65 +302,38 @@ class RouteOptimizer {
     }
 
     hideLoadingState() {
-        if (this.elements.directionsPanel) {
+        if (this.elements.turnByTurnDiv) {
             this.elements.turnByTurnDiv.innerHTML = '';
         }
     }
 
     showError(message) {
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'alert alert-danger';
-        errorDiv.role = 'alert';
-        errorDiv.textContent = message;
-
         if (this.elements.directionsPanel) {
-            this.elements.directionsPanel.innerHTML = '';
-            this.elements.directionsPanel.appendChild(errorDiv);
+            const errorHtml = `
+                <div class="alert alert-danger" role="alert">
+                    ${message}
+                </div>
+            `;
+            this.elements.directionsPanel.innerHTML = errorHtml;
+            this.elements.directionsPanel.classList.remove('d-none');
         }
     }
 
-    // Helper method to toggle directions panel
-    toggleDirectionsPanel() {
-        if (this.elements.directionsPanel) {
-            this.elements.directionsPanel.classList.toggle('d-none');
-        }
-    }
-
-    // Helper method to clear the current route
     clearRoute() {
         if (this.routeLayer) {
             this.map.removeLayer(this.routeLayer);
             this.routeLayer = null;
         }
         this.hideDirectionsPanel();
-        const statsDiv = document.getElementById('route-stats');
-        statsDiv.classList.add('d-none');
-    }
-
-    // Method to export the current route
-    exportRoute() {
-        if (!this.routeLayer) {
-            this.showError('No route to export');
-            return;
+        if (this.elements.routeStats) {
+            this.elements.routeStats.classList.add('d-none');
         }
-
-        const routeData = this.routeLayer.toGeoJSON();
-        const blob = new Blob([JSON.stringify(routeData)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'optimized_route.geojson';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
     }
 }
 
-// Make toggleDirectionsPanel available globally
-window.EveryStreet = window.EveryStreet || {};
-window.EveryStreet.toggleDirectionsPanel = function() {
-    if (window.routeOptimizer) {
-        window.routeOptimizer.toggleDirectionsPanel();
-    }
-};
+// Initialize RouteOptimizer when the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Make RouteOptimizer globally available
+    window.EveryStreet = window.EveryStreet || {};
+    window.EveryStreet.RouteOptimizer = RouteOptimizer;
+});

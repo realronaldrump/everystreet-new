@@ -19,20 +19,36 @@ class RouteOptimizer:
             # Create an empty directed graph
             self.graph = nx.DiGraph()
             
+            # Create a set of driven street IDs from the matched trips
+            driven_street_ids = set()
+            for trip in driven_segments:
+                # Handle different possible data structures
+                if isinstance(trip, dict):
+                    if 'properties' in trip and 'street_id' in trip['properties']:
+                        driven_street_ids.add(trip['properties']['street_id'])
+                    elif 'street_id' in trip:
+                        driven_street_ids.add(trip['street_id'])
+                    elif '_id' in trip:
+                        driven_street_ids.add(trip['_id'])
+                
+            logger.debug(f"Found {len(driven_street_ids)} driven street segments")
+            
             # Process each street segment
             for feature in streets_geojson['features']:
-                coords = feature['geometry']['coordinates']
                 street_id = feature['properties'].get('id')
                 name = feature['properties'].get('name', 'Unknown Street')
                 length = feature['properties'].get('length', 0)
-                is_driven = feature['properties'].get('driven', False)
+                coords = feature['geometry']['coordinates']
                 
-                # Convert all coordinates in the segment from [lon,lat] to [lat,lon]
+                # Determine if the street has been driven
+                is_driven = street_id in driven_street_ids
+                
+                # Convert coordinates from [lon, lat] to (lat, lon)
                 normalized_coords = [self._normalize_coordinates(coord) for coord in coords]
                 start_node = normalized_coords[0]
                 end_node = normalized_coords[-1]
                 
-                # Add nodes and edge to graph
+                # Add edge to graph
                 self.graph.add_edge(
                     start_node, 
                     end_node,
@@ -49,11 +65,12 @@ class RouteOptimizer:
                     self.driven_edges.add(edge)
                 else:
                     self.undriven_edges.add(edge)
-            
+                    
             # Check connectivity after graph is created
             self._check_graph_connectivity()
             
             logger.info(f"Created graph with {self.graph.number_of_nodes()} nodes and {self.graph.number_of_edges()} edges")
+            logger.debug(f"Driven edges: {len(self.driven_edges)}, Undriven edges: {len(self.undriven_edges)}")
             
         except Exception as e:
             logger.error(f"Error creating graph: {str(e)}")

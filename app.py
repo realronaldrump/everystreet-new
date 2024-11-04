@@ -2079,6 +2079,11 @@ def optimize_route():
         matched_trips = list(matched_trips_collection.find())
         logger.debug(f"Found {len(matched_trips)} matched trips")
         
+        # Add debug logging
+        logger.debug(f"Matched trips structure: {type(matched_trips)}")
+        if matched_trips:
+            logger.debug(f"Sample matched trip: {matched_trips[0] if isinstance(matched_trips, list) else matched_trips}")
+        
         # Initialize route optimizer
         optimizer = RouteOptimizer()
         
@@ -2089,6 +2094,7 @@ def optimize_route():
         route_data = optimizer.find_optimal_route(current_location)
         
         logger.info("Route optimization completed successfully")
+        logger.debug(f"Optimizer route data: {route_data}")
         return jsonify(route_data)
         
     except Exception as e:
