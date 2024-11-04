@@ -181,12 +181,12 @@ window.EveryStreet = (function() {
         try {
             const response = await fetch(url);
             const geojson = await response.json();
-            updateLoadingProgress(25, 'Processing trips');
+            updateLoadingProgress(20, 'Processing trips');
 
             // Separate regular trips and historical trips
             const regularTrips = geojson.features.filter(feature => feature.properties.imei !== 'HISTORICAL');
             const historicalTrips = geojson.features.filter(feature => feature.properties.imei === 'HISTORICAL');
-            updateLoadingProgress(50, 'Preparing map data');
+            updateLoadingProgress(40, 'Preparing map data');
 
             // Assign to the appropriate map layers
             mapLayers.trips.layer = {
@@ -199,14 +199,29 @@ window.EveryStreet = (function() {
                 features: historicalTrips
             };
 
-            updateLoadingProgress(75, 'Updating map visualization');
+            updateLoadingProgress(60, 'Updating map visualization');
             await updateMap();
-            updateLoadingProgress(90, 'Finalizing');
-
-            // Update the trips table
-            await populateTripsTable(geojson.features);
             
-            // Fetch matched trips if needed
+            // Update the trips table
+            updateLoadingProgress(80, 'Updating trips table');
+            if (window.tripsTable) {
+                await new Promise((resolve) => {
+                    const formattedTrips = geojson.features
+                        .filter(trip => trip.properties.imei !== 'HISTORICAL')
+                        .map(trip => ({
+                            ...trip.properties,
+                            gps: trip.geometry,
+                            destination: trip.properties.destination || 'N/A',
+                            isCustomPlace: trip.properties.isCustomPlace || false,
+                            distance: parseFloat(trip.properties.distance).toFixed(2)
+                        }));
+
+                    window.tripsTable.clear().rows.add(formattedTrips).draw();
+                    setTimeout(resolve, 100); // Give the table time to render
+                });
+            }
+            
+            updateLoadingProgress(90, 'Fetching matched trips');
             await fetchMatchedTrips();
             
             updateLoadingProgress(100, 'Complete');
@@ -214,29 +229,10 @@ window.EveryStreet = (function() {
         } catch (error) {
             console.error('Error fetching trips:', error);
         } finally {
-            // Add a small delay before hiding to ensure user sees 100%
             setTimeout(() => {
                 hideLoadingOverlay();
             }, 500);
         }
-    }
-
-    // Update populateTripsTable to return a Promise
-    function populateTripsTable(trips) {
-        return new Promise((resolve) => {
-            const formattedTrips = trips
-                .filter(trip => trip.properties.imei !== 'HISTORICAL')
-                .map(trip => ({
-                    ...trip.properties,
-                    gps: trip.geometry,
-                    destination: trip.properties.destination || 'N/A',
-                    isCustomPlace: trip.properties.isCustomPlace || false,
-                    distance: parseFloat(trip.properties.distance).toFixed(2)
-                }));
-
-            tripsTable.clear().rows.add(formattedTrips).draw();
-            resolve();
-        });
     }
 
     async function fetchMatchedTrips() {

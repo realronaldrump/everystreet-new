@@ -54,25 +54,15 @@ function formatDestination(data, type, row) {
 function fetchTrips() {
     const params = getFilterParams();
     const url = `/api/trips?${params.toString()}`;
-
-    showLoadingOverlay('Loading trips');
     
-    fetch(url)
+    return fetch(url)
         .then(response => response.json())
         .then(data => {
-            updateLoadingProgress(30, 'Processing trips');
             return populateTripsTable(data.features);
-        })
-        .then(() => {
-            updateLoadingProgress(60, 'Updating map');
-            // Emit a custom event to notify app.js that trips are loaded
-            const event = new CustomEvent('tripsLoaded', { detail: { status: 'success' } });
-            document.dispatchEvent(event);
         })
         .catch(error => {
             console.error('Error fetching trips:', error);
-            const event = new CustomEvent('tripsLoaded', { detail: { status: 'error' } });
-            document.dispatchEvent(event);
+            throw error;
         });
 }
 
@@ -105,7 +95,7 @@ function initializeEventListeners() {
 
     // Add date preset functionality
     document.querySelectorAll('.date-preset').forEach(button => {
-        button.addEventListener('click', function() {
+        button.addEventListener('click', () => {
             const range = this.dataset.range;
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -147,8 +137,8 @@ function initializeEventListeners() {
                             localStorage.setItem('startDate', startDate.toISOString().split('T')[0]);
                             localStorage.setItem('endDate', endDate.toISOString().split('T')[0]);
                             
-                            // Fetch new data
-                            fetchTrips();
+                            // Instead of calling fetchTrips directly, call the main app's fetchTrips
+                            window.EveryStreet.fetchTrips();
                         })
                         .catch(error => {
                             console.error('Error fetching first trip date:', error);
@@ -167,8 +157,8 @@ function initializeEventListeners() {
             localStorage.setItem('startDate', startDate.toISOString().split('T')[0]);
             localStorage.setItem('endDate', endDate.toISOString().split('T')[0]);
 
-            // Fetch new data
-            fetchTrips();
+            // Instead of calling fetchTrips directly, call the main app's fetchTrips
+            window.EveryStreet.fetchTrips();
         });
     });
 
