@@ -597,10 +597,11 @@ def get_trips():
     if imei:
         query['imei'] = imei
 
-    # Get trips from both collections
+    # Get trips from all collections
     regular_trips = list(trips_collection.find(query))
     uploaded_trips = list(uploaded_trips_collection.find(query))
-    all_trips = regular_trips + uploaded_trips
+    historical_trips = list(historical_trips_collection.find(query))  # Add historical trips
+    all_trips = regular_trips + uploaded_trips + historical_trips  # Combine all trips
 
     features = []
     for trip in all_trips:
@@ -611,7 +612,7 @@ def get_trips():
                 'imei': trip.get('imei', 'UPLOAD'),
                 'startTime': trip['startTime'].isoformat(),
                 'endTime': trip['endTime'].isoformat(),
-                'distance': float(trip.get('distance', 0)),  # Ensure distance is a float
+                'distance': float(trip.get('distance', 0)),
                 'timezone': trip.get('timezone', 'America/Chicago'),
                 'destination': trip.get('destination', 'N/A'),
                 'startLocation': trip.get('startLocation', 'N/A'),

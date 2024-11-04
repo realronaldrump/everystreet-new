@@ -166,21 +166,21 @@ window.EveryStreet = (function() {
             const geojson = await response.json();
             console.log('Received GeoJSON:', geojson);
 
-            const trips = geojson.features
-                .filter(feature => feature.properties.imei !== 'HISTORICAL')
-                .map(feature => ({
-                    ...feature.properties,
-                    gps: feature.geometry,
-                    destination: feature.properties.destination || 'N/A'
-                }));
+            const trips = geojson.features;
 
+            // Separate regular trips and historical trips
+            const regularTrips = trips.filter(feature => feature.properties.imei !== 'HISTORICAL');
+            const historicalTrips = trips.filter(feature => feature.properties.imei === 'HISTORICAL');
+
+            // Assign to the appropriate map layers
             mapLayers.trips.layer = {
                 type: 'FeatureCollection',
-                features: trips.map(trip => ({
-                    type: 'Feature',
-                    geometry: trip.gps,
-                    properties: trip
-                }))
+                features: regularTrips
+            };
+
+            mapLayers.historicalTrips.layer = {
+                type: 'FeatureCollection',
+                features: historicalTrips
             };
 
             await fetchMatchedTrips();
@@ -1129,6 +1129,7 @@ window.EveryStreet = (function() {
             initializeSocketIO();
             initializeLiveTracking();
 
+            /*
             fetch('/load_historical_data', {
                 method: 'POST',
                 headers: {
@@ -1139,6 +1140,7 @@ window.EveryStreet = (function() {
             .then(response => response.json())
             .then(data => console.log('Historical data loaded:', data))
             .catch(error => console.error('Error:', error));
+            */
         },
 
         // Public methods
