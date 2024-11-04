@@ -986,39 +986,51 @@ def validate_location_osm(location, location_type):
     return None
 
 def generate_geojson_osm(location, streets_only=False):
-    area_id = int(location['osm_id']) + 3600000000 if location['osm_type'] == 'relation' else int(location['osm_id'])
+    try:
+        if not isinstance(location, dict):
+            return None, "Invalid location format"
+            
+        if 'osm_id' not in location or 'osm_type' not in location:
+            return None, "Missing osm_id or osm_type in location data"
+            
+        area_id = int(location['osm_id'])
+        if location['osm_type'] == 'relation':
+            area_id += 3600000000
+            
+        if streets_only:
+            query = f"""
+            [out:json];
+            area({area_id})->.searchArea;
+            (
+              way["highway"](area.searchArea);
+            );
+            (._;>;);
+            out geom;
+            """
+        else:
+            query = f"""
+            [out:json];
+            ({location['osm_type']}({location['osm_id']});
+            >;
+            );
+            out geom;
+            """
 
-    if streets_only:
-        query = f"""
-        [out:json];
-        area({area_id})->.searchArea;
-        (
-          way["highway"](area.searchArea);
-        );
-        (._;>;);
-        out geom;
-        """
-    else:
-        query = f"""
-        [out:json];
-        ({location['osm_type']}({location['osm_id']});
-        >;
-        );
-        out geom;
-        """
+        response = requests.get("http://overpass-api.de/api/interpreter", params={'data': query})
+        if response.status_code != 200:
+            return None, "Failed to get response from Overpass API"
 
-    response = requests.get("http://overpass-api.de/api/interpreter", params={'data': query})
-    if response.status_code != 200:
-        return None, "Failed to get response from Overpass API"
+        data = response.json()
+        features = process_elements(data['elements'], streets_only)
 
-    data = response.json()
-    features = process_elements(data['elements'], streets_only)
-
-    if features:
-        gdf = gpd.GeoDataFrame.from_features(features)
-        gdf = gdf.set_geometry('geometry')
-        return json.loads(gdf.to_json()), None
-    return None, f"No features found. Raw response: {json.dumps(data)}"
+        if features:
+            gdf = gpd.GeoDataFrame.from_features(features)
+            gdf = gdf.set_geometry('geometry')
+            return json.loads(gdf.to_json()), None
+        return None, f"No features found. Raw response: {json.dumps(data)}"
+    except Exception as e:
+        print(f"Error generating GeoJSON: {str(e)}")
+        return None, f"An error occurred while generating GeoJSON: {str(e)}"
 
 def process_elements(elements, streets_only):
     features = []
@@ -2033,11 +2045,26 @@ def optimize_route():
         
         # Get request data
         data = request.json
+        logger.debug(f"Received data: {data}")
+        
         current_location = data.get('current_location')
         location = data.get('location')
         
+        logger.debug(f"Current location: {current_location}")
+        logger.debug(f"Target location: {location}")
+        
         if not current_location or not location:
             return jsonify({'error': 'Current location and target location are required'}), 400
+            
+        # Validate location object
+        if not isinstance(location, dict) or 'osm_id' not in location or 'osm_type' not in location:
+            return jsonify({'error': 'Invalid location format. Expected object with osm_id and osm_type'}), 400
+            
+        # Ensure current_location is in the correct format [longitude, latitude]
+        if isinstance(current_location, list) and len(current_location) == 2:
+            current_location = tuple(current_location)  # Convert to tuple if needed
+        else:
+            return jsonify({'error': 'Current location must be [longitude, latitude]'}), 400
             
         # Get street coverage data first
         logger.info("Fetching street network data...")
@@ -2045,9 +2072,12 @@ def optimize_route():
         if not streets_data:
             return jsonify({'error': f'Error getting streets: {streets_error}'}), 500
             
+        logger.debug(f"Streets data received: {type(streets_data)}")
+        
         # Get driven segments from matched trips
         logger.info("Fetching matched trips...")
         matched_trips = list(matched_trips_collection.find())
+        logger.debug(f"Found {len(matched_trips)} matched trips")
         
         # Initialize route optimizer
         optimizer = RouteOptimizer()
@@ -2063,6 +2093,7 @@ def optimize_route():
         
     except Exception as e:
         logger.error(f"Error optimizing route: {str(e)}")
+        logger.exception("Full traceback:")  # This will log the full stack trace
         return jsonify({'error': str(e)}), 500
 
 def get_trip_from_db(trip_id):

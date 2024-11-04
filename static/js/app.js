@@ -83,8 +83,10 @@ window.EveryStreet = (function() {
 
             console.log('Map initialized successfully');
 
-            // Initialize route optimizer
-            window.routeOptimizer = new RouteOptimizer(map);
+            // Initialize route optimizer after DOM is fully loaded
+            document.addEventListener('DOMContentLoaded', () => {
+                window.routeOptimizer = new RouteOptimizer(map);
+            });
 
             // Enable optimize button when location is validated
             document.addEventListener('locationValidated', function() {
@@ -504,14 +506,24 @@ window.EveryStreet = (function() {
         .then(response => response.json())
         .then(data => {
             if (data) {
-                alert('Location validated successfully!');
+                // Store the full location object in the hidden input
+                locationInput.setAttribute('data-location', JSON.stringify(data));
+                locationInput.setAttribute('data-display-name', data.display_name || data.name || locationInput.value);
+                
+                // Store for other functions that might need it
                 window.validatedLocation = data;
+                
+                // Dispatch event for route optimizer
+                document.dispatchEvent(new Event('locationValidated'));
+                
+                alert('Location validated successfully!');
             } else {
                 alert('Location not found. Please check your input.');
             }
         })
         .catch(error => {
             console.error('Error validating location:', error);
+            alert('Error validating location. Please try again.');
         });
     }
 

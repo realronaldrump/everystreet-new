@@ -7,6 +7,21 @@
     <!-- Map Container -->
     <div id="map" class="flex-grow-1"></div>
 
+    <!-- Directions Panel - Move it here -->
+    <div id="directions-panel" class="card route-directions d-none">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0 d-flex justify-content-between align-items-center">
+                <span>Turn-by-Turn Directions</span>
+                <button class="btn btn-sm btn-link text-white" onclick="EveryStreet.toggleDirectionsPanel()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </h5>
+        </div>
+        <div class="card-body">
+            <div id="turn-by-turn" class="directions-list"></div>
+        </div>
+    </div>
+
     <!-- Controls Panel -->
     <div id="map-controls" class="bg-dark text-white p-3">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -58,6 +73,7 @@
                         <div class="card-body">
                             <div class="mb-3">
                                 <input type="text" id="location-input" class="form-control location-input" placeholder="Enter location">
+                                <input type="hidden" id="location-data" data-location='{}' data-display-name=''>
                             </div>
                             <div class="mb-3">
                                 <select id="location-type" class="form-select">
@@ -92,7 +108,8 @@
                                 </div>
                                 <div id="route-stats" class="mt-2 d-none">
                                     <div class="progress mb-2">
-                                        <div id="route-progress" class="progress-bar" role="progressbar"></div>
+                                        <div id="route-progress" class="progress-bar" role="progressbar" 
+                                             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                                     </div>
                                     <div id="route-details" class="small text-muted"></div>
                                 </div>
@@ -151,7 +168,7 @@
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script src="{{ url_for('static', filename='js/custom-places.js') }}"></script>
-<script src="/static/js/route_optimizer.js"></script>
+<script src="{{ url_for('static', filename='js/route_optimizer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 {% endblock %}
 
@@ -172,17 +189,21 @@
     </div>
 </div>
 
-<!-- Add the directions panel -->
-<div id="directions-panel" class="card route-directions d-none">
-    <div class="card-header">
-        <h5 class="mb-0">
-            Turn-by-Turn Directions
-            <button class="btn btn-sm btn-link float-end" onclick="EveryStreet.toggleDirectionsPanel()">
-                <i class="fas fa-times"></i>
-            </button>
-        </h5>
-    </div>
-    <div class="card-body">
-        <div id="turn-by-turn"></div>
-    </div>
-</div>
+<!-- Add this right before the closing body tag -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const requiredElements = [
+        'directions-panel',
+        'turn-by-turn',
+        'route-stats',
+        'route-progress',
+        'route-details',
+        'optimize-route'
+    ];
+    
+    const missingElements = requiredElements.filter(id => !document.getElementById(id));
+    if (missingElements.length > 0) {
+        console.error('Missing required elements:', missingElements);
+    }
+});
+</script>
