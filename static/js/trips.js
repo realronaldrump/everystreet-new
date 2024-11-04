@@ -55,10 +55,25 @@ function fetchTrips() {
     const params = getFilterParams();
     const url = `/api/trips?${params.toString()}`;
 
+    showLoadingOverlay('Loading trips');
+    
     fetch(url)
         .then(response => response.json())
-        .then(data => populateTripsTable(data.features))
-        .catch(error => console.error('Error fetching trips:', error));
+        .then(data => {
+            updateLoadingProgress(30, 'Processing trips');
+            return populateTripsTable(data.features);
+        })
+        .then(() => {
+            updateLoadingProgress(60, 'Updating map');
+            // Emit a custom event to notify app.js that trips are loaded
+            const event = new CustomEvent('tripsLoaded', { detail: { status: 'success' } });
+            document.dispatchEvent(event);
+        })
+        .catch(error => {
+            console.error('Error fetching trips:', error);
+            const event = new CustomEvent('tripsLoaded', { detail: { status: 'error' } });
+            document.dispatchEvent(event);
+        });
 }
 
 function populateTripsTable(trips) {

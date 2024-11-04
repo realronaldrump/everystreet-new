@@ -130,21 +130,38 @@ window.EveryStreet = (function() {
             flatpickr("#end-date", commonConfig);
         }
     }
-    function showLoadingOverlay() {
+    function showLoadingOverlay(message = 'Loading trips') {
         const loadingOverlay = document.querySelector('.loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        const loadingBar = document.getElementById('loading-bar');
+        
         if (loadingOverlay) {
             loadingOverlay.style.display = 'flex';
-        } else {
-            console.log('Loading overlay not found, skipping display');
+            loadingText.textContent = `${message}: 0%`;
+            loadingBar.style.width = '0%';
+            loadingBar.setAttribute('aria-valuenow', '0');
+        }
+    }
+
+    function updateLoadingProgress(percentage, message = null) {
+        const loadingText = document.getElementById('loading-text');
+        const loadingBar = document.getElementById('loading-bar');
+        
+        if (loadingText && loadingBar) {
+            const currentMessage = message || loadingText.textContent.split(':')[0];
+            loadingText.textContent = `${currentMessage}: ${Math.round(percentage)}%`;
+            loadingBar.style.width = `${percentage}%`;
+            loadingBar.setAttribute('aria-valuenow', percentage);
         }
     }
 
     function hideLoadingOverlay() {
         const loadingOverlay = document.querySelector('.loading-overlay');
         if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        } else {
-            console.warn('Loading overlay element not found');
+            // Add a small delay to ensure user sees 100%
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+            }, 500);
         }
     }
 
@@ -159,18 +176,17 @@ window.EveryStreet = (function() {
         const params = getFilterParams();
         const url = `/api/trips?${params.toString()}`;
 
-        showLoadingOverlay();
-
+        showLoadingOverlay('Loading trips');
+        
         try {
             const response = await fetch(url);
             const geojson = await response.json();
-            console.log('Received GeoJSON:', geojson);
-
-            const trips = geojson.features;
+            updateLoadingProgress(25, 'Processing trips');
 
             // Separate regular trips and historical trips
-            const regularTrips = trips.filter(feature => feature.properties.imei !== 'HISTORICAL');
-            const historicalTrips = trips.filter(feature => feature.properties.imei === 'HISTORICAL');
+            const regularTrips = geojson.features.filter(feature => feature.properties.imei !== 'HISTORICAL');
+            const historicalTrips = geojson.features.filter(feature => feature.properties.imei === 'HISTORICAL');
+            updateLoadingProgress(50, 'Preparing map data');
 
             // Assign to the appropriate map layers
             mapLayers.trips.layer = {
@@ -183,13 +199,44 @@ window.EveryStreet = (function() {
                 features: historicalTrips
             };
 
+            updateLoadingProgress(75, 'Updating map visualization');
+            await updateMap();
+            updateLoadingProgress(90, 'Finalizing');
+
+            // Update the trips table
+            await populateTripsTable(geojson.features);
+            
+            // Fetch matched trips if needed
             await fetchMatchedTrips();
-            updateMap();
+            
+            updateLoadingProgress(100, 'Complete');
+
         } catch (error) {
             console.error('Error fetching trips:', error);
         } finally {
-            hideLoadingOverlay();
+            // Add a small delay before hiding to ensure user sees 100%
+            setTimeout(() => {
+                hideLoadingOverlay();
+            }, 500);
         }
+    }
+
+    // Update populateTripsTable to return a Promise
+    function populateTripsTable(trips) {
+        return new Promise((resolve) => {
+            const formattedTrips = trips
+                .filter(trip => trip.properties.imei !== 'HISTORICAL')
+                .map(trip => ({
+                    ...trip.properties,
+                    gps: trip.geometry,
+                    destination: trip.properties.destination || 'N/A',
+                    isCustomPlace: trip.properties.isCustomPlace || false,
+                    distance: parseFloat(trip.properties.distance).toFixed(2)
+                }));
+
+            tripsTable.clear().rows.add(formattedTrips).draw();
+            resolve();
+        });
     }
 
     async function fetchMatchedTrips() {
@@ -326,17 +373,26 @@ window.EveryStreet = (function() {
             layerControl.classList.add('layer-control');
             layerControl.dataset.layerName = layerName;
 
+            // Skip color picker for streetCoverage layer
+            const colorPickerHtml = layerName === 'streetCoverage' ? '' : 
+                `<input type="color" id="${layerName}-color" value="${layerInfo.color}">`;
+
             layerControl.innerHTML = `
-                <input type="checkbox" id="${layerName}-toggle" ${layerInfo.visible ? 'checked' : ''}>
-                <label for="${layerName}-toggle">${layerName}</label>
-                <input type="color" id="${layerName}-color" value="${layerInfo.color}">
+                <label class="custom-checkbox">
+                    <input type="checkbox" id="${layerName}-toggle" ${layerInfo.visible ? 'checked' : ''}>
+                    <span class="checkmark"></span>
+                </label>
+                <label for="${layerName}-toggle">${layerInfo.name || layerName}</label>
+                ${colorPickerHtml}
                 <label for="${layerName}-opacity">Opacity:</label>
                 <input type="range" id="${layerName}-opacity" min="0" max="1" step="0.1" value="${layerInfo.opacity}">
             `;
             layerToggles.appendChild(layerControl);
 
             document.getElementById(`${layerName}-toggle`).addEventListener('change', (e) => toggleLayer(layerName, e.target.checked));
-            document.getElementById(`${layerName}-color`).addEventListener('change', (e) => changeLayerColor(layerName, e.target.value));
+            if (layerName !== 'streetCoverage') {
+                document.getElementById(`${layerName}-color`).addEventListener('change', (e) => changeLayerColor(layerName, e.target.value));
+            }
             document.getElementById(`${layerName}-opacity`).addEventListener('input', (e) => changeLayerOpacity(layerName, e.target.value));
         }
     }
@@ -718,7 +774,7 @@ window.EveryStreet = (function() {
         const endDateInput = document.getElementById('end-date');
         if (!startDateInput || !endDateInput || !startDateInput.value || !endDateInput.value) return;
 
-        showLoadingOverlay();
+        showLoadingOverlay('Map matching trips');
 
         fetch('/api/map_match_trips', {
             method: 'POST',
@@ -738,17 +794,13 @@ window.EveryStreet = (function() {
         })
         .then(data => {
             if (data.status === 'success') {
+                updateLoadingProgress(100, 'Map matching complete');
                 alert(data.message);
                 fetchTrips();
-            } else {
-                console.error(`Error: ${data.message}`);
             }
         })
         .catch(error => {
             console.error('Error initiating map matching for trips:', error);
-        })
-        .finally(() => {
-            hideLoadingOverlay();
         });
     }
     function mapMatchHistoricalTrips() {
