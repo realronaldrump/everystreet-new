@@ -128,15 +128,27 @@ class CustomPlacesManager {
     }
 
     async loadPlaces() {
+        const loadingManager = getLoadingManager();
+        loadingManager.startOperation('Loading Places');
+        
         try {
+            loadingManager.updateProgress(30, 'Fetching places');
             const response = await fetch('/api/places');
             const places = await response.json();
+            
+            loadingManager.updateProgress(60, 'Displaying places');
             places.forEach(place => {
                 this.places.set(place._id, place);
                 this.displayPlace(place);
             });
+            
+            loadingManager.updateProgress(90, 'Updating statistics');
+            await this.updateVisitsData();
+            
         } catch (error) {
             console.error('Error loading places:', error);
+        } finally {
+            loadingManager.finish();
         }
     }
 

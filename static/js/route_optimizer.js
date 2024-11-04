@@ -68,27 +68,35 @@ class RouteOptimizer {
             console.error('Optimize button not found');
             return;
         }
-
+    
         const originalText = this.elements.optimizeButton.innerHTML;
-
+        const loadingManager = getLoadingManager();
+    
         try {
             this.elements.optimizeButton.disabled = true;
             this.elements.optimizeButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Planning route...';
-
+    
+            loadingManager.startOperation('Optimizing Route');
+            loadingManager.addSubOperation('location', 0.2);
+            loadingManager.addSubOperation('routing', 0.8);
+    
             const locationInput = document.getElementById('location-input');
             const locationData = JSON.parse(locationInput.getAttribute('data-location') || '{}');
-
+    
             if (!locationData.osm_id || !locationData.osm_type) {
                 throw new Error('Please validate a location first');
             }
-
+    
+            loadingManager.updateSubOperation('location', 50);
             const currentLocation = await this.getCurrentLocation();
             if (!currentLocation) {
                 throw new Error('Could not get current location');
             }
-
+            loadingManager.updateSubOperation('location', 100);
+    
             this.showLoadingState();
-
+            loadingManager.updateSubOperation('routing', 20);
+    
             const response = await fetch('/api/optimize-route', {
                 method: 'POST',
                 headers: {
@@ -99,15 +107,20 @@ class RouteOptimizer {
                     location: locationData
                 })
             });
-
+    
+            loadingManager.updateSubOperation('routing', 60);
+    
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Failed to optimize route');
             }
-
+    
             const routeData = await response.json();
-            this.displayRoute(routeData);
-
+            loadingManager.updateSubOperation('routing', 90);
+            
+            await this.displayRoute(routeData);
+            loadingManager.updateSubOperation('routing', 100);
+    
         } catch (error) {
             console.error('Error optimizing route:', error);
             this.showError(error.message || 'Failed to optimize route. Please try again.');
@@ -115,6 +128,7 @@ class RouteOptimizer {
             this.elements.optimizeButton.disabled = false;
             this.elements.optimizeButton.innerHTML = originalText;
             this.hideLoadingState();
+            loadingManager.finish();
         }
     }
 

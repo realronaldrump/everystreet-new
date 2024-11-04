@@ -262,42 +262,45 @@ function initializeEventListeners() {
     });
 }
 
-function fetchDrivingInsights() {
+async function fetchDrivingInsights() {
     const params = getFilterParams();
+    const loadingManager = getLoadingManager();
     
-    // Fetch trip counts and general insights
-    fetch(`/api/driving-insights?${params.toString()}`)
-        .then(response => {
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            return response.json();
-        })
-        .then(data => {
-            if (Array.isArray(data)) {
-                const filteredData = data.filter(item => item._id !== 'HISTORICAL');
-                updateSummaryMetrics(filteredData);
-                updateDataTable(filteredData);
-                updateTripCountsChart(filteredData);
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching driving insights:', error);
-            showError('Error loading driving insights. Please try again later.');
-        });
+    loadingManager.startOperation('Loading Insights');
+    loadingManager.addSubOperation('general', 0.5);
+    loadingManager.addSubOperation('analytics', 0.5);
+    
+    try {
+        // Fetch trip counts and general insights
+        loadingManager.updateSubOperation('general', 30);
+        const response = await fetch(`/api/driving-insights?${params.toString()}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        loadingManager.updateSubOperation('general', 60);
+        
+        if (Array.isArray(data)) {
+            const filteredData = data.filter(item => item._id !== 'HISTORICAL');
+            updateSummaryMetrics(filteredData);
+            updateDataTable(filteredData);
+            updateTripCountsChart(filteredData);
+        }
+        loadingManager.updateSubOperation('general', 100);
 
-    // Fetch detailed analytics
-    fetch(`/api/trip-analytics?${params.toString()}`)
-        .then(response => {
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            return response.json();
-        })
-        .then(data => {
-            updateDistanceChart(data.daily_distances);
-            updateTimeDistributionChart(data.time_distribution);
-        })
-        .catch(error => {
-            console.error('Error fetching trip analytics:', error);
-            showError('Error loading trip analytics. Please try again later.');
-        });
+        // Fetch detailed analytics
+        loadingManager.updateSubOperation('analytics', 30);
+        const analyticsResponse = await fetch(`/api/trip-analytics?${params.toString()}`);
+        if (!analyticsResponse.ok) throw new Error(`HTTP error! status: ${analyticsResponse.status}`);
+        const analyticsData = await analyticsResponse.json();
+        loadingManager.updateSubOperation('analytics', 60);
+        
+        updateDistanceChart(analyticsData.daily_distances);
+        updateTimeDistributionChart(analyticsData.time_distribution);
+        loadingManager.updateSubOperation('analytics', 100);
+    } catch (error) {
+        console.error('Error:', error);
+    } finally {
+        loadingManager.finish();
+    }
 }
 
 function updateTripCountsChart(data) {

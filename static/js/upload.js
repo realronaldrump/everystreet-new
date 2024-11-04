@@ -371,3 +371,33 @@ function deleteUploadedTrip(tripId) {
 document.addEventListener('DOMContentLoaded', () => {
     loadUploadedTrips();
 });
+
+async function handleFileUpload(files) {
+    const loadingManager = getLoadingManager();
+    loadingManager.startOperation('Processing Files');
+    loadingManager.addSubOperation('parsing', 0.3);
+    loadingManager.addSubOperation('preview', 0.3);
+    loadingManager.addSubOperation('upload', 0.4);
+
+    try {
+        loadingManager.updateSubOperation('parsing', 50);
+        // Parse files
+        await parseFiles(files);
+        loadingManager.updateSubOperation('parsing', 100);
+
+        loadingManager.updateSubOperation('preview', 50);
+        // Update preview
+        updateFileList();
+        updatePreviewMap();
+        loadingManager.updateSubOperation('preview', 100);
+
+        loadingManager.updateSubOperation('upload', 50);
+        // Handle upload
+        await uploadFiles();
+        loadingManager.updateSubOperation('upload', 100);
+    } catch (error) {
+        console.error('Upload error:', error);
+    } finally {
+        loadingManager.finish();
+    }
+}

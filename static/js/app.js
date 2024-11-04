@@ -175,63 +175,69 @@ window.EveryStreet = (function() {
     async function fetchTrips() {
         const params = getFilterParams();
         const url = `/api/trips?${params.toString()}`;
-
-        showLoadingOverlay('Loading trips');
+        const loadingManager = getLoadingManager();
+        
+        loadingManager.startOperation('Loading Trips');
+        loadingManager.addSubOperation('fetch', 0.2);
+        loadingManager.addSubOperation('process', 0.3);
+        loadingManager.addSubOperation('display', 0.3);
+        loadingManager.addSubOperation('matched', 0.2);
         
         try {
+            // Fetch data - 20% of total progress
+            loadingManager.updateSubOperation('fetch', 50);  // 50% of fetch phase
             const response = await fetch(url);
             const geojson = await response.json();
-            updateLoadingProgress(20, 'Processing trips');
-
-            // Separate regular trips and historical trips
+            loadingManager.updateSubOperation('fetch', 100); // 100% of fetch phase
+            
+            // Process data - 30% of total progress
+            loadingManager.updateSubOperation('process', 50);
             const regularTrips = geojson.features.filter(feature => feature.properties.imei !== 'HISTORICAL');
             const historicalTrips = geojson.features.filter(feature => feature.properties.imei === 'HISTORICAL');
-            updateLoadingProgress(40, 'Preparing map data');
-
-            // Assign to the appropriate map layers
+            loadingManager.updateSubOperation('process', 100);
+            
+            // Update map layers
             mapLayers.trips.layer = {
                 type: 'FeatureCollection',
                 features: regularTrips
             };
-
+    
             mapLayers.historicalTrips.layer = {
                 type: 'FeatureCollection',
                 features: historicalTrips
             };
-
-            updateLoadingProgress(60, 'Updating map visualization');
+    
+            // Display data - 30% of total progress
+            loadingManager.updateSubOperation('display', 50);
             await updateMap();
             
-            // Update the trips table
-            updateLoadingProgress(80, 'Updating trips table');
             if (window.tripsTable) {
+                const formattedTrips = geojson.features
+                    .filter(trip => trip.properties.imei !== 'HISTORICAL')
+                    .map(trip => ({
+                        ...trip.properties,
+                        gps: trip.geometry,
+                        destination: trip.properties.destination || 'N/A',
+                        isCustomPlace: trip.properties.isCustomPlace || false,
+                        distance: parseFloat(trip.properties.distance).toFixed(2)
+                    }));
+    
                 await new Promise((resolve) => {
-                    const formattedTrips = geojson.features
-                        .filter(trip => trip.properties.imei !== 'HISTORICAL')
-                        .map(trip => ({
-                            ...trip.properties,
-                            gps: trip.geometry,
-                            destination: trip.properties.destination || 'N/A',
-                            isCustomPlace: trip.properties.isCustomPlace || false,
-                            distance: parseFloat(trip.properties.distance).toFixed(2)
-                        }));
-
                     window.tripsTable.clear().rows.add(formattedTrips).draw();
-                    setTimeout(resolve, 100); // Give the table time to render
+                    setTimeout(resolve, 100);
                 });
             }
-            
-            updateLoadingProgress(90, 'Fetching matched trips');
+            loadingManager.updateSubOperation('display', 100);
+    
+            // Fetch matched trips - 20% of total progress
+            loadingManager.updateSubOperation('matched', 50);
             await fetchMatchedTrips();
-            
-            updateLoadingProgress(100, 'Complete');
-
+            loadingManager.updateSubOperation('matched', 100);
+    
         } catch (error) {
             console.error('Error fetching trips:', error);
         } finally {
-            setTimeout(() => {
-                hideLoadingOverlay();
-            }, 500);
+            loadingManager.finish();
         }
     }
 
