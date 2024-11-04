@@ -254,7 +254,7 @@ window.EveryStreet = (function() {
             console.error('Error fetching matched trips:', error);
         }
     }
-    function updateMap(fitBounds = false) {
+    async function updateMap(fitBounds = false) {
         layerGroup.clearLayers();
         
         const orderedLayers = Object.entries(mapLayers)
@@ -262,69 +262,79 @@ window.EveryStreet = (function() {
     
         const sixHoursAgo = new Date(Date.now() - (6 * 60 * 60 * 1000));
     
-        orderedLayers.forEach(([layerName, layerInfo]) => {
-            if (!layerInfo.visible || !layerInfo.layer) return;
+        // Filter visible layers that need processing
+        const visibleLayers = orderedLayers.filter(([, layerInfo]) => 
+            layerInfo.visible && layerInfo.layer);
     
-            if (layerName === 'streetCoverage') {
-                layerInfo.layer.addTo(layerGroup);
-            } else if (layerName === 'trips' || layerName === 'historicalTrips' || layerName === 'matchedTrips') {
-                L.geoJSON(layerInfo.layer, {
-                    style: (feature) => {
-                        const startTime = new Date(feature.properties.startTime);
-                        const isRecent = startTime > sixHoursAgo;
-                        const shouldHighlight = mapSettings.highlightRecentTrips && isRecent;
-                        
-                        return {
-                            color: shouldHighlight ? '#FF5722' : layerInfo.color,
-                            weight: shouldHighlight ? 4 : 2,
-                            opacity: shouldHighlight ? 0.8 : layerInfo.opacity,
-                            className: shouldHighlight ? 'recent-trip' : ''
-                        };
-                    },
-                    onEachFeature: (feature, layer) => {
-                        // Log the raw timestamp data
-                        console.log('Raw startTime:', feature.properties.startTime);
-                        
-                        // Create Date objects without timezone conversion
-                        // Treat the incoming times as already being in local time
-                        const startTime = new Date(feature.properties.startTime.replace('Z', ''));
-                        const endTime = new Date(feature.properties.endTime.replace('Z', ''));
-                        
-                        // Format without timezone conversion
-                        const startTimeStr = startTime.toLocaleString('en-US', {
-                            dateStyle: 'short',
-                            timeStyle: 'short'
-                        });
-                        const endTimeStr = endTime.toLocaleString('en-US', {
-                            dateStyle: 'short',
-                            timeStyle: 'short'
-                        });
+        // Process layers sequentially with progress updates
+        for (let i = 0; i < visibleLayers.length; i++) {
+            const [layerName, layerInfo] = visibleLayers[i];
+            const progress = (i / visibleLayers.length) * 100;
+            updateLoadingProgress(progress, 'Updating map visualization');
 
-                        const isRecent = startTime > sixHoursAgo;
-                        const shouldHighlight = mapSettings.highlightRecentTrips && isRecent;
-                        
-                        layer.bindPopup(`
-                            <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
-                            <strong>Start Time:</strong> ${startTimeStr}<br>
-                            <strong>End Time:</strong> ${endTimeStr}<br>
-                            <strong>Distance:</strong> ${parseFloat(feature.properties.distance).toFixed(2)} miles<br>
-                            ${shouldHighlight ? '<br><strong>(Recent Trip)</strong>' : ''}
-                        `);
-                    }
-                }).addTo(layerGroup);
-            } else if ((layerName === 'osmBoundary' || layerName === 'osmStreets') && layerInfo.layer) {
-                layerInfo.layer.setStyle({ 
-                    color: layerInfo.color,
-                    opacity: layerInfo.opacity
-                }).addTo(layerGroup);
-            }
-        });
-    
-        // Only fit bounds if explicitly requested
+            await new Promise(resolve => {
+                if (layerName === 'streetCoverage') {
+                    layerInfo.layer.addTo(layerGroup);
+                    resolve();
+                } else if (layerName === 'trips' || layerName === 'historicalTrips' || layerName === 'matchedTrips') {
+                    L.geoJSON(layerInfo.layer, {
+                        style: (feature) => {
+                            const startTime = new Date(feature.properties.startTime);
+                            const isRecent = startTime > sixHoursAgo;
+                            const shouldHighlight = mapSettings.highlightRecentTrips && isRecent;
+                            
+                            return {
+                                color: shouldHighlight ? '#FF5722' : layerInfo.color,
+                                weight: shouldHighlight ? 4 : 2,
+                                opacity: shouldHighlight ? 0.8 : layerInfo.opacity,
+                                className: shouldHighlight ? 'recent-trip' : ''
+                            };
+                        },
+                        onEachFeature: (feature, layer) => {
+                            const startTime = new Date(feature.properties.startTime.replace('Z', ''));
+                            const endTime = new Date(feature.properties.endTime.replace('Z', ''));
+                            
+                            const startTimeStr = startTime.toLocaleString('en-US', {
+                                dateStyle: 'short',
+                                timeStyle: 'short'
+                            });
+                            const endTimeStr = endTime.toLocaleString('en-US', {
+                                dateStyle: 'short',
+                                timeStyle: 'short'
+                            });
+
+                            const isRecent = startTime > sixHoursAgo;
+                            const shouldHighlight = mapSettings.highlightRecentTrips && isRecent;
+                            
+                            layer.bindPopup(`
+                                <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
+                                <strong>Start Time:</strong> ${startTimeStr}<br>
+                                <strong>End Time:</strong> ${endTimeStr}<br>
+                                <strong>Distance:</strong> ${parseFloat(feature.properties.distance).toFixed(2)} miles<br>
+                                ${shouldHighlight ? '<br><strong>(Recent Trip)</strong>' : ''}
+                            `);
+                        }
+                    }).addTo(layerGroup);
+                    
+                    // Use requestAnimationFrame to ensure smooth rendering
+                    requestAnimationFrame(resolve);
+                } else if ((layerName === 'osmBoundary' || layerName === 'osmStreets') && layerInfo.layer) {
+                    layerInfo.layer.setStyle({ 
+                        color: layerInfo.color,
+                        opacity: layerInfo.opacity
+                    }).addTo(layerGroup);
+                    resolve();
+                } else {
+                    resolve();
+                }
+            });
+        }
+
+        // Handle bounds fitting if requested
         if (fitBounds) {
             let bounds = L.latLngBounds();
             let validBoundsFound = false;
-    
+
             for (const layerName in mapLayers) {
                 if (mapLayers[layerName].visible && mapLayers[layerName].layer) {
                     try {
@@ -334,8 +344,6 @@ window.EveryStreet = (function() {
                             validBoundsFound = true;
                         }
                     } catch (e) {
-                        console.warn(`Could not get bounds for layer ${layerName}:`, e);
-                        // If the layer is already a Leaflet layer (like streetCoverage)
                         if (mapLayers[layerName].layer.getBounds) {
                             const layerBounds = mapLayers[layerName].layer.getBounds();
                             if (layerBounds.isValid()) {
@@ -346,13 +354,14 @@ window.EveryStreet = (function() {
                     }
                 }
             }
-    
+
             if (validBoundsFound) {
                 map.fitBounds(bounds);
-            } else {
-                console.warn('No valid bounds to fit');
             }
         }
+
+        // Final progress update
+        updateLoadingProgress(100, 'Map update complete');
     }
 
 
