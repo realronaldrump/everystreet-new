@@ -498,6 +498,7 @@ def process_trip(trip):
         logger.debug(traceback.format_exc())
         return None
 
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -2357,7 +2358,8 @@ async def process_trip_data(trip):
 
 async def fetch_and_store_trips_in_range(start_date, end_date):
     try:
-        logger.info(f"Starting fetch_and_store_trips_in_range from {start_date} to {end_date}")
+        logger.info(
+            f"Starting fetch_and_store_trips_in_range from {start_date} to {end_date}")
         logger.info(f"Authorized devices: {AUTHORIZED_DEVICES}")
 
         # Ensure dates are timezone-aware
@@ -2377,9 +2379,11 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
             all_trips = []
             total_devices = len(AUTHORIZED_DEVICES)
             for idx, imei in enumerate(AUTHORIZED_DEVICES, 1):
-                logger.info(f"Fetching trips for IMEI: {imei} ({idx}/{total_devices})")
+                logger.info(
+                    f"Fetching trips for IMEI: {imei} ({idx}/{total_devices})")
                 device_trips = await fetch_trips_in_intervals(client_session, access_token, imei, start_date, end_date)
-                logger.info(f"Fetched {len(device_trips)} trips for IMEI {imei}")
+                logger.info(
+                    f"Fetched {len(device_trips)} trips for IMEI {imei}")
                 all_trips.extend(device_trips)
 
                 # Emit progress through socketio if available
@@ -2397,33 +2401,38 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                     # Check if trip exists and is valid
                     existing_trip = get_trip_from_db(trip['transactionId'])
                     if existing_trip:
-                        logger.info(f"Trip {trip['transactionId']} already exists in the database. Skipping.")
+                        logger.info(
+                            f"Trip {trip['transactionId']} already exists in the database. Skipping.")
                         skipped_count += 1
                         continue
 
                     # Process new trip data
                     processed_trip = await process_trip_data(trip)
                     if not processed_trip:
-                        logger.warning(f"Failed to process trip {trip['transactionId']}. Skipping.")
+                        logger.warning(
+                            f"Failed to process trip {trip['transactionId']}. Skipping.")
                         error_count += 1
                         continue
 
                     # Store the processed trip
                     if not store_trip(processed_trip):
-                        logger.error(f"Failed to store trip {trip['transactionId']}")
+                        logger.error(
+                            f"Failed to store trip {trip['transactionId']}")
                         error_count += 1
                         continue
 
                     processed_count += 1
 
                 except Exception as e:
-                    logger.error(f"Error processing trip {trip.get('transactionId', 'Unknown')}: {str(e)}")
+                    logger.error(
+                        f"Error processing trip {trip.get('transactionId', 'Unknown')}: {str(e)}")
                     error_count += 1
                     continue
 
             # Log final summary
-            logger.info(f"Processing complete: {processed_count} processed, {skipped_count} skipped, {error_count} errors")
-            
+            logger.info(
+                f"Processing complete: {processed_count} processed, {skipped_count} skipped, {error_count} errors")
+
             # Log final counts per device
             for imei in AUTHORIZED_DEVICES:
                 count = trips_collection.count_documents({'imei': imei})
