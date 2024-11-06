@@ -22,3 +22,5 @@ geopandas
 gpxpy
 networkx
 osmnx
+pyproj
+fiona
