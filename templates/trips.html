@@ -11,6 +11,7 @@
                 <table id="trips-table" class="table table-striped table-hover w-100">
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="select-all-trips"></th>
                             <th>Transaction ID</th>
                             <th>IMEI</th>
                             <th>Start Time</th>
@@ -18,6 +19,7 @@
                             <th>Distance (miles)</th>
                             <th>Destination</th>
                             <th>Start Location</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -25,6 +27,7 @@
                     </tbody>
                 </table>
             </div>
+            <button id="bulk-delete-trips-btn" class="btn btn-danger mt-3" disabled>Delete Selected</button>
         </div>
     </div>
 </div>

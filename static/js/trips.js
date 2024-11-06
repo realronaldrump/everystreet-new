@@ -4,7 +4,7 @@ let tripsTable = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeDataTable();
-    initializeEventListeners();
+    addCheckboxEventListeners();
     fetchTrips();
 });
 
@@ -20,13 +20,28 @@ function initializeDataTable() {
         dom: 'Bfrtip',
         buttons: ['colvis'],
         columns: [
+            {
+                data: null,
+                orderable: false,
+                className: 'select-checkbox',
+                render: function() {
+                    return '<input type="checkbox" class="trip-checkbox">';
+                }
+            },
             { data: 'transactionId', title: 'Transaction ID' },
             { data: 'imei', title: 'IMEI' },
             { data: 'startTime', title: 'Start Time', render: formatDateTime },
             { data: 'endTime', title: 'End Time', render: formatDateTime },
             { data: 'distance', title: 'Distance (miles)', render: formatDistance },
             { data: 'destination', title: 'Destination', render: formatDestination },
-            { data: 'startLocation', title: 'Start Location' }
+            { data: 'startLocation', title: 'Start Location' },
+            {
+                data: null,
+                orderable: false,
+                render: function(data) {
+                    return '<button class="btn btn-sm btn-danger delete-trip" data-id="' + data.transactionId + '">Delete</button>';
+                }
+            }
         ],
         order: [[2, 'desc']]
     });
@@ -34,8 +49,19 @@ function initializeDataTable() {
 
 function formatDateTime(data, type, row) {
     if (type === 'display' || type === 'filter') {
+        // Parse the date string; it includes timezone info
         const date = new Date(data);
-        return date.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: row.timezone });
+        const timezone = row.timezone || 'America/Chicago';
+
+        // Use Intl.DateTimeFormat for formatting the date in the correct timezone
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            dateStyle: 'short',
+            timeStyle: 'short',
+            timeZone: timezone,
+            hour12: true
+        });
+
+        return formatter.format(date);
     }
     return data;
 }
@@ -86,6 +112,81 @@ function getFilterParams() {
     params.append('end_date', document.getElementById('end-date').value);
     return params;
 }
+
+function addCheckboxEventListeners() {
+    const selectAllCheckbox = document.getElementById('select-all-trips');
+    const bulkDeleteBtn = document.getElementById('bulk-delete-trips-btn');
+
+    selectAllCheckbox.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.trip-checkbox');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateBulkDeleteButtonState();
+    });
+
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('trip-checkbox')) {
+            const allCheckboxes = document.querySelectorAll('.trip-checkbox');
+            const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+            selectAllCheckbox.checked = allChecked;
+            updateBulkDeleteButtonState();
+        }
+    });
+
+    bulkDeleteBtn.addEventListener('click', bulkDeleteTrips);
+}
+
+function updateBulkDeleteButtonState() {
+    const selectedCheckboxes = document.querySelectorAll('.trip-checkbox:checked');
+    const bulkDeleteBtn = document.getElementById('bulk-delete-trips-btn');
+    bulkDeleteBtn.disabled = selectedCheckboxes.length === 0;
+}
+
+function bulkDeleteTrips() {
+    const selectedRows = tripsTable.rows().nodes().filter(node => 
+        node.querySelector('.trip-checkbox:checked')
+    );
+    
+    const tripIds = Array.from(selectedRows).map(row => 
+        tripsTable.row(row).data().transactionId
+    );
+
+    if (!confirm(`Are you sure you want to delete ${tripIds.length} selected trips?`)) {
+        return;
+    }
+
+    deleteTrips(tripIds);
+}
+
+function deleteTrips(tripIds) {
+    fetch('/api/trips/bulk_delete', {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ trip_ids: tripIds })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            fetchTrips(); // Refresh the table
+            alert(`Successfully deleted ${tripIds.length} trips`);
+        } else {
+            alert('Error deleting trips: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting trips:', error);
+        alert('An error occurred while deleting trips');
+    });
+}
+
+// Add event listener for individual delete buttons
+$('#trips-table').on('click', '.delete-trip', function() {
+    const tripId = $(this).data('id');
+    if (confirm('Are you sure you want to delete this trip?')) {
+        deleteTrips([tripId]);
+    }
+});
 
 function initializeEventListeners() {
     const applyFilters = document.getElementById('apply-filters');

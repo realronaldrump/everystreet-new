@@ -206,7 +206,6 @@ window.EveryStreet = (function() {
                 type: 'FeatureCollection',
                 features: historicalTrips
             };
-    
             // Display data - 30% of total progress
             loadingManager.updateSubOperation('display', 50);
             await updateMap();
@@ -297,17 +296,19 @@ window.EveryStreet = (function() {
                             };
                         },
                         onEachFeature: (feature, layer) => {
-                            const startTime = new Date(feature.properties.startTime.replace('Z', ''));
-                            const endTime = new Date(feature.properties.endTime.replace('Z', ''));
-                            
-                            const startTimeStr = startTime.toLocaleString('en-US', {
+                            const timezone = feature.properties.timezone || 'America/Chicago';
+                            const startTime = new Date(feature.properties.startTime);
+                            const endTime = new Date(feature.properties.endTime);
+
+                            const formatter = new Intl.DateTimeFormat('en-US', {
                                 dateStyle: 'short',
-                                timeStyle: 'short'
+                                timeStyle: 'short',
+                                timeZone: timezone,
+                                hour12: true
                             });
-                            const endTimeStr = endTime.toLocaleString('en-US', {
-                                dateStyle: 'short',
-                                timeStyle: 'short'
-                            });
+
+                            const startTimeStr = formatter.format(startTime);
+                            const endTimeStr = formatter.format(endTime);
 
                             const isRecent = startTime > sixHoursAgo;
                             const shouldHighlight = mapSettings.highlightRecentTrips && isRecent;

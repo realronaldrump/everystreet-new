@@ -55,7 +55,9 @@ try:
         os.getenv('MONGO_URI'),
         tls=True,
         tlsAllowInvalidCertificates=True,
-        tlsCAFile=certifi.where()
+        tlsCAFile=certifi.where(),
+        tz_aware=True,
+        tzinfo=timezone.utc  # Ensure datetime objects are timezone-aware (UTC)
     )
     db = client['every_street']
     trips_collection = db['trips']
@@ -143,38 +145,46 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
         "ends-before": end_date.isoformat()
     }
     
-    logger.info(f"Making API request with params: {params}")
-    logger.info(f"Using Authorization token: {access_token[:10]}...")  # Log first 10 chars of token
-    
     try:
         async with client_session.get(f"{API_BASE_URL}/trips", headers=headers, params=params) as response:
-            logger.info(f"API Response Status: {response.status}")
-            logger.info(f"API Response Headers: {response.headers}")
-            
-            response_text = await response.text()
-            logger.info(f"API Response Body: {response_text}")
-            
             if response.status == 200:
-                trips = json.loads(response_text)
+                trips = json.loads(await response.text())
                 for trip in trips:
+                    # Get timezone for this trip
+                    tz_str = get_trip_timezone(trip)
+                    timezone = pytz.timezone(tz_str)
+                    
+                    # Process start time
                     if 'startTime' in trip and isinstance(trip['startTime'], str):
+                        # Parse the UTC time from Bouncie
                         parsed_time = parser.isoparse(trip['startTime'])
-                        trip['startTime'] = parsed_time - timedelta(hours=5)
+                        if parsed_time.tzinfo is None:
+                            parsed_time = parsed_time.replace(tzinfo=pytz.UTC)
+                        
+                        # Convert to local time for the trip's location
+                        local_time = parsed_time.astimezone(timezone)
+                        trip['startTime'] = local_time
+                        trip['timezone'] = tz_str  # Store timezone for frontend use
+                    
+                    # Process end time
                     if 'endTime' in trip and isinstance(trip['endTime'], str):
                         parsed_time = parser.isoparse(trip['endTime'])
-                        trip['endTime'] = parsed_time - timedelta(hours=5)
+                        if parsed_time.tzinfo is None:
+                            parsed_time = parsed_time.replace(tzinfo=pytz.UTC)
+                        
+                        local_time = parsed_time.astimezone(timezone)
+                        trip['endTime'] = local_time
+                
                 return trips
             elif response.status == 401:
                 logger.error("Authentication error - token may be expired")
                 return []
             else:
                 logger.error(f"Error fetching trips: {response.status}")
-                logger.error(f"Error response: {response_text}")
                 return []
                 
     except Exception as e:
         logger.error(f"Exception in get_trips_from_api: {str(e)}")
-        logger.debug(traceback.format_exc())
         return []
 
 async def fetch_trips_in_intervals(main_session, access_token, imei, start_date, end_date):
@@ -301,7 +311,8 @@ def fetch_trips_for_geojson():
                 "endTime": trip['endTime'].isoformat(),
                 "distance": trip['distance'],
                 "destination": trip['destination'],
-                "startLocation": trip.get('startLocation', 'N/A')
+                "startLocation": trip.get('startLocation', 'N/A'),
+                "timezone": get_trip_timezone(trip)
             }
         )
         features.append(feature)
@@ -313,18 +324,21 @@ def get_trip_timezone(trip):
         gps_data = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
         if gps_data['type'] == 'Point':
             lon, lat = gps_data['coordinates']
-            timezone_str = tf.timezone_at(lng=lon, lat=lat)
-            if timezone_str:
-                return timezone_str
         elif gps_data['type'] in ['LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon']:
+            # Use the first point of the trip
             lon, lat = gps_data['coordinates'][0]
-            timezone_str = tf.timezone_at(lng=lon, lat=lat)
-            if timezone_str:
-                return timezone_str
-        return 'America/Chicago'
+        else:
+            return 'UTC'
+            
+        timezone_str = tf.timezone_at(lng=lon, lat=lat)
+        if not timezone_str:
+            return 'UTC'
+            
+        return timezone_str
+        
     except Exception as e:
-        print(f"Error getting trip timezone: {e}")
-        return 'America/Chicago'
+        logger.error(f"Error getting trip timezone: {e}")
+        return 'UTC'
 
 async def fetch_and_store_trips():
     try:
@@ -408,6 +422,26 @@ async def fetch_and_store_trips():
 
 def process_trip(trip):
     try:
+        # Parse startTime
+        if isinstance(trip['startTime'], str):
+            parsed_start = parser.isoparse(trip['startTime'])
+            if parsed_start.tzinfo is None:
+                parsed_start = parsed_start.replace(tzinfo=timezone.utc)
+            trip['startTime'] = parsed_start
+
+        # Parse endTime
+        if isinstance(trip['endTime'], str):
+            parsed_end = parser.isoparse(trip['endTime'])
+            if parsed_end.tzinfo is None:
+                parsed_end = parsed_end.replace(tzinfo=timezone.utc)
+            trip['endTime'] = parsed_end
+
+        # Ensure datetime fields have tzinfo
+        if trip['startTime'].tzinfo is None:
+            trip['startTime'] = trip['startTime'].replace(tzinfo=timezone.utc)
+        if trip['endTime'].tzinfo is None:
+            trip['endTime'] = trip['endTime'].replace(tzinfo=timezone.utc)
+
         # Ensure gps field exists and is properly formatted
         if 'gps' not in trip:
             logger.error(f"Trip {trip.get('transactionId', 'Unknown')} missing gps field")
@@ -416,12 +450,6 @@ def process_trip(trip):
         # Convert gps to string if it's a dict
         if isinstance(trip['gps'], dict):
             trip['gps'] = json.dumps(trip['gps'])
-            
-        # Parse times
-        if isinstance(trip['startTime'], str):
-            trip['startTime'] = parser.isoparse(trip['startTime'])
-        if isinstance(trip['endTime'], str):
-            trip['endTime'] = parser.isoparse(trip['endTime'])
             
         # Extract points from GPS data
         gps_data = geojson_loads(trip['gps'])
@@ -606,12 +634,19 @@ def get_trips():
     features = []
     for trip in all_trips:
         try:
+            # Ensure datetime fields have tzinfo
+            if trip['startTime'].tzinfo is None:
+                trip['startTime'] = trip['startTime'].replace(tzinfo=timezone.utc)
+            if trip['endTime'].tzinfo is None:
+                trip['endTime'] = trip['endTime'].replace(tzinfo=timezone.utc)
+
             geometry = geojson_loads(trip['gps'] if isinstance(trip['gps'], str) else json.dumps(trip['gps']))
             properties = {
                 'transactionId': trip['transactionId'],
                 'imei': trip.get('imei', 'UPLOAD'),
-                'startTime': trip['startTime'].isoformat(),
-                'endTime': trip['endTime'].isoformat(),
+                # Include timezone information in the ISO format string
+                'startTime': trip['startTime'].astimezone(timezone.utc).isoformat(),
+                'endTime': trip['endTime'].astimezone(timezone.utc).isoformat(),
                 'distance': float(trip.get('distance', 0)),
                 'timezone': trip.get('timezone', 'America/Chicago'),
                 'destination': trip.get('destination', 'N/A'),
@@ -2307,6 +2342,41 @@ async def cleanup_invalid_trips():
         logger.info("Trip cleanup completed")
     except Exception as e:
         logger.error(f"Error during trip cleanup: {str(e)}")
+
+@app.route('/api/trips/bulk_delete', methods=['DELETE'])
+def bulk_delete_trips():
+    try:
+        data = request.json
+        trip_ids = data.get('trip_ids', [])
+        
+        if not trip_ids:
+            return jsonify({
+                'status': 'error',
+                'message': 'No trip IDs provided'
+            }), 400
+
+        # Delete from trips collection
+        delete_result = trips_collection.delete_many({
+            'transactionId': {'$in': trip_ids}
+        })
+
+        # Also delete any corresponding matched trips
+        matched_trips_collection.delete_many({
+            'original_trip_id': {'$in': trip_ids}
+        })
+
+        return jsonify({
+            'status': 'success',
+            'message': f'Successfully deleted {delete_result.deleted_count} trips',
+            'deleted_count': delete_result.deleted_count
+        })
+
+    except Exception as e:
+        logger.error(f"Error in bulk delete trips: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
