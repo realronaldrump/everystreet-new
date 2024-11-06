@@ -130,18 +130,21 @@ class RouteOptimizer:
             logger.error(f"Error finding optimal route: {str(e)}")
             raise
 
-    def _normalize_coordinates(self, point: Tuple[float, float]) -> Tuple[float, float]:
+    @staticmethod
+    def _normalize_coordinates(point: Tuple[float, float]) -> Tuple[float, float]:
         """Ensure coordinates are in the correct format (latitude, longitude)"""
         if isinstance(point, (list, tuple)) and len(point) == 2:
             # If coordinates are in [longitude, latitude] format, swap them
             return (point[1], point[0])
         return point
 
-    def _denormalize_coordinates(self, point: Tuple[float, float]) -> Tuple[float, float]:
+    @staticmethod
+    def _denormalize_coordinates(point: Tuple[float, float]) -> Tuple[float, float]:
         """Convert coordinates back to [longitude, latitude] format for GeoJSON"""
         return (point[1], point[0])
 
-    def _calculate_distance(self, point1: Tuple[float, float], point2: Tuple[float, float]) -> float:
+    @staticmethod
+    def _calculate_distance(point1: Tuple[float, float], point2: Tuple[float, float]) -> float:
         """Calculate Euclidean distance between two points"""
         return ((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)**0.5
 
@@ -362,7 +365,8 @@ class RouteOptimizer:
 
         return directions
 
-    def _calculate_turn_angle(self, p1: Tuple[float, float], p2: Tuple[float, float],
+    @staticmethod
+    def _calculate_turn_angle(p1: Tuple[float, float], p2: Tuple[float, float],
                               p3: Tuple[float, float]) -> float:
         """Calculate the angle between three points"""
         import math
@@ -379,7 +383,8 @@ class RouteOptimizer:
 
         return angle
 
-    def _get_turn_direction(self, angle: float) -> str:
+    @staticmethod
+    def _get_turn_direction(angle: float) -> str:
         """Convert angle to turn direction"""
         if -20 <= angle <= 20:
             return "Continue straight"
