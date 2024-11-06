@@ -371,12 +371,11 @@ class RouteOptimizer:
         """Convert angle to turn direction"""
         if -20 <= angle <= 20:
             return "Continue straight"
-        elif 20 < angle <= 150:
+        if 20 < angle <= 150:
             return "Turn right"
-        elif -150 <= angle < -20:
+        if -150 <= angle < -20:
             return "Turn left"
-        else:
-            return "Make a U-turn"
+        return "Make a U-turn"
 
     def _check_graph_connectivity(self) -> None:
         """Check graph connectivity and log information about components"""

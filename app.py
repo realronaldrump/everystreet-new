@@ -131,10 +131,9 @@ async def get_access_token(client_session):
         if auth_response.status == 200:
             data = json.loads(response_text)
             return data.get('access_token')
-        else:
-            logger.error(f"Error getting access token: {auth_response.status}")
-            logger.error(f"Error response: {response_text}")
-            return None
+        logger.error(f"Error getting access token: {auth_response.status}")
+        logger.error(f"Error response: {response_text}")
+        return None
 
 async def get_trips_from_api(client_session, access_token, imei, start_date, end_date):
     headers = {"Authorization": access_token, "Content-Type": "application/json"}
@@ -176,13 +175,11 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
                         trip['endTime'] = local_time
                 
                 return trips
-            elif response.status == 401:
+            if response.status == 401:
                 logger.error("Authentication error - token may be expired")
                 return []
-            else:
-                logger.error(f"Error fetching trips: {response.status}")
-                return []
-                
+            logger.error(f"Error fetching trips: {response.status}")
+            return []
     except Exception as e:
         logger.error(f"Exception in get_trips_from_api: {str(e)}")
         return []
@@ -1767,8 +1764,7 @@ def delete_uploaded_trip(trip_id):
         result = uploaded_trips_collection.delete_one({'_id': ObjectId(trip_id)})
         if result.deleted_count == 1:
             return jsonify({'status': 'success', 'message': 'Trip deleted successfully.'})
-        else:
-            return jsonify({'status': 'error', 'message': 'Trip not found.'}), 404
+        return jsonify({'status': 'error', 'message': 'Trip not found.'}), 404
     except Exception as e:
         logger.error(f"Error deleting uploaded trip: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -1823,7 +1819,7 @@ def handle_places():
             **CustomPlace.from_dict(place).to_dict()
         } for place in places])
     
-    elif request.method == 'POST':
+    if request.method == 'POST':
         place_data = request.json
         place = CustomPlace(
             name=place_data['name'],
