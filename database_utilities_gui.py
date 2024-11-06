@@ -414,7 +414,8 @@ class DatabaseUtilitiesGUI(tk.Tk):
         self.fix_missing_locations_text = ScrolledText(self.fix_missing_locations_frame, height=20, width=90)
         self.fix_missing_locations_text.pack()
 
-    async def reverse_geocode_nominatim(self, lat, lon):
+    @staticmethod
+    async def reverse_geocode_nominatim(lat, lon):
         """Get location name from coordinates using Nominatim"""
         try:
             # Add delay to respect Nominatim's usage policy
@@ -595,7 +596,8 @@ class DatabaseUtilitiesGUI(tk.Tk):
         if confirm:
             threading.Thread(target=self._validate_geojson_thread, args=(collection,)).start()
 
-    def _validate_geojson_thread(self, collection):
+    @staticmethod
+    def _validate_geojson_thread(collection):
         try:
             cursor = collection.find()
             fixed_count = 0
@@ -694,7 +696,8 @@ class DatabaseUtilitiesGUI(tk.Tk):
             total_distance += self.haversine_distance(lon1, lat1, lon2, lat2)
         return total_distance
 
-    def haversine_distance(self, lon1, lat1, lon2, lat2):
+    @staticmethod
+    def haversine_distance(lon1, lat1, lon2, lat2):
         R = 3958.8  # Earth radius in miles
         phi1 = math.radians(lat1)
         phi2 = math.radians(lat2)
@@ -757,7 +760,8 @@ class DatabaseUtilitiesGUI(tk.Tk):
         if confirm:
             threading.Thread(target=self._update_timezones_thread, args=(collection,)).start()
 
-    def _update_timezones_thread(self, collection):
+    @staticmethod
+    def _update_timezones_thread(collection):
         try:
             tf = TimezoneFinder()
             cursor = collection.find()
@@ -841,7 +845,8 @@ class DatabaseUtilitiesGUI(tk.Tk):
         if confirm:
             threading.Thread(target=self._fix_time_offsets_thread, args=(collection, hours_offset)).start()
 
-    def _fix_time_offsets_thread(self, collection, hours_offset):
+    @staticmethod
+    def _fix_time_offsets_thread(collection, hours_offset):
         try:
             trips = collection.find()
             updated_count = 0
@@ -916,7 +921,8 @@ class DatabaseUtilitiesGUI(tk.Tk):
         if confirm:
             threading.Thread(target=self._undo_time_offsets_thread, args=(collection, hours_offset)).start()
 
-    def _undo_time_offsets_thread(self, collection, hours_offset):
+    @staticmethod
+    def _undo_time_offsets_thread(collection, hours_offset):
         try:
             trips = collection.find()
             updated_count = 0
@@ -970,7 +976,8 @@ class DatabaseUtilitiesGUI(tk.Tk):
         if save_path:
             threading.Thread(target=self._backup_collection_thread, args=(collection, save_path)).start()
 
-    def _backup_collection_thread(self, collection, save_path):
+    @staticmethod
+    def _backup_collection_thread(collection, save_path):
         try:
             documents = list(collection.find())
             if not documents:
@@ -1091,7 +1098,8 @@ class DatabaseUtilitiesGUI(tk.Tk):
         except Exception as e:
             messagebox.showerror("Error", f"Error validating place geometries: {e}")
 
-    def recalculate_visit_stats(self):
+    @staticmethod
+    def recalculate_visit_stats():
         try:
             places = places_collection.find()
             for place in places:
