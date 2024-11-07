@@ -1971,9 +1971,10 @@ def get_place_statistics(place_id):
 
         place_shape = shape(place['geometry'])
         visits = []
+        first_visit = None
         last_visit = None
 
-        # Get all trips sorted by start time
+        # Get all trips sorted by start time to ensure chronological order
         all_trips = list(trips_collection.find().sort('startTime', 1))
         current_time = datetime.now(timezone.utc)
 
@@ -1984,7 +1985,7 @@ def get_place_statistics(place_id):
                 last_point = Point(gps_data['coordinates'][-1])
 
                 if place_shape.contains(last_point):
-                    # Ensure end_time is timezone-aware
+                    # Ensure times are timezone-aware
                     trip_end = trip['endTime'].replace(
                         tzinfo=timezone.utc) if trip['endTime'].tzinfo is None else trip['endTime']
 
@@ -1996,19 +1997,21 @@ def get_place_statistics(place_id):
                         duration = (next_start - trip_end).total_seconds() / 60
                     else:
                         # For the last trip, calculate duration until now
-                        duration = (current_time -
-                                    trip_end).total_seconds() / 60
+                        duration = (current_time - trip_end).total_seconds() / 60
 
                     # Store visit information
                     visits.append(duration)
+
+                    # Update first visit time if this is the first one we've found
+                    if first_visit is None:
+                        first_visit = trip_end
 
                     # Update last visit time if this is the most recent
                     if last_visit is None or trip_end > last_visit:
                         last_visit = trip_end
 
             except Exception as e:
-                logger.error(
-                    f"Error processing trip for place {place['name']}: {e}")
+                logger.error(f"Error processing trip for place {place['name']}: {e}")
                 continue
 
         # Calculate statistics
@@ -2024,6 +2027,7 @@ def get_place_statistics(place_id):
         return jsonify({
             'totalVisits': total_visits,
             'averageTimeSpent': avg_time_str,
+            'firstVisit': first_visit.isoformat() if first_visit else None,
             'lastVisit': last_visit.isoformat() if last_visit else None,
             'name': place['name']
         })

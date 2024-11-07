@@ -113,6 +113,10 @@ class VisitsManager {
                 { data: 'name' },
                 { data: 'totalVisits' },
                 { 
+                    data: 'firstVisit',
+                    render: data => data ? new Date(data).toLocaleDateString() : 'N/A'
+                },
+                { 
                     data: 'lastVisit',
                     render: data => data ? new Date(data).toLocaleDateString() : 'N/A'
                 },
@@ -297,6 +301,7 @@ class VisitsManager {
             const visitsData = [{
                 name: this.places.get(placeId).name,
                 totalVisits: stats.totalVisits,
+                firstVisit: stats.firstVisit,
                 lastVisit: stats.lastVisit,
                 avgTimeSpent: stats.averageTimeSpent
             }];
