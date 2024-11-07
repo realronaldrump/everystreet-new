@@ -6,6 +6,8 @@ class CustomPlacesManager {
         this.places = new Map();
         this.drawingEnabled = false;
 
+        this.customPlacesLayer = EveryStreet.mapLayers.customPlaces.layer;
+
         this.initializeControls();
         this.loadPlaces();
         this.setupEventListeners();
@@ -95,7 +97,7 @@ class CustomPlacesManager {
                 fillColor: '#BB86FC',
                 fillOpacity: 0.2
             }
-        }).addTo(this.map);
+        });
 
         polygon.bindPopup(`
             <div class="custom-place-popup">
@@ -105,6 +107,9 @@ class CustomPlacesManager {
         `);
 
         polygon.on('click', () => this.showPlaceStatistics(place._id));
+
+        // Add the polygon to the customPlaces LayerGroup
+        this.customPlacesLayer.addLayer(polygon);
     }
 
     async showPlaceStatistics(placeId) {

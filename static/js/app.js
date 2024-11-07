@@ -21,6 +21,13 @@ window.EveryStreet = (function() {
             order: 6, 
             opacity: 0.7,
             name: 'Street Coverage'
+        },
+        customPlaces: { 
+            layer: L.layerGroup(), 
+            visible: true, 
+            color: '#FF9800', 
+            order: 7, 
+            opacity: 0.5 
         }
     };
 
@@ -278,7 +285,7 @@ window.EveryStreet = (function() {
             updateLoadingProgress(progress, 'Updating map visualization');
 
             await new Promise(resolve => {
-                if (layerName === 'streetCoverage') {
+                if (layerName === 'streetCoverage' || layerName === 'customPlaces') {
                     layerInfo.layer.addTo(layerGroup);
                     resolve();
                 } else if (layerName === 'trips' || layerName === 'historicalTrips' || layerName === 'matchedTrips') {
@@ -329,6 +336,14 @@ window.EveryStreet = (function() {
                     layerInfo.layer.setStyle({ 
                         color: layerInfo.color,
                         opacity: layerInfo.opacity
+                    }).addTo(layerGroup);
+                    resolve();
+                } else if (layerName === 'customPlaces') {
+                    L.geoJSON(layerInfo.layer, {
+                        style: {
+                            color: layerInfo.color,
+                            opacity: layerInfo.opacity
+                        }
                     }).addTo(layerGroup);
                     resolve();
                 } else {
@@ -1244,10 +1259,19 @@ window.EveryStreet = (function() {
         visualizeStreetCoverage: visualizeStreetCoverage,
         initializeLiveTracking: initializeLiveTracking,
         toggleDirectionsPanel: toggleDirectionsPanel,
+        toggleCustomPlacesLayer: function() {
+            const layerInfo = mapLayers.customPlaces;
+            layerInfo.visible = !layerInfo.visible;
+            updateMap();
+        }
     };
 })();
 
 // Initialize the application when the DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     EveryStreet.initialize();
+});
+
+document.getElementById('toggle-custom-places').addEventListener('change', function() {
+    EveryStreet.toggleCustomPlacesLayer();
 });

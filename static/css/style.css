@@ -791,7 +791,6 @@ body.sidebar-collapsed {
 }
 
 
-
 @keyframes dash {
     to {
         stroke-dashoffset: -1000;
@@ -1044,5 +1043,10 @@ body.sidebar-collapsed {
         width: calc(100% - 40px);
         right: 20px;
     }
+}
+
+.custom-place-layer {
+    color: #FF9800;
+    opacity: 0.5;
 }
 
