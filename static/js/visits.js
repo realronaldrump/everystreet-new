@@ -8,13 +8,38 @@ class VisitsManager {
         this.visitsTable = null;
         this.drawingEnabled = false;
         this.customPlacesLayer = null;
+        this.loadingManager = getLoadingManager();
 
-        this.initializeMap();
-        this.initializeDrawControls();
-        this.initializeChart();
-        this.initializeTable();
-        this.setupEventListeners();
-        this.loadPlaces();
+        this.initialize();
+    }
+
+    async initialize() {
+        this.loadingManager.startOperation('Initializing Visits Page');
+        
+        try {
+            this.loadingManager.updateProgress(10, 'Initializing map...');
+            await this.initializeMap();
+            
+            this.loadingManager.updateProgress(20, 'Setting up drawing controls...');
+            this.initializeDrawControls();
+            
+            this.loadingManager.updateProgress(30, 'Initializing statistics chart...');
+            this.initializeChart();
+            
+            this.loadingManager.updateProgress(40, 'Setting up visits table...');
+            this.initializeTable();
+            
+            this.loadingManager.updateProgress(50, 'Setting up event listeners...');
+            this.setupEventListeners();
+            
+            this.loadingManager.updateProgress(60, 'Loading places...');
+            await this.loadPlaces();
+            
+            this.loadingManager.finish();
+        } catch (error) {
+            console.error('Error initializing visits page:', error);
+            this.loadingManager.error('Failed to initialize visits page');
+        }
     }
 
     initializeMap() {
@@ -123,17 +148,26 @@ class VisitsManager {
 
     async loadPlaces() {
         try {
+            this.loadingManager.updateProgress(70, 'Fetching places from server...');
             const response = await fetch('/api/places');
             const places = await response.json();
             
-            places.forEach(place => {
+            this.loadingManager.updateProgress(80, 'Processing places data...');
+            const totalPlaces = places.length;
+            places.forEach((place, index) => {
                 this.places.set(place._id, place);
                 this.displayPlace(place);
+                const progress = 80 + (index / totalPlaces * 10);
+                this.loadingManager.updateProgress(progress, `Loading place ${index + 1} of ${totalPlaces}...`);
             });
             
+            this.loadingManager.updateProgress(90, 'Updating visits statistics...');
             await this.updateVisitsData();
+            
         } catch (error) {
             console.error('Error loading places:', error);
+            this.loadingManager.error('Failed to load places');
+            throw error;
         }
     }
 
@@ -163,8 +197,17 @@ class VisitsManager {
 
     async updateVisitsData() {
         const visitsData = [];
+        const totalPlaces = this.places.size;
+        let processedPlaces = 0;
+
         for (const [id, place] of this.places) {
             try {
+                const progress = 90 + (processedPlaces / totalPlaces * 10);
+                this.loadingManager.updateProgress(
+                    progress, 
+                    `Loading statistics for ${place.name} (${processedPlaces + 1}/${totalPlaces})...`
+                );
+
                 const response = await fetch(`/api/places/${id}/statistics`);
                 const stats = await response.json();
                 visitsData.push({
@@ -173,17 +216,18 @@ class VisitsManager {
                     lastVisit: stats.lastVisit,
                     avgTimeSpent: stats.averageTimeSpent
                 });
+                
+                processedPlaces++;
             } catch (error) {
                 console.error(`Error fetching statistics for place ${place.name}:`, error);
             }
         }
 
-        // Update chart
+        // Update chart and table
         this.visitsChart.data.labels = visitsData.map(d => d.name);
         this.visitsChart.data.datasets[0].data = visitsData.map(d => d.totalVisits);
         this.visitsChart.update();
 
-        // Update table
         this.visitsTable.clear().rows.add(visitsData).draw();
     }
 
