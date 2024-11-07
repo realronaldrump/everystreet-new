@@ -1,42 +1,44 @@
+# Standard library imports
 import json
 import threading
-from datetime import datetime, timedelta, timezone, UTC
-import aiohttp
-from flask import Flask, render_template, request, jsonify, session, Response, send_file
-from flask_socketio import SocketIO, emit
 import os
-from dotenv import load_dotenv
-from pymongo import MongoClient
-import certifi
-import geojson as geojson_module
-from geojson import loads as geojson_loads, dumps as geojson_dumps
-import traceback
-from timezonefinder import TimezoneFinder
-import pytz
-import asyncio
-from shapely.geometry import Polygon, LineString, MultiPolygon, MultiLineString, shape, Point
-import geopandas as gpd
-import requests
 import glob
-import gpxpy
-import gpxpy.gpx
-from dateutil import parser
+import time
 import math
 import io
 import zipfile
-from shapely.ops import linemerge
-import pymongo
-import time
 import logging
-from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
-from shapely.ops import linemerge
-from multiprocessing import Pool
+from datetime import datetime, timedelta, timezone, UTC
 from functools import partial
-from shapely.geometry import mapping
-from bson import ObjectId
+from multiprocessing import Pool
+import traceback
+import pymongo
+
+# Third-party library imports
+import aiohttp
+from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
+from flask import Flask, render_template, request, jsonify, session, Response, send_file
+from flask_socketio import SocketIO, emit
+from dotenv import load_dotenv
+from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
+import certifi
+import geojson as geojson_module
+from geojson import loads as geojson_loads, dumps as geojson_dumps
+from timezonefinder import TimezoneFinder
+import pytz
+import asyncio
+from shapely.geometry import Polygon, LineString, MultiPolygon, MultiLineString, shape, Point, mapping
+from shapely.ops import linemerge
+import geopandas as gpd
+import requests
+import gpxpy
+import gpxpy.gpx
+from dateutil import parser
+from bson import ObjectId
 from bson.objectid import ObjectId
-from shapely.geometry import shape, Point, Polygon
+
+# Local imports
 from services.route_optimizer import RouteOptimizer
 
 # Configure logging
