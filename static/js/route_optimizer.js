@@ -19,12 +19,12 @@ class RouteOptimizer {
 
         // Log element status for debugging
         console.log('Route Optimizer Elements Status:', {
-            directionsPanel: !!this.elements.directionsPanel,
-            turnByTurnDiv: !!this.elements.turnByTurnDiv,
-            routeStats: !!this.elements.routeStats,
-            routeProgress: !!this.elements.routeProgress,
-            routeDetails: !!this.elements.routeDetails,
-            optimizeButton: !!this.elements.optimizeButton
+            directionsPanel: Boolean(this.elements.directionsPanel),
+            turnByTurnDiv: Boolean(this.elements.turnByTurnDiv),
+            routeStats: Boolean(this.elements.routeStats),
+            routeProgress: Boolean(this.elements.routeProgress),
+            routeDetails: Boolean(this.elements.routeDetails),
+            optimizeButton: Boolean(this.elements.optimizeButton)
         });
 
         this.initialize();
@@ -226,9 +226,9 @@ class RouteOptimizer {
     updateStats(statistics) {
         if (!this.elements.routeStats || !this.elements.routeProgress || !this.elements.routeDetails) {
             console.error('Stats elements not found:', {
-                routeStats: !!this.elements.routeStats,
-                routeProgress: !!this.elements.routeProgress,
-                routeDetails: !!this.elements.routeDetails
+                routeStats: Boolean(this.elements.routeStats),
+                routeProgress: Boolean(this.elements.routeProgress),
+                routeDetails: Boolean(this.elements.routeDetails)
             });
             return;
         }
