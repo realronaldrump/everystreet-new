@@ -118,7 +118,7 @@ class VisitsManager {
                 },
                 { 
                     data: 'avgTimeSpent',
-                    render: data => data ? `${Math.round(data)} min` : 'N/A'
+                    render: data => data || 'N/A'
                 }
             ],
             language: {

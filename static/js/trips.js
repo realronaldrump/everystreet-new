@@ -67,7 +67,11 @@ function formatDateTime(data, type, row) {
 }
 
 function formatDistance(data, type) {
-    return type === 'display' ? parseFloat(data).toFixed(2) : data;
+    if (type === 'display') {
+        const distance = parseFloat(data);
+        return isNaN(distance) ? '0.00' : distance.toFixed(2);
+    }
+    return data;
 }
 
 function formatDestination(data, type, row) {
@@ -100,7 +104,7 @@ function populateTripsTable(trips) {
             gps: trip.geometry,
             destination: trip.properties.destination || 'N/A',
             isCustomPlace: trip.properties.isCustomPlace || false,
-            distance: parseFloat(trip.distance).toFixed(2)
+            distance: trip.properties.distance ? parseFloat(trip.properties.distance) : 0
         }));
 
     tripsTable.clear().rows.add(formattedTrips).draw();

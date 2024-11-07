@@ -491,6 +491,15 @@ def process_trip(trip):
         trip['startGeoPoint'] = start_point
         trip['destinationGeoPoint'] = last_point
 
+        # Ensure distance is a valid number
+        if 'distance' in trip:
+            try:
+                trip['distance'] = float(trip['distance'])
+            except (ValueError, TypeError):
+                trip['distance'] = 0.0
+        else:
+            trip['distance'] = 0.0
+
         return trip
 
     except Exception as e:
