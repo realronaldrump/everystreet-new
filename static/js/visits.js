@@ -6,6 +6,7 @@ class VisitsManager {
         this.currentPolygon = null;
         this.visitsChart = null;
         this.visitsTable = null;
+        this.drawingEnabled = false;
 
         this.initializeMap();
         this.initializeDrawControls();
@@ -25,6 +26,9 @@ class VisitsManager {
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             maxZoom: 19
         }).addTo(this.map);
+
+        // Create a layer group for custom places
+        this.customPlacesLayer = L.layerGroup().addTo(this.map);
     }
 
     initializeDrawControls() {
@@ -89,7 +93,15 @@ class VisitsManager {
     }
 
     setupEventListeners() {
-        document.getElementById('start-drawing').addEventListener('click', () => this.startDrawing());
+        document.getElementById('start-drawing').addEventListener('click', () => {
+            if (!this.drawingEnabled) {
+                this.map.addControl(this.drawControl);
+                new L.Draw.Polygon(this.map).enable();
+                this.drawingEnabled = true;
+                document.getElementById('start-drawing').classList.add('active');
+            }
+        });
+
         document.getElementById('save-place').addEventListener('click', () => this.savePlace());
         
         this.map.on(L.Draw.Event.CREATED, (e) => {
@@ -109,7 +121,7 @@ class VisitsManager {
                 this.displayPlace(place);
             });
             
-            this.updateVisitsData();
+            await this.updateVisitsData();
         } catch (error) {
             console.error('Error loading places:', error);
         }
@@ -122,7 +134,7 @@ class VisitsManager {
                 fillColor: '#BB86FC',
                 fillOpacity: 0.2
             }
-        }).addTo(this.map);
+        });
 
         polygon.bindPopup(`
             <div class="place-popup">
@@ -130,11 +142,10 @@ class VisitsManager {
                 <button class="btn btn-sm btn-info" onclick="visitsManager.showPlaceStatistics('${place._id}')">
                     View Statistics
                 </button>
-                <button class="btn btn-sm btn-danger" onclick="visitsManager.deletePlace('${place._id}')">
-                    Delete
-                </button>
             </div>
         `);
+
+        this.customPlacesLayer.addLayer(polygon);
     }
 
     async updateVisitsData() {
@@ -161,11 +172,6 @@ class VisitsManager {
 
         // Update table
         this.visitsTable.clear().rows.add(visitsData).draw();
-    }
-
-    startDrawing() {
-        this.map.addControl(this.drawControl);
-        new L.Draw.Polygon(this.map).enable();
     }
 
     async savePlace() {
