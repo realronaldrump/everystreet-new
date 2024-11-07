@@ -36,7 +36,6 @@ import gpxpy
 import gpxpy.gpx
 from dateutil import parser
 from bson import ObjectId
-from bson.objectid import ObjectId
 
 # Local imports
 from services.route_optimizer import RouteOptimizer
