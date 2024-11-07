@@ -1203,7 +1203,7 @@ window.EveryStreet = (function() {
             initializeEventListeners();
             initializeDatePresets();
 
-            if (document.getElementById('map')) {
+            if (document.getElementById('map') && !document.getElementById('visits-page')) {
                 initializeMap();
                 initializeLayerControls();
                 fetchTrips();

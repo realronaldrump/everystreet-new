@@ -7,6 +7,7 @@ class VisitsManager {
         this.visitsChart = null;
         this.visitsTable = null;
         this.drawingEnabled = false;
+        this.customPlacesLayer = null;
 
         this.initializeMap();
         this.initializeDrawControls();
@@ -86,9 +87,18 @@ class VisitsManager {
             columns: [
                 { data: 'name' },
                 { data: 'totalVisits' },
-                { data: 'lastVisit', render: data => new Date(data).toLocaleDateString() },
-                { data: 'avgTimeSpent' }  // Remove the render function since we're getting formatted string
-            ]
+                { 
+                    data: 'lastVisit',
+                    render: data => data ? new Date(data).toLocaleDateString() : 'N/A'
+                },
+                { 
+                    data: 'avgTimeSpent',
+                    render: data => data ? `${Math.round(data)} min` : 'N/A'
+                }
+            ],
+            language: {
+                emptyTable: "No visits recorded for custom places"
+            }
         });
     }
 
@@ -146,6 +156,9 @@ class VisitsManager {
         `);
 
         this.customPlacesLayer.addLayer(polygon);
+        
+        // Update visits table immediately after adding a place
+        this.updateVisitsData();
     }
 
     async updateVisitsData() {
@@ -229,6 +242,25 @@ class VisitsManager {
         document.getElementById('place-name').value = '';
         document.getElementById('save-place').disabled = true;
         this.map.removeControl(this.drawControl);
+    }
+
+    async showPlaceStatistics(placeId) {
+        try {
+            const response = await fetch(`/api/places/${placeId}/statistics`);
+            const stats = await response.json();
+            
+            // Update the visits table with the new statistics
+            const visitsData = [{
+                name: this.places.get(placeId).name,
+                totalVisits: stats.totalVisits,
+                lastVisit: stats.lastVisit,
+                avgTimeSpent: stats.averageTimeSpent
+            }];
+            
+            this.visitsTable.clear().rows.add(visitsData).draw();
+        } catch (error) {
+            console.error('Error fetching place statistics:', error);
+        }
     }
 }
 
