@@ -2816,6 +2816,78 @@ async def upload_files():
             'message': str(e)
         }), 500
 
+@app.route('/trip-editor')
+def trip_editor():
+    return render_template('trip_editor.html')
+
+@app.route('/api/trips/<transaction_id>', methods=['PUT'])
+def update_trip(transaction_id):
+    try:
+        data = request.json
+        updated_geometry = data['geometry']
+        
+        # Get the existing trip - Fix: Remove 'properties.' from query
+        trip = trips_collection.find_one({'transactionId': transaction_id})
+        if not trip:
+            return jsonify({'status': 'error', 'message': 'Trip not found'}), 404
+
+        # Update the trip's GPS coordinates
+        if isinstance(trip['gps'], str):
+            gps_data = json.loads(trip['gps'])
+        else:
+            gps_data = trip['gps']
+
+        gps_data['coordinates'] = updated_geometry['coordinates']
+        
+        # Update both the gps field and the geometry field
+        # Fix: Remove 'properties.' from query
+        result = trips_collection.update_one(
+            {'transactionId': transaction_id},
+            {
+                '$set': {
+                    'gps': json.dumps(gps_data),
+                    'geometry': updated_geometry
+                }
+            }
+        )
+        
+        if result.modified_count == 0:
+            return jsonify({'status': 'error', 'message': 'Trip not found or no changes made'}), 404
+            
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        logger.error(f"Error updating trip {transaction_id}: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/matched_trips/<transaction_id>', methods=['PUT'])
+def update_matched_trip(transaction_id):
+    try:
+        data = request.json
+        updated_geometry = data['geometry']
+        
+        # Get the existing matched trip - Fix: Remove 'properties.' from query
+        trip = matched_trips_collection.find_one({'transactionId': transaction_id})
+        if not trip:
+            return jsonify({'status': 'error', 'message': 'Matched trip not found'}), 404
+
+        # Update the matched GPS field
+        # Fix: Remove 'properties.' from query
+        result = matched_trips_collection.update_one(
+            {'transactionId': transaction_id},
+            {
+                '$set': {
+                    'matchedGps': json.dumps(updated_geometry)
+                }
+            }
+        )
+        
+        if result.modified_count == 0:
+            return jsonify({'status': 'error', 'message': 'Matched trip not found or no changes made'}), 404
+            
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        logger.error(f"Error updating matched trip {transaction_id}: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
