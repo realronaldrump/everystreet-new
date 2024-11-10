@@ -54,8 +54,14 @@ function handleFiles(files) {
                 parseGPX(file, e.target.result);
             };
             reader.readAsText(file);
+        } else if (file.name.endsWith('.geojson')) {
+            let reader = new FileReader();
+            reader.onload = (e) => {
+                parseGeoJSON(file, e.target.result);
+            };
+            reader.readAsText(file);
         } else {
-            alert('Invalid file type: ' + file.name);
+            alert('Invalid file type: ' + file.name + '. Only .gpx and .geojson files are supported.');
         }
     }
 }
@@ -99,6 +105,50 @@ function parseGPX(file, gpxContent) {
     updateFileList();
     updatePreviewMap();
     updateStats();
+}
+
+function parseGeoJSON(file, content) {
+    try {
+        const geojsonData = JSON.parse(content);
+        if (!geojsonData.features || !Array.isArray(geojsonData.features)) {
+            throw new Error('Invalid GeoJSON structure');
+        }
+
+        geojsonData.features.forEach(feature => {
+            if (!feature.geometry || !feature.properties) {
+                return;
+            }
+
+            const coordinates = feature.geometry.coordinates;
+            const properties = feature.properties;
+            
+            let fileEntry = {
+                file: file,
+                filename: file.name,
+                startTime: properties.start_time ? new Date(properties.start_time) : null,
+                endTime: properties.end_time ? new Date(properties.end_time) : null,
+                points: coordinates.length,
+                coordinates: coordinates,
+                type: 'geojson',
+                properties: {
+                    max_speed: properties.max_speed,
+                    hard_brakings: properties.hard_brakings,
+                    hard_accelerations: properties.hard_accelerations,
+                    idle: properties.idle,
+                    transaction_id: properties.transaction_id
+                }
+            };
+
+            selectedFiles.push(fileEntry);
+        });
+
+        updateFileList();
+        updatePreviewMap();
+        updateStats();
+    } catch (error) {
+        console.error('Error parsing GeoJSON:', error);
+        alert('Error parsing GeoJSON file: ' + error.message);
+    }
 }
 
 function updateFileList() {
