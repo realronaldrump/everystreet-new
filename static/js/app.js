@@ -48,8 +48,9 @@ window.EveryStreet = (function() {
         }
 
         try {
+            // Initialize map with a default center and lower zoom level
             map = L.map('map', {
-                center: [37.0902, -95.7129], // Default center
+                center: [37.0902, -95.7129],
                 zoom: 4,
                 zoomControl: true,
                 attributionControl: false
@@ -61,38 +62,45 @@ window.EveryStreet = (function() {
             }).addTo(map);
 
             layerGroup = L.layerGroup().addTo(map);
-
+    
             L.control.zoom({
                 position: 'topright'
             }).addTo(map);
-
+    
             L.control.scale({
                 imperial: true,
                 metric: true,
                 position: 'bottomright'
             }).addTo(map);
-
+    
             map.setMaxBounds([
                 [-90, -180],
                 [90, 180]
             ]);
-
-            // Fetch the last point of the most recent trip and center the map
-            fetch('/api/last_trip_point')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.lastPoint) {
-                        const [lng, lat] = data.lastPoint;
-                        map.setView([lat, lng], 12); // Center map on the last point
-                    }
-                })
-                .catch(error => console.error('Error fetching last trip point:', error));
-
+    
+            // Only set initial view on first load
+            if (!window.mapInitialized) {
+                fetch('/api/last_trip_point')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.lastPoint) {
+                            const [lng, lat] = data.lastPoint;
+                            // Animate to the last point location with a moderate zoom level
+                            map.flyTo([lat, lng], 11, {
+                                duration: 2,
+                                easeLinearity: 0.25
+                            });
+                            window.mapInitialized = true;
+                        }
+                    })
+                    .catch(error => console.error('Error fetching last trip point:', error));
+            }
+    
             console.log('Map initialized successfully');
-
+    
             // Initialize route optimizer
             window.routeOptimizer = new RouteOptimizer(map);
-
+    
             // Enable optimize button when location is validated
             document.addEventListener('locationValidated', function() {
                 document.getElementById('optimize-route').disabled = false;
