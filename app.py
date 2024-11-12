@@ -2567,9 +2567,9 @@ async def cleanup_invalid_trips():
                 logger.warning(
                     f"Found invalid trip {trip.get('transactionId')}: {error_message}")
                 # Option 1: Delete invalid trips
-                trips_collection.delete_one({'_id': trip['_id']})
+                # trips_collection.delete_one({'_id': trip['_id']})
                 # Option 2: Mark them as invalid
-                # trips_collection.update_one({'_id': trip['_id']}, {'$set': {'invalid': True}})
+                trips_collection.update_one({'_id': trip['_id']}, {'$set': {'invalid': True}})
 
         logger.info("Trip cleanup completed")
     except Exception as e:
@@ -2654,7 +2654,7 @@ def process_geojson_trip(geojson_data):
             transaction_id = properties.get('transaction_id', '')
             if not (start_time and end_time) and '-' in transaction_id:
                 try:
-                    # Extract timestamp from transaction ID (e.g., "359486068397551-132-1590536188000")
+                    # Extract timestamp from transaction ID
                     timestamp_str = transaction_id.split('-')[-1]
                     if timestamp_str.isdigit():
                         timestamp_ms = int(timestamp_str)
@@ -2824,9 +2824,11 @@ def trip_editor():
 def update_trip(transaction_id):
     try:
         data = request.json
-        updated_geometry = data['geometry']
-        
-        # Get the existing trip - Fix: Remove 'properties.' from query
+        updated_geometry = data.get('geometry')  # Access geometry safely
+
+        if not updated_geometry:
+            return jsonify({'status': 'error', 'message': 'Invalid geometry data'}), 400
+
         trip = trips_collection.find_one({'transactionId': transaction_id})
         if not trip:
             return jsonify({'status': 'error', 'message': 'Trip not found'}), 404
@@ -2838,22 +2840,12 @@ def update_trip(transaction_id):
             gps_data = trip['gps']
 
         gps_data['coordinates'] = updated_geometry['coordinates']
-        
-        # Update both the gps field and the geometry field
-        # Fix: Remove 'properties.' from query
-        result = trips_collection.update_one(
+
+        trips_collection.update_one(
             {'transactionId': transaction_id},
-            {
-                '$set': {
-                    'gps': json.dumps(gps_data),
-                    'geometry': updated_geometry
-                }
-            }
+            {'$set': {'gps': json.dumps(gps_data)}}  # Only update 'gps'
         )
-        
-        if result.modified_count == 0:
-            return jsonify({'status': 'error', 'message': 'Trip not found or no changes made'}), 404
-            
+
         return jsonify({'status': 'success'})
     except Exception as e:
         logger.error(f"Error updating trip {transaction_id}: {str(e)}")
@@ -2871,7 +2863,6 @@ def update_matched_trip(transaction_id):
             return jsonify({'status': 'error', 'message': 'Matched trip not found'}), 404
 
         # Update the matched GPS field
-        # Fix: Remove 'properties.' from query
         result = matched_trips_collection.update_one(
             {'transactionId': transaction_id},
             {

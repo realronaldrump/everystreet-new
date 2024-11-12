@@ -2,7 +2,7 @@ class TripEditor {
     constructor() {
         this.map = null;
         this.selectedTrip = null;
-        this.editMode = 'regular';
+        this.editMode = 'regular'; // Start in regular trip edit mode
         this.tripLayer = null;
         this.pointMarkers = [];
         this.selectedPoint = null;
@@ -10,24 +10,24 @@ class TripEditor {
         this.modified = false;
         this.showPoints = false;
 
-        // Initialize controls
         this.editControls = {
             addPoint: document.getElementById('add-point'),
             deletePoint: document.getElementById('delete-point'),
             undo: document.getElementById('undo'),
             saveChanges: document.getElementById('save-changes'),
             discardChanges: document.getElementById('discard-changes'),
-            showPoints: document.getElementById('show-points')
+            showPoints: document.getElementById('show-points'),
+            editModeSelect: document.getElementById('edit-mode')
         };
 
         this.initializeMap();
         this.setupEventListeners();
-        this.loadTrips();
+        this.loadTrips(); // Load initial trips on page load
     }
 
     initializeMap() {
         this.map = L.map('map', {
-            center: [37.0902, -95.7129],
+            center: [37.0902, -95.7129], // Centered on US
             zoom: 4
         });
 
@@ -41,12 +41,13 @@ class TripEditor {
 
     setupEventListeners() {
         // Edit mode change
-        document.getElementById('edit-mode').addEventListener('change', (e) => {
+        this.editControls.editModeSelect.addEventListener('change', (e) => {
             this.editMode = e.target.value;
-            this.loadTrips();
+            this.loadTrips(); // Reload trips when edit mode changes
+            this.clearSelection(); // Clear any existing selection
         });
 
-        // Edit control buttons
+
         this.editControls.addPoint.addEventListener('click', () => {
             this.map.getContainer().classList.add('add-point-mode');
             this.map.once('click', (e) => {
@@ -55,38 +56,38 @@ class TripEditor {
             });
         });
 
-        this.editControls.deletePoint.addEventListener('click', () => {
-            if (this.selectedPoint) {
-                this.deleteSelectedPoint();
-            }
-        });
-
+        this.editControls.deletePoint.addEventListener('click', () => this.deleteSelectedPoint());
         this.editControls.undo.addEventListener('click', () => this.undoLastAction());
         this.editControls.saveChanges.addEventListener('click', () => this.saveChanges());
         this.editControls.discardChanges.addEventListener('click', () => this.discardChanges());
-
-        // Listen for date range changes
-        document.getElementById('apply-filters').addEventListener('click', () => this.loadTrips());
-
         this.editControls.showPoints.addEventListener('change', (e) => {
             this.showPoints = e.target.checked;
-            if (this.selectedTrip) {
-                this.showTripPoints();
-            }
+            this.showTripPoints(); // Redraw points to reflect visibility/editability change
+        });
+
+
+        document.getElementById('apply-filters').addEventListener('click', () => {
+            this.loadTrips();
+            this.clearSelection(); // Clear selection when filters are applied
         });
     }
 
     async loadTrips() {
         const startDate = document.getElementById('start-date').value;
         const endDate = document.getElementById('end-date').value;
-        
-        if (!startDate || !endDate) return;
+
+        if (!startDate || !endDate) {
+            return; // Don't fetch if dates are not selected
+        }
 
         const endpoint = this.editMode === 'regular' ? '/api/trips' : '/api/matched_trips';
         const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
 
         try {
             const response = await fetch(`${endpoint}?${params}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             const data = await response.json();
             this.displayTrips(data);
         } catch (error) {
@@ -95,27 +96,16 @@ class TripEditor {
         }
     }
 
+
     displayTrips(geojson) {
         this.tripLayer.clearLayers();
-        
-        if (!geojson || !geojson.features) {
+
+        if (!geojson || !geojson.features || geojson.features.length === 0) {
             console.warn('No trips to display');
             return;
         }
 
-        // Filter trips based on edit mode
-        const tripsToDisplay = geojson.features.filter(feature => {
-            if (this.editMode === 'regular') {
-                return !feature.properties.matched;
-            } else {
-                return feature.properties.matched;
-            }
-        });
-
-        L.geoJSON({
-            type: 'FeatureCollection',
-            features: tripsToDisplay
-        }, {
+        L.geoJSON(geojson, {
             style: {
                 color: '#BB86FC',
                 weight: 2,
@@ -127,13 +117,15 @@ class TripEditor {
         }).addTo(this.tripLayer);
     }
 
+
     selectTrip(feature, layer) {
         if (this.selectedTrip && this.selectedTrip.feature.properties.transactionId === feature.properties.transactionId) {
+            // Trip is already selected, do nothing
             return;
         }
 
         if (this.selectedTrip) {
-            this.clearSelection();
+            this.clearSelection(); // Clear previous selection
         }
 
         this.selectedTrip = {
@@ -149,23 +141,19 @@ class TripEditor {
 
         document.querySelector('.map-edit-controls').classList.remove('d-none');
         document.getElementById('edit-controls').classList.remove('d-none');
-
-        // Show points initially but not in edit mode
-        this.showPoints = false;
+        this.showPoints = false; // Initially hide points when selecting a new trip
         this.editControls.showPoints.checked = false;
-        
-        // Always show points, but they're only draggable when editing is enabled
         this.showTripPoints();
         this.updateTripInfo();
 
         const bounds = layer.getBounds();
         this.map.fitBounds(bounds, { padding: [50, 50] });
 
-        this.map.on('click', this.handleMapClick.bind(this));
+        this.map.on('click', this.handleMapClick.bind(this)); // Enable map click for deselection
     }
 
+
     showTripPoints() {
-        // Clear existing points
         this.pointMarkers.forEach(marker => this.map.removeLayer(marker));
         this.pointMarkers = [];
 
@@ -174,19 +162,27 @@ class TripEditor {
         const coordinates = this.selectedTrip.feature.geometry.coordinates;
         coordinates.forEach((coord, index) => {
             const marker = L.marker([coord[1], coord[0]], {
-                draggable: this.showPoints,
+                draggable: this.showPoints, // Only draggable if showPoints is true
                 icon: L.divIcon({
                     className: `point-marker ${this.showPoints ? 'editable' : ''}`,
                     html: '<div></div>',
                     iconSize: [12, 12],
                     iconAnchor: [6, 6]
                 })
+            }).addTo(this.map);
+
+
+            marker.on('click', (e) => {
+                if (this.showPoints) {
+                    e.originalEvent.stopPropagation(); // Prevent trip deselection
+                    this.selectPoint(index, marker);
+                }
             });
 
-            if (this.showPoints) {
+            if (this.showPoints) { // Only add drag events if editable
                 marker.on('dragstart', () => {
                     this.addToUndoStack();
-                    this.map.off('click', this.handleMapClick.bind(this));
+                    this.map.off('click', this.handleMapClick.bind(this)); // Disable deselection during drag
                 });
 
                 marker.on('drag', (e) => {
@@ -195,20 +191,15 @@ class TripEditor {
                 });
 
                 marker.on('dragend', () => {
-                    this.map.on('click', this.handleMapClick.bind(this));
+                    this.map.on('click', this.handleMapClick.bind(this)); // Re-enable deselection after drag
                     this.setModified(true);
-                });
-
-                marker.on('click', (e) => {
-                    e.originalEvent.stopPropagation();
-                    this.selectPoint(index, marker);
                 });
             }
 
-            marker.addTo(this.map);
             this.pointMarkers.push(marker);
         });
     }
+
 
     updatePointPosition(index, newCoord) {
         this.selectedTrip.feature.geometry.coordinates[index] = newCoord;
@@ -229,10 +220,9 @@ class TripEditor {
         this.addToUndoStack();
         const newPoint = [latlng.lng, latlng.lat];
         const insertIndex = this.findNearestSegment(latlng);
-        
         this.selectedTrip.feature.geometry.coordinates.splice(insertIndex + 1, 0, newPoint);
         this.updateTripPath();
-        this.showTripPoints();
+        this.showTripPoints(); // Refresh markers
         this.setModified(true);
     }
 
@@ -244,7 +234,7 @@ class TripEditor {
         if (index > -1) {
             this.selectedTrip.feature.geometry.coordinates.splice(index, 1);
             this.updateTripPath();
-            this.showTripPoints();
+            this.showTripPoints(); // Refresh markers
             this.setModified(true);
         }
         this.selectedPoint = null;
@@ -277,9 +267,7 @@ class TripEditor {
     }
 
     addToUndoStack() {
-        this.undoStack.push(
-            JSON.parse(JSON.stringify(this.selectedTrip.feature.geometry.coordinates))
-        );
+        this.undoStack.push(JSON.parse(JSON.stringify(this.selectedTrip.feature.geometry.coordinates)));
         this.editControls.undo.disabled = false;
     }
 
@@ -290,43 +278,36 @@ class TripEditor {
         this.selectedTrip.feature.geometry.coordinates = previousState;
         this.updateTripPath();
         this.showTripPoints();
-        this.setModified(true);
+        this.setModified(this.undoStack.length > 0); // Modified if undo stack is not empty
 
-        if (this.undoStack.length === 0) {
-            this.editControls.undo.disabled = true;
-        }
+        this.editControls.undo.disabled = this.undoStack.length === 0;
     }
 
     async saveChanges() {
         if (!this.selectedTrip || !this.modified) return;
 
-        const endpoint = this.editMode === 'regular' ? 
-            `/api/trips/${this.selectedTrip.feature.properties.transactionId}` :
-            `/api/matched_trips/${this.selectedTrip.feature.properties.transactionId}`;
+        const transactionId = this.selectedTrip.feature.properties.transactionId;
+        const updatedGeometry = this.selectedTrip.feature.geometry;
 
         try {
-            const response = await fetch(endpoint, {
+            const response = await fetch(`/api/trips/${transactionId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    geometry: this.selectedTrip.feature.geometry
-                })
+                body: JSON.stringify({ geometry: updatedGeometry })
             });
 
             if (!response.ok) {
-                throw new Error('Failed to save changes');
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to save changes');
             }
 
-            const data = await response.json();
-            if (data.status === 'success') {
-                alert('Changes saved successfully');
-                this.setModified(false);
-                this.loadTrips();
-            } else {
-                throw new Error(data.message || 'Failed to save changes');
-            }
+            alert('Changes saved successfully!');
+            this.setModified(false);
+            this.undoStack = []; // Clear undo stack after saving
+            this.editControls.undo.disabled = true;
+            this.loadTrips(); // Refresh trips to reflect changes
         } catch (error) {
             console.error('Error saving changes:', error);
             alert(`Error saving changes: ${error.message}`);
@@ -336,15 +317,14 @@ class TripEditor {
     discardChanges() {
         if (!this.selectedTrip) return;
 
-        this.selectedTrip.feature.geometry = JSON.parse(
-            JSON.stringify(this.selectedTrip.originalGeometry)
-        );
+        this.selectedTrip.feature.geometry = JSON.parse(JSON.stringify(this.selectedTrip.originalGeometry));
         this.updateTripPath();
         this.showTripPoints();
         this.setModified(false);
         this.undoStack = [];
         this.editControls.undo.disabled = true;
     }
+
 
     setModified(modified) {
         this.modified = modified;
@@ -354,8 +334,9 @@ class TripEditor {
 
     updateTripInfo() {
         const tripInfo = document.getElementById('trip-info');
+        if (!tripInfo || !this.selectedTrip) return;
+
         const props = this.selectedTrip.feature.properties;
-        
         tripInfo.innerHTML = `
             <p><strong>Trip ID:</strong> ${props.transactionId}</p>
             <p><strong>Start Time:</strong> ${new Date(props.startTime).toLocaleString()}</p>
@@ -377,42 +358,25 @@ class TripEditor {
         this.selectedPoint = null;
         this.selectedTrip = null;
         this.undoStack = [];
-        this.modified = false;
+        this.setModified(false);
+        this.editControls.deletePoint.disabled = true; // Disable delete button
 
         document.querySelector('.map-edit-controls').classList.add('d-none');
         document.getElementById('edit-controls').classList.add('d-none');
         document.getElementById('trip-info').innerHTML = '<p>No trip selected</p>';
+
+        this.map.off('click', this.handleMapClick.bind(this)); // Remove map click listener
     }
 
     handleMapClick(e) {
-        // Don't deselect if clicking a marker
-        if (e.originalEvent.target.classList.contains('point-marker')) {
-            return;
+        if (e.originalEvent.target.classList.contains('point-marker') || (this.selectedTrip && this.selectedTrip.layer.contains(e.originalEvent.target))) {
+            return; // Don't deselect if clicking a marker or the trip line itself
         }
-        
-        // Don't deselect if clicking within the selected trip's path
-        if (this.selectedTrip) {
-            const clickPoint = e.latlng;
-            const tripCoords = this.selectedTrip.feature.geometry.coordinates;
-            
-            // Simple distance check without GeometryUtil
-            for (let i = 0; i < tripCoords.length - 1; i++) {
-                const p1 = L.latLng(tripCoords[i][1], tripCoords[i][0]);
-                const p2 = L.latLng(tripCoords[i + 1][1], tripCoords[i + 1][0]);
-                
-                // Check if click is near either point
-                if (clickPoint.distanceTo(p1) < 20 || clickPoint.distanceTo(p2) < 20) {
-                    return;
-                }
-            }
-        }
-        
-        this.clearSelection();
-        this.map.off('click', this.handleMapClick.bind(this));
+        this.clearSelection(); // Deselect the trip if clicking outside
     }
 }
 
-// Initialize the trip editor when the page loads
+
 document.addEventListener('DOMContentLoaded', () => {
     window.tripEditor = new TripEditor();
 });
