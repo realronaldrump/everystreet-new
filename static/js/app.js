@@ -24,7 +24,7 @@ window.EveryStreet = (function() {
         },
         customPlaces: { 
             layer: L.layerGroup(), 
-            visible: true, 
+            visible: false, 
             color: '#FF9800', 
             order: 7, 
             opacity: 0.5 

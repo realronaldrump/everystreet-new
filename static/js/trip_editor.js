@@ -47,7 +47,6 @@ class TripEditor {
             this.clearSelection(); // Clear any existing selection
         });
 
-
         this.editControls.addPoint.addEventListener('click', () => {
             this.map.getContainer().classList.add('add-point-mode');
             this.map.once('click', (e) => {
@@ -64,7 +63,6 @@ class TripEditor {
             this.showPoints = e.target.checked;
             this.showTripPoints(); // Redraw points to reflect visibility/editability change
         });
-
 
         document.getElementById('apply-filters').addEventListener('click', () => {
             this.loadTrips();
@@ -96,7 +94,6 @@ class TripEditor {
         }
     }
 
-
     displayTrips(geojson) {
         this.tripLayer.clearLayers();
 
@@ -116,7 +113,6 @@ class TripEditor {
             }
         }).addTo(this.tripLayer);
     }
-
 
     selectTrip(feature, layer) {
         if (this.selectedTrip && this.selectedTrip.feature.properties.transactionId === feature.properties.transactionId) {
@@ -141,9 +137,9 @@ class TripEditor {
 
         document.querySelector('.map-edit-controls').classList.remove('d-none');
         document.getElementById('edit-controls').classList.remove('d-none');
-        this.showPoints = false; // Initially hide points when selecting a new trip
-        this.editControls.showPoints.checked = false;
-        this.showTripPoints();
+        this.showPoints = true; // Show points when selecting a new trip
+        this.editControls.showPoints.checked = true;
+        this.showTripPoints(); // Refresh markers
         this.updateTripInfo();
 
         const bounds = layer.getBounds();
@@ -151,7 +147,6 @@ class TripEditor {
 
         this.map.on('click', this.handleMapClick.bind(this)); // Enable map click for deselection
     }
-
 
     showTripPoints() {
         this.pointMarkers.forEach(marker => this.map.removeLayer(marker));
@@ -170,7 +165,6 @@ class TripEditor {
                     iconAnchor: [6, 6]
                 })
             }).addTo(this.map);
-
 
             marker.on('click', (e) => {
                 if (this.showPoints) {
@@ -199,7 +193,6 @@ class TripEditor {
             this.pointMarkers.push(marker);
         });
     }
-
 
     updatePointPosition(index, newCoord) {
         this.selectedTrip.feature.geometry.coordinates[index] = newCoord;
@@ -325,7 +318,6 @@ class TripEditor {
         this.editControls.undo.disabled = true;
     }
 
-
     setModified(modified) {
         this.modified = modified;
         this.editControls.saveChanges.disabled = !modified;
@@ -375,7 +367,6 @@ class TripEditor {
         this.clearSelection(); // Deselect the trip if clicking outside
     }
 }
-
 
 document.addEventListener('DOMContentLoaded', () => {
     window.tripEditor = new TripEditor();
