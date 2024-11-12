@@ -212,7 +212,6 @@ function initializeEventListeners() {
                     break;
                 case 'yesterday':
                     startDate.setDate(startDate.getDate() - 1);
-                    endDate.setDate(endDate.getDate() - 1);
                     break;
                 case 'last-week':
                     startDate.setDate(startDate.getDate() - 7);

@@ -408,9 +408,13 @@ window.EveryStreet = (function() {
             layerControl.classList.add('layer-control');
             layerControl.dataset.layerName = layerName;
 
-            // Skip color picker for streetCoverage layer
-            const colorPickerHtml = layerName === 'streetCoverage' ? '' : 
-                `<input type="color" id="${layerName}-color" value="${layerInfo.color}">`;
+            // Skip color picker and opacity slider for streetCoverage and customPlaces layers
+            const showControls = !['streetCoverage', 'customPlaces'].includes(layerName);
+            const colorPickerHtml = showControls ? 
+                `<input type="color" id="${layerName}-color" value="${layerInfo.color}">` : '';
+            const opacitySliderHtml = showControls ? 
+                `<label for="${layerName}-opacity">Opacity:</label>
+                 <input type="range" id="${layerName}-opacity" min="0" max="1" step="0.1" value="${layerInfo.opacity}">` : '';
 
             layerControl.innerHTML = `
                 <label class="custom-checkbox">
@@ -419,16 +423,15 @@ window.EveryStreet = (function() {
                 </label>
                 <label for="${layerName}-toggle">${layerInfo.name || layerName}</label>
                 ${colorPickerHtml}
-                <label for="${layerName}-opacity">Opacity:</label>
-                <input type="range" id="${layerName}-opacity" min="0" max="1" step="0.1" value="${layerInfo.opacity}">
+                ${opacitySliderHtml}
             `;
             layerToggles.appendChild(layerControl);
 
             document.getElementById(`${layerName}-toggle`).addEventListener('change', (e) => toggleLayer(layerName, e.target.checked));
-            if (layerName !== 'streetCoverage') {
+            if (showControls) {
                 document.getElementById(`${layerName}-color`).addEventListener('change', (e) => changeLayerColor(layerName, e.target.value));
+                document.getElementById(`${layerName}-opacity`).addEventListener('input', (e) => changeLayerOpacity(layerName, e.target.value));
             }
-            document.getElementById(`${layerName}-opacity`).addEventListener('input', (e) => changeLayerOpacity(layerName, e.target.value));
         }
     }
     function toggleLayer(layerName, visible) {
@@ -710,7 +713,6 @@ window.EveryStreet = (function() {
                         break;
                     case 'yesterday':
                         startDate.setDate(startDate.getDate() - 1);
-                        endDate.setDate(endDate.getDate() - 1);
                         break;
                     case 'last-week':
                         startDate.setDate(startDate.getDate() - 7);
