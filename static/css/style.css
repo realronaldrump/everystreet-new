@@ -754,47 +754,42 @@ body.sidebar-collapsed {
     50% { transform: scale(1.2); opacity: 0.8; }
     100% { transform: scale(1); opacity: 1; }
 }
-
 .live-tracking-status {
-    padding: 10px 15px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-    margin: 10px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    min-width: 250px;
+    background-color: rgba(33, 37, 41, 0.9) !important;
 }
 
 .status-indicator {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
-    background: #666;
+    background-color: #dc3545;
     transition: background-color 0.3s ease;
 }
 
 .status-indicator.active {
-    background: #4CAF50;
-    animation: status-pulse 2s infinite;
-}
-
-@keyframes status-pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
+    background-color: #28a745;
+    animation: pulse 2s infinite;
 }
 
 .active-trips-count {
-    margin-left: auto;
-    font-size: 0.8em;
-    color: #999;
+    font-size: 0.9rem;
+    padding: 0.25rem 0.5rem;
 }
 
+.live-trip-metrics {
+    font-size: 0.9rem;
+    color: #ffffff;
+}
 
-@keyframes dash {
-    to {
-        stroke-dashoffset: -1000;
-    }
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
 }
 
 /* Recent Trip Glow Effect */

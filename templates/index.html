@@ -5,20 +5,27 @@
 {% block content %}
 <div class="d-flex flex-column h-100">
     <!-- Map Container -->
-    <div id="map" class="flex-grow-1"></div>
-
-    <!-- Directions Panel - Move it here -->
-    <div id="directions-panel" class="card route-directions d-none">
-        <div class="card-header bg-dark text-white">
-            <h5 class="mb-0 d-flex justify-content-between align-items-center">
-                <span>Turn-by-Turn Directions</span>
-                <button class="btn btn-sm btn-link text-white" onclick="EveryStreet.toggleDirectionsPanel()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </h5>
-        </div>
-        <div class="card-body">
-            <div id="turn-by-turn" class="directions-list"></div>
+    <div id="map" class="flex-grow-1">
+        <!-- Live Tracking Status Panel - Position absolutely within map -->
+        <div class="live-tracking-status card bg-dark border-secondary">
+            <div class="card-header border-secondary">
+                <h5 class="mb-0">Live Tracking</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="d-flex align-items-center">
+                        <div class="status-indicator me-2"></div>
+                        <span class="status-text">Connecting...</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="me-2">Active Trips:</span>
+                        <span class="active-trips-count badge bg-primary">0</span>
+                    </div>
+                </div>
+                <div class="live-trip-metrics">
+                    <!-- Trip metrics will be inserted here -->
+                </div>
+            </div>
         </div>
     </div>
 
@@ -168,24 +175,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script src="{{ url_for('static', filename='js/custom-places.js') }}"></script>
 <script src="{{ url_for('static', filename='js/route_optimizer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/live_tracking.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 {% endblock %}
-
-<!-- Add this right before the closing body tag -->
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const requiredElements = [
-        'directions-panel',
-        'turn-by-turn',
-        'route-stats',
-        'route-progress',
-        'route-details',
-        'optimize-route'
-    ];
-    
-    const missingElements = requiredElements.filter(id => !document.getElementById(id));
-    if (missingElements.length > 0) {
-        console.error('Missing required elements:', missingElements);
-    }
-});
-</script>

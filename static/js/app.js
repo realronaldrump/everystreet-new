@@ -1192,7 +1192,6 @@ window.EveryStreet = (function() {
         // Dispatch location validated event
         document.dispatchEvent(new Event('locationValidated'));
     }
-
     // Public API
     return {
         // Initialization
@@ -1222,24 +1221,12 @@ window.EveryStreet = (function() {
             fetchMetrics();
             updateLayerOrderUI();
 
-            // Mark as initialized
-            isInitialized = true;
-
+            // Initialize socket and live tracking
             initializeSocketIO();
             initializeLiveTracking();
 
-            /*
-            fetch('/load_historical_data', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({})
-            })
-            .then(response => response.json())
-            .then(data => console.log('Historical data loaded:', data))
-            .catch(error => console.error('Error:', error));
-            */
+            // Mark as initialized
+            isInitialized = true;
         },
 
         // Public methods
@@ -1257,6 +1244,16 @@ window.EveryStreet = (function() {
         mapMatchTrips: mapMatchTrips,
         mapMatchHistoricalTrips: mapMatchHistoricalTrips,
         loadHistoricalData: loadHistoricalData,
+        getLiveTracker: function() {
+            return liveTracker;
+        },
+        reinitializeLiveTracking: function() {
+            if (liveTracker) {
+                liveTracker.cleanup();
+                liveTracker = null;
+            }
+            initializeLiveTracking();
+        },
         
         // Layer management
         toggleLayer: toggleLayer,
@@ -1267,7 +1264,6 @@ window.EveryStreet = (function() {
         generateStreetCoverage: generateStreetCoverage,
         updateCoverageStats: updateCoverageStats,
         visualizeStreetCoverage: visualizeStreetCoverage,
-        initializeLiveTracking: initializeLiveTracking,
         toggleDirectionsPanel: toggleDirectionsPanel,
         toggleCustomPlacesLayer: function() {
             const layerInfo = mapLayers.customPlaces;
@@ -1282,6 +1278,10 @@ document.addEventListener('DOMContentLoaded', () => {
     EveryStreet.initialize();
 });
 
-document.getElementById('toggle-custom-places').addEventListener('change', function() {
-    EveryStreet.toggleCustomPlacesLayer();
-});
+// Add event listener for custom places toggle
+const customPlacesToggle = document.getElementById('toggle-custom-places');
+if (customPlacesToggle) {
+    customPlacesToggle.addEventListener('change', function() {
+        EveryStreet.toggleCustomPlacesLayer();
+    });
+}
