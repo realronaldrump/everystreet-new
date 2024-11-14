@@ -40,16 +40,29 @@ class CustomPlacesManager {
         const startDrawingBtn = document.getElementById('start-drawing');
         const savePlaceBtn = document.getElementById('save-place');
         const managePlacesBtn = document.getElementById('manage-places');
-
-        startDrawingBtn.addEventListener('click', () => this.startDrawing());
-        savePlaceBtn.addEventListener('click', () => this.savePlace());
-        managePlacesBtn.addEventListener('click', () => this.showManagePlacesModal());
-
-        this.map.on(L.Draw.Event.CREATED, (e) => {
-            this.currentPolygon = e.layer;
-            this.map.addLayer(this.currentPolygon);
-            document.getElementById('save-place').disabled = false;
-        });
+    
+        if (startDrawingBtn) {
+            startDrawingBtn.addEventListener('click', () => this.startDrawing());
+        }
+        
+        if (savePlaceBtn) {
+            savePlaceBtn.addEventListener('click', () => this.savePlace());
+        }
+        
+        if (managePlacesBtn) {
+            managePlacesBtn.addEventListener('click', () => this.showManagePlacesModal());
+        }
+    
+        if (this.map) {
+            this.map.on(L.Draw.Event.CREATED, (e) => {
+                this.currentPolygon = e.layer;
+                this.map.addLayer(this.currentPolygon);
+                const saveButton = document.getElementById('save-place');
+                if (saveButton) {
+                    saveButton.disabled = false;
+                }
+            });
+        }
     }
 
     startDrawing() {
@@ -110,6 +123,30 @@ class CustomPlacesManager {
 
         // Add the polygon to the customPlaces LayerGroup
         this.customPlacesLayer.addLayer(polygon);
+    }
+
+    // Add this method to the CustomPlacesManager class
+    async updateVisitsData() {
+        try {
+            const promises = Array.from(this.places.keys()).map(placeId =>
+                fetch(`/api/places/${placeId}/statistics`)
+                    .then(response => response.json())
+                    .then(stats => ({
+                        placeId,
+                        stats
+                    }))
+            );
+
+            const results = await Promise.all(promises);
+            results.forEach(({placeId, stats}) => {
+                const place = this.places.get(placeId);
+                if (place) {
+                    place.statistics = stats;
+                }
+            });
+        } catch (error) {
+            console.error('Error updating visits data:', error);
+        }
     }
 
     async showPlaceStatistics(placeId) {
@@ -213,8 +250,10 @@ class CustomPlacesManager {
 document.addEventListener('DOMContentLoaded', () => {
     const initializeCustomPlaces = () => {
         const map = EveryStreet.getMap();
-        if (map) {
+        if (map && document.getElementById('start-drawing')) {
             window.customPlaces = new CustomPlacesManager(map);
+        } else if (map) {
+            console.log('Custom places controls not found, skipping initialization');
         } else {
             setTimeout(initializeCustomPlaces, 100);
         }

@@ -810,33 +810,12 @@ body.sidebar-collapsed {
     }
 }
 
-.route-directions {
-    position: fixed;
-    right: 20px;
-    top: 80px;
-    width: 350px;
-    max-height: calc(100vh - 100px);
-    z-index: 1010;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    background-color: var(--surface-color);
-    color: var(--on-surface);
-}
 
-.turn-by-turn-step {
-    padding: 10px;
-    border-bottom: 1px solid #333;
-    display: flex;
-    align-items: center;
-}
 
 .undriven-street {
     background-color: rgba(255, 68, 68, 0.1);
 }
 
-#route-optimization {
-    border-top: 1px solid #333;
-    padding-top: 1rem;
-}
 
 /* Custom Checkbox Styles */
 .layer-control {
@@ -944,100 +923,6 @@ body.sidebar-collapsed {
 
 .layer-control label[for$="-opacity"] {
     text-align: right;
-}
-
-/* Route Directions Panel Styles */
-.route-directions {
-    position: fixed;
-    right: 20px;
-    top: 80px;
-    width: 350px;
-    max-height: calc(100vh - 100px);
-    z-index: 1010;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    background-color: var(--surface-color);
-    color: var(--on-surface);
-}
-
-.directions-list {
-    max-height: calc(100vh - 200px);
-    overflow-y: auto;
-}
-
-.direction-step {
-    display: flex;
-    padding: 10px;
-    border-bottom: 1px solid var(--surface-variant);
-    align-items: center;
-}
-
-.direction-step:last-child {
-    border-bottom: none;
-}
-
-.direction-step.driven {
-    background-color: rgba(40, 167, 69, 0.1);
-}
-
-.direction-step.undriven {
-    background-color: rgba(0, 123, 255, 0.1);
-}
-
-.step-number {
-    width: 24px;
-    height: 24px;
-    background: var(--primary-color);
-    color: var(--on-primary);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 10px;
-    flex-shrink: 0;
-    font-size: 0.875rem;
-}
-
-.step-details {
-    flex-grow: 1;
-}
-
-.step-instruction {
-    font-weight: 500;
-    color: var(--on-surface);
-}
-
-.step-distance {
-    font-size: 0.875rem;
-    color: var(--on-surface-variant);
-}
-
-/* Route Optimization Progress */
-#route-optimization .progress {
-    height: 0.5rem;
-    background-color: rgba(var(--primary-rgb), 0.2);
-}
-
-#route-optimization .progress-bar {
-    background-color: var(--primary-color);
-    transition: width 0.3s ease-in-out;
-}
-
-/* Route Stats Panel */
-#route-stats:not(.d-none) {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    background-color: var(--surface-variant);
-    border-radius: 4px;
-    margin-top: 1rem;
-}
-
-@media (max-width: 768px) {
-    .route-directions {
-        width: calc(100% - 40px);
-        right: 20px;
-    }
 }
 
 .custom-place-layer {

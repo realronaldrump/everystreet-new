@@ -37,8 +37,6 @@ import gpxpy.gpx
 from dateutil import parser
 from bson import ObjectId
 
-# Local imports
-from services.route_optimizer import RouteOptimizer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -2254,75 +2252,6 @@ def handle_disconnect():
     logger.info('Client disconnected')
 
 
-@app.route('/api/optimize-route', methods=['POST'])
-def optimize_route():
-    try:
-        logger.info("Starting route optimization")
-
-        # Get request data
-        data = request.json
-        logger.debug(f"Received data: {data}")
-
-        current_location = data.get('current_location')
-        location = data.get('location')
-
-        logger.debug(f"Current location: {current_location}")
-        logger.debug(f"Target location: {location}")
-
-        if not current_location or not location:
-            return jsonify({'error': 'Current location and target location are required'}), 400
-
-        # Validate location object
-        if not isinstance(location, dict) or 'osm_id' not in location or 'osm_type' not in location:
-            return jsonify({'error': 'Invalid location format. Expected object with osm_id and osm_type'}), 400
-
-        # Ensure current_location is in the correct format [longitude, latitude]
-        if isinstance(current_location, list) and len(current_location) == 2:
-            # Convert to tuple if needed
-            current_location = tuple(current_location)
-        else:
-            return jsonify({'error': 'Current location must be [longitude, latitude]'}), 400
-
-        # Get street coverage data first
-        logger.info("Fetching street network data...")
-        streets_data, streets_error = generate_geojson_osm(
-            location, streets_only=True)
-        if not streets_data:
-            return jsonify({'error': f'Error getting streets: {streets_error}'}), 500
-
-        logger.debug(f"Streets data received: {type(streets_data)}")
-
-        # Get driven segments from matched trips
-        logger.info("Fetching matched trips...")
-        matched_trips = list(matched_trips_collection.find())
-        logger.debug(f"Found {len(matched_trips)} matched trips")
-
-        # Add debug logging
-        logger.debug(f"Matched trips structure: {type(matched_trips)}")
-        if matched_trips:
-            logger.debug(
-                f"Sample matched trip: {matched_trips[0] if isinstance(matched_trips, list) else matched_trips}")
-
-        # Initialize route optimizer
-        optimizer = RouteOptimizer()
-
-        # Create graph from street data
-        optimizer.create_graph_from_streets(streets_data, matched_trips)
-
-        # Find optimal route
-        route_data = optimizer.find_optimal_route(current_location)
-
-        logger.info("Route optimization completed successfully")
-        logger.debug(f"Optimizer route data: {route_data}")
-        return jsonify(route_data)
-
-    except Exception as e:
-        logger.error(f"Error optimizing route: {str(e)}")
-        # This will log the full stack trace
-        logger.exception("Full traceback:")
-        return jsonify({'error': str(e)}), 500
-
-
 
 def get_trip_from_db(trip_id):
     try:
@@ -2878,6 +2807,19 @@ def update_matched_trip(transaction_id):
         return jsonify({'status': 'success'})
     except Exception as e:
         logger.error(f"Error updating matched trip {transaction_id}: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/matched_trips/<transaction_id>', methods=['DELETE'])
+def delete_matched_trip(transaction_id):
+    try:
+        result = matched_trips_collection.delete_one({'transactionId': transaction_id})
+        
+        if result.deleted_count == 0:
+            return jsonify({'status': 'error', 'message': 'Matched trip not found'}), 404
+            
+        return jsonify({'status': 'success', 'message': 'Matched trip deleted successfully'})
+    except Exception as e:
+        logger.error(f"Error deleting matched trip {transaction_id}: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 if __name__ == '__main__':

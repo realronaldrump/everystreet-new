@@ -98,13 +98,6 @@ window.EveryStreet = (function() {
     
             console.log('Map initialized successfully');
     
-            // Initialize route optimizer
-            window.routeOptimizer = new RouteOptimizer(map);
-    
-            // Enable optimize button when location is validated
-            document.addEventListener('locationValidated', function() {
-                document.getElementById('optimize-route').disabled = false;
-            });
         } catch (error) {
             console.error('Error initializing Leaflet map:', error);
         }
@@ -328,13 +321,48 @@ window.EveryStreet = (function() {
                             const isRecent = startTime > sixHoursAgo;
                             const shouldHighlight = mapSettings.highlightRecentTrips && isRecent;
                             
-                            layer.bindPopup(`
+                            const popupContent = document.createElement('div');
+                            popupContent.innerHTML = `
                                 <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
                                 <strong>Start Time:</strong> ${startTimeStr}<br>
                                 <strong>End Time:</strong> ${endTimeStr}<br>
                                 <strong>Distance:</strong> ${parseFloat(feature.properties.distance).toFixed(2)} miles<br>
-                                ${shouldHighlight ? '<br><strong>(Recent Trip)</strong>' : ''}
-                            `);
+                                ${shouldHighlight ? '<br><strong>(Recent Trip)</strong>' : ''}<br>
+                                <button class="btn btn-danger btn-sm mt-2 delete-matched-trip" 
+                                        data-trip-id="${feature.properties.transactionId}">
+                                    Delete Matched Trip
+                                </button>
+                            `;
+
+                            // Add click handler for the delete button
+                            popupContent.querySelector('.delete-matched-trip').addEventListener('click', async (e) => {
+                                e.preventDefault();
+                                const tripId = e.target.dataset.tripId;
+                                
+                                if (confirm('Are you sure you want to delete this matched trip? You can re-run map matching to recreate it.')) {
+                                    try {
+                                        const response = await fetch(`/api/matched_trips/${tripId}`, {
+                                            method: 'DELETE',
+                                            headers: {
+                                                'Content-Type': 'application/json'
+                                            }
+                                        });
+
+                                        if (!response.ok) {
+                                            throw new Error('Failed to delete matched trip');
+                                        }
+
+                                        layer.closePopup();
+                                        fetchTrips(); // Refresh the trips display
+                                        alert('Matched trip deleted successfully');
+                                    } catch (error) {
+                                        console.error('Error deleting matched trip:', error);
+                                        alert('Error deleting matched trip. Please try again.');
+                                    }
+                                }
+                            });
+
+                            layer.bindPopup(popupContent);
                         }
                     }).addTo(layerGroup);
                     
@@ -544,8 +572,6 @@ window.EveryStreet = (function() {
                 // Store for other functions that might need it
                 window.validatedLocation = data;
                 
-                // Dispatch event for route optimizer
-                document.dispatchEvent(new Event('locationValidated'));
                 
                 alert('Location validated successfully!');
             } else {
@@ -1109,7 +1135,6 @@ window.EveryStreet = (function() {
         }
         
         const coverageButton = document.getElementById('generate-coverage');
-        const optimizeButton = document.getElementById('optimize-route');
         const originalText = coverageButton.innerHTML;
         coverageButton.disabled = true;
         coverageButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
@@ -1128,10 +1153,7 @@ window.EveryStreet = (function() {
             return response.json();
         })
         .then(data => {
-            visualizeStreetCoverage(data);
-            // Enable route optimization after coverage is generated
-            document.getElementById('route-optimization').classList.remove('d-none');
-            optimizeButton.disabled = false; // Enable the button
+            visualizeStreetCoverage(data);n
         })
         .catch(error => {
             console.error('Error:', error);
@@ -1148,7 +1170,6 @@ window.EveryStreet = (function() {
         localStorage.removeItem('startDate');
         localStorage.removeItem('endDate');
         localStorage.removeItem('sidebarCollapsed');
-        // Add any other keys you want to clear
     }
 
     function initializeLiveTracking() {
@@ -1171,11 +1192,6 @@ window.EveryStreet = (function() {
         socket.on('error', (error) => {
             console.error('WebSocket error:', error);
         });
-    }
-
-    function toggleDirectionsPanel() {
-        const panel = document.getElementById('directions-panel');
-        panel.classList.toggle('d-none');
     }
 
     function handleLocationValidationSuccess(data) {
@@ -1264,7 +1280,6 @@ window.EveryStreet = (function() {
         generateStreetCoverage: generateStreetCoverage,
         updateCoverageStats: updateCoverageStats,
         visualizeStreetCoverage: visualizeStreetCoverage,
-        toggleDirectionsPanel: toggleDirectionsPanel,
         toggleCustomPlacesLayer: function() {
             const layerInfo = mapLayers.customPlaces;
             layerInfo.visible = !layerInfo.visible;
@@ -1277,11 +1292,3 @@ window.EveryStreet = (function() {
 document.addEventListener('DOMContentLoaded', () => {
     EveryStreet.initialize();
 });
-
-// Add event listener for custom places toggle
-const customPlacesToggle = document.getElementById('toggle-custom-places');
-if (customPlacesToggle) {
-    customPlacesToggle.addEventListener('change', function() {
-        EveryStreet.toggleCustomPlacesLayer();
-    });
-}
