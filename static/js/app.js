@@ -181,43 +181,44 @@ window.EveryStreet = (function() {
     }
 
     async function fetchTrips() {
-        const params = getFilterParams();
-        const url = `/api/trips?${params.toString()}`;
         const loadingManager = getLoadingManager();
-        
         loadingManager.startOperation('Loading Trips');
-        loadingManager.addSubOperation('fetch', 0.2);
-        loadingManager.addSubOperation('process', 0.3);
-        loadingManager.addSubOperation('display', 0.3);
-        loadingManager.addSubOperation('matched', 0.2);
-        
-        try {
-            // Fetch data - 20% of total progress
-            loadingManager.updateSubOperation('fetch', 50);  // 50% of fetch phase
-            const response = await fetch(url);
-            const geojson = await response.json();
-            loadingManager.updateSubOperation('fetch', 100); // 100% of fetch phase
-            
-            // Process data - 30% of total progress
-            loadingManager.updateSubOperation('process', 50);
-            const regularTrips = geojson.features.filter(feature => feature.properties.imei !== 'HISTORICAL');
-            const historicalTrips = geojson.features.filter(feature => feature.properties.imei === 'HISTORICAL');
-            loadingManager.updateSubOperation('process', 100);
-            
-            // Update map layers
-            mapLayers.trips.layer = {
-                type: 'FeatureCollection',
-                features: regularTrips
-            };
+        loadingManager.addSubOperation('fetch', 0.5);
+        loadingManager.addSubOperation('display', 0.5);
     
-            mapLayers.historicalTrips.layer = {
-                type: 'FeatureCollection',
-                features: historicalTrips
-            };
-            // Display data - 30% of total progress
-            loadingManager.updateSubOperation('display', 50);
-            await updateMap();
+        try {
+            // Get dates from localStorage or date inputs
+            const startDate = localStorage.getItem('startDate') || document.getElementById('start-date').value;
+            const endDate = localStorage.getItem('endDate') || document.getElementById('end-date').value;
+    
+            if (!startDate || !endDate) {
+                console.warn('No dates selected');
+                return;
+            }
+    
+            // Update date inputs to match localStorage if needed
+            document.getElementById('start-date').value = startDate;
+            document.getElementById('end-date').value = endDate;
+    
+            // Fetch data - 50% of total progress
+            loadingManager.updateSubOperation('fetch', 50);
+            const params = new URLSearchParams({ 
+                start_date: startDate,
+                end_date: endDate 
+            });
+            const url = `/api/trips?${params.toString()}`;
             
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const geojson = await response.json();
+            loadingManager.updateSubOperation('fetch', 100);
+    
+            // Display data - 50% of total progress
+            loadingManager.updateSubOperation('display', 50);
+            
+            // Update trips table if it exists
             if (window.tripsTable) {
                 const formattedTrips = geojson.features
                     .filter(trip => trip.properties.imei !== 'HISTORICAL')
@@ -234,15 +235,35 @@ window.EveryStreet = (function() {
                     setTimeout(resolve, 100);
                 });
             }
-            loadingManager.updateSubOperation('display', 100);
+            
+            // Update map only if we're on a page with a map
+            const mapElement = document.getElementById('map');
+            if (mapElement && map && layerGroup) {
+                const regularTrips = geojson.features.filter(feature => 
+                    feature.properties.imei !== 'HISTORICAL'
+                );
+                const historicalTrips = geojson.features.filter(feature => 
+                    feature.properties.imei === 'HISTORICAL'
+                );
     
-            // Fetch matched trips - 20% of total progress
-            loadingManager.updateSubOperation('matched', 50);
-            await fetchMatchedTrips();
-            loadingManager.updateSubOperation('matched', 100);
+                mapLayers.trips.layer = {
+                    type: 'FeatureCollection',
+                    features: regularTrips
+                };
+                
+                mapLayers.historicalTrips.layer = {
+                    type: 'FeatureCollection',
+                    features: historicalTrips
+                };
+    
+                await updateMap();
+            }
+            
+            loadingManager.updateSubOperation('display', 100);
     
         } catch (error) {
             console.error('Error fetching trips:', error);
+            throw error;
         } finally {
             loadingManager.finish();
         }
@@ -1214,33 +1235,41 @@ window.EveryStreet = (function() {
         initialize: function() {
             // Clear local storage items on initialization
             clearLocalStorage();
-
+        
             // Guard against multiple initializations
             if (isInitialized) {
                 console.log('App already initialized, skipping...');
                 return;
             }
-
+        
             setInitialDates(); // Set initial dates once
-
+        
             // Ensure date pickers and date inputs are initialized before fetching data
             initializeDatePickers();
             initializeEventListeners();
             initializeDatePresets();
-
+        
+            // Initialize map first and ensure it's ready
             if (document.getElementById('map') && !document.getElementById('visits-page')) {
                 initializeMap();
+                if (!map || !layerGroup) {
+                    console.error('Failed to initialize map components');
+                    return;
+                }
                 initializeLayerControls();
-                fetchTrips();
+                // Only fetch trips after confirming map is initialized
+                setTimeout(() => {
+                    fetchTrips();
+                }, 100);
             }
-
+        
             fetchMetrics();
             updateLayerOrderUI();
-
+        
             // Initialize socket and live tracking
             initializeSocketIO();
             initializeLiveTracking();
-
+        
             // Mark as initialized
             isInitialized = true;
         },
@@ -1292,3 +1321,4 @@ window.EveryStreet = (function() {
 document.addEventListener('DOMContentLoaded', () => {
     EveryStreet.initialize();
 });
+

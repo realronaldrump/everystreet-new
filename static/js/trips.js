@@ -1,24 +1,124 @@
-/* global $ */
-
+// Global variables
 let tripsTable = null;
 
+// Initialize everything when the DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    initializeDataTable();
-    addCheckboxEventListeners();
-    fetchTrips();
+    initializeDatePickers();
+    initializeEventListeners();
+    initializeTripsTable();
+    fetchTrips(); // Initial load
 });
 
-function initializeDataTable() {
-    if (!$.fn.DataTable) {
-        console.error('DataTables library is missing');
-        return;
+function initializeDatePickers() {
+    const startDate = document.getElementById('start-date');
+    const endDate = document.getElementById('end-date');
+    
+    if (startDate && endDate) {
+        // Get dates from localStorage
+        const storedStartDate = localStorage.getItem('startDate');
+        const storedEndDate = localStorage.getItem('endDate');
+        
+        if (storedStartDate && storedEndDate) {
+            startDate.value = storedStartDate;
+            endDate.value = storedEndDate;
+        } else {
+            // Fallback to today if no stored dates
+            const today = new Date().toISOString().split('T')[0];
+            startDate.value = today;
+            endDate.value = today;
+            localStorage.setItem('startDate', today);
+            localStorage.setItem('endDate', today);
+        }
     }
+}
+
+function initializeEventListeners() {
+    // Apply filters button
+    const applyFilters = document.getElementById('apply-filters');
+    if (applyFilters) {
+        applyFilters.addEventListener('click', () => {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            
+            localStorage.setItem('startDate', startDate);
+            localStorage.setItem('endDate', endDate);
+            
+            fetchTrips();
+        });
+    }
+
+    // Date preset buttons
+    document.querySelectorAll('.date-preset').forEach(button => {
+        button.addEventListener('click', function() {
+            const range = this.dataset.range;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            let startDate = new Date(today);
+            let endDate = new Date(today);
+
+            switch(range) {
+                case 'today':
+                    break;
+                case 'yesterday':
+                    startDate.setDate(startDate.getDate() - 1);
+                    endDate = new Date(startDate);
+                    break;
+                case 'last-week':
+                    startDate.setDate(startDate.getDate() - 7);
+                    break;
+                case 'last-month':
+                    startDate.setDate(startDate.getDate() - 30);
+                    break;
+                case 'last-6-months':
+                    startDate.setMonth(startDate.getMonth() - 6);
+                    break;
+                case 'last-year':
+                    startDate.setFullYear(startDate.getFullYear() - 1);
+                    break;
+                case 'all-time':
+                    fetch('/api/first_trip_date')
+                        .then(response => response.json())
+                        .then(data => {
+                            startDate = new Date(data.first_trip_date);
+                            updateDatesAndFetch(startDate, endDate);
+                        })
+                        .catch(error => {
+                            console.error('Error fetching first trip date:', error);
+                        });
+                    return;
+            }
+
+            updateDatesAndFetch(startDate, endDate);
+        });
+    });
+
+    // Add bulk delete button listener
+    const bulkDeleteBtn = document.getElementById('bulk-delete-trips-btn');
+    if (bulkDeleteBtn) {
+        bulkDeleteBtn.addEventListener('click', bulkDeleteTrips);
+    }
+}
+
+function updateDatesAndFetch(startDate, endDate) {
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    // Update input values
+    document.getElementById('start-date').value = startDateStr;
+    document.getElementById('end-date').value = endDateStr;
+    
+    // Store in localStorage
+    localStorage.setItem('startDate', startDateStr);
+    localStorage.setItem('endDate', endDateStr);
+    
+    // Fetch new data
+    fetchTrips();
+}
+
+function initializeTripsTable() {
     tripsTable = $('#trips-table').DataTable({
         responsive: true,
-        scrollX: true,
-        pageLength: 25,
-        dom: 'Bfrtip',
-        buttons: ['colvis'],
+        order: [[3, 'desc']], // Sort by start time by default
         columns: [
             {
                 data: null,
@@ -28,32 +128,104 @@ function initializeDataTable() {
                     return '<input type="checkbox" class="trip-checkbox">';
                 }
             },
-            { data: 'transactionId', title: 'Transaction ID' },
-            { data: 'imei', title: 'IMEI' },
-            { data: 'startTime', title: 'Start Time', render: formatDateTime },
-            { data: 'endTime', title: 'End Time', render: formatDateTime },
-            { data: 'distance', title: 'Distance (miles)', render: formatDistance },
-            { data: 'destination', title: 'Destination', render: formatDestination },
-            { data: 'startLocation', title: 'Start Location' },
+            { 
+                data: 'transactionId',
+                title: 'Transaction ID'
+            },
+            {
+                data: 'imei',
+                title: 'IMEI'
+            },
+            { 
+                data: 'startTime',
+                title: 'Start Time',
+                render: formatDateTime
+            },
+            { 
+                data: 'endTime',
+                title: 'End Time',
+                render: formatDateTime
+            },
+            { 
+                data: 'distance',
+                title: 'Distance (miles)',
+                render: formatDistance
+            },
+            { 
+                data: 'destination',
+                title: 'Destination',
+                render: formatDestination
+            },
+            {
+                data: 'startLocation',
+                title: 'Start Location'
+            },
             {
                 data: null,
+                title: 'Actions',
                 orderable: false,
-                render: function(data) {
-                    return '<button class="btn btn-sm btn-danger delete-trip" data-id="' + data.transactionId + '">Delete</button>';
+                render: function(data, type, row) {
+                    return `
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                Actions
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-dark">
+                                <li><a class="dropdown-item" href="/trip/${row.transactionId}">View Details</a></li>
+                                <li><a class="dropdown-item" href="/trip/${row.transactionId}/edit">Edit Trip</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteTrip('${row.transactionId}')">Delete</a></li>
+                            </ul>
+                        </div>
+                    `;
                 }
             }
         ],
-        order: [[2, 'desc']]
+        language: {
+            emptyTable: "No trips found in the selected date range"
+        }
     });
+
+    // Add bulk delete functionality
+    $('#select-all-trips').on('change', function() {
+        $('.trip-checkbox').prop('checked', this.checked);
+        updateBulkDeleteButton();
+    });
+
+    $('#trips-table').on('change', '.trip-checkbox', function() {
+        updateBulkDeleteButton();
+    });
+
+    // Make the table globally accessible
+    window.tripsTable = tripsTable;
+}
+
+function updateBulkDeleteButton() {
+    const checkedCount = $('.trip-checkbox:checked').length;
+    $('#bulk-delete-trips-btn').prop('disabled', checkedCount === 0);
+}
+
+// Add this function to handle bulk delete
+function bulkDeleteTrips() {
+    const selectedTrips = [];
+    $('.trip-checkbox:checked').each(function() {
+        const rowData = tripsTable.row($(this).closest('tr')).data();
+        selectedTrips.push(rowData.transactionId);
+    });
+
+    if (selectedTrips.length === 0) return;
+
+    if (confirm(`Are you sure you want to delete ${selectedTrips.length} trips?`)) {
+        // Implement the bulk delete API call here
+        console.log('Deleting trips:', selectedTrips);
+    }
 }
 
 function formatDateTime(data, type, row) {
     if (type === 'display' || type === 'filter') {
-        // Parse the date string; it includes timezone info
         const date = new Date(data);
         const timezone = row.timezone || 'America/Chicago';
 
-        // Use Intl.DateTimeFormat for formatting the date in the correct timezone
         const formatter = new Intl.DateTimeFormat('en-US', {
             dateStyle: 'short',
             timeStyle: 'short',
@@ -81,218 +253,65 @@ function formatDestination(data, type, row) {
     return data;
 }
 
-function fetchTrips() {
-    const params = getFilterParams();
-    const url = `/api/trips?${params.toString()}`;
-    
-    return fetch(url)
-        .then(response => response.json())
-        .then(data => {
-            return populateTripsTable(data.features);
-        })
-        .catch(error => {
-            console.error('Error fetching trips:', error);
-            throw error;
-        });
-}
-
-function populateTripsTable(trips) {
-    const formattedTrips = trips
-        .filter(trip => trip.properties.imei !== 'HISTORICAL')
-        .map(trip => ({
-            ...trip.properties,
-            gps: trip.geometry,
-            destination: trip.properties.destination || 'N/A',
-            isCustomPlace: trip.properties.isCustomPlace || false,
-            distance: trip.properties.distance ? parseFloat(trip.properties.distance) : 0
-        }));
-
-    tripsTable.clear().rows.add(formattedTrips).draw();
-}
-
 function getFilterParams() {
     const params = new URLSearchParams();
-    params.append('start_date', document.getElementById('start-date').value);
-    params.append('end_date', document.getElementById('end-date').value);
+    const startDate = localStorage.getItem('startDate') || document.getElementById('start-date').value;
+    const endDate = localStorage.getItem('endDate') || document.getElementById('end-date').value;
+    
+    params.append('start_date', startDate);
+    params.append('end_date', endDate);
+    
     return params;
 }
 
-function addCheckboxEventListeners() {
-    const selectAllCheckbox = document.getElementById('select-all-trips');
-    const bulkDeleteBtn = document.getElementById('bulk-delete-trips-btn');
+async function fetchTrips() {
+    const loadingManager = getLoadingManager();
+    loadingManager.startOperation('Loading Trips');
 
-    selectAllCheckbox.addEventListener('change', function() {
-        const checkboxes = document.querySelectorAll('.trip-checkbox');
-        checkboxes.forEach(cb => cb.checked = this.checked);
-        updateBulkDeleteButtonState();
-    });
-
-    document.addEventListener('change', function(e) {
-        if (e.target.classList.contains('trip-checkbox')) {
-            const allCheckboxes = document.querySelectorAll('.trip-checkbox');
-            const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
-            selectAllCheckbox.checked = allChecked;
-            updateBulkDeleteButtonState();
+    try {
+        const params = getFilterParams();
+        const url = `/api/trips?${params.toString()}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-    });
-
-    bulkDeleteBtn.addEventListener('click', bulkDeleteTrips);
-}
-
-function updateBulkDeleteButtonState() {
-    const selectedCheckboxes = document.querySelectorAll('.trip-checkbox:checked');
-    const bulkDeleteBtn = document.getElementById('bulk-delete-trips-btn');
-    bulkDeleteBtn.disabled = selectedCheckboxes.length === 0;
-}
-
-function bulkDeleteTrips() {
-    const selectedRows = tripsTable.rows().nodes().filter(node => 
-        node.querySelector('.trip-checkbox:checked')
-    );
-    
-    const tripIds = Array.from(selectedRows).map(row => 
-        tripsTable.row(row).data().transactionId
-    );
-
-    if (!confirm(`Are you sure you want to delete ${tripIds.length} selected trips?`)) {
-        return;
-    }
-
-    deleteTrips(tripIds);
-}
-
-function deleteTrips(tripIds) {
-    fetch('/api/trips/bulk_delete', {
-        method: 'DELETE',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ trip_ids: tripIds })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            fetchTrips(); // Refresh the table
-            alert(`Successfully deleted ${tripIds.length} trips`);
-        } else {
-            alert('Error deleting trips: ' + data.message);
+        
+        const data = await response.json();
+        
+        if (!data.features || !Array.isArray(data.features)) {
+            console.warn('No trips data received or invalid format');
+            tripsTable.clear().draw();
+            return;
         }
-    })
-    .catch(error => {
-        console.error('Error deleting trips:', error);
-        alert('An error occurred while deleting trips');
-    });
-}
 
-// Add event listener for individual delete buttons
-$('#trips-table').on('click', '.delete-trip', function() {
-    const tripId = $(this).data('id');
-    if (confirm('Are you sure you want to delete this trip?')) {
-        deleteTrips([tripId]);
-    }
-});
+        const formattedTrips = data.features
+            .filter(trip => trip.properties.imei !== 'HISTORICAL')
+            .map(trip => ({
+                ...trip.properties,
+                gps: trip.geometry,
+                destination: trip.properties.destination || 'N/A',
+                isCustomPlace: trip.properties.isCustomPlace || false,
+                distance: parseFloat(trip.properties.distance).toFixed(2)
+            }));
 
-function initializeEventListeners() {
-    const applyFilters = document.getElementById('apply-filters');
-    if (applyFilters) {
-        applyFilters.addEventListener('click', fetchTrips);
-    }
-
-    // Add date preset functionality
-    document.querySelectorAll('.date-preset').forEach(button => {
-        button.addEventListener('click', () => {
-            const range = this.dataset.range;
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            let startDate = new Date(today);
-            let endDate = new Date(today);
-
-            switch(range) {
-                case 'today':
-                    break;
-                case 'yesterday':
-                    startDate.setDate(startDate.getDate() - 1);
-                    break;
-                case 'last-week':
-                    startDate.setDate(startDate.getDate() - 7);
-                    break;
-                case 'last-month':
-                    startDate.setDate(startDate.getDate() - 30);
-                    break;
-                case 'last-6-months':
-                    startDate.setMonth(startDate.getMonth() - 6);
-                    break;
-                case 'last-year':
-                    startDate.setFullYear(startDate.getFullYear() - 1);
-                    break;
-                case 'all-time':
-                    // Get first trip's date from API
-                    fetch('/api/first_trip_date')
-                        .then(response => response.json())
-                        .then(data => {
-                            startDate = new Date(data.first_trip_date);
-                            const startDatePicker = document.getElementById('start-date')._flatpickr;
-                            const endDatePicker = document.getElementById('end-date')._flatpickr;
-                            
-                            startDatePicker.setDate(startDate);
-                            endDatePicker.setDate(endDate);
-                            
-                            // Store the new dates in localStorage
-                            localStorage.setItem('startDate', startDate.toISOString().split('T')[0]);
-                            localStorage.setItem('endDate', endDate.toISOString().split('T')[0]);
-                            
-                            // Instead of calling fetchTrips directly, call the main app's fetchTrips
-                            window.EveryStreet.fetchTrips();
-                        })
-                        .catch(error => {
-                            console.error('Error fetching first trip date:', error);
-                        });
-                    return; // Exit the switch statement early since we're handling the update in the promise
-            }
-
-            // Update the flatpickr instances
-            const startDatePicker = document.getElementById('start-date')._flatpickr;
-            const endDatePicker = document.getElementById('end-date')._flatpickr;
-            
-            startDatePicker.setDate(startDate);
-            endDatePicker.setDate(endDate);
-
-            // Store the new dates in localStorage
-            localStorage.setItem('startDate', startDate.toISOString().split('T')[0]);
-            localStorage.setItem('endDate', endDate.toISOString().split('T')[0]);
-
-            // Instead of calling fetchTrips directly, call the main app's fetchTrips
-            window.EveryStreet.fetchTrips();
+        await new Promise((resolve) => {
+            tripsTable.clear().rows.add(formattedTrips).draw();
+            setTimeout(resolve, 100);
         });
-    });
 
-    // Keep existing export button listeners
-    const exportGeojson = document.getElementById('export-geojson');
-    const exportGpx = document.getElementById('export-gpx');
-    if (exportGeojson) {
-        exportGeojson.addEventListener('click', () => exportTrips('geojson'));
-    }
-    if (exportGpx) {
-        exportGpx.addEventListener('click', () => exportTrips('gpx'));
+    } catch (error) {
+        console.error('Error fetching trips:', error);
+        alert('Error loading trips. Please try again.');
+    } finally {
+        loadingManager.finish();
     }
 }
 
-function exportTrips(format) {
-    const params = getFilterParams();
-    const url = `/api/export/trips?${params.toString()}&format=${format}`;
-    downloadFile(url, `trips.${format}`);
-}
-
-function downloadFile(url, filename) {
-    fetch(url)
-        .then(response => response.blob())
-        .then(blob => {
-            const blobUrl = URL.createObjectURL(blob);
-            const anchor = document.createElement('a');
-            anchor.href = blobUrl;
-            anchor.download = filename;
-            anchor.click();
-            URL.revokeObjectURL(blobUrl);
-        })
-        .catch(error => console.error('Error downloading file:', error));
-}
+// Export necessary functions for global access
+window.EveryStreet = window.EveryStreet || {};
+window.EveryStreet.Trips = {
+    fetchTrips,
+    updateDatesAndFetch,
+    getFilterParams
+};
