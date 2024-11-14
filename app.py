@@ -2213,30 +2213,49 @@ def bouncie_webhook():
 
     try:
         webhook_data = request.json
-        # Changed from 'type' to 'eventType'
         event_type = webhook_data.get('eventType')
 
+        # Format data based on event type
+        if event_type == 'tripStart':
+            emit_data = {
+                'transactionId': webhook_data.get('transactionId'),
+                'imei': webhook_data.get('imei'),
+                'start': webhook_data.get('start')
+            }
+        elif event_type == 'tripData':
+            emit_data = {
+                'transactionId': webhook_data.get('transactionId'),
+                'imei': webhook_data.get('imei'),
+                'data': webhook_data.get('data', [])
+            }
+        elif event_type == 'tripMetrics':
+            emit_data = {
+                'transactionId': webhook_data.get('transactionId'),
+                'imei': webhook_data.get('imei'),
+                'metrics': webhook_data.get('metrics', {})
+            }
+        elif event_type == 'tripEnd':
+            emit_data = {
+                'transactionId': webhook_data.get('transactionId'),
+                'imei': webhook_data.get('imei'),
+                'end': webhook_data.get('end')
+            }
+        else:
+            emit_data = webhook_data
+
         # Emit event to all connected clients
-        socketio.emit(f'trip_{event_type}', {
-            # Changed from 'tripId'
-            'tripId': webhook_data.get('transactionId'),
-            'deviceId': webhook_data.get('imei'),  # Changed from 'deviceId'
-            'timestamp': datetime.now(UTC).isoformat(),
-            'data': webhook_data.get('data'),  # Changed to handle generic data
-            'event': event_type
-        })
+        socketio.emit(f'trip_{event_type}', emit_data)
 
         # Store trip data if it's a tripEnd event
         if event_type == 'tripEnd':
             store_trip_data(webhook_data)
 
-        # Always return success, even if processing fails
         return jsonify({'status': 'success'}), 200
 
     except Exception as e:
         app.logger.error(f"Error processing webhook: {str(e)}")
         # Still return 200 to prevent webhook deactivation
-        return jsonify({'status': 'error', 'message': str(e)}), 200
+        return jsonify({'status': 'success'}), 200
 
 
 def store_trip_data(trip_data):

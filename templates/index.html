@@ -162,4 +162,13 @@
 <script src="{{ url_for('static', filename='js/custom-places.js') }}"></script>
 <script src="{{ url_for('static', filename='js/live_tracking.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+<script>
+    // Initialize socket connection when the map is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof map !== 'undefined') {
+            window.liveTracker = new LiveTripTracker(map);
+        }
+    });
+</script>
 {% endblock %}
