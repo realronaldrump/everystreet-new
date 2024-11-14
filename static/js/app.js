@@ -1203,8 +1203,15 @@ window.EveryStreet = (function() {
     }
 
     function initializeLiveTracking() {
-        if (typeof LiveTripTracker !== 'undefined') {
-            window.liveTripTracker = new LiveTripTracker(map);
+        if (map && !liveTracker) {
+            try {
+                liveTracker = new LiveTripTracker(map);
+                console.log('Live tracking initialized');
+            } catch (error) {
+                console.error('Error initializing live tracking:', error);
+            }
+        } else {
+            console.warn('Map not ready or live tracker already exists');
         }
     }
 

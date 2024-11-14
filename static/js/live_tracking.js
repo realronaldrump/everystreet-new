@@ -2,19 +2,24 @@
 if (typeof window.LiveTripTracker === 'undefined') {
     window.LiveTripTracker = class LiveTripTracker {
         constructor(map) {
+            if (!map || typeof map.addLayer !== 'function') {
+                throw new Error('Invalid map object provided to LiveTripTracker');
+            }
+            
             this.map = map;
             this.activeTrips = new Map(); // Store active trips using transactionId as key
             this.socket = io();
-            this.setupSocketListeners();
+            
+            // Create a layer group for live trips
+            this.liveTripsLayer = L.layerGroup();
+            this.map.addLayer(this.liveTripsLayer);
             
             // Initialize UI elements
             this.statusIndicator = document.querySelector('.status-indicator');
             this.activeTripsCount = document.querySelector('.active-trips-count');
             this.statusText = document.querySelector('.status-text');
             
-            // Create a layer group for live trips
-            this.liveTripsLayer = L.layerGroup().addTo(map);
-            
+            this.setupSocketListeners();
             this.updateStatus();
         }
 

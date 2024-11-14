@@ -164,11 +164,18 @@
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 
 <script>
-    // Initialize socket connection when the map is ready
     document.addEventListener('DOMContentLoaded', () => {
-        if (typeof map !== 'undefined') {
-            window.liveTracker = new LiveTripTracker(map);
-        }
+        // Wait for EveryStreet initialization
+        const checkMap = setInterval(() => {
+            const map = window.EveryStreet?.getMap();
+            if (map) {
+                clearInterval(checkMap);
+                window.liveTracker = new LiveTripTracker(map);
+            }
+        }, 100);
+        
+        // Clear interval after 10 seconds to prevent infinite checking
+        setTimeout(() => clearInterval(checkMap), 10000);
     });
 </script>
 {% endblock %}
