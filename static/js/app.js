@@ -91,9 +91,18 @@ window.EveryStreet = (function() {
                                 easeLinearity: 0.25
                             });
                             window.mapInitialized = true;
+                        } else {
+                            // Default view if no last point is available
+                            map.setView([31.550020, -97.123354], 14);
+                            window.mapInitialized = true;
                         }
                     })
-                    .catch(error => console.error('Error fetching last trip point:', error));
+                    .catch(error => {
+                        console.error('Error fetching last trip point:', error);
+                        // Default view on error
+                        map.setView([37.0902, -95.7129], 4);
+                        window.mapInitialized = true;
+                    });
             }
     
             console.log('Map initialized successfully');

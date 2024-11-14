@@ -1747,13 +1747,29 @@ def get_last_trip_point():
     try:
         most_recent_trip = trips_collection.find_one(
             sort=[('endTime', pymongo.DESCENDING)])
+        
         if not most_recent_trip:
-            return jsonify({"error": "No trips found."}), 404
-
-        gps_data = geojson_loads(most_recent_trip['gps'])
-        last_point = gps_data['coordinates'][-1]
-
-        return jsonify({"lastPoint": last_point})
+            return jsonify({"lastPoint": None}), 200  # Return null instead of 404
+            
+        try:
+            # Handle string GPS data
+            if isinstance(most_recent_trip['gps'], str):
+                gps_data = geojson_loads(most_recent_trip['gps'])
+            # Handle dictionary GPS data
+            else:
+                gps_data = most_recent_trip['gps']
+            
+            # Ensure we have coordinates
+            if not gps_data or 'coordinates' not in gps_data or not gps_data['coordinates']:
+                return jsonify({"lastPoint": None}), 200
+                
+            last_point = gps_data['coordinates'][-1]
+            return jsonify({"lastPoint": last_point})
+            
+        except (KeyError, ValueError, TypeError) as e:
+            logger.error(f"Error parsing GPS data: {str(e)}")
+            return jsonify({"lastPoint": None}), 200
+            
     except Exception as e:
         logger.error(f"Error fetching last trip point: {str(e)}")
         return jsonify({"error": "An error occurred while fetching the last trip point."}), 500
