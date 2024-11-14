@@ -24,7 +24,7 @@ from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 import certifi
 import geojson as geojson_module
-from geojson import loads as geojson_loads, dumps as geojson_dumps
+from geojson import loads as geojson_loads, dumps as geojson_dumps, FeatureCollection, Feature, Point
 from timezonefinder import TimezoneFinder
 import pytz
 import asyncio
@@ -1118,9 +1118,10 @@ def process_elements(elements, streets_only):
             if len(coords) >= 2:
                 geom = LineString(coords) if streets_only else (
                     Polygon(coords) if coords[0] == coords[-1] else LineString(coords))
+                geom = geom.__geo_interface__
                 features.append({
                     'type': 'Feature',
-                    'geometry': geom.__geo_interface__,
+                    'geometry': geom,
                     'properties': element.get('tags', {})
                 })
         elif element['type'] == 'relation' and not streets_only:
@@ -1193,8 +1194,9 @@ async def map_match_coordinates(coordinates):
 
 
 def is_valid_coordinate(coord):
+    """Check if a coordinate pair is valid."""
     lon, lat = coord
-    return -90 <= lat <= 90 and -180 <= lon <= 180
+    return -180 <= lon <= 180 and -90 <= lat <= 90
 
 
 async def process_and_map_match_trip(trip):
@@ -1591,6 +1593,7 @@ def get_streets():
         return jsonify(streets_json)
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'An error occurred: {str(e)}'}), 500
+
 
 
 @app.route('/load_historical_data', methods=['POST'])
@@ -2720,6 +2723,42 @@ def process_gpx(gpx):
             
     return processed_trips
 
+@app.route('/edit_trips')
+def edit_trips_page():
+    return render_template('edit_trips.html')
+
+# app.py
+
+@app.route('/api/edit_trips', methods=['GET'])
+def get_edit_trips():
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        trip_type = request.args.get('type')  # 'trips' or 'matched_trips'
+
+        if trip_type == 'trips':
+            collection = trips_collection
+        elif trip_type == 'matched_trips':
+            collection = matched_trips_collection
+        else:
+            return jsonify({'status': 'error', 'message': 'Invalid trip type'}), 400
+
+        query = {
+            'startTime': {
+                '$gte': start_date,
+                '$lte': end_date
+            }
+        }
+
+        trips = list(collection.find(query))
+        for trip in trips:
+            trip['_id'] = str(trip['_id'])  # Convert ObjectId to string
+
+        return jsonify({'status': 'success', 'trips': trips}), 200
+
+    except Exception as e:
+        logger.error(f"Error fetching trips for editing: {e}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @app.route('/api/upload', methods=['POST'])
 async def upload_files():
@@ -2760,6 +2799,131 @@ async def upload_files():
             'status': 'error',
             'message': str(e)
         }), 500
+
+def validate_trip_update(data):
+    """
+    Validate the trip update data.
+    Ensure that each point has valid latitude and longitude.
+    """
+    try:
+        for point in data['points']:
+            lat = point.get('lat')
+            lon = point.get('lon')
+            if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+                return False, "Invalid latitude or longitude values."
+        return True, ""
+    except Exception as e:
+        logger.error(f"Validation error: {e}")
+        return False, "Invalid data format."
+
+@app.route('/api/trips/<trip_id>', methods=['PUT'])
+def update_trip(trip_id):
+    try:
+        data = request.json
+        trip_type = data.get('type')
+        geometry = data.get('geometry')
+
+        if not geometry or not isinstance(geometry, dict):
+            return jsonify({'error': 'Invalid geometry data'}), 400
+
+        collection = matched_trips_collection if trip_type == 'matched_trips' else trips_collection
+        
+        # Find the trip
+        trip = collection.find_one({
+            '$or': [
+                {'properties.transactionId': trip_id},
+                {'properties.transactionId': str(trip_id)},
+                {'transactionId': trip_id},
+                {'transactionId': str(trip_id)}
+            ]
+        })
+
+        if not trip:
+            other_collection = trips_collection if trip_type == 'matched_trips' else matched_trips_collection
+            trip = other_collection.find_one({
+                '$or': [
+                    {'properties.transactionId': trip_id},
+                    {'properties.transactionId': str(trip_id)},
+                    {'transactionId': trip_id},
+                    {'transactionId': str(trip_id)}
+                ]
+            })
+            if trip:
+                collection = other_collection
+
+        if not trip:
+            return jsonify({'error': f'Trip not found with ID: {trip_id}'}), 404
+
+        # Update both geometry and GPS data
+        gps_data = {
+            'type': 'LineString',
+            'coordinates': geometry['coordinates']
+        }
+
+        result = collection.update_one(
+            {'_id': trip['_id']},
+            {
+                '$set': {
+                    'geometry': geometry,
+                    'gps': json.dumps(gps_data),
+                    'updatedAt': datetime.now(timezone.utc)
+                }
+            }
+        )
+
+        if result.modified_count == 0:
+            return jsonify({'error': 'No changes were made to the trip'}), 400
+
+        return jsonify({'message': 'Trip updated successfully'}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error updating trip {trip_id}: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/trips/<trip_id>', methods=['GET'])
+def get_single_trip(trip_id):
+    """Fetch a single trip by ID."""
+    try:
+        trip = trips_collection.find_one({'_id': ObjectId(trip_id)})
+        if not trip:
+            return jsonify({'status': 'error', 'message': 'Trip not found.'}), 404
+        trip['_id'] = str(trip['_id'])
+        return jsonify({'status': 'success', 'trip': trip}), 200
+    except Exception as e:
+        logger.error(f"Error fetching trip: {e}")
+        return jsonify({'status': 'error', 'message': 'Internal server error.'}), 500
+
+@app.route('/api/debug/trip/<trip_id>', methods=['GET'])
+def debug_trip(trip_id):
+    try:
+        # Search in both collections
+        regular_trip = trips_collection.find_one({
+            '$or': [
+                {'properties.transactionId': trip_id},
+                {'properties.transactionId': str(trip_id)},
+                {'transactionId': trip_id},
+                {'transactionId': str(trip_id)}
+            ]
+        })
+        
+        matched_trip = matched_trips_collection.find_one({
+            '$or': [
+                {'properties.transactionId': trip_id},
+                {'properties.transactionId': str(trip_id)},
+                {'transactionId': trip_id},
+                {'transactionId': str(trip_id)}
+            ]
+        })
+
+        return jsonify({
+            'regular_trip_found': bool(regular_trip),
+            'matched_trip_found': bool(matched_trip),
+            'regular_trip_id_field': regular_trip.get('properties', {}).get('transactionId') if regular_trip else None,
+            'matched_trip_id_field': matched_trip.get('properties', {}).get('transactionId') if matched_trip else None
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
