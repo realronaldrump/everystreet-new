@@ -94,37 +94,30 @@ if (typeof window.LiveTripTracker === 'undefined') {
         updateTripPath(tripData) {
             const tripId = tripData.transactionId;
             const trip = this.activeTrips.get(tripId);
-            
+        
             if (!trip) {
                 console.warn(`No active trip found for ID: ${tripId}`);
                 return;
             }
-
-            // Process each GPS point in the data array
-            if (Array.isArray(tripData.data)) {
-                tripData.data.forEach(point => {
-                    if (point.gps && point.gps.lat && point.gps.lon) {
-                        const coord = [point.gps.lat, point.gps.lon];
-                        trip.coordinates.push(coord);
-                        trip.dataPoints.push({
-                            timestamp: new Date(point.timestamp),
-                            speed: point.speed || 0,
-                            coordinate: coord
-                        });
-                    }
-                });
-
-                // Update polyline with all coordinates
-                trip.polyline.setLatLngs(trip.coordinates);
-
-                // Update or create vehicle marker at the latest position
-                if (trip.coordinates.length > 0) {
-                    const lastPos = trip.coordinates[trip.coordinates.length - 1];
-                    this.updateVehicleMarker(tripId, lastPos);
-                    
-                    // Pan map to follow vehicle
-                    this.map.panTo(lastPos);
+        
+            tripData.data.forEach(point => {  // Iterate directly over the data array
+                if (point.gps && point.gps.lat && point.gps.lon) {
+                    const coord = [point.gps.lat, point.gps.lon];
+                    trip.coordinates.push(coord);
+                    trip.dataPoints.push({
+                        timestamp: new Date(point.timestamp),
+                        speed: point.speed || 0,
+                        coordinate: coord
+                    });
                 }
+            });
+        
+            trip.polyline.setLatLngs(trip.coordinates);
+        
+            if (trip.coordinates.length > 0) {
+                const lastPos = trip.coordinates[trip.coordinates.length - 1];
+                this.updateVehicleMarker(tripId, lastPos);
+                this.map.panTo(lastPos);
             }
         }
 

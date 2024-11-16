@@ -46,7 +46,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 # MongoDB setup
 try:
@@ -2206,7 +2206,6 @@ def bouncie_webhook():
     # Log incoming webhook request
     app.logger.info(f"Received webhook request: {request.json}")
 
-    # Validate webhook key
     if not auth_header or auth_header != webhook_key:
         app.logger.error(f"Invalid webhook key: {auth_header}")
         return jsonify({'error': 'Invalid webhook key'}), 401
@@ -2215,38 +2214,35 @@ def bouncie_webhook():
         webhook_data = request.json
         event_type = webhook_data.get('eventType')
 
-        # Format data based on event type
         if event_type == 'tripStart':
             emit_data = {
                 'transactionId': webhook_data.get('transactionId'),
                 'imei': webhook_data.get('imei'),
-                'start': webhook_data.get('start')
+                'start': webhook_data.get('start')  # Ensure 'start' contains the full object from Bouncie
             }
         elif event_type == 'tripData':
             emit_data = {
                 'transactionId': webhook_data.get('transactionId'),
                 'imei': webhook_data.get('imei'),
-                'data': webhook_data.get('data', [])
+                'data': webhook_data.get('data', [])  # Ensure 'data' is an array
             }
         elif event_type == 'tripMetrics':
             emit_data = {
                 'transactionId': webhook_data.get('transactionId'),
                 'imei': webhook_data.get('imei'),
-                'metrics': webhook_data.get('metrics', {})
+                'metrics': webhook_data.get('metrics')
             }
         elif event_type == 'tripEnd':
             emit_data = {
                 'transactionId': webhook_data.get('transactionId'),
                 'imei': webhook_data.get('imei'),
-                'end': webhook_data.get('end')
+                'end': webhook_data.get('end') # Ensure 'end' contains the full object from Bouncie
             }
         else:
             emit_data = webhook_data
 
-        # Emit event to all connected clients
         socketio.emit(f'trip_{event_type}', emit_data)
 
-        # Store trip data if it's a tripEnd event
         if event_type == 'tripEnd':
             store_trip_data(webhook_data)
 
@@ -2254,8 +2250,7 @@ def bouncie_webhook():
 
     except Exception as e:
         app.logger.error(f"Error processing webhook: {str(e)}")
-        # Still return 200 to prevent webhook deactivation
-        return jsonify({'status': 'success'}), 200
+        return jsonify({'status': 'success'}), 200 # Still return 200 to prevent webhook deactivation
 
 
 def store_trip_data(trip_data):
