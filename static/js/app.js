@@ -194,6 +194,7 @@ window.EveryStreet = (function() {
         loadingManager.startOperation('Loading Trips');
         loadingManager.addSubOperation('fetch', 0.5);
         loadingManager.addSubOperation('display', 0.5);
+        loadingManager.addSubOperation('matched', 0.2) // Add back matched trips loading
     
         try {
             // Get dates from localStorage or date inputs
@@ -211,12 +212,12 @@ window.EveryStreet = (function() {
     
             // Fetch data - 50% of total progress
             loadingManager.updateSubOperation('fetch', 50);
-            const params = new URLSearchParams({ 
+            const params = new URLSearchParams({
                 start_date: startDate,
-                end_date: endDate 
+                end_date: endDate
             });
             const url = `/api/trips?${params.toString()}`;
-            
+    
             const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -226,7 +227,7 @@ window.EveryStreet = (function() {
     
             // Display data - 50% of total progress
             loadingManager.updateSubOperation('display', 50);
-            
+    
             // Update trips table if it exists
             if (window.tripsTable) {
                 const formattedTrips = geojson.features
@@ -244,14 +245,14 @@ window.EveryStreet = (function() {
                     setTimeout(resolve, 100);
                 });
             }
-            
+    
             // Update map only if we're on a page with a map
             const mapElement = document.getElementById('map');
             if (mapElement && map && layerGroup) {
-                const regularTrips = geojson.features.filter(feature => 
+                const regularTrips = geojson.features.filter(feature =>
                     feature.properties.imei !== 'HISTORICAL'
                 );
-                const historicalTrips = geojson.features.filter(feature => 
+                const historicalTrips = geojson.features.filter(feature =>
                     feature.properties.imei === 'HISTORICAL'
                 );
     
@@ -259,7 +260,7 @@ window.EveryStreet = (function() {
                     type: 'FeatureCollection',
                     features: regularTrips
                 };
-                
+    
                 mapLayers.historicalTrips.layer = {
                     type: 'FeatureCollection',
                     features: historicalTrips
@@ -267,12 +268,22 @@ window.EveryStreet = (function() {
     
                 await updateMap();
             }
-            
+    
             loadingManager.updateSubOperation('display', 100);
+            
+            // Fetch and display matched trips
+            loadingManager.updateSubOperation('matched', 50);
+            try {
+                await fetchMatchedTrips();
+            } catch (error) {
+                console.error('Error fetching matched trips:', error);
+            }
+            loadingManager.updateSubOperation('matched', 100);
+    
     
         } catch (error) {
             console.error('Error fetching trips:', error);
-            throw error;
+            throw error; // Re-throw the error to be handled elsewhere if needed
         } finally {
             loadingManager.finish();
         }
