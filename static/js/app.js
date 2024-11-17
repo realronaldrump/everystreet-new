@@ -132,7 +132,7 @@ window.EveryStreet = (function() {
         const commonConfig = {
             dateFormat: "Y-m-d",
             maxDate: "today",
-            defaultDate: today,
+            maxDate: new Date().fp_incr(1), // Allows dates up to 2 days in the future
             enableTime: false,
             onChange: function() {}, // Empty onChange to prevent automatic updates
             onClose: function() {}, // Empty onClose to prevent automatic updates
