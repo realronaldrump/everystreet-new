@@ -14,18 +14,17 @@ function initializeDatePickers() {
     const endDate = document.getElementById('end-date');
     
     if (startDate && endDate) {
-        // Get dates from localStorage
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Get dates from localStorage or use today
         const storedStartDate = localStorage.getItem('startDate');
         const storedEndDate = localStorage.getItem('endDate');
         
-        if (storedStartDate && storedEndDate) {
-            startDate.value = storedStartDate;
-            endDate.value = storedEndDate;
-        } else {
-            // Fallback to today if no stored dates
-            const today = new Date().toISOString().split('T')[0];
-            startDate.value = today;
-            endDate.value = today;
+        startDate.value = storedStartDate || today;
+        endDate.value = storedEndDate || today;
+        
+        // Store dates if not already stored
+        if (!storedStartDate || !storedEndDate) {
             localStorage.setItem('startDate', today);
             localStorage.setItem('endDate', today);
         }
@@ -61,7 +60,7 @@ function initializeEventListeners() {
                     break;
                 case 'yesterday':
                     startDate.setDate(startDate.getDate() - 1);
-                    endDate = new Date(startDate);
+                    // endDate stays as today
                     break;
                 case 'last-week':
                     startDate.setDate(startDate.getDate() - 7);

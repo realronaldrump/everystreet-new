@@ -118,10 +118,19 @@ window.EveryStreet = (function() {
         const todayStr = today.toISOString().split('T')[0];
         
         // Only set if not already set during this session
-        if (!window.datesInitialized) {
+        if (!localStorage.getItem('startDate') || !localStorage.getItem('endDate')) {
             localStorage.setItem('startDate', todayStr);
             localStorage.setItem('endDate', todayStr);
-            window.datesInitialized = true;
+            
+            // Set the input values
+            const startDateInput = document.getElementById('start-date');
+            const endDateInput = document.getElementById('end-date');
+            
+            if (startDateInput) startDateInput.value = todayStr;
+            if (endDateInput) endDateInput.value = todayStr;
+            
+            // Set flag for first load
+            localStorage.setItem('isFirstLoad', 'true');
         }
     }
 
@@ -1042,7 +1051,7 @@ window.EveryStreet = (function() {
                         break;
                     case 'yesterday':
                         startDate.setDate(startDate.getDate() - 1);
-                        endDate.setDate(endDate.getDate() - 1);
+                        // endDate stays as today
                         break;
                     case 'last-week':
                         startDate.setDate(startDate.getDate() - 7);
@@ -1260,18 +1269,15 @@ window.EveryStreet = (function() {
     return {
         // Initialization
         initialize: function() {
-            // Clear local storage items on initialization
-            clearLocalStorage();
-        
             // Guard against multiple initializations
             if (isInitialized) {
                 console.log('App already initialized, skipping...');
                 return;
             }
         
-            setInitialDates(); // Set initial dates once
-        
-            // Ensure date pickers and date inputs are initialized before fetching data
+            setInitialDates(); // Set initial dates first
+            
+            // Initialize components
             initializeDatePickers();
             initializeEventListeners();
             initializeDatePresets();
@@ -1284,10 +1290,15 @@ window.EveryStreet = (function() {
                     return;
                 }
                 initializeLayerControls();
-                // Only fetch trips after confirming map is initialized
-                setTimeout(() => {
+                
+                // Check if this is the first load
+                const isFirstLoad = localStorage.getItem('isFirstLoad') === 'true';
+                if (isFirstLoad) {
+                    // Fetch trips for the first time
                     fetchTrips();
-                }, 100);
+                    // Remove the first load flag
+                    localStorage.removeItem('isFirstLoad');
+                }
             }
         
             fetchMetrics();
