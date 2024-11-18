@@ -150,14 +150,44 @@ function initializeTripsTable() {
                 title: 'Distance (miles)',
                 render: formatDistance
             },
+            {
+                data: 'startLocation',
+                title: 'Start Location'
+            },
             { 
                 data: 'destination',
                 title: 'Destination',
                 render: formatDestination
             },
             {
-                data: 'startLocation',
-                title: 'Start Location'
+                data: 'maxSpeed',
+                title: 'Max Speed (mph)',
+                render: function(data, type) {
+                    if (type === 'display') {
+                        return data ? data.toFixed(1) : '0.0';
+                    }
+                    return data;
+                }
+            },
+            {
+                data: 'totalIdleDuration',
+                title: 'Idle Duration (min)',
+                render: function(data, type) {
+                    if (type === 'display') {
+                        return Math.round(data / 60); // Convert seconds to minutes
+                    }
+                    return data;
+                }
+            },
+            {
+                data: 'fuelConsumed',
+                title: 'Fuel Consumed (gal)',
+                render: function(data, type) {
+                    if (type === 'display') {
+                        return data ? data.toFixed(2) : '0.00';
+                    }
+                    return data;
+                }
             },
             {
                 data: null,
@@ -285,14 +315,16 @@ async function fetchTrips() {
         }
 
         const formattedTrips = data.features
-            .filter(trip => trip.properties.imei !== 'HISTORICAL')
-            .map(trip => ({
-                ...trip.properties,
-                gps: trip.geometry,
-                destination: trip.properties.destination || 'N/A',
-                isCustomPlace: trip.properties.isCustomPlace || false,
-                distance: parseFloat(trip.properties.distance).toFixed(2)
-            }));
+        .map(trip => ({
+            ...trip.properties,
+            gps: trip.geometry,
+            destination: trip.properties.destination || 'N/A',
+            isCustomPlace: trip.properties.isCustomPlace || false,
+            distance: parseFloat(trip.properties.distance).toFixed(2),
+            maxSpeed: trip.properties.maxSpeed || (trip.properties.endLocation?.obdMaxSpeed || 0),
+            totalIdleDuration: trip.properties.totalIdleDuration || (trip.properties.idle?.length || 0) * 60, // Convert idle events to duration
+            fuelConsumed: trip.properties.fuelConsumed || 0
+        }));
 
         await new Promise((resolve) => {
             tripsTable.clear().rows.add(formattedTrips).draw();

@@ -646,8 +646,11 @@ def get_trips():
                 'endTime': trip['endTime'].astimezone(timezone.utc).isoformat(),
                 'distance': float(trip.get('distance', 0)),
                 'timezone': trip.get('timezone', 'America/Chicago'),
-                'destination': trip.get('destination', 'N/A'),
+                'maxSpeed': float(trip.get('maxSpeed', 0)),
                 'startLocation': trip.get('startLocation', 'N/A'),
+                'destination': trip.get('destination', 'N/A'),
+                'totalIdleDuration': trip.get('totalIdleDuration', 0),
+                'fuelConsumed': float(trip.get('fuelConsumed', 0)),
                 'source': trip.get('source', 'regular')
             }
             feature = geojson_module.Feature(
