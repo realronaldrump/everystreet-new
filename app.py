@@ -2862,13 +2862,11 @@ def update_trip(trip_id):
         data = request.json
         trip_type = data.get('type')
         geometry = data.get('geometry')
-
-        if not geometry or not isinstance(geometry, dict):
-            return jsonify({'error': 'Invalid geometry data'}), 400
-
+        properties = data.get('properties', {})
+        
         collection = matched_trips_collection if trip_type == 'matched_trips' else trips_collection
         
-        # Find the trip
+        # Find the trip using both direct and nested property paths
         trip = collection.find_one({
             '$or': [
                 {'properties.transactionId': trip_id},
@@ -2894,21 +2892,49 @@ def update_trip(trip_id):
         if not trip:
             return jsonify({'error': f'Trip not found with ID: {trip_id}'}), 404
 
-        # Update both geometry and GPS data
-        gps_data = {
-            'type': 'LineString',
-            'coordinates': geometry['coordinates']
-        }
+        update_fields = {'updatedAt': datetime.now(timezone.utc)}
 
+        # Handle geometry update if provided
+        if geometry and isinstance(geometry, dict):
+            gps_data = {
+                'type': 'LineString',
+                'coordinates': geometry['coordinates']
+            }
+            update_fields.update({
+                'geometry': geometry,
+                'gps': json.dumps(gps_data)
+            })
+
+        # Handle properties update
+        if properties:
+            # Convert date strings to datetime objects
+            for field in ['startTime', 'endTime']:
+                if field in properties and isinstance(properties[field], str):
+                    try:
+                        properties[field] = parser.isoparse(properties[field])
+                    except (ValueError, TypeError):
+                        pass
+
+            # Convert numeric fields
+            for field in ['distance', 'maxSpeed', 'totalIdleDuration', 'fuelConsumed']:
+                if field in properties and properties[field] is not None:
+                    try:
+                        properties[field] = float(properties[field])
+                    except (ValueError, TypeError):
+                        pass
+
+            # Update the properties
+            if 'properties' in trip:
+                # If the trip already has a properties object, update it
+                update_fields['properties'] = {**trip['properties'], **properties}
+            else:
+                # If the trip doesn't have a properties object, update fields directly
+                update_fields.update(properties)
+
+        # Perform the update
         result = collection.update_one(
             {'_id': trip['_id']},
-            {
-                '$set': {
-                    'geometry': geometry,
-                    'gps': json.dumps(gps_data),
-                    'updatedAt': datetime.now(timezone.utc)
-                }
-            }
+            {'$set': update_fields}
         )
 
         if result.modified_count == 0:

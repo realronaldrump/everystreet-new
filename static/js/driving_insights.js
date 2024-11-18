@@ -260,32 +260,45 @@ function initializeEventListeners() {
 
     // Add date preset handlers
     document.querySelectorAll('.date-preset').forEach(button => {
-        button.addEventListener('click', function() {
+        button.addEventListener('click', async function() {
             const range = this.dataset.range;
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             let startDate = new Date(today);
             let endDate = new Date(today);
 
-            switch(range) {
-                case 'today':
-                    break;
-                case 'yesterday':
-                    startDate.setDate(startDate.getDate() - 1);
-                    // endDate stays as today
-                    break;
-                case 'last-week':
-                    startDate.setDate(startDate.getDate() - 7);
-                    break;
-                case 'last-month':
-                    startDate.setDate(startDate.getDate() - 30);
-                    break;
-                case 'last-6-months':
-                    startDate.setMonth(startDate.getMonth() - 6);
-                    break;
-                case 'last-year':
-                    startDate.setFullYear(startDate.getFullYear() - 1);
-                    break;
+            if (range === 'all-time') {
+                try {
+                    const response = await fetch('/api/first_trip_date');
+                    if (!response.ok) throw new Error('Failed to fetch first trip date');
+                    const data = await response.json();
+                    startDate = new Date(data.first_trip_date);
+                } catch (error) {
+                    console.error('Error fetching first trip date:', error);
+                    showError('Error setting date range. Using default range.');
+                    startDate.setFullYear(startDate.getFullYear() - 1); // Fallback to last year
+                }
+            } else {
+                switch(range) {
+                    case 'today':
+                        break;
+                    case 'yesterday':
+                        startDate.setDate(startDate.getDate() - 1);
+                        endDate.setDate(endDate.getDate() - 1);
+                        break;
+                    case 'last-week':
+                        startDate.setDate(startDate.getDate() - 7);
+                        break;
+                    case 'last-month':
+                        startDate.setDate(startDate.getDate() - 30);
+                        break;
+                    case 'last-6-months':
+                        startDate.setMonth(startDate.getMonth() - 6);
+                        break;
+                    case 'last-year':
+                        startDate.setFullYear(startDate.getFullYear() - 1);
+                        break;
+                }
             }
 
             // Update the date inputs
@@ -348,12 +361,10 @@ function updateTripCountsChart(data) {
     if (!data || !tripCountsChart) return;
 
     // Assuming backend returns trip counts data in a specific format
-    // Adjust this part based on your actual backend data structure
     // For example:
     // data.trip_counts = [{x: date, y: count}, ...]
     // data.moving_average = [{x: date, y: average}, ...]
 
-    // Example update logic:
     if (data.trip_counts) {
         tripCountsChart.data.datasets[0].data = data.trip_counts;
     }

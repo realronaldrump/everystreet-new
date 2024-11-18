@@ -96,6 +96,114 @@ function initializeEventListeners() {
     if (bulkDeleteBtn) {
         bulkDeleteBtn.addEventListener('click', bulkDeleteTrips);
     }
+
+    // Add to initializeEventListeners function
+    $('#trips-table').on('click', '.edit-trip-btn', function(e) {
+        e.preventDefault();
+        const row = $(this).closest('tr');
+        row.addClass('editing');
+        
+        // Show edit inputs, hide display values
+        row.find('.display-value').addClass('d-none');
+        row.find('.edit-input').removeClass('d-none');
+        
+        // Show edit actions, hide regular actions
+        row.find('.btn-group').addClass('d-none');
+        row.find('.edit-actions').removeClass('d-none');
+    });
+
+    $('#trips-table').on('click', '.cancel-edit-btn', function() {
+        const row = $(this).closest('tr');
+        row.removeClass('editing');
+        
+        // Reset values to original
+        const rowData = tripsTable.row(row).data();
+        row.find('.edit-input').each(function() {
+            const field = $(this).closest('.editable-cell').data('field');
+            $(this).val(rowData[field]);
+        });
+        
+        // Hide edit inputs, show display values
+        row.find('.display-value').removeClass('d-none');
+        row.find('.edit-input').addClass('d-none');
+        
+        // Show regular actions, hide edit actions
+        row.find('.btn-group').removeClass('d-none');
+        row.find('.edit-actions').addClass('d-none');
+    });
+
+    $('#trips-table').on('click', '.save-changes-btn', async function() {
+        const row = $(this).closest('tr');
+        const rowData = tripsTable.row(row).data();
+        const updatedData = { ...rowData };
+        
+        // Collect updated values
+        row.find('.edit-input').each(function() {
+            const field = $(this).closest('.editable-cell').data('field');
+            let value = $(this).val();
+            
+            // Handle datetime fields
+            if (field === 'startTime' || field === 'endTime') {
+                const localDate = new Date(value);
+                value = localDate.toISOString();
+            }
+            updatedData[field] = value;
+        });
+        
+        try {
+            // Get the correct trip ID
+            let tripId;
+            if (rowData.properties && rowData.properties.transactionId) {
+                tripId = rowData.properties.transactionId;
+            } else if (rowData.transactionId) {
+                tripId = rowData.transactionId;
+            } else {
+                throw new Error('Could not determine trip ID');
+            }
+    
+            // Prepare the update data
+            const updatePayload = {
+                type: 'trips',
+                properties: {
+                    ...updatedData,
+                    transactionId: tripId
+                }
+            };
+    
+            // If there's existing geometry, include it
+            if (rowData.geometry || rowData.gps) {
+                updatePayload.geometry = rowData.geometry || JSON.parse(rowData.gps);
+            }
+    
+            const response = await fetch(`/api/trips/${tripId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updatePayload)
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to update trip');
+            }
+            
+            // Update the table data
+            tripsTable.row(row).data(updatedData).draw();
+            
+            // Exit edit mode
+            row.removeClass('editing');
+            row.find('.display-value').removeClass('d-none');
+            row.find('.edit-input').addClass('d-none');
+            row.find('.btn-group').removeClass('d-none');
+            row.find('.edit-actions').addClass('d-none');
+            
+            showNotification('Trip updated successfully', 'success');
+        } catch (error) {
+            console.error('Error updating trip:', error);
+            showNotification(error.message || 'Failed to update trip', 'danger');
+        }
+    });
 }
 
 function updateDatesAndFetch(startDate, endDate) {
@@ -129,64 +237,84 @@ function initializeTripsTable() {
             },
             { 
                 data: 'transactionId',
-                title: 'Transaction ID'
+                title: 'Transaction ID',
+                render: function(data, type) {
+                    return createEditableCell(data, type, 'transactionId');
+                }
             },
             {
                 data: 'imei',
-                title: 'IMEI'
+                title: 'IMEI',
+                render: function(data, type) {
+                    return createEditableCell(data, type, 'imei');
+                }
             },
             { 
                 data: 'startTime',
                 title: 'Start Time',
-                render: formatDateTime
+                render: function(data, type, row) {
+                    if (type === 'display') {
+                        const formatted = formatDateTime(data, type, row);
+                        return createEditableCell(data, type, 'startTime', 'datetime-local');
+                    }
+                    return data;
+                }
             },
             { 
                 data: 'endTime',
                 title: 'End Time',
-                render: formatDateTime
+                render: function(data, type, row) {
+                    if (type === 'display') {
+                        const formatted = formatDateTime(data, type, row);
+                        return createEditableCell(data, type, 'endTime', 'datetime-local');
+                    }
+                    return data;
+                }
             },
             { 
                 data: 'distance',
                 title: 'Distance (miles)',
-                render: formatDistance
+                render: function(data, type) {
+                    return createEditableCell(data, type, 'distance', 'number');
+                }
             },
             {
                 data: 'startLocation',
-                title: 'Start Location'
+                title: 'Start Location',
+                render: function(data, type) {
+                    return createEditableCell(data, type, 'startLocation');
+                }
             },
             { 
                 data: 'destination',
                 title: 'Destination',
-                render: formatDestination
+                render: function(data, type, row) {
+                    if (type === 'display') {
+                        const displayValue = `${data} ${row.isCustomPlace ? '<span class="badge bg-primary">Custom Place</span>' : ''}`;
+                        return createEditableCell(data, type, 'destination');
+                    }
+                    return data;
+                }
             },
             {
                 data: 'maxSpeed',
                 title: 'Max Speed (mph)',
                 render: function(data, type) {
-                    if (type === 'display') {
-                        return data ? data.toFixed(1) : '0.0';
-                    }
-                    return data;
+                    return createEditableCell(data, type, 'maxSpeed', 'number');
                 }
             },
             {
                 data: 'totalIdleDuration',
                 title: 'Idle Duration (min)',
                 render: function(data, type) {
-                    if (type === 'display') {
-                        return Math.round(data / 60); // Convert seconds to minutes
-                    }
-                    return data;
+                    return createEditableCell(data, type, 'totalIdleDuration', 'number');
                 }
             },
             {
                 data: 'fuelConsumed',
                 title: 'Fuel Consumed (gal)',
                 render: function(data, type) {
-                    if (type === 'display') {
-                        return data ? data.toFixed(2) : '0.00';
-                    }
-                    return data;
+                    return createEditableCell(data, type, 'fuelConsumed', 'number');
                 }
             },
             {
@@ -201,10 +329,14 @@ function initializeTripsTable() {
                             </button>
                             <ul class="dropdown-menu dropdown-menu-dark">
                                 <li><a class="dropdown-item" href="/trip/${row.transactionId}">View Details</a></li>
-                                <li><a class="dropdown-item" href="/trip/${row.transactionId}/edit">Edit Trip</a></li>
+                                <li><a class="dropdown-item edit-trip-btn" href="#" data-trip-id="${row.transactionId}">Edit</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item text-danger" href="#" onclick="deleteTrip('${row.transactionId}')">Delete</a></li>
                             </ul>
+                        </div>
+                        <div class="edit-actions d-none">
+                            <button class="btn btn-sm btn-success save-changes-btn">Save</button>
+                            <button class="btn btn-sm btn-danger cancel-edit-btn">Cancel</button>
                         </div>
                     `;
                 }
@@ -337,6 +469,47 @@ async function fetchTrips() {
     } finally {
         loadingManager.finish();
     }
+}
+
+function showNotification(message, type = 'info') {
+    const notificationDiv = document.createElement('div');
+    notificationDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    notificationDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    // Find or create notification container
+    let notificationContainer = document.querySelector('.notification-container');
+    if (!notificationContainer) {
+        notificationContainer = document.createElement('div');
+        notificationContainer.className = 'notification-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(notificationContainer);
+    }
+    
+    notificationContainer.appendChild(notificationDiv);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        notificationDiv.remove();
+    }, 5000);
+}
+// Add this function at the top level
+function createEditableCell(data, type, field, inputType = 'text') {
+    if (type === 'display') {
+        let inputValue = data;
+        if (inputType === 'datetime-local' && data) {
+            // Convert ISO string to local datetime format
+            const date = new Date(data);
+            inputValue = date.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:mm
+        }
+        
+        return `<div class="editable-cell" data-field="${field}">
+            <span class="display-value">${data || ''}</span>
+            <input type="${inputType}" class="form-control edit-input d-none" value="${inputValue || ''}" />
+        </div>`;
+    }
+    return data;
 }
 
 // Export necessary functions for global access
