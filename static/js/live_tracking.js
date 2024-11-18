@@ -2,33 +2,63 @@
 if (typeof window.LiveTripTracker === 'undefined') {
     window.LiveTripTracker = class LiveTripTracker {
         constructor(map) {
-            if (!map || typeof map.addLayer !== 'function') {
-                throw new Error('Invalid map object provided to LiveTripTracker');
-            }
-            
             this.map = map;
-            this.activeTrips = new Map(); // Store active trips using transactionId as key
-            this.socket = io();
+            this.activeTrips = new Map();
+            this.socket = io({
+                reconnection: true,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                reconnectionAttempts: Infinity
+            });
             
-            // Create a layer group for live trips
-            this.liveTripsLayer = L.layerGroup();
-            this.map.addLayer(this.liveTripsLayer);
-            
-            // Initialize UI elements
-            this.statusIndicator = document.querySelector('.status-indicator');
-            this.activeTripsCount = document.querySelector('.active-trips-count');
-            this.statusText = document.querySelector('.status-text');
-            
+            this.liveTripsLayer = L.layerGroup().addTo(this.map);
             this.setupSocketListeners();
-            this.updateStatus();
+            this.loadActiveTrips();
+        }
+
+        async loadActiveTrips() {
+            try {
+                const response = await fetch('/api/active_trips');
+                const activeTrips = await response.json();
+                
+                // Initialize existing active trips
+                Object.entries(activeTrips).forEach(([tripId, tripData]) => {
+                    this.initializeTrip({
+                        transactionId: tripId,
+                        start: { timestamp: tripData.start_time }
+                    });
+                    
+                    // Add existing coordinates
+                    if (tripData.coordinates.length > 0) {
+                        this.updateTripPath({
+                            transactionId: tripId,
+                            data: tripData.coordinates.map(coord => ({
+                                gps: coord,
+                                timestamp: new Date().toISOString()
+                            }))
+                        });
+                    }
+                    
+                    // Update metrics if available
+                    if (tripData.metrics) {
+                        this.updateTripMetrics({
+                            transactionId: tripId,
+                            metrics: tripData.metrics
+                        });
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading active trips:', error);
+            }
         }
 
         setupSocketListeners() {
             this.socket.on('connect', () => {
                 console.log('Connected to WebSocket');
                 this.updateConnectionStatus(true);
+                this.loadActiveTrips(); // Reload active trips on reconnection
             });
-
+        
             this.socket.on('disconnect', () => {
                 console.log('Disconnected from WebSocket');
                 this.updateConnectionStatus(false);

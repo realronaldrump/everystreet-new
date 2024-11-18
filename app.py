@@ -36,6 +36,7 @@ import gpxpy
 import gpxpy.gpx
 from dateutil import parser
 from bson import ObjectId
+from trip_tracker import TripTracker
 
 
 # Configure logging
@@ -47,6 +48,9 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+
+# Initialize the trip tracker after socketio
+trip_tracker = TripTracker(socketio)
 
 # MongoDB setup
 try:
@@ -2214,43 +2218,21 @@ def bouncie_webhook():
         webhook_data = request.json
         event_type = webhook_data.get('eventType')
 
+        # Handle different event types with the trip tracker
         if event_type == 'tripStart':
-            emit_data = {
-                'transactionId': webhook_data.get('transactionId'),
-                'imei': webhook_data.get('imei'),
-                'start': webhook_data.get('start')  # Ensure 'start' contains the full object from Bouncie
-            }
+            trip_tracker.start_trip(webhook_data)
         elif event_type == 'tripData':
-            emit_data = {
-                'transactionId': webhook_data.get('transactionId'),
-                'imei': webhook_data.get('imei'),
-                'data': webhook_data.get('data', [])  # Ensure 'data' is an array
-            }
+            trip_tracker.update_trip(webhook_data)
         elif event_type == 'tripMetrics':
-            emit_data = {
-                'transactionId': webhook_data.get('transactionId'),
-                'imei': webhook_data.get('imei'),
-                'metrics': webhook_data.get('metrics')
-            }
+            trip_tracker.update_metrics(webhook_data)
         elif event_type == 'tripEnd':
-            emit_data = {
-                'transactionId': webhook_data.get('transactionId'),
-                'imei': webhook_data.get('imei'),
-                'end': webhook_data.get('end') # Ensure 'end' contains the full object from Bouncie
-            }
-        else:
-            emit_data = webhook_data
-
-        socketio.emit(f'trip_{event_type}', emit_data)
-
-        if event_type == 'tripEnd':
-            store_trip_data(webhook_data)
+            trip_tracker.end_trip(webhook_data)
+            store_trip_data(webhook_data)  # Store completed trip in database
 
         return jsonify({'status': 'success'}), 200
-
     except Exception as e:
         app.logger.error(f"Error processing webhook: {str(e)}")
-        return jsonify({'status': 'success'}), 200 # Still return 200 to prevent webhook deactivation
+        return jsonify({'error': str(e)}), 500
 
 
 def store_trip_data(trip_data):
@@ -2938,6 +2920,11 @@ def debug_trip(trip_id):
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/active_trips', methods=['GET'])
+def get_active_trips():
+    """Endpoint for clients to get current active trips on connection"""
+    return jsonify(trip_tracker.get_active_trips())
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
