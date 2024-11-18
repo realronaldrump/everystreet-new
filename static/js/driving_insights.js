@@ -2,6 +2,7 @@
 let tripCountsChart = null;
 let distanceChart = null;
 let timeDistributionChart = null;
+let fuelConsumptionChart = null;
 
 // DOM Elements
 let datePickers = null;
@@ -49,6 +50,7 @@ function initializeCharts() {
     initializeTripCountsChart();
     initializeDistanceChart();
     initializeTimeDistributionChart();
+    initializeFuelConsumptionChart();
 }
 
 function initializeTripCountsChart() {
@@ -195,6 +197,44 @@ function initializeTimeDistributionChart() {
     });
 }
 
+function initializeFuelConsumptionChart() {
+    const ctx = document.getElementById('fuelConsumptionChart').getContext('2d');
+
+    // Destroy existing chart instance if it exists
+    if (fuelConsumptionChart) {
+        fuelConsumptionChart.destroy();
+    }
+
+    fuelConsumptionChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Fuel Consumed'],
+            datasets: [{
+                label: 'Gallons',
+                data: [0],
+                backgroundColor: '#FF9800'
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Update function
+    function updateFuelChart(data) {
+        fuelConsumptionChart.data.datasets[0].data = [data.total_fuel_consumed];
+        fuelConsumptionChart.update();
+    }
+
+    return updateFuelChart;
+}
+
+let updateFuelChart = initializeFuelConsumptionChart();
+
 function initializeDataTable() {
     insightsTable = $('#insights-table').DataTable({
         responsive: true,
@@ -278,11 +318,10 @@ async function fetchDrivingInsights() {
         const data = await response.json();
         loadingManager.updateSubOperation('general', 60);
         
-        if (Array.isArray(data)) {
-            const filteredData = data.filter(item => item._id !== 'HISTORICAL');
-            updateSummaryMetrics(filteredData);
-            updateDataTable(filteredData);
-            updateTripCountsChart(filteredData);
+        if (!data.error) {
+            updateSummaryMetrics(data);
+            updateDataTable(data.most_visited ? [data.most_visited] : []);
+            updateTripCountsChart(data);
         }
         loadingManager.updateSubOperation('general', 100);
 
@@ -295,61 +334,35 @@ async function fetchDrivingInsights() {
         
         updateDistanceChart(analyticsData.daily_distances);
         updateTimeDistributionChart(analyticsData.time_distribution);
+        updateFuelChart(analyticsData);
         loadingManager.updateSubOperation('analytics', 100);
     } catch (error) {
         console.error('Error:', error);
+        showError('Error loading driving insights. Please try again later.');
     } finally {
         loadingManager.finish();
     }
 }
 
 function updateTripCountsChart(data) {
-    if (!Array.isArray(data) || !tripCountsChart) return;
+    if (!data || !tripCountsChart) return;
 
-    const dateCountMap = new Map();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Assuming backend returns trip counts data in a specific format
+    // Adjust this part based on your actual backend data structure
+    // For example:
+    // data.trip_counts = [{x: date, y: count}, ...]
+    // data.moving_average = [{x: date, y: average}, ...]
 
-    // First, get all individual trips from the API
-    fetch(`/api/trips?${getFilterParams().toString()}`)
-        .then(response => response.json())
-        .then(tripsData => {
-            // Count trips by their actual start date
-            tripsData.features.forEach(trip => {
-                if (trip.properties.imei === 'HISTORICAL') return;
-                
-                const tripDate = new Date(trip.properties.startTime);
-                tripDate.setHours(0, 0, 0, 0);
-                
-                const dateStr = tripDate.toISOString().split('T')[0];
-                dateCountMap.set(dateStr, (dateCountMap.get(dateStr) || 0) + 1);
-            });
+    // Example update logic:
+    if (data.trip_counts) {
+        tripCountsChart.data.datasets[0].data = data.trip_counts;
+    }
 
-            const chartData = Array.from(dateCountMap.entries())
-                .map(([date, count]) => ({
-                    x: date,
-                    y: count
-                }))
-                .sort((a, b) => new Date(a.x) - new Date(b.x));
+    if (data.moving_average) {
+        tripCountsChart.data.datasets[1].data = data.moving_average;
+    }
 
-            // Calculate 7-day moving average
-            const movingAverage = chartData.map((point, index) => {
-                const last7Days = chartData.slice(Math.max(0, index - 6), index + 1);
-                const average = last7Days.reduce((sum, p) => sum + p.y, 0) / last7Days.length;
-                return {
-                    x: point.x,
-                    y: parseFloat(average.toFixed(2))
-                };
-            });
-
-            tripCountsChart.data.datasets[0].data = chartData;
-            tripCountsChart.data.datasets[1].data = movingAverage;
-            tripCountsChart.update();
-        })
-        .catch(error => {
-            console.error('Error fetching trip details:', error);
-            showError('Error loading trip details. Please try again later.');
-        });
+    tripCountsChart.update();
 }
 
 function updateDistanceChart(data) {
@@ -376,22 +389,26 @@ function updateTimeDistributionChart(data) {
 }
 
 function updateSummaryMetrics(data) {
-    if (!Array.isArray(data)) return;
+    if (!data) return;
 
-    const totalTrips = data.reduce((sum, item) => sum + item.count, 0);
-    document.getElementById('total-trips').textContent = totalTrips;
+    document.getElementById('total-trips').textContent = data.total_trips;
+    document.getElementById('total-distance').textContent = `${data.total_distance} miles`;
+    document.getElementById('total-fuel').textContent = `${data.total_fuel_consumed} gallons`;
+    document.getElementById('max-speed').textContent = `${data.max_speed} mph`;
+    document.getElementById('total-idle').textContent = `${data.total_idle_duration} minutes`;
+    document.getElementById('longest-trip').textContent = `${data.longest_trip_distance} miles`;
 
-    if (data.length > 0) {
-        const mostVisitedDestination = data.reduce((prev, current) => 
-            (prev.count > current.count) ? prev : current
-        );
-        const destinationName = mostVisitedDestination._id;
-        const isCustomPlace = mostVisitedDestination.isCustomPlace;
-        
+    if (data.most_visited && data.most_visited._id) {
+        const { _id, count, isCustomPlace } = data.most_visited;
         document.getElementById('most-visited').innerHTML = 
-            `${destinationName} ${isCustomPlace ? '<span class="badge bg-primary">Custom Place</span>' : ''} ` +
-            `(${mostVisitedDestination.count} visits)`;
+            `${_id} ${isCustomPlace ? '<span class="badge bg-primary">Custom Place</span>' : ''} ` +
+            `(${count} visits)`;
+    } else {
+        document.getElementById('most-visited').textContent = '-';
     }
+
+    // Update the fuel consumption chart
+    updateFuelChart(data);
 }
 
 function updateDataTable(data) {

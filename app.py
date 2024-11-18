@@ -20,7 +20,7 @@ from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
 from flask import Flask, render_template, request, jsonify, session, Response, send_file
 from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.errors import DuplicateKeyError
 import certifi
 import geojson as geojson_module
@@ -680,77 +680,100 @@ def get_driving_insights():
         if imei:
             query['imei'] = imei
 
-        # Get regular trip statistics
-        pipeline = [
+        # Aggregation pipeline for regular trips
+        pipeline_trips = [
             {'$match': query},
             {
                 '$group': {
-                    '_id': '$destination',
-                    'count': {'$sum': 1},
-                    'lastVisit': {'$max': '$endTime'},
-                    'totalTime': {
-                        '$sum': {
-                            '$divide': [
-                                {'$subtract': ['$endTime', '$startTime']},
-                                60000  # Convert to minutes
-                            ]
-                        }
-                    }
+                    '_id': None,
+                    'total_trips': {'$sum': 1},
+                    'total_distance': {'$sum': '$distance'},
+                    'total_fuel_consumed': {'$sum': '$fuelConsumed'},
+                    'max_speed': {'$max': '$maxSpeed'},
+                    'total_idle_duration': {'$sum': '$totalIdleDuration'},
+                    'longest_trip_distance': {'$max': '$distance'}
                 }
-            },
-            {'$sort': {'count': -1}}
+            }
         ]
 
-        results = list(trips_collection.aggregate(pipeline))
+        # Aggregation pipeline for uploaded trips
+        pipeline_uploaded = [
+            {'$match': query},
+            {
+                '$group': {
+                    '_id': None,
+                    'total_trips': {'$sum': 1},
+                    'total_distance': {'$sum': '$distance'},
+                    'total_fuel_consumed': {'$sum': '$fuelConsumed'},
+                    'max_speed': {'$max': '$maxSpeed'},
+                    'total_idle_duration': {'$sum': '$totalIdleDuration'},
+                    'longest_trip_distance': {'$max': '$distance'}
+                }
+            }
+        ]
 
-        # Add custom places statistics
-        for place in places_collection.find():
-            place_shape = shape(place['geometry'])
-            visits = []
-            total_time = 0
-            last_visit = None
+        # Aggregation pipeline for most visited destinations
+        pipeline_most_visited = [
+            {'$match': query},
+            {'$group': {'_id': '$destination', 'count': {'$sum': 1}, 'isCustomPlace': {'$first': '$isCustomPlace'}}},
+            {'$sort': {'count': -1}},
+            {'$limit': 1}
+        ]
 
-            for trip in trips_collection.find(query):
-                try:
-                    gps_data = geojson_loads(trip['gps'])
-                    last_point = Point(gps_data['coordinates'][-1])
+        # Execute aggregations
+        result_trips = list(trips_collection.aggregate(pipeline_trips))
+        result_uploaded = list(uploaded_trips_collection.aggregate(pipeline_uploaded))
+        result_most_visited_trips = list(trips_collection.aggregate(pipeline_most_visited))
+        result_most_visited_uploaded = list(uploaded_trips_collection.aggregate(pipeline_most_visited))
 
-                    if place_shape.contains(last_point):
-                        duration = (trip['endTime'] -
-                                    trip['startTime']).total_seconds() / 60
-                        visits.append({
-                            'date': trip['endTime'],
-                            'duration': duration
-                        })
-                        total_time += duration
-                        if not last_visit or trip['endTime'] > last_visit:
-                            last_visit = trip['endTime']
-                except Exception as e:
-                    logger.error(
-                        f"Error processing trip for place {place['name']}: {e}")
+        # Combine trip metrics
+        combined_insights = {
+            'total_trips': 0,
+            'total_distance': 0.0,
+            'total_fuel_consumed': 0.0,
+            'max_speed': 0.0,
+            'total_idle_duration': 0,
+            'longest_trip_distance': 0.0,
+            'most_visited': {}
+        }
 
-            if visits:
-                results.append({
-                    '_id': place['name'],
-                    'count': len(visits),
-                    'lastVisit': last_visit,
-                    'totalTime': total_time,
-                    'isCustomPlace': True
-                })
+        if result_trips:
+            combined_insights['total_trips'] += result_trips[0].get('total_trips', 0)
+            combined_insights['total_distance'] += result_trips[0].get('total_distance', 0.0)
+            combined_insights['total_fuel_consumed'] += result_trips[0].get('total_fuel_consumed', 0.0)
+            combined_insights['max_speed'] = max(combined_insights['max_speed'], result_trips[0].get('max_speed', 0.0))
+            combined_insights['total_idle_duration'] += result_trips[0].get('total_idle_duration', 0)
+            combined_insights['longest_trip_distance'] = max(combined_insights['longest_trip_distance'], result_trips[0].get('longest_trip_distance', 0.0))
 
-        formatted_results = []
-        for result in results:
-            if result['_id']:  # Skip entries with no destination
-                formatted_results.append({
-                    '_id': result['_id'],
-                    'count': result['count'],
-                    'lastVisit': result['lastVisit'].isoformat(),
-                    'totalTime': result['totalTime'],
-                    'isCustomPlace': result.get('isCustomPlace', False)
-                })
+        if result_uploaded:
+            combined_insights['total_trips'] += result_uploaded[0].get('total_trips', 0)
+            combined_insights['total_distance'] += result_uploaded[0].get('total_distance', 0.0)
+            combined_insights['total_fuel_consumed'] += result_uploaded[0].get('total_fuel_consumed', 0.0)
+            combined_insights['max_speed'] = max(combined_insights['max_speed'], result_uploaded[0].get('max_speed', 0.0))
+            combined_insights['total_idle_duration'] += result_uploaded[0].get('total_idle_duration', 0)
+            combined_insights['longest_trip_distance'] = max(combined_insights['longest_trip_distance'], result_uploaded[0].get('longest_trip_distance', 0.0))
 
-        return jsonify(formatted_results)
+        # Combine most visited destinations
+        all_most_visited = result_most_visited_trips + result_most_visited_uploaded
+        if all_most_visited:
+            # Sort by count in descending order
+            all_most_visited_sorted = sorted(all_most_visited, key=lambda x: x['count'], reverse=True)
+            top_destination = all_most_visited_sorted[0]
+            combined_insights['most_visited'] = {
+                '_id': top_destination['_id'],
+                'count': top_destination['count'],
+                'isCustomPlace': top_destination.get('isCustomPlace', False)
+            }
 
+        return jsonify({
+            'total_trips': combined_insights['total_trips'],
+            'total_distance': round(combined_insights['total_distance'], 2),
+            'total_fuel_consumed': round(combined_insights['total_fuel_consumed'], 2),
+            'max_speed': round(combined_insights['max_speed'], 2),
+            'total_idle_duration': combined_insights['total_idle_duration'],
+            'longest_trip_distance': round(combined_insights['longest_trip_distance'], 2),
+            'most_visited': combined_insights['most_visited']
+        })
     except Exception as e:
         logger.error(f"Error in get_driving_insights: {str(e)}")
         return jsonify({'error': str(e)}), 500
