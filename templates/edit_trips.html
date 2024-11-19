@@ -1,65 +1,49 @@
-{% extends "base.html" %}
-
-{% block title %}Edit Trips - Every Street{% endblock %}
-
-{% block content %}
-<div class="container-fluid px-4 py-3">
+{% extends "base.html" %} {% block title %}Edit Trips - Every Street{% endblock %} {% block content %} <div class="container-fluid px-4 py-3">
     <h1 class="mb-4">Edit Trips</h1>
-    
     <div class="row mb-3">
-        <div class="col-md-4">
-            <label for="tripType" class="form-label">Trip Type</label>
-            <select class="form-select bg-dark text-white" id="tripType">
-                <option value="trips" selected>Regular Trips</option>
-                <option value="matched_trips">Matched Trips</option>
-            </select>
-        </div>
+      <div class="col-md-4">
+        <label for="tripType" class="form-label">Trip Type</label>
+        <select class="form-select bg-dark text-white" id="tripType">
+          <option value="trips" selected>Regular Trips</option>
+          <option value="matched_trips">Matched Trips</option>
+        </select>
+      </div>
     </div>
-
     <div class="form-check form-switch mb-3">
-        <input class="form-check-input" type="checkbox" id="editModeToggle">
-        <label class="form-check-label" for="editModeToggle">Edit Mode</label>
+      <input class="form-check-input" type="checkbox" id="editModeToggle">
+      <label class="form-check-label" for="editModeToggle">Edit Mode</label>
     </div>
-
     <div class="row">
-        <div class="col-md-8">
-            <div class="card bg-dark border-secondary">
-                <div class="card-body">
-                    <div id="editMap" style="height: 600px;"></div>
-                </div>
-            </div>
+      <div class="col-md-8">
+        <div class="card bg-dark border-secondary">
+          <div class="card-body">
+            <div id="editMap" style="height: 600px;"></div>
+          </div>
         </div>
-        <div class="col-md-4">
-            <div class="card bg-dark border-secondary">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Controls</h5>
-                </div>
-                <div class="card-body">
-                    <button class="btn btn-success w-100 mb-3" id="saveChanges" disabled>
-                        <i class="fas fa-save me-2"></i>Save Changes
-                    </button>
-                    <div id="notification"></div>
-                    <!-- Trip details will be inserted here -->
-                </div>
-            </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card bg-dark border-secondary">
+          <div class="card-header">
+            <h5 class="card-title mb-0">Controls</h5>
+          </div>
+          <div class="card-body">
+            <button class="btn btn-success w-100 mb-3" id="saveChanges" disabled>
+              <i class="fas fa-save me-2"></i>Save Changes </button>
+            <div id="notification"></div>
+            <!-- Trip details will be inserted here -->
+          </div>
         </div>
+      </div>
     </div>
-</div>
-{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-<style>
+  </div> {% endblock %} {% block extra_css %}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+  <style>
     .leaflet-container {
-        background: #2c2c2c;
+      background: #2c2c2c;
     }
+  
     .selected-trip {
-        color: #FFD700 !important;
+      color: #FFD700 !important;
     }
-</style>
-{% endblock %}
-
-{% block extra_js %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-<script src="{{ url_for('static', filename='js/edit_trips.js') }}"></script>
-{% endblock %}
+  </style> {% endblock %} {% block extra_js %} <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+  <script src="{{ url_for('static', filename='js/edit_trips.js') }}"></script> {% endblock %}

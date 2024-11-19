@@ -1,104 +1,90 @@
 <nav id="sidebar" class="sidebar bg-dark text-white">
     <!-- Header -->
     <div class="sidebar-header p-3 bg-primary d-flex justify-content-between align-items-center">
-        <h3 class="m-0">Every Street</h3>
-        <button id="sidebar-collapse" class="btn btn-sm btn-primary d-lg-none" aria-label="Toggle Sidebar">
-            <i class="fas fa-bars"></i>
-        </button>
+      <h3 class="m-0">Every Street</h3>
+      <button id="sidebar-collapse" class="btn btn-sm btn-primary d-lg-none" aria-label="Toggle Sidebar">
+        <i class="fas fa-bars"></i>
+      </button>
     </div>
-
     <!-- Make this div scrollable -->
     <div class="sidebar-body">
-        <!-- Navigation Menu -->
-        <div class="sidebar-nav p-2">
-            <ul class="nav flex-column list-unstyled">
-                <li class="nav-item mb-2">
-                    <a href="/" class="nav-link text-white" aria-current="page">
-                        <i class="fas fa-map me-2"></i> Map
-                    </a>
-                </li>
-                <li class="nav-item mb-2">
-                    <a href="/trips" class="nav-link text-white">
-                        <i class="fas fa-road me-2"></i> Trips
-                    </a>
-                </li>
-                <li class="nav-item mb-2">
-                    <a href="/edit_trips" class="nav-link text-white">
-                        <i class="fas fa-edit me-2"></i> Edit Trips
-                    </a>
-                </li>
-                <li class="nav-item mb-2">
-                    <a href="/driving-insights" class="nav-link text-white">
-                        <i class="fas fa-chart-line me-2"></i> Driving Insights
-                    </a>
-                </li>
-                <li class="nav-item mb-2">
-                    <a href="/export" class="nav-link text-white">
-                        <i class="fas fa-file-export me-2"></i> Export Data
-                    </a>
-                </li>
-                <li class="nav-item mb-2">
-                    <a href="/upload" class="nav-link text-white">
-                        <i class="fas fa-upload me-2"></i> Upload GPX
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('visits_page') }}">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <span>Visits</span>
-                    </a>
-                </li>
-            </ul>
-        </div>
-        <!-- Filters Section -->
-        <div class="sidebar-filters p-3 border-top">
-            <h5 class="mb-3">Filters</h5>
-            <form id="filters-form">
-                <div class="mb-3">
-                    <label for="start-date" class="form-label">Start Date</label>
-                    <input type="text" id="start-date" class="form-control" placeholder="Select Start Date">
-                </div>
-                <div class="mb-3">
-                    <label for="end-date" class="form-label">End Date</label>
-                    <input type="text" id="end-date" class="form-control" placeholder="Select End Date">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Preset Ranges</label>
-                    <div class="d-grid gap-2">
-                        <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="today">Today</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="yesterday">Yesterday</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="last-week">Last 7 Days</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="last-month">Last 30 Days</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="last-6-months">Last 6 Months</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="last-year">Last 12 Months</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="all-time">All Time</button>
-                    </div>
-                </div>
-            </form>
-
-            <!-- Action Buttons -->
+      <!-- Navigation Menu -->
+      <div class="sidebar-nav p-2">
+        <ul class="nav flex-column list-unstyled">
+          <li class="nav-item mb-2">
+            <a href="/" class="nav-link text-white" aria-current="page">
+              <i class="fas fa-map me-2"></i> Map </a>
+          </li>
+          <li class="nav-item mb-2">
+            <a href="/trips" class="nav-link text-white">
+              <i class="fas fa-road me-2"></i> Trips </a>
+          </li>
+          <li class="nav-item mb-2">
+            <a href="/edit_trips" class="nav-link text-white">
+              <i class="fas fa-edit me-2"></i> Edit Trips </a>
+          </li>
+          <li class="nav-item mb-2">
+            <a href="/driving-insights" class="nav-link text-white">
+              <i class="fas fa-chart-line me-2"></i> Driving Insights </a>
+          </li>
+          <li class="nav-item mb-2">
+            <a href="/export" class="nav-link text-white">
+              <i class="fas fa-file-export me-2"></i> Export Data </a>
+          </li>
+          <li class="nav-item mb-2">
+            <a href="/upload" class="nav-link text-white">
+              <i class="fas fa-upload me-2"></i> Upload GPX </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('visits_page') }}">
+              <i class="fas fa-map-marker-alt"></i>
+              <span>Visits</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+      <!-- Filters Section -->
+      <div class="sidebar-filters p-3 border-top">
+        <h5 class="mb-3">Filters</h5>
+        <form id="filters-form">
+          <div class="mb-3">
+            <label for="start-date" class="form-label">Start Date</label>
+            <input type="text" id="start-date" class="form-control" placeholder="Select Start Date">
+          </div>
+          <div class="mb-3">
+            <label for="end-date" class="form-label">End Date</label>
+            <input type="text" id="end-date" class="form-control" placeholder="Select End Date">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Preset Ranges</label>
             <div class="d-grid gap-2">
-                <button id="apply-filters" class="btn btn-primary" type="button">
-                    <i class="fas fa-filter me-1"></i> Apply Filters
-                </button>
-                <button id="fetch-trips-range" class="btn btn-secondary" type="button">
-                    <i class="fas fa-sync me-1"></i> Fetch Trips in Range
-                </button>
-                <div class="btn-group w-100">
-                    <button id="map-match-trips" class="btn btn-warning">Map Match Trips</button>
-                    <button id="map-match-historical-trips" class="btn btn-warning">Historical Trips</button>
-                </div>
-                <button id="load-historical-data" class="btn btn-primary" type="button">
-                    <i class="fas fa-history me-1"></i> Load Historical Data
-                </button>
+              <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="today">Today</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="yesterday">Yesterday</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="last-week">Last 7 Days</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="last-month">Last 30 Days</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="last-6-months">Last 6 Months</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="last-year">Last 12 Months</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="all-time">All Time</button>
             </div>
+          </div>
+        </form>
+        <!-- Action Buttons -->
+        <div class="d-grid gap-2">
+          <button id="apply-filters" class="btn btn-primary" type="button">
+            <i class="fas fa-filter me-1"></i> Apply Filters </button>
+          <button id="fetch-trips-range" class="btn btn-secondary" type="button">
+            <i class="fas fa-sync me-1"></i> Fetch Trips in Range </button>
+          <div class="btn-group w-100">
+            <button id="map-match-trips" class="btn btn-warning">Map Match Trips</button>
+            <button id="map-match-historical-trips" class="btn btn-warning">Historical Trips</button>
+          </div>
+          <button id="load-historical-data" class="btn btn-primary" type="button">
+            <i class="fas fa-history me-1"></i> Load Historical Data </button>
         </div>
+      </div>
     </div>
-</nav>
-
-<!-- External Toggle Button -->
-<button id="sidebar-toggle" class="btn btn-primary position-fixed d-none d-lg-block" 
-        style="left: 10px; top: 10px; z-index: 1001;"
-        aria-label="Toggle Sidebar">
+  </nav>
+  <!-- External Toggle Button -->
+  <button id="sidebar-toggle" class="btn btn-primary position-fixed d-none d-lg-block" style="left: 10px; top: 10px; z-index: 1001;" aria-label="Toggle Sidebar">
     <i class="fas fa-bars"></i>
-</button>
+  </button>

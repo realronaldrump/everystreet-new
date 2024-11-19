@@ -1,41 +1,33 @@
-{% extends "base.html" %}
-
-{% block title %}Every Street - Trips{% endblock %}
-
-{% block content %}
-<div class="container-fluid px-4 py-3">
+{% extends "base.html" %} {% block title %}Every Street - Trips{% endblock %} {% block content %} <div class="container-fluid px-4 py-3">
     <h1 class="mb-4">Trips</h1>
     <div class="card">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table id="trips-table" class="table table-striped table-hover w-100">
-                    <thead>
-                        <tr>
-                            <th><input type="checkbox" id="select-all-trips"></th>
-                            <th>Transaction ID</th>
-                            <th>IMEI</th>
-                            <th>Start Time</th>
-                            <th>End Time</th>
-                            <th>Distance (miles)</th>
-                            <th>Start Location</th>
-                            <th>Destination</th>
-                            <th>Max Speed (mph)</th>
-                            <th>Idle Duration (min)</th>
-                            <th>Fuel Consumed (gal)</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Data populated by DataTables -->
-                    </tbody>
-                </table>
-            </div>
-            <button id="bulk-delete-trips-btn" class="btn btn-danger mt-3" disabled>Delete Selected</button>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table id="trips-table" class="table table-striped table-hover w-100">
+            <thead>
+              <tr>
+                <th>
+                  <input type="checkbox" id="select-all-trips">
+                </th>
+                <th>Transaction ID</th>
+                <th>IMEI</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Distance (miles)</th>
+                <th>Start Location</th>
+                <th>Destination</th>
+                <th>Max Speed (mph)</th>
+                <th>Idle Duration (min)</th>
+                <th>Fuel Consumed (gal)</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Data populated by DataTables -->
+            </tbody>
+          </table>
         </div>
+        <button id="bulk-delete-trips-btn" class="btn btn-danger mt-3" disabled>Delete Selected</button>
+      </div>
     </div>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<script src="{{ url_for('static', filename='js/trips.js') }}"></script>
-{% endblock %}
+  </div> {% endblock %} {% block extra_js %} <script src="{{ url_for('static', filename='js/trips.js') }}"></script> {% endblock %}
