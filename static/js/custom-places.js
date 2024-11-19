@@ -5,16 +5,24 @@ class CustomPlacesManager {
 		this.currentPolygon = null;
 		this.places = new Map();
 		this.drawingEnabled = false;
-
 		this.customPlacesLayer = EveryStreet.mapLayers.customPlaces.layer;
-
+		
+		this.cacheDOMElements();
 		this.initializeControls();
 		this.loadPlaces();
 		this.setupEventListeners();
 	}
 
+	cacheDOMElements() {
+		this.startDrawingBtn = document.getElementById('start-drawing');
+		this.savePlaceBtn = document.getElementById('save-place');
+		this.managePlacesBtn = document.getElementById('manage-places');
+		this.placeNameInput = document.getElementById('place-name');
+		this.placesList = document.getElementById('places-list');
+		this.managePlacesModal = new bootstrap.Modal(document.getElementById('manage-places-modal'));
+	}
+
 	initializeControls() {
-		// Initialize Leaflet.Draw plugin
 		this.drawControl = new L.Control.Draw({
 			draw: {
 				polygon: {
@@ -23,46 +31,26 @@ class CustomPlacesManager {
 						color: '#e1e100',
 						message: '<strong>Error:</strong> Shape edges cannot cross!'
 					},
-					shapeOptions: {
-						color: '#BB86FC'
-					}
+					shapeOptions: { color: '#BB86FC' }
 				},
-				circle: false,
-				rectangle: false,
-				circlemarker: false,
-				marker: false,
-				polyline: false
+				circle: false, rectangle: false, circlemarker: false,
+				marker: false, polyline: false
 			}
 		});
 	}
 
 	setupEventListeners() {
-		const startDrawingBtn = document.getElementById('start-drawing');
-		const savePlaceBtn = document.getElementById('save-place');
-		const managePlacesBtn = document.getElementById('manage-places');
+		this.startDrawingBtn?.addEventListener('click', () => this.startDrawing());
+		this.savePlaceBtn?.addEventListener('click', () => this.savePlace());
+		this.managePlacesBtn?.addEventListener('click', () => this.showManagePlacesModal());
 
-		if (startDrawingBtn) {
-			startDrawingBtn.addEventListener('click', () => this.startDrawing());
-		}
+		this.map?.on(L.Draw.Event.CREATED, (e) => this.onPolygonCreated(e));
+	}
 
-		if (savePlaceBtn) {
-			savePlaceBtn.addEventListener('click', () => this.savePlace());
-		}
-
-		if (managePlacesBtn) {
-			managePlacesBtn.addEventListener('click', () => this.showManagePlacesModal());
-		}
-
-		if (this.map) {
-			this.map.on(L.Draw.Event.CREATED, (e) => {
-				this.currentPolygon = e.layer;
-				this.map.addLayer(this.currentPolygon);
-				const saveButton = document.getElementById('save-place');
-				if (saveButton) {
-					saveButton.disabled = false;
-				}
-			});
-		}
+	onPolygonCreated(e) {
+		this.currentPolygon = e.layer;
+		this.map.addLayer(this.currentPolygon);
+		this.savePlaceBtn.disabled = false;
 	}
 
 	startDrawing() {
@@ -70,12 +58,12 @@ class CustomPlacesManager {
 			this.map.addControl(this.drawControl);
 			new L.Draw.Polygon(this.map).enable();
 			this.drawingEnabled = true;
-			document.getElementById('start-drawing').classList.add('active');
+			this.startDrawingBtn.classList.add('active');
 		}
 	}
 
 	async savePlace() {
-		const placeName = document.getElementById('place-name').value.trim();
+		const placeName = this.placeNameInput.value.trim();
 		if (!placeName || !this.currentPolygon) return;
 
 		const placeData = {
@@ -86,9 +74,7 @@ class CustomPlacesManager {
 		try {
 			const response = await fetch('/api/places', {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(placeData)
 			});
 
@@ -105,11 +91,7 @@ class CustomPlacesManager {
 
 	displayPlace(place) {
 		const polygon = L.geoJSON(place.geometry, {
-			style: {
-				color: '#BB86FC',
-				fillColor: '#BB86FC',
-				fillOpacity: 0.2
-			}
+			style: { color: '#BB86FC', fillColor: '#BB86FC', fillOpacity: 0.2 }
 		});
 
 		polygon.bindPopup(`
@@ -118,34 +100,20 @@ class CustomPlacesManager {
                 <small>Click to see visit statistics</small>
             </div>
         `);
-
 		polygon.on('click', () => this.showPlaceStatistics(place._id));
-
-		// Add the polygon to the customPlaces LayerGroup
 		this.customPlacesLayer.addLayer(polygon);
 	}
 
-	// Add this method to the CustomPlacesManager class
 	async updateVisitsData() {
 		try {
-			const promises = Array.from(this.places.keys()).map(placeId =>
-				fetch(`/api/places/${placeId}/statistics`)
-				.then(response => response.json())
-				.then(stats => ({
-					placeId,
-					stats
-				}))
-			);
+			const results = await Promise.all(Array.from(this.places.keys()).map(async placeId => {
+				const stats = await fetch(`/api/places/${placeId}/statistics`).then(response => response.json());
+				return { placeId, stats };
+			}));
 
-			const results = await Promise.all(promises);
-			results.forEach(({
-				placeId,
-				stats
-			}) => {
+			results.forEach(({ placeId, stats }) => {
 				const place = this.places.get(placeId);
-				if (place) {
-					place.statistics = stats;
-				}
+				if (place) place.statistics = stats;
 			});
 		} catch (error) {
 			console.error('Error updating visits data:', error);
@@ -154,14 +122,14 @@ class CustomPlacesManager {
 
 	async showPlaceStatistics(placeId) {
 		try {
-			const response = await fetch(`/api/places/${placeId}/statistics`);
-			const stats = await response.json();
+			const stats = await fetch(`/api/places/${placeId}/statistics`).then(response => response.json());
+			const place = this.places.get(placeId);
 
-			const popup = L.popup()
-				.setLatLng(this.places.get(placeId).geometry.coordinates[0][0])
+			L.popup()
+				.setLatLng(place.geometry.coordinates[0][0])
 				.setContent(`
                     <div class="custom-place-popup">
-                        <h6>${this.places.get(placeId).name}</h6>
+                        <h6>${place.name}</h6>
                         <p>Total Visits: ${stats.totalVisits}</p>
                         <p>Last Visit: ${new Date(stats.lastVisit).toLocaleDateString()}</p>
                     </div>
@@ -178,8 +146,7 @@ class CustomPlacesManager {
 
 		try {
 			loadingManager.updateProgress(30, 'Fetching places');
-			const response = await fetch('/api/places');
-			const places = await response.json();
+			const places = await fetch('/api/places').then(response => response.json());
 
 			loadingManager.updateProgress(60, 'Displaying places');
 			places.forEach(place => {
@@ -198,21 +165,17 @@ class CustomPlacesManager {
 	}
 
 	resetDrawing() {
-		if (this.currentPolygon) {
-			this.map.removeLayer(this.currentPolygon);
-		}
+		if (this.currentPolygon) this.map.removeLayer(this.currentPolygon);
 		this.currentPolygon = null;
-		document.getElementById('place-name').value = '';
-		document.getElementById('save-place').disabled = true;
-		document.getElementById('start-drawing').classList.remove('active');
+		this.placeNameInput.value = '';
+		this.savePlaceBtn.disabled = true;
+		this.startDrawingBtn.classList.remove('active');
 		this.map.removeControl(this.drawControl);
 		this.drawingEnabled = false;
 	}
 
 	showManagePlacesModal() {
-		const placesList = document.getElementById('places-list');
-		placesList.innerHTML = '';
-
+		this.placesList.innerHTML = '';
 		this.places.forEach(place => {
 			const item = document.createElement('div');
 			item.className = 'list-group-item d-flex justify-content-between align-items-center bg-dark text-white';
@@ -222,22 +185,19 @@ class CustomPlacesManager {
                     <i class="fas fa-trash"></i>
                 </button>
             `;
-			placesList.appendChild(item);
+			this.placesList.appendChild(item);
 		});
-
-		new bootstrap.Modal(document.getElementById('manage-places-modal')).show();
+		this.managePlacesModal.show();
 	}
 
 	async deletePlace(placeId) {
 		try {
-			const response = await fetch(`/api/places/${placeId}`, {
-				method: 'DELETE'
-			});
+			const response = await fetch(`/api/places/${placeId}`, { method: 'DELETE' });
 
 			if (response.ok) {
 				this.places.delete(placeId);
-				this.map.eachLayer(layer => {
-					if (layer.feature && layer.feature.properties.placeId === placeId) {
+				this.customPlacesLayer.eachLayer(layer => {
+					if (layer.feature?.properties?.placeId === placeId) {
 						this.map.removeLayer(layer);
 					}
 				});
