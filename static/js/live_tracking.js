@@ -1,78 +1,59 @@
+/* global L, io */
+
 // Ensure LiveTripTracker is only defined once
-if (typeof window.LiveTripTracker === 'undefined') {
-	window.LiveTripTracker = class LiveTripTracker {
+window.LiveTripTracker = (function() {
+	'use strict';
+
+	const TRIP_INACTIVE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+
+	class LiveTripTracker {
 		constructor(map) {
 			if (!map || typeof map.addLayer !== 'function') {
 				throw new Error('Invalid map object provided to LiveTripTracker');
 			}
 
 			this.map = map;
-			this.activeTrips = new Map(); // Store active trips using transactionId as key
-			this.socket = io();
-
-			// Create a layer group for live trips
-			this.liveTripsLayer = L.layerGroup();
-			this.map.addLayer(this.liveTripsLayer);
-
-			// Initialize UI elements
+			this.activeTrips = new Map();
+			this.liveTripsLayer = L.layerGroup().addTo(map); // Directly add layer to map
 			this.statusIndicator = document.querySelector('.status-indicator');
 			this.activeTripsCount = document.querySelector('.active-trips-count');
 			this.statusText = document.querySelector('.status-text');
 
-			this.setupSocketListeners();
+
+			this.initializeSocket();
 			this.updateStatus();
+
+
+			// Periodically clear completed trips
+			setInterval(() => this.clearCompletedTrips(), TRIP_INACTIVE_TIMEOUT);
 		}
 
-		setupSocketListeners() {
-			this.socket.on('connect', () => {
-				console.log('Connected to WebSocket');
-				this.updateConnectionStatus(true);
-			});
-
-			this.socket.on('disconnect', () => {
-				console.log('Disconnected from WebSocket');
-				this.updateConnectionStatus(false);
-			});
-
-			// Handle trip start event
-			this.socket.on('trip_tripStart', (data) => {
-				console.log('Trip started:', data);
-				this.initializeTrip(data);
-			});
-
-			// Handle trip data updates
-			this.socket.on('trip_tripData', (data) => {
-				console.log('Trip data update:', data);
-				this.updateTripPath(data);
-			});
-
-			// Handle trip end event
-			this.socket.on('trip_tripEnd', (data) => {
-				console.log('Trip ended:', data);
-				this.finalizeTrip(data);
-			});
-
-			// Handle trip metrics
-			this.socket.on('trip_tripMetrics', (data) => {
-				console.log('Trip metrics received:', data);
-				this.updateTripMetrics(data);
-			});
+		initializeSocket() {
+			if (this.socket) {
+				console.warn('Socket already initialized');
+				return;
+			}
+			try {
+				this.socket = io();
+				this.socket.on('connect', () => this.updateConnectionStatus(true));
+				this.socket.on('disconnect', () => this.updateConnectionStatus(false));
+				this.socket.on('trip_tripStart', (data) => this.initializeTrip(data));
+				this.socket.on('trip_tripData', (data) => this.updateTripPath(data));
+				this.socket.on('trip_tripEnd', (data) => this.finalizeTrip(data));
+				this.socket.on('trip_tripMetrics', (data) => this.updateTripMetrics(data));
+			} catch (error) {
+				console.error('Error initializing Socket.IO:', error);
+			}
 		}
 
 		updateConnectionStatus(connected) {
-			if (this.statusIndicator) {
-				this.statusIndicator.classList.toggle('active', connected);
-			}
-			if (this.statusText) {
-				this.statusText.textContent = connected ? 'Live Tracking Connected' : 'Live Tracking Disconnected';
-			}
+			this.statusIndicator?.classList.toggle('active', connected);
+			this.statusText.textContent = connected ? 'Live Tracking Connected' : 'Live Tracking Disconnected';
 		}
 
 		initializeTrip(tripData) {
 			const tripId = tripData.transactionId;
-
-			// Create new trip object
-			const tripObject = {
+			const trip = {
 				polyline: L.polyline([], {
 					color: '#FF5722',
 					weight: 4,
@@ -82,26 +63,25 @@ if (typeof window.LiveTripTracker === 'undefined') {
 				coordinates: [],
 				startTime: new Date(tripData.start.timestamp),
 				vehicleMarker: null,
-				dataPoints: []
+				dataPoints: [],
+				lastUpdate: new Date() // Add lastUpdate to track activity
 			};
 
-			this.activeTrips.set(tripId, tripObject);
+			this.activeTrips.set(tripId, trip);
 			this.updateStatus();
-
-			console.log(`Initialized new trip: ${tripId}`);
+			console.log(`Initialized trip: ${tripId}`);
 		}
 
 		updateTripPath(tripData) {
 			const tripId = tripData.transactionId;
 			const trip = this.activeTrips.get(tripId);
-
 			if (!trip) {
-				console.warn(`No active trip found for ID: ${tripId}`);
+				console.warn(`Trip not found: ${tripId}`);
 				return;
 			}
 
-			tripData.data.forEach(point => { // Iterate directly over the data array
-				if (point.gps && point.gps.lat && point.gps.lon) {
+			tripData.data.forEach(point => {
+				if (point.gps?.lat && point.gps?.lon) { // Optional chaining
 					const coord = [point.gps.lat, point.gps.lon];
 					trip.coordinates.push(coord);
 					trip.dataPoints.push({
@@ -113,29 +93,30 @@ if (typeof window.LiveTripTracker === 'undefined') {
 			});
 
 			trip.polyline.setLatLngs(trip.coordinates);
+			trip.lastUpdate = new Date(); //Update last known time of activity
 
 			if (trip.coordinates.length > 0) {
-				const lastPos = trip.coordinates[trip.coordinates.length - 1];
-				this.updateVehicleMarker(tripId, lastPos);
-				this.map.panTo(lastPos);
+				this.updateVehicleMarker(tripId, trip.coordinates.at(-1)); // Array.at(-1) for last element
+				this.map.panTo(trip.coordinates.at(-1));
 			}
 		}
 
 		updateVehicleMarker(tripId, position) {
 			const trip = this.activeTrips.get(tripId);
-			if (!trip) return;
 
-			if (!trip.vehicleMarker) {
-				trip.vehicleMarker = L.marker(position, {
-					icon: L.divIcon({
-						className: 'vehicle-marker',
-						html: '<i class="fas fa-car"></i>',
-						iconSize: [24, 24],
-						iconAnchor: [12, 12]
-					})
-				}).addTo(this.liveTripsLayer);
-			} else {
-				trip.vehicleMarker.setLatLng(position);
+			if (trip) {
+				if (!trip.vehicleMarker) {
+					trip.vehicleMarker = L.marker(position, {
+						icon: L.divIcon({
+							className: 'vehicle-marker',
+							html: '<i class="fas fa-car"></i>',
+							iconSize: [24, 24],
+							iconAnchor: [12, 12]
+						})
+					}).addTo(this.liveTripsLayer);
+				} else {
+					trip.vehicleMarker.setLatLng(position);
+				}
 			}
 		}
 
@@ -148,10 +129,8 @@ if (typeof window.LiveTripTracker === 'undefined') {
 				return;
 			}
 
-			// Add end marker if we have coordinates
 			if (trip.coordinates.length > 0) {
-				const endPoint = trip.coordinates[trip.coordinates.length - 1];
-				L.marker(endPoint, {
+				L.marker(trip.coordinates.at(-1), { // Use .at(-1)
 					icon: L.divIcon({
 						className: 'trip-marker trip-end',
 						html: '<i class="fas fa-flag-checkered"></i>'
@@ -159,174 +138,71 @@ if (typeof window.LiveTripTracker === 'undefined') {
 				}).addTo(this.liveTripsLayer);
 			}
 
-			// Remove vehicle marker
-			if (trip.vehicleMarker) {
-				this.liveTripsLayer.removeLayer(trip.vehicleMarker);
-			}
-
-			// Change polyline style to indicate completed trip
 			trip.polyline.setStyle({
 				color: '#4CAF50',
 				opacity: 0.6,
 				weight: 3
 			});
 
-			// Remove from active trips
+			this.liveTripsLayer.removeLayer(trip.vehicleMarker); // Remove marker from layer
 			this.activeTrips.delete(tripId);
 			this.updateStatus();
 		}
 
 		updateTripMetrics(tripData) {
-			const tripId = tripData.transactionId;
 			const metrics = tripData.metrics;
-
-			// Update UI with metrics if needed
 			const metricsContainer = document.querySelector('.live-trip-metrics');
-			if (metricsContainer) {
+
+			if (metricsContainer && metrics) { // Check if metrics exist
 				metricsContainer.innerHTML = `
                     <div class="metrics-card">
                         <h4>Current Trip Stats</h4>
                         <p>Distance: ${metrics.tripDistance} miles</p>
-                        <p>Duration: ${Math.floor(metrics.tripTime / 60)}m ${metrics.tripTime % 60}s</p>
+                        <p>Duration: ${this.formatDuration(metrics.tripTime)}</p>
                         <p>Max Speed: ${metrics.maxSpeed} mph</p>
                         <p>Avg Speed: ${metrics.averageDriveSpeed} mph</p>
-                        <p>Idle Time: ${metrics.totalIdlingTime}s</p>
-                    </div>
+                        <p>Idle Time: ${this.formatDuration(metrics.totalIdlingTime)}</p> </div>
                 `;
 			}
 		}
 
 		updateStatus() {
 			const activeCount = this.activeTrips.size;
-
-			if (this.activeTripsCount) {
-				this.activeTripsCount.textContent = activeCount;
-			}
-
-			if (this.statusText) {
-				this.statusText.textContent = activeCount > 0 ?
-					`Tracking ${activeCount} active trip${activeCount !== 1 ? 's' : ''}` :
-					'No active trips';
-			}
+			this.activeTripsCount.textContent = activeCount;
+			this.statusText.textContent = activeCount > 0 ? `Tracking ${activeCount} active trip${activeCount !== 1 ? 's' : ''}` : 'No active trips';
 		}
+
 		clearCompletedTrips() {
-			// Clear trips that have been inactive for more than 30 minutes
-			const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-
-			this.activeTrips.forEach((trip, tripId) => {
-				const lastUpdate = trip.dataPoints.length > 0 ?
-					trip.dataPoints[trip.dataPoints.length - 1].timestamp :
-					trip.startTime;
-
-				if (lastUpdate < thirtyMinutesAgo) {
+			const now = Date.now();
+			for (const [tripId, trip] of this.activeTrips) {
+				if (now - trip.lastUpdate > TRIP_INACTIVE_TIMEOUT) {
 					this.finalizeTrip({
 						transactionId: tripId
 					});
 				}
-			});
+			}
+		}
+
+
+		formatDuration(seconds) {
+			const minutes = Math.floor(seconds / 60);
+			const remainingSeconds = seconds % 60;
+			return `${minutes}m ${remainingSeconds.toFixed(0)}s`; // Pad seconds
 		}
 
 		formatSpeed(speedMph) {
 			return `${Math.round(speedMph)} mph`;
 		}
 
-		formatDuration(seconds) {
-			const minutes = Math.floor(seconds / 60);
-			const remainingSeconds = seconds % 60;
-			return `${minutes}m ${remainingSeconds}s`;
-		}
-
-		createTripPopup(trip) {
-			const lastPoint = trip.dataPoints[trip.dataPoints.length - 1];
-			const duration = Math.floor((Date.now() - trip.startTime) / 1000);
-
-			return `
-                <div class="trip-popup">
-                    <h4>Active Trip</h4>
-                    <p>Duration: ${this.formatDuration(duration)}</p>
-                    <p>Current Speed: ${this.formatSpeed(lastPoint?.speed || 0)}</p>
-                    <p>Started: ${trip.startTime.toLocaleTimeString()}</p>
-                </div>
-            `;
-		}
-
 		cleanup() {
-			// Remove all layers and markers
 			this.liveTripsLayer.clearLayers();
 			this.activeTrips.clear();
+			this.socket?.disconnect(); // Disconnect the socket
+			this.socket = null; // Release the socket object
 			this.updateStatus();
 		}
 	}
-}
 
-// Add CSS styles only if they haven't been added yet
-if (!document.getElementById('live-tracking-styles')) {
-	const style = document.createElement('style');
-	style.id = 'live-tracking-styles';
-	style.textContent = `
-        .vehicle-marker {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
 
-        .vehicle-marker i {
-            font-size: 24px;
-            color: #FF5722;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-            animation: pulse 1.5s infinite;
-        }
-
-        .trip-marker {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .trip-marker.trip-end i {
-            font-size: 20px;
-            color: #4CAF50;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-        }
-
-        .active-trip {
-            animation: tripPulse 2s infinite;
-        }
-
-        .trip-popup {
-            padding: 10px;
-            min-width: 200px;
-        }
-
-        .trip-popup h4 {
-            margin: 0 0 10px 0;
-            color: #FF5722;
-        }
-
-        .trip-popup p {
-            margin: 5px 0;
-            font-size: 14px;
-        }
-
-        .metrics-card {
-            background: rgba(0, 0, 0, 0.8);
-            border-radius: 8px;
-            padding: 15px;
-            margin: 10px;
-            color: white;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.2); }
-            100% { transform: scale(1); }
-        }
-
-        @keyframes tripPulse {
-            0% { opacity: 0.8; }
-            50% { opacity: 0.4; }
-            100% { opacity: 0.8; }
-        }
-    `;
-	document.head.appendChild(style);
-}
+	return LiveTripTracker;
+})();
