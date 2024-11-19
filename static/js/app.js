@@ -1203,7 +1203,7 @@ window.EveryStreet = (function() {
             return response.json();
         })
         .then(data => {
-            visualizeStreetCoverage(data);n
+            visualizeStreetCoverage(data);
         })
         .catch(error => {
             console.error('Error:', error);

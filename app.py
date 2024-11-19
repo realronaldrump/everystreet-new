@@ -1785,7 +1785,12 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
         streets_gdf = gpd.GeoDataFrame.from_features(streets_geojson['features'])
         streets_gdf.set_crs(epsg=4326, inplace=True)
 
-        # Split streets into small segments
+        # Calculate the center point to determine UTM zone
+        center_lat = streets_gdf.geometry.centroid.y.mean()
+        center_lon = streets_gdf.geometry.centroid.x.mean()
+        utm_zone = int((center_lon + 180) / 6) + 1
+        utm_epsg = 32600 + utm_zone if center_lat >= 0 else 32700 + utm_zone
+
         logger.info("Splitting streets into segments...")
         segmented_streets = []
         for idx, row in streets_gdf.iterrows():
@@ -1799,7 +1804,6 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
         streets_gdf = gpd.GeoDataFrame.from_features(segmented_streets)
         streets_gdf.set_crs(epsg=4326, inplace=True)
 
-        # Continue with existing processing...
         logger.info("Processing matched trips...")
         all_lines = []
         for trip in matched_trips:
@@ -1823,9 +1827,10 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
         joined = gpd.sjoin(streets_gdf, trips_gdf, predicate='intersects', how='left')
         streets_gdf['driven'] = ~joined.index_right.isna()
 
-        # Calculate statistics
-        total_length = streets_gdf.to_crs('+proj=utm +zone=14N').geometry.length.sum()
-        driven_length = streets_gdf[streets_gdf['driven']].to_crs('+proj=utm +zone=14N').geometry.length.sum()
+        # Calculate statistics using the correct UTM projection
+        streets_utm = streets_gdf.to_crs(epsg=utm_epsg)
+        total_length = streets_utm.geometry.length.sum()
+        driven_length = streets_utm[streets_utm['driven']].geometry.length.sum()
         coverage_percentage = (driven_length / total_length) * 100
 
         # Prepare output GeoJSON
