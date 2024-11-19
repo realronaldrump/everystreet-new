@@ -471,13 +471,6 @@ body.sidebar-collapsed {
     outline-offset: 2px;
 }
 
-/* Dark Mode Enhancements */
-/* @media (prefers-color-scheme: dark) {
-    .leaflet-tile {
-        filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
-    }
-} */
-
 /* Print Styles */
 @media print {
     #sidebar,
@@ -543,8 +536,8 @@ body.sidebar-collapsed {
 
 .recent-trip {
     stroke: #FF5722;
-    stroke-width: 4;
-    filter: drop-shadow(0 0 2px rgba(255, 87, 34, 0.6));
+    stroke-width: 3;
+    /* filter: drop-shadow(0 0 1px rgba(255, 87, 34, 0.6)); */
     animation: tripPulse 2s ease-in-out infinite;
 }
 
