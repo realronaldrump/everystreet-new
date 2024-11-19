@@ -24,3 +24,4 @@ networkx
 osmnx
 pyproj
 fiona
+pyproj

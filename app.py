@@ -36,6 +36,7 @@ import gpxpy
 import gpxpy.gpx
 from dateutil import parser
 from bson import ObjectId
+from pyproj import Proj, transform, Transformer
 
 
 # Configure logging
@@ -1718,58 +1719,168 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
         raise
 
 
-@app.route('/api/street_coverage', methods=['POST'])
-def get_street_coverage():
+def split_line_into_segments(line, segment_length_meters=10):
+    """Split a line into smaller segments of approximately equal length"""
     try:
-        logger.info("Starting street coverage calculation")
-        location = request.json.get('location')
-        if not location:
-            return jsonify({'error': 'No location provided'}), 400
+        # Validate input geometry
+        if not isinstance(line, LineString):
+            logger.warning(f"Non-LineString geometry encountered: {type(line)}")
+            return [line]
+        
+        if line.is_empty or not line.is_valid:
+            logger.warning("Empty or invalid geometry encountered")
+            return [line]
+        
+        if line.length == 0:
+            logger.warning("Zero-length line encountered")
+            return [line]
+        
+        # Convert to UTM for accurate distance measurements
+        center_lat = line.centroid.y
+        center_lon = line.centroid.x
+        utm_zone = int((center_lon + 180) / 6) + 1
+        utm_crs = f'EPSG:326{utm_zone:02d}' if center_lat >= 0 else f'EPSG:327{utm_zone:02d}'
+        
+        # Use the new pyproj transform approach
+        transformer = Transformer.from_crs("EPSG:4326", utm_crs, always_xy=True)
+        x_coords, y_coords = transformer.transform(line.xy[0], line.xy[1])
+        line_utm = LineString(zip(x_coords, y_coords))
+        
+        # Calculate number of segments needed
+        total_length = line_utm.length
+        if total_length <= 0 or math.isnan(total_length):
+            logger.warning(f"Invalid line length: {total_length}")
+            return [line]
+            
+        num_segments = max(1, int(total_length / segment_length_meters))
+        
+        segments = []
+        for i in range(num_segments):
+            start_dist = i * segment_length_meters
+            end_dist = min((i + 1) * segment_length_meters, total_length)
+            
+            # Extract segment
+            start_point = line_utm.interpolate(start_dist)
+            end_point = line_utm.interpolate(end_dist)
+            segment_utm = LineString([start_point, end_point])
+            
+            # Convert back to WGS84
+            transformer = Transformer.from_crs(utm_crs, "EPSG:4326", always_xy=True)
+            segment_coords = transformer.transform(
+                [p[0] for p in segment_utm.coords],
+                [p[1] for p in segment_utm.coords]
+            )
+            segment = LineString(zip(segment_coords[0], segment_coords[1]))
+            segments.append(segment)
+        
+        return segments
+        
+    except Exception as e:
+        logger.error(f"Error in split_line_into_segments: {str(e)}")
+        return [line]  # Return original line if splitting fails
 
-        logger.info("Fetching OSM street network...")
-        streets_data, streets_error = generate_geojson_osm(
-            location, streets_only=True)
-        if not streets_data:
-            return jsonify({'error': f'Error getting streets: {streets_error}'}), 500
+def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
+    try:
+        logger.info("Converting streets to GeoDataFrame...")
+        streets_gdf = gpd.GeoDataFrame.from_features(streets_geojson['features'])
+        streets_gdf.set_crs(epsg=4326, inplace=True)
 
-        logger.info("Fetching boundary data...")
-        boundary_data, boundary_error = generate_geojson_osm(
-            location, streets_only=False)
-        if not boundary_data:
-            return jsonify({'error': f'Error getting boundary: {boundary_error}'}), 500
+        # Split streets into small segments
+        logger.info("Splitting streets into segments...")
+        segmented_streets = []
+        for idx, row in streets_gdf.iterrows():
+            segments = split_line_into_segments(row.geometry)
+            for segment in segments:
+                segmented_streets.append({
+                    'geometry': segment,
+                    'properties': row.drop('geometry').to_dict()
+                })
+        
+        streets_gdf = gpd.GeoDataFrame.from_features(segmented_streets)
+        streets_gdf.set_crs(epsg=4326, inplace=True)
 
-        logger.info("Fetching matched trips...")
-        matched_trips = list(matched_trips_collection.find())
-        logger.info(f"Found {len(matched_trips)} matched trips")
+        # Continue with existing processing...
+        logger.info("Processing matched trips...")
+        all_lines = []
+        for trip in matched_trips:
+            try:
+                trip_geom = shape(json.loads(trip['matchedGps']))
+                if isinstance(trip_geom, LineString):
+                    all_lines.append(trip_geom)
+                elif isinstance(trip_geom, MultiLineString):
+                    all_lines.extend(list(trip_geom.geoms))
+            except Exception as e:
+                logger.error(f"Error processing trip: {e}")
+                continue
 
-        if not matched_trips:
-            return jsonify({
-                'total_length': 0,
-                'driven_length': 0,
-                'coverage_percentage': 0,
-                'streets_data': {
-                    'type': 'FeatureCollection',
-                    'features': []
+        logger.info("Merging trip lines...")
+        all_trips = linemerge(all_lines)
+
+        logger.info("Creating trips GeoDataFrame...")
+        trips_gdf = gpd.GeoDataFrame(geometry=[all_trips], crs=4326)
+
+        logger.info("Performing spatial join...")
+        joined = gpd.sjoin(streets_gdf, trips_gdf, predicate='intersects', how='left')
+        streets_gdf['driven'] = ~joined.index_right.isna()
+
+        # Calculate statistics
+        total_length = streets_gdf.to_crs('+proj=utm +zone=14N').geometry.length.sum()
+        driven_length = streets_gdf[streets_gdf['driven']].to_crs('+proj=utm +zone=14N').geometry.length.sum()
+        coverage_percentage = (driven_length / total_length) * 100
+
+        # Prepare output GeoJSON
+        streets_gdf = streets_gdf.dissolve(by=['name', 'driven'], as_index=False)
+        
+        geojson_data = {
+            'type': 'FeatureCollection',
+            'features': []
+        }
+
+        for idx, row in streets_gdf.iterrows():
+            feature = {
+                'type': 'Feature',
+                'geometry': mapping(row.geometry),
+                'properties': {
+                    'driven': bool(row['driven']),
+                    'name': row.get('name', 'Unknown Street')
                 }
-            })
+            }
+            geojson_data['features'].append(feature)
 
-        logger.info("Calculating coverage...")
+        return {
+            'total_length': float(total_length),
+            'driven_length': float(driven_length),
+            'coverage_percentage': float(coverage_percentage),
+            'streets_data': geojson_data
+        }
+
+    except Exception as e:
+        logger.error(f"Error in calculate_street_coverage: {str(e)}\n{traceback.format_exc()}")
+        raise
+
+@app.route('/api/coverage', methods=['POST'])
+def get_coverage():
+    try:
+        data = request.json
+        boundary_geojson = data.get('boundary')
+        streets_geojson = data.get('streets')
+        
+        # Fetch matched trips from the database
+        matched_trips = list(matched_trips_collection.find())
+        
         coverage_data = calculate_street_coverage(
-            boundary_data, streets_data, matched_trips)
-
-        if not coverage_data.get('streets_data') or \
-           not isinstance(coverage_data['streets_data'], dict) or \
-           coverage_data['streets_data'].get('type') != 'FeatureCollection' or \
-           not isinstance(coverage_data['streets_data'].get('features'), list):
-            raise ValueError("Invalid GeoJSON structure in coverage data")
-
-        logger.info("Coverage calculation complete")
+            boundary_geojson, 
+            streets_geojson, 
+            matched_trips
+        )
+        
         return jsonify(coverage_data)
     except Exception as e:
-        logger.error(
-            f"Error in street coverage calculation: {str(e)}\n{traceback.format_exc()}")
-        return jsonify({'error': str(e)}), 500
-
+        logger.error(f"Error calculating coverage: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error calculating coverage: {str(e)}'
+        }), 500
 
 @app.route('/api/last_trip_point')
 def get_last_trip_point():
@@ -2990,6 +3101,35 @@ def debug_trip(trip_id):
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/street_coverage', methods=['POST'])
+def get_street_coverage():
+    try:
+        data = request.json
+        location = data.get('location')
+        
+        # First, generate the streets GeoJSON
+        streets_data, error_message = generate_geojson_osm(location, streets_only=True)
+        if streets_data is None:
+            return jsonify({'status': 'error', 'message': f'Error fetching street data: {error_message}'}), 500
+        
+        # Fetch matched trips from the database
+        matched_trips = list(matched_trips_collection.find())
+        
+        # Calculate coverage
+        coverage_data = calculate_street_coverage(
+            location,  # boundary geojson
+            streets_data,  # streets geojson
+            matched_trips
+        )
+        
+        return jsonify(coverage_data)
+    except Exception as e:
+        logger.error(f"Error calculating street coverage: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error calculating street coverage: {str(e)}'
+        }), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8080'))
