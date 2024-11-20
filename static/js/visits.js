@@ -1,3 +1,4 @@
+/* global L, EveryStreet, getLoadingManager, Chart*/
 class VisitsManager {
 	constructor() {
 		this.map = null;

@@ -1,4 +1,4 @@
-/* global L, flatpickr, io */
+/* global L, flatpickr, io, EveryStreet*/
 
 // Create namespace for the application using IIFE pattern
 window.EveryStreet = (function() {

@@ -1,3 +1,4 @@
+/* global L, EveryStreet, getLoadingManager*/
 class CustomPlacesManager {
 	constructor(map) {
 		this.map = map;

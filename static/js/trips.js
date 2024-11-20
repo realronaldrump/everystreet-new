@@ -1,3 +1,5 @@
+/* global L, EveryStreet, getLoadingManager*/
+
 // Global variables
 let tripsTable = null;
 
