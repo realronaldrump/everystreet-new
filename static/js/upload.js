@@ -1,5 +1,5 @@
 /* global L, EveryStreet, getLoadingManager, uploadFiles, parseFiles*/
-let dropZone = document.getElementById('dropZone');
+const dropZone = document.getElementById('dropZone');
 let fileInput = document.getElementById('fileInput');
 let fileListBody = document.getElementById('fileListBody');
 let uploadButton = document.getElementById('uploadButton');

@@ -1,5 +1,7 @@
 version = 1
 
+exclude_patterns = ["database_utilities_gui.py"]
+
 [[analyzers]]
 name = "javascript"
   [analyzers.meta]
@@ -9,9 +11,6 @@ name = "javascript"
 name = "python"
   [analyzers.meta]
   runtime_version = "3.x.x"
-  exclude_patterns = [
-    "database_utilities_gui.py"
-  ]
 
 [[transformers]]
 name = "autopep8"
