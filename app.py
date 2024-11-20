@@ -3,14 +3,11 @@ import json
 import threading
 import os
 import glob
-import time
 import math
 import io
 import zipfile
 import logging
 from datetime import datetime, timedelta, timezone, UTC
-from functools import partial
-from multiprocessing import Pool
 import traceback
 import pymongo
 
@@ -18,17 +15,15 @@ import pymongo
 import aiohttp
 from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
 from flask import Flask, render_template, request, jsonify, session, Response, send_file
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO
 from dotenv import load_dotenv
-from pymongo import MongoClient, ASCENDING, DESCENDING
+from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 import certifi
 import geojson as geojson_module
 from geojson import (
     loads as geojson_loads,
     dumps as geojson_dumps,
-    FeatureCollection,
-    Feature,
     Point,
 )
 from timezonefinder import TimezoneFinder
@@ -50,7 +45,7 @@ import gpxpy
 import gpxpy.gpx
 from dateutil import parser
 from bson import ObjectId
-from pyproj import Proj, transform, Transformer
+from pyproj import Transformer
 
 
 # Configure logging
