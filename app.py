@@ -141,7 +141,7 @@ async def get_access_token(client_session):
 
     async with client_session.post(AUTH_URL, data=payload) as auth_response:
         logger.info(f"Auth Response Status: {auth_response.status}")
-        logger.info(f"Auth Response Headers: {auth_response.headers}")
+        logger.info("Auth Response Headers: %s", auth_response.headers)
 
         response_text = await auth_response.text()
         logger.info(f"Auth Response Body: {response_text}")
@@ -150,7 +150,7 @@ async def get_access_token(client_session):
             data = json.loads(response_text)
             return data.get("access_token")
         logger.error(f"Error getting access token: {auth_response.status}")
-        logger.error(f"Error response: {response_text}")
+        logger.error("Error response: %s", response_text)
         return None
 
 
