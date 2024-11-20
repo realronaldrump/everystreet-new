@@ -310,7 +310,20 @@ function showError(message) {
 }
 
 // ... (showLoadingOverlay and hideLoadingOverlay functions from app.js)
+function showLoadingOverlay(message = 'Loading trips') {
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'flex';
+        loadingText.textContent = message + ": 0%";
+        loadingBar.style.width = '0%';
+        loadingBar.setAttribute('aria-valuenow', '0');
+    }
+}
 
+function hideLoadingOverlay() {
+    if (loadingOverlay) {
+        setTimeout(() => loadingOverlay.style.display = 'none', 500);
+    }
+}
 
 //Helper functions to manage loading state
 function showLoadingOverlay(message = 'Loading...') {
