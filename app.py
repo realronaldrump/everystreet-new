@@ -24,7 +24,6 @@ import geojson as geojson_module
 from geojson import (
     loads as geojson_loads,
     dumps as geojson_dumps,
-    Point,
 )
 from timezonefinder import TimezoneFinder
 import pytz
@@ -3352,7 +3351,7 @@ def validate_trip_update(data):
         for point in data["points"]:
             lat = point.get("lat")
             lon = point.get("lon")
-            if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+            if not -90 <= lat <= 90 or not -180 <= lon <= 180:
                 return False, "Invalid latitude or longitude values."
         return True, ""
     except Exception as e:
