@@ -57,7 +57,7 @@ body {
   position: fixed;
   transition: transform var(--transition-speed) ease, width var(--transition-speed) ease;
   width: var(--sidebar-width);
-  z-index: 1000;
+  z-index: 1100;
 }
 #sidebar.collapsed {
   width: var(--sidebar-collapsed-width);
@@ -252,9 +252,11 @@ canvas {
  }
   #sidebar-toggle {
       display: block !important;
+      z-index: 1101;
  }
   #sidebar {
       transform: translateX(-100%);
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
  }
   #sidebar.active {
       transform: translateX(0);
