@@ -31,3 +31,6 @@ bouncie_api.py
 services/__pycache__/
 __pycache__/
 database_utilities_gui.py
+node_modules/
+*.log
+jscpd-report/
