@@ -3186,6 +3186,7 @@ def process_gpx(gpx):
 def edit_trips_page():
     return render_template("edit_trips.html")
 
+
 @app.route("/api/edit_trips", methods=["GET"])
 def get_edit_trips():
     try:
