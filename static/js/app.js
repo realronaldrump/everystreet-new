@@ -1,25 +1,26 @@
-/* global L, flatpickr, io, EveryStreet*/
+/* global L, flatpickr, io */
 
 // Create namespace for the application using IIFE pattern
 window.EveryStreet = (function() {
     'use strict'; // Strict mode for better code quality
 
     const mapLayers = {
-        trips: { order: 1, color: '#BB86FC', opacity: 0.4 },
-        historicalTrips: { order: 2, color: '#03DAC6', opacity: 0.4 },
-        matchedTrips: { order: 3, color: '#CF6679', opacity: 0.4 },
-        osmBoundary: { order: 4, color: '#03DAC6', opacity: 0.7 },
-        osmStreets: { order: 5, color: '#FF0266', opacity: 0.7 },
-        streetCoverage: { order: 6, color: '#00FF00', opacity: 0.7, name: 'Street Coverage' },
-        customPlaces: { order: 7, color: '#FF9800', opacity: 0.5 } // Initialize as L.layerGroup() later
+        trips: { order: 1, color: '#BB86FC', opacity: 0.4, visible: true },
+        historicalTrips: { order: 2, color: '#03DAC6', opacity: 0.4, visible: false },
+        matchedTrips: { order: 3, color: '#CF6679', opacity: 0.4, visible: false },
+        osmBoundary: { order: 4, color: '#03DAC6', opacity: 0.7, visible: false },
+        osmStreets: { order: 5, color: '#FF0266', opacity: 0.7, visible: false },
+        streetCoverage: { order: 6, color: '#00FF00', opacity: 0.7, name: 'Street Coverage', visible: false },
+        customPlaces: { order: 7, color: '#FF9800', opacity: 0.5, visible: false } // Initialize as L.layerGroup() later
     };
 
     const mapSettings = { highlightRecentTrips: true };
     let map, layerGroup, socket, liveTracker, isInitialized = false;
+    let mapInitialized = false; // Track map initialization
+
     const loadingOverlay = document.querySelector('.loading-overlay');
     const loadingText = document.getElementById('loading-text');
     const loadingBar = document.getElementById('loading-bar');
-    let mapInitialized = false; // Track map initialization
 
     // Loading Manager for better progress tracking
     const loadingManager = {
@@ -58,8 +59,6 @@ window.EveryStreet = (function() {
             updateLoadingProgress(percentage);
         }
     };
-
-
 
     function initializeMap() {
         if (mapInitialized || !document.getElementById('map')) return;
@@ -113,6 +112,9 @@ window.EveryStreet = (function() {
         const endDateInput = document.getElementById('end-date');
         if (startDateInput) startDateInput.value = localStorage.getItem('startDate');
         if (endDateInput) endDateInput.value = localStorage.getItem('endDate');
+
+          // Set flag for first load
+          localStorage.setItem('isFirstLoad', 'true');
     }
 
     function initializeDatePickers() {
@@ -121,8 +123,12 @@ window.EveryStreet = (function() {
             dateFormat: "Y-m-d", maxDate: today, enableTime: false, static: true,
             onChange: () => {}, onClose: () => {} // Empty handlers
         };
-        flatpickr("#start-date", commonConfig);
-        flatpickr("#end-date", commonConfig);
+        if (document.getElementById('start-date')) {
+            flatpickr("#start-date", commonConfig);
+        }
+        if (document.getElementById('end-date')) {
+            flatpickr("#end-date", commonConfig);
+        }
     }
 
     function showLoadingOverlay(message = 'Loading trips') {
@@ -479,12 +485,12 @@ window.EveryStreet = (function() {
     async function validateLocation() {
         const locationInput = document.getElementById('location-input');
         const locationTypeInput = document.getElementById('location-type');
-
+    
         if (!locationInput || !locationTypeInput || !locationInput.value || !locationTypeInput.value) {
             alert('Please enter a location and select a location type.');
             return;
         }
-
+    
         try {
             const response = await fetch('/api/validate_location', {
                 method: 'POST',
@@ -494,35 +500,39 @@ window.EveryStreet = (function() {
                     locationType: locationTypeInput.value
                 })
             });
-
+    
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-
+    
             const data = await response.json();
             if (!data) {
                 alert('Location not found. Please check your input.');
                 return;
             }
-
-            window.validatedLocation = data;
-            locationInput.setAttribute('data-location', JSON.stringify(data));
-            locationInput.setAttribute('data-display-name', data.display_name || data.name || locationInput.value);
-
-            // Enable relevant buttons and dispatch event after successful validation
-            document.getElementById('generate-boundary').disabled = false;
-            document.getElementById('generate-streets').disabled = false;
-            document.getElementById('generate-coverage').disabled = false;
-            document.dispatchEvent(new Event('locationValidated'));
-
+    
+            handleLocationValidationSuccess(data, locationInput); // Pass locationInput to the success handler
             alert('Location validated successfully!');
+    
         } catch (error) {
             console.error('Error validating location:', error);
             alert('Error validating location. Please try again.');
         }
     }
 
-
+    function handleLocationValidationSuccess(data, locationInput) { // Add locationInput as a parameter
+        window.validatedLocation = data;
+        locationInput.setAttribute('data-location', JSON.stringify(data)); // Now locationInput is accessible
+        locationInput.setAttribute('data-display-name', data.display_name || data.name || locationInput.value);
+    
+        // Enable relevant buttons
+        document.getElementById('generate-boundary').disabled = false;
+        document.getElementById('generate-streets').disabled = false;
+        document.getElementById('generate-coverage').disabled = false;
+    
+        // Dispatch location validated event
+        document.dispatchEvent(new Event('locationValidated'));
+    }
 
     function generateOSMData(streetsOnly) {
         if (!window.validatedLocation) {
@@ -858,119 +868,124 @@ window.EveryStreet = (function() {
         });
     }
 
-/* global L, flatpickr, io */
+    function clearLocalStorage() {
+        localStorage.removeItem('startDate');
+        localStorage.removeItem('endDate');
+        localStorage.removeItem('sidebarCollapsed'); // Add other items as needed
+    }
 
-// ... (previous code from the optimized version)
-
-function initializeLiveTracking() {
-    if (map && !liveTracker) {
-        try {
-            liveTracker = new LiveTripTracker(map); // Assuming LiveTripTracker is defined elsewhere
-            console.log('Live tracking initialized');
-        } catch (error) {
-            console.error('Error initializing live tracking:', error);
+    function initializeLiveTracking() {
+        if (map && !liveTracker) {
+            try {
+                liveTracker = new LiveTripTracker(map); // Assuming LiveTripTracker is defined elsewhere
+                console.log('Live tracking initialized');
+            } catch (error) {
+                console.error('Error initializing live tracking:', error);
+            }
+        } else {
+            console.warn('Map not ready or live tracker already exists');
         }
-    } else {
-        console.warn('Map not ready or live tracker already exists');
-    }
-}
-
-function initializeSocketIO() {
-    if (socket) {
-        console.warn('Socket already initialized');
-        return;
     }
 
-    try {
-        socket = io();
-
-        socket.on('connect', () => console.log('Connected to WebSocket server'));
-        socket.on('disconnect', () => console.log('Disconnected from WebSocket server'));
-        socket.on('error', (error) => console.error('WebSocket error:', error));
-    } catch (error) {
-        console.error('Error initializing Socket.IO:', error);
-    }
-}
-
-// Public API
-return {
-    initialize: function() {
-        if (isInitialized) {
-            console.log('App already initialized, skipping...');
+    function initializeSocketIO() {
+        if (socket) {
+            console.warn('Socket already initialized');
             return;
         }
 
-        setInitialDates();
-        initializeDatePickers();
-        initializeEventListeners();
+        try {
+            socket = io();
 
-        if (document.getElementById('map') && !document.getElementById('visits-page')) {
-            initializeMap();
-            if (!map || !layerGroup) {
-                console.error('Failed to initialize map components');
+            socket.on('connect', () => console.log('Connected to WebSocket server'));
+            socket.on('disconnect', () => console.log('Disconnected from WebSocket server'));
+            socket.on('error', (error) => console.error('WebSocket error:', error));
+        } catch (error) {
+            console.error('Error initializing Socket.IO:', error);
+        }
+    }
+
+    // Public API
+    return {
+        initialize: function() {
+            if (isInitialized) {
+                console.log('App already initialized, skipping...');
                 return;
             }
-            initializeLayerControls();
 
-            const isFirstLoad = localStorage.getItem('isFirstLoad') === 'true';
-            if (isFirstLoad) {
-                fetchTrips();
-                localStorage.removeItem('isFirstLoad');
+            setInitialDates();
+            initializeDatePickers();
+            initializeEventListeners();
+
+            if (document.getElementById('map') && !document.getElementById('visits-page')) {
+                initializeMap();
+                if (!map || !layerGroup) {
+                    console.error('Failed to initialize map components');
+                    return;
+                }
+                initializeLayerControls();
+
+                const isFirstLoad = localStorage.getItem('isFirstLoad') === 'true';
+                if (isFirstLoad) {
+                    fetchTrips();
+                    localStorage.removeItem('isFirstLoad');
+                }
             }
-        }
 
-        fetchMetrics();
+            fetchMetrics();
 
-        initializeSocketIO();
-        initializeLiveTracking();
+            initializeSocketIO();
+            initializeLiveTracking();
 
-        isInitialized = true;
-    },
+            isInitialized = true;
+        },
 
-    getMap: () => map,
-    getLayerGroup: () => layerGroup,
-    getSocket: () => socket,
-    mapLayers,
+        getMap: () => map,
+        getLayerGroup: () => layerGroup,
+        getSocket: () => socket,
+        mapLayers,
 
-    refreshMap: updateMap,
-    fetchTrips: fetchTrips,
-    fetchMetrics: fetchMetrics,
-    validateLocation: validateLocation,
-    generateOSMData: generateOSMData,
-    mapMatchTrips: mapMatchTrips,
-    mapMatchHistoricalTrips: mapMatchHistoricalTrips,
-    loadHistoricalData: loadHistoricalData,
+        refreshMap: updateMap,
+        fetchTrips: fetchTrips,
+        fetchMetrics: fetchMetrics,
+        validateLocation: validateLocation,
+        generateOSMData: generateOSMData,
+        mapMatchTrips: mapMatchTrips,
+        mapMatchHistoricalTrips: mapMatchHistoricalTrips,
+        loadHistoricalData: loadHistoricalData,
 
-    getLiveTracker: () => liveTracker,
-    reinitializeLiveTracking: function() {
-        if (liveTracker) {
-            liveTracker.cleanup(); // Assuming cleanup method exists
-            liveTracker = null;
-        }
-        initializeLiveTracking();
-    },
+        getLiveTracker: () => liveTracker,
+        reinitializeLiveTracking: function() {
+            if (liveTracker) {
+                liveTracker.cleanup(); // Assuming cleanup method exists
+                liveTracker = null;
+            }
+            initializeLiveTracking();
+        },
 
-    toggleLayer: toggleLayer,
-    changeLayerColor: changeLayerColor,
-    changeLayerOpacity: changeLayerOpacity,
-    updateLayerOrder: updateLayerOrder,
-    mapSettings: mapSettings,
-    generateStreetCoverage: generateStreetCoverage,
-    updateCoverageStats: updateCoverageStats,
-    visualizeStreetCoverage: visualizeStreetCoverage,
+        toggleLayer: toggleLayer,
+        changeLayerColor: changeLayerColor,
+        changeLayerOpacity: changeLayerOpacity,
+        updateLayerOrder: updateLayerOrder,
+        mapSettings: mapSettings,
+        generateStreetCoverage: generateStreetCoverage,
+        updateCoverageStats: updateCoverageStats,
+        visualizeStreetCoverage: visualizeStreetCoverage,
 
-    toggleCustomPlacesLayer: function() {
-        const layerInfo = mapLayers.customPlaces;
-        layerInfo.visible = !layerInfo.visible;
-        updateMap();
-    },
+        toggleCustomPlacesLayer: function() {
+            const layerInfo = mapLayers.customPlaces;
+            layerInfo.visible = !layerInfo.visible;
+            updateMap();
+        },
 
-    // Loading manager functions (if needed publicly)
-    showLoadingOverlay,
-    updateLoadingProgress,
-    hideLoadingOverlay,
-    getLoadingManager: () => loadingManager
-};
+        // Loading manager functions (if needed publicly)
+        showLoadingOverlay,
+        updateLoadingProgress,
+        hideLoadingOverlay,
+        getLoadingManager: () => loadingManager,
+
+        // Add back clearLocalStorage
+        clearLocalStorage: clearLocalStorage
+    };
 })();
 
 document.addEventListener('DOMContentLoaded', () => EveryStreet.initialize());
