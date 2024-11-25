@@ -698,22 +698,57 @@ window.EveryStreet = (function() {
     function mapMatchTrips(isHistorical = false) {
         const startDate = document.getElementById('start-date')?.value;
         const endDate = document.getElementById('end-date')?.value;
-
+    
         if (!startDate || !endDate) {
             alert('Select start and end dates.');
             return;
         }
-
-        const route = isHistorical ? '/api/map_match_historical_trips' : '/api/map_match_trips';
-        showLoadingOverlay('Map matching trips...');
-
-        fetch(route, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ start_date: startDate, end_date: endDate })
-        })
-        .then(handleMapMatchResponse)
-        .catch(error => console.error(`Error map matching ${isHistorical ? 'historical' : ''} trips:`, error));
+    
+        // Map match both regular and historical trips
+        showLoadingOverlay('Map matching all trips...');
+    
+        // Create promises for both regular and historical trips
+        const promises = [];
+        
+        // Always map match regular trips
+        promises.push(
+            fetch('/api/map_match_trips', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ start_date: startDate, end_date: endDate })
+            })
+        );
+    
+        // If historical flag is true, also map match historical trips
+        if (isHistorical) {
+            promises.push(
+                fetch('/api/map_match_historical_trips', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ start_date: startDate, end_date: endDate })
+                })
+            );
+        }
+    
+        Promise.all(promises)
+            .then(responses => Promise.all(responses.map(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })))
+            .then(results => {
+                console.log('Map matching responses:', results);
+                alert('Map matching initiated for all selected trips.');
+                fetchTrips();
+            })
+            .catch(error => {
+                console.error('Error map matching trips:', error);
+                alert('Error map matching trips. Check console for details.');
+            })
+            .finally(() => {
+                hideLoadingOverlay();
+            });
     }
 
     function handleMapMatchResponse(response) {
