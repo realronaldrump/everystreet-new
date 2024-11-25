@@ -74,8 +74,6 @@ window.EveryStreet = (function() {
             }).addTo(map);
 
             layerGroup = L.layerGroup().addTo(map);
-            L.control.zoom({ position: 'topright' }).addTo(map);
-            L.control.scale({ imperial: true, metric: true, position: 'bottomright' }).addTo(map);
 
             mapLayers.customPlaces.layer = L.layerGroup(); // Initialize here
 
@@ -675,17 +673,23 @@ window.EveryStreet = (function() {
         const startDate = document.getElementById('start-date')?.value;
         const endDate = document.getElementById('end-date')?.value;
         const imei = document.getElementById('imei')?.value || '';
-
+    
         if (!startDate || !endDate) return;
-
+    
         fetch(`/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`)
             .then(response => response.json())
             .then(metrics => {
-                for (const key in metrics) {
-                    if (metrics.hasOwnProperty(key)) {
-                        const element = document.getElementById(key.replace('_', '-'));
-                        if (element) element.textContent = metrics[key];
-                    }
+                const elements = {
+                    'total-trips': metrics.total_trips,
+                    'total-distance': metrics.total_distance,
+                    'avg-distance': metrics.avg_distance,
+                    'avg-start-time': metrics.avg_start_time,
+                    'avg-driving-time': metrics.avg_driving_time
+                };
+    
+                for (const id in elements) {
+                    const element = document.getElementById(id);
+                    if (element) element.textContent = elements[id];
                 }
             })
             .catch(error => console.error('Error fetching metrics:', error));
