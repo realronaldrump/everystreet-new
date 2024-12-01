@@ -1,6 +1,5 @@
 /* global L, io */
 
-// Ensure LiveTripTracker is only defined once
 if (typeof window.LiveTripTracker === 'undefined') {
     window.LiveTripTracker = class LiveTripTracker {
         constructor(map) {

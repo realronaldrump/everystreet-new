@@ -916,7 +916,7 @@ window.EveryStreet = (function() {
     function initializeLiveTracking() {
         if (map && !liveTracker) {
             try {
-                liveTracker = new LiveTripTracker(map); // Assuming LiveTripTracker is defined elsewhere
+                liveTracker = new LiveTripTracker(map); // Defined in live_tracking.js
                 console.log('Live tracking initialized');
             } catch (error) {
                 console.error('Error initializing live tracking:', error);
@@ -995,7 +995,6 @@ window.EveryStreet = (function() {
         getLiveTracker: () => liveTracker,
         reinitializeLiveTracking: function() {
             if (liveTracker) {
-                liveTracker.cleanup(); // Assuming cleanup method exists
                 liveTracker = null;
             }
             initializeLiveTracking();
