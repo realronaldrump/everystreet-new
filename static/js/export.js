@@ -30,18 +30,26 @@ function exportMatchedTrips() {
 }
 
 function exportStreets() {
-	const location = document.getElementById('streets-location').value;
+	const locationInput = document.getElementById('streets-location');
 	const format = document.getElementById('streets-format').value;
-	if (!location) return alert('Please enter a location.');
-	const url = `/api/export/streets?location=${encodeURIComponent(location)}&format=${format}`;
+	if (!locationInput) return alert('Please enter a location.');
+
+	const locationData = locationInput.getAttribute('data-location');
+	if (!locationData) return alert('Please validate the location first.');
+
+	const url = `/api/export/streets?location=${encodeURIComponent(locationData)}&format=${format}`;
 	downloadFile(url, `streets.${format}`);
 }
 
 function exportBoundary() {
-	const location = document.getElementById('boundary-location').value;
+	const locationInput = document.getElementById('boundary-location');
 	const format = document.getElementById('boundary-format').value;
-	if (!location) return alert('Please enter a location.');
-	const url = `/api/export/boundary?location=${encodeURIComponent(location)}&format=${format}`;
+	if (!locationInput) return alert('Please enter a location.');
+
+	const locationData = locationInput.getAttribute('data-location');
+	if (!locationData) return alert('Please validate the location first.');
+
+	const url = `/api/export/boundary?location=${encodeURIComponent(locationData)}&format=${format}`;
 	downloadFile(url, `boundary.${format}`);
 }
 
@@ -69,4 +77,43 @@ function downloadFile(url, filename) {
 			console.error('Error downloading file:', error);
 			alert('An error occurred while downloading the file. Please try again.');
 		});
+}
+
+function validateLocation(inputId) {
+	const locationInput = document.getElementById(inputId);
+	if (!locationInput || !locationInput.value.trim()) {
+		alert('Please enter a location.');
+		return;
+	}
+
+	fetch('/api/validate_location', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			location: locationInput.value,
+			locationType: 'city'
+		})
+	})
+	.then(response => response.json())
+	.then(data => {
+		if (data) {
+			locationInput.setAttribute('data-location', JSON.stringify(data));
+			locationInput.setAttribute('data-display-name', data.display_name || data.name || locationInput.value);
+			// Enable the submit button in the parent form
+			const form = locationInput.closest('form');
+			if (form) {
+				const submitButton = form.querySelector('button[type="submit"]');
+				if (submitButton) {
+					submitButton.disabled = false;
+				}
+			}
+			alert('Location validated successfully!');
+		} else {
+			alert('Location not found. Please try a different search term.');
+		}
+	})
+	.catch(error => {
+		console.error('Error validating location:', error);
+		alert('Error validating location. Please try again.');
+	});
 }

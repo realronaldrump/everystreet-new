@@ -60,7 +60,10 @@
             <form id="export-streets-form">
               <div class="mb-3">
                 <label for="streets-location" class="form-label">Location</label>
-                <input type="text" class="form-control" id="streets-location" required>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="streets-location" required>
+                  <button type="button" class="btn btn-secondary" onclick="validateLocation('streets-location')">Validate</button>
+                </div>
               </div>
               <div class="mb-3">
                 <label for="streets-format" class="form-label">Format</label>
@@ -69,7 +72,7 @@
                   <option value="shapefile">Shapefile</option>
                 </select>
               </div>
-              <button type="submit" class="btn btn-primary">Export Streets</button>
+              <button type="submit" class="btn btn-primary" disabled>Export Streets</button>
             </form>
           </div>
         </div>
@@ -81,7 +84,10 @@
             <form id="export-boundary-form">
               <div class="mb-3">
                 <label for="boundary-location" class="form-label">Location</label>
-                <input type="text" class="form-control" id="boundary-location" required>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="boundary-location" required>
+                  <button type="button" class="btn btn-secondary" onclick="validateLocation('boundary-location')">Validate</button>
+                </div>
               </div>
               <div class="mb-3">
                 <label for="boundary-format" class="form-label">Format</label>
@@ -90,7 +96,7 @@
                   <option value="shapefile">Shapefile</option>
                 </select>
               </div>
-              <button type="submit" class="btn btn-primary">Export Boundary</button>
+              <button type="submit" class="btn btn-primary" disabled>Export Boundary</button>
             </form>
           </div>
         </div>
