@@ -2579,16 +2579,13 @@ def bouncie_webhook():
             emit_data = {
                 "transactionId": webhook_data.get("transactionId"),
                 "imei": webhook_data.get("imei"),
-                "start": webhook_data.get(
-                    "start"
-                ),  # Ensure 'start' contains the full object from Bouncie
+                "start": webhook_data.get("start"),  # Ensure 'start' contains the full object from Bouncie
             }
         elif event_type == "tripData":
             emit_data = {
                 "transactionId": webhook_data.get("transactionId"),
                 "imei": webhook_data.get("imei"),
-                # Ensure 'data' is an array
-                "data": webhook_data.get("data", []),
+                "data": webhook_data.get("data", []),  # Ensure 'data' is an array
             }
         elif event_type == "tripMetrics":
             emit_data = {
@@ -2600,9 +2597,7 @@ def bouncie_webhook():
             emit_data = {
                 "transactionId": webhook_data.get("transactionId"),
                 "imei": webhook_data.get("imei"),
-                "end": webhook_data.get(
-                    "end"
-                ),  # Ensure 'end' contains the full object from Bouncie
+                "end": webhook_data.get("end"),  # Ensure 'end' contains the full object from Bouncie
             }
         else:
             emit_data = webhook_data
@@ -2616,10 +2611,7 @@ def bouncie_webhook():
 
     except Exception as e:
         app.logger.error(f"Error processing webhook: {str(e)}")
-        return (
-            jsonify({"status": "success"}),
-            200,
-        )  # Still return 200 to prevent webhook deactivation
+        return jsonify({"status": "success"}), 200  # Still return 200 to prevent webhook deactivation
 
 
 def store_trip_data(trip_data):
@@ -2628,10 +2620,8 @@ def store_trip_data(trip_data):
         formatted_trip = {
             "transactionId": trip_data.get("transactionId"),
             "imei": trip_data.get("imei"),
-            # Use current time if not provided
-            "startTime": datetime.now(timezone.utc),
-            # Use current time if not provided
-            "endTime": datetime.now(timezone.utc),
+            "startTime": datetime.now(timezone.utc),  # Use current time if not provided
+            "endTime": datetime.now(timezone.utc),  # Use current time if not provided
             "distance": trip_data.get("distance", 0),
             "data": trip_data.get("data", {}),
         }
@@ -2943,6 +2933,7 @@ def bulk_delete_trips():
     except Exception as e:
         logger.error(f"Error in bulk delete trips: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 def process_geojson_trip(geojson_data):
@@ -3314,6 +3305,7 @@ def get_single_trip(trip_id):
             return jsonify({"status": "error", "message": "Trip not found."}), 404
         trip["_id"] = str(trip["_id"])
         return jsonify({"status": "success", "trip": trip}), 200
+
     except Exception as e:
         logger.error(f"Error fetching trip: {e}")
         return jsonify({"status": "error", "message": "Internal server error."}), 500

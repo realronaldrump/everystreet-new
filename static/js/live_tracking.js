@@ -1,38 +1,38 @@
 /* global L, io */
 
 class LiveTripTracker {
-    constructor(map) {
+  constructor(map) {
       if (!map || typeof map.addLayer !== 'function') {
-        throw new Error('Invalid map object for LiveTripTracker');
+          throw new Error('Invalid map object for LiveTripTracker');
       }
-  
+
       this.map = map;
       this.activeTrips = new Map();
       this.liveTripsLayer = L.layerGroup().addTo(map);
-  
+
       this.statusIndicator = document.querySelector('.status-indicator');
       this.activeTripsCount = document.querySelector('.active-trips-count');
       this.statusText = document.querySelector('.status-text');
       this.metricsContainer = document.querySelector('.live-trip-metrics');
-  
+
       this.connectToSocket();
       this.updateStatus();
-    }
-  
-    connectToSocket() {
+  }
+
+  connectToSocket() {
       try {
-        this.socket = io();
-        this.socket.on('connect', () => this.updateConnectionStatus(true));
-        this.socket.on('disconnect', () => this.updateConnectionStatus(false));
-        this.socket.on('trip_tripStart', (data) => this.initializeTrip(data));
-        this.socket.on('trip_tripData', (data) => this.updateTripPath(data));
-        this.socket.on('trip_tripEnd', (data) => this.finalizeTrip(data));
-        this.socket.on('trip_tripMetrics', (data) => this.updateTripMetrics(data));
+          this.socket = io();
+          this.socket.on('connect', () => this.updateConnectionStatus(true));
+          this.socket.on('disconnect', () => this.updateConnectionStatus(false));
+          this.socket.on('trip_tripStart', (data) => this.initializeTrip(data));
+          this.socket.on('trip_tripData', (data) => this.updateTripPath(data));
+          this.socket.on('trip_tripEnd', (data) => this.finalizeTrip(data));
+          this.socket.on('trip_tripMetrics', (data) => this.updateTripMetrics(data));
       } catch (error) {
-        console.error('Error connecting to WebSocket:', error);
-        this.updateConnectionStatus(false);
+          console.error('Error connecting to WebSocket:', error);
+          this.updateConnectionStatus(false);
       }
-    }
+  }
   
     updateConnectionStatus(connected) {
       if (this.statusIndicator) {
