@@ -10,6 +10,7 @@ import logging
 from datetime import datetime, timedelta, timezone, UTC
 import traceback
 import pymongo
+from collections import defaultdict
 
 # Third-party library imports
 import aiohttp
@@ -1501,7 +1502,7 @@ def haversine_distance(coord1, coord2):
 
     a = (
         math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
     )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
@@ -2559,6 +2560,9 @@ def get_trip_analytics():
         return jsonify({"error": "Internal server error"}), 500
 
 
+# Add this before the webhook route
+active_trips = defaultdict(dict)
+
 @app.route("/webhook/bouncie", methods=["POST"])
 def bouncie_webhook():
     webhook_key = os.getenv("WEBHOOK_KEY")
@@ -2574,64 +2578,123 @@ def bouncie_webhook():
     try:
         webhook_data = request.json
         event_type = webhook_data.get("eventType")
+        transaction_id = webhook_data.get("transactionId")
+
+        if not transaction_id:
+            return jsonify({"error": "Missing transactionId"}), 400
 
         if event_type == "tripStart":
-            emit_data = {
-                "transactionId": webhook_data.get("transactionId"),
+            # Initialize new trip
+            active_trips[transaction_id] = {
+                "transactionId": transaction_id,
                 "imei": webhook_data.get("imei"),
-                "start": webhook_data.get("start"),  # Ensure 'start' contains the full object from Bouncie
+                "start": webhook_data.get("start"),
+                "data": []
             }
+            emit_data = {
+                "transactionId": transaction_id,
+                "imei": webhook_data.get("imei"),
+                "start": webhook_data.get("start")
+            }
+            
         elif event_type == "tripData":
+            # Append new data points
+            if transaction_id in active_trips:
+                active_trips[transaction_id]["data"].extend(webhook_data.get("data", []))
             emit_data = {
-                "transactionId": webhook_data.get("transactionId"),
+                "transactionId": transaction_id,
                 "imei": webhook_data.get("imei"),
-                "data": webhook_data.get("data", []),  # Ensure 'data' is an array
+                "data": webhook_data.get("data", [])
             }
+            
         elif event_type == "tripMetrics":
+            # Update trip metrics
+            if transaction_id in active_trips:
+                active_trips[transaction_id]["metrics"] = webhook_data.get("metrics")
             emit_data = {
-                "transactionId": webhook_data.get("transactionId"),
+                "transactionId": transaction_id,
                 "imei": webhook_data.get("imei"),
-                "metrics": webhook_data.get("metrics"),
+                "metrics": webhook_data.get("metrics")
             }
+            
         elif event_type == "tripEnd":
+            # Finalize trip
+            if transaction_id in active_trips:
+                active_trips[transaction_id]["end"] = webhook_data.get("end")
+                # Store complete trip data
+                complete_trip_data = active_trips[transaction_id]
+                store_trip_data(complete_trip_data)
+                # Clean up
+                del active_trips[transaction_id]
             emit_data = {
-                "transactionId": webhook_data.get("transactionId"),
+                "transactionId": transaction_id,
                 "imei": webhook_data.get("imei"),
-                "end": webhook_data.get("end"),  # Ensure 'end' contains the full object from Bouncie
+                "end": webhook_data.get("end")
             }
         else:
             emit_data = webhook_data
 
+        # Emit event to all connected clients
         socketio.emit(f"trip_{event_type}", emit_data)
-
-        if event_type == "tripEnd":
-            store_trip_data(webhook_data)
-
+        
         return jsonify({"status": "success"}), 200
 
     except Exception as e:
         app.logger.error(f"Error processing webhook: {str(e)}")
-        return jsonify({"status": "success"}), 200  # Still return 200 to prevent webhook deactivation
+        return jsonify({"error": str(e)}), 500
 
 
 def store_trip_data(trip_data):
     """Store completed trip data in MongoDB"""
     try:
+        # Parse timestamps with timezone awareness
+        start_time = datetime.fromisoformat(trip_data.get("start", {}).get("timestamp")).replace(tzinfo=timezone.utc)
+        end_time = datetime.fromisoformat(trip_data.get("end", {}).get("timestamp")).replace(tzinfo=timezone.utc)
+        
+        # Create GeoJSON LineString from trip data
+        coordinates = []
+        if "data" in trip_data and isinstance(trip_data["data"], list):
+            for point in trip_data["data"]:
+                if "gps" in point and "lat" in point["gps"] and "lon" in point["gps"]:
+                    coordinates.append([point["gps"]["lon"], point["gps"]["lat"]])
+        
+        gps_data = {
+            "type": "LineString",
+            "coordinates": coordinates
+        }
+
         formatted_trip = {
             "transactionId": trip_data.get("transactionId"),
             "imei": trip_data.get("imei"),
-            "startTime": datetime.now(timezone.utc),  # Use current time if not provided
-            "endTime": datetime.now(timezone.utc),  # Use current time if not provided
-            "distance": trip_data.get("distance", 0),
-            "data": trip_data.get("data", {}),
+            "startTime": start_time,
+            "endTime": end_time,
+            "distance": trip_data.get("metrics", {}).get("tripDistance", 0),
+            "maxSpeed": trip_data.get("metrics", {}).get("maxSpeed", 0),
+            "averageSpeed": trip_data.get("metrics", {}).get("averageDriveSpeed", 0),
+            "totalIdleDuration": trip_data.get("metrics", {}).get("totalIdlingTime", 0),
+            "gps": json.dumps(gps_data),
+            "source": "live"
         }
 
-        # Insert into your existing trips collection
-        db.trips.insert_one(formatted_trip)
+        # Use update_one with upsert to avoid duplicates
+        db.trips.update_one(
+            {"transactionId": formatted_trip["transactionId"]},
+            {"$set": formatted_trip},
+            upsert=True
+        )
+        
+        # Emit a success message through Socket.IO
+        socketio.emit("trip_stored", {
+            "transactionId": formatted_trip["transactionId"],
+            "status": "success"
+        })
 
     except Exception as e:
         app.logger.error(f"Error formatting/storing trip data: {str(e)}")
-        # Don't raise the exception - let the webhook still return 200
+        socketio.emit("trip_error", {
+            "transactionId": trip_data.get("transactionId"),
+            "error": str(e)
+        })
 
 
 @socketio.on("connect")
@@ -2882,6 +2945,7 @@ def not_found_error(error):
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
+
 
 
 async def cleanup_invalid_trips():
