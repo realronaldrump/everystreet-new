@@ -25,3 +25,5 @@ osmnx
 pyproj
 fiona
 pyproj
+redis
+gevent-websocket

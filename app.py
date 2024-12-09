@@ -20,11 +20,12 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 import certifi
-import geojson as geojson_module
+import geojson
 from geojson import (
     loads as geojson_loads,
     dumps as geojson_dumps,
 )
+from pymongo import ASCENDING
 from timezonefinder import TimezoneFinder
 import pytz
 import asyncio
@@ -39,12 +40,14 @@ from shapely.geometry import (
 )
 from shapely.ops import linemerge
 import geopandas as gpd
+from geopandas import GeoDataFrame
 import requests
 import gpxpy
-import gpxpy.gpx
+from gpxpy.gpx import GPX, GPXTrack, GPXTrackSegment, GPXTrackPoint
 from dateutil import parser
 from bson import ObjectId
-from pyproj import Transformer
+from bson.errors import InvalidId
+from pyproj import Transformer, CRS
 
 
 # Configure logging
@@ -55,7 +58,13 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
+async_mode = "gevent"
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode=async_mode,
+    message_queue=os.getenv('REDIS_URL', 'redis://')
+)
 
 # MongoDB setup
 try:
@@ -65,7 +74,6 @@ try:
         tlsAllowInvalidCertificates=True,
         tlsCAFile=certifi.where(),
         tz_aware=True,
-        # Ensure datetime objects are timezone-aware (UTC)
         tzinfo=timezone.utc,
     )
     db = client["every_street"]
@@ -74,21 +82,24 @@ try:
     historical_trips_collection = db["historical_trips"]
     uploaded_trips_collection = db["uploaded_trips"]
     places_collection = db["places"]
-    print("Successfully connected to MongoDB")
+    logger.info("Successfully connected to MongoDB")
 except Exception as mongo_error:
-    print(f"Error connecting to MongoDB: {mongo_error}")
+    logger.error(f"Error connecting to MongoDB: {mongo_error}")
     raise
 
+trips_collection.create_index([("startTime", ASCENDING), ("endTime", ASCENDING)])
 uploaded_trips_collection.create_index("transactionId", unique=True)
 matched_trips_collection.create_index("transactionId", unique=True)
+historical_trips_collection.create_index("transactionId", unique=True)
 
-# Bouncie API setup
+# Bouncie API and Mapbox setup
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 AUTHORIZED_DEVICES = os.getenv("AUTHORIZED_DEVICES", "").split(",")
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN")
+WEBHOOK_KEY = os.getenv("WEBHOOK_KEY")
 
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
@@ -343,7 +354,7 @@ def fetch_trips_for_geojson():
     features = []
 
     for trip in trips:
-        feature = geojson_module.Feature(
+        feature = geojson.Feature(
             geometry=geojson_loads(trip["gps"]),
             properties={
                 "transactionId": trip["transactionId"],
@@ -358,7 +369,7 @@ def fetch_trips_for_geojson():
         )
         features.append(feature)
 
-    return geojson_module.FeatureCollection(features)
+    return geojson.FeatureCollection(features)
 
 
 def get_trip_timezone(trip):
@@ -392,141 +403,154 @@ def get_trip_timezone(trip):
 
 
 async def fetch_and_store_trips():
+    """Fetches trips from the Bouncie API and stores them in MongoDB."""
     try:
-        print("Starting fetch_and_store_trips")
-        print(f"Authorized devices: {AUTHORIZED_DEVICES}")
+        logger.info("Starting fetch_and_store_trips")
+        logger.info(f"Authorized devices: {AUTHORIZED_DEVICES}")
+
         async with aiohttp.ClientSession() as client_session:
             access_token = await get_access_token(client_session)
-            print("Access token obtained")
+            if not access_token:
+                logger.error("Failed to obtain access token")
+                return
+
+            logger.info("Access token obtained")
 
             end_date = datetime.now(timezone.utc)
             start_date = end_date - timedelta(days=365 * 4)
 
-            all_trips = []
             total_devices = len(AUTHORIZED_DEVICES)
             for device_count, imei in enumerate(AUTHORIZED_DEVICES, 1):
-                print(f"Fetching trips for IMEI: {imei}")
-                device_trips = await fetch_trips_in_intervals(
-                    client_session, access_token, imei, start_date, end_date
+                await fetch_and_store_trips_for_imei(
+                    client_session,
+                    access_token,
+                    imei,
+                    start_date,
+                    end_date,
+                    device_count,
+                    total_devices,  # Pass total_devices for progress calculation
                 )
-                print(f"Fetched {len(device_trips)} trips for IMEI {imei}")
-                all_trips.extend(device_trips)
 
-                progress = int((device_count / total_devices) * 100)
-                socketio.emit("loading_progress", {"progress": progress})
-
-            print(f"Total trips fetched: {len(all_trips)}")
-
-            for trip in all_trips:
-                try:
-                    existing_trip = trips_collection.find_one(
-                        {"transactionId": trip["transactionId"]}
-                    )
-                    if existing_trip:
-                        print(
-                            f"Trip {trip['transactionId']} already exists in the database. Skipping."
-                        )
-                        continue
-                    is_valid, error_message = validate_trip_data(trip)
-                    if not is_valid:
-                        print(
-                            f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}"
-                        )
-                        continue
-
-                    trip_timezone = get_trip_timezone(trip)
-
-                    if isinstance(trip["startTime"], str):
-                        trip["startTime"] = parser.isoparse(trip["startTime"])
-                    if isinstance(trip["endTime"], str):
-                        trip["endTime"] = parser.isoparse(trip["endTime"])
-
-                    if isinstance(trip["startTime"], str):
-                        trip["startTime"] = parser.isoparse(trip["startTime"])
-                    if isinstance(trip["endTime"], str):
-                        trip["endTime"] = parser.isoparse(trip["endTime"])
-
-                    gps_data = geojson_loads(
-                        trip["gps"]
-                        if isinstance(trip["gps"], str)
-                        else json.dumps(trip["gps"])
-                    )
-
-                    start_point = gps_data["coordinates"][0]
-                    last_point = gps_data["coordinates"][-1]
-
-                    trip["startGeoPoint"] = start_point
-                    trip["destinationGeoPoint"] = last_point
-
-                    trip["destination"] = await reverse_geocode_nominatim(
-                        last_point[1], last_point[0]
-                    )
-                    trip["startLocation"] = await reverse_geocode_nominatim(
-                        start_point[1], start_point[0]
-                    )
-
-                    if isinstance(trip["gps"], dict):
-                        trip["gps"] = geojson_dumps(trip["gps"])
-                    result = trips_collection.update_one(
-                        {"transactionId": trip["transactionId"]},
-                        {"$set": trip},
-                        upsert=True,
-                    )
-                    print(
-                        f"Updated trip {trip['transactionId']} for IMEI {trip.get('imei', 'Unknown')}: {'Inserted' if result.upserted_id else 'Updated'}"
-                    )
-                except Exception as trip_error:
-                    print(
-                        f"Error updating trip {trip.get('transactionId', 'Unknown')}: {trip_error}"
-                    )
-                    print(traceback.format_exc())
-
-            for imei in AUTHORIZED_DEVICES:
-                try:
-                    count = trips_collection.count_documents({"imei": imei})
-                    print(f"Trips in database for IMEI {imei}: {count}")
-                except Exception as count_error:
-                    print(f"Error counting trips for IMEI {imei}: {count_error}")
     except Exception as fetch_error:
-        print(f"Error in fetch_and_store_trips: {fetch_error}")
-        print(traceback.format_exc())
+        logger.error(f"Error in fetch_and_store_trips: {fetch_error}")
+        logger.exception("Full traceback:")  # Log the full exception traceback
+
+async def fetch_and_store_trips_for_imei(
+    client_session, access_token, imei, start_date, end_date, device_count, total_devices
+):
+    """Fetches and stores trips for a specific IMEI."""
+    try:
+        logger.info(f"Fetching trips for IMEI: {imei}")
+        all_trips = await fetch_trips_in_intervals(
+            client_session, access_token, imei, start_date, end_date
+        )
+        logger.info(f"Fetched {len(all_trips)} trips for IMEI {imei}")
+
+        for trip_count, trip in enumerate(all_trips, 1):  # Start count from 1
+            try:
+                existing_trip = trips_collection.find_one(
+                    {"transactionId": trip["transactionId"]}
+                )
+                if existing_trip:
+                    logger.info(
+                        f"Trip {trip['transactionId']} already exists. Skipping."
+                    )
+                    continue
+
+                is_valid, error_message = validate_trip_data(trip)
+                if not is_valid:
+                    logger.error(
+                        f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}"
+                    )
+                    continue
+
+                processed_trip = await process_trip_data(trip)
+                if not processed_trip:
+                    logger.error(f"Failed to process trip {trip['transactionId']}")
+                    continue
+
+                processed_trip["source"] = "bouncie"
+
+                try:
+                    trips_collection.insert_one(processed_trip)
+                except DuplicateKeyError:
+                    logger.warning(f"Duplicate trip encountered: {trip['transactionId']}. Skipping.")
+                    continue # Skip to the next trip if a duplicate is found
+
+                # Calculate and emit overall progress
+                overall_progress = int(
+                    (
+                        (device_count - 1)  # Account for 0-based indexing
+                        + (trip_count / len(all_trips))
+                    )
+                    / total_devices
+                    * 100
+                )
+
+                socketio.emit("loading_progress", {"progress": overall_progress}, async_mode=async_mode)
+
+            except Exception as trip_error:
+                logger.error(
+                    f"Error updating trip {trip.get('transactionId', 'Unknown')}: {trip_error}"
+                )
+                logger.exception("Full traceback:")
+
+        logger.info(f"Finished processing trips for IMEI {imei}")
+
+        count = trips_collection.count_documents({"imei": imei})
+        logger.info(f"Trips in database for IMEI {imei}: {count}")
+
+    except Exception as e:
+        logger.error(f"Error fetching/storing trips for IMEI {imei}: {e}")
+        logger.exception("Full traceback:")
 
 
 def process_trip(trip):
+    """Processes a single trip, parsing dates, handling missing GPS, geocoding locations, and calculating distance."""
     try:
-        # Parse startTime
-        if isinstance(trip["startTime"], str):
-            parsed_start = parser.isoparse(trip["startTime"])
-            if parsed_start.tzinfo is None:
-                parsed_start = parsed_start.replace(tzinfo=timezone.utc)
-            trip["startTime"] = parsed_start
+        # Parse and convert times to UTC
+        for field in ["startTime", "endTime"]:
+            if isinstance(trip[field], str):
+                trip[field] = parser.isoparse(trip[field])
+            if trip[field].tzinfo is None:
+                trip[field] = trip[field].replace(tzinfo=timezone.utc)
+            else:
+                trip[field] = trip[field].astimezone(timezone.utc)
 
-        # Parse endTime
-        if isinstance(trip["endTime"], str):
-            parsed_end = parser.isoparse(trip["endTime"])
-            if parsed_end.tzinfo is None:
-                parsed_end = parsed_end.replace(tzinfo=timezone.utc)
-            trip["endTime"] = parsed_end
-
-        # Ensure datetime fields have tzinfo
-        if trip["startTime"].tzinfo is None:
-            trip["startTime"] = trip["startTime"].replace(tzinfo=timezone.utc)
-        if trip["endTime"].tzinfo is None:
-            trip["endTime"] = trip["endTime"].replace(tzinfo=timezone.utc)
-
-        # Ensure gps field exists and is properly formatted
         if "gps" not in trip:
-            logger.error(
-                f"Trip {trip.get('transactionId', 'Unknown')} missing gps field"
-            )
+            if "start" in trip and "lat" in trip["start"] and "lon" in trip["start"]:
+                trip["gps"] = geojson.dumps(geojson.Point((trip["start"]["lon"], trip["start"]["lat"])))
+            elif "end" in trip and "lat" in trip["end"] and "lon" in trip["end"]:
+                 trip["gps"] = geojson.dumps(geojson.Point((trip["end"]["lon"], trip["end"]["lat"])))
+            else:
+                logger.error(f"Trip {trip.get('transactionId', 'Unknown')} missing gps field and no start/end coordinates")
+                return None
+
+        if isinstance(trip["gps"], str):
+            try:
+                trip["gps"] = geojson.loads(trip["gps"]) # Use geojson.loads
+            except json.JSONDecodeError:
+                logger.error(f"Failed to parse GPS data for trip {trip.get('transactionId', 'Unknown')}")
+                return None
+        elif not isinstance(trip["gps"], dict):
+            logger.error(f"Invalid GPS data type for trip {trip.get('transactionId', 'Unknown')}")
             return None
 
-        # Convert gps to string if it's a dict
-        if isinstance(trip["gps"], dict):
-            trip["gps"] = json.dumps(trip["gps"])
+        if not isinstance(trip.get("distance"), (int, float)):  # Validate distance
+            try:
+                coords = trip["gps"]["coordinates"]
+                total_distance = 0
+                for i in range(len(coords) - 1):
+                    total_distance += haversine_distance(coords[i], coords[i + 1])
+                trip["distance"] = total_distance * 0.621371  # Convert to miles
 
-        # Extract points from GPS data
-        gps_data = geojson_loads(trip["gps"])
+            except (KeyError, TypeError, IndexError):
+                logger.warning(
+                    f"Couldn't calculate distance for {trip.get('transactionId', 'Unknown')}, setting to 0"
+                )
+                trip["distance"] = 0  # Fallback to 0 if calculation fails
+
+        gps_data = trip["gps"]
         if not gps_data.get("coordinates"):
             logger.error(
                 f"Trip {trip.get('transactionId', 'Unknown')} has invalid GPS coordinates"
@@ -538,15 +562,6 @@ def process_trip(trip):
 
         trip["startGeoPoint"] = start_point
         trip["destinationGeoPoint"] = last_point
-
-        # Ensure distance is a valid number
-        if "distance" in trip:
-            try:
-                trip["distance"] = float(trip["distance"])
-            except (ValueError, TypeError):
-                trip["distance"] = 0.0
-        else:
-            trip["distance"] = 0.0
 
         return trip
 
@@ -579,60 +594,57 @@ def visits_page():
 
 
 async def process_historical_trip(trip):
-    trip_timezone = get_trip_timezone(trip)
+    """Processes a single historical trip, parsing dates and converting to UTC."""
+    try:
+        for field in ["startTime", "endTime"]:
+            if isinstance(trip[field], str):
+                trip[field] = parser.isoparse(trip[field])
+            if trip[field].tzinfo is None:
+                trip[field] = trip[field].replace(tzinfo=timezone.utc)
+            else:
+                trip[field] = trip[field].astimezone(timezone.utc)
 
-    if isinstance(trip["startTime"], str):
-        trip["startTime"] = parser.isoparse(trip["startTime"])
-    if isinstance(trip["endTime"], str):
-        trip["endTime"] = parser.isoparse(trip["endTime"])
+        gps_data = geojson.loads(trip["gps"])
+        trip["startGeoPoint"] = gps_data["coordinates"][0]
+        trip["destinationGeoPoint"] = gps_data["coordinates"][-1]
 
-    if isinstance(trip["startTime"], str):
-        trip["startTime"] = parser.isoparse(trip["startTime"])
-    if isinstance(trip["endTime"], str):
-        trip["endTime"] = parser.isoparse(trip["endTime"])
-
-    gps_data = geojson_module.loads(trip["gps"])
-    start_point = gps_data["coordinates"][0]
-    last_point = gps_data["coordinates"][-1]
-
-    return trip
+        return trip
+    except Exception as e:
+        logger.error(f"Error processing historical trip: {str(e)}")
+        return None
 
 
 async def load_historical_data(start_date_str=None, end_date_str=None):
+    """Loads historical trip data from GeoJSON files."""
     all_trips = []
     for filename in glob.glob("olddrivingdata/*.geojson"):
         with open(filename, "r") as f:
             try:
-                geojson_data = geojson_module.load(f)
+                geojson_data = geojson.load(f)
                 for feature in geojson_data["features"]:
                     trip = feature["properties"]
-                    trip["gps"] = geojson_dumps(feature["geometry"])
-                    trip["startTime"] = datetime.fromisoformat(
-                        trip["timestamp"]
-                    ).replace(tzinfo=timezone.utc)
-                    trip["endTime"] = datetime.fromisoformat(
-                        trip["end_timestamp"]
-                    ).replace(tzinfo=timezone.utc)
+                    trip["gps"] = geojson.dumps(feature["geometry"])
+
+                    for field in ["timestamp", "end_timestamp"]:
+                        trip[field.replace("_timestamp", "Time")] = parser.isoparse(trip[field]).astimezone(timezone.utc)
+
                     trip["imei"] = "HISTORICAL"
                     trip["transactionId"] = f"HISTORICAL-{trip['timestamp']}"
+                    trip["source"] = "historical"
 
                     if start_date_str:
-                        start_date = datetime.fromisoformat(start_date_str).replace(
-                            tzinfo=timezone.utc
-                        )
+                        start_date = parser.isoparse(start_date_str)
                         if trip["startTime"] < start_date:
                             continue
                     if end_date_str:
-                        end_date = datetime.fromisoformat(end_date_str).replace(
-                            tzinfo=timezone.utc
-                        )
+                        end_date = parser.isoparse(end_date_str)
                         if trip["endTime"] > end_date:
                             continue
 
                     all_trips.append(trip)
 
             except (json.JSONDecodeError, TypeError) as e:
-                print(f"Error processing file {filename}: {e}")
+                logger.error(f"Error processing file {filename}: {e}")
 
     async def process_all_trips():
         tasks = [process_historical_trip(trip) for trip in all_trips]
@@ -648,11 +660,11 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
             ):
                 historical_trips_collection.insert_one(trip)
                 inserted_count += 1
-                print(f"Inserted historical trip: {trip['transactionId']}")
+                logger.info(f"Inserted historical trip: {trip['transactionId']}")
             else:
-                print(f"Historical trip already exists: {trip['transactionId']}")
+                logger.info(f"Historical trip already exists: {trip['transactionId']}")
         except pymongo.errors.PyMongoError as e:
-            print(
+            logger.error(
                 f"Error inserting trip {trip.get('transactionId', 'Unknown')} into database: {e}"
             )
 
@@ -661,72 +673,85 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
 
 @app.route("/api/trips")
 def get_trips():
-    start_date_str = request.args.get("start_date")
-    end_date_str = request.args.get("end_date")
-    imei = request.args.get("imei")
+    """Fetches trips, handles filtering by source and returns GeoJSON."""
 
-    start_date = (
-        datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
-        if start_date_str
-        else None
-    )
-    end_date = (
-        datetime.fromisoformat(end_date_str).replace(
-            hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
-        )
-        if end_date_str
-        else None
-    )
+    try:
+        start_date_str = request.args.get("start_date")
+        end_date_str = request.args.get("end_date")
+        imei = request.args.get("imei")
+        source = request.args.get("source")
 
-    query = {}
-    if start_date and end_date:
-        query["startTime"] = {"$gte": start_date, "$lte": end_date}
-    if imei:
-        query["imei"] = imei
+        start_date = parser.isoparse(start_date_str) if start_date_str else None
+        end_date = parser.isoparse(end_date_str) if end_date_str else None
 
-    # Get trips from all collections
-    regular_trips = list(trips_collection.find(query))
-    uploaded_trips = list(uploaded_trips_collection.find(query))
-    # Add historical trips
-    historical_trips = list(historical_trips_collection.find(query))
-    all_trips = regular_trips + uploaded_trips + historical_trips  # Combine all trips
+        query = {}
+        if start_date and end_date:
+            query["startTime"] = {"$gte": start_date, "$lte": end_date}
+        if imei:
+            query["imei"] = imei
+        if source: # Filter by source if provided
+            query["source"] = source
 
-    features = []
-    for trip in all_trips:
-        try:
-            # Ensure datetime fields have tzinfo
-            if trip["startTime"].tzinfo is None:
-                trip["startTime"] = trip["startTime"].replace(tzinfo=timezone.utc)
-            if trip["endTime"].tzinfo is None:
-                trip["endTime"] = trip["endTime"].replace(tzinfo=timezone.utc)
-
-            geometry = geojson_loads(
-                trip["gps"] if isinstance(trip["gps"], str) else json.dumps(trip["gps"])
-            )
-            properties = {
-                "transactionId": trip["transactionId"],
-                "imei": trip.get("imei", "UPLOAD"),
-                # Include timezone information in the ISO format string
-                "startTime": trip["startTime"].astimezone(timezone.utc).isoformat(),
-                "endTime": trip["endTime"].astimezone(timezone.utc).isoformat(),
-                "distance": float(trip.get("distance", 0)),
-                "timezone": trip.get("timezone", "America/Chicago"),
-                "maxSpeed": float(trip.get("maxSpeed", 0)),
-                "startLocation": trip.get("startLocation", "N/A"),
-                "destination": trip.get("destination", "N/A"),
-                "totalIdleDuration": trip.get("totalIdleDuration", 0),
-                "fuelConsumed": float(trip.get("fuelConsumed", 0)),
-                "source": trip.get("source", "regular"),
-            }
-            feature = geojson_module.Feature(geometry=geometry, properties=properties)
-            features.append(feature)
-        except Exception as e:
-            logger.error(
-                f"Error processing trip {trip.get('transactionId', 'Unknown')}: {e}"
+        # Fetch trips from the appropriate collection(s) based on the 'source' parameter
+        if source == "bouncie":
+            trips = list(trips_collection.find(query))
+        elif source == "upload":
+            trips = list(uploaded_trips_collection.find(query))
+        elif source == "historical":
+            trips = list(historical_trips_collection.find(query))
+        else:  # Fetch from all collections if source is not specified or invalid
+            trips = (
+                list(trips_collection.find(query))
+                + list(uploaded_trips_collection.find(query))
+                + list(historical_trips_collection.find(query))
             )
 
-    return jsonify(geojson_module.FeatureCollection(features))
+        features = []
+        for trip in trips:
+            try:
+                if trip["startTime"].tzinfo is None:
+                    trip["startTime"] = trip["startTime"].replace(tzinfo=timezone.utc)
+                if trip["endTime"].tzinfo is None:
+                    trip["endTime"] = trip["endTime"].replace(tzinfo=timezone.utc)
 
+                gps_data = trip.get("gps")  # Handle missing "gps" data
+                if isinstance(gps_data, str):
+                    gps_data = geojson.loads(gps_data)
+
+                if gps_data is None:
+                    logger.warning(
+                        f"Trip {trip.get('transactionId', 'Unknown')} has no valid GPS data. Skipping."
+                    )
+                    continue
+
+                geometry = gps_data
+
+                properties = {
+                    "transactionId": trip["transactionId"],
+                    "imei": trip.get("imei", "UPLOAD"),
+                    "startTime": trip["startTime"].isoformat(),
+                    "endTime": trip["endTime"].isoformat(),
+                    "distance": float(trip.get("distance", 0)),
+                    "timezone": trip.get("timezone", "America/Chicago"),
+                    "maxSpeed": float(trip.get("maxSpeed", 0)),
+                    "startLocation": trip.get("startLocation", "N/A"),
+                    "destination": trip.get("destination", "N/A"),
+                    "totalIdleDuration": trip.get("totalIdleDuration", 0),
+                    "fuelConsumed": float(trip.get("fuelConsumed", 0)),
+                    "source": trip.get("source", "regular"),
+                }
+                feature = geojson.Feature(geometry=geometry, properties=properties)
+                features.append(feature)
+            except Exception as e:
+                logger.error(
+                    f"Error processing trip {trip.get('transactionId', 'Unknown')}: {e}"
+                )
+
+        return jsonify(geojson.FeatureCollection(features))
+
+    except Exception as e:
+        logger.error(f"Error in get_trips: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/driving-insights")
 def get_driving_insights():
@@ -1050,142 +1075,140 @@ def add_header(response):
 
 
 @app.route("/export/geojson")
-def export_geojson():
+def export_geojson(collection_name="trips"):
+    """Exports trips data in GeoJSON format."""
     try:
         start_date_str = request.args.get("start_date")
         end_date_str = request.args.get("end_date")
         imei = request.args.get("imei")
 
         start_date = (
-            datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-            if start_date_str
-            else None
+            parser.isoparse(start_date_str) if start_date_str else None
         )
         end_date = (
-            datetime.strptime(end_date_str, "%Y-%m-%d").replace(
-                hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
-            )
-            if end_date_str
-            else None
+            parser.isoparse(end_date_str) if end_date_str else None
         )
 
         query = {}
-        if start_date:
-            query["startTime"] = {"$gte": start_date}
-        if end_date:
-            if "startTime" in query:
-                query["startTime"]["$lte"] = end_date
-            else:
-                query["startTime"] = {"$lte": end_date}
+        if start_date and end_date:
+            query["startTime"] = {"$gte": start_date, "$lte": end_date}
         if imei:
             query["imei"] = imei
 
-        print(f"Export GeoJSON Query: {query}")
+        # Determine the collection to query
+        if collection_name == "trips":
+            collection = trips_collection
+        elif collection_name == "matched_trips":
+            collection = matched_trips_collection
+        else:
+            return jsonify({"error": "Invalid collection name"}), 400
 
-        trips_cursor = trips_collection.find(query)
-        trips = list(trips_cursor)
+        trips = list(collection.find(query))
 
         if not trips:
             return jsonify({"error": "No trips found for the specified filters."}), 404
 
-        geojson = {"type": "FeatureCollection", "features": []}
+        geojson_data = {"type": "FeatureCollection", "features": []}
 
         for trip in trips:
-            gps_data = trip["gps"]
+            gps_data = trip.get("gps") # Handle potentially missing 'gps' data
             if isinstance(gps_data, str):
-                gps_data = json.loads(gps_data)
+                try:
+                    gps_data = geojson.loads(gps_data)
+                except json.JSONDecodeError:
+                    logger.error(f"Invalid GPS data for trip {trip.get('transactionId', 'Unknown')}")
+                    continue # Skip this trip if GPS data is invalid
+
+            # Handle cases where GPS data is still missing or invalid after parsing
+            if not gps_data or not isinstance(gps_data, dict) or "type" not in gps_data or "coordinates" not in gps_data:
+                logger.warning(f"Skipping trip {trip.get('transactionId', 'Unknown')} due to missing or invalid GPS data after parsing.")
+                continue
 
             feature = {
                 "type": "Feature",
                 "geometry": gps_data,
                 "properties": {
-                    "transactionId": trip["transactionId"],
-                    "startTime": trip["startTime"].isoformat(),
-                    "endTime": trip["endTime"].isoformat(),
-                    "distance": trip["distance"],
-                    "imei": trip["imei"],
+                    "transactionId": trip.get("transactionId"),
+                    "startTime": trip["startTime"].isoformat() if "startTime" in trip and trip["startTime"] else None, # Handle missing startTime
+                    "endTime": trip["endTime"].isoformat() if "endTime" in trip and trip["endTime"] else None, # Handle missing endTime
+                    "distance": trip.get("distance"),
+                    "imei": trip.get("imei"),
+                    "source": trip.get("source", "unknown") # Include source
                 },
             }
-            geojson["features"].append(feature)
+            geojson_data["features"].append(feature)
 
-        return jsonify(geojson)
+        return jsonify(geojson_data)
+
     except Exception as e:
-        print(f"Error exporting GeoJSON: {str(e)}")
+        logger.error(f"Error exporting GeoJSON: {str(e)}")
         return jsonify({"error": "An error occurred while exporting GeoJSON."}), 500
 
 
 @app.route("/export/gpx")
-def export_gpx():
+def export_gpx(collection_name="trips"):
+    """Exports trips data in GPX format."""
     try:
         start_date_str = request.args.get("start_date")
         end_date_str = request.args.get("end_date")
         imei = request.args.get("imei")
 
         start_date = (
-            datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-            if start_date_str
-            else None
+            parser.isoparse(start_date_str) if start_date_str else None
         )
         end_date = (
-            datetime.strptime(end_date_str, "%Y-%m-%d").replace(
-                hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
-            )
-            if end_date_str
-            else None
+            parser.isoparse(end_date_str) if end_date_str else None
         )
 
         query = {}
-        if start_date:
-            query["startTime"] = {"$gte": start_date}
-        if end_date:
-            if "startTime" in query:
-                query["startTime"]["$lte"] = end_date
-            else:
-                query["startTime"] = {"$lte": end_date}
+        if start_date and end_date:
+            query["startTime"] = {"$gte": start_date, "$lte": end_date}
         if imei:
             query["imei"] = imei
 
-        print(f"Export GPX Query: {query}")
+        # Determine the collection to query
+        if collection_name == "trips":
+            collection = trips_collection
+        elif collection_name == "matched_trips":
+            collection = matched_trips_collection
+        else:
+            return jsonify({"error": "Invalid collection name"}), 400
 
-        trips_cursor = trips_collection.find(query)
-        trips = list(trips_cursor)
+        trips = list(collection.find(query))
 
         if not trips:
             return jsonify({"error": "No trips found for the specified filters."}), 404
 
-        gpx = gpxpy.gpx.GPX()
+        gpx = GPX()
 
         for trip in trips:
-            gpx_track = gpxpy.gpx.GPXTrack()
-            gpx.tracks.append(gpx_track)
-
-            gpx_segment = gpxpy.gpx.GPXTrackSegment()
-            gpx_track.segments.append(gpx_segment)
-
-            gps_data = trip["gps"]
+            gps_data = trip.get("gps")
             if isinstance(gps_data, str):
                 try:
-                    gps_data = json.loads(gps_data)
-                except json.JSONDecodeError as json_error:
-                    print(
-                        f"Error decoding GPS JSON for trip {trip.get('transactionId', 'Unknown')}: {json_error}"
-                    )
+                    gps_data = geojson.loads(gps_data)
+                except json.JSONDecodeError:
+                    logger.error(f"Invalid GPS data for trip {trip.get('transactionId', 'Unknown')}")
                     continue
 
+            # Handle missing or invalid GPS data after parsing
+            if not gps_data or not isinstance(gps_data, dict) or "type" not in gps_data or "coordinates" not in gps_data:
+                logger.warning(f"Skipping trip {trip.get('transactionId', 'Unknown')} due to missing or invalid GPS data.")
+                continue
+
+            gpx_track = GPXTrack()
+            gpx.tracks.append(gpx_track)
+
+            gpx_segment = GPXTrackSegment()
+            gpx_track.segments.append(gpx_segment)
+
             if gps_data.get("type") == "LineString":
-                for coord in gps_data.get("coordinates", []):
-                    if isinstance(coord, list) and len(coord) >= 2:
-                        lon, lat = coord[0], coord[1]
-                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+                for lon, lat in gps_data.get("coordinates", []):
+                    gpx_segment.points.append(GPXTrackPoint(lat, lon)) # Simplified point creation
             elif gps_data.get("type") == "Point":
-                coord = gps_data.get("coordinates", [])
-                if isinstance(coord, list) and len(coord) >= 2:
-                    lon, lat = coord[0], coord[1]
-                    gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+                lon, lat = gps_data.get("coordinates", [])
+                gpx_segment.points.append(GPXTrackPoint(latitude=lat, longitude=lon))
             else:
-                print(
-                    f"Unsupported GPS type '{gps_data.get('type')}' for trip {trip.get('transactionId', 'Unknown')}. Skipping."
-                )
+                logger.warning(f"Unsupported GPS type '{gps_data.get('type')}' for trip {trip.get('transactionId', 'Unknown')}. Skipping.")
                 continue
 
             gpx_track.name = trip.get("transactionId", "Unnamed Trip")
@@ -1200,12 +1223,9 @@ def export_gpx():
         )
 
     except Exception as e:
-        print(f"Error exporting GPX: {e}")
-        print(traceback.format_exc())
-        return (
-            jsonify({"error": f"An error occurred while exporting GPX: {str(e)}"}),
-            500,
-        )
+        logger.error(f"Error exporting GPX: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"error": f"An error occurred while exporting GPX: {str(e)}"}), 500
 
 
 async def start_background_tasks():
@@ -1252,6 +1272,7 @@ def validate_location_osm(location, location_type):
 
 
 def generate_geojson_osm(location, streets_only=False):
+    """Generates GeoJSON data for a given location using the OpenStreetMap Overpass API."""
     try:
         if not isinstance(location, dict):
             return None, "Invalid location format"
@@ -1436,59 +1457,51 @@ def is_valid_coordinate(coord):
 
 
 async def process_and_map_match_trip(trip):
+    """Processes and map-matches a single trip."""
     try:
-        # Validate trip data before processing
         is_valid, error_message = validate_trip_data(trip)
         if not is_valid:
             logger.error(f"Invalid trip data for map matching: {error_message}")
-            return None
+            return
 
         existing_matched_trip = matched_trips_collection.find_one(
             {"transactionId": trip["transactionId"]}
         )
         if existing_matched_trip:
-            print(f"Trip {trip['transactionId']} already map-matched. Skipping.")
+            logger.info(f"Trip {trip['transactionId']} already map-matched. Skipping.")
             return
 
-        if trip["imei"] == "HISTORICAL":
-            coords = geojson_loads(trip["gps"])["coordinates"]
-            total_distance = 0
-            for i in range(len(coords) - 1):
-                total_distance += haversine_distance(coords[i], coords[i + 1])
-            trip["distance"] = total_distance
+        if "gps" not in trip or not isinstance(trip["gps"], (str, dict)):
+            logger.error(f"Trip {trip.get('transactionId', 'Unknown')} missing or invalid gps field")
+            return
 
-        gps_data = geojson_loads(trip["gps"])
-        coordinates = gps_data["coordinates"]
+        gps_data = geojson.loads(trip["gps"]) if isinstance(trip["gps"], str) else trip["gps"]
+        coordinates = gps_data.get("coordinates", [])
 
         if not coordinates:
-            print(f"Error: Trip {trip['transactionId']} has no coordinates. Skipping.")
+            logger.error(f"Trip {trip['transactionId']} has no coordinates. Skipping.")
             return
 
         if not all(is_valid_coordinate(coord) for coord in coordinates):
-            print(
-                f"Error: Trip {trip['transactionId']} has invalid coordinates. Skipping."
-            )
+            logger.error(f"Trip {trip['transactionId']} has invalid coordinates. Skipping.")
             return
 
         map_match_result = await map_match_coordinates(coordinates)
 
         if map_match_result["code"] == "Ok":
             matched_trip = trip.copy()
-            matched_trip["matchedGps"] = geojson_dumps(
-                map_match_result["matchings"][0]["geometry"]
-            )
-            matched_trips_collection.insert_one(matched_trip)
-            print(f"Trip {trip['transactionId']} map-matched and stored.")
+            matched_trip["matchedGps"] = geojson.dumps(map_match_result["matchings"][0]["geometry"])
+
+            try:
+                matched_trips_collection.insert_one(matched_trip)
+                logger.info(f"Trip {trip['transactionId']} map-matched and stored.")
+            except DuplicateKeyError:
+                logger.warning(f"Duplicate matched trip encountered for transaction ID: {trip['transactionId']}")
         else:
-            print(
-                f"Error map-matching trip {trip['transactionId']}: {map_match_result['message']}"
-            )
+            logger.error(f"Error map-matching trip {trip['transactionId']}: {map_match_result['message']}")
 
     except Exception as e:
-        logger.error(
-            f"Error processing and map-matching trip {trip.get('transactionId', 'Unknown')}: {str(e)}"
-        )
-        return None
+        logger.error(f"Error processing and map-matching trip {trip.get('transactionId', 'Unknown')}: {str(e)}")
 
 
 def haversine_distance(coord1, coord2):
@@ -1501,7 +1514,7 @@ def haversine_distance(coord1, coord2):
 
     a = (
         math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
     )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
@@ -1611,9 +1624,9 @@ def get_matched_trips():
     matched_trips = list(matched_trips_collection.find(query))
 
     return jsonify(
-        geojson_module.FeatureCollection(
+        geojson.FeatureCollection(
             [
-                geojson_module.Feature(
+                geojson.Feature(
                     geometry=geojson_loads(trip["matchedGps"]),
                     properties={
                         "transactionId": trip["transactionId"],
@@ -1822,57 +1835,6 @@ def create_gpx(trips):
     return gpx.to_xml()
 
 
-@app.route("/api/streets", methods=["POST"])
-def get_streets():
-    location = request.json.get("location")
-
-    if not location or not isinstance(location, dict) or "type" not in location:
-        return jsonify({"status": "error", "message": "Invalid location data."}), 400
-
-    try:
-        streets_data, error_message = generate_geojson_osm(location, streets_only=True)
-
-        if streets_data is None:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "message": f"Error fetching street data: {error_message}",
-                    }
-                ),
-                500,
-            )
-
-        trips = list(trips_collection.find())
-        trip_geometries = []
-        for trip in trips:
-            gps_data = trip["gps"]
-            if isinstance(gps_data, str):
-                gps_data = json.loads(gps_data)
-            geom = shape(gps_data)
-            if isinstance(geom, LineString):
-                trip_geometries.append(geom)
-            elif isinstance(geom, MultiLineString):
-                trip_geometries.extend(geom.geoms)
-
-        streets_gdf = gpd.GeoDataFrame.from_features(streets_data["features"])
-        streets_gdf.set_crs(epsg=4326, inplace=True)
-
-        if trip_geometries:
-            trips_merged = linemerge(trip_geometries)
-            streets_gdf["driven"] = streets_gdf.geometry.intersects(trips_merged)
-        else:
-            streets_gdf["driven"] = False
-
-        streets_json = json.loads(streets_gdf.to_json())
-        return jsonify(streets_json)
-    except Exception as e:
-        return (
-            jsonify({"status": "error", "message": f"An error occurred: {str(e)}"}),
-            500,
-        )
-
-
 @app.route("/load_historical_data", methods=["POST"])
 async def load_historical_data_endpoint():
     start_date = request.json.get("start_date")
@@ -1883,10 +1845,6 @@ async def load_historical_data_endpoint():
             "message": f"Historical data loaded successfully. {inserted_count} new trips inserted."
         }
     )
-
-
-def process_street_chunk(streets_chunk, all_trips):
-    return streets_chunk.intersects(all_trips)
 
 
 def split_line_into_segments(line, segment_length_meters=10):
@@ -1951,65 +1909,77 @@ def split_line_into_segments(line, segment_length_meters=10):
         return [line]  # Return original line if splitting fails
 
 
-def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
+def calculate_street_coverage(location, streets_geojson, matched_trips):
+    """Calculates street coverage based on matched trips and street data."""
     try:
-        logger.info("Converting streets to GeoDataFrame...")
-        streets_gdf = gpd.GeoDataFrame.from_features(streets_geojson["features"])
+        logger.info("Calculating street coverage...")
+
+        # Create GeoDataFrames
+        streets_gdf = GeoDataFrame.from_features(streets_geojson["features"])
         streets_gdf.set_crs(epsg=4326, inplace=True)
 
-        # Calculate the center point to determine UTM zone
-        center_lat = streets_gdf.geometry.centroid.y.mean()
-        center_lon = streets_gdf.geometry.centroid.x.mean()
-        utm_zone = int((center_lon + 180) / 6) + 1
-        utm_epsg = 32600 + utm_zone if center_lat >= 0 else 32700 + utm_zone
+        # Project to UTM for accurate length calculations
+        utm_crs = get_utm_crs(streets_gdf)
+        streets_utm = streets_gdf.to_crs(utm_crs)
 
         logger.info("Splitting streets into segments...")
-        segmented_streets = []
-        for idx, row in streets_gdf.iterrows():
-            segments = split_line_into_segments(row.geometry)
-            for segment in segments:
-                segmented_streets.append(
-                    {"geometry": segment, "properties": row.drop("geometry").to_dict()}
-                )
-
-        streets_gdf = gpd.GeoDataFrame.from_features(segmented_streets)
-        streets_gdf.set_crs(epsg=4326, inplace=True)
+        streets_utm["segments"] = streets_utm.geometry.apply(
+            split_line_into_segments, segment_length_meters=10
+        )
+        streets_utm = streets_utm.explode("segments")
+        streets_utm = streets_utm.set_geometry("segments")
 
         logger.info("Processing matched trips...")
-        all_lines = []
+        all_trip_lines = []
         for trip in matched_trips:
             try:
-                trip_geom = shape(json.loads(trip["matchedGps"]))
+                trip_geom = shape(json.loads(trip.get("matchedGps", trip.get("gps"))))  # Fallback to 'gps' if 'matchedGps' is missing
+                if trip_geom.is_empty:  # Skip empty geometries
+                    continue
                 if isinstance(trip_geom, LineString):
-                    all_lines.append(trip_geom)
+                    all_trip_lines.append(trip_geom)
                 elif isinstance(trip_geom, MultiLineString):
-                    all_lines.extend(list(trip_geom.geoms))
+                    all_trip_lines.extend(trip_geom.geoms)
             except Exception as e:
-                logger.error(f"Error processing trip: {e}")
+                logger.error(f"Error processing trip geometry: {e}")
                 continue
 
-        logger.info("Merging trip lines...")
-        all_trips = linemerge(all_lines)
+        if not all_trip_lines:
+            logger.warning("No valid trip lines found.")
+            return {"coverage_percentage": 0, "streets_data": geojson.FeatureCollection([])}
 
-        logger.info("Creating trips GeoDataFrame...")
-        trips_gdf = gpd.GeoDataFrame(geometry=[all_trips], crs=4326)
+        logger.info("Merging trip lines...")
+        merged_trip_lines = linemerge(all_trip_lines)
+
+        logger.info("Projecting trip lines to UTM...")
+        trips_gdf = GeoDataFrame(geometry=merged_trip_lines, crs="EPSG:4326")
+        trips_utm = trips_gdf.to_crs(utm_crs)
 
         logger.info("Performing spatial join...")
-        joined = gpd.sjoin(streets_gdf, trips_gdf, predicate="intersects", how="left")
-        streets_gdf["driven"] = ~joined.index_right.isna()
 
-        # Calculate statistics using the correct UTM projection
-        streets_utm = streets_gdf.to_crs(epsg=utm_epsg)
+        # Buffer the trip lines slightly to ensure intersections are caught
+        trips_utm["geometry"] = trips_utm.geometry.buffer(0.1)
+
+        joined_gdf = streets_utm.sjoin(trips_utm, how="left", predicate="intersects")
+        streets_utm["driven"] = ~joined_gdf.index_right.isna()
+
+        # Calculate statistics
         total_length = streets_utm.geometry.length.sum()
         driven_length = streets_utm[streets_utm["driven"]].geometry.length.sum()
-        coverage_percentage = (driven_length / total_length) * 100
+
+        if total_length == 0:  # Handle potential division by zero
+            coverage_percentage = 0
+        else:
+            coverage_percentage = (driven_length / total_length) * 100
 
         # Prepare output GeoJSON
+        # Project back to WGS84 for GeoJSON output
+        streets_gdf = streets_utm.to_crs(epsg=4326)
+
         streets_gdf = streets_gdf.dissolve(by=["name", "driven"], as_index=False)
 
         geojson_data = {"type": "FeatureCollection", "features": []}
-
-        for idx, row in streets_gdf.iterrows():
+        for _, row in streets_gdf.iterrows():
             feature = {
                 "type": "Feature",
                 "geometry": mapping(row.geometry),
@@ -2028,10 +1998,18 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
         }
 
     except Exception as e:
-        logger.error(
-            f"Error in calculate_street_coverage: {str(e)}\n{traceback.format_exc()}"
-        )
-        raise
+        logger.error(f"Error in calculate_street_coverage: {str(e)}")
+        logger.debug(traceback.format_exc())
+        raise  # Re-raise the exception after logging
+
+def get_utm_crs(gdf):
+    """Gets the appropriate UTM CRS for the given GeoDataFrame."""
+    centroid = gdf.unary_union.centroid
+    longitude = centroid.x
+    latitude = centroid.y
+    utm_zone = int((longitude + 180) / 6) + 1
+    utm_crs = CRS.from_epsg(32600 + utm_zone if latitude >= 0 else 32700 + utm_zone)
+    return utm_crs
 
 
 @app.route("/api/coverage", methods=["POST"])
@@ -2129,58 +2107,25 @@ async def upload_gpx():
         uploaded_trips = []
 
         for file in files:
-            if file.filename.endswith(".gpx"):
-                # Process GPX file
-                gpx_data = file.read()
-                gpx = gpxpy.parse(gpx_data)
-
-                for track in gpx.tracks:
-                    for segment in track.segments:
-                        coordinates = [
-                            [point.longitude, point.latitude]
-                            for point in segment.points
-                        ]
-                        if len(coordinates) < 2:
-                            continue
-
-                        points_with_time = [
-                            point for point in segment.points if point.time
-                        ]
-                        if points_with_time:
-                            start_time = min(p.time for p in points_with_time)
-                            end_time = max(p.time for p in points_with_time)
-                        else:
-                            start_time = datetime.now(timezone.utc)
-                            end_time = start_time
-
-                        gps_data = {"type": "LineString", "coordinates": coordinates}
-
-                        distance_meters = calculate_gpx_distance(coordinates)
-                        distance_miles = meters_to_miles(distance_meters)
-
-                        trip = {
-                            "transactionId": f"GPX-{start_time.strftime('%Y%m%d%H%M%S')}-{file.filename}",
-                            "startTime": start_time,
-                            "endTime": end_time,
-                            "gps": json.dumps(gps_data),
-                            "distance": round(distance_miles, 2),
-                            "source": "upload",
-                            "filename": file.filename,
-                            "imei": "HISTORICAL",
-                        }
-
-                        await process_and_store_trip(trip, uploaded_trips)
-
-            elif file.filename.endswith(".geojson"):
-                # Process GeoJSON file
-                geojson_data = json.load(file)
-                trips = process_geojson_trip(geojson_data)
+            try:
+                if file.filename.endswith(".gpx"):
+                    gpx_data = file.read()
+                    gpx = gpxpy.parse(gpx_data)
+                    trips = process_gpx(gpx)  # Use the updated process_gpx function
+                elif file.filename.endswith(".geojson"):
+                    geojson_data = json.load(file)
+                    trips = process_geojson_trip(geojson_data)
+                else:
+                    continue
 
                 if trips:
                     for trip in trips:
-                        trip["source"] = "upload"
                         trip["filename"] = file.filename
                         await process_and_store_trip(trip, uploaded_trips)
+
+            except Exception as file_error:
+                logger.error(f"Error processing file {file.filename}: {file_error}")
+                return jsonify({"status": "error", "message": str(file_error)}), 500
 
         return jsonify(
             {
@@ -2195,63 +2140,46 @@ async def upload_gpx():
 
 
 async def process_and_store_trip(trip, uploaded_trips):
+    """Processes and stores a single uploaded trip."""
+
     try:
-        # Parse GPS data if it's a string
-        gps_data = (
-            json.loads(trip["gps"]) if isinstance(trip["gps"], str) else trip["gps"]
-        )
-        coordinates = gps_data["coordinates"]
-        start_point = coordinates[0]
-        end_point = coordinates[-1]
+        # Validate trip data
+        is_valid, error_message = validate_trip_data(trip)
+        if not is_valid:
+            logger.error(f"Invalid trip data for upload: {error_message}")
+            return
 
-        # Only geocode if locations don't exist
-        if not trip.get("startLocation"):
-            trip["startLocation"] = await reverse_geocode_nominatim(
-                start_point[1], start_point[0]
-            )
+        # Process trip data (geocoding, etc.)
+        processed_trip = await process_trip_data(trip)
+        if not processed_trip:
+            logger.error(f"Failed to process trip {trip.get('transactionId', 'Unknown')}")
+            return
 
-        if not trip.get("destination"):
-            trip["destination"] = await reverse_geocode_nominatim(
-                end_point[1], end_point[0]
-            )
+        # Ensure GPS data is stored as a string
+        if isinstance(processed_trip["gps"], dict):
+            processed_trip["gps"] = json.dumps(processed_trip["gps"])
 
-        # Store in database
-        try:
-            # Ensure GPS data is stored as a string
-            if isinstance(trip["gps"], dict):
-                trip["gps"] = json.dumps(trip["gps"])
-
-            # Check if trip already exists
-            existing_trip = uploaded_trips_collection.find_one(
-                {"transactionId": trip["transactionId"]}
-            )
-            if existing_trip:
-                # Only update if locations are missing
-                update_fields = {}
-                if not existing_trip.get("startLocation"):
-                    update_fields["startLocation"] = trip["startLocation"]
-                if not existing_trip.get("destination"):
-                    update_fields["destination"] = trip["destination"]
-
-                if update_fields:
-                    uploaded_trips_collection.update_one(
-                        {"transactionId": trip["transactionId"]},
-                        {"$set": update_fields},
-                    )
+        # Convert datetime objects to timezone-aware UTC
+        for field in ["startTime", "endTime"]:
+            if isinstance(processed_trip[field], str):
+                processed_trip[field] = parser.isoparse(processed_trip[field])
+            if processed_trip[field].tzinfo is None:
+                processed_trip[field] = processed_trip[field].replace(tzinfo=timezone.utc)
             else:
-                # Insert new trip
-                uploaded_trips_collection.insert_one(trip)
-                uploaded_trips.append(trip)
-                logger.info(f"Successfully stored trip: {trip['transactionId']}")
+                processed_trip[field] = processed_trip[field].astimezone(timezone.utc)
 
+        try:
+            # Insert the processed trip into the database
+            uploaded_trips_collection.insert_one(processed_trip)
+            uploaded_trips.append(processed_trip)
+            logger.info(f"Successfully stored uploaded trip: {trip['transactionId']}")
         except DuplicateKeyError:
             logger.warning(
-                f"Duplicate trip encountered: {trip['transactionId']}. Skipping."
+                f"Duplicate uploaded trip encountered: {trip['transactionId']}. Skipping."
             )
+
     except Exception as e:
-        logger.error(f"Error processing trip: {str(e)}")
-        logger.exception("Full traceback:")
-        raise
+        logger.error(f"Error processing/storing uploaded trip: {str(e)}")
 
 
 @app.route("/api/uploaded_trips")
@@ -2271,11 +2199,15 @@ def get_uploaded_trips():
 @app.route("/api/uploaded_trips/<trip_id>", methods=["DELETE"])
 def delete_uploaded_trip(trip_id):
     try:
+        # Delete from uploaded_trips_collection
         result = uploaded_trips_collection.delete_one({"_id": ObjectId(trip_id)})
+
         if result.deleted_count == 1:
-            return jsonify(
-                {"status": "success", "message": "Trip deleted successfully."}
-            )
+            # If successful, also delete corresponding matched trips
+            trip = uploaded_trips_collection.find_one({"_id": ObjectId(trip_id)})
+            if trip:
+                matched_trips_collection.delete_many({"transactionId": trip["transactionId"]})  # Use transactionId
+            return jsonify({"status": "success", "message": "Trip deleted successfully."})
         return jsonify({"status": "error", "message": "Trip not found."}), 404
     except Exception as e:
         logger.error(f"Error deleting uploaded trip: {str(e)}")
@@ -2284,19 +2216,25 @@ def delete_uploaded_trip(trip_id):
 
 @app.route("/api/uploaded_trips/bulk_delete", methods=["DELETE"])
 def bulk_delete_uploaded_trips():
+    """Deletes multiple uploaded trips and their corresponding matched trips."""
     try:
         data = request.json
         trip_ids = data.get("trip_ids", [])
-        if not trip_ids:
-            return jsonify({"status": "error", "message": "No trip IDs provided."}), 400
 
-        # Convert trip_ids to ObjectId, handle invalid IDs
+        if not trip_ids:
+            return (
+                jsonify({"status": "error", "message": "No trip IDs provided."}),
+                400,
+            )
+
+        # Convert trip_ids to ObjectIds, handling invalid IDs
         valid_trip_ids = []
         for trip_id in trip_ids:
             try:
                 valid_trip_ids.append(ObjectId(trip_id))
-            except:
-                continue  # skip invalid IDs
+            except Exception as e:  # Catch specific exception
+                logger.warning(f"Invalid trip ID provided: {trip_id}. Error: {e}")
+                continue
 
         if not valid_trip_ids:
             return (
@@ -2304,45 +2242,29 @@ def bulk_delete_uploaded_trips():
                 400,
             )
 
-        # Find trips to be deleted
-        trips_to_delete = uploaded_trips_collection.find(
-            {"_id": {"$in": valid_trip_ids}}
-        )
-        transaction_ids = [trip["transactionId"] for trip in trips_to_delete]
+        # Get transaction IDs of trips to be deleted
+        trips_to_delete = uploaded_trips_collection.find({"_id": {"$in": valid_trip_ids}})
+        transaction_ids = [trip.get("transactionId") for trip in trips_to_delete]
 
         # Delete from uploaded_trips_collection
         delete_result = uploaded_trips_collection.delete_many(
             {"_id": {"$in": valid_trip_ids}}
         )
 
-        # Delete from matched_trips_collection
-        if transaction_ids:
-            matched_delete_result = matched_trips_collection.delete_many(
-                {"transactionId": {"$in": transaction_ids}}
-            )
-        else:
-            matched_delete_result = None
+        # Delete corresponding matched trips using transactionId
+        matched_delete_result = matched_trips_collection.delete_many({"transactionId": {"$in": transaction_ids}})
 
         return jsonify(
             {
                 "status": "success",
                 "deleted_uploaded_trips": delete_result.deleted_count,
-                "deleted_matched_trips": matched_delete_result.deleted_count
-                if matched_delete_result
-                else 0,
+                "deleted_matched_trips": matched_delete_result.deleted_count,
             }
         )
+
     except Exception as e:
-        logger.error(f"Error in bulk_delete_uploaded_trips: {e}")
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": "An error occurred while deleting trips.",
-                }
-            ),
-            500,
-        )
+        logger.error(f"Error during bulk delete: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route("/api/places", methods=["GET", "POST"])
@@ -2561,13 +2483,9 @@ def get_trip_analytics():
 
 @app.route("/webhook/bouncie", methods=["POST"])
 def bouncie_webhook():
-    webhook_key = os.getenv("WEBHOOK_KEY")
     auth_header = request.headers.get("Authorization")
 
-    # Log incoming webhook request
-    app.logger.info(f"Received webhook request: {request.json}")
-
-    if not auth_header or auth_header != webhook_key:
+    if not auth_header or auth_header != WEBHOOK_KEY:
         app.logger.error(f"Invalid webhook key: {auth_header}")
         return jsonify({"error": "Invalid webhook key"}), 401
 
@@ -2575,63 +2493,77 @@ def bouncie_webhook():
         webhook_data = request.json
         event_type = webhook_data.get("eventType")
 
-        if event_type == "tripStart":
-            emit_data = {
-                "transactionId": webhook_data.get("transactionId"),
-                "imei": webhook_data.get("imei"),
-                "start": webhook_data.get("start"),  # Ensure 'start' contains the full object from Bouncie
-            }
-        elif event_type == "tripData":
-            emit_data = {
-                "transactionId": webhook_data.get("transactionId"),
-                "imei": webhook_data.get("imei"),
-                "data": webhook_data.get("data", []),  # Ensure 'data' is an array
-            }
-        elif event_type == "tripMetrics":
-            emit_data = {
-                "transactionId": webhook_data.get("transactionId"),
-                "imei": webhook_data.get("imei"),
-                "metrics": webhook_data.get("metrics"),
-            }
-        elif event_type == "tripEnd":
-            emit_data = {
-                "transactionId": webhook_data.get("transactionId"),
-                "imei": webhook_data.get("imei"),
-                "end": webhook_data.get("end"),  # Ensure 'end' contains the full object from Bouncie
-            }
-        else:
-            emit_data = webhook_data
-
-        socketio.emit(f"trip_{event_type}", emit_data)
+        # Emit webhook data through SocketIO
+        socketio.emit(f"trip_{event_type}", webhook_data)
 
         if event_type == "tripEnd":
-            store_trip_data(webhook_data)
+            asyncio.run(store_trip_data(webhook_data))
 
         return jsonify({"status": "success"}), 200
 
     except Exception as e:
         app.logger.error(f"Error processing webhook: {str(e)}")
-        return jsonify({"status": "success"}), 200  # Still return 200 to prevent webhook deactivation
+        return jsonify({"error": str(e)}), 500  # Return 500 on error
 
 
-def store_trip_data(trip_data):
-    """Store completed trip data in MongoDB"""
+async def store_trip_data(trip_data):
+    """Stores completed trip data received from the Bouncie webhook in MongoDB."""
+
     try:
-        formatted_trip = {
+        # Convert timestamps to timezone-aware datetime objects (UTC)
+        start_time = parser.isoparse(trip_data["start"]["timestamp"]).astimezone(
+            timezone.utc
+        )
+        end_time = parser.isoparse(trip_data["end"]["timestamp"]).astimezone(
+            timezone.utc
+        )
+
+        trip = {
             "transactionId": trip_data.get("transactionId"),
             "imei": trip_data.get("imei"),
-            "startTime": datetime.now(timezone.utc),  # Use current time if not provided
-            "endTime": datetime.now(timezone.utc),  # Use current time if not provided
+            "vin": trip_data.get("vin"),  # Added vin
+            "startTime": start_time,
+            "endTime": end_time,
             "distance": trip_data.get("distance", 0),
-            "data": trip_data.get("data", {}),
+            "startOdometer": trip_data["start"].get("odometer"),  # Added startOdometer
+            "endOdometer": trip_data["end"].get("odometer"),  # Added endOdometer
+            "fuelConsumed": trip_data["end"].get("fuelConsumed"),  # Added fuelConsumed
+            "gps": geojson.dumps(trip_data.get("gps")),  # Store GPS data as GeoJSON if available
+            "source": "bouncie",
+            "hardBrakingCount": trip_data.get("hardBrakingCount", 0), # Added hardBrakingCount
+            "hardAccelerationCount": trip_data.get("hardAccelerationCount", 0), # Added hardAccelerationCount
+            "averageSpeed": trip_data.get("averageSpeed", 0), # Added averageSpeed
+            "maxSpeed": trip_data.get("maxSpeed", 0), # Added maxSpeed
+            "totalIdleDuration": trip_data.get("totalIdleDuration", 0), # Added totalIdleDuration
+            "timeZone": trip_data.get("timeZone", "America/Chicago") # Added timeZone
+
         }
 
-        # Insert into your existing trips collection
-        db.trips.insert_one(formatted_trip)
+        if "metrics" in trip_data:
+            trip.update(
+                {
+                    "tripTime": trip_data["metrics"].get("tripTime"),
+                    "tripDistance": trip_data["metrics"].get("tripDistance"),
+                    "totalIdlingTime": trip_data["metrics"].get("totalIdlingTime"),
+                    "maxSpeed": trip_data["metrics"].get("maxSpeed"),
+                    "averageDriveSpeed": trip_data["metrics"].get("averageDriveSpeed"),
+                    "hardBrakingCounts": trip_data["metrics"].get("hardBrakingCounts"),
+                    "hardAccelerationCounts": trip_data["metrics"].get(
+                        "hardAccelerationCounts"
+                    ),
+                }
+            )
+        # Process and validate the trip data
+        processed_trip = await process_trip_data(trip) # Process the trip data
+        if not processed_trip:
+            logger.error(f"Failed to process trip data from webhook: {trip_data}")
+            return
+
+        trips_collection.insert_one(processed_trip)
+        logger.info(f"Stored trip from webhook: {trip['transactionId']}")
 
     except Exception as e:
-        app.logger.error(f"Error formatting/storing trip data: {str(e)}")
-        # Don't raise the exception - let the webhook still return 200
+        logger.error(f"Error storing trip data from webhook: {str(e)}")
 
 
 @socketio.on("connect")
@@ -2736,17 +2668,17 @@ async def process_trip_data(trip):
 
 
 async def fetch_and_store_trips_in_range(start_date, end_date):
+    """Fetches trips from Bouncie API within a specified date range and stores them in MongoDB."""
+
     try:
+        # Ensure dates are timezone-aware UTC
+        start_date = start_date.replace(tzinfo=timezone.utc)
+        end_date = end_date.replace(tzinfo=timezone.utc)
+
         logger.info(
             f"Starting fetch_and_store_trips_in_range from {start_date} to {end_date}"
         )
         logger.info(f"Authorized devices: {AUTHORIZED_DEVICES}")
-
-        # Ensure dates are timezone-aware
-        if start_date.tzinfo is None:
-            start_date = start_date.replace(tzinfo=timezone.utc)
-        if end_date.tzinfo is None:
-            end_date = end_date.replace(tzinfo=timezone.utc)
 
         async with aiohttp.ClientSession() as client_session:
             access_token = await get_access_token(client_session)
@@ -2758,6 +2690,8 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
 
             all_trips = []
             total_devices = len(AUTHORIZED_DEVICES)
+
+            # Fetch trips for each authorized device
             for idx, imei in enumerate(AUTHORIZED_DEVICES, 1):
                 logger.info(f"Fetching trips for IMEI: {imei} ({idx}/{total_devices})")
                 device_trips = await fetch_trips_in_intervals(
@@ -2766,7 +2700,7 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                 logger.info(f"Fetched {len(device_trips)} trips for IMEI {imei}")
                 all_trips.extend(device_trips)
 
-                # Emit progress through socketio if available
+                # Emit progress update
                 progress = (idx / total_devices) * 100
                 socketio.emit("fetch_progress", {"progress": progress})
 
@@ -2776,47 +2710,54 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
             skipped_count = 0
             error_count = 0
 
+            # Process and store each fetched trip
             for trip in all_trips:
                 try:
-                    # Check if trip exists and is valid
-                    existing_trip = get_trip_from_db(trip["transactionId"])
+                    # Validate and enrich trip data
+                    is_valid, error_message = validate_trip_data(trip)
+                    if not is_valid:
+                        logger.error(
+                            f"Invalid trip data received from Bouncie: {error_message}"
+                        )
+                        error_count += 1
+                        continue
+
+                    # Check if trip already exists
+                    existing_trip = trips_collection.find_one(
+                        {"transactionId": trip["transactionId"]}
+                    )
                     if existing_trip:
                         logger.info(
-                            f"Trip {trip['transactionId']} already exists in the database. Skipping."
+                            f"Trip {trip['transactionId']} already exists. Skipping."
                         )
                         skipped_count += 1
                         continue
 
-                    # Process new trip data
                     processed_trip = await process_trip_data(trip)
                     if not processed_trip:
-                        logger.warning(
-                            f"Failed to process trip {trip['transactionId']}. Skipping."
-                        )
+                        logger.error(f"Failed to process trip {trip['transactionId']}")
                         error_count += 1
                         continue
 
-                    # Store the processed trip
-                    if not store_trip(processed_trip):
-                        logger.error(f"Failed to store trip {trip['transactionId']}")
-                        error_count += 1
-                        continue
+                    # Add source information
+                    processed_trip["source"] = "bouncie"
 
+                    # Store the trip
+                    trips_collection.insert_one(processed_trip)
                     processed_count += 1
+                    logger.info(f"Stored trip: {trip['transactionId']}")
 
                 except Exception as e:
                     logger.error(
-                        f"Error processing trip {trip.get('transactionId', 'Unknown')}: {str(e)}"
+                        f"Error processing/storing trip {trip.get('transactionId', 'Unknown')}: {str(e)}"
                     )
                     error_count += 1
-                    continue
 
-            # Log final summary
             logger.info(
                 f"Processing complete: {processed_count} processed, {skipped_count} skipped, {error_count} errors"
             )
 
-            # Log final counts per device
+            # Log trip counts per device
             for imei in AUTHORIZED_DEVICES:
                 count = trips_collection.count_documents({"imei": imei})
                 logger.info(f"Trips in database for IMEI {imei}: {count}")
@@ -2829,7 +2770,6 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
 
     except Exception as e:
         logger.error(f"Error in fetch_and_store_trips_in_range: {str(e)}")
-        logger.exception("Full traceback:")
         return None
 
 
@@ -2936,7 +2876,9 @@ def bulk_delete_trips():
 
 
 
+
 def process_geojson_trip(geojson_data):
+    """Processes GeoJSON trip data, extracting relevant information and handling various formats and edge cases."""
     try:
         features = geojson_data.get("features", [])
         processed_trips = []
@@ -2947,104 +2889,70 @@ def process_geojson_trip(geojson_data):
             properties = feature.get("properties", {})
             geometry = feature.get("geometry", {})
 
-            # Log the entire properties object for debugging
-            logger.debug(f"Raw properties data: {json.dumps(properties, indent=2)}")
-
-            # Get timestamps from start_location
-            start_location = properties.get("start_location", {})
-            if isinstance(start_location, dict):
-                start_time = start_location.get("timestamp")
-                logger.debug(f"Start time from start_location: {start_time}")
-            else:
-                start_time = None
-
-            # Get timestamps from end_location
-            end_location = properties.get("end_location", {})
-            if isinstance(end_location, dict):
-                end_time = end_location.get("timestamp")
-                logger.debug(f"End time from end_location: {end_time}")
-            else:
-                end_time = None
-
-            # If no timestamps in locations, try direct properties
-            if not start_time:
-                start_time = properties.get("start_time")
-                logger.debug(f"Start time from properties: {start_time}")
-            if not end_time:
-                end_time = properties.get("end_time")
-                logger.debug(f"End time from properties: {end_time}")
-
-            # Try to extract timestamp from transaction_id if still no timestamps
-            transaction_id = properties.get("transaction_id", "")
-            if not (start_time and end_time) and "-" in transaction_id:
-                try:
-                    # Extract timestamp from transaction ID
-                    timestamp_str = transaction_id.split("-")[-1]
-                    if timestamp_str.isdigit():
-                        timestamp_ms = int(timestamp_str)
-                        dt = datetime.fromtimestamp(
-                            timestamp_ms / 1000, tz=timezone.utc
-                        )
-                        if not start_time:
-                            start_time = dt.isoformat()
-                        if not end_time:
-                            end_time = (
-                                dt + timedelta(minutes=5)
-                                # Assume 5-minute trip if no end time
-                            ).isoformat()
-                        logger.debug(
-                            f"Generated times from transaction_id: Start={start_time}, End={end_time}"
-                        )
-                except Exception as e:
-                    logger.debug(
-                        f"Failed to extract timestamp from transaction_id: {str(e)}"
-                    )
+            # Attempt to extract timestamps from various possible locations in the properties
+            start_time = properties.get("start_time") or properties.get("start_location", {}).get("timestamp")
+            end_time = properties.get("end_time") or properties.get("end_location", {}).get("timestamp")
+            transaction_id = properties.get("transaction_id") or properties.get("transactionId") or str(ObjectId())
 
             if not start_time or not end_time:
-                logger.warning(
-                    f"Skipping trip due to missing time data: {transaction_id}"
-                )
+                # If timestamps are still missing, try to extract from transaction_id as a last resort
+                if "-" in transaction_id:
+                    try:
+                        timestamp_str = transaction_id.split("-")[-1]
+                        if timestamp_str.isdigit():
+                            timestamp_ms = int(timestamp_str)
+                            dt = datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
+                            start_time = start_time or dt.isoformat()
+                            end_time = end_time or (dt + timedelta(minutes=5)).isoformat()  # Assume 5-minute trip
+                            logger.debug(f"Generated times from transaction_id: Start={start_time}, End={end_time}")
+                    except (ValueError, TypeError, IndexError) as e:
+                        logger.warning(f"Failed to extract timestamp from transaction_id: {e}")
+
+            # If timestamps are still missing after all attempts, skip the trip
+            if not start_time or not end_time:
+                logger.warning(f"Skipping trip due to missing time data: {transaction_id}")
                 continue
 
             try:
-                # Parse the timestamps
+                # Parse timestamps and ensure they are timezone-aware (UTC)
                 parsed_start = parser.isoparse(start_time)
                 parsed_end = parser.isoparse(end_time)
 
-                # Ensure timestamps are timezone-aware
                 if parsed_start.tzinfo is None:
                     parsed_start = parsed_start.replace(tzinfo=timezone.utc)
                 if parsed_end.tzinfo is None:
                     parsed_end = parsed_end.replace(tzinfo=timezone.utc)
 
+                # Extract or calculate distance
+                distance = properties.get("distance")
+                if distance is None:
+                    try:
+                        distance = calculate_distance(geometry["coordinates"])
+                    except (KeyError, TypeError) as e:
+                        logger.warning(f"Failed to calculate distance: {e}. Setting to 0.")
+                        distance = 0
+
                 trip = {
                     "transactionId": transaction_id,
                     "startTime": parsed_start,
                     "endTime": parsed_end,
-                    "gps": json.dumps(
-                        {
-                            "type": geometry["type"],
-                            "coordinates": geometry["coordinates"],
-                        }
-                    ),
-                    "distance": calculate_distance(geometry["coordinates"]),
-                    "imei": "HISTORICAL",
+                    "gps": geojson.dumps(geometry),
+                    "distance": distance,
+                    "imei": properties.get("imei", "UPLOADED_GEOJSON"),
                     "source": "upload",
                     "maxSpeed": properties.get("max_speed"),
                     "hardBrakings": properties.get("hard_brakings", []),
                     "hardAccelerations": properties.get("hard_accelerations", []),
                     "idle": properties.get("idle", []),
-                    "startLocation": start_location,
-                    "endLocation": end_location,
+                    "startLocation": properties.get("start_location"),
+                    "endLocation": properties.get("end_location"),
                 }
 
                 processed_trips.append(trip)
                 logger.info(f"Successfully processed trip: {trip['transactionId']}")
 
             except (ValueError, TypeError) as e:
-                logger.error(
-                    f"Error parsing timestamps for trip {transaction_id}: {str(e)}"
-                )
+                logger.error(f"Error parsing timestamps or calculating distance for trip {transaction_id}: {str(e)}")
                 continue
 
         logger.info(f"Processed {len(processed_trips)} trips from GeoJSON")
@@ -3086,6 +2994,7 @@ def calculate_distance(coordinates):
 
 
 def process_gpx(gpx):
+    """Processes GPX data, extracting trip information."""
     processed_trips = []
 
     for track in gpx.tracks:
@@ -3093,19 +3002,23 @@ def process_gpx(gpx):
             if not segment.points:
                 continue
 
-            coordinates = [[p.longitude, p.latitude] for p in segment.points]
-            times = [p.time for p in segment.points if p.time]
+            coordinates = [[point.longitude, point.latitude] for point in segment.points]
+            times = [point.time for point in segment.points if point.time]
 
             if not times:
                 continue
 
+            start_time = times[0].replace(tzinfo=timezone.utc)
+            end_time = times[-1].replace(tzinfo=timezone.utc)
+
             trip = {
-                "transactionId": str(ObjectId()),
-                "startTime": times[0].replace(tzinfo=timezone.utc),
-                "endTime": times[-1].replace(tzinfo=timezone.utc),
-                "gps": {"type": "LineString", "coordinates": coordinates},
-                "imei": "HISTORICAL",
+                "transactionId": f"GPX-{start_time.strftime('%Y%m%d%H%M%S')}-{gpx.name if gpx.name else 'Unnamed'}",
+                "startTime": start_time,  # Ensure timezone-aware datetime
+                "endTime": end_time,  # Ensure timezone-aware datetime
+                "gps": geojson.dumps({"type": "LineString", "coordinates": coordinates}),
+                "imei": gpx.name if gpx.name else "UPLOADED_GPX",
                 "distance": calculate_distance(coordinates),
+                "source": "upload",  # Add source field
             }
 
             processed_trips.append(trip)
@@ -3121,9 +3034,15 @@ def edit_trips_page():
 @app.route("/api/edit_trips", methods=["GET"])
 def get_edit_trips():
     try:
-        start_date = request.args.get("start_date")
-        end_date = request.args.get("end_date")
-        trip_type = request.args.get("type")  # 'trips' or 'matched_trips'
+        start_date_str = request.args.get("start_date")
+        end_date_str = request.args.get("end_date")
+        trip_type = request.args.get("type")
+
+        if not start_date_str or not end_date_str:
+            return jsonify({"status": "error", "message": "Missing date parameters"}), 400
+
+        start_date = parser.isoparse(start_date_str)
+        end_date = parser.isoparse(end_date_str)
 
         if trip_type == "trips":
             collection = trips_collection
@@ -3136,7 +3055,7 @@ def get_edit_trips():
 
         trips = list(collection.find(query))
         for trip in trips:
-            trip["_id"] = str(trip["_id"])  # Convert ObjectId to string
+            trip["_id"] = str(trip["_id"])
 
         return jsonify({"status": "success", "trips": trips}), 200
 
@@ -3184,22 +3103,6 @@ async def upload_files():
         logger.error(f"Error processing upload: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
-def validate_trip_update(data):
-    """
-    Validate the trip update data.
-    Ensure that each point has valid latitude and longitude.
-    """
-    try:
-        for point in data["points"]:
-            lat = point.get("lat")
-            lon = point.get("lon")
-            if not -90 <= lat <= 90 or not -180 <= lon <= 180:
-                return False, "Invalid latitude or longitude values."
-        return True, ""
-    except Exception as e:
-        logger.error(f"Validation error: {e}")
-        return False, "Invalid data format."
 
 
 @app.route("/api/trips/<trip_id>", methods=["PUT"])
@@ -3298,11 +3201,21 @@ def update_trip(trip_id):
 
 @app.route("/api/trips/<trip_id>", methods=["GET"])
 def get_single_trip(trip_id):
-    """Fetch a single trip by ID."""
+    """Fetch a single trip by ID or transactionId."""
     try:
-        trip = trips_collection.find_one({"_id": ObjectId(trip_id)})
+        trip = None
+        try:
+            _id = ObjectId(trip_id)
+            trip = trips_collection.find_one({"_id": _id}) or uploaded_trips_collection.find_one({"_id": _id}) or historical_trips_collection.find_one({"_id": _id})
+        except (InvalidId, TypeError):
+            pass  # Ignore invalid ObjectId
+
+        if trip is None:  # Search by transactionId if not found by _id
+            trip = trips_collection.find_one({"transactionId": trip_id}) or uploaded_trips_collection.find_one({"transactionId": trip_id}) or historical_trips_collection.find_one({"transactionId": trip_id})
+
         if not trip:
             return jsonify({"status": "error", "message": "Trip not found."}), 404
+
         trip["_id"] = str(trip["_id"])
         return jsonify({"status": "success", "trip": trip}), 200
 
@@ -3314,43 +3227,21 @@ def get_single_trip(trip_id):
 @app.route("/api/debug/trip/<trip_id>", methods=["GET"])
 def debug_trip(trip_id):
     try:
-        # Search in both collections
-        regular_trip = trips_collection.find_one(
-            {
-                "$or": [
-                    {"properties.transactionId": trip_id},
-                    {"properties.transactionId": str(trip_id)},
-                    {"transactionId": trip_id},
-                    {"transactionId": str(trip_id)},
-                ]
-            }
-        )
-
-        matched_trip = matched_trips_collection.find_one(
-            {
-                "$or": [
-                    {"properties.transactionId": trip_id},
-                    {"properties.transactionId": str(trip_id)},
-                    {"transactionId": trip_id},
-                    {"transactionId": str(trip_id)},
-                ]
-            }
-        )
+        regular_trip = trips_collection.find_one({"transactionId": trip_id})
+        matched_trip = matched_trips_collection.find_one({"transactionId": trip_id})
+        uploaded_trip = uploaded_trips_collection.find_one({"transactionId": trip_id})
+        historical_trip = historical_trips_collection.find_one({"transactionId": trip_id})
 
         return jsonify(
             {
                 "regular_trip_found": bool(regular_trip),
                 "matched_trip_found": bool(matched_trip),
-                "regular_trip_id_field": regular_trip.get("properties", {}).get(
-                    "transactionId"
-                )
-                if regular_trip
-                else None,
-                "matched_trip_id_field": matched_trip.get("properties", {}).get(
-                    "transactionId"
-                )
-                if matched_trip
-                else None,
+                "uploaded_trip_found": bool(uploaded_trip),
+                "historical_trip_found": bool(historical_trip),
+                "regular_trip": regular_trip,
+                "matched_trip": matched_trip,
+                "uploaded_trip": uploaded_trip,
+                "historical_trip": historical_trip
             }
         )
 
@@ -3404,6 +3295,4 @@ def get_street_coverage():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8080"))
     threading.Timer(1, periodic_fetch_trips).start()
-    socketio.run(
-        app, host="0.0.0.0", port=port, debug=False, allow_unsafe_werkzeug=True
-    )
+    socketio.run(app, host="0.0.0.0", port=port, debug=False, async_mode=async_mode)

@@ -372,19 +372,36 @@ function updateBulkDeleteButton() {
 }
 
 // Add this function to handle bulk delete
-function bulkDeleteTrips() {
-	const selectedTrips = [];
-	$('.trip-checkbox:checked').each(function() {
-		const rowData = tripsTable.row($(this).closest('tr')).data();
-		selectedTrips.push(rowData.transactionId);
-	});
+async function bulkDeleteTrips() {
+    const selectedTrips = [];
+    $('.trip-checkbox:checked').each(function() {
+        const rowData = tripsTable.row($(this).closest('tr')).data();
+        selectedTrips.push(rowData.transactionId);
+    });
 
-	if (selectedTrips.length === 0) return;
+    if (selectedTrips.length === 0) return;
 
-	if (confirm(`Are you sure you want to delete ${selectedTrips.length} trips?`)) {
-		// Implement the bulk delete API call here
-		console.log('Deleting trips:', selectedTrips);
-	}
+    if (confirm(`Are you sure you want to delete ${selectedTrips.length} trips?`)) {
+        try {
+            const response = await fetch('/api/trips/bulk_delete', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trip_ids: selectedTrips })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to delete trips');
+            }
+
+            const data = await response.json();
+            showNotification(data.message, 'success');
+            fetchTrips(); // Refresh the table after deletion
+        } catch (error) {
+            console.error("Error deleting trips:", error);
+            showNotification(error.message || 'An error occurred while deleting trips.', 'danger');
+        }
+    }
 }
 
 function formatDateTime(data, type, row) {

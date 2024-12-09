@@ -67,6 +67,13 @@
   
     // Loading Manager for better progress tracking
     const loadingManager = new LoadingManager();
+    // Define getLoadingManager
+  function getLoadingManager() {
+    if (!window.loadingManager) {
+        window.loadingManager = new LoadingManager(); // Assuming LoadingManager class is defined
+    }
+    return window.loadingManager;
+  }
   
     function initializeMap() {
       if (mapInitialized || !document.getElementById('map')) return;
@@ -995,7 +1002,21 @@
           }
         }
       }
-  
+
+      function showLoadingOverlay(message = 'Loading...') {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.style.display = 'flex';
+            document.getElementById('loading-text').textContent = message;
+        }
+    }
+    
+    function hideLoadingOverlay() {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.style.display = 'none';
+        }
+    }
     function initializeSocketIO() {
       if (socket) {
         console.warn('Socket already initialized');
