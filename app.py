@@ -48,6 +48,8 @@ from dateutil import parser
 from bson import ObjectId
 from bson.errors import InvalidId
 from pyproj import Transformer, CRS
+from gevent import monkey
+monkey.patch_all()
 
 
 # Configure logging
@@ -2873,7 +2875,6 @@ def bulk_delete_trips():
     except Exception as e:
         logger.error(f"Error in bulk delete trips: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 
 

@@ -27,3 +27,5 @@ fiona
 pyproj
 redis
 gevent-websocket
+python-socketio
+python-engineio
