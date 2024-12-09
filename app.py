@@ -516,21 +516,18 @@ def process_trip(trip):
 
         # Ensure gps field exists and is properly formatted
         if "gps" not in trip:
-            logger.error(
-                f"Trip {trip.get('transactionId', 'Unknown')} missing gps field"
-            )
+            logger.error(f"Trip {trip.get('transactionId', 'Unknown')} missing gps field")
             return None
 
-        # Convert gps to string if it's a dict
+        # Handle GPS data - ensure it's a string for geojson_loads
         if isinstance(trip["gps"], dict):
-            trip["gps"] = json.dumps(trip["gps"])
+            gps_data = trip["gps"]  # Store the dict temporarily
+            trip["gps"] = json.dumps(trip["gps"])  # Convert to string for storage
+        else:
+            gps_data = geojson_loads(trip["gps"])  # Parse if it's already a string
 
-        # Extract points from GPS data
-        gps_data = geojson_loads(trip["gps"])
         if not gps_data.get("coordinates"):
-            logger.error(
-                f"Trip {trip.get('transactionId', 'Unknown')} has invalid GPS coordinates"
-            )
+            logger.error(f"Trip {trip.get('transactionId', 'Unknown')} has invalid GPS coordinates")
             return None
 
         start_point = gps_data["coordinates"][0]
@@ -551,9 +548,7 @@ def process_trip(trip):
         return trip
 
     except Exception as e:
-        logger.error(
-            f"Error processing trip {trip.get('transactionId', 'Unknown')}: {str(e)}"
-        )
+        logger.error(f"Error processing trip {trip.get('transactionId', 'Unknown')}: {str(e)}")
         logger.debug(traceback.format_exc())
         return None
 
@@ -1451,38 +1446,41 @@ async def process_and_map_match_trip(trip):
             return
 
         if trip["imei"] == "HISTORICAL":
-            coords = geojson_loads(trip["gps"])["coordinates"]
+            # Handle historical GPS data
+            gps_data = trip["gps"] if isinstance(trip["gps"], str) else json.dumps(trip["gps"])
+            coords = geojson_loads(gps_data)["coordinates"]
             total_distance = 0
             for i in range(len(coords) - 1):
                 total_distance += haversine_distance(coords[i], coords[i + 1])
             trip["distance"] = total_distance
-
-        gps_data = geojson_loads(trip["gps"])
-        coordinates = gps_data["coordinates"]
+        
+        # Handle GPS data consistently
+        if isinstance(trip["gps"], dict):
+            gps_data = trip["gps"]
+            coordinates = gps_data["coordinates"]
+        else:
+            gps_data = geojson_loads(trip["gps"])
+            coordinates = gps_data["coordinates"]
 
         if not coordinates:
             print(f"Error: Trip {trip['transactionId']} has no coordinates. Skipping.")
             return
 
         if not all(is_valid_coordinate(coord) for coord in coordinates):
-            print(
-                f"Error: Trip {trip['transactionId']} has invalid coordinates. Skipping."
-            )
+            print(f"Error: Trip {trip['transactionId']} has invalid coordinates. Skipping.")
             return
 
         map_match_result = await map_match_coordinates(coordinates)
 
         if map_match_result["code"] == "Ok":
             matched_trip = trip.copy()
-            matched_trip["matchedGps"] = geojson_dumps(
-                map_match_result["matchings"][0]["geometry"]
-            )
+            # Ensure GPS data is stored as a string
+            matched_trip["gps"] = json.dumps(trip["gps"]) if isinstance(trip["gps"], dict) else trip["gps"]
+            matched_trip["matchedGps"] = geojson_dumps(map_match_result["matchings"][0]["geometry"])
             matched_trips_collection.insert_one(matched_trip)
             print(f"Trip {trip['transactionId']} map-matched and stored.")
         else:
-            print(
-                f"Error map-matching trip {trip['transactionId']}: {map_match_result['message']}"
-            )
+            print(f"Error map-matching trip {trip['transactionId']}: {map_match_result['message']}")
 
     except Exception as e:
         logger.error(
