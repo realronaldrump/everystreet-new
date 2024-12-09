@@ -1,3 +1,5 @@
+from gevent import monkey
+monkey.patch_all()
 # Standard library imports
 import json
 import threading
@@ -48,8 +50,6 @@ from dateutil import parser
 from bson import ObjectId
 from bson.errors import InvalidId
 from pyproj import Transformer, CRS
-from gevent import monkey
-monkey.patch_all()
 
 
 # Configure logging
