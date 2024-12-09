@@ -87,7 +87,8 @@ except Exception as mongo_error:
     logger.error(f"Error connecting to MongoDB: {mongo_error}")
     raise
 
-trips_collection.create_index([("startTime", ASCENDING), ("endTime", ASCENDING)])
+trips_collection.create_index(
+    [("startTime", ASCENDING), ("endTime", ASCENDING)])
 uploaded_trips_collection.create_index("transactionId", unique=True)
 matched_trips_collection.create_index("transactionId", unique=True)
 historical_trips_collection.create_index("transactionId", unique=True)
@@ -145,7 +146,8 @@ async def get_access_token(client_session):
     logger.info(
         "Requesting access token with payload: "
         + str(
-            {k: v[:10] + "..." if k != "grant_type" else v for k, v in payload.items()}
+            {k: v[:10] + "..." if k !=
+                "grant_type" else v for k, v in payload.items()}
         )
     )
 
@@ -165,7 +167,8 @@ async def get_access_token(client_session):
 
 
 async def get_trips_from_api(client_session, access_token, imei, start_date, end_date):
-    headers = {"Authorization": access_token, "Content-Type": "application/json"}
+    headers = {"Authorization": access_token,
+               "Content-Type": "application/json"}
     params = {
         "imei": imei,
         "gps-format": "geojson",
@@ -326,7 +329,8 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
                     )
                     return address
         except ClientResponseError as e:
-            logger.error(f"HTTP error on attempt {attempt}: {e.status} {e.message}")
+            logger.error(
+                f"HTTP error on attempt {attempt}: {e.status} {e.message}")
             if 500 <= e.status < 600:
                 pass
             else:
@@ -375,7 +379,8 @@ def fetch_trips_for_geojson():
 def get_trip_timezone(trip):
     try:
         gps_data = geojson_loads(
-            trip["gps"] if isinstance(trip["gps"], str) else json.dumps(trip["gps"])
+            trip["gps"] if isinstance(
+                trip["gps"], str) else json.dumps(trip["gps"])
         )
         if gps_data["type"] == "Point":
             lon, lat = gps_data["coordinates"]
@@ -435,6 +440,7 @@ async def fetch_and_store_trips():
         logger.error(f"Error in fetch_and_store_trips: {fetch_error}")
         logger.exception("Full traceback:")  # Log the full exception traceback
 
+
 async def fetch_and_store_trips_for_imei(
     client_session, access_token, imei, start_date, end_date, device_count, total_devices
 ):
@@ -466,7 +472,8 @@ async def fetch_and_store_trips_for_imei(
 
                 processed_trip = await process_trip_data(trip)
                 if not processed_trip:
-                    logger.error(f"Failed to process trip {trip['transactionId']}")
+                    logger.error(
+                        f"Failed to process trip {trip['transactionId']}")
                     continue
 
                 processed_trip["source"] = "bouncie"
@@ -474,8 +481,9 @@ async def fetch_and_store_trips_for_imei(
                 try:
                     trips_collection.insert_one(processed_trip)
                 except DuplicateKeyError:
-                    logger.warning(f"Duplicate trip encountered: {trip['transactionId']}. Skipping.")
-                    continue # Skip to the next trip if a duplicate is found
+                    logger.warning(
+                        f"Duplicate trip encountered: {trip['transactionId']}. Skipping.")
+                    continue  # Skip to the next trip if a duplicate is found
 
                 # Calculate and emit overall progress
                 overall_progress = int(
@@ -487,7 +495,8 @@ async def fetch_and_store_trips_for_imei(
                     * 100
                 )
 
-                socketio.emit("loading_progress", {"progress": overall_progress}, async_mode=async_mode)
+                socketio.emit("loading_progress", {
+                              "progress": overall_progress}, async_mode=async_mode)
 
             except Exception as trip_error:
                 logger.error(
@@ -519,21 +528,26 @@ def process_trip(trip):
 
         if "gps" not in trip:
             if "start" in trip and "lat" in trip["start"] and "lon" in trip["start"]:
-                trip["gps"] = geojson.dumps(geojson.Point((trip["start"]["lon"], trip["start"]["lat"])))
+                trip["gps"] = geojson.dumps(geojson.Point(
+                    (trip["start"]["lon"], trip["start"]["lat"])))
             elif "end" in trip and "lat" in trip["end"] and "lon" in trip["end"]:
-                 trip["gps"] = geojson.dumps(geojson.Point((trip["end"]["lon"], trip["end"]["lat"])))
+                trip["gps"] = geojson.dumps(geojson.Point(
+                    (trip["end"]["lon"], trip["end"]["lat"])))
             else:
-                logger.error(f"Trip {trip.get('transactionId', 'Unknown')} missing gps field and no start/end coordinates")
+                logger.error(
+                    f"Trip {trip.get('transactionId', 'Unknown')} missing gps field and no start/end coordinates")
                 return None
 
         if isinstance(trip["gps"], str):
             try:
-                trip["gps"] = geojson.loads(trip["gps"]) # Use geojson.loads
+                trip["gps"] = geojson.loads(trip["gps"])  # Use geojson.loads
             except json.JSONDecodeError:
-                logger.error(f"Failed to parse GPS data for trip {trip.get('transactionId', 'Unknown')}")
+                logger.error(
+                    f"Failed to parse GPS data for trip {trip.get('transactionId', 'Unknown')}")
                 return None
         elif not isinstance(trip["gps"], dict):
-            logger.error(f"Invalid GPS data type for trip {trip.get('transactionId', 'Unknown')}")
+            logger.error(
+                f"Invalid GPS data type for trip {trip.get('transactionId', 'Unknown')}")
             return None
 
         if not isinstance(trip.get("distance"), (int, float)):  # Validate distance
@@ -541,8 +555,10 @@ def process_trip(trip):
                 coords = trip["gps"]["coordinates"]
                 total_distance = 0
                 for i in range(len(coords) - 1):
-                    total_distance += haversine_distance(coords[i], coords[i + 1])
-                trip["distance"] = total_distance * 0.621371  # Convert to miles
+                    total_distance += haversine_distance(
+                        coords[i], coords[i + 1])
+                trip["distance"] = total_distance * \
+                    0.621371  # Convert to miles
 
             except (KeyError, TypeError, IndexError):
                 logger.warning(
@@ -626,7 +642,8 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
                     trip["gps"] = geojson.dumps(feature["geometry"])
 
                     for field in ["timestamp", "end_timestamp"]:
-                        trip[field.replace("_timestamp", "Time")] = parser.isoparse(trip[field]).astimezone(timezone.utc)
+                        trip[field.replace("_timestamp", "Time")] = parser.isoparse(
+                            trip[field]).astimezone(timezone.utc)
 
                     trip["imei"] = "HISTORICAL"
                     trip["transactionId"] = f"HISTORICAL-{trip['timestamp']}"
@@ -660,9 +677,11 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
             ):
                 historical_trips_collection.insert_one(trip)
                 inserted_count += 1
-                logger.info(f"Inserted historical trip: {trip['transactionId']}")
+                logger.info(
+                    f"Inserted historical trip: {trip['transactionId']}")
             else:
-                logger.info(f"Historical trip already exists: {trip['transactionId']}")
+                logger.info(
+                    f"Historical trip already exists: {trip['transactionId']}")
         except pymongo.errors.PyMongoError as e:
             logger.error(
                 f"Error inserting trip {trip.get('transactionId', 'Unknown')} into database: {e}"
@@ -681,7 +700,8 @@ def get_trips():
         imei = request.args.get("imei")
         source = request.args.get("source")
 
-        start_date = parser.isoparse(start_date_str) if start_date_str else None
+        start_date = parser.isoparse(
+            start_date_str) if start_date_str else None
         end_date = parser.isoparse(end_date_str) if end_date_str else None
 
         query = {}
@@ -689,7 +709,7 @@ def get_trips():
             query["startTime"] = {"$gte": start_date, "$lte": end_date}
         if imei:
             query["imei"] = imei
-        if source: # Filter by source if provided
+        if source:  # Filter by source if provided
             query["source"] = source
 
         # Fetch trips from the appropriate collection(s) based on the 'source' parameter
@@ -710,9 +730,11 @@ def get_trips():
         for trip in trips:
             try:
                 if trip["startTime"].tzinfo is None:
-                    trip["startTime"] = trip["startTime"].replace(tzinfo=timezone.utc)
+                    trip["startTime"] = trip["startTime"].replace(
+                        tzinfo=timezone.utc)
                 if trip["endTime"].tzinfo is None:
-                    trip["endTime"] = trip["endTime"].replace(tzinfo=timezone.utc)
+                    trip["endTime"] = trip["endTime"].replace(
+                        tzinfo=timezone.utc)
 
                 gps_data = trip.get("gps")  # Handle missing "gps" data
                 if isinstance(gps_data, str):
@@ -740,7 +762,8 @@ def get_trips():
                     "fuelConsumed": float(trip.get("fuelConsumed", 0)),
                     "source": trip.get("source", "regular"),
                 }
-                feature = geojson.Feature(geometry=geometry, properties=properties)
+                feature = geojson.Feature(
+                    geometry=geometry, properties=properties)
                 features.append(feature)
             except Exception as e:
                 logger.error(
@@ -752,6 +775,7 @@ def get_trips():
     except Exception as e:
         logger.error(f"Error in get_trips: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/driving-insights")
 def get_driving_insights():
@@ -827,7 +851,8 @@ def get_driving_insights():
 
         # Execute aggregations
         result_trips = list(trips_collection.aggregate(pipeline_trips))
-        result_uploaded = list(uploaded_trips_collection.aggregate(pipeline_uploaded))
+        result_uploaded = list(
+            uploaded_trips_collection.aggregate(pipeline_uploaded))
         result_most_visited_trips = list(
             trips_collection.aggregate(pipeline_most_visited)
         )
@@ -847,7 +872,8 @@ def get_driving_insights():
         }
 
         if result_trips:
-            combined_insights["total_trips"] += result_trips[0].get("total_trips", 0)
+            combined_insights["total_trips"] += result_trips[0].get(
+                "total_trips", 0)
             combined_insights["total_distance"] += result_trips[0].get(
                 "total_distance", 0.0
             )
@@ -855,7 +881,8 @@ def get_driving_insights():
                 "total_fuel_consumed", 0.0
             )
             combined_insights["max_speed"] = max(
-                combined_insights["max_speed"], result_trips[0].get("max_speed", 0.0)
+                combined_insights["max_speed"], result_trips[0].get(
+                    "max_speed", 0.0)
             )
             combined_insights["total_idle_duration"] += result_trips[0].get(
                 "total_idle_duration", 0
@@ -866,7 +893,8 @@ def get_driving_insights():
             )
 
         if result_uploaded:
-            combined_insights["total_trips"] += result_uploaded[0].get("total_trips", 0)
+            combined_insights["total_trips"] += result_uploaded[0].get(
+                "total_trips", 0)
             combined_insights["total_distance"] += result_uploaded[0].get(
                 "total_distance", 0.0
             )
@@ -874,7 +902,8 @@ def get_driving_insights():
                 "total_fuel_consumed", 0.0
             )
             combined_insights["max_speed"] = max(
-                combined_insights["max_speed"], result_uploaded[0].get("max_speed", 0.0)
+                combined_insights["max_speed"], result_uploaded[0].get(
+                    "max_speed", 0.0)
             )
             combined_insights["total_idle_duration"] += result_uploaded[0].get(
                 "total_idle_duration", 0
@@ -954,7 +983,8 @@ def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
 
     for destination in insights:
         insights[destination]["averageDistance"] = (
-            insights[destination]["totalDistance"] / insights[destination]["count"]
+            insights[destination]["totalDistance"] /
+            insights[destination]["count"]
             if insights[destination]["count"] > 0
             else 0
         )
@@ -1012,7 +1042,8 @@ def get_metrics():
     driving_times = [
         (trip["endTime"] - trip["startTime"]).total_seconds() / 60 for trip in all_trips
     ]
-    avg_driving_time = sum(driving_times) / len(driving_times) if driving_times else 0
+    avg_driving_time = sum(driving_times) / \
+        len(driving_times) if driving_times else 0
 
     return jsonify(
         {
@@ -1111,17 +1142,19 @@ def export_geojson(collection_name="trips"):
         geojson_data = {"type": "FeatureCollection", "features": []}
 
         for trip in trips:
-            gps_data = trip.get("gps") # Handle potentially missing 'gps' data
+            gps_data = trip.get("gps")  # Handle potentially missing 'gps' data
             if isinstance(gps_data, str):
                 try:
                     gps_data = geojson.loads(gps_data)
                 except json.JSONDecodeError:
-                    logger.error(f"Invalid GPS data for trip {trip.get('transactionId', 'Unknown')}")
-                    continue # Skip this trip if GPS data is invalid
+                    logger.error(
+                        f"Invalid GPS data for trip {trip.get('transactionId', 'Unknown')}")
+                    continue  # Skip this trip if GPS data is invalid
 
             # Handle cases where GPS data is still missing or invalid after parsing
             if not gps_data or not isinstance(gps_data, dict) or "type" not in gps_data or "coordinates" not in gps_data:
-                logger.warning(f"Skipping trip {trip.get('transactionId', 'Unknown')} due to missing or invalid GPS data after parsing.")
+                logger.warning(
+                    f"Skipping trip {trip.get('transactionId', 'Unknown')} due to missing or invalid GPS data after parsing.")
                 continue
 
             feature = {
@@ -1129,11 +1162,13 @@ def export_geojson(collection_name="trips"):
                 "geometry": gps_data,
                 "properties": {
                     "transactionId": trip.get("transactionId"),
-                    "startTime": trip["startTime"].isoformat() if "startTime" in trip and trip["startTime"] else None, # Handle missing startTime
-                    "endTime": trip["endTime"].isoformat() if "endTime" in trip and trip["endTime"] else None, # Handle missing endTime
+                    # Handle missing startTime
+                    "startTime": trip["startTime"].isoformat() if "startTime" in trip and trip["startTime"] else None,
+                    # Handle missing endTime
+                    "endTime": trip["endTime"].isoformat() if "endTime" in trip and trip["endTime"] else None,
                     "distance": trip.get("distance"),
                     "imei": trip.get("imei"),
-                    "source": trip.get("source", "unknown") # Include source
+                    "source": trip.get("source", "unknown")  # Include source
                 },
             }
             geojson_data["features"].append(feature)
@@ -1187,12 +1222,14 @@ def export_gpx(collection_name="trips"):
                 try:
                     gps_data = geojson.loads(gps_data)
                 except json.JSONDecodeError:
-                    logger.error(f"Invalid GPS data for trip {trip.get('transactionId', 'Unknown')}")
+                    logger.error(
+                        f"Invalid GPS data for trip {trip.get('transactionId', 'Unknown')}")
                     continue
 
             # Handle missing or invalid GPS data after parsing
             if not gps_data or not isinstance(gps_data, dict) or "type" not in gps_data or "coordinates" not in gps_data:
-                logger.warning(f"Skipping trip {trip.get('transactionId', 'Unknown')} due to missing or invalid GPS data.")
+                logger.warning(
+                    f"Skipping trip {trip.get('transactionId', 'Unknown')} due to missing or invalid GPS data.")
                 continue
 
             gpx_track = GPXTrack()
@@ -1203,12 +1240,15 @@ def export_gpx(collection_name="trips"):
 
             if gps_data.get("type") == "LineString":
                 for lon, lat in gps_data.get("coordinates", []):
-                    gpx_segment.points.append(GPXTrackPoint(lat, lon)) # Simplified point creation
+                    # Simplified point creation
+                    gpx_segment.points.append(GPXTrackPoint(lat, lon))
             elif gps_data.get("type") == "Point":
                 lon, lat = gps_data.get("coordinates", [])
-                gpx_segment.points.append(GPXTrackPoint(latitude=lat, longitude=lon))
+                gpx_segment.points.append(
+                    GPXTrackPoint(latitude=lat, longitude=lon))
             else:
-                logger.warning(f"Unsupported GPS type '{gps_data.get('type')}' for trip {trip.get('transactionId', 'Unknown')}. Skipping.")
+                logger.warning(
+                    f"Unsupported GPS type '{gps_data.get('type')}' for trip {trip.get('transactionId', 'Unknown')}. Skipping.")
                 continue
 
             gpx_track.name = trip.get("transactionId", "Unnamed Trip")
@@ -1248,7 +1288,8 @@ def generate_geojson():
         print("Received data:", data)
         location = data.get("location")
         streets_only = data.get("streetsOnly", False)
-        geojson_data, error_message = generate_geojson_osm(location, streets_only)
+        geojson_data, error_message = generate_geojson_osm(
+            location, streets_only)
         if geojson_data:
             return jsonify(geojson_data)
         return jsonify({"error": error_message}), 400
@@ -1260,7 +1301,8 @@ def generate_geojson():
 
 
 def validate_location_osm(location, location_type):
-    params = {"q": location, "format": "json", "limit": 1, "featuretype": location_type}
+    params = {"q": location, "format": "json",
+              "limit": 1, "featuretype": location_type}
     headers = {"User-Agent": "GeojsonGenerator/1.0"}
     response = requests.get(
         "https://nominatim.openstreetmap.org/search", params=params, headers=headers
@@ -1391,7 +1433,7 @@ async def map_match_coordinates(coordinates):
     url = "https://api.mapbox.com/matching/v5/mapbox/driving/"
 
     chunks = [
-        coordinates[i : i + MAX_MAPBOX_COORDINATES]
+        coordinates[i: i + MAX_MAPBOX_COORDINATES]
         for i in range(0, len(coordinates), MAX_MAPBOX_COORDINATES)
     ]
     matched_geometries = []
@@ -1461,47 +1503,58 @@ async def process_and_map_match_trip(trip):
     try:
         is_valid, error_message = validate_trip_data(trip)
         if not is_valid:
-            logger.error(f"Invalid trip data for map matching: {error_message}")
+            logger.error(
+                f"Invalid trip data for map matching: {error_message}")
             return
 
         existing_matched_trip = matched_trips_collection.find_one(
             {"transactionId": trip["transactionId"]}
         )
         if existing_matched_trip:
-            logger.info(f"Trip {trip['transactionId']} already map-matched. Skipping.")
+            logger.info(
+                f"Trip {trip['transactionId']} already map-matched. Skipping.")
             return
 
         if "gps" not in trip or not isinstance(trip["gps"], (str, dict)):
-            logger.error(f"Trip {trip.get('transactionId', 'Unknown')} missing or invalid gps field")
+            logger.error(
+                f"Trip {trip.get('transactionId', 'Unknown')} missing or invalid gps field")
             return
 
-        gps_data = geojson.loads(trip["gps"]) if isinstance(trip["gps"], str) else trip["gps"]
+        gps_data = geojson.loads(trip["gps"]) if isinstance(
+            trip["gps"], str) else trip["gps"]
         coordinates = gps_data.get("coordinates", [])
 
         if not coordinates:
-            logger.error(f"Trip {trip['transactionId']} has no coordinates. Skipping.")
+            logger.error(
+                f"Trip {trip['transactionId']} has no coordinates. Skipping.")
             return
 
         if not all(is_valid_coordinate(coord) for coord in coordinates):
-            logger.error(f"Trip {trip['transactionId']} has invalid coordinates. Skipping.")
+            logger.error(
+                f"Trip {trip['transactionId']} has invalid coordinates. Skipping.")
             return
 
         map_match_result = await map_match_coordinates(coordinates)
 
         if map_match_result["code"] == "Ok":
             matched_trip = trip.copy()
-            matched_trip["matchedGps"] = geojson.dumps(map_match_result["matchings"][0]["geometry"])
+            matched_trip["matchedGps"] = geojson.dumps(
+                map_match_result["matchings"][0]["geometry"])
 
             try:
                 matched_trips_collection.insert_one(matched_trip)
-                logger.info(f"Trip {trip['transactionId']} map-matched and stored.")
+                logger.info(
+                    f"Trip {trip['transactionId']} map-matched and stored.")
             except DuplicateKeyError:
-                logger.warning(f"Duplicate matched trip encountered for transaction ID: {trip['transactionId']}")
+                logger.warning(
+                    f"Duplicate matched trip encountered for transaction ID: {trip['transactionId']}")
         else:
-            logger.error(f"Error map-matching trip {trip['transactionId']}: {map_match_result['message']}")
+            logger.error(
+                f"Error map-matching trip {trip['transactionId']}: {map_match_result['message']}")
 
     except Exception as e:
-        logger.error(f"Error processing and map-matching trip {trip.get('transactionId', 'Unknown')}: {str(e)}")
+        logger.error(
+            f"Error processing and map-matching trip {trip.get('transactionId', 'Unknown')}: {str(e)}")
 
 
 def haversine_distance(coord1, coord2):
@@ -1514,7 +1567,8 @@ def haversine_distance(coord1, coord2):
 
     a = (
         math.sin(dlat / 2) ** 2
-        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+        + math.cos(math.radians(lat1)) *
+        math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
     )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
@@ -1707,7 +1761,8 @@ def export_streets():
     location = request.args.get("location")
     export_format = request.args.get("format")
 
-    streets_data, _ = generate_geojson_osm(json.loads(location), streets_only=True)
+    streets_data, _ = generate_geojson_osm(
+        json.loads(location), streets_only=True)
 
     if export_format == "geojson":
         return send_file(
@@ -1739,7 +1794,8 @@ def export_boundary():
     location = request.args.get("location")
     export_format = request.args.get("format")
 
-    boundary_data, _ = generate_geojson_osm(json.loads(location), streets_only=False)
+    boundary_data, _ = generate_geojson_osm(
+        json.loads(location), streets_only=False)
 
     if export_format == "geojson":
         return send_file(
@@ -1822,7 +1878,8 @@ def create_gpx(trips):
             for coord in gps_data.get("coordinates", []):
                 if isinstance(coord, list) and len(coord) >= 2:
                     lon, lat = coord[0], coord[1]
-                    gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+                    gpx_segment.points.append(
+                        gpxpy.gpx.GPXTrackPoint(lat, lon))
         elif gps_data.get("type") == "Point":
             coord = gps_data.get("coordinates", [])
             if isinstance(coord, list) and len(coord) >= 2:
@@ -1852,7 +1909,8 @@ def split_line_into_segments(line, segment_length_meters=10):
     try:
         # Validate input geometry
         if not isinstance(line, LineString):
-            logger.warning(f"Non-LineString geometry encountered: {type(line)}")
+            logger.warning(
+                f"Non-LineString geometry encountered: {type(line)}")
             return [line]
 
         if line.is_empty or not line.is_valid:
@@ -1872,7 +1930,8 @@ def split_line_into_segments(line, segment_length_meters=10):
         )
 
         # Use the new pyproj transform approach
-        transformer = Transformer.from_crs("EPSG:4326", utm_crs, always_xy=True)
+        transformer = Transformer.from_crs(
+            "EPSG:4326", utm_crs, always_xy=True)
         x_coords, y_coords = transformer.transform(line.xy[0], line.xy[1])
         line_utm = LineString(zip(x_coords, y_coords))
 
@@ -1895,9 +1954,11 @@ def split_line_into_segments(line, segment_length_meters=10):
             segment_utm = LineString([start_point, end_point])
 
             # Convert back to WGS84
-            transformer = Transformer.from_crs(utm_crs, "EPSG:4326", always_xy=True)
+            transformer = Transformer.from_crs(
+                utm_crs, "EPSG:4326", always_xy=True)
             segment_coords = transformer.transform(
-                [p[0] for p in segment_utm.coords], [p[1] for p in segment_utm.coords]
+                [p[0] for p in segment_utm.coords], [p[1]
+                                                     for p in segment_utm.coords]
             )
             segment = LineString(zip(segment_coords[0], segment_coords[1]))
             segments.append(segment)
@@ -1933,7 +1994,9 @@ def calculate_street_coverage(location, streets_geojson, matched_trips):
         all_trip_lines = []
         for trip in matched_trips:
             try:
-                trip_geom = shape(json.loads(trip.get("matchedGps", trip.get("gps"))))  # Fallback to 'gps' if 'matchedGps' is missing
+                # Fallback to 'gps' if 'matchedGps' is missing
+                trip_geom = shape(json.loads(
+                    trip.get("matchedGps", trip.get("gps"))))
                 if trip_geom.is_empty:  # Skip empty geometries
                     continue
                 if isinstance(trip_geom, LineString):
@@ -1960,12 +2023,14 @@ def calculate_street_coverage(location, streets_geojson, matched_trips):
         # Buffer the trip lines slightly to ensure intersections are caught
         trips_utm["geometry"] = trips_utm.geometry.buffer(0.1)
 
-        joined_gdf = streets_utm.sjoin(trips_utm, how="left", predicate="intersects")
+        joined_gdf = streets_utm.sjoin(
+            trips_utm, how="left", predicate="intersects")
         streets_utm["driven"] = ~joined_gdf.index_right.isna()
 
         # Calculate statistics
         total_length = streets_utm.geometry.length.sum()
-        driven_length = streets_utm[streets_utm["driven"]].geometry.length.sum()
+        driven_length = streets_utm[streets_utm["driven"]
+                                    ].geometry.length.sum()
 
         if total_length == 0:  # Handle potential division by zero
             coverage_percentage = 0
@@ -1976,7 +2041,8 @@ def calculate_street_coverage(location, streets_geojson, matched_trips):
         # Project back to WGS84 for GeoJSON output
         streets_gdf = streets_utm.to_crs(epsg=4326)
 
-        streets_gdf = streets_gdf.dissolve(by=["name", "driven"], as_index=False)
+        streets_gdf = streets_gdf.dissolve(
+            by=["name", "driven"], as_index=False)
 
         geojson_data = {"type": "FeatureCollection", "features": []}
         for _, row in streets_gdf.iterrows():
@@ -2002,13 +2068,15 @@ def calculate_street_coverage(location, streets_geojson, matched_trips):
         logger.debug(traceback.format_exc())
         raise  # Re-raise the exception after logging
 
+
 def get_utm_crs(gdf):
     """Gets the appropriate UTM CRS for the given GeoDataFrame."""
     centroid = gdf.unary_union.centroid
     longitude = centroid.x
     latitude = centroid.y
     utm_zone = int((longitude + 180) / 6) + 1
-    utm_crs = CRS.from_epsg(32600 + utm_zone if latitude >= 0 else 32700 + utm_zone)
+    utm_crs = CRS.from_epsg(
+        32600 + utm_zone if latitude >= 0 else 32700 + utm_zone)
     return utm_crs
 
 
@@ -2031,7 +2099,8 @@ def get_coverage():
         logger.error(f"Error calculating coverage: {str(e)}")
         return (
             jsonify(
-                {"status": "error", "message": f"Error calculating coverage: {str(e)}"}
+                {"status": "error",
+                    "message": f"Error calculating coverage: {str(e)}"}
             ),
             500,
         )
@@ -2074,7 +2143,8 @@ def get_last_trip_point():
     except Exception as e:
         logger.error(f"Error fetching last trip point: {str(e)}")
         return (
-            jsonify({"error": "An error occurred while fetching the last trip point."}),
+            jsonify(
+                {"error": "An error occurred while fetching the last trip point."}),
             500,
         )
 
@@ -2111,7 +2181,8 @@ async def upload_gpx():
                 if file.filename.endswith(".gpx"):
                     gpx_data = file.read()
                     gpx = gpxpy.parse(gpx_data)
-                    trips = process_gpx(gpx)  # Use the updated process_gpx function
+                    # Use the updated process_gpx function
+                    trips = process_gpx(gpx)
                 elif file.filename.endswith(".geojson"):
                     geojson_data = json.load(file)
                     trips = process_geojson_trip(geojson_data)
@@ -2124,7 +2195,8 @@ async def upload_gpx():
                         await process_and_store_trip(trip, uploaded_trips)
 
             except Exception as file_error:
-                logger.error(f"Error processing file {file.filename}: {file_error}")
+                logger.error(
+                    f"Error processing file {file.filename}: {file_error}")
                 return jsonify({"status": "error", "message": str(file_error)}), 500
 
         return jsonify(
@@ -2152,7 +2224,8 @@ async def process_and_store_trip(trip, uploaded_trips):
         # Process trip data (geocoding, etc.)
         processed_trip = await process_trip_data(trip)
         if not processed_trip:
-            logger.error(f"Failed to process trip {trip.get('transactionId', 'Unknown')}")
+            logger.error(
+                f"Failed to process trip {trip.get('transactionId', 'Unknown')}")
             return
 
         # Ensure GPS data is stored as a string
@@ -2164,15 +2237,18 @@ async def process_and_store_trip(trip, uploaded_trips):
             if isinstance(processed_trip[field], str):
                 processed_trip[field] = parser.isoparse(processed_trip[field])
             if processed_trip[field].tzinfo is None:
-                processed_trip[field] = processed_trip[field].replace(tzinfo=timezone.utc)
+                processed_trip[field] = processed_trip[field].replace(
+                    tzinfo=timezone.utc)
             else:
-                processed_trip[field] = processed_trip[field].astimezone(timezone.utc)
+                processed_trip[field] = processed_trip[field].astimezone(
+                    timezone.utc)
 
         try:
             # Insert the processed trip into the database
             uploaded_trips_collection.insert_one(processed_trip)
             uploaded_trips.append(processed_trip)
-            logger.info(f"Successfully stored uploaded trip: {trip['transactionId']}")
+            logger.info(
+                f"Successfully stored uploaded trip: {trip['transactionId']}")
         except DuplicateKeyError:
             logger.warning(
                 f"Duplicate uploaded trip encountered: {trip['transactionId']}. Skipping."
@@ -2200,13 +2276,16 @@ def get_uploaded_trips():
 def delete_uploaded_trip(trip_id):
     try:
         # Delete from uploaded_trips_collection
-        result = uploaded_trips_collection.delete_one({"_id": ObjectId(trip_id)})
+        result = uploaded_trips_collection.delete_one(
+            {"_id": ObjectId(trip_id)})
 
         if result.deleted_count == 1:
             # If successful, also delete corresponding matched trips
-            trip = uploaded_trips_collection.find_one({"_id": ObjectId(trip_id)})
+            trip = uploaded_trips_collection.find_one(
+                {"_id": ObjectId(trip_id)})
             if trip:
-                matched_trips_collection.delete_many({"transactionId": trip["transactionId"]})  # Use transactionId
+                matched_trips_collection.delete_many(
+                    {"transactionId": trip["transactionId"]})  # Use transactionId
             return jsonify({"status": "success", "message": "Trip deleted successfully."})
         return jsonify({"status": "error", "message": "Trip not found."}), 404
     except Exception as e:
@@ -2233,18 +2312,22 @@ def bulk_delete_uploaded_trips():
             try:
                 valid_trip_ids.append(ObjectId(trip_id))
             except Exception as e:  # Catch specific exception
-                logger.warning(f"Invalid trip ID provided: {trip_id}. Error: {e}")
+                logger.warning(
+                    f"Invalid trip ID provided: {trip_id}. Error: {e}")
                 continue
 
         if not valid_trip_ids:
             return (
-                jsonify({"status": "error", "message": "No valid trip IDs provided."}),
+                jsonify(
+                    {"status": "error", "message": "No valid trip IDs provided."}),
                 400,
             )
 
         # Get transaction IDs of trips to be deleted
-        trips_to_delete = uploaded_trips_collection.find({"_id": {"$in": valid_trip_ids}})
-        transaction_ids = [trip.get("transactionId") for trip in trips_to_delete]
+        trips_to_delete = uploaded_trips_collection.find(
+            {"_id": {"$in": valid_trip_ids}})
+        transaction_ids = [trip.get("transactionId")
+                           for trip in trips_to_delete]
 
         # Delete from uploaded_trips_collection
         delete_result = uploaded_trips_collection.delete_many(
@@ -2252,7 +2335,8 @@ def bulk_delete_uploaded_trips():
         )
 
         # Delete corresponding matched trips using transactionId
-        matched_delete_result = matched_trips_collection.delete_many({"transactionId": {"$in": transaction_ids}})
+        matched_delete_result = matched_trips_collection.delete_many(
+            {"transactionId": {"$in": transaction_ids}})
 
         return jsonify(
             {
@@ -2273,14 +2357,16 @@ def handle_places():
         places = list(places_collection.find())
         return jsonify(
             [
-                {"_id": str(place["_id"]), **CustomPlace.from_dict(place).to_dict()}
+                {"_id": str(place["_id"]), **
+                 CustomPlace.from_dict(place).to_dict()}
                 for place in places
             ]
         )
 
     if request.method == "POST":
         place_data = request.json
-        place = CustomPlace(name=place_data["name"], geometry=place_data["geometry"])
+        place = CustomPlace(
+            name=place_data["name"], geometry=place_data["geometry"])
         result = places_collection.insert_one(place.to_dict())
         return jsonify({"_id": str(result.inserted_id), **place.to_dict()})
 
@@ -2332,7 +2418,8 @@ def get_place_statistics(place_id):
                         duration = (next_start - trip_end).total_seconds() / 60
                     else:
                         # For the last trip, calculate duration until now
-                        duration = (current_time - trip_end).total_seconds() / 60
+                        duration = (current_time -
+                                    trip_end).total_seconds() / 60
 
                     # Store visit information
                     visits.append(duration)
@@ -2346,7 +2433,8 @@ def get_place_statistics(place_id):
                         last_visit = trip_end
 
             except Exception as e:
-                logger.error(f"Error processing trip for place {place['name']}: {e}")
+                logger.error(
+                    f"Error processing trip for place {place['name']}: {e}")
                 continue
 
         # Calculate statistics
@@ -2525,17 +2613,26 @@ async def store_trip_data(trip_data):
             "startTime": start_time,
             "endTime": end_time,
             "distance": trip_data.get("distance", 0),
-            "startOdometer": trip_data["start"].get("odometer"),  # Added startOdometer
-            "endOdometer": trip_data["end"].get("odometer"),  # Added endOdometer
-            "fuelConsumed": trip_data["end"].get("fuelConsumed"),  # Added fuelConsumed
-            "gps": geojson.dumps(trip_data.get("gps")),  # Store GPS data as GeoJSON if available
+            # Added startOdometer
+            "startOdometer": trip_data["start"].get("odometer"),
+            # Added endOdometer
+            "endOdometer": trip_data["end"].get("odometer"),
+            # Added fuelConsumed
+            "fuelConsumed": trip_data["end"].get("fuelConsumed"),
+            # Store GPS data as GeoJSON if available
+            "gps": geojson.dumps(trip_data.get("gps")),
             "source": "bouncie",
-            "hardBrakingCount": trip_data.get("hardBrakingCount", 0), # Added hardBrakingCount
-            "hardAccelerationCount": trip_data.get("hardAccelerationCount", 0), # Added hardAccelerationCount
-            "averageSpeed": trip_data.get("averageSpeed", 0), # Added averageSpeed
-            "maxSpeed": trip_data.get("maxSpeed", 0), # Added maxSpeed
-            "totalIdleDuration": trip_data.get("totalIdleDuration", 0), # Added totalIdleDuration
-            "timeZone": trip_data.get("timeZone", "America/Chicago") # Added timeZone
+            # Added hardBrakingCount
+            "hardBrakingCount": trip_data.get("hardBrakingCount", 0),
+            # Added hardAccelerationCount
+            "hardAccelerationCount": trip_data.get("hardAccelerationCount", 0),
+            # Added averageSpeed
+            "averageSpeed": trip_data.get("averageSpeed", 0),
+            "maxSpeed": trip_data.get("maxSpeed", 0),  # Added maxSpeed
+            # Added totalIdleDuration
+            "totalIdleDuration": trip_data.get("totalIdleDuration", 0),
+            # Added timeZone
+            "timeZone": trip_data.get("timeZone", "America/Chicago")
 
         }
 
@@ -2554,9 +2651,10 @@ async def store_trip_data(trip_data):
                 }
             )
         # Process and validate the trip data
-        processed_trip = await process_trip_data(trip) # Process the trip data
+        processed_trip = await process_trip_data(trip)  # Process the trip data
         if not processed_trip:
-            logger.error(f"Failed to process trip data from webhook: {trip_data}")
+            logger.error(
+                f"Failed to process trip data from webhook: {trip_data}")
             return
 
         trips_collection.insert_one(processed_trip)
@@ -2637,11 +2735,13 @@ async def process_trip_data(trip):
     try:
         # Convert GPS to dict if it's a string
         gps_data = (
-            trip["gps"] if isinstance(trip["gps"], dict) else json.loads(trip["gps"])
+            trip["gps"] if isinstance(
+                trip["gps"], dict) else json.loads(trip["gps"])
         )
 
         if not gps_data or "coordinates" not in gps_data:
-            logger.error(f"Invalid GPS data for trip {trip.get('transactionId')}")
+            logger.error(
+                f"Invalid GPS data for trip {trip.get('transactionId')}")
             return None
 
         start_point = gps_data["coordinates"][0]
@@ -2693,11 +2793,13 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
 
             # Fetch trips for each authorized device
             for idx, imei in enumerate(AUTHORIZED_DEVICES, 1):
-                logger.info(f"Fetching trips for IMEI: {imei} ({idx}/{total_devices})")
+                logger.info(
+                    f"Fetching trips for IMEI: {imei} ({idx}/{total_devices})")
                 device_trips = await fetch_trips_in_intervals(
                     client_session, access_token, imei, start_date, end_date
                 )
-                logger.info(f"Fetched {len(device_trips)} trips for IMEI {imei}")
+                logger.info(
+                    f"Fetched {len(device_trips)} trips for IMEI {imei}")
                 all_trips.extend(device_trips)
 
                 # Emit progress update
@@ -2735,7 +2837,8 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
 
                     processed_trip = await process_trip_data(trip)
                     if not processed_trip:
-                        logger.error(f"Failed to process trip {trip['transactionId']}")
+                        logger.error(
+                            f"Failed to process trip {trip['transactionId']}")
                         error_count += 1
                         continue
 
@@ -2778,7 +2881,8 @@ def get_first_trip_date():
     try:
         # Query all three collections for the earliest trip
         regular_first = trips_collection.find_one({}, sort=[("startTime", 1)])
-        uploaded_first = uploaded_trips_collection.find_one({}, sort=[("startTime", 1)])
+        uploaded_first = uploaded_trips_collection.find_one(
+            {}, sort=[("startTime", 1)])
         historical_first = historical_trips_collection.find_one(
             {}, sort=[("startTime", 1)]
         )
@@ -2860,7 +2964,8 @@ def bulk_delete_trips():
         )
 
         # Also delete any corresponding matched trips
-        matched_trips_collection.delete_many({"original_trip_id": {"$in": trip_ids}})
+        matched_trips_collection.delete_many(
+            {"original_trip_id": {"$in": trip_ids}})
 
         return jsonify(
             {
@@ -2873,8 +2978,6 @@ def bulk_delete_trips():
     except Exception as e:
         logger.error(f"Error in bulk delete trips: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
-
 
 
 def process_geojson_trip(geojson_data):
@@ -2890,9 +2993,12 @@ def process_geojson_trip(geojson_data):
             geometry = feature.get("geometry", {})
 
             # Attempt to extract timestamps from various possible locations in the properties
-            start_time = properties.get("start_time") or properties.get("start_location", {}).get("timestamp")
-            end_time = properties.get("end_time") or properties.get("end_location", {}).get("timestamp")
-            transaction_id = properties.get("transaction_id") or properties.get("transactionId") or str(ObjectId())
+            start_time = properties.get("start_time") or properties.get(
+                "start_location", {}).get("timestamp")
+            end_time = properties.get("end_time") or properties.get(
+                "end_location", {}).get("timestamp")
+            transaction_id = properties.get("transaction_id") or properties.get(
+                "transactionId") or str(ObjectId())
 
             if not start_time or not end_time:
                 # If timestamps are still missing, try to extract from transaction_id as a last resort
@@ -2901,16 +3007,22 @@ def process_geojson_trip(geojson_data):
                         timestamp_str = transaction_id.split("-")[-1]
                         if timestamp_str.isdigit():
                             timestamp_ms = int(timestamp_str)
-                            dt = datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
+                            dt = datetime.fromtimestamp(
+                                timestamp_ms / 1000, tz=timezone.utc)
                             start_time = start_time or dt.isoformat()
-                            end_time = end_time or (dt + timedelta(minutes=5)).isoformat()  # Assume 5-minute trip
-                            logger.debug(f"Generated times from transaction_id: Start={start_time}, End={end_time}")
+                            # Assume 5-minute trip
+                            end_time = end_time or (
+                                dt + timedelta(minutes=5)).isoformat()
+                            logger.debug(
+                                f"Generated times from transaction_id: Start={start_time}, End={end_time}")
                     except (ValueError, TypeError, IndexError) as e:
-                        logger.warning(f"Failed to extract timestamp from transaction_id: {e}")
+                        logger.warning(
+                            f"Failed to extract timestamp from transaction_id: {e}")
 
             # If timestamps are still missing after all attempts, skip the trip
             if not start_time or not end_time:
-                logger.warning(f"Skipping trip due to missing time data: {transaction_id}")
+                logger.warning(
+                    f"Skipping trip due to missing time data: {transaction_id}")
                 continue
 
             try:
@@ -2929,7 +3041,8 @@ def process_geojson_trip(geojson_data):
                     try:
                         distance = calculate_distance(geometry["coordinates"])
                     except (KeyError, TypeError) as e:
-                        logger.warning(f"Failed to calculate distance: {e}. Setting to 0.")
+                        logger.warning(
+                            f"Failed to calculate distance: {e}. Setting to 0.")
                         distance = 0
 
                 trip = {
@@ -2949,10 +3062,12 @@ def process_geojson_trip(geojson_data):
                 }
 
                 processed_trips.append(trip)
-                logger.info(f"Successfully processed trip: {trip['transactionId']}")
+                logger.info(
+                    f"Successfully processed trip: {trip['transactionId']}")
 
             except (ValueError, TypeError) as e:
-                logger.error(f"Error parsing timestamps or calculating distance for trip {transaction_id}: {str(e)}")
+                logger.error(
+                    f"Error parsing timestamps or calculating distance for trip {transaction_id}: {str(e)}")
                 continue
 
         logger.info(f"Processed {len(processed_trips)} trips from GeoJSON")
@@ -3002,7 +3117,8 @@ def process_gpx(gpx):
             if not segment.points:
                 continue
 
-            coordinates = [[point.longitude, point.latitude] for point in segment.points]
+            coordinates = [[point.longitude, point.latitude]
+                           for point in segment.points]
             times = [point.time for point in segment.points if point.time]
 
             if not times:
@@ -3104,7 +3220,6 @@ async def upload_files():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-
 @app.route("/api/trips/<trip_id>", methods=["PUT"])
 def update_trip(trip_id):
     try:
@@ -3157,8 +3272,10 @@ def update_trip(trip_id):
 
         # Handle geometry update if provided
         if geometry and isinstance(geometry, dict):
-            gps_data = {"type": "LineString", "coordinates": geometry["coordinates"]}
-            update_fields.update({"geometry": geometry, "gps": json.dumps(gps_data)})
+            gps_data = {"type": "LineString",
+                        "coordinates": geometry["coordinates"]}
+            update_fields.update(
+                {"geometry": geometry, "gps": json.dumps(gps_data)})
 
         # Handle properties update
         if properties:
@@ -3181,13 +3298,15 @@ def update_trip(trip_id):
             # Update the properties
             if "properties" in trip:
                 # If the trip already has a properties object, update it
-                update_fields["properties"] = {**trip["properties"], **properties}
+                update_fields["properties"] = {
+                    **trip["properties"], **properties}
             else:
                 # If the trip doesn't have a properties object, update fields directly
                 update_fields.update(properties)
 
         # Perform the update
-        result = collection.update_one({"_id": trip["_id"]}, {"$set": update_fields})
+        result = collection.update_one(
+            {"_id": trip["_id"]}, {"$set": update_fields})
 
         if result.modified_count == 0:
             return jsonify({"error": "No changes were made to the trip"}), 400
@@ -3206,12 +3325,14 @@ def get_single_trip(trip_id):
         trip = None
         try:
             _id = ObjectId(trip_id)
-            trip = trips_collection.find_one({"_id": _id}) or uploaded_trips_collection.find_one({"_id": _id}) or historical_trips_collection.find_one({"_id": _id})
+            trip = trips_collection.find_one({"_id": _id}) or uploaded_trips_collection.find_one(
+                {"_id": _id}) or historical_trips_collection.find_one({"_id": _id})
         except (InvalidId, TypeError):
             pass  # Ignore invalid ObjectId
 
         if trip is None:  # Search by transactionId if not found by _id
-            trip = trips_collection.find_one({"transactionId": trip_id}) or uploaded_trips_collection.find_one({"transactionId": trip_id}) or historical_trips_collection.find_one({"transactionId": trip_id})
+            trip = trips_collection.find_one({"transactionId": trip_id}) or uploaded_trips_collection.find_one(
+                {"transactionId": trip_id}) or historical_trips_collection.find_one({"transactionId": trip_id})
 
         if not trip:
             return jsonify({"status": "error", "message": "Trip not found."}), 404
@@ -3228,9 +3349,12 @@ def get_single_trip(trip_id):
 def debug_trip(trip_id):
     try:
         regular_trip = trips_collection.find_one({"transactionId": trip_id})
-        matched_trip = matched_trips_collection.find_one({"transactionId": trip_id})
-        uploaded_trip = uploaded_trips_collection.find_one({"transactionId": trip_id})
-        historical_trip = historical_trips_collection.find_one({"transactionId": trip_id})
+        matched_trip = matched_trips_collection.find_one(
+            {"transactionId": trip_id})
+        uploaded_trip = uploaded_trips_collection.find_one(
+            {"transactionId": trip_id})
+        historical_trip = historical_trips_collection.find_one(
+            {"transactionId": trip_id})
 
         return jsonify(
             {
@@ -3256,7 +3380,8 @@ def get_street_coverage():
         location = data.get("location")
 
         # First, generate the streets GeoJSON
-        streets_data, error_message = generate_geojson_osm(location, streets_only=True)
+        streets_data, error_message = generate_geojson_osm(
+            location, streets_only=True)
         if streets_data is None:
             return (
                 jsonify(
@@ -3295,4 +3420,5 @@ def get_street_coverage():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8080"))
     threading.Timer(1, periodic_fetch_trips).start()
-    socketio.run(app, host="0.0.0.0", port=port, debug=False, async_mode=async_mode)
+    socketio.run(app, host="0.0.0.0", port=port,
+                 debug=False, async_mode=async_mode)
