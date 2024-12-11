@@ -34,3 +34,12 @@ database_utilities_gui.py
 node_modules/
 *.log
 jscpd-report/
+static/android-chrome-192x192.png
+static/android-chrome-512x512.png
+static/apple-touch-icon.png
+static/favicon-16x16.png
+static/favicon-32x32.png
+static/favicon.ico
+static/site.webmanifest
+drivingdatainapi
+olddrivingdata
