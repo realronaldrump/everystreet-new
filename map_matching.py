@@ -24,6 +24,7 @@ MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN")
 # Constants
 MAX_MAPBOX_COORDINATES = 100
 
+
 async def map_match_coordinates(coordinates):
     if len(coordinates) < 2:
         return {
@@ -34,7 +35,7 @@ async def map_match_coordinates(coordinates):
     url = "https://api.mapbox.com/matching/v5/mapbox/driving/"
 
     chunks = [
-        coordinates[i : i + MAX_MAPBOX_COORDINATES]
+        coordinates[i: i + MAX_MAPBOX_COORDINATES]
         for i in range(0, len(coordinates), MAX_MAPBOX_COORDINATES)
     ]
     matched_geometries = []
@@ -92,10 +93,12 @@ async def map_match_coordinates(coordinates):
         ],
     }
 
+
 def is_valid_coordinate(coord):
     """Check if a coordinate pair is valid."""
     lon, lat = coord
     return -180 <= lon <= 180 and -90 <= lat <= 90
+
 
 async def process_and_map_match_trip(trip):
     """
@@ -106,20 +109,23 @@ async def process_and_map_match_trip(trip):
         # Validate trip data before processing
         is_valid, error_message = validate_trip_data(trip)
         if not is_valid:
-            logger.error(f"Invalid trip data for map matching: {error_message}")
+            logger.error(
+                f"Invalid trip data for map matching: {error_message}")
             return None
 
         existing_matched_trip = matched_trips_collection.find_one(
             {"transactionId": trip["transactionId"]}
         )
         if existing_matched_trip:
-            print(f"Trip {trip['transactionId']} already map-matched. Skipping.")
+            print(
+                f"Trip {trip['transactionId']} already map-matched. Skipping.")
             return
 
         # Determine the source collection and get GPS data based on IMEI
         if trip["imei"] == "HISTORICAL":
             source_collection = historical_trips_collection
-            gps_data = trip["gps"] if isinstance(trip["gps"], str) else json.dumps(trip["gps"])
+            gps_data = trip["gps"] if isinstance(
+                trip["gps"], str) else json.dumps(trip["gps"])
             coords = geojson_loads(gps_data)["coordinates"]
             total_distance = 0
             for i in range(len(coords) - 1):
@@ -136,11 +142,13 @@ async def process_and_map_match_trip(trip):
                 coordinates = gps_data["coordinates"]
 
         if not coordinates:
-            print(f"Error: Trip {trip['transactionId']} has no coordinates. Skipping.")
+            print(
+                f"Error: Trip {trip['transactionId']} has no coordinates. Skipping.")
             return
 
         if not all(is_valid_coordinate(coord) for coord in coordinates):
-            print(f"Error: Trip {trip['transactionId']} has invalid coordinates. Skipping.")
+            print(
+                f"Error: Trip {trip['transactionId']} has invalid coordinates. Skipping.")
             return
 
         map_match_result = await map_match_coordinates(coordinates)
@@ -148,18 +156,22 @@ async def process_and_map_match_trip(trip):
         if map_match_result["code"] == "Ok":
             matched_trip = trip.copy()
             # Ensure GPS data is stored as a string
-            matched_trip["gps"] = json.dumps(trip["gps"]) if isinstance(trip["gps"], dict) else trip["gps"]
-            matched_trip["matchedGps"] = geojson_dumps(map_match_result["matchings"][0]["geometry"])
+            matched_trip["gps"] = json.dumps(trip["gps"]) if isinstance(
+                trip["gps"], dict) else trip["gps"]
+            matched_trip["matchedGps"] = geojson_dumps(
+                map_match_result["matchings"][0]["geometry"])
             matched_trips_collection.insert_one(matched_trip)
             print(f"Trip {trip['transactionId']} map-matched and stored.")
         else:
-            print(f"Error map-matching trip {trip['transactionId']}: {map_match_result['message']}")
+            print(
+                f"Error map-matching trip {trip['transactionId']}: {map_match_result['message']}")
 
     except Exception as e:
         logger.error(
             f"Error processing and map-matching trip {trip.get('transactionId', 'Unknown')}: {str(e)}"
         )
         return None
+
 
 def haversine_distance(coord1, coord2):
     R = 6371  # Radius of the Earth in kilometers
