@@ -238,9 +238,15 @@ class CustomPlacesManager {
 }
 
 // Initialize when the map is ready
+// Initialize when the map is ready
 document.addEventListener('DOMContentLoaded', () => {
     const initializeCustomPlaces = () => {
-        const map = EveryStreet.getMap();
+        if (typeof window.EveryStreet === 'undefined') {
+            setTimeout(initializeCustomPlaces, 100);
+            return;
+        }
+        
+        const map = window.EveryStreet.getMap();
         if (map && document.getElementById('start-drawing')) {
             window.customPlaces = new CustomPlacesManager(map);
         } else if (map) {
