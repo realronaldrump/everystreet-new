@@ -238,22 +238,17 @@ class CustomPlacesManager {
 }
 
 // Initialize when the map is ready
-// Initialize when the map is ready
 document.addEventListener('DOMContentLoaded', () => {
-    const initializeCustomPlaces = () => {
-        if (typeof window.EveryStreet === 'undefined') {
-            setTimeout(initializeCustomPlaces, 100);
-            return;
-        }
-        
-        const map = window.EveryStreet.getMap();
-        if (map && document.getElementById('start-drawing')) {
-            window.customPlaces = new CustomPlacesManager(map);
-        } else if (map) {
+    const checkEveryStreet = setInterval(() => {
+        if (window.EveryStreet && document.getElementById('start-drawing')) {
+            clearInterval(checkEveryStreet);
+            window.customPlaces = new CustomPlacesManager(window.EveryStreet.getMap());
+        } else if (window.EveryStreet) {
+            clearInterval(checkEveryStreet);
             console.log('Custom places controls not found, skipping initialization');
-        } else {
-            setTimeout(initializeCustomPlaces, 100);
         }
-    };
-    initializeCustomPlaces();
+    }, 100);
+
+    // Clear interval after 10 seconds to prevent infinite checking
+    setTimeout(() => clearInterval(checkEveryStreet), 10000);
 });
