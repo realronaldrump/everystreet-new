@@ -432,7 +432,6 @@ function getFilterParams() {
 }
 
 async function fetchTrips() {
-	// Remove the loading manager since it is not being used in this file.
 	try {
 		const params = getFilterParams();
 		const url = `/api/trips?${params.toString()}`;

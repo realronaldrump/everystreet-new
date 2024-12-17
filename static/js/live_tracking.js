@@ -166,19 +166,6 @@ class LiveTripTracker {
       }
     }
   
-    clearCompletedTrips() {
-      const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-      for (const [tripId, trip] of this.activeTrips) {
-        const lastUpdate =
-          trip.dataPoints.length > 0
-            ? trip.dataPoints[trip.dataPoints.length - 1].timestamp
-            : trip.startTime;
-        if (lastUpdate < thirtyMinutesAgo) {
-          this.finalizeTrip({ transactionId: tripId });
-        }
-      }
-    }
-  
     formatDuration(seconds) {
       const minutes = Math.floor(seconds / 60);
       const remainingSeconds = Math.floor(seconds % 60);
