@@ -484,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function handleFileUpload(files) {
-    const loadingManager = getLoadingManager();
+    // Removed the reference to getLoadingManager() here.
     loadingManager.startOperation('Processing Files');
     loadingManager.addSubOperation('parsing', 0.3);
     loadingManager.addSubOperation('preview', 0.3);

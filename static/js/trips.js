@@ -49,7 +49,7 @@ function initializeEventListeners() {
 	}
 
 	// Date preset buttons
-	document.querySelectorAll('.date-preset').forEach(button => {
+	document.querySelectorAll('.date-preset').forEach((button) => {
 		button.addEventListener('click', function() {
 			const range = this.dataset.range;
 			const today = new Date();
@@ -432,9 +432,7 @@ function getFilterParams() {
 }
 
 async function fetchTrips() {
-	const loadingManager = getLoadingManager();
-	loadingManager.startOperation('Loading Trips');
-
+	// Remove the loading manager since it is not being used in this file.
 	try {
 		const params = getFilterParams();
 		const url = `/api/trips?${params.toString()}`;
@@ -472,8 +470,6 @@ async function fetchTrips() {
 	} catch (error) {
 		console.error('Error fetching trips:', error);
 		alert('Error loading trips. Please try again.');
-	} finally {
-		loadingManager.finish();
 	}
 }
 

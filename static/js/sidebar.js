@@ -10,14 +10,11 @@ class Sidebar {
 		startDateInput: document.getElementById('start-date'),
 		endDateInput: document.getElementById('end-date'),
 		mainContent: document.querySelector('main'),
-		body: document.body,
-		dateElement: document.getElementById('current-date'),
-		timeElement: document.getElementById('current-time'),
+		body: document.body
 	  };
   
 	  this.config = {
 		mobileBreakpoint: 992, // Bootstrap's lg breakpoint
-		clockUpdateInterval: 1000,
 		storageKeys: {
 		  sidebarState: 'sidebarCollapsed',
 		  startDate: 'startDate',
@@ -35,7 +32,6 @@ class Sidebar {
 	  this.validateElements();
 	  this.initializeEventListeners();
 	  this.loadStoredDates();
-	  this.initializeClock();
 	  this.handleResponsiveLayout();
 	  this.loadSidebarState();
 	}
@@ -202,26 +198,6 @@ class Sidebar {
 	}
   
 	/**
-	 * Initialize clock functionality
-	 */
-	initializeClock() {
-	  const updateClock = () => {
-		const now = new Date();
-		const { dateElement, timeElement } = this.elements;
-  
-		if (dateElement) {
-		  dateElement.textContent = now.toLocaleDateString();
-		}
-		if (timeElement) {
-		  timeElement.textContent = now.toLocaleTimeString();
-		}
-	  };
-  
-	  updateClock();
-	  setInterval(updateClock, this.config.clockUpdateInterval);
-	}
-  
-	/**
 	 * Handle responsive layout changes
 	 */
 	handleResponsiveLayout() {
@@ -229,12 +205,13 @@ class Sidebar {
 	  const { sidebar, body, mainContent } = this.elements;
   
 	  if (isMobile) {
-		// For mobile, ensure sidebar is hidden initially
-		sidebar.classList.remove('collapsed');
-		body.classList.remove('sidebar-collapsed');
-		sidebar.classList.remove('active');
-		if (mainContent) {
-		  mainContent.classList.remove('expanded');
+		// For mobile, ensure sidebar is hidden initially unless it was active
+		if (!sidebar.classList.contains('active')) {
+		  sidebar.classList.remove('collapsed');
+		  body.classList.remove('sidebar-collapsed');
+		  if (mainContent) {
+			mainContent.classList.remove('expanded');
+		  }
 		}
 	  } else {
 		// For desktop, apply collapsed state if stored

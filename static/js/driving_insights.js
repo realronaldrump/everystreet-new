@@ -301,7 +301,7 @@ async function fetchDrivingInsights() {
 
         updateDistanceChart(analyticsData.daily_distances);
         updateTimeDistributionChart(analyticsData.time_distribution);
-        updateFuelChart(analyticsData);
+        updateFuelChart(generalData);
 
         loadingManager.updateSubOperation('analytics', 100);
     } catch (error) {
