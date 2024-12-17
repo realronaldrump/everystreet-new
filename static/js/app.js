@@ -162,6 +162,16 @@
 
             mapLayers.customPlaces.layer = L.layerGroup();
 
+            // Initialize LiveTripTracker after the map is fully ready
+            if (!window.liveTracker) {
+                try {
+                    window.liveTracker = new LiveTripTracker(map);
+                    console.log("Live Tracker initialized");
+                } catch (error) {
+                    console.error('Error initializing live tracking:', error);
+                }
+            }
+
             if (!mapInitialized) {
                 fetch('/api/last_trip_point')
                     .then((response) => response.json())
@@ -1072,22 +1082,6 @@
         localStorage.removeItem('sidebarCollapsed');
     }
 
-    function initializeLiveTracking() {
-        if (window.EveryStreet && typeof window.EveryStreet.getMap === 'function') {
-            const map = window.EveryStreet.getMap();
-            if (map && !liveTracker) {
-                try {
-                    liveTracker = new LiveTripTracker(map);
-                    console.log('Live tracking initialized');
-                } catch (error) {
-                    console.error('Error initializing live tracking:', error);
-                }
-            } else {
-                console.warn('Map not ready or live tracker already exists');
-            }
-        }
-    }
-
     function initializeSocketIO() {
         if (socket) {
             console.warn('Socket already initialized');
@@ -1129,21 +1123,12 @@
                 fetchTrips();
                 localStorage.removeItem('isFirstLoad');
             }
-    
-            // Initialize LiveTripTracker after the map is ready
-            try {
-                window.liveTracker = new LiveTripTracker(map);
-                console.log("Live Tracker initialized")
-            } catch (error) {
-                console.error('Error initializing live tracking:', error);
-            }
         }
     
         fetchMetrics();
-    
         initializeSocketIO();
-        // Moved live tracking initialization to be handled by the map ready check above.
     
         isInitialized = true;
     });
-});
+    
+})();
