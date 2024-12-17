@@ -2,8 +2,8 @@
 
 'use strict';
 
-let tripCountsChart, distanceChart, timeDistributionChart;
-let datePickers, insightsTable;
+let tripCountsChart, distanceChart, timeDistributionChart, fuelConsumptionChart;
+let insightsTable;
 const defaultChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -15,7 +15,7 @@ const defaultChartOptions = {
     },
 };
 
-// Get the LoadingManager instance
+// Use the LoadingManager for managing loading state
 const loadingManager = new LoadingManager();
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -53,7 +53,7 @@ function initializeCharts() {
         type: 'line',
         data: {
             datasets: []
-        }, // Data will be populated later
+        },
         options: {
             ...defaultChartOptions,
             interaction: {
@@ -80,7 +80,7 @@ function initializeCharts() {
                         display: true,
                         text: 'Trips'
                     }
-                }, // Simplified title
+                },
             },
             plugins: {
                 tooltip: {
@@ -109,12 +109,14 @@ function initializeCharts() {
                         }
                     },
                     title: {
+                        display: true,
                         text: 'Date'
                     },
                 },
                 y: {
                     beginAtZero: true,
                     title: {
+                        display: true,
                         text: 'Distance (miles)'
                     }
                 },
@@ -155,13 +157,8 @@ function initializeCharts() {
         },
     });
 
-    // Fuel Consumption Chart Initialization
     const fuelConsumptionCtx = document.getElementById('fuelConsumptionChart').getContext('2d');
-    const updateFuelChart = initializeFuelConsumptionChart(fuelConsumptionCtx);
-}
-
-function initializeFuelConsumptionChart(ctx) {
-    const chart = new Chart(ctx, {
+    fuelConsumptionChart = new Chart(fuelConsumptionCtx, {
         type: 'bar',
         data: {
             labels: ['Fuel Consumed'],
@@ -169,29 +166,21 @@ function initializeFuelConsumptionChart(ctx) {
                 label: 'Gallons',
                 data: [0],
                 backgroundColor: '#FF9800',
-            }, ],
+            }],
         },
         options: {
-            ...defaultChartOptions, // Include default options
+            ...defaultChartOptions,
             scales: {
                 y: {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Gallons', // Add title to Y-axis
+                        text: 'Gallons',
                     },
                 },
             },
         },
     });
-
-    return function update(data) {
-        //Improved update function
-        if (data && data.total_fuel_consumed !== undefined) {
-            chart.data.datasets[0].data[0] = data.total_fuel_consumed;
-            chart.update();
-        }
-    };
 }
 
 function initializeDataTable() {
@@ -199,7 +188,7 @@ function initializeDataTable() {
         responsive: true,
         order: [
             [1, 'desc']
-        ], // Consistent with other ordering
+        ],
         columns: [{
                 data: '_id'
             },
@@ -208,7 +197,7 @@ function initializeDataTable() {
             },
             {
                 data: 'lastVisit',
-                render: (data) => new Date(data).toLocaleDateString()
+                render: (data) => data ? new Date(data).toLocaleDateString() : 'N/A'
             },
         ],
     });
@@ -235,12 +224,11 @@ async function handleDatePresetClick() {
             const response = await fetch('/api/first_trip_date');
             if (!response.ok) throw new Error('Failed to fetch first trip date');
             startDate = new Date((await response.json()).first_trip_date);
-            loadingManager.finish();
         } else {
             switch (range) {
                 case 'yesterday':
                     startDate.setDate(today.getDate() - 1);
-                    endDate.setDate(today.getDate() - 1); // endDate is yesterday as well
+                    endDate.setDate(today.getDate() - 1);
                     break;
                 case 'last-week':
                     startDate.setDate(today.getDate() - 7);
@@ -260,7 +248,9 @@ async function handleDatePresetClick() {
     } catch (error) {
         console.error('Error setting date range:', error);
         showError('Error setting date range. Using default range.');
-        updateDateInputsAndFetch(new Date(today.setFullYear(today.getFullYear() - 1)), today); // Default to last year
+        updateDateInputsAndFetch(new Date(today.setFullYear(today.getFullYear() - 1)), today);
+    } finally {
+        loadingManager.finish('Fetching First Trip Date');
     }
 }
 
@@ -291,13 +281,11 @@ async function fetchDrivingInsights() {
             throw new Error(generalData.error);
         }
 
-        loadingManager.updateSubOperation('general', 100);
-
         updateSummaryMetrics(generalData);
-        updateDataTable([generalData.most_visited].filter(Boolean));
-        updateTripCountsChart(generalData);
+        updateDataTable(generalData);
+        updateTripCountsChart(analyticsData);
 
-        loadingManager.updateSubOperation('analytics', 50);
+        loadingManager.updateSubOperation('general', 100);
 
         updateDistanceChart(analyticsData.daily_distances);
         updateTimeDistributionChart(analyticsData.time_distribution);
@@ -317,7 +305,10 @@ function updateTripCountsChart(data) {
 
     tripCountsChart.data.datasets = [{
             label: 'Daily Trips',
-            data: data.trip_counts || [],
+            data: data.daily_distances.map(d => ({
+                x: d.date,
+                y: d.count
+            })),
             borderColor: '#BB86FC',
             backgroundColor: 'rgba(187, 134, 252, 0.2)',
             tension: 0.1,
@@ -325,7 +316,14 @@ function updateTripCountsChart(data) {
         },
         {
             label: '7-Day Avg',
-            data: data.moving_average || [],
+            data: data.daily_distances.map((d, i, arr) => {
+                const slice = arr.slice(Math.max(i - 6, 0), i + 1);
+                const avg = slice.reduce((sum, entry) => sum + entry.count, 0) / slice.length;
+                return {
+                    x: d.date,
+                    y: avg
+                };
+            }),
             borderColor: '#03DAC6',
             borderDash: [5, 5],
             tension: 0.1,
@@ -343,18 +341,18 @@ function updateDistanceChart(data) {
         data: data.map((d) => ({
             x: d.date,
             y: +d.distance.toFixed(2)
-        })), // Use unary plus
+        })),
         backgroundColor: '#03DAC6',
         borderColor: '#018786',
         borderWidth: 1,
-    }; // Direct assignment
+    };
     distanceChart.update();
 }
 
 function updateTimeDistributionChart(data) {
     if (!timeDistributionChart || !Array.isArray(data)) return;
 
-    const timeSlots = Array(6).fill(0); // Initialize with 6 zeros
+    const timeSlots = Array(6).fill(0);
     data.forEach((d) => timeSlots[Math.floor(d.hour / 4)] += d.count);
 
     timeDistributionChart.data.datasets[0].data = timeSlots;
@@ -365,13 +363,11 @@ function updateSummaryMetrics(data) {
     if (!data) return;
 
     document.getElementById('total-trips').textContent = data.total_trips || 0;
-    document.getElementById('total-distance').textContent = `${(data.total_distance || 0).toFixed(2)} miles`; // Formatted
-    document.getElementById('total-fuel').textContent = `${(data.total_fuel_consumed || 0).toFixed(2)} gallons`; // Formatted
+    document.getElementById('total-distance').textContent = `${(data.total_distance || 0).toFixed(2)} miles`;
+    document.getElementById('total-fuel').textContent = `${(data.total_fuel_consumed || 0).toFixed(2)} gallons`;
     document.getElementById('max-speed').textContent = `${data.max_speed || 0} mph`;
     document.getElementById('total-idle').textContent = `${data.total_idle_duration || 0} minutes`;
-    document.getElementById('longest-trip').textContent = `${(
-    data.longest_trip_distance || 0
-  ).toFixed(2)} miles`; // Formatted
+    document.getElementById('longest-trip').textContent = `${(data.longest_trip_distance || 0).toFixed(2)} miles`;
 
     const mostVisitedElement = document.getElementById('most-visited');
     if (data.most_visited && data.most_visited._id) {
@@ -380,18 +376,27 @@ function updateSummaryMetrics(data) {
             count,
             isCustomPlace
         } = data.most_visited;
-        mostVisitedElement.innerHTML = `${_id} ${
-      isCustomPlace ? '<span class="badge bg-primary">Custom</span>' : ''
-    } (${count} visits)`; // Simplified badge
+        mostVisitedElement.innerHTML = `${_id} ${isCustomPlace ? '<span class="badge bg-primary">Custom</span>' : ''} (${count} visits)`;
     } else {
         mostVisitedElement.textContent = '-';
     }
 
-    updateFuelChart(data); // Update the fuel chart
+    updateFuelChart(data);
+}
+
+function updateFuelChart(data) {
+    if (fuelConsumptionChart && data && data.total_fuel_consumed !== undefined) {
+        fuelConsumptionChart.data.datasets[0].data[0] = data.total_fuel_consumed;
+        fuelConsumptionChart.update();
+    }
 }
 
 function updateDataTable(data) {
-    insightsTable?.clear().rows.add(data).draw(); // Optional chaining
+    if (!data.most_visited) return;
+
+    const visitedPlaces = Object.entries(data).filter(([key]) => key === 'most_visited').map(([, value]) => value);
+
+    insightsTable.clear().rows.add(visitedPlaces).draw();
 }
 
 function getFilterParams() {
@@ -407,5 +412,5 @@ function showError(message) {
     const errorDiv = document.createElement('div');
     errorDiv.className = 'alert alert-danger alert-dismissible fade show';
     errorDiv.innerHTML = `${message} <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
-    document.querySelector('.container-fluid')?.prepend(errorDiv); // Optional chaining
+    document.querySelector('.container-fluid')?.prepend(errorDiv);
 }
