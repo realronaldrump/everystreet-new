@@ -81,6 +81,7 @@ tf = TimezoneFinder()
 # Dictionary to store active trips
 active_trips = {}
 
+
 def get_mongo_client():
     try:
         client = MongoClient(
@@ -97,6 +98,7 @@ def get_mongo_client():
         logger.error(f"Error connecting to MongoDB: {e}")
         raise
 
+
 mongo_client = get_mongo_client()
 db = mongo_client["every_street"]
 trips_collection = db["trips"]
@@ -107,6 +109,7 @@ places_collection = db["places"]
 
 uploaded_trips_collection.create_index("transactionId", unique=True)
 matched_trips_collection.create_index("transactionId", unique=True)
+
 
 class CustomPlace:
     def __init__(self, name, geometry, created_at=None):
@@ -129,6 +132,7 @@ class CustomPlace:
             created_at=data.get("created_at", datetime.now(UTC)),
         )
 
+
 async def get_access_token(client_session):
     payload = {
         "client_id": CLIENT_ID,
@@ -144,8 +148,10 @@ async def get_access_token(client_session):
         logger.error(f"Error getting access token: {auth_response.status}")
         return None
 
+
 async def get_trips_from_api(client_session, access_token, imei, start_date, end_date):
-    headers = {"Authorization": access_token, "Content-Type": "application/json"}
+    headers = {"Authorization": access_token,
+               "Content-Type": "application/json"}
     params = {
         "imei": imei,
         "gps-format": "geojson",
@@ -181,6 +187,7 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
         logger.error(f"Exception in get_trips_from_api: {e}")
         return []
 
+
 async def fetch_trips_in_intervals(
     main_session, access_token, imei, start_date, end_date
 ):
@@ -196,6 +203,7 @@ async def fetch_trips_in_intervals(
         current_start = current_end
     return all_trips
 
+
 def is_valid_geojson(geojson_obj):
     return geojson_obj["type"] in [
         "Point",
@@ -206,6 +214,7 @@ def is_valid_geojson(geojson_obj):
         "MultiPolygon",
         "GeometryCollection",
     ]
+
 
 def periodic_fetch_trips():
     with app.app_context():
@@ -224,6 +233,7 @@ def periodic_fetch_trips():
         finally:
             threading.Timer(30 * 60, periodic_fetch_trips).start()
 
+
 def validate_trip_data(trip):
     required_fields = ["transactionId", "startTime", "endTime", "gps"]
     for field in required_fields:
@@ -231,7 +241,8 @@ def validate_trip_data(trip):
             return False, f"Missing required field: {field}"
     try:
         gps_data = (
-            json.loads(trip["gps"]) if isinstance(trip["gps"], str) else trip["gps"]
+            json.loads(trip["gps"]) if isinstance(
+                trip["gps"], str) else trip["gps"]
         )
         if (
             not isinstance(gps_data, dict)
@@ -243,6 +254,7 @@ def validate_trip_data(trip):
     except (json.JSONDecodeError, Exception):
         return False, "Invalid GPS data"
     return True, None
+
 
 async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
     url = "https://nominatim.openstreetmap.org/reverse"
@@ -274,6 +286,7 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
                 await asyncio.sleep(backoff_factor * (2 ** (attempt - 1)))
     return None
 
+
 def fetch_trips_for_geojson():
     trips = trips_collection.find()
     features = []
@@ -294,10 +307,12 @@ def fetch_trips_for_geojson():
         features.append(feature)
     return geojson_module.FeatureCollection(features)
 
+
 def get_trip_timezone(trip):
     try:
         gps_data = geojson_loads(
-            trip["gps"] if isinstance(trip["gps"], str) else json.dumps(trip["gps"])
+            trip["gps"] if isinstance(
+                trip["gps"], str) else json.dumps(trip["gps"])
         )
         if gps_data["type"] == "Point":
             lon, lat = gps_data["coordinates"]
@@ -316,6 +331,7 @@ def get_trip_timezone(trip):
     except Exception as e:
         logger.error(f"Error getting trip timezone: {e}")
         return "UTC"
+
 
 async def fetch_and_store_trips():
     try:
@@ -381,6 +397,7 @@ async def fetch_and_store_trips():
     except Exception as e:
         logger.error(f"Error in fetch_and_store_trips: {e}")
 
+
 def process_trip(trip):
     try:
         if isinstance(trip["startTime"], str):
@@ -403,7 +420,8 @@ def process_trip(trip):
             )
             return None
         gps_data = (
-            json.loads(trip["gps"]) if isinstance(trip["gps"], str) else trip["gps"]
+            json.loads(trip["gps"]) if isinstance(
+                trip["gps"], str) else trip["gps"]
         )
         trip["gps"] = json.dumps(gps_data)
         if not gps_data.get("coordinates"):
@@ -427,21 +445,26 @@ def process_trip(trip):
         )
         return None
 
+
 @app.route("/")
 def index():
     return render_template("index.html")
+
 
 @app.route("/trips")
 def trips_page():
     return render_template("trips.html")
 
+
 @app.route("/driving-insights")
 def driving_insights_page():
     return render_template("driving_insights.html")
 
+
 @app.route("/visits")
 def visits_page():
     return render_template("visits.html")
+
 
 async def process_historical_trip(trip):
     trip["startTime"] = (
@@ -458,6 +481,7 @@ async def process_historical_trip(trip):
     trip["startGeoPoint"] = gps_data["coordinates"][0]
     trip["destinationGeoPoint"] = gps_data["coordinates"][-1]
     return trip
+
 
 async def load_historical_data(start_date_str=None, end_date_str=None):
     all_trips = []
@@ -508,6 +532,7 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
             )
     return inserted_count
 
+
 @app.route("/api/trips")
 def get_trips():
     start_date_str = request.args.get("start_date")
@@ -538,11 +563,13 @@ def get_trips():
     for trip in all_trips:
         try:
             if trip["startTime"].tzinfo is None:
-                trip["startTime"] = trip["startTime"].replace(tzinfo=timezone.utc)
+                trip["startTime"] = trip["startTime"].replace(
+                    tzinfo=timezone.utc)
             if trip["endTime"].tzinfo is None:
                 trip["endTime"] = trip["endTime"].replace(tzinfo=timezone.utc)
             geometry = geojson_loads(
-                trip["gps"] if isinstance(trip["gps"], str) else json.dumps(trip["gps"])
+                trip["gps"] if isinstance(
+                    trip["gps"], str) else json.dumps(trip["gps"])
             )
             properties = {
                 "transactionId": trip["transactionId"],
@@ -558,13 +585,15 @@ def get_trips():
                 "fuelConsumed": float(trip.get("fuelConsumed", 0)),
                 "source": trip.get("source", "regular"),
             }
-            feature = geojson_module.Feature(geometry=geometry, properties=properties)
+            feature = geojson_module.Feature(
+                geometry=geometry, properties=properties)
             features.append(feature)
         except Exception as e:
             logger.error(
                 f"Error processing trip {trip.get('transactionId', 'Unknown')}: {e}"
             )
     return jsonify(geojson_module.FeatureCollection(features))
+
 
 @app.route("/api/driving-insights")
 def get_driving_insights():
@@ -630,7 +659,8 @@ def get_driving_insights():
             {"$limit": 1},
         ]
         result_trips = list(trips_collection.aggregate(pipeline_trips))
-        result_uploaded = list(uploaded_trips_collection.aggregate(pipeline_uploaded))
+        result_uploaded = list(
+            uploaded_trips_collection.aggregate(pipeline_uploaded))
         result_most_visited_trips = list(
             trips_collection.aggregate(pipeline_most_visited)
         )
@@ -647,7 +677,8 @@ def get_driving_insights():
             "most_visited": {},
         }
         if result_trips:
-            combined_insights["total_trips"] += result_trips[0].get("total_trips", 0)
+            combined_insights["total_trips"] += result_trips[0].get(
+                "total_trips", 0)
             combined_insights["total_distance"] += result_trips[0].get(
                 "total_distance", 0.0
             )
@@ -655,7 +686,8 @@ def get_driving_insights():
                 "total_fuel_consumed", 0.0
             )
             combined_insights["max_speed"] = max(
-                combined_insights["max_speed"], result_trips[0].get("max_speed", 0.0)
+                combined_insights["max_speed"], result_trips[0].get(
+                    "max_speed", 0.0)
             )
             combined_insights["total_idle_duration"] += result_trips[0].get(
                 "total_idle_duration", 0
@@ -665,7 +697,8 @@ def get_driving_insights():
                 result_trips[0].get("longest_trip_distance", 0.0),
             )
         if result_uploaded:
-            combined_insights["total_trips"] += result_uploaded[0].get("total_trips", 0)
+            combined_insights["total_trips"] += result_uploaded[0].get(
+                "total_trips", 0)
             combined_insights["total_distance"] += result_uploaded[0].get(
                 "total_distance", 0.0
             )
@@ -673,7 +706,8 @@ def get_driving_insights():
                 "total_fuel_consumed", 0.0
             )
             combined_insights["max_speed"] = max(
-                combined_insights["max_speed"], result_uploaded[0].get("max_speed", 0.0)
+                combined_insights["max_speed"], result_uploaded[0].get(
+                    "max_speed", 0.0)
             )
             combined_insights["total_idle_duration"] += result_uploaded[0].get(
                 "total_idle_duration", 0
@@ -712,6 +746,7 @@ def get_driving_insights():
         logger.error(f"Error in get_driving_insights: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
     start_date = (
         datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
@@ -745,11 +780,13 @@ def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
         )
     for destination in insights:
         insights[destination]["averageDistance"] = (
-            insights[destination]["totalDistance"] / insights[destination]["count"]
+            insights[destination]["totalDistance"] /
+            insights[destination]["count"]
             if insights[destination]["count"] > 0
             else 0
         )
     return list(insights.values())
+
 
 @app.route("/api/metrics")
 def get_metrics():
@@ -794,7 +831,8 @@ def get_metrics():
     driving_times = [
         (trip["endTime"] - trip["startTime"]).total_seconds() / 60 for trip in all_trips
     ]
-    avg_driving_time = sum(driving_times) / len(driving_times) if driving_times else 0
+    avg_driving_time = sum(driving_times) / \
+        len(driving_times) if driving_times else 0
     return jsonify(
         {
             "total_trips": total_trips,
@@ -804,6 +842,7 @@ def get_metrics():
             "avg_driving_time": f"{int(avg_driving_time // 60):02d}:{int(avg_driving_time % 60):02d}",
         }
     )
+
 
 @app.route("/api/fetch_trips", methods=["POST"])
 async def api_fetch_trips():
@@ -820,6 +859,7 @@ async def api_fetch_trips():
         )
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route("/api/fetch_trips_range", methods=["POST"])
 def api_fetch_trips_range():
@@ -844,12 +884,14 @@ def api_fetch_trips_range():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app.after_request
 def add_header(response):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
+
 
 @app.route("/export/geojson")
 def export_geojson():
@@ -858,7 +900,8 @@ def export_geojson():
         end_date_str = request.args.get("end_date")
         imei = request.args.get("imei")
         start_date = (
-            datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            datetime.strptime(
+                start_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
             if start_date_str
             else None
         )
@@ -882,7 +925,8 @@ def export_geojson():
         geojson = {"type": "FeatureCollection", "features": []}
         for trip in trips:
             gps_data = (
-                json.loads(trip["gps"]) if isinstance(trip["gps"], str) else trip["gps"]
+                json.loads(trip["gps"]) if isinstance(
+                    trip["gps"], str) else trip["gps"]
             )
             feature = {
                 "type": "Feature",
@@ -901,6 +945,7 @@ def export_geojson():
         logger.error(f"Error exporting GeoJSON: {e}")
         return jsonify({"error": "An error occurred while exporting GeoJSON."}), 500
 
+
 @app.route("/export/gpx")
 def export_gpx():
     try:
@@ -908,7 +953,8 @@ def export_gpx():
         end_date_str = request.args.get("end_date")
         imei = request.args.get("imei")
         start_date = (
-            datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            datetime.strptime(
+                start_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
             if start_date_str
             else None
         )
@@ -936,18 +982,21 @@ def export_gpx():
             gpx_segment = gpxpy.gpx.GPXTrackSegment()
             gpx_track.segments.append(gpx_segment)
             gps_data = (
-                json.loads(trip["gps"]) if isinstance(trip["gps"], str) else trip["gps"]
+                json.loads(trip["gps"]) if isinstance(
+                    trip["gps"], str) else trip["gps"]
             )
             if gps_data.get("type") == "LineString":
                 for coord in gps_data.get("coordinates", []):
                     if isinstance(coord, list) and len(coord) >= 2:
                         lon, lat = coord[0], coord[1]
-                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+                        gpx_segment.points.append(
+                            gpxpy.gpx.GPXTrackPoint(lat, lon))
             elif gps_data.get("type") == "Point":
                 coord = gps_data.get("coordinates", [])
                 if isinstance(coord, list) and len(coord) >= 2:
                     lon, lat = coord[0], coord[1]
-                    gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+                    gpx_segment.points.append(
+                        gpxpy.gpx.GPXTrackPoint(lat, lon))
             gpx_track.name = trip.get("transactionId", "Unnamed Trip")
             gpx_track.description = f"Trip from {trip.get('startLocation', 'Unknown')} to {trip.get('destination', 'Unknown')}"
         gpx_xml = gpx.to_xml()
@@ -960,8 +1009,10 @@ def export_gpx():
         logger.error(f"Error exporting GPX: {e}")
         return jsonify({"error": f"An error occurred while exporting GPX: {e}"}), 500
 
+
 async def start_background_tasks():
     await fetch_and_store_trips()
+
 
 @app.route("/api/validate_location", methods=["POST"])
 def validate_location():
@@ -971,21 +1022,25 @@ def validate_location():
     validated_location = validate_location_osm(location, location_type)
     return jsonify(validated_location)
 
+
 @app.route("/api/generate_geojson", methods=["POST"])
 def generate_geojson():
     try:
         data = request.json
         location = data.get("location")
         streets_only = data.get("streetsOnly", False)
-        geojson_data, error_message = generate_geojson_osm(location, streets_only)
+        geojson_data, error_message = generate_geojson_osm(
+            location, streets_only)
         if geojson_data:
             return jsonify(geojson_data)
         return jsonify({"error": error_message}), 400
     except Exception as e:
         return jsonify({"status": "error", "message": f"An error occurred: {e}"}), 500
 
+
 def validate_location_osm(location, location_type):
-    params = {"q": location, "format": "json", "limit": 1, "featuretype": location_type}
+    params = {"q": location, "format": "json",
+              "limit": 1, "featuretype": location_type}
     headers = {"User-Agent": "GeojsonGenerator/1.0"}
     response = requests.get(
         "https://nominatim.openstreetmap.org/search", params=params, headers=headers
@@ -994,6 +1049,7 @@ def validate_location_osm(location, location_type):
         data = response.json()
         return data[0] if data else None
     return None
+
 
 def generate_geojson_osm(location, streets_only=False):
     try:
@@ -1037,6 +1093,7 @@ def generate_geojson_osm(location, streets_only=False):
     except Exception as e:
         logger.error(f"Error generating GeoJSON: {e}")
         return None, f"An error occurred while generating GeoJSON: {e}"
+
 
 def process_elements(elements, streets_only):
     features = []
@@ -1091,6 +1148,7 @@ def process_elements(elements, streets_only):
                 )
     return features
 
+
 @app.route("/api/map_match_trips", methods=["POST"])
 async def map_match_trips():
     try:
@@ -1124,6 +1182,7 @@ async def map_match_trips():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app.route("/api/map_match_historical_trips", methods=["POST"])
 async def map_match_historical_trips():
     try:
@@ -1156,6 +1215,7 @@ async def map_match_historical_trips():
         )
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route("/api/matched_trips")
 def get_matched_trips():
@@ -1201,6 +1261,7 @@ def get_matched_trips():
         )
     )
 
+
 @app.route("/api/export/trip/<trip_id>")
 def export_single_trip(trip_id):
     try:
@@ -1237,12 +1298,14 @@ def export_single_trip(trip_id):
             gpx_segment = gpxpy.gpx.GPXTrackSegment()
             gpx_track.segments.append(gpx_segment)
             gps_data = (
-                json.loads(trip["gps"]) if isinstance(trip["gps"], str) else trip["gps"]
+                json.loads(trip["gps"]) if isinstance(
+                    trip["gps"], str) else trip["gps"]
             )
             if gps_data["type"] == "LineString":
                 for coord in gps_data["coordinates"]:
                     lon, lat = coord[0], coord[1]
-                    gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+                    gpx_segment.points.append(
+                        gpxpy.gpx.GPXTrackPoint(lat, lon))
             gpx_track.name = trip["transactionId"]
             return Response(
                 gpx.to_xml(),
@@ -1256,6 +1319,7 @@ def export_single_trip(trip_id):
     except Exception as e:
         logger.error(f"Error exporting trip: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/matched_trips/<trip_id>", methods=["DELETE"])
 def delete_matched_trip(trip_id):
@@ -1279,9 +1343,11 @@ def delete_matched_trip(trip_id):
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app.route("/export")
 def export_page():
     return render_template("export.html")
+
 
 @app.route("/api/export/trips")
 def export_trips():
@@ -1306,6 +1372,7 @@ def export_trips():
             download_name="trips.gpx",
         )
 
+
 @app.route("/api/export/matched_trips")
 def export_matched_trips():
     start_date = request.args.get("start_date")
@@ -1329,11 +1396,13 @@ def export_matched_trips():
             download_name="matched_trips.gpx",
         )
 
+
 @app.route("/api/export/streets")
 def export_streets():
     location = request.args.get("location")
     export_format = request.args.get("format")
-    streets_data, _ = generate_geojson_osm(json.loads(location), streets_only=True)
+    streets_data, _ = generate_geojson_osm(
+        json.loads(location), streets_only=True)
     if export_format == "geojson":
         return send_file(
             io.BytesIO(json.dumps(streets_data).encode()),
@@ -1358,11 +1427,13 @@ def export_streets():
             download_name="streets.zip",
         )
 
+
 @app.route("/api/export/boundary")
 def export_boundary():
     location = request.args.get("location")
     export_format = request.args.get("format")
-    boundary_data, _ = generate_geojson_osm(json.loads(location), streets_only=False)
+    boundary_data, _ = generate_geojson_osm(
+        json.loads(location), streets_only=False)
     if export_format == "geojson":
         return send_file(
             io.BytesIO(json.dumps(boundary_data).encode()),
@@ -1387,11 +1458,13 @@ def export_boundary():
             download_name="boundary.zip",
         )
 
+
 def fetch_trips(start_date, end_date):
     start_date = parser.parse(start_date)
     end_date = parser.parse(end_date)
     query = {"startTime": {"$gte": start_date, "$lte": end_date}}
     return list(trips_collection.find(query))
+
 
 def fetch_matched_trips(start_date, end_date):
     start_date = parser.parse(start_date)
@@ -1399,11 +1472,13 @@ def fetch_matched_trips(start_date, end_date):
     query = {"startTime": {"$gte": start_date, "$lte": end_date}}
     return list(matched_trips_collection.find(query))
 
+
 def create_geojson(trips):
     features = []
     for trip in trips:
         gps_data = (
-            json.loads(trip["gps"]) if isinstance(trip["gps"], str) else trip["gps"]
+            json.loads(trip["gps"]) if isinstance(
+                trip["gps"], str) else trip["gps"]
         )
         feature = {
             "type": "Feature",
@@ -1421,6 +1496,7 @@ def create_geojson(trips):
     geojson = {"type": "FeatureCollection", "features": features}
     return json.dumps(geojson)
 
+
 def create_gpx(trips):
     gpx = gpxpy.gpx.GPX()
     for trip in trips:
@@ -1429,13 +1505,15 @@ def create_gpx(trips):
         gpx_segment = gpxpy.gpx.GPXTrackSegment()
         gpx_track.segments.append(gpx_segment)
         gps_data = (
-            json.loads(trip["gps"]) if isinstance(trip["gps"], str) else trip["gps"]
+            json.loads(trip["gps"]) if isinstance(
+                trip["gps"], str) else trip["gps"]
         )
         if gps_data.get("type") == "LineString":
             for coord in gps_data.get("coordinates", []):
                 if isinstance(coord, list) and len(coord) >= 2:
                     lon, lat = coord[0], coord[1]
-                    gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+                    gpx_segment.points.append(
+                        gpxpy.gpx.GPXTrackPoint(lat, lon))
         elif gps_data.get("type") == "Point":
             coord = gps_data.get("coordinates", [])
             if isinstance(coord, list) and len(coord) >= 2:
@@ -1445,13 +1523,15 @@ def create_gpx(trips):
         gpx_track.description = f"Trip from {trip.get('startLocation', 'Unknown')} to {trip.get('destination', 'Unknown')}"
     return gpx.to_xml()
 
+
 @app.route("/api/streets", methods=["POST"])
 def get_streets():
     location = request.json.get("location")
     if not location or not isinstance(location, dict) or "type" not in location:
         return jsonify({"status": "error", "message": "Invalid location data."}), 400
     try:
-        streets_data, error_message = generate_geojson_osm(location, streets_only=True)
+        streets_data, error_message = generate_geojson_osm(
+            location, streets_only=True)
         if streets_data is None:
             return (
                 jsonify(
@@ -1466,7 +1546,8 @@ def get_streets():
         trip_geometries = []
         for trip in trips:
             gps_data = (
-                json.loads(trip["gps"]) if isinstance(trip["gps"], str) else trip["gps"]
+                json.loads(trip["gps"]) if isinstance(
+                    trip["gps"], str) else trip["gps"]
             )
             geom = shape(gps_data)
             if isinstance(geom, LineString):
@@ -1477,13 +1558,15 @@ def get_streets():
         streets_gdf.set_crs(epsg=4326, inplace=True)
         if trip_geometries:
             trips_merged = linemerge(trip_geometries)
-            streets_gdf["driven"] = streets_gdf.geometry.intersects(trips_merged)
+            streets_gdf["driven"] = streets_gdf.geometry.intersects(
+                trips_merged)
         else:
             streets_gdf["driven"] = False
         streets_json = json.loads(streets_gdf.to_json())
         return jsonify(streets_json)
     except Exception as e:
         return jsonify({"status": "error", "message": f"An error occurred: {e}"}), 500
+
 
 @app.route("/load_historical_data", methods=["POST"])
 async def load_historical_data_endpoint():
@@ -1496,8 +1579,10 @@ async def load_historical_data_endpoint():
         }
     )
 
+
 def process_street_chunk(streets_chunk, all_trips):
     return streets_chunk.intersects(all_trips)
+
 
 def split_line_into_segments(line, segment_length_meters=10):
     try:
@@ -1514,7 +1599,8 @@ def split_line_into_segments(line, segment_length_meters=10):
         utm_crs = (
             f"EPSG:326{utm_zone:02d}" if center_lat >= 0 else f"EPSG:327{utm_zone:02d}"
         )
-        transformer = Transformer.from_crs("EPSG:4326", utm_crs, always_xy=True)
+        transformer = Transformer.from_crs(
+            "EPSG:4326", utm_crs, always_xy=True)
         x_coords, y_coords = transformer.transform(line.xy[0], line.xy[1])
         line_utm = LineString(zip(x_coords, y_coords))
         total_length = line_utm.length
@@ -1528,9 +1614,11 @@ def split_line_into_segments(line, segment_length_meters=10):
             start_point = line_utm.interpolate(start_dist)
             end_point = line_utm.interpolate(end_dist)
             segment_utm = LineString([start_point, end_point])
-            transformer = Transformer.from_crs(utm_crs, "EPSG:4326", always_xy=True)
+            transformer = Transformer.from_crs(
+                utm_crs, "EPSG:4326", always_xy=True)
             segment_coords = transformer.transform(
-                [p[0] for p in segment_utm.coords], [p[1] for p in segment_utm.coords]
+                [p[0] for p in segment_utm.coords], [p[1]
+                                                     for p in segment_utm.coords]
             )
             segment = LineString(zip(segment_coords[0], segment_coords[1]))
             segments.append(segment)
@@ -1538,6 +1626,7 @@ def split_line_into_segments(line, segment_length_meters=10):
     except Exception as e:
         logger.error(f"Error in split_line_into_segments: {e}")
         return [line]
+
 
 def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
     try:
@@ -1547,7 +1636,8 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
         buffer_distance_meters = BUFFER_DISTANCE_FEET * METERS_PER_FOOT
 
         # Convert streets to GeoDataFrame
-        streets_gdf = gpd.GeoDataFrame.from_features(streets_geojson["features"])
+        streets_gdf = gpd.GeoDataFrame.from_features(
+            streets_geojson["features"])
         streets_gdf.set_crs(epsg=4326, inplace=True)
 
         # Calculate center point using bounds instead of centroids
@@ -1561,7 +1651,7 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
 
         # Convert streets to UTM once
         streets_utm = streets_gdf.to_crs(epsg=utm_epsg)
-        
+
         # Process matched trips
         all_lines = []
         for trip in matched_trips:
@@ -1585,8 +1675,10 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
 
         # Convert trips to UTM and create buffer once
         all_trips = linemerge(all_lines)
-        trips_utm = gpd.GeoDataFrame(geometry=[all_trips], crs=4326).to_crs(epsg=utm_epsg)
-        trips_buffer = trips_utm.geometry.buffer(buffer_distance_meters).unary_union
+        trips_utm = gpd.GeoDataFrame(
+            geometry=[all_trips], crs=4326).to_crs(epsg=utm_epsg)
+        trips_buffer = trips_utm.geometry.buffer(
+            buffer_distance_meters).unary_union
 
         # Create spatial index for buffered trips
         trips_idx = STRtree(trips_buffer)
@@ -1595,16 +1687,16 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
         total_length = 0
         driven_length = 0
         features = []
-        
+
         for chunk_start in range(0, len(streets_utm), CHUNK_SIZE):
             chunk_end = chunk_start + CHUNK_SIZE
             streets_chunk = streets_utm.iloc[chunk_start:chunk_end]
-            
+
             # Use spatial index to find potential intersections
             for idx, street in streets_chunk.iterrows():
                 street_geom = street.geometry
                 total_length += street_geom.length
-                
+
                 # Quick spatial index check before detailed intersection
                 if trips_idx.query(street_geom.buffer(buffer_distance_meters)):
                     if street_geom.buffer(buffer_distance_meters).intersects(trips_buffer):
@@ -1616,7 +1708,8 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
                     is_driven = False
 
                 # Convert back to 4326 for GeoJSON output
-                street_4326 = gpd.GeoSeries([street_geom], crs=utm_epsg).to_crs(4326)[0]
+                street_4326 = gpd.GeoSeries(
+                    [street_geom], crs=utm_epsg).to_crs(4326)[0]
                 features.append({
                     "type": "Feature",
                     "geometry": mapping(street_4326),
@@ -1626,12 +1719,13 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
                     }
                 })
 
-        coverage_percentage = (driven_length / total_length) * 100 if total_length > 0 else 0
-        
+        coverage_percentage = (driven_length / total_length) * \
+            100 if total_length > 0 else 0
+
         # Convert lengths from meters to feet for output
         total_length_feet = total_length / METERS_PER_FOOT
         driven_length_feet = driven_length / METERS_PER_FOOT
-        
+
         return {
             "total_length": round(total_length_feet, 2),
             "driven_length": round(driven_length_feet, 2),
@@ -1643,8 +1737,10 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
         }
 
     except Exception as e:
-        logger.error(f"Error in calculate_street_coverage: {e}\n{traceback.format_exc()}")
+        logger.error(
+            f"Error in calculate_street_coverage: {e}\n{traceback.format_exc()}")
         raise
+
 
 @app.route("/api/coverage", methods=["POST"])
 def get_coverage():
@@ -1660,9 +1756,11 @@ def get_coverage():
     except Exception as e:
         logger.error(f"Error calculating coverage: {e}")
         return (
-            jsonify({"status": "error", "message": f"Error calculating coverage: {e}"}),
+            jsonify(
+                {"status": "error", "message": f"Error calculating coverage: {e}"}),
             500,
         )
+
 
 @app.route("/api/last_trip_point")
 def get_last_trip_point():
@@ -1692,16 +1790,20 @@ def get_last_trip_point():
     except Exception as e:
         logger.error(f"Error fetching last trip point: {e}")
         return (
-            jsonify({"error": "An error occurred while fetching the last trip point."}),
+            jsonify(
+                {"error": "An error occurred while fetching the last trip point."}),
             500,
         )
+
 
 @app.route("/upload")
 def upload_page():
     return render_template("upload.html")
 
+
 def meters_to_miles(meters):
     return meters * 0.000621371
+
 
 def calculate_gpx_distance(coordinates):
     total_distance = 0
@@ -1711,6 +1813,7 @@ def calculate_gpx_distance(coordinates):
         distance = gpxpy.geo.haversine_distance(lat1, lon1, lat2, lon2)
         total_distance += distance
     return total_distance
+
 
 @app.route("/api/upload_gpx", methods=["POST"])
 async def upload_gpx():
@@ -1738,7 +1841,8 @@ async def upload_gpx():
                         else:
                             start_time = datetime.now(timezone.utc)
                             end_time = start_time
-                        gps_data = {"type": "LineString", "coordinates": coordinates}
+                        gps_data = {"type": "LineString",
+                                    "coordinates": coordinates}
                         distance_meters = calculate_gpx_distance(coordinates)
                         distance_miles = meters_to_miles(distance_meters)
                         trip = {
@@ -1770,10 +1874,12 @@ async def upload_gpx():
         logger.error(f"Error uploading files: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 async def process_and_store_trip(trip, uploaded_trips):
     try:
         gps_data = (
-            json.loads(trip["gps"]) if isinstance(trip["gps"], str) else trip["gps"]
+            json.loads(trip["gps"]) if isinstance(
+                trip["gps"], str) else trip["gps"]
         )
         coordinates = gps_data["coordinates"]
         start_point = coordinates[0]
@@ -1815,6 +1921,7 @@ async def process_and_store_trip(trip, uploaded_trips):
         logger.exception("Full traceback:")
         raise
 
+
 @app.route("/api/uploaded_trips")
 def get_uploaded_trips():
     try:
@@ -1828,10 +1935,12 @@ def get_uploaded_trips():
         logger.error(f"Error fetching uploaded trips: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app.route("/api/uploaded_trips/<trip_id>", methods=["DELETE"])
 def delete_uploaded_trip(trip_id):
     try:
-        result = uploaded_trips_collection.delete_one({"_id": ObjectId(trip_id)})
+        result = uploaded_trips_collection.delete_one(
+            {"_id": ObjectId(trip_id)})
         if result.deleted_count == 1:
             return jsonify(
                 {"status": "success", "message": "Trip deleted successfully."}
@@ -1840,6 +1949,7 @@ def delete_uploaded_trip(trip_id):
     except Exception as e:
         logger.error(f"Error deleting uploaded trip: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route("/api/uploaded_trips/bulk_delete", methods=["DELETE"])
 def bulk_delete_uploaded_trips():
@@ -1856,7 +1966,8 @@ def bulk_delete_uploaded_trips():
                 continue
         if not valid_trip_ids:
             return (
-                jsonify({"status": "error", "message": "No valid trip IDs provided."}),
+                jsonify(
+                    {"status": "error", "message": "No valid trip IDs provided."}),
                 400,
             )
         trips_to_delete = uploaded_trips_collection.find(
@@ -1893,26 +2004,31 @@ def bulk_delete_uploaded_trips():
             500,
         )
 
+
 @app.route("/api/places", methods=["GET", "POST"])
 def handle_places():
     if request.method == "GET":
         places = list(places_collection.find())
         return jsonify(
             [
-                {"_id": str(place["_id"]), **CustomPlace.from_dict(place).to_dict()}
+                {"_id": str(place["_id"]), **
+                 CustomPlace.from_dict(place).to_dict()}
                 for place in places
             ]
         )
     if request.method == "POST":
         place_data = request.json
-        place = CustomPlace(name=place_data["name"], geometry=place_data["geometry"])
+        place = CustomPlace(
+            name=place_data["name"], geometry=place_data["geometry"])
         result = places_collection.insert_one(place.to_dict())
         return jsonify({"_id": str(result.inserted_id), **place.to_dict()})
+
 
 @app.route("/api/places/<place_id>", methods=["DELETE"])
 def delete_place(place_id):
     places_collection.delete_one({"_id": ObjectId(place_id)})
     return "", 204
+
 
 @app.route("/api/places/<place_id>/statistics")
 def get_place_statistics(place_id):
@@ -1945,14 +2061,16 @@ def get_place_statistics(place_id):
                         )
                         duration = (next_start - trip_end).total_seconds() / 60
                     else:
-                        duration = (current_time - trip_end).total_seconds() / 60
+                        duration = (current_time -
+                                    trip_end).total_seconds() / 60
                     visits.append(duration)
                     if first_visit is None:
                         first_visit = trip_end
                     if last_visit is None or trip_end > last_visit:
                         last_visit = trip_end
             except Exception as e:
-                logger.error(f"Error processing trip for place {place['name']}: {e}")
+                logger.error(
+                    f"Error processing trip for place {place['name']}: {e}")
                 continue
         total_visits = len(visits)
         if total_visits > 0:
@@ -1975,6 +2093,7 @@ def get_place_statistics(place_id):
         logger.error(f"Error calculating place statistics: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
+
 async def process_trip_destination(trip):
     gps_data = geojson_loads(trip["gps"])
     last_point = Point(gps_data["coordinates"][-1])
@@ -1994,6 +2113,7 @@ async def process_trip_destination(trip):
         return custom_place["name"]
     return await reverse_geocode_nominatim(last_point.y, last_point.x)
 
+
 def organize_daily_data(results):
     daily_data = {}
     for result in results:
@@ -2007,6 +2127,7 @@ def organize_daily_data(results):
         for date, data in sorted(daily_data.items())
     ]
 
+
 def organize_hourly_data(results):
     hourly_data = {}
     for result in results:
@@ -2017,6 +2138,7 @@ def organize_hourly_data(results):
     return [
         {"hour": hour, "count": count} for hour, count in sorted(hourly_data.items())
     ]
+
 
 @app.route("/api/trip-analytics")
 def get_trip_analytics():
@@ -2061,6 +2183,7 @@ def get_trip_analytics():
         logging.error(f"Error in trip analytics: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
+
 @app.route("/webhook/bouncie", methods=["POST"])
 def bouncie_webhook():
     webhook_key = os.getenv("WEBHOOK_KEY")
@@ -2095,7 +2218,8 @@ def bouncie_webhook():
                         lat = point["gps"]["lat"]
                         lon = point["gps"]["lon"]
                         active_trips[transaction_id]["path"].append([lat, lon])
-                active_trips[transaction_id]["last_update"] = datetime.now(timezone.utc)
+                active_trips[transaction_id]["last_update"] = datetime.now(
+                    timezone.utc)
                 emit_data = {
                     "transactionId": transaction_id,
                     "path": active_trips[transaction_id]["path"],
@@ -2108,14 +2232,17 @@ def bouncie_webhook():
                 def delayed_remove():
                     if transaction_id in active_trips:
                         del active_trips[transaction_id]
-                        socketio.emit("trip_ended", {"transactionId": transaction_id})
+                        socketio.emit(
+                            "trip_ended", {"transactionId": transaction_id})
 
-                threading.Timer(1800, delayed_remove).start()  # 30 minutes = 1800 seconds
+                # 30 minutes = 1800 seconds
+                threading.Timer(1800, delayed_remove).start()
 
         return jsonify({"status": "success"}), 200
     except Exception as e:
         logger.error(f"Error processing webhook: {e}")
         return jsonify({"status": "success"}), 200
+
 
 @socketio.on("connect")
 def handle_connect():
@@ -2135,9 +2262,11 @@ def handle_connect():
             {"transactionId": transaction_id, "path": trip_data["path"]},
         )
 
+
 @socketio.on("disconnect")
 def handle_disconnect():
     logger.info("Client disconnected")
+
 
 def get_trip_from_db(trip_id):
     try:
@@ -2159,6 +2288,7 @@ def get_trip_from_db(trip_id):
         logger.error(f"Error retrieving trip {trip_id}: {e}")
         return None
 
+
 def store_trip(trip):
     try:
         is_valid, error_message = validate_trip_data(trip)
@@ -2176,16 +2306,20 @@ def store_trip(trip):
         logger.info(f"Successfully stored trip {trip['transactionId']}")
         return True
     except Exception as e:
-        logger.error(f"Error storing trip {trip.get('transactionId', 'Unknown')}: {e}")
+        logger.error(
+            f"Error storing trip {trip.get('transactionId', 'Unknown')}: {e}")
         return False
+
 
 async def process_trip_data(trip):
     try:
         gps_data = (
-            trip["gps"] if isinstance(trip["gps"], dict) else json.loads(trip["gps"])
+            trip["gps"] if isinstance(
+                trip["gps"], dict) else json.loads(trip["gps"])
         )
         if not gps_data or "coordinates" not in gps_data:
-            logger.error(f"Invalid GPS data for trip {trip.get('transactionId')}")
+            logger.error(
+                f"Invalid GPS data for trip {trip.get('transactionId')}")
             return None
         start_point = gps_data["coordinates"][0]
         last_point = gps_data["coordinates"][-1]
@@ -2204,6 +2338,7 @@ async def process_trip_data(trip):
         logger.error(f"Error processing trip data: {e}")
         return None
 
+
 async def fetch_and_store_trips_in_range(start_date, end_date):
     try:
         logger.info(
@@ -2221,11 +2356,13 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
             all_trips = []
             total_devices = len(AUTHORIZED_DEVICES)
             for idx, imei in enumerate(AUTHORIZED_DEVICES, 1):
-                logger.info(f"Fetching trips for IMEI: {imei} ({idx}/{total_devices})")
+                logger.info(
+                    f"Fetching trips for IMEI: {imei} ({idx}/{total_devices})")
                 device_trips = await fetch_trips_in_intervals(
                     client_session, access_token, imei, start_date, end_date
                 )
-                logger.info(f"Fetched {len(device_trips)} trips for IMEI {imei}")
+                logger.info(
+                    f"Fetched {len(device_trips)} trips for IMEI {imei}")
                 all_trips.extend(device_trips)
                 progress = (idx / total_devices) * 100
                 socketio.emit("fetch_progress", {"progress": progress})
@@ -2250,7 +2387,8 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                         error_count += 1
                         continue
                     if not store_trip(processed_trip):
-                        logger.error(f"Failed to store trip {trip['transactionId']}")
+                        logger.error(
+                            f"Failed to store trip {trip['transactionId']}")
                         error_count += 1
                         continue
                     processed_count += 1
@@ -2276,11 +2414,13 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
         logger.exception("Full traceback:")
         return None
 
+
 @app.route("/api/first_trip_date")
 def get_first_trip_date():
     try:
         regular_first = trips_collection.find_one({}, sort=[("startTime", 1)])
-        uploaded_first = uploaded_trips_collection.find_one({}, sort=[("startTime", 1)])
+        uploaded_first = uploaded_trips_collection.find_one(
+            {}, sort=[("startTime", 1)])
         historical_first = historical_trips_collection.find_one(
             {}, sort=[("startTime", 1)]
         )
@@ -2305,13 +2445,16 @@ def get_first_trip_date():
             500,
         )
 
+
 @app.errorhandler(404)
 def not_found_error(error):
     return jsonify({"error": "Endpoint not found"}), 404
 
+
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
+
 
 async def cleanup_invalid_trips():
     try:
@@ -2329,6 +2472,7 @@ async def cleanup_invalid_trips():
     except Exception as e:
         logger.error(f"Error during trip cleanup: {e}")
 
+
 @app.route("/api/trips/bulk_delete", methods=["DELETE"])
 def bulk_delete_trips():
     try:
@@ -2339,7 +2483,8 @@ def bulk_delete_trips():
         delete_result = trips_collection.delete_many(
             {"transactionId": {"$in": trip_ids}}
         )
-        matched_trips_collection.delete_many({"original_trip_id": {"$in": trip_ids}})
+        matched_trips_collection.delete_many(
+            {"original_trip_id": {"$in": trip_ids}})
         return jsonify(
             {
                 "status": "success",
@@ -2350,6 +2495,7 @@ def bulk_delete_trips():
     except Exception as e:
         logger.error(f"Error in bulk delete trips: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 def process_geojson_trip(geojson_data):
     try:
@@ -2423,13 +2569,15 @@ def process_geojson_trip(geojson_data):
                 }
                 processed_trips.append(trip)
             except (ValueError, TypeError) as e:
-                logger.error(f"Error parsing timestamps for trip {transaction_id}: {e}")
+                logger.error(
+                    f"Error parsing timestamps for trip {transaction_id}: {e}")
                 continue
         return processed_trips
     except Exception as e:
         logger.error(f"Error processing GeoJSON trip: {e}")
         logger.exception("Full traceback:")
         return None
+
 
 def calculate_distance(coordinates):
     total_distance = 0
@@ -2448,6 +2596,7 @@ def calculate_distance(coordinates):
         distance = R * c
         total_distance += distance
     return total_distance
+
 
 def process_gpx(gpx):
     processed_trips = []
@@ -2470,9 +2619,11 @@ def process_gpx(gpx):
             processed_trips.append(trip)
     return processed_trips
 
+
 @app.route("/edit_trips")
 def edit_trips_page():
     return render_template("edit_trips.html")
+
 
 @app.route("/api/edit_trips", methods=["GET"])
 def get_edit_trips():
@@ -2494,6 +2645,7 @@ def get_edit_trips():
     except Exception as e:
         logger.error(f"Error fetching trips for editing: {e}")
         return jsonify({"status": "error", "message": "Internal server error"}), 500
+
 
 @app.route("/api/upload", methods=["POST"])
 async def upload_files():
@@ -2528,6 +2680,7 @@ async def upload_files():
         logger.error(f"Error processing upload: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 def validate_trip_update(data):
     try:
         for point in data["points"]:
@@ -2539,6 +2692,7 @@ def validate_trip_update(data):
     except Exception as e:
         logger.error(f"Validation error: {e}")
         return False, "Invalid data format."
+
 
 @app.route("/api/trips/<trip_id>", methods=["PUT"])
 def update_trip(trip_id):
@@ -2584,8 +2738,10 @@ def update_trip(trip_id):
             return jsonify({"error": f"Trip not found with ID: {trip_id}"}), 404
         update_fields = {"updatedAt": datetime.now(timezone.utc)}
         if geometry and isinstance(geometry, dict):
-            gps_data = {"type": "LineString", "coordinates": geometry["coordinates"]}
-            update_fields.update({"geometry": geometry, "gps": json.dumps(gps_data)})
+            gps_data = {"type": "LineString",
+                        "coordinates": geometry["coordinates"]}
+            update_fields.update(
+                {"geometry": geometry, "gps": json.dumps(gps_data)})
         if properties:
             for field in ["startTime", "endTime"]:
                 if field in properties and isinstance(properties[field], str):
@@ -2600,16 +2756,19 @@ def update_trip(trip_id):
                     except (ValueError, TypeError):
                         pass
             if "properties" in trip:
-                update_fields["properties"] = {**trip["properties"], **properties}
+                update_fields["properties"] = {
+                    **trip["properties"], **properties}
             else:
                 update_fields.update(properties)
-        result = collection.update_one({"_id": trip["_id"]}, {"$set": update_fields})
+        result = collection.update_one(
+            {"_id": trip["_id"]}, {"$set": update_fields})
         if result.modified_count == 0:
             return jsonify({"error": "No changes were made to the trip"}), 400
         return jsonify({"message": "Trip updated successfully"}), 200
     except Exception as e:
         logger.error(f"Error updating trip {trip_id}: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 @app.route("/api/trips/<trip_id>", methods=["GET"])
 def get_single_trip(trip_id):
@@ -2622,6 +2781,7 @@ def get_single_trip(trip_id):
     except Exception as e:
         logger.error(f"Error fetching trip: {e}")
         return jsonify({"status": "error", "message": "Internal server error."}), 500
+
 
 @app.route("/api/debug/trip/<trip_id>", methods=["GET"])
 def debug_trip(trip_id):
@@ -2665,12 +2825,14 @@ def debug_trip(trip_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/api/street_coverage", methods=["POST"])
 def get_street_coverage():
     try:
         data = request.json
         location = data.get("location")
-        streets_data, error_message = generate_geojson_osm(location, streets_only=True)
+        streets_data, error_message = generate_geojson_osm(
+            location, streets_only=True)
         if streets_data is None:
             return (
                 jsonify(
@@ -2699,6 +2861,7 @@ def get_street_coverage():
             ),
             500,
         )
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8080"))
