@@ -15,13 +15,14 @@ gunicorn
 eventlet
 timezonefinder
 pytz
-shapely
+shapely>=2.0.0
 folium
 streamlit-folium
-geopandas
+geopandas>=0.14.0
 gpxpy
 networkx
 osmnx
 pyproj
 fiona
 pyproj
+rtree>=1.0.0
