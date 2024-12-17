@@ -32,7 +32,7 @@ from flask import (
     send_file,
     session,
 )
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, emit
 from geojson import dumps as geojson_dumps, loads as geojson_loads
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
@@ -77,6 +77,8 @@ OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
 tf = TimezoneFinder()
 
+# Dictionary to store active trips
+active_trips = {}
 
 def get_mongo_client():
     try:
@@ -94,7 +96,6 @@ def get_mongo_client():
         logger.error(f"Error connecting to MongoDB: {e}")
         raise
 
-
 mongo_client = get_mongo_client()
 db = mongo_client["every_street"]
 trips_collection = db["trips"]
@@ -105,7 +106,6 @@ places_collection = db["places"]
 
 uploaded_trips_collection.create_index("transactionId", unique=True)
 matched_trips_collection.create_index("transactionId", unique=True)
-
 
 class CustomPlace:
     def __init__(self, name, geometry, created_at=None):
@@ -128,7 +128,6 @@ class CustomPlace:
             created_at=data.get("created_at", datetime.now(UTC)),
         )
 
-
 async def get_access_token(client_session):
     payload = {
         "client_id": CLIENT_ID,
@@ -143,7 +142,6 @@ async def get_access_token(client_session):
             return data.get("access_token")
         logger.error(f"Error getting access token: {auth_response.status}")
         return None
-
 
 async def get_trips_from_api(client_session, access_token, imei, start_date, end_date):
     headers = {"Authorization": access_token, "Content-Type": "application/json"}
@@ -182,7 +180,6 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
         logger.error(f"Exception in get_trips_from_api: {e}")
         return []
 
-
 async def fetch_trips_in_intervals(
     main_session, access_token, imei, start_date, end_date
 ):
@@ -198,7 +195,6 @@ async def fetch_trips_in_intervals(
         current_start = current_end
     return all_trips
 
-
 def is_valid_geojson(geojson_obj):
     return geojson_obj["type"] in [
         "Point",
@@ -209,7 +205,6 @@ def is_valid_geojson(geojson_obj):
         "MultiPolygon",
         "GeometryCollection",
     ]
-
 
 def periodic_fetch_trips():
     with app.app_context():
@@ -227,7 +222,6 @@ def periodic_fetch_trips():
             logger.error(f"Error in periodic fetch: {e}")
         finally:
             threading.Timer(30 * 60, periodic_fetch_trips).start()
-
 
 def validate_trip_data(trip):
     required_fields = ["transactionId", "startTime", "endTime", "gps"]
@@ -248,7 +242,6 @@ def validate_trip_data(trip):
     except (json.JSONDecodeError, Exception):
         return False, "Invalid GPS data"
     return True, None
-
 
 async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
     url = "https://nominatim.openstreetmap.org/reverse"
@@ -280,7 +273,6 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
                 await asyncio.sleep(backoff_factor * (2 ** (attempt - 1)))
     return None
 
-
 def fetch_trips_for_geojson():
     trips = trips_collection.find()
     features = []
@@ -300,7 +292,6 @@ def fetch_trips_for_geojson():
         )
         features.append(feature)
     return geojson_module.FeatureCollection(features)
-
 
 def get_trip_timezone(trip):
     try:
@@ -324,7 +315,6 @@ def get_trip_timezone(trip):
     except Exception as e:
         logger.error(f"Error getting trip timezone: {e}")
         return "UTC"
-
 
 async def fetch_and_store_trips():
     try:
@@ -390,7 +380,6 @@ async def fetch_and_store_trips():
     except Exception as e:
         logger.error(f"Error in fetch_and_store_trips: {e}")
 
-
 def process_trip(trip):
     try:
         if isinstance(trip["startTime"], str):
@@ -437,26 +426,21 @@ def process_trip(trip):
         )
         return None
 
-
 @app.route("/")
 def index():
     return render_template("index.html")
-
 
 @app.route("/trips")
 def trips_page():
     return render_template("trips.html")
 
-
 @app.route("/driving-insights")
 def driving_insights_page():
     return render_template("driving_insights.html")
 
-
 @app.route("/visits")
 def visits_page():
     return render_template("visits.html")
-
 
 async def process_historical_trip(trip):
     trip["startTime"] = (
@@ -473,7 +457,6 @@ async def process_historical_trip(trip):
     trip["startGeoPoint"] = gps_data["coordinates"][0]
     trip["destinationGeoPoint"] = gps_data["coordinates"][-1]
     return trip
-
 
 async def load_historical_data(start_date_str=None, end_date_str=None):
     all_trips = []
@@ -523,7 +506,6 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
                 f"Error inserting trip {trip.get('transactionId', 'Unknown')} into database: {e}"
             )
     return inserted_count
-
 
 @app.route("/api/trips")
 def get_trips():
@@ -582,7 +564,6 @@ def get_trips():
                 f"Error processing trip {trip.get('transactionId', 'Unknown')}: {e}"
             )
     return jsonify(geojson_module.FeatureCollection(features))
-
 
 @app.route("/api/driving-insights")
 def get_driving_insights():
@@ -730,7 +711,6 @@ def get_driving_insights():
         logger.error(f"Error in get_driving_insights: {e}")
         return jsonify({"error": str(e)}), 500
 
-
 def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
     start_date = (
         datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
@@ -769,7 +749,6 @@ def calculate_insights_for_historical_data(start_date_str, end_date_str, imei):
             else 0
         )
     return list(insights.values())
-
 
 @app.route("/api/metrics")
 def get_metrics():
@@ -825,7 +804,6 @@ def get_metrics():
         }
     )
 
-
 @app.route("/api/fetch_trips", methods=["POST"])
 async def api_fetch_trips():
     try:
@@ -841,7 +819,6 @@ async def api_fetch_trips():
         )
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 @app.route("/api/fetch_trips_range", methods=["POST"])
 def api_fetch_trips_range():
@@ -866,14 +843,12 @@ def api_fetch_trips_range():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @app.after_request
 def add_header(response):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
-
 
 @app.route("/export/geojson")
 def export_geojson():
@@ -924,7 +899,6 @@ def export_geojson():
     except Exception as e:
         logger.error(f"Error exporting GeoJSON: {e}")
         return jsonify({"error": "An error occurred while exporting GeoJSON."}), 500
-
 
 @app.route("/export/gpx")
 def export_gpx():
@@ -985,10 +959,8 @@ def export_gpx():
         logger.error(f"Error exporting GPX: {e}")
         return jsonify({"error": f"An error occurred while exporting GPX: {e}"}), 500
 
-
 async def start_background_tasks():
     await fetch_and_store_trips()
-
 
 @app.route("/api/validate_location", methods=["POST"])
 def validate_location():
@@ -997,7 +969,6 @@ def validate_location():
     location_type = data.get("locationType")
     validated_location = validate_location_osm(location, location_type)
     return jsonify(validated_location)
-
 
 @app.route("/api/generate_geojson", methods=["POST"])
 def generate_geojson():
@@ -1012,7 +983,6 @@ def generate_geojson():
     except Exception as e:
         return jsonify({"status": "error", "message": f"An error occurred: {e}"}), 500
 
-
 def validate_location_osm(location, location_type):
     params = {"q": location, "format": "json", "limit": 1, "featuretype": location_type}
     headers = {"User-Agent": "GeojsonGenerator/1.0"}
@@ -1023,7 +993,6 @@ def validate_location_osm(location, location_type):
         data = response.json()
         return data[0] if data else None
     return None
-
 
 def generate_geojson_osm(location, streets_only=False):
     try:
@@ -1067,7 +1036,6 @@ def generate_geojson_osm(location, streets_only=False):
     except Exception as e:
         logger.error(f"Error generating GeoJSON: {e}")
         return None, f"An error occurred while generating GeoJSON: {e}"
-
 
 def process_elements(elements, streets_only):
     features = []
@@ -1122,7 +1090,6 @@ def process_elements(elements, streets_only):
                 )
     return features
 
-
 @app.route("/api/map_match_trips", methods=["POST"])
 async def map_match_trips():
     try:
@@ -1156,7 +1123,6 @@ async def map_match_trips():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @app.route("/api/map_match_historical_trips", methods=["POST"])
 async def map_match_historical_trips():
     try:
@@ -1189,7 +1155,6 @@ async def map_match_historical_trips():
         )
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 @app.route("/api/matched_trips")
 def get_matched_trips():
@@ -1234,7 +1199,6 @@ def get_matched_trips():
             ]
         )
     )
-
 
 @app.route("/api/export/trip/<trip_id>")
 def export_single_trip(trip_id):
@@ -1292,7 +1256,6 @@ def export_single_trip(trip_id):
         logger.error(f"Error exporting trip: {e}")
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/api/matched_trips/<trip_id>", methods=["DELETE"])
 def delete_matched_trip(trip_id):
     try:
@@ -1315,11 +1278,9 @@ def delete_matched_trip(trip_id):
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @app.route("/export")
 def export_page():
     return render_template("export.html")
-
 
 @app.route("/api/export/trips")
 def export_trips():
@@ -1344,7 +1305,6 @@ def export_trips():
             download_name="trips.gpx",
         )
 
-
 @app.route("/api/export/matched_trips")
 def export_matched_trips():
     start_date = request.args.get("start_date")
@@ -1367,7 +1327,6 @@ def export_matched_trips():
             as_attachment=True,
             download_name="matched_trips.gpx",
         )
-
 
 @app.route("/api/export/streets")
 def export_streets():
@@ -1398,7 +1357,6 @@ def export_streets():
             download_name="streets.zip",
         )
 
-
 @app.route("/api/export/boundary")
 def export_boundary():
     location = request.args.get("location")
@@ -1428,20 +1386,17 @@ def export_boundary():
             download_name="boundary.zip",
         )
 
-
 def fetch_trips(start_date, end_date):
     start_date = parser.parse(start_date)
     end_date = parser.parse(end_date)
     query = {"startTime": {"$gte": start_date, "$lte": end_date}}
     return list(trips_collection.find(query))
 
-
 def fetch_matched_trips(start_date, end_date):
     start_date = parser.parse(start_date)
     end_date = parser.parse(end_date)
     query = {"startTime": {"$gte": start_date, "$lte": end_date}}
     return list(matched_trips_collection.find(query))
-
 
 def create_geojson(trips):
     features = []
@@ -1464,7 +1419,6 @@ def create_geojson(trips):
         features.append(feature)
     geojson = {"type": "FeatureCollection", "features": features}
     return json.dumps(geojson)
-
 
 def create_gpx(trips):
     gpx = gpxpy.gpx.GPX()
@@ -1489,7 +1443,6 @@ def create_gpx(trips):
         gpx_track.name = trip.get("transactionId", "Unnamed Trip")
         gpx_track.description = f"Trip from {trip.get('startLocation', 'Unknown')} to {trip.get('destination', 'Unknown')}"
     return gpx.to_xml()
-
 
 @app.route("/api/streets", methods=["POST"])
 def get_streets():
@@ -1531,7 +1484,6 @@ def get_streets():
     except Exception as e:
         return jsonify({"status": "error", "message": f"An error occurred: {e}"}), 500
 
-
 @app.route("/load_historical_data", methods=["POST"])
 async def load_historical_data_endpoint():
     start_date = request.json.get("start_date")
@@ -1543,10 +1495,8 @@ async def load_historical_data_endpoint():
         }
     )
 
-
 def process_street_chunk(streets_chunk, all_trips):
     return streets_chunk.intersects(all_trips)
-
 
 def split_line_into_segments(line, segment_length_meters=10):
     try:
@@ -1587,7 +1537,6 @@ def split_line_into_segments(line, segment_length_meters=10):
     except Exception as e:
         logger.error(f"Error in split_line_into_segments: {e}")
         return [line]
-
 
 def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
     try:
@@ -1649,7 +1598,6 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
         )
         raise
 
-
 @app.route("/api/coverage", methods=["POST"])
 def get_coverage():
     try:
@@ -1667,7 +1615,6 @@ def get_coverage():
             jsonify({"status": "error", "message": f"Error calculating coverage: {e}"}),
             500,
         )
-
 
 @app.route("/api/last_trip_point")
 def get_last_trip_point():
@@ -1701,15 +1648,12 @@ def get_last_trip_point():
             500,
         )
 
-
 @app.route("/upload")
 def upload_page():
     return render_template("upload.html")
 
-
 def meters_to_miles(meters):
     return meters * 0.000621371
-
 
 def calculate_gpx_distance(coordinates):
     total_distance = 0
@@ -1719,7 +1663,6 @@ def calculate_gpx_distance(coordinates):
         distance = gpxpy.geo.haversine_distance(lat1, lon1, lat2, lon2)
         total_distance += distance
     return total_distance
-
 
 @app.route("/api/upload_gpx", methods=["POST"])
 async def upload_gpx():
@@ -1779,7 +1722,6 @@ async def upload_gpx():
         logger.error(f"Error uploading files: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 async def process_and_store_trip(trip, uploaded_trips):
     try:
         gps_data = (
@@ -1825,7 +1767,6 @@ async def process_and_store_trip(trip, uploaded_trips):
         logger.exception("Full traceback:")
         raise
 
-
 @app.route("/api/uploaded_trips")
 def get_uploaded_trips():
     try:
@@ -1839,7 +1780,6 @@ def get_uploaded_trips():
         logger.error(f"Error fetching uploaded trips: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @app.route("/api/uploaded_trips/<trip_id>", methods=["DELETE"])
 def delete_uploaded_trip(trip_id):
     try:
@@ -1852,7 +1792,6 @@ def delete_uploaded_trip(trip_id):
     except Exception as e:
         logger.error(f"Error deleting uploaded trip: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 @app.route("/api/uploaded_trips/bulk_delete", methods=["DELETE"])
 def bulk_delete_uploaded_trips():
@@ -1906,7 +1845,6 @@ def bulk_delete_uploaded_trips():
             500,
         )
 
-
 @app.route("/api/places", methods=["GET", "POST"])
 def handle_places():
     if request.method == "GET":
@@ -1923,12 +1861,10 @@ def handle_places():
         result = places_collection.insert_one(place.to_dict())
         return jsonify({"_id": str(result.inserted_id), **place.to_dict()})
 
-
 @app.route("/api/places/<place_id>", methods=["DELETE"])
 def delete_place(place_id):
     places_collection.delete_one({"_id": ObjectId(place_id)})
     return "", 204
-
 
 @app.route("/api/places/<place_id>/statistics")
 def get_place_statistics(place_id):
@@ -1991,7 +1927,6 @@ def get_place_statistics(place_id):
         logger.error(f"Error calculating place statistics: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 async def process_trip_destination(trip):
     gps_data = geojson_loads(trip["gps"])
     last_point = Point(gps_data["coordinates"][-1])
@@ -2011,7 +1946,6 @@ async def process_trip_destination(trip):
         return custom_place["name"]
     return await reverse_geocode_nominatim(last_point.y, last_point.x)
 
-
 def organize_daily_data(results):
     daily_data = {}
     for result in results:
@@ -2025,7 +1959,6 @@ def organize_daily_data(results):
         for date, data in sorted(daily_data.items())
     ]
 
-
 def organize_hourly_data(results):
     hourly_data = {}
     for result in results:
@@ -2036,7 +1969,6 @@ def organize_hourly_data(results):
     return [
         {"hour": hour, "count": count} for hour, count in sorted(hourly_data.items())
     ]
-
 
 @app.route("/api/trip-analytics")
 def get_trip_analytics():
@@ -2081,7 +2013,6 @@ def get_trip_analytics():
         logging.error(f"Error in trip analytics: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @app.route("/webhook/bouncie", methods=["POST"])
 def bouncie_webhook():
     webhook_key = os.getenv("WEBHOOK_KEY")
@@ -2092,65 +2023,73 @@ def bouncie_webhook():
     try:
         webhook_data = request.json
         event_type = webhook_data.get("eventType")
+        imei = webhook_data.get("imei")
+        transaction_id = webhook_data.get("transactionId")
+
         if event_type == "tripStart":
-            emit_data = {
-                "transactionId": webhook_data.get("transactionId"),
-                "imei": webhook_data.get("imei"),
-                "start": webhook_data.get("start"),
+            active_trips[transaction_id] = {
+                "imei": imei,
+                "start_time": datetime.now(timezone.utc),
+                "path": [],  # Initialize with an empty path
+                "last_update": datetime.now(timezone.utc),
             }
+            emit_data = {
+                "transactionId": transaction_id,
+                "imei": imei,
+                "start_time": active_trips[transaction_id]["start_time"].isoformat(),
+            }
+            socketio.emit("trip_started", emit_data)
+
         elif event_type == "tripData":
-            emit_data = {
-                "transactionId": webhook_data.get("transactionId"),
-                "imei": webhook_data.get("imei"),
-                "data": webhook_data.get("data", []),
-            }
-        elif event_type == "tripMetrics":
-            emit_data = {
-                "transactionId": webhook_data.get("transactionId"),
-                "imei": webhook_data.get("imei"),
-                "metrics": webhook_data.get("metrics"),
-            }
+            if transaction_id in active_trips:
+                for point in webhook_data.get("data", []):
+                    if "gps" in point and point["gps"]:
+                        lat = point["gps"]["lat"]
+                        lon = point["gps"]["lon"]
+                        active_trips[transaction_id]["path"].append([lat, lon])
+                active_trips[transaction_id]["last_update"] = datetime.now(timezone.utc)
+                emit_data = {
+                    "transactionId": transaction_id,
+                    "path": active_trips[transaction_id]["path"],
+                }
+                socketio.emit("trip_update", emit_data)
+
         elif event_type == "tripEnd":
-            emit_data = {
-                "transactionId": webhook_data.get("transactionId"),
-                "imei": webhook_data.get("imei"),
-                "end": webhook_data.get("end"),
-            }
-        else:
-            emit_data = webhook_data
-        socketio.emit(f"trip_{event_type}", emit_data)
-        if event_type == "tripEnd":
-            store_trip_data(webhook_data)
+            if transaction_id in active_trips:
+                # Delay the removal of the trip by 30 minutes
+                def delayed_remove():
+                    if transaction_id in active_trips:
+                        del active_trips[transaction_id]
+                        socketio.emit("trip_ended", {"transactionId": transaction_id})
+
+                threading.Timer(1800, delayed_remove).start()  # 30 minutes = 1800 seconds
+
         return jsonify({"status": "success"}), 200
     except Exception as e:
         logger.error(f"Error processing webhook: {e}")
         return jsonify({"status": "success"}), 200
 
-
-def store_trip_data(trip_data):
-    try:
-        formatted_trip = {
-            "transactionId": trip_data.get("transactionId"),
-            "imei": trip_data.get("imei"),
-            "startTime": datetime.now(timezone.utc),
-            "endTime": datetime.now(timezone.utc),
-            "distance": trip_data.get("distance", 0),
-            "data": trip_data.get("data", {}),
-        }
-        db.trips.insert_one(formatted_trip)
-    except Exception as e:
-        logger.error(f"Error formatting/storing trip data: {e}")
-
-
 @socketio.on("connect")
 def handle_connect():
     logger.info("Client connected")
-
+    # Emit the current state of active trips to the newly connected client
+    for transaction_id, trip_data in active_trips.items():
+        emit(
+            "trip_started",
+            {
+                "transactionId": transaction_id,
+                "imei": trip_data["imei"],
+                "start_time": trip_data["start_time"].isoformat(),
+            },
+        )
+        emit(
+            "trip_update",
+            {"transactionId": transaction_id, "path": trip_data["path"]},
+        )
 
 @socketio.on("disconnect")
 def handle_disconnect():
     logger.info("Client disconnected")
-
 
 def get_trip_from_db(trip_id):
     try:
@@ -2172,7 +2111,6 @@ def get_trip_from_db(trip_id):
         logger.error(f"Error retrieving trip {trip_id}: {e}")
         return None
 
-
 def store_trip(trip):
     try:
         is_valid, error_message = validate_trip_data(trip)
@@ -2192,7 +2130,6 @@ def store_trip(trip):
     except Exception as e:
         logger.error(f"Error storing trip {trip.get('transactionId', 'Unknown')}: {e}")
         return False
-
 
 async def process_trip_data(trip):
     try:
@@ -2218,7 +2155,6 @@ async def process_trip_data(trip):
     except Exception as e:
         logger.error(f"Error processing trip data: {e}")
         return None
-
 
 async def fetch_and_store_trips_in_range(start_date, end_date):
     try:
@@ -2292,7 +2228,6 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
         logger.exception("Full traceback:")
         return None
 
-
 @app.route("/api/first_trip_date")
 def get_first_trip_date():
     try:
@@ -2322,16 +2257,13 @@ def get_first_trip_date():
             500,
         )
 
-
 @app.errorhandler(404)
 def not_found_error(error):
     return jsonify({"error": "Endpoint not found"}), 404
 
-
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
-
 
 async def cleanup_invalid_trips():
     try:
@@ -2348,7 +2280,6 @@ async def cleanup_invalid_trips():
         logger.info("Trip cleanup completed")
     except Exception as e:
         logger.error(f"Error during trip cleanup: {e}")
-
 
 @app.route("/api/trips/bulk_delete", methods=["DELETE"])
 def bulk_delete_trips():
@@ -2371,7 +2302,6 @@ def bulk_delete_trips():
     except Exception as e:
         logger.error(f"Error in bulk delete trips: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 def process_geojson_trip(geojson_data):
     try:
@@ -2453,7 +2383,6 @@ def process_geojson_trip(geojson_data):
         logger.exception("Full traceback:")
         return None
 
-
 def calculate_distance(coordinates):
     total_distance = 0
     for i in range(len(coordinates) - 1):
@@ -2471,7 +2400,6 @@ def calculate_distance(coordinates):
         distance = R * c
         total_distance += distance
     return total_distance
-
 
 def process_gpx(gpx):
     processed_trips = []
@@ -2494,11 +2422,9 @@ def process_gpx(gpx):
             processed_trips.append(trip)
     return processed_trips
 
-
 @app.route("/edit_trips")
 def edit_trips_page():
     return render_template("edit_trips.html")
-
 
 @app.route("/api/edit_trips", methods=["GET"])
 def get_edit_trips():
@@ -2520,7 +2446,6 @@ def get_edit_trips():
     except Exception as e:
         logger.error(f"Error fetching trips for editing: {e}")
         return jsonify({"status": "error", "message": "Internal server error"}), 500
-
 
 @app.route("/api/upload", methods=["POST"])
 async def upload_files():
@@ -2555,7 +2480,6 @@ async def upload_files():
         logger.error(f"Error processing upload: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 def validate_trip_update(data):
     try:
         for point in data["points"]:
@@ -2567,7 +2491,6 @@ def validate_trip_update(data):
     except Exception as e:
         logger.error(f"Validation error: {e}")
         return False, "Invalid data format."
-
 
 @app.route("/api/trips/<trip_id>", methods=["PUT"])
 def update_trip(trip_id):
@@ -2640,7 +2563,6 @@ def update_trip(trip_id):
         logger.error(f"Error updating trip {trip_id}: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @app.route("/api/trips/<trip_id>", methods=["GET"])
 def get_single_trip(trip_id):
     try:
@@ -2652,7 +2574,6 @@ def get_single_trip(trip_id):
     except Exception as e:
         logger.error(f"Error fetching trip: {e}")
         return jsonify({"status": "error", "message": "Internal server error."}), 500
-
 
 @app.route("/api/debug/trip/<trip_id>", methods=["GET"])
 def debug_trip(trip_id):
@@ -2696,7 +2617,6 @@ def debug_trip(trip_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/api/street_coverage", methods=["POST"])
 def get_street_coverage():
     try:
@@ -2731,7 +2651,6 @@ def get_street_coverage():
             ),
             500,
         )
-
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8080"))
