@@ -23,6 +23,7 @@ from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
 from bson import ObjectId
 from dateutil import parser
 from dotenv import load_dotenv
+from shapely.strtree import STRtree
 from flask import (
     Flask,
     Response,
@@ -1540,21 +1541,28 @@ def split_line_into_segments(line, segment_length_meters=10):
 
 def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
     try:
+        BUFFER_DISTANCE_FEET = 50
+        METERS_PER_FOOT = 0.3048
+        CHUNK_SIZE = 1000  # Process streets in chunks of 1000
+        buffer_distance_meters = BUFFER_DISTANCE_FEET * METERS_PER_FOOT
+
+        # Convert streets to GeoDataFrame
         streets_gdf = gpd.GeoDataFrame.from_features(streets_geojson["features"])
         streets_gdf.set_crs(epsg=4326, inplace=True)
-        center_lat = streets_gdf.geometry.centroid.y.mean()
-        center_lon = streets_gdf.geometry.centroid.x.mean()
+
+        # Calculate center point using bounds instead of centroids
+        bounds = streets_gdf.total_bounds  # [minx, miny, maxx, maxy]
+        center_lon = (bounds[0] + bounds[2]) / 2
+        center_lat = (bounds[1] + bounds[3]) / 2
+
+        # Get UTM zone from center point
         utm_zone = int((center_lon + 180) / 6) + 1
         utm_epsg = 32600 + utm_zone if center_lat >= 0 else 32700 + utm_zone
-        segmented_streets = []
-        for idx, row in streets_gdf.iterrows():
-            segments = split_line_into_segments(row.geometry)
-            for segment in segments:
-                segmented_streets.append(
-                    {"geometry": segment, "properties": row.drop("geometry").to_dict()}
-                )
-        streets_gdf = gpd.GeoDataFrame.from_features(segmented_streets)
-        streets_gdf.set_crs(epsg=4326, inplace=True)
+
+        # Convert streets to UTM once
+        streets_utm = streets_gdf.to_crs(epsg=utm_epsg)
+        
+        # Process matched trips
         all_lines = []
         for trip in matched_trips:
             try:
@@ -1566,36 +1574,76 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
             except Exception as e:
                 logger.error(f"Error processing trip: {e}")
                 continue
-        all_trips = linemerge(all_lines)
-        trips_gdf = gpd.GeoDataFrame(geometry=[all_trips], crs=4326)
-        joined = gpd.sjoin(streets_gdf, trips_gdf, predicate="intersects", how="left")
-        streets_gdf["driven"] = ~joined.index_right.isna()
-        streets_utm = streets_gdf.to_crs(epsg=utm_epsg)
-        total_length = streets_utm.geometry.length.sum()
-        driven_length = streets_utm[streets_utm["driven"]].geometry.length.sum()
-        coverage_percentage = (driven_length / total_length) * 100
-        streets_gdf = streets_gdf.dissolve(by=["name", "driven"], as_index=False)
-        geojson_data = {"type": "FeatureCollection", "features": []}
-        for idx, row in streets_gdf.iterrows():
-            feature = {
-                "type": "Feature",
-                "geometry": mapping(row.geometry),
-                "properties": {
-                    "driven": bool(row["driven"]),
-                    "name": row.get("name", "Unknown Street"),
-                },
+
+        if not all_lines:
+            return {
+                "total_length": 0,
+                "driven_length": 0,
+                "coverage_percentage": 0,
+                "streets_data": {"type": "FeatureCollection", "features": []}
             }
-            geojson_data["features"].append(feature)
+
+        # Convert trips to UTM and create buffer once
+        all_trips = linemerge(all_lines)
+        trips_utm = gpd.GeoDataFrame(geometry=[all_trips], crs=4326).to_crs(epsg=utm_epsg)
+        trips_buffer = trips_utm.geometry.buffer(buffer_distance_meters).unary_union
+
+        # Create spatial index for buffered trips
+        trips_idx = STRtree(trips_buffer)
+
+        # Process streets in chunks
+        total_length = 0
+        driven_length = 0
+        features = []
+        
+        for chunk_start in range(0, len(streets_utm), CHUNK_SIZE):
+            chunk_end = chunk_start + CHUNK_SIZE
+            streets_chunk = streets_utm.iloc[chunk_start:chunk_end]
+            
+            # Use spatial index to find potential intersections
+            for idx, street in streets_chunk.iterrows():
+                street_geom = street.geometry
+                total_length += street_geom.length
+                
+                # Quick spatial index check before detailed intersection
+                if trips_idx.query(street_geom.buffer(buffer_distance_meters)):
+                    if street_geom.buffer(buffer_distance_meters).intersects(trips_buffer):
+                        driven_length += street_geom.length
+                        is_driven = True
+                    else:
+                        is_driven = False
+                else:
+                    is_driven = False
+
+                # Convert back to 4326 for GeoJSON output
+                street_4326 = gpd.GeoSeries([street_geom], crs=utm_epsg).to_crs(4326)[0]
+                features.append({
+                    "type": "Feature",
+                    "geometry": mapping(street_4326),
+                    "properties": {
+                        "driven": is_driven,
+                        "name": street.get("name", "Unknown Street")
+                    }
+                })
+
+        coverage_percentage = (driven_length / total_length) * 100 if total_length > 0 else 0
+        
+        # Convert lengths from meters to feet for output
+        total_length_feet = total_length / METERS_PER_FOOT
+        driven_length_feet = driven_length / METERS_PER_FOOT
+        
         return {
-            "total_length": float(total_length),
-            "driven_length": float(driven_length),
-            "coverage_percentage": float(coverage_percentage),
-            "streets_data": geojson_data,
+            "total_length": round(total_length_feet, 2),
+            "driven_length": round(driven_length_feet, 2),
+            "coverage_percentage": round(coverage_percentage, 2),
+            "streets_data": {
+                "type": "FeatureCollection",
+                "features": features
+            }
         }
+
     except Exception as e:
-        logger.error(
-            f"Error in calculate_street_coverage: {e}\n{traceback.format_exc()}"
-        )
+        logger.error(f"Error in calculate_street_coverage: {e}\n{traceback.format_exc()}")
         raise
 
 @app.route("/api/coverage", methods=["POST"])
