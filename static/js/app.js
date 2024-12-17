@@ -1111,11 +1111,11 @@
             console.log('App already initialized, skipping...');
             return;
         }
-
+    
         setInitialDates();
         initializeDatePickers();
         initializeEventListeners();
-
+    
         if (document.getElementById('map') && !document.getElementById('visits-page')) {
             initializeMap();
             if (!map || !layerGroup) {
@@ -1123,19 +1123,27 @@
                 return;
             }
             initializeLayerControls();
-
+    
             const isFirstLoad = localStorage.getItem('isFirstLoad') === 'true';
             if (isFirstLoad) {
                 fetchTrips();
                 localStorage.removeItem('isFirstLoad');
             }
+    
+            // Initialize LiveTripTracker after the map is ready
+            try {
+                window.liveTracker = new LiveTripTracker(map);
+                console.log("Live Tracker initialized")
+            } catch (error) {
+                console.error('Error initializing live tracking:', error);
+            }
         }
-
+    
         fetchMetrics();
-
+    
         initializeSocketIO();
-        initializeLiveTracking();
-
+        // Moved live tracking initialization to be handled by the map ready check above.
+    
         isInitialized = true;
     });
-})();
+});
