@@ -797,6 +797,9 @@ canvas {
   }
 }
 
+.glowing-line {
+  filter: drop-shadow(0 0 4px #00f7ff);
+}
 /* Recent Trip Glow */
 .recent-trip {
   animation: glow 2s ease-in-out infinite;
@@ -1029,5 +1032,29 @@ canvas {
   }
   100% {
     opacity: 0.8;
+  }
+}
+
+.vehicle-marker {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 12px;
+  height: 12px;
+  background: #00f7ff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 rgba(0, 247, 255, 0.4);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 247, 255, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(0, 247, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 247, 255, 0);
   }
 }

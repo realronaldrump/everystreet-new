@@ -50,10 +50,10 @@ class LiveTripTracker {
 
     const trip = {
       polyline: L.polyline([], {
-        color: "#FF5722",
-        weight: 4,
-        opacity: 0.8,
-        className: "active-trip",
+        color: '#00f7ff',
+        weight: 2,
+        opacity: 1,
+        className: 'active-trip glowing-line',
       }).addTo(this.liveTripsLayer),
       coordinates: [],
       startTime: startTime,
@@ -76,13 +76,13 @@ class LiveTripTracker {
 
     // Update the trip path with new coordinates
     trip.coordinates = data.path;
-    trip.polyline.setLatLngs(trip.coordinates);
+    trip.polyline.setLatLngs(trip.coordinates.map(coord => [coord[0], coord[1]])); // Ensure correct coordinate order
 
     // Update or create the vehicle marker
     if (trip.coordinates.length > 0) {
       const lastCoord = trip.coordinates[trip.coordinates.length - 1];
       this.updateVehicleMarker(tripId, lastCoord);
-      this.map.panTo(lastCoord);
+      this.map.panTo([lastCoord[0], lastCoord[1]]); // Pan to the latest coordinate
     }
   }
 
@@ -93,13 +93,12 @@ class LiveTripTracker {
     if (!trip.vehicleMarker) {
       const icon = L.divIcon({
         className: "vehicle-marker",
-        html: '<i class="fas fa-car"></i>',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
+        iconSize: [12, 12],
+        iconAnchor: [6, 6],
       });
-      trip.vehicleMarker = L.marker(position, { icon }).addTo(this.liveTripsLayer);
+      trip.vehicleMarker = L.marker([position[0], position[1]], { icon }).addTo(this.liveTripsLayer);
     } else {
-      trip.vehicleMarker.setLatLng(position);
+      trip.vehicleMarker.setLatLng([position[0], position[1]]);
     }
   }
 
@@ -118,7 +117,7 @@ class LiveTripTracker {
     // Optionally, add a marker at the end of the trip
     if (trip.coordinates.length > 0) {
       const endPoint = trip.coordinates[trip.coordinates.length - 1];
-      L.marker(endPoint, {
+      L.marker([endPoint[0], endPoint[1]], {
         icon: L.divIcon({
           className: "trip-marker trip-end",
           html: '<i class="fas fa-flag-checkered"></i>',
@@ -131,8 +130,12 @@ class LiveTripTracker {
       this.liveTripsLayer.removeLayer(trip.vehicleMarker);
     }
 
-    // Change the style of the polyline to indicate the trip has ended
-    trip.polyline.setStyle({ color: "#4CAF50", opacity: 0.6, weight: 3 });
+    // Updated ended trip style to a darker blue
+    trip.polyline.setStyle({ 
+      color: '#0066cc', 
+      opacity: 0.6, 
+      weight: 2 
+    });
 
     this.updateStatus();
   }
