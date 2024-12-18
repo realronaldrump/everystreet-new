@@ -2090,12 +2090,25 @@ def bouncie_webhook():
 
         elif event_type == "tripData":
             if transaction_id in active_trips:
+                # Extract and sort the new coordinates by timestamp
+                new_points = []
                 for point in webhook_data.get("data", []):
                     if "gps" in point and point["gps"]:
                         lat = point["gps"]["lat"]
                         lon = point["gps"]["lon"]
-                        active_trips[transaction_id]["path"].append([lat, lon])
+                        # Get timestamp from the point, or use current time if not available
+                        timestamp = point.get("timestamp", datetime.now(timezone.utc).isoformat())
+                        new_points.append({"lat": lat, "lon": lon, "timestamp": timestamp})
+
+                # Sort points by timestamp
+                new_points.sort(key=lambda p: parser.isoparse(p["timestamp"]))
+
+                # Append new points to the path
+                active_trips[transaction_id]["path"].extend(
+                    [{"lat": p["lat"], "lon": p["lon"]} for p in new_points]
+                )
                 active_trips[transaction_id]["last_update"] = datetime.now(timezone.utc)
+
                 emit_data = {
                     "transactionId": transaction_id,
                     "path": active_trips[transaction_id]["path"],
@@ -2104,13 +2117,13 @@ def bouncie_webhook():
 
         elif event_type == "tripEnd":
             if transaction_id in active_trips:
-                # Delay the removal of the trip by 30 minutes
+                # Delay the removal of the trip by 10 minutes
                 def delayed_remove():
                     if transaction_id in active_trips:
                         del active_trips[transaction_id]
                         socketio.emit("trip_ended", {"transactionId": transaction_id})
 
-                threading.Timer(1800, delayed_remove).start()  # 30 minutes = 1800 seconds
+                threading.Timer(600, delayed_remove).start()  # 10 minutes = 600 seconds
 
         return jsonify({"status": "success"}), 200
     except Exception as e:
@@ -2132,7 +2145,12 @@ def handle_connect():
         )
         emit(
             "trip_update",
-            {"transactionId": transaction_id, "path": trip_data["path"]},
+            {
+                "transactionId": transaction_id,
+                "path": [
+                    {"lat": p[0], "lon": p[1]} for p in trip_data["path"]
+                ]  # Send only lat and lon
+            },
         )
 
 @socketio.on("disconnect")
