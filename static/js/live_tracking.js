@@ -15,13 +15,13 @@ class LiveTripTracker {
     this.statusText = document.querySelector(".status-text");
     this.metricsContainer = document.querySelector(".live-trip-metrics");
 
-    this.connectToSocket();
+    this.connectToSocket(); // Initialize Socket.IO connection here
     this.updateStatus();
   }
 
   connectToSocket() {
     try {
-      this.socket = io();
+      this.socket = io(); // Create Socket.IO connection
       this.socket.on("connect", () => this.updateConnectionStatus(true));
       this.socket.on("disconnect", () => this.updateConnectionStatus(false));
       this.socket.on("trip_started", (data) => this.handleTripStart(data));

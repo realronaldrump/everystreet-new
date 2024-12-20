@@ -1,5 +1,3 @@
-/* global L, flatpickr, io */
-
 // Self-contained IIFE to prevent global namespace pollution
 (() => {
     'use strict';
@@ -56,7 +54,6 @@
 
     let map,
         layerGroup,
-        socket,
         liveTracker,
         isInitialized = false,
         mapInitialized = false;
@@ -1082,23 +1079,6 @@
         localStorage.removeItem('sidebarCollapsed');
     }
 
-    function initializeSocketIO() {
-        if (socket) {
-            console.warn('Socket already initialized');
-            return;
-        }
-
-        try {
-            socket = io();
-
-            socket.on('connect', () => console.log('Connected to WebSocket server'));
-            socket.on('disconnect', () => console.log('Disconnected from WebSocket server'));
-            socket.on('error', (error) => console.error('WebSocket error:', error));
-        } catch (error) {
-            console.error('Error initializing Socket.IO:', error);
-        }
-    }
-
     // Initialize the application
     document.addEventListener('DOMContentLoaded', () => {
         if (isInitialized) {
@@ -1126,7 +1106,7 @@
         }
     
         fetchMetrics();
-        initializeSocketIO();
+        // Socket IO initialization removed from here
     
         isInitialized = true;
     });
