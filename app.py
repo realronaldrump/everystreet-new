@@ -33,6 +33,7 @@ from flask import (
     send_file,
     session,
 )
+from shapely.errors import TopologicalError
 from flask_socketio import SocketIO, emit
 from geojson import dumps as geojson_dumps, loads as geojson_loads
 from pymongo import MongoClient
@@ -47,7 +48,7 @@ from shapely.geometry import (
     mapping,
     shape,
 )
-from shapely.ops import linemerge
+from shapely.ops import linemerge, unary_union, polygonize
 from timezonefinder import TimezoneFinder
 
 from map_matching import (
@@ -1546,43 +1547,151 @@ def split_line_into_segments(line, segment_length_meters=10):
         logger.error(f"Error in split_line_into_segments: {e}")
         return [line]
 
-def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
+def get_boundary_geojson(location):
+    """Fetches and returns the boundary geometry from Overpass API."""
     try:
-        BUFFER_DISTANCE_FEET = 50
+        area_id = int(location["osm_id"])
+        if location["osm_type"] == "relation":
+            area_id += 3600000000
+
+        query = f"""
+        [out:json];
+        area({area_id})->.searchArea;
+        (
+            relation["boundary"="administrative"](area.searchArea);
+        );
+        (._;>;);
+        out geom;
+        """
+        response = requests.get(OVERPASS_URL, params={"data": query})
+        response.raise_for_status()
+        data = response.json()
+
+        # Process the Overpass API response to create a valid GeoJSON
+        features = process_boundary_elements(data["elements"])
+        if features:
+            return {"type": "FeatureCollection", "features": features}
+        else:
+            return None
+
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"HTTP Error fetching boundary: {e}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request Exception fetching boundary: {e}")
+    except Exception as e:
+        logger.error(f"Error fetching boundary geometry: {e}")
+
+    return None
+
+def process_boundary_elements(elements):
+    """Processes elements from Overpass API response to create GeoJSON features."""
+    features = []
+    ways = {e["id"]: e for e in elements if e["type"] == "way"}
+    nodes = {e["id"]: e for e in elements if e["type"] == "node"}
+
+    for element in elements:
+        if element["type"] == "relation":
+            outer_lines = []
+            inner_lines = []
+
+            for member in element.get("members", []):
+                if member["type"] == "way":
+                    way = ways.get(member["ref"])
+                    if way:
+                        coords = []
+                        for node_id in way.get("nodes", []):
+                            node = nodes.get(node_id)
+                            if node:
+                                coords.append((node["lon"], node["lat"]))
+                        if coords:
+                            try:
+                                line = LineString(coords)
+                                if member["role"] == "outer":
+                                    outer_lines.append(line)
+                                elif member["role"] == "inner":
+                                    inner_lines.append(line)
+                            except Exception as e:
+                                logger.error(f"Error creating linestring: {e}")
+
+
+            # Attempt to create a valid polygon
+            try:
+                outer_polygon = polygonize(outer_lines)
+                outer_polygon = unary_union(list(outer_polygon)) # This should be a list
+
+                if inner_lines:
+                    inner_polygon = polygonize(inner_lines)
+                    inner_polygon = unary_union(list(inner_polygon)) # And this
+                    final_polygon = outer_polygon.difference(inner_polygon)
+                else:
+                    final_polygon = outer_polygon
+
+                if isinstance(final_polygon, Polygon):
+                    features.append({
+                        "type": "Feature",
+                        "geometry": mapping(final_polygon),
+                        "properties": element.get("tags", {})
+                    })
+                elif isinstance(final_polygon, MultiPolygon):
+                    for poly in final_polygon.geoms:
+                        features.append({
+                            "type": "Feature",
+                            "geometry": mapping(poly),
+                            "properties": element.get("tags", {})
+                        })
+
+            except TopologicalError as e:
+                error_location = str(e).split("at")[1].strip() if "at" in str(e) else "unknown location"
+                logger.error(f"TopologicalError constructing boundary: {e}. Location: {error_location}")
+                # You might want to implement a fallback mechanism here, like simplifying the geometry or using a buffer
+
+            except Exception as e:
+                logger.error(f"Error processing boundary relation: {e}")
+    return features
+
+def calculate_street_coverage(location, streets_geojson, matched_trips):
+    try:
+        BUFFER_DISTANCE_FEET = 10
         METERS_PER_FOOT = 0.3048
-        CHUNK_SIZE = 1000  # Process streets in chunks of 1000
+        CHUNK_SIZE = 1000  # Adjust as needed
+
         buffer_distance_meters = BUFFER_DISTANCE_FEET * METERS_PER_FOOT
+
+        # Fetch the boundary GeoJSON from Overpass API
+        boundary_geojson = get_boundary_geojson(location)
+        if not boundary_geojson:
+            raise ValueError("Could not retrieve boundary geometry from Overpass API.")
 
         # Convert streets to GeoDataFrame
         streets_gdf = gpd.GeoDataFrame.from_features(streets_geojson["features"])
         streets_gdf.set_crs(epsg=4326, inplace=True)
 
-        # Calculate center point using bounds instead of centroids
+        # Calculate center point and UTM zone
         bounds = streets_gdf.total_bounds  # [minx, miny, maxx, maxy]
         center_lon = (bounds[0] + bounds[2]) / 2
         center_lat = (bounds[1] + bounds[3]) / 2
-
-        # Get UTM zone from center point
         utm_zone = int((center_lon + 180) / 6) + 1
         utm_epsg = 32600 + utm_zone if center_lat >= 0 else 32700 + utm_zone
+        transformer_to_utm = Transformer.from_crs("EPSG:4326", f"EPSG:{utm_epsg}", always_xy=True)
+        transformer_to_4326 = Transformer.from_crs(f"EPSG:{utm_epsg}", "EPSG:4326", always_xy=True)
 
-        # Convert streets to UTM once
-        streets_utm = streets_gdf.to_crs(epsg=utm_epsg)
-        
-        # Process matched trips
-        all_lines = []
+        # --- Pre-filter trips based on boundary ---
+        boundary_polygon = shape(boundary_geojson["features"][0]["geometry"]) # Assuming first feature is the boundary
+        boundary_polygon_utm = transform_geometry(transformer_to_utm.transform, boundary_polygon)
+        boundary_buffer_utm = boundary_polygon_utm.buffer(buffer_distance_meters * 2)  # Extra buffer for safety
+
+        filtered_trips_utm = []
         for trip in matched_trips:
             try:
                 trip_geom = shape(json.loads(trip["matchedGps"]))
-                if isinstance(trip_geom, LineString):
-                    all_lines.append(trip_geom)
-                elif isinstance(trip_geom, MultiLineString):
-                    all_lines.extend(list(trip_geom.geoms))
+                if isinstance(trip_geom, LineString) or isinstance(trip_geom, MultiLineString):
+                    trip_geom_utm = transform_geometry(transformer_to_utm.transform, trip_geom)
+                    if trip_geom_utm.intersects(boundary_buffer_utm):
+                        filtered_trips_utm.append(trip_geom_utm)
             except Exception as e:
-                logger.error(f"Error processing trip: {e}")
-                continue
+                logger.error(f"Error filtering trip: {e}")
 
-        if not all_lines:
+        if not filtered_trips_utm:
             return {
                 "total_length": 0,
                 "driven_length": 0,
@@ -1590,40 +1699,42 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
                 "streets_data": {"type": "FeatureCollection", "features": []}
             }
 
-        # Convert trips to UTM and create buffer once
-        all_trips = linemerge(all_lines)
-        trips_utm = gpd.GeoDataFrame(geometry=[all_trips], crs=4326).to_crs(epsg=utm_epsg)
-        trips_buffer = trips_utm.geometry.buffer(buffer_distance_meters).unary_union
+        # --- Buffer and merge filtered trips ---
+        buffered_trips_utm = [
+            trip.buffer(buffer_distance_meters) for trip in filtered_trips_utm
+        ]
+        trips_buffer_utm = unary_union(buffered_trips_utm)
 
-        # Create spatial index for buffered trips
-        trips_idx = STRtree(trips_buffer)
+        # --- Create spatial index for streets ---
+        streets_utm = streets_gdf.to_crs(epsg=utm_epsg)
+        streets_index = STRtree(streets_utm.geometry)
 
-        # Process streets in chunks
-        total_length = 0
-        driven_length = 0
+        # --- Process streets in chunks ---
+        total_length_meters = streets_utm.length.sum()
+        driven_length_meters = 0
         features = []
-        
+        driven_street_ids = set()
+
         for chunk_start in range(0, len(streets_utm), CHUNK_SIZE):
             chunk_end = chunk_start + CHUNK_SIZE
             streets_chunk = streets_utm.iloc[chunk_start:chunk_end]
-            
-            # Use spatial index to find potential intersections
-            for idx, street in streets_chunk.iterrows():
-                street_geom = street.geometry
-                total_length += street_geom.length
-                
-                # Quick spatial index check before detailed intersection
-                if trips_idx.query(street_geom.buffer(buffer_distance_meters)):
-                    if street_geom.buffer(buffer_distance_meters).intersects(trips_buffer):
-                        driven_length += street_geom.length
-                        is_driven = True
-                    else:
-                        is_driven = False
-                else:
-                    is_driven = False
 
-                # Convert back to 4326 for GeoJSON output
-                street_4326 = gpd.GeoSeries([street_geom], crs=utm_epsg).to_crs(4326)[0]
+            # --- Use spatial index for intersection query ---
+            potential_intersects = streets_index.query(trips_buffer_utm)
+            intersecting_streets = streets_utm.iloc[potential_intersects]
+
+            for idx, street in intersecting_streets.iterrows():
+                street_id = street.get("id")  # Assuming your streets have a unique ID
+                if street_id is None:
+                    street_id = idx
+
+                is_driven = False
+                if street_id not in driven_street_ids and trips_buffer_utm.intersects(street.geometry):
+                    driven_length_meters += street.geometry.length
+                    is_driven = True
+                    driven_street_ids.add(street_id) # Mark this street as driven
+
+                street_4326 = transform_geometry(transformer_to_4326.transform, street.geometry)
                 features.append({
                     "type": "Feature",
                     "geometry": mapping(street_4326),
@@ -1633,15 +1744,11 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
                     }
                 })
 
-        coverage_percentage = (driven_length / total_length) * 100 if total_length > 0 else 0
-        
-        # Convert lengths from meters to feet for output
-        total_length_feet = total_length / METERS_PER_FOOT
-        driven_length_feet = driven_length / METERS_PER_FOOT
-        
+        coverage_percentage = (driven_length_meters / total_length_meters) * 100 if total_length_meters > 0 else 0
+
         return {
-            "total_length": round(total_length_feet, 2),
-            "driven_length": round(driven_length_feet, 2),
+            "total_length": round(total_length_meters / METERS_PER_FOOT, 2),
+            "driven_length": round(driven_length_meters / METERS_PER_FOOT, 2),
             "coverage_percentage": round(coverage_percentage, 2),
             "streets_data": {
                 "type": "FeatureCollection",
@@ -1652,6 +1759,26 @@ def calculate_street_coverage(boundary_geojson, streets_geojson, matched_trips):
     except Exception as e:
         logger.error(f"Error in calculate_street_coverage: {e}\n{traceback.format_exc()}")
         raise
+
+# Helper functions to transform geometries
+def transform_geometry(transformer, geom):
+    """Transforms a Shapely geometry using a Transformer."""
+    if geom.geom_type == 'Polygon':
+        return Polygon(transform_coordinates(transformer, geom.exterior.coords), [transform_coordinates(transformer, interior.coords) for interior in geom.interiors])
+    elif geom.geom_type == 'LineString':
+        return LineString(transform_coordinates(transformer, geom.coords))
+    elif geom.geom_type == 'MultiLineString':
+        return MultiLineString([LineString(transform_coordinates(transformer, line.coords)) for line in geom.geoms])
+    elif geom.geom_type == 'MultiPolygon':
+        return MultiPolygon([Polygon(transform_coordinates(transformer, poly.exterior.coords), [transform_coordinates(transformer, interior.coords) for interior in poly.interiors]) for poly in geom.geoms])
+    else:
+        # Handle other geometry types as needed
+        return geom
+
+def transform_coordinates(transformer, coords):
+    """Transforms a list of coordinates using a Transformer."""
+    x_coords, y_coords = transformer(*zip(*coords))
+    return list(zip(x_coords, y_coords))
 
 @app.route("/api/coverage", methods=["POST"])
 def get_coverage():

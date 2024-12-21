@@ -26,3 +26,4 @@ pyproj
 fiona
 pyproj
 rtree>=1.0.0
+requests
