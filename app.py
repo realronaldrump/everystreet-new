@@ -795,6 +795,11 @@ def get_metrics():
         (trip["endTime"] - trip["startTime"]).total_seconds() / 60 for trip in all_trips
     ]
     avg_driving_time = sum(driving_times) / len(driving_times) if driving_times else 0
+    
+    total_driving_time_hours = sum(driving_times) / 60 if driving_times else 0
+    avg_speed = total_distance / total_driving_time_hours if total_driving_time_hours > 0 else 0
+    max_speed = max((trip.get("maxSpeed", 0) for trip in all_trips), default=0)
+
     return jsonify(
         {
             "total_trips": total_trips,
@@ -802,6 +807,8 @@ def get_metrics():
             "avg_distance": f"{round(avg_distance, 2)}",
             "avg_start_time": f"{hour:02d}:{minutes:02d} {period}",
             "avg_driving_time": f"{int(avg_driving_time // 60):02d}:{int(avg_driving_time % 60):02d}",
+            "avg_speed": f"{round(avg_speed, 2)}",
+            "max_speed": f"{round(max_speed, 2)}",
         }
     )
 

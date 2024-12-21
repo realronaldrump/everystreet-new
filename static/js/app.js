@@ -821,9 +821,9 @@
         const startDate = document.getElementById('start-date')?.value;
         const endDate = document.getElementById('end-date')?.value;
         const imei = document.getElementById('imei')?.value || '';
-
+    
         if (!startDate || !endDate) return;
-
+    
         fetch(`/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`)
             .then((response) => response.json())
             .then((metrics) => {
@@ -833,8 +833,10 @@
                     'avg-distance': metrics.avg_distance,
                     'avg-start-time': metrics.avg_start_time,
                     'avg-driving-time': metrics.avg_driving_time,
+                    'avg-speed': `${metrics.avg_speed} mph`,
+                    'max-speed': `${metrics.max_speed} mph`
                 };
-
+    
                 for (const id in elements) {
                     const element = document.getElementById(id);
                     if (element) element.textContent = elements[id];
