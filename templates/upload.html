@@ -45,7 +45,7 @@
             <h5 class="mb-0">Preview</h5>
           </div>
           <div class="card-body">
-            <div id="previewMap" style="height: 400px;"></div>
+            <div id="previewMap" class="map-container"></div>
             <div id="previewStats" class="mt-3">
               <h6>Upload Summary</h6>
               <ul class="list-unstyled">
@@ -73,7 +73,10 @@
                 <thead>
                   <tr>
                     <th>
-                      <input type="checkbox" id="select-all">
+                      <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="select-all">
+                        <label class="visually-hidden" for="select-all">Select All</label>
+                      </div>
                     </th>
                     <th>Transaction ID</th>
                     <th>Filename</th>
