@@ -1,36 +1,95 @@
 {% extends "base.html" %} {% block content %} <div class="container-fluid">
-    <!-- Date Controls -->
-    <div class="row mb-4">
-      <div class="col-12">
-        <div class="card">
-          <div class="card-header">
-            <h2 class="h5 mb-0">Date Range</h2>
-          </div>
-          <div class="card-body">
-            <div class="date-controls">
-              <div class="row g-3 align-items-center">
-                <div class="col-auto">
-                  <label for="start-date" class="col-form-label">Start Date</label>
-                </div>
-                <div class="col-auto">
-                  <input type="date" id="start-date" class="form-control">
-                </div>
-                <div class="col-auto">
-                  <label for="end-date" class="col-form-label">End Date</label>
-                </div>
-                <div class="col-auto">
-                  <input type="date" id="end-date" class="form-control">
-                </div>
+  <!-- Date Controls -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="h5 mb-0">Date Range</h2>
+        </div>
+        <div class="card-body">
+          <div class="date-controls">
+            <div class="row g-3 align-items-center">
+              <div class="col-auto">
+                <label for="start-date" class="col-form-label">Start Date</label>
               </div>
-              <div class="mt-3">
-                <div class="btn-group btn-group-sm">
-                  <button class="btn btn-outline-secondary date-preset" data-range="today">Today</button>
-                  <button class="btn btn-outline-secondary date-preset" data-range="yesterday">Yesterday</button>
-                  <button class="btn btn-outline-secondary date-preset" data-range="last-week">Last 7 Days</button>
-                  <button class="btn btn-outline-secondary date-preset" data-range="last-month">Last 30 Days</button>
-                  <button class="btn btn-outline-secondary date-preset" data-range="last-6-months">Last 6 Months</button>
-                  <button class="btn btn-outline-secondary date-preset" data-range="last-year">Last Year</button>
-                  <button class="btn btn-outline-secondary date-preset" data-range="all-time">All Time</button>
+              <div class="col-auto">
+                <input type="date" id="start-date" class="form-control" aria-label="Start Date">
+              </div>
+              <div class="col-auto">
+                <label for="end-date" class="col-form-label">End Date</label>
+              </div>
+              <div class="col-auto">
+                <input type="date" id="end-date" class="form-control" aria-label="End Date">
+              </div>
+            </div>
+            <div class="mt-3">
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-secondary date-preset" data-range="today">Today</button>
+                <button class="btn btn-outline-secondary date-preset" data-range="yesterday">Yesterday</button>
+                <button class="btn btn-outline-secondary date-preset" data-range="last-week">Last 7 Days</button>
+                <button class="btn btn-outline-secondary date-preset" data-range="last-month">Last 30 Days</button>
+                <button class="btn btn-outline-secondary date-preset" data-range="last-6-months">Last 6 Months</button>
+                <button class="btn btn-outline-secondary date-preset" data-range="last-year">Last Year</button>
+                <button class="btn btn-outline-secondary date-preset" data-range="all-time">All Time</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Summary Metrics -->
+  <div class="row mb-4">
+    <div class="col-12 col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="h5 mb-0">Summary</h2>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-6">
+              <h4 class="h6">Total Trips</h4>
+              <p class="h2" id="total-trips">0</p>
+            </div>
+            <div class="col-6">
+              <h4 class="h6">Most Visited</h4>
+              <p class="h6" id="most-visited">-</p>
+            </div>
+          </div>
+          <!-- New Metrics -->
+          <div class="row mt-4">
+            <div class="col-6">
+              <h4 class="h6">Total Distance</h4>
+              <p class="h2" id="total-distance">0 miles</p>
+            </div>
+            <div class="col-6">
+              <h4 class="h6">Total Fuel Consumed</h4>
+              <p class="h2" id="total-fuel">0 gallons</p>
+            </div>
+          </div>
+          <div class="row mt-4">
+            <div class="col-6">
+              <h4 class="h6">Max Speed</h4>
+              <p class="h2" id="max-speed">0 mph</p>
+            </div>
+            <div class="col-6">
+              <h4 class="h6">Total Idle Duration</h4>
+              <p class="h2" id="total-idle">0 minutes</p>
+            </div>
+          </div>
+          <div class="row mt-4">
+            <div class="col-6">
+              <h4 class="h6">Longest Trip</h4>
+              <p class="h2" id="longest-trip">0 miles</p>
+            </div>
+            <!-- Fuel Consumption Chart -->
+            <div class="col-12 col-lg-6 mb-4">
+              <div class="card">
+                <div class="card-header">
+                  <h2 class="h5 mb-0">Fuel Consumption</h2>
+                </div>
+                <div class="card-body">
+                  <canvas id="fuelConsumptionChart" height="300"></canvas>
                 </div>
               </div>
             </div>
@@ -38,107 +97,49 @@
         </div>
       </div>
     </div>
-    <!-- Summary Metrics -->
-    <div class="row mb-4">
-      <div class="col-12 col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h2 class="h5 mb-0">Summary</h2>
-          </div>
-          <div class="card-body">
-            <div class="row">
-              <div class="col-6">
-                <h3 class="h6">Total Trips</h3>
-                <p class="h2" id="total-trips">0</p>
-              </div>
-              <div class="col-6">
-                <h3 class="h6">Most Visited</h3>
-                <p class="h6" id="most-visited">-</p>
-              </div>
-            </div>
-            <!-- New Metrics -->
-            <div class="row mt-4">
-              <div class="col-6">
-                <h3 class="h6">Total Distance</h3>
-                <p class="h2" id="total-distance">0 miles</p>
-              </div>
-              <div class="col-6">
-                <h3 class="h6">Total Fuel Consumed</h3>
-                <p class="h2" id="total-fuel">0 gallons</p>
-              </div>
-            </div>
-            <div class="row mt-4">
-              <div class="col-6">
-                <h3 class="h6">Max Speed</h3>
-                <p class="h2" id="max-speed">0 mph</p>
-              </div>
-              <div class="col-6">
-                <h3 class="h6">Total Idle Duration</h3>
-                <p class="h2" id="total-idle">0 minutes</p>
-              </div>
-            </div>
-            <div class="row mt-4">
-              <div class="col-6">
-                <h3 class="h6">Longest Trip</h3>
-                <p class="h2" id="longest-trip">0 miles</p>
-              </div>
-              <!-- Fuel Consumption Chart -->
-              <div class="col-12 col-lg-6 mb-4">
-                <div class="card">
-                  <div class="card-header">
-                    <h2 class="h5 mb-0">Fuel Consumption</h2>
-                  </div>
-                  <div class="card-body">
-                    <canvas id="fuelConsumptionChart" height="300"></canvas>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+  </div>
+  <!-- Charts -->
+  <div class="row">
+    <div class="col-12 mb-4">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="h5 mb-0">Trip Counts Over Time</h2>
+        </div>
+        <div class="card-body">
+          <canvas id="tripCountsChart" height="400"></canvas>
         </div>
       </div>
     </div>
-    <!-- Charts -->
-    <div class="row">
-      <div class="col-12 mb-4">
-        <div class="card">
-          <div class="card-header">
-            <h2 class="h5 mb-0">Trip Counts Over Time</h2>
-          </div>
-          <div class="card-body">
-            <canvas id="tripCountsChart" height="400"></canvas>
-          </div>
+    <div class="col-12 col-lg-6 mb-4">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="h5 mb-0">Daily Distance</h2>
         </div>
-      </div>
-      <div class="col-12 col-lg-6 mb-4">
-        <div class="card">
-          <div class="card-header">
-            <h2 class="h5 mb-0">Daily Distance</h2>
-          </div>
-          <div class="card-body">
-            <canvas id="distanceChart" height="300"></canvas>
-          </div>
-        </div>
-      </div>
-      <div class="col-12 col-lg-6 mb-4">
-        <div class="card">
-          <div class="card-header">
-            <h2 class="h5 mb-0">Trip Time Distribution</h2>
-          </div>
-          <div class="card-body">
-            <canvas id="timeDistributionChart" height="300"></canvas>
-          </div>
+        <div class="card-body">
+          <canvas id="distanceChart" height="300"></canvas>
         </div>
       </div>
     </div>
-    <!-- Data Table -->
-    <div class="row">
-      <div class="col-12">
-        <div class="card">
-          <div class="card-header">
-            <h2 class="h5 mb-0">Detailed Insights</h2>
-          </div>
-          <div class="card-body">
+    <div class="col-12 col-lg-6 mb-4">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="h5 mb-0">Trip Time Distribution</h2>
+        </div>
+        <div class="card-body">
+          <canvas id="timeDistributionChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Data Table -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="h5 mb-0">Detailed Insights</h2>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
             <table id="insights-table" class="table table-striped">
               <thead>
                 <tr>
@@ -153,17 +154,18 @@
         </div>
       </div>
     </div>
-  </div> {% endblock %} {% block extra_js %}
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- date-fns (required for time scale) -->
-  <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
-  <!-- Chart.js adapter for date-fns -->
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-  <!-- DataTables -->
-  <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
-  <script src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
-  <!-- Custom JS -->
-  <script src="{{ url_for('static', filename='js/driving_insights.js') }}"></script> {% endblock %} {% block extra_css %}
-  <!-- DataTables -->
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/dataTables.bootstrap5.min.css"> {% endblock %}
+  </div>
+</div> {% endblock %} {% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- date-fns (required for time scale) -->
+<script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+<!-- Chart.js adapter for date-fns -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<!-- DataTables -->
+<script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
+<!-- Custom JS -->
+<script src="{{ url_for('static', filename='js/driving_insights.js') }}"></script> {% endblock %} {% block extra_css %}
+<!-- DataTables -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/dataTables.bootstrap5.min.css"> {% endblock %}
