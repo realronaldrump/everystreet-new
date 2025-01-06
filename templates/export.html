@@ -1,105 +1,105 @@
 {% extends "base.html" %} {% block title %}Every Street - Export Data{% endblock %} {% block content %} <div class="container mt-4">
-    <h1 class="mb-4">Export Data</h1>
-    <div class="row">
-      <div class="col-md-6">
-        <div class="card mb-4">
-          <div class="card-header">Export Trips</div>
-          <div class="card-body">
-            <form id="export-trips-form">
-              <div class="mb-3">
-                <label for="trips-start-date" class="form-label">Start Date</label>
-                <input type="date" class="form-control" id="trips-start-date" required>
-              </div>
-              <div class="mb-3">
-                <label for="trips-end-date" class="form-label">End Date</label>
-                <input type="date" class="form-control" id="trips-end-date" required>
-              </div>
-              <div class="mb-3">
-                <label for="trips-format" class="form-label">Format</label>
-                <select class="form-select" id="trips-format" required>
-                  <option value="geojson">GeoJSON</option>
-                  <option value="gpx">GPX</option>
-                </select>
-              </div>
-              <button type="submit" class="btn btn-primary">Export Trips</button>
-            </form>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card mb-4">
-          <div class="card-header">Export Map Matched Trips</div>
-          <div class="card-body">
-            <form id="export-matched-trips-form">
-              <div class="mb-3">
-                <label for="matched-trips-start-date" class="form-label">Start Date</label>
-                <input type="date" class="form-control" id="matched-trips-start-date" required>
-              </div>
-              <div class="mb-3">
-                <label for="matched-trips-end-date" class="form-label">End Date</label>
-                <input type="date" class="form-control" id="matched-trips-end-date" required>
-              </div>
-              <div class="mb-3">
-                <label for="matched-trips-format" class="form-label">Format</label>
-                <select class="form-select" id="matched-trips-format" required>
-                  <option value="geojson">GeoJSON</option>
-                  <option value="gpx">GPX</option>
-                </select>
-              </div>
-              <button type="submit" class="btn btn-primary">Export Map Matched Trips</button>
-            </form>
-          </div>
+  <h1 class="mb-4">Export Data</h1>
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card mb-4">
+        <div class="card-header">Export Trips</div>
+        <div class="card-body">
+          <form id="export-trips-form">
+            <div class="mb-3">
+              <label for="trips-start-date" class="form-label">Start Date</label>
+              <input type="date" class="form-control" id="trips-start-date" required>
+            </div>
+            <div class="mb-3">
+              <label for="trips-end-date" class="form-label">End Date</label>
+              <input type="date" class="form-control" id="trips-end-date" required>
+            </div>
+            <div class="mb-3">
+              <label for="trips-format" class="form-label">Format</label>
+              <select class="form-select" id="trips-format" required>
+                <option value="geojson">GeoJSON</option>
+                <option value="gpx">GPX</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Export Trips</button>
+          </form>
         </div>
       </div>
     </div>
-    <div class="row mt-4">
-      <div class="col-md-6">
-        <div class="card mb-4">
-          <div class="card-header">Export Streets</div>
-          <div class="card-body">
-            <form id="export-streets-form">
-              <div class="mb-3">
-                <label for="streets-location" class="form-label">Location</label>
-                <div class="input-group">
-                  <input type="text" class="form-control" id="streets-location" required>
-                  <button type="button" class="btn btn-secondary" onclick="validateLocation('streets-location')">Validate</button>
-                </div>
-              </div>
-              <div class="mb-3">
-                <label for="streets-format" class="form-label">Format</label>
-                <select class="form-select" id="streets-format" required>
-                  <option value="geojson">GeoJSON</option>
-                  <option value="shapefile">Shapefile</option>
-                </select>
-              </div>
-              <button type="submit" class="btn btn-primary" disabled>Export Streets</button>
-            </form>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card mb-4">
-          <div class="card-header">Export Boundary</div>
-          <div class="card-body">
-            <form id="export-boundary-form">
-              <div class="mb-3">
-                <label for="boundary-location" class="form-label">Location</label>
-                <div class="input-group">
-                  <input type="text" class="form-control" id="boundary-location" required>
-                  <button type="button" class="btn btn-secondary" onclick="validateLocation('boundary-location')">Validate</button>
-                </div>
-              </div>
-              <div class="mb-3">
-                <label for="boundary-format" class="form-label">Format</label>
-                <select class="form-select" id="boundary-format" required>
-                  <option value="geojson">GeoJSON</option>
-                  <option value="shapefile">Shapefile</option>
-                </select>
-              </div>
-              <button type="submit" class="btn btn-primary" disabled>Export Boundary</button>
-            </form>
-          </div>
+    <div class="col-md-6">
+      <div class="card mb-4">
+        <div class="card-header">Export Map Matched Trips</div>
+        <div class="card-body">
+          <form id="export-matched-trips-form">
+            <div class="mb-3">
+              <label for="matched-trips-start-date" class="form-label">Start Date</label>
+              <input type="date" class="form-control" id="matched-trips-start-date" required>
+            </div>
+            <div class="mb-3">
+              <label for="matched-trips-end-date" class="form-label">End Date</label>
+              <input type="date" class="form-control" id="matched-trips-end-date" required>
+            </div>
+            <div class="mb-3">
+              <label for="matched-trips-format" class="form-label">Format</label>
+              <select class="form-select" id="matched-trips-format" required>
+                <option value="geojson">GeoJSON</option>
+                <option value="gpx">GPX</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Export Map Matched Trips</button>
+          </form>
         </div>
       </div>
     </div>
-  </div> {% endblock %} {% block extra_js %} <script src="{{ url_for('static', filename='js/export.js') }}"></script> {% endblock %}
+  </div>
+  <div class="row mt-4">
+    <div class="col-md-6">
+      <div class="card mb-4">
+        <div class="card-header">Export Streets</div>
+        <div class="card-body">
+          <form id="export-streets-form">
+            <div class="mb-3">
+              <label for="streets-location" class="form-label">Location</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="streets-location" required>
+                <button type="button" class="btn btn-secondary" onclick="validateLocation('streets-location')">Validate</button>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="streets-format" class="form-label">Format</label>
+              <select class="form-select" id="streets-format" required>
+                <option value="geojson">GeoJSON</option>
+                <option value="shapefile">Shapefile</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary" disabled>Export Streets</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card mb-4">
+        <div class="card-header">Export Boundary</div>
+        <div class="card-body">
+          <form id="export-boundary-form">
+            <div class="mb-3">
+              <label for="boundary-location" class="form-label">Location</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="boundary-location" required>
+                <button type="button" class="btn btn-secondary" onclick="validateLocation('boundary-location')">Validate</button>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="boundary-format" class="form-label">Format</label>
+              <select class="form-select" id="boundary-format" required>
+                <option value="geojson">GeoJSON</option>
+                <option value="shapefile">Shapefile</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary" disabled>Export Boundary</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div> {% endblock %} {% block extra_js %} <script src="{{ url_for('static', filename='js/export.js') }}"></script> {% endblock %}
