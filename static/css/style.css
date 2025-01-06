@@ -118,6 +118,11 @@ body {
   width: 1.5rem;
 }
 
+/* Style for the text within the sidebar links */
+#sidebar .nav-link-text {
+  flex-grow: 1;
+}
+
 #sidebar.collapsed .nav-link span,
 #sidebar.collapsed .sidebar-header h3,
 #sidebar.collapsed .sidebar-filters,
@@ -314,6 +319,11 @@ body.sidebar-collapsed .sidebar-body {
   border-radius: 8px;
   height: 600px;
   overflow: hidden;
+}
+
+/* Map Container - Added for consistency across pages */
+.map-container {
+  height: 500px;
 }
 
 .leaflet-container {
