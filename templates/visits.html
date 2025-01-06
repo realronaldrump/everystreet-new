@@ -9,6 +9,7 @@
           </div>
           <div class="card-body">
             <div class="mb-3">
+              <label for="place-name" class="form-label">Place Name</label>
               <input type="text" id="place-name" class="form-control" placeholder="Enter place name">
             </div>
             <div class="form-check mb-3">
@@ -45,7 +46,7 @@
             </div>
           </div>
           <div class="card-body">
-            <div id="map" style="height: 500px;"></div>
+            <div id="map" class="map-container"></div>
           </div>
         </div>
       </div>
@@ -101,9 +102,14 @@
     .place-popup .btn {
       margin-top: 10px;
     }
-  
+
     .map-controls {
       z-index: 1000;
+    }
+
+    /* Moved inline style to CSS */
+    .map-container {
+      height: 500px;
     }
   </style> {% endblock %} {% block extra_js %} <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
