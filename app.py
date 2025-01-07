@@ -174,7 +174,7 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
                             parsed_time = parsed_time.replace(tzinfo=pytz.UTC)
                         local_time = parsed_time.astimezone(timezone_obj)
                         trip["startTime"] = local_time
-                        trip["timezone"] = tz_str
+                        trip["timeZone"] = tz_str
                     if "endTime" in trip and isinstance(trip["endTime"], str):
                         parsed_time = parser.isoparse(trip["endTime"])
                         if parsed_time.tzinfo is None:
@@ -301,7 +301,7 @@ def fetch_trips_for_geojson():
                 "distance": trip["distance"],
                 "destination": trip["destination"],
                 "startLocation": trip.get("startLocation", "N/A"),
-                "timezone": get_trip_timezone(trip),
+                "timeZone": trip.get("timeZone", "UTC"),
             },
         )
         features.append(feature)
@@ -360,7 +360,7 @@ async def fetch_and_store_trips():
                             f"Invalid trip data for {trip.get('transactionId', 'Unknown')}: {error_message}"
                         )
                         continue
-                    trip_timezone = get_trip_timezone(trip)
+                    
                     if isinstance(trip["startTime"], str):
                         trip["startTime"] = parser.isoparse(trip["startTime"])
                     if isinstance(trip["endTime"], str):
@@ -573,13 +573,20 @@ def get_trips():
                 "startTime": trip["startTime"].astimezone(timezone.utc).isoformat(),
                 "endTime": trip["endTime"].astimezone(timezone.utc).isoformat(),
                 "distance": float(trip.get("distance", 0)),
-                "timezone": trip.get("timezone", "America/Chicago"),
+                "timeZone": trip.get("timeZone", "America/Chicago"),
                 "maxSpeed": float(trip.get("maxSpeed", 0)),
                 "startLocation": trip.get("startLocation", "N/A"),
                 "destination": trip.get("destination", "N/A"),
                 "totalIdleDuration": trip.get("totalIdleDuration", 0),
                 "fuelConsumed": float(trip.get("fuelConsumed", 0)),
                 "source": trip.get("source", "regular"),
+                "hardBrakingCount": trip.get("hardBrakingCount"),
+                "hardAccelerationCount": trip.get("hardAccelerationCount"),
+                "startOdometer": trip.get("startOdometer"),
+                "endOdometer": trip.get("endOdometer"),
+                "averageSpeed": trip.get("averageSpeed"),
+                "timeZone": trip.get("timeZone"),
+                "totalIdleDuration": trip.get("totalIdleDuration")
             }
             feature = geojson_module.Feature(geometry=geometry, properties=properties)
             features.append(feature)
@@ -1238,7 +1245,7 @@ def get_matched_trips():
                         "startTime": trip["startTime"].isoformat(),
                         "endTime": trip["endTime"].isoformat(),
                         "distance": trip.get("distance", 0),
-                        "timezone": trip.get("timezone", "America/Chicago"),
+                        "timeZone": trip.get("timeZone", "America/Chicago"),
                         "destination": trip.get("destination", "N/A"),
                         "startLocation": trip.get("startLocation", "N/A"),
                     },
