@@ -10,7 +10,10 @@ const defaultChartOptions = {
     plugins: {
         legend: {
             display: true,
-            position: 'top'
+            position: 'top',
+            labels: {
+                color: '#bb86fc'
+            }
         }
     },
 };
@@ -71,14 +74,29 @@ function initializeCharts() {
                     },
                     title: {
                         display: true,
-                        text: 'Date'
+                        text: 'Date',
+                        color: '#bb86fc'
                     },
+                    ticks: {
+                        color: '#bb86fc'
+                    },
+                    grid: {
+                        color: 'rgba(187, 134, 252, 0.2)'
+                    }
                 },
                 y: {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Trips'
+                        text: 'Trips',
+                        color: '#bb86fc'
+                    },
+                    ticks: {
+                        color: '#bb86fc',
+                        stepSize: 1
+                    },
+                    grid: {
+                        color: 'rgba(187, 134, 252, 0.2)'
                     }
                 },
             },
@@ -110,14 +128,28 @@ function initializeCharts() {
                     },
                     title: {
                         display: true,
-                        text: 'Date'
+                        text: 'Date',
+                        color: '#bb86fc'
                     },
+                    ticks: {
+                        color: '#bb86fc'
+                    },
+                    grid: {
+                        color: 'rgba(187, 134, 252, 0.2)'
+                    }
                 },
                 y: {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Distance (miles)'
+                        text: 'Distance (miles)',
+                        color: '#bb86fc'
+                    },
+                    ticks: {
+                        color: '#bb86fc'
+                    },
+                    grid: {
+                        color: 'rgba(187, 134, 252, 0.2)'
                     }
                 },
             },
@@ -150,10 +182,14 @@ function initializeCharts() {
                 r: {
                     beginAtZero: true,
                     ticks: {
-                        stepSize: 1
+                        stepSize: 1,
+                        color: '#bb86fc'
+                    },
+                    grid: {
+                        color: 'rgba(187, 134, 252, 0.2)'
                     }
                 }
-            }
+            },
         },
     });
 
@@ -176,7 +212,14 @@ function initializeCharts() {
                     title: {
                         display: true,
                         text: 'Gallons',
+                        color: '#bb86fc'
                     },
+                    ticks: {
+                        color: '#bb86fc'
+                    },
+                    grid: {
+                        color: 'rgba(187, 134, 252, 0.2)'
+                    }
                 },
             },
         },
