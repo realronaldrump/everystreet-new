@@ -295,6 +295,7 @@ body.sidebar-collapsed .sidebar-body {
 
 .table th {
   background-color: rgba(255, 255, 255, 0.05);
+  color: #ffffff; /* Set header text color to white */
 }
 
 .table-hover tbody tr:hover {

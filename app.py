@@ -578,6 +578,7 @@ def get_trips():
                 "startLocation": trip.get("startLocation", "N/A"),
                 "destination": trip.get("destination", "N/A"),
                 "totalIdleDuration": trip.get("totalIdleDuration", 0),
+                "totalIdleDurationFormatted": format_idle_time(trip.get("totalIdleDuration", 0)),
                 "fuelConsumed": float(trip.get("fuelConsumed", 0)),
                 "source": trip.get("source", "regular"),
                 "hardBrakingCount": trip.get("hardBrakingCount"),
@@ -586,7 +587,6 @@ def get_trips():
                 "endOdometer": trip.get("endOdometer"),
                 "averageSpeed": trip.get("averageSpeed"),
                 "timeZone": trip.get("timeZone"),
-                "totalIdleDuration": trip.get("totalIdleDuration")
             }
             feature = geojson_module.Feature(geometry=geometry, properties=properties)
             features.append(feature)
@@ -595,6 +595,15 @@ def get_trips():
                 f"Error processing trip {trip.get('transactionId', 'Unknown')}: {e}"
             )
     return jsonify(geojson_module.FeatureCollection(features))
+
+def format_idle_time(seconds):
+    """Formats idle time from seconds to hh:mm:ss."""
+    if seconds is None:
+        return "00:00:00"
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    seconds = seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 @app.route("/api/driving-insights")
 def get_driving_insights():

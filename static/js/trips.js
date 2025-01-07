@@ -302,10 +302,13 @@ function initializeTripsTable() {
                 }
             },
             {
-                data: 'totalIdleDuration',
-                title: 'Idle Duration (min)',
-                render: function(data, type) {
-                    return createEditableCell(data, type, 'totalIdleDuration', 'number');
+                data: 'totalIdleDurationFormatted',
+                title: 'Idle Duration',
+                render: function(data, type, row) {
+                    if (type === 'display') {
+                        return createEditableCell(data, type, 'totalIdleDurationFormatted', 'text');
+                    }
+                    return data;
                 }
             },
             {
