@@ -409,7 +409,7 @@ function updateSummaryMetrics(data) {
     document.getElementById('total-distance').textContent = `${(data.total_distance || 0).toFixed(2)} miles`;
     document.getElementById('total-fuel').textContent = `${(data.total_fuel_consumed || 0).toFixed(2)} gallons`;
     document.getElementById('max-speed').textContent = `${data.max_speed || 0} mph`;
-    document.getElementById('total-idle').textContent = `${data.total_idle_duration || 0} minutes`;
+    document.getElementById('total-idle').textContent = `${data.total_idle_duration || 0} seconds`;
     document.getElementById('longest-trip').textContent = `${(data.longest_trip_distance || 0).toFixed(2)} miles`;
 
     const mostVisitedElement = document.getElementById('most-visited');
