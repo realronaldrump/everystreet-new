@@ -19,10 +19,8 @@ function initializePreviewMap() {
         maxZoom: 19,
         attribution: '',
     }).addTo(previewMap);
-    previewLayer = L.featureGroup().addTo(previewMap); // Changed from layerGroup to featureGroup
+    previewLayer = L.featureGroup().addTo(previewMap);
 }
-
-initializePreviewMap();
 
 dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -53,30 +51,59 @@ async function handleFiles(files) {
     loadingManager.startOperation('Handling Files');
     loadingManager.addSubOperation('parsing', files.length);
 
+    selectedFiles = []; // Reset selectedFiles for each new set of files
+
+    const filePromises = [];
+
     for (let i = 0; i < files.length; i++) {
         let file = files[i];
-        try {
-            if (file.name.endsWith('.gpx')) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    parseGPX(file, e.target.result);
-                    loadingManager.updateSubOperation('parsing', i + 1);
-                };
-                reader.readAsText(file);
-            } else if (file.name.endsWith('.geojson')) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    parseGeoJSON(file, e.target.result);
-                    loadingManager.updateSubOperation('parsing', i + 1);
-                };
-                reader.readAsText(file);
-            } else {
-                throw new Error('Invalid file type: ' + file.name + '. Only .gpx and .geojson files are supported.');
+        const filePromise = new Promise((resolve, reject) => {
+            try {
+                if (file.name.endsWith('.gpx')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        parseGPX(file, e.target.result);
+                        loadingManager.updateSubOperation('parsing', i + 1);
+                        resolve();
+                    };
+                    reader.onerror = (error) => {
+                        reject(error);
+                    };
+                    reader.readAsText(file);
+                } else if (file.name.endsWith('.geojson')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        parseGeoJSON(file, e.target.result);
+                        loadingManager.updateSubOperation('parsing', i + 1);
+                        resolve();
+                    };
+                    reader.onerror = (error) => {
+                        reject(error);
+                    };
+                    reader.readAsText(file);
+                } else {
+                    reject(new Error('Invalid file type: ' + file.name + '. Only .gpx and .geojson files are supported.'));
+                }
+            } catch (error) {
+                console.error('Error handling file:', error);
+                loadingManager.error('Error handling file: ' + file.name);
+                reject(error);
             }
-        } catch (error) {
-            console.error('Error handling file:', error);
-            loadingManager.error('Error handling file: ' + file.name);
-        }
+        });
+        filePromises.push(filePromise);
+    }
+
+    // Wait for all files to be parsed
+    try {
+        await Promise.all(filePromises);
+        updateFileList();
+        updatePreviewMap();
+        updateStats();
+    } catch (error) {
+        console.error('Error during file processing:', error);
+        loadingManager.error('Error during file processing.');
+    } finally {
+        loadingManager.finish();
     }
 }
 
@@ -116,9 +143,6 @@ function parseGPX(file, gpxContent) {
         };
 
         selectedFiles.push(fileEntry);
-        updateFileList();
-        updatePreviewMap();
-        updateStats();
     } catch (error) {
         console.error('Error parsing GPX:', error);
         loadingManager.error('Error parsing GPX file: ' + file.name);
@@ -159,10 +183,6 @@ function parseGeoJSON(file, content) {
 
             selectedFiles.push(fileEntry);
         });
-
-        updateFileList();
-        updatePreviewMap();
-        updateStats();
     } catch (error) {
         console.error('Error parsing GeoJSON:', error);
         loadingManager.error('Error parsing GeoJSON file: ' + file.name);
@@ -170,7 +190,6 @@ function parseGeoJSON(file, content) {
 }
 
 function updateFileList() {
-    loadingManager.startOperation('Updating File List');
     fileListBody.innerHTML = '';
 
     selectedFiles.forEach((entry, index) => {
@@ -188,11 +207,9 @@ function updateFileList() {
     });
 
     uploadButton.disabled = selectedFiles.length === 0;
-    loadingManager.finish();
 }
 
 function updatePreviewMap() {
-    loadingManager.startOperation('Updating Preview Map');
     previewLayer.clearLayers();
 
     selectedFiles.forEach((entry) => {
@@ -215,11 +232,9 @@ function updatePreviewMap() {
     if (previewLayer.getLayers().length > 0) {
         previewMap.fitBounds(previewLayer.getBounds());
     }
-    loadingManager.finish();
 }
 
 function updateStats() {
-    loadingManager.startOperation('Updating Statistics');
     totalFilesSpan.textContent = selectedFiles.length;
     let allTimes = selectedFiles.flatMap((entry) => [entry.startTime, entry.endTime]).filter((t) => t);
     if (allTimes.length > 0) {
@@ -232,16 +247,13 @@ function updateStats() {
 
     let totalPoints = selectedFiles.reduce((sum, entry) => sum + entry.points, 0);
     totalPointsSpan.textContent = totalPoints;
-    loadingManager.finish();
 }
 
 function removeFile(index) {
-    loadingManager.startOperation('Removing File');
     selectedFiles.splice(index, 1);
     updateFileList();
     updatePreviewMap();
     updateStats();
-    loadingManager.finish();
 }
 
 uploadButton.addEventListener('click', () => {
@@ -480,6 +492,7 @@ function deleteUploadedTrip(tripId) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    initializePreviewMap();
     loadUploadedTrips();
 });
 
