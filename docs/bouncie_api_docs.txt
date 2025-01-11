@@ -1,0 +1,1117 @@
+openapi:
+    3.1.0
+info:
+    title:
+        Bouncie API
+    description:
+        # Data Integration Specification
+
+Bouncie offers data integrations in two varieties:
+
+* [Webhooks](#webhooks) (push)
+* [Rest API Endpoints](#rest-api-endpoints) (pull)
+
+The registration and setup for your application with Bouncie is done through the [Bouncie Developer Portal](https://www.bouncie.dev/).
+
+---
+
+## Authorization
+
+Bouncie API uses [User Authentication with OAuth 2.0](https://oauth.net/articles/authentication/) to authorize users for your application.
+
+To obtain Authorization, you must first register your application on the [Bouncie Developer Portal](https://www.bouncie.dev/) and follow the authorization code flow below.
+
+1. You prompt your user to a webpage where they can give you permission to access their data.
+1. Once your user has approved, they will be redirected back to a redirect uri that you will have initially set up for your application on the [Bouncie Developer Portal](https://www.bouncie.dev) with an authorization code as a query parameter (This step is enough to start receiving events for any webhooks you have registered).
+1. You then use that authorization code to get an access token which can be used to make requests to Bouncie API REST endpoints.
+
+### 1. Have your application request authorization; the user will log in using their Bouncie account and grant access.
+
+To request authorization, redirect your user to <https://auth.bouncie.com/dialog/authorize> with the following parameters:
+
+| Request Query Parameter     | Value |
+| ------------- | ----------- |
+| client_id      | This value is required. When you set up your application on the [Bouncie Developer Portal](https://www.bouncie.dev/), you can set your Client ID|
+| response_type      | This value is required. It should be set to "code"</span>|
+| redirect_uri      | This value is required. This is the URI the user will be redirected back to once they have granted permission. The URI needs to have been added to your application's Redirect URI list on the [Bouncie Developer Portal](https://www.bouncie.dev/). The value of this parameter must exactly match one of the Redirect URIs you have set up, including upper or lowercase, terminal slashes etc|
+| state      | This value is optional. When the user is redirected back to your app, whatever value you include as the state will also be included in the redirect. You can check to see if the value you sent for state is the same as the value you got back for added security  |
+
+#### Example
+
+An example of an authorization URL:
+
+`https://auth.bouncie.com/dialog/authorize?client_id=my-app&redirect_uri=http://www.example.com/&response_type=code&state=abcdefg`
+
+An example of the response URL if the user grants permission:
+
+`http://www.example.com/?code=I1uHE12LIK123PQRmnoGD1RnR12Ybrr99Tio1SQRpow12dabc&state=abcdefg`
+
+| Response Query Parameter     | Value |
+| ------------- | ----------- |
+| code      | An authorization code that can be exchanged for an access token. There is no expiration for the authorization code, however if the user goes through the authorization flow for your application again and a new authorization code is generated, the old authorization code will no longer be valid|
+| state      | The value of the state parameter supplied in the request.|
+
+#### At this point, if you have any [Webhooks](#webhooks) set up, you will start receiving events for the user that has just granted your application permission
+
+### 2. Have your application request access tokens.
+
+Once you have received an authorization code, you will need to exchange it with an access token by making a POST request to <https://auth.bouncie.com/oauth/token>. The body of this POST (JSON) will be as follows:
+
+| Request Header Field     | Value |
+| ------------- | ----------- |
+| Content-Type  | application/json |
+
+| Request Body Field     | Value |
+| ------------- | ----------- |
+| client_id      | This value is required. When you set up your application on the [Bouncie Developer Portal](https://www.bouncie.dev/), you can set your Client ID|
+| client_secret      | This value is required. It is provided to you when you set up your application on the [Bouncie Developer Portal](https://www.bouncie.dev/)|
+| grant_type      | This value is required. It must be set to "authorization_code"|
+| code      | This value is required. It is the authorization code returned by the initial <https://auth.bouncie.com/dialog/authorize> endpoint|
+| redirect_uri      | This value is required. It must match one of the Redirect URI's you have set up for your application on the [Bouncie Developer Portal](https://www.bouncie.dev/). This value is ONLY used for validation, there is no actual redirection that happens here|
+
+An alternative way to send the Client ID and the Client Secret is as an authorization header with the value set to a base64 encoded string as follows:
+
+| Request Header Field     | Value |
+| ------------- | ----------- |
+| Content-Type  | application/json |
+| Authorization      | If you do not send the Client ID and the Client Secret as part of the request body, you can send it using the Authorization header. The value **must** be a base64 encoded string and **must** have the following format <span id="highlighted-code">Authorization: Basic *< base64 encoded client_id:client_secret >*</span>|
+
+A successful request for the access token will yield a JSON response with the following fields:
+
+| Response field     | Value Type | Value Description |
+| ------------- | ----------- | ----------- |
+| access_token      | string |  An access token that can be provided in subsequent calls to Bouncie API REST endpoints |
+| token_type      | string |  Describes how the access token may be used. It is always set to "Bearer". |
+| expires_in      | int |  The time period (in seconds) for which the access token is valid. |
+
+You can now make calls to Bouncie API REST endpoints by sending the access token as the request authorization header.
+
+If the access token expires, you can generate a new one by making a POST request to the <https://auth.bouncie.com/oauth/token> endpoint again with the same POST body as described above.
+
+---
+
+## Webhooks
+
+Webhooks can be used to be notified about events occurring on your vehicle. This can greatly your simplify the overhead for loading data, since polling the restful APIs may no longer be necessary.
+
+**Configuration is simple:** Provide Bouncie secure server side URL endpoint and specify the types of events you wish to receive.
+(ex: [https://myapp.mycompany.com/bouncie-webhook](https://myapp.mycompany.com/bouncie-webhook)). Webhooks can be set up for your application on the [Bouncie Developer Portal](https://www.bouncie.dev/).
+
+***That’s it!*** Now when an event occurs for your any of your connected vehicles. Bouncie will POST JSON event payloads to your endpoint in real time.
+
+### Webhook Security
+
+Webhooks use an unique key that you provide to secure calls. An `Authorization` header will be sent with every outgoing webhook that you can use to validate that the incoming request is actually from Bouncie.
+
+```javascript
+// HTTP Headers
+{
+    Authorization: "yourKey"
+}
+```
+
+As part of the process of setting up your application you will provide the initial value for this key.
+
+### Webhook Key rotation
+
+Webhook consumers can change their unique key by returning a new key in an `Authorization` response header in the response to the webhook.
+
+### Retries
+
+URL endpoint(s) for webkook calls should respond with `2xx` level status code to indicate successful receipt.
+
+Bouncie will attempt to retry a webhook Request if it times out, or responds with a `4xx` or `5xx` level status code. A backoff policy will be used to prevent overloading the webhook endpoint. Bouncie will continue retrying until the maximum amount of retries are reached.
+
+### Event Types
+
+#### [Device](#api-Webhooks-DeviceEvents)
+
+* Device Connected
+* Device Disconnected
+
+#### [Vehicle Health](#api-Webhooks-VehicleHealth)
+
+* Trouble Code (MIL)
+* Low Battery
+<!-- * Low Fuel -->
+
+#### [Trips](#api-Webhooks-VehicleTripEvents)
+
+* Trip Start
+* Trip Data
+* Trip Metrics
+* Trip End
+
+---
+
+## Rest API Endpoints
+
+### Base URL
+
+* The base URL is [https://api.bouncie.dev/v1/](https://api.bouncie.dev/v1/).
+* All API requests must use HTTPS. Calls made over HTTP will fail.
+* Successful requests return JSON data (application/json).
+
+### Authentication
+
+The Bouncie API uses the access token that is granted to you per user who grants access to their information. This access token is generated when you [obtain authorization](#authorization).
+
+```javascript
+// HTTP Headers
+{
+    "Authorization": "AccessTokenYouHaveGenerated",
+    "Content-Type": "application/json"
+}
+```
+
+### Responses and Errors
+
+Bouncie API uses standard HTTP response codes to indicate success or failure of an API request.
+
+| Responses     | Description |
+| ------------- | ----------- |
+| 200 - OK      | A GET request succeeded. JSON response. |
+| 201 - Created | A POST response succeeded. JSON response. |
+| 400 - Bad Request | The request was unacceptable, often due to missing a required parameter. JSON response`{ "errors": "This was a bad request because..." }` |
+| 401 - Unauthorized | No valid API key provided. |
+| 404 - Not Found | The requested resource doesn't exist. |
+| 50x - Application Error | An error occurred on Bouncie API |
+
+    version:
+        1.0.0
+servers:
+    [{'url': 'https://api.bouncie.dev'}]
+webhooks:
+    deviceConnect:
+        post:
+            summary:
+                Device connect
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type:
+                                ['object']
+                            properties:
+                                eventType:
+                                    type:
+                                        ['string']
+                                    enum:
+                                        ['connect']
+                                    description:
+                                        Event type
+                                imei:
+                                    type:
+                                        ['string']
+                                    description:
+                                        IMEI of the device that sent the event
+                                vin:
+                                    type:
+                                        ['string']
+                                    description:
+                                        VIN of the vehicle that sent the event
+                                connect:
+                                    type:
+                                        ['object']
+                                    properties:
+                                        timestamp:
+                                            type:
+                                                ['string']
+                                            format:
+                                                date-time
+                                            description:
+                                                Timestamp of the event
+                                        timeZone:
+                                            type:
+                                                ['string']
+                                            description:
+                                                Timezone of the event
+                                        latitude:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Latitude of the event
+                                        longitude:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Longitude of the event
+                                    required:
+                                        ['timestamp', 'timeZone', 'latitude', 'longitude']
+                                    description:
+                                        Event data
+                            required:
+                                ['eventType', 'imei', 'vin', 'connect']
+    deviceDisconnect:
+        post:
+            summary:
+                Device disconnect
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type:
+                                ['object']
+                            properties:
+                                eventType:
+                                    type:
+                                        ['string']
+                                    enum:
+                                        ['disconnect']
+                                    description:
+                                        Event type
+                                imei:
+                                    type:
+                                        ['string']
+                                    description:
+                                        IMEI of the device that sent the event
+                                vin:
+                                    type:
+                                        ['string']
+                                    description:
+                                        VIN of the vehicle that sent the event
+                                disconnect:
+                                    type:
+                                        ['object']
+                                    properties:
+                                        timestamp:
+                                            type:
+                                                ['string']
+                                            format:
+                                                date-time
+                                            description:
+                                                Timestamp of the event
+                                        timeZone:
+                                            type:
+                                                ['string']
+                                            description:
+                                                Timezone of the event
+                                        latitude:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Latitude of the event
+                                        longitude:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Longitude of the event
+                                    required:
+                                        ['timestamp', 'timeZone', 'latitude', 'longitude']
+                                    description:
+                                        Event data
+                            required:
+                                ['eventType', 'imei', 'vin', 'disconnect']
+    battery:
+        post:
+            summary:
+                Battery
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type:
+                                ['object']
+                            properties:
+                                eventType:
+                                    type:
+                                        ['string']
+                                    enum:
+                                        ['battery']
+                                    description:
+                                        Event type
+                                imei:
+                                    type:
+                                        ['string']
+                                    description:
+                                        IMEI of the device that sent the event
+                                vin:
+                                    type:
+                                        ['string']
+                                    description:
+                                        VIN of the vehicle that sent the event
+                                battery:
+                                    type:
+                                        ['object']
+                                    properties:
+                                        timestamp:
+                                            type:
+                                                ['string']
+                                            format:
+                                                date-time
+                                            description:
+                                                Timestamp of the event
+                                        value:
+                                            type:
+                                                ['string']
+                                            enum:
+                                                ['normal', 'low', 'critical']
+                                            description:
+                                                One of: `normal`, `low`, or `critical
+                                    required:
+                                        ['timestamp', 'value']
+                                    description:
+                                        Event data
+                            required:
+                                ['eventType', 'imei', 'vin', 'battery']
+    mil:
+        post:
+            summary:
+                MIL
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type:
+                                ['object']
+                            properties:
+                                eventType:
+                                    type:
+                                        ['string']
+                                    enum:
+                                        ['mil']
+                                    description:
+                                        Event type
+                                imei:
+                                    type:
+                                        ['string']
+                                    description:
+                                        IMEI of the device that sent the event
+                                vin:
+                                    type:
+                                        ['string']
+                                    description:
+                                        VIN of the vehicle that sent the event
+                                mil:
+                                    type:
+                                        ['object']
+                                    properties:
+                                        timestamp:
+                                            type:
+                                                ['string']
+                                            format:
+                                                date-time
+                                            description:
+                                                Timestamp of the event
+                                        value:
+                                            type:
+                                                ['string']
+                                            enum:
+                                                ['ON']
+                                            description:
+                                                Whether the MIL is on
+                                        codes:
+                                            type:
+                                                ['string']
+                                            description:
+                                                Diagnostic Trouble Codes (DTCs) for the vehicle
+                                    required:
+                                        ['timestamp', 'value', 'codes']
+                                    description:
+                                        Event data
+                            required:
+                                ['eventType', 'imei', 'vin', 'mil']
+    tripStart:
+        post:
+            summary:
+                Trip start
+            description:
+                ### Handling Message Data Duplication
+
+Bouncie communicates data through multiple streams to ensure both robust and timely reception of vehicle metrics. This includes periodic data transmissions that ensure reliable transmission of data and real-time data transmission for immediate updates. Due to this multi-stream approach, developers might observe instances of message data duplication.
+
+#### Why Duplication Occurs
+
+- **Real-Time Stream:** Designed for speed, this stream delivers data as it happens without waiting for previous messages to be confirmed. This will lead to data points that can overlap when paired with the regular transmissions from the Periodic Data stream.
+
+- **Periodic Stream:** Designed to ensure data integrity and order, this stream delivers data at regular intervals. As this data will overlap with the data received via the Real-Time Stream, some information will be replicated.
+
+#### Best Practices for Handling Duplications
+
+1. **Unique Identifiers (`transactionId`):** Each trip is associated with a `transactionId` serving as its unique identifier. We recommend implementing logic in your application to check for and discard any duplicated events based on these `transactionId` values.
+
+2. **Timestamp Analysis:** Utilize timestamps to determine the relevancy of data. In some cases, slightly older data received via the Periodic Stream might still be valuable for confirming the accuracy of data captured through the Real-Time Stream. In addition, there are circumstances in which the Periodic Data Stream may contain data that was unable to be transmitted via the Real-Time Stream.
+
+By implementing these practices, developers can efficiently manage data duplication, ensuring the integrity and accuracy of the data processed in their applications. We're committed to providing a high-quality data stream to power your vehicle telematics solutions.
+
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type:
+                                ['object']
+                            properties:
+                                eventType:
+                                    type:
+                                        ['string']
+                                    enum:
+                                        ['tripStart']
+                                    description:
+                                        Event type
+                                imei:
+                                    type:
+                                        ['string']
+                                    description:
+                                        IMEI of the device that sent the event
+                                vin:
+                                    type:
+                                        ['string']
+                                    description:
+                                        VIN of the vehicle that sent the event
+                                transactionId:
+                                    type:
+                                        ['string']
+                                    description:
+                                        Unique identifier for the trip
+                                start:
+                                    type:
+                                        ['object']
+                                    properties:
+                                        timestamp:
+                                            type:
+                                                ['string']
+                                            format:
+                                                date-time
+                                            description:
+                                                Timestamp of the event
+                                        timeZone:
+                                            type:
+                                                ['string']
+                                            description:
+                                                Timezone of the event
+                                        odometer:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Odometer reading at the start of the trip
+                                    required:
+                                        ['timestamp', 'timeZone', 'odometer']
+                                    description:
+                                        Event data
+                            required:
+                                ['eventType', 'imei', 'vin', 'transactionId', 'start']
+    tripData:
+        post:
+            summary:
+                Trip data
+            description:
+                ### Handling Message Data Duplication
+
+Bouncie communicates data through multiple streams to ensure both robust and timely reception of vehicle metrics. This includes periodic data transmissions that ensure reliable transmission of data and real-time data transmission for immediate updates. Due to this multi-stream approach, developers might observe instances of message data duplication.
+
+#### Why Duplication Occurs
+
+- **Real-Time Stream:** Designed for speed, this stream delivers data as it happens without waiting for previous messages to be confirmed. This will lead to data points that can overlap when paired with the regular transmissions from the Periodic Data stream.
+
+- **Periodic Stream:** Designed to ensure data integrity and order, this stream delivers data at regular intervals. As this data will overlap with the data received via the Real-Time Stream, some information will be replicated.
+
+#### Best Practices for Handling Duplications
+
+1. **Unique Identifiers (`transactionId`):** Each trip is associated with a `transactionId` serving as its unique identifier. We recommend implementing logic in your application to check for and discard any duplicated events based on these `transactionId` values.
+
+2. **Timestamp Analysis:** Utilize timestamps to determine the relevancy of data. In some cases, slightly older data received via the Periodic Stream might still be valuable for confirming the accuracy of data captured through the Real-Time Stream. In addition, there are circumstances in which the Periodic Data Stream may contain data that was unable to be transmitted via the Real-Time Stream.
+
+By implementing these practices, developers can efficiently manage data duplication, ensuring the integrity and accuracy of the data processed in their applications. We're committed to providing a high-quality data stream to power your vehicle telematics solutions.
+
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type:
+                                ['object']
+                            properties:
+                                eventType:
+                                    type:
+                                        ['string']
+                                    enum:
+                                        ['tripData']
+                                    description:
+                                        Event type
+                                imei:
+                                    type:
+                                        ['string']
+                                    description:
+                                        IMEI of the device that sent the event
+                                vin:
+                                    type:
+                                        ['string']
+                                    description:
+                                        VIN of the vehicle that sent the event
+                                transactionId:
+                                    type:
+                                        ['string']
+                                    description:
+                                        Unique identifier for the trip
+                                data:
+                                    type:
+                                        ['array']
+                                    items:
+                                        type:
+                                            ['object']
+                                        properties:
+                                            timestamp:
+                                                type:
+                                                    ['string']
+                                                format:
+                                                    date-time
+                                                description:
+                                                    Timestamp of the event
+                                            speed:
+                                                type:
+                                                    ['number']
+                                                description:
+                                                    Speed of the vehicle in MPH
+                                            gps:
+                                                type:
+                                                    ['object']
+                                                properties:
+                                                    lat:
+                                                        type:
+                                                            ['number']
+                                                        description:
+                                                            Latitude of the vehicle
+                                                    lon:
+                                                        type:
+                                                            ['number']
+                                                        description:
+                                                            Longitude of the vehicle
+                                                    heading:
+                                                        type:
+                                                            ['number']
+                                                        description:
+                                                            Heading of the vehicle
+                                                required:
+                                                    ['lat', 'lon', 'heading']
+                                                description:
+                                                    GPS data
+                                            fuelLevelInput:
+                                                type:
+                                                    ['number']
+                                                description:
+                                                    Fuel level input
+                                        required:
+                                            ['timestamp', 'gps']
+                                    description:
+                                        Event data
+                            required:
+                                ['eventType', 'imei', 'vin', 'transactionId', 'data']
+    tripMetrics:
+        post:
+            summary:
+                Trip metrics
+            description:
+                ### Handling Message Data Duplication
+
+Bouncie communicates data through multiple streams to ensure both robust and timely reception of vehicle metrics. This includes periodic data transmissions that ensure reliable transmission of data and real-time data transmission for immediate updates. Due to this multi-stream approach, developers might observe instances of message data duplication.
+
+#### Why Duplication Occurs
+
+- **Real-Time Stream:** Designed for speed, this stream delivers data as it happens without waiting for previous messages to be confirmed. This will lead to data points that can overlap when paired with the regular transmissions from the Periodic Data stream.
+
+- **Periodic Stream:** Designed to ensure data integrity and order, this stream delivers data at regular intervals. As this data will overlap with the data received via the Real-Time Stream, some information will be replicated.
+
+#### Best Practices for Handling Duplications
+
+1. **Unique Identifiers (`transactionId`):** Each trip is associated with a `transactionId` serving as its unique identifier. We recommend implementing logic in your application to check for and discard any duplicated events based on these `transactionId` values.
+
+2. **Timestamp Analysis:** Utilize timestamps to determine the relevancy of data. In some cases, slightly older data received via the Periodic Stream might still be valuable for confirming the accuracy of data captured through the Real-Time Stream. In addition, there are circumstances in which the Periodic Data Stream may contain data that was unable to be transmitted via the Real-Time Stream.
+
+By implementing these practices, developers can efficiently manage data duplication, ensuring the integrity and accuracy of the data processed in their applications. We're committed to providing a high-quality data stream to power your vehicle telematics solutions.
+
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type:
+                                ['object']
+                            properties:
+                                eventType:
+                                    type:
+                                        ['string']
+                                    enum:
+                                        ['tripMetrics']
+                                    description:
+                                        Event type
+                                imei:
+                                    type:
+                                        ['string']
+                                    description:
+                                        IMEI of the device that sent the event
+                                vin:
+                                    type:
+                                        ['string']
+                                    description:
+                                        VIN of the vehicle that sent the event
+                                transactionId:
+                                    type:
+                                        ['string']
+                                    description:
+                                        Unique identifier for the trip
+                                metrics:
+                                    type:
+                                        ['object']
+                                    properties:
+                                        timestamp:
+                                            type:
+                                                ['string']
+                                            format:
+                                                date-time
+                                            description:
+                                                Timestamp of the event
+                                        tripTime:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Duration of the trip in seconds
+                                        tripDistance:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Distance travelled in miles
+                                        totalIdlingTime:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Total time spent idling in seconds
+                                        maxSpeed:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Maximum speed in MPH
+                                        averageDriveSpeed:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Average driving speed in MPH
+                                        hardBrakingCounts:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Number of hard braking events
+                                        hardAccelerationCounts:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Number of hard acceleration events
+                                    required:
+                                        ['timestamp', 'tripTime', 'tripDistance', 'totalIdlingTime', 'maxSpeed', 'averageDriveSpeed', 'hardBrakingCounts', 'hardAccelerationCounts']
+                                    description:
+                                        Event data
+                            required:
+                                ['eventType', 'imei', 'vin', 'transactionId', 'metrics']
+    tripEnd:
+        post:
+            summary:
+                Trip end
+            description:
+                ### Handling Message Data Duplication
+
+Bouncie communicates data through multiple streams to ensure both robust and timely reception of vehicle metrics. This includes periodic data transmissions that ensure reliable transmission of data and real-time data transmission for immediate updates. Due to this multi-stream approach, developers might observe instances of message data duplication.
+
+#### Why Duplication Occurs
+
+- **Real-Time Stream:** Designed for speed, this stream delivers data as it happens without waiting for previous messages to be confirmed. This will lead to data points that can overlap when paired with the regular transmissions from the Periodic Data stream.
+
+- **Periodic Stream:** Designed to ensure data integrity and order, this stream delivers data at regular intervals. As this data will overlap with the data received via the Real-Time Stream, some information will be replicated.
+
+#### Best Practices for Handling Duplications
+
+1. **Unique Identifiers (`transactionId`):** Each trip is associated with a `transactionId` serving as its unique identifier. We recommend implementing logic in your application to check for and discard any duplicated events based on these `transactionId` values.
+
+2. **Timestamp Analysis:** Utilize timestamps to determine the relevancy of data. In some cases, slightly older data received via the Periodic Stream might still be valuable for confirming the accuracy of data captured through the Real-Time Stream. In addition, there are circumstances in which the Periodic Data Stream may contain data that was unable to be transmitted via the Real-Time Stream.
+
+By implementing these practices, developers can efficiently manage data duplication, ensuring the integrity and accuracy of the data processed in their applications. We're committed to providing a high-quality data stream to power your vehicle telematics solutions.
+
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type:
+                                ['object']
+                            properties:
+                                eventType:
+                                    type:
+                                        ['string']
+                                    enum:
+                                        ['tripEnd']
+                                    description:
+                                        Event type
+                                imei:
+                                    type:
+                                        ['string']
+                                    description:
+                                        IMEI of the device that sent the event
+                                vin:
+                                    type:
+                                        ['string']
+                                    description:
+                                        VIN of the vehicle that sent the event
+                                transactionId:
+                                    type:
+                                        ['string']
+                                    description:
+                                        Unique identifier for the trip
+                                end:
+                                    type:
+                                        ['object']
+                                    properties:
+                                        timestamp:
+                                            type:
+                                                ['string']
+                                            format:
+                                                date-time
+                                            description:
+                                                Timestamp of the event
+                                        timeZone:
+                                            type:
+                                                ['string']
+                                            description:
+                                                Timezone of the event
+                                        odometer:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Odometer reading at the end of the trip
+                                        fuelConsumed:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Amount of fuel consumed in gallons
+                                    required:
+                                        ['timestamp', 'timeZone', 'odometer', 'fuelConsumed']
+                                    description:
+                                        Event data
+                            required:
+                                ['eventType', 'imei', 'vin', 'transactionId', 'end']
+paths:
+    /v1/user:
+        get:
+            tags:
+                ['User']
+            summary:
+                Get user
+            responses:
+                200:
+                    description:
+                        Returns user information for the user associated with the current access token
+                    content:
+                        application/json:
+                            schema:
+                                type:
+                                    ['object']
+                                properties:
+                                    email:
+                                        type:
+                                            ['string']
+                                    id:
+                                        type:
+                                            ['string']
+                                    name:
+                                        type:
+                                            ['string']
+                                required:
+                                    ['email', 'id', 'name']
+            parameters:
+                [{'in': 'header', 'name': 'Authorization', 'schema': {'type': ['string'], 'description': 'User access token'}, 'description': 'User access token'}, {'in': 'header', 'name': 'Content-Type', 'schema': {'type': ['string'], 'enum': ['application/json']}}]
+    /v1/vehicles:
+        get:
+            tags:
+                ['Vehicle']
+            summary:
+                Search vehicles
+            responses:
+                200:
+                    description:
+                        Returns an array of vehicles matching the given criteria
+                    content:
+                        application/json:
+                            schema:
+                                type:
+                                    ['array']
+                                items:
+                                    type:
+                                        ['object']
+                                    properties:
+                                        model:
+                                            type:
+                                                ['object']
+                                            properties:
+                                                make:
+                                                    type:
+                                                        ['string']
+                                                    description:
+                                                        Make of the vehicle
+                                                name:
+                                                    type:
+                                                        ['string']
+                                                    description:
+                                                        Model name of the vehicle
+                                                year:
+                                                    type:
+                                                        ['number']
+                                                    description:
+                                                        Model year of the vehicle
+                                            required:
+                                                ['make', 'name', 'year']
+                                            description:
+                                                Make and Model information for the vehicle
+                                        nickName:
+                                            type:
+                                                ['string']
+                                            description:
+                                                Nickname of the vehicle
+                                        standardEngine:
+                                            type:
+                                                ['string']
+                                            description:
+                                                Vehicle engine type
+                                        vin:
+                                            type:
+                                                ['string']
+                                            description:
+                                                Vehicle Identification Number for vehicle
+                                        imei:
+                                            type:
+                                                ['string']
+                                            description:
+                                                Unique bouncie device identifier
+                                        stats:
+                                            type:
+                                                ['object']
+                                            properties:
+                                                localTimeZone:
+                                                    type:
+                                                        ['string']
+                                                    description:
+                                                        Timezone that the vehicle is currenly located
+                                                odometer:
+                                                    type:
+                                                        ['number']
+                                                    description:
+                                                        Current odometer reading of vehicle
+                                                lastUpdated:
+                                                    type:
+                                                        ['string']
+                                                    format:
+                                                        date-time
+                                                    description:
+                                                        Last time vehicle document was updated
+                                                location:
+                                                    type:
+                                                        ['object']
+                                                    properties:
+                                                        lat:
+                                                            type:
+                                                                ['number']
+                                                            description:
+                                                                Latitude of vehicle
+                                                        lon:
+                                                            type:
+                                                                ['number']
+                                                            description:
+                                                                Longitude of vehicle
+                                                        heading:
+                                                            type:
+                                                                ['number']
+                                                            description:
+                                                                Heading of vehicle
+                                                        address:
+                                                            type:
+                                                                ['string']
+                                                            description:
+                                                                Address of vehicle
+                                                    required:
+                                                        ['lat', 'lon', 'heading', 'address']
+                                                    description:
+                                                        If available, last known location of vehicle
+                                                fuelLevel:
+                                                    type:
+                                                        ['number']
+                                                    description:
+                                                        Percentage of fuel remaining in tank as reported by vehicle
+                                                isRunning:
+                                                    type:
+                                                        ['boolean']
+                                                    description:
+                                                        Indicates whether the vehicle is currently running
+                                                speed:
+                                                    type:
+                                                        ['number']
+                                                    description:
+                                                        Current speed of vehicle
+                                                mil:
+                                                    type:
+                                                        ['object']
+                                                    properties:
+                                                        milOn:
+                                                            type:
+                                                                ['boolean']
+                                                            description:
+                                                                Whether the MIL is on for the vehicle
+                                                        lastUpdated:
+                                                            type:
+                                                                ['string']
+                                                            format:
+                                                                date-time
+                                                            description:
+                                                                Last date that MIL status was updated
+                                                        qualifiedDtcList:
+                                                            type:
+                                                                ['array']
+                                                            items:
+                                                                type:
+                                                                    ['object']
+                                                                properties:
+                                                                    code:
+                                                                        type:
+                                                                            ['string']
+                                                                        description:
+                                                                            DTC code
+                                                                    name:
+                                                                        type:
+                                                                            ['array']
+                                                                        items:
+                                                                            type:
+                                                                                ['string']
+                                                                        description:
+                                                                            DTC names
+                                                                required:
+                                                                    ['code', 'name']
+                                                            description:
+                                                                List of Diagnostic Trouble Codes (DTCs) for the vehicle
+                                                        battery:
+                                                            type:
+                                                                ['object']
+                                                            properties:
+                                                                status:
+                                                                    type:
+                                                                        ['string']
+                                                                    enum:
+                                                                        ['normal', 'low', 'critcal']
+                                                                    description:
+                                                                        One of: `normal`, `low`, or `critical`
+                                                                lastUpdated:
+                                                                    type:
+                                                                        ['string']
+                                                                    format:
+                                                                        date-time
+                                                                    description:
+                                                                        Last date that battery status was updated
+                                                            required:
+                                                                ['status', 'lastUpdated']
+                                                            description:
+                                                                Status of battery for vehicle
+                                                    required:
+                                                        ['milOn', 'lastUpdated', 'qualifiedDtcList', 'battery']
+                                                    description:
+                                                        Status of Malfunction Indicator Light (check engine light)
+                                            required:
+                                                ['localTimeZone', 'odometer', 'lastUpdated', 'fuelLevel', 'isRunning', 'speed', 'mil']
+                                            description:
+                                                Vehicle stats
+                                    required:
+                                        ['model', 'nickName', 'standardEngine', 'vin', 'imei', 'stats']
+            parameters:
+                [{'in': 'query', 'name': 'vin', 'schema': {'type': ['string'], 'description': 'Vehicle Identification Number for vehicle'}, 'description': 'Vehicle Identification Number for vehicle'}, {'in': 'query', 'name': 'imei', 'schema': {'type': ['string'], 'description': 'Unique bouncie device identifier'}, 'description': 'Unique bouncie device identifier'}, {'in': 'query', 'name': 'limit', 'schema': {'type': ['number'], 'exclusiveMinimum': 0, 'description': 'Number of search results to limit (for paging)'}, 'description': 'Number of search results to limit (for paging)'}, {'in': 'query', 'name': 'skip', 'schema': {'type': ['number'], 'exclusiveMinimum': 0, 'description': 'Number of search results to skip (for paging)'}, 'description': 'Number of search results to skip (for paging)'}, {'in': 'header', 'name': 'Authorization', 'schema': {'type': ['string'], 'description': 'User access token'}, 'description': 'User access token'}, {'in': 'header', 'name': 'Content-Type', 'schema': {'type': ['string'], 'enum': ['application/json']}}]
+    /v1/trips:
+        get:
+            tags:
+                ['Trip']
+            summary:
+                Search trips
+            responses:
+                200:
+                    description:
+                        Returns an array of trips matching given criteria
+                    content:
+                        application/json:
+                            schema:
+                                type:
+                                    ['array']
+                                items:
+                                    type:
+                                        ['object']
+                                    properties:
+                                        transactionId:
+                                            type:
+                                                ['string']
+                                            description:
+                                                Unique identifier
+                                        hardBrakingCount:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Number of hard braking events
+                                        hardAccelerationCount:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Number of hard acceleration events
+                                        distance:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Distance travelled in miles
+                                        gps:
+                                            type:
+                                                ['string']
+                                            description:
+                                                GPS data encoded in requested format
+                                        startTime:
+                                            type:
+                                                ['string']
+                                            format:
+                                                date-time
+                                            description:
+                                                Time trip started
+                                        endTime:
+                                            type:
+                                                ['string']
+                                            format:
+                                                date-time
+                                            description:
+                                                Time trip ended
+                                        startOdometer:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Starting vehicle odometer
+                                        endOdometer:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Ending vehicle odometer
+                                        averageSpeed:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Average speed in MPH
+                                        maxSpeed:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Maximum speed in MPH
+                                        fuelConsumed:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Amount of fuel consumed in gallons
+                                        timeZone:
+                                            type:
+                                                ['string']
+                                            description:
+                                                Time zone that vehicle was located in at the start of the trip
+                                        totalIdleDuration:
+                                            type:
+                                                ['number']
+                                            description:
+                                                Total time spent idling in seconds
+                                        imei:
+                                            type:
+                                                ['string']
+                                            description:
+                                                Unique bouncie device identifier
+                                    required:
+                                        ['transactionId', 'hardBrakingCount', 'hardAccelerationCount', 'distance', 'gps', 'startTime', 'endTime', 'startOdometer', 'endOdometer', 'averageSpeed', 'maxSpeed', 'fuelConsumed', 'timeZone', 'totalIdleDuration', 'imei']
+            parameters:
+                [{'in': 'query', 'name': 'imei', 'schema': {'type': ['string'], 'description': 'IMEI for the vehicle to retrieve trips for'}, 'description': 'IMEI for the vehicle to retrieve trips for'}, {'in': 'query', 'name': 'transaction-id', 'schema': {'type': ['string'], 'description': 'Unique Trip Identifier'}, 'description': 'Unique Trip Identifier'}, {'in': 'query', 'name': 'gps-format', 'schema': {'type': ['string'], 'enum': ['geojson', 'polyline'], 'description': 'One of: `polyline` or `geojson`'}, 'description': 'One of: `polyline` or `geojson`'}, {'in': 'query', 'name': 'starts-after', 'schema': {'type': ['string'], 'format': 'date-time', 'description': 'Will match trips with a starting time after this parameter. The window between `starts-after` and `ends-before` must be no longer than a week. If not provided, the last week will be used by default'}, 'description': 'Will match trips with a starting time after this parameter. The window between `starts-after` and `ends-before` must be no longer than a week. If not provided, the last week will be used by default'}, {'in': 'query', 'name': 'ends-before', 'schema': {'type': ['string'], 'format': 'date-time', 'description': 'Will match trips with an ending time before this parameter'}, 'description': 'Will match trips with an ending time before this parameter'}, {'in': 'header', 'name': 'Authorization', 'schema': {'type': ['string'], 'description': 'User access token'}, 'description': 'User access token'}, {'in': 'header', 'name': 'Content-Type', 'schema': {'type': ['string'], 'enum': ['application/json']}}]
