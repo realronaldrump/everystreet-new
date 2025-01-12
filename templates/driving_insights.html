@@ -1,11 +1,12 @@
-{% extends "base.html" %} {% block content %} <div class="container-fluid">
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
   <!-- Date Controls -->
   <div class="row mb-4">
     <div class="col-12">
       <div class="card">
-        <div class="card-header">
-          <h2 class="h5 mb-0">Date Range</h2>
-        </div>
+        <div class="card-header"><h2 class="h5 mb-0">Date Range</h2></div>
         <div class="card-body">
           <div class="date-controls">
             <div class="row g-3 align-items-center">
@@ -13,13 +14,13 @@
                 <label for="start-date" class="col-form-label">Start Date</label>
               </div>
               <div class="col-auto">
-                <input type="date" id="start-date" class="form-control" aria-label="Start Date">
+                <input type="date" id="start-date" class="form-control" />
               </div>
               <div class="col-auto">
                 <label for="end-date" class="col-form-label">End Date</label>
               </div>
               <div class="col-auto">
-                <input type="date" id="end-date" class="form-control" aria-label="End Date">
+                <input type="date" id="end-date" class="form-control" />
               </div>
             </div>
             <div class="mt-3">
@@ -38,13 +39,12 @@
       </div>
     </div>
   </div>
+
   <!-- Summary Metrics -->
   <div class="row mb-4">
     <div class="col-12 col-md-6">
       <div class="card">
-        <div class="card-header">
-          <h2 class="h5 mb-0">Summary</h2>
-        </div>
+        <div class="card-header"><h2 class="h5 mb-0">Summary</h2></div>
         <div class="card-body">
           <div class="row">
             <div class="col-6">
@@ -56,7 +56,6 @@
               <p class="h6" id="most-visited">-</p>
             </div>
           </div>
-          <!-- New Metrics -->
           <div class="row mt-4">
             <div class="col-6">
               <h4 class="h6">Total Distance</h4>
@@ -86,25 +85,23 @@
         </div>
       </div>
     </div>
+
     <!-- Fuel Consumption Chart -->
     <div class="col-12 col-lg-6 mb-4">
       <div class="card">
-        <div class="card-header">
-          <h2 class="h5 mb-0">Fuel Consumption</h2>
-        </div>
+        <div class="card-header"><h2 class="h5 mb-0">Fuel Consumption</h2></div>
         <div class="card-body">
           <canvas id="fuelConsumptionChart" height="300"></canvas>
         </div>
       </div>
     </div>
   </div>
+
   <!-- Charts -->
   <div class="row">
     <div class="col-12 mb-4">
       <div class="card">
-        <div class="card-header">
-          <h2 class="h5 mb-0">Trip Counts Over Time</h2>
-        </div>
+        <div class="card-header"><h2 class="h5 mb-0">Trip Counts Over Time</h2></div>
         <div class="card-body">
           <canvas id="tripCountsChart" height="400"></canvas>
         </div>
@@ -112,9 +109,7 @@
     </div>
     <div class="col-12 col-lg-6 mb-4">
       <div class="card">
-        <div class="card-header">
-          <h2 class="h5 mb-0">Daily Distance</h2>
-        </div>
+        <div class="card-header"><h2 class="h5 mb-0">Daily Distance</h2></div>
         <div class="card-body">
           <canvas id="distanceChart" height="300"></canvas>
         </div>
@@ -122,22 +117,19 @@
     </div>
     <div class="col-12 col-lg-6 mb-4">
       <div class="card">
-        <div class="card-header">
-          <h2 class="h5 mb-0">Trip Time Distribution</h2>
-        </div>
+        <div class="card-header"><h2 class="h5 mb-0">Trip Time Distribution</h2></div>
         <div class="card-body">
           <canvas id="timeDistributionChart" height="300"></canvas>
         </div>
       </div>
     </div>
   </div>
+
   <!-- Data Table -->
   <div class="row">
     <div class="col-12">
       <div class="card">
-        <div class="card-header">
-          <h2 class="h5 mb-0">Detailed Insights</h2>
-        </div>
+        <div class="card-header"><h2 class="h5 mb-0">Detailed Insights</h2></div>
         <div class="card-body">
           <div class="table-responsive">
             <table id="insights-table" class="table table-striped">
@@ -155,17 +147,14 @@
       </div>
     </div>
   </div>
-</div> {% endblock %} {% block extra_js %}
-<!-- Chart.js -->
+</div>
+{% endblock %}
+
+{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- date-fns (required for time scale) -->
 <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
-<!-- Chart.js adapter for date-fns -->
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-<!-- DataTables -->
 <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
-<!-- Custom JS -->
-<script src="{{ url_for('static', filename='js/driving_insights.js') }}"></script> {% endblock %} {% block extra_css %}
-<!-- DataTables -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/dataTables.bootstrap5.min.css"> {% endblock %}
+<script src="{{ url_for('static', filename='js/driving_insights.js') }}"></script>
+{% endblock %}
