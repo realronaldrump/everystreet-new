@@ -16,6 +16,7 @@ MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
 MAX_MAPBOX_COORDINATES = 100
 
+
 async def map_match_coordinates(coordinates):
     """
     Given a list of [lon, lat] coordinate pairs, calls Mapbox's map matching API 
@@ -29,7 +30,7 @@ async def map_match_coordinates(coordinates):
 
     url = "https://api.mapbox.com/matching/v5/mapbox/driving/"
     chunks = [
-        coordinates[i : i + MAX_MAPBOX_COORDINATES]
+        coordinates[i: i + MAX_MAPBOX_COORDINATES]
         for i in range(0, len(coordinates), MAX_MAPBOX_COORDINATES)
     ]
     matched_geometries = []
@@ -94,10 +95,12 @@ async def map_match_coordinates(coordinates):
         ],
     }
 
+
 def is_valid_coordinate(coord):
     """Check if a coordinate pair [lon, lat] is within valid WGS84 boundaries."""
     lon, lat = coord
     return -180 <= lon <= 180 and -90 <= lat <= 90
+
 
 async def process_and_map_match_trip(trip):
     """
@@ -110,14 +113,16 @@ async def process_and_map_match_trip(trip):
         # Validate trip data
         is_valid, error_message = validate_trip_data(trip)
         if not is_valid:
-            logger.error(f"Invalid trip data for map matching: {error_message}")
+            logger.error(
+                f"Invalid trip data for map matching: {error_message}")
             return None
 
         existing_matched = matched_trips_collection.find_one(
             {"transactionId": trip["transactionId"]}
         )
         if existing_matched:
-            logger.info(f"Trip {trip['transactionId']} already map-matched. Skipping.")
+            logger.info(
+                f"Trip {trip['transactionId']} already map-matched. Skipping.")
             return
 
         # Decide which collection the original trip is from
@@ -136,7 +141,8 @@ async def process_and_map_match_trip(trip):
 
         # Validate coords
         if not coordinates:
-            logger.error(f"Trip {trip['transactionId']} has no coordinates. Skipping.")
+            logger.error(
+                f"Trip {trip['transactionId']} has no coordinates. Skipping.")
             return
         if not all(is_valid_coordinate(c) for c in coordinates):
             logger.error(
@@ -150,7 +156,8 @@ async def process_and_map_match_trip(trip):
             matched_trip = trip.copy()
             # Ensure gps is stored as string
             matched_trip["gps"] = (
-                json.dumps(trip["gps"]) if isinstance(trip["gps"], dict) else trip["gps"]
+                json.dumps(trip["gps"]) if isinstance(
+                    trip["gps"], dict) else trip["gps"]
             )
             matched_trip["matchedGps"] = geojson_dumps(
                 map_match_result["matchings"][0]["geometry"]
@@ -167,6 +174,7 @@ async def process_and_map_match_trip(trip):
             f"Error processing map matching for trip {trip.get('transactionId', 'Unknown')}: {str(e)}"
         )
         return None
+
 
 def haversine_distance(coord1, coord2):
     """Haversine distance in miles between two [lon, lat] points (WGS84)."""
