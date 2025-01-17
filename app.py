@@ -2347,6 +2347,24 @@ def get_edit_trips():
         logger.error(f"Error fetching trips for editing: {e}")
         return jsonify({"status": "error", "message": "Internal server error"}), 500
 
+@app.route("/api/trips/refresh_geocoding", methods=["POST"])
+async def refresh_geocoding_for_trips():
+    """
+    Refreshes geocoding for selected trips.
+    """
+    data = request.get_json()
+    trip_ids = data.get("trip_ids", [])
+
+    updated_count = 0
+    for trip_id in trip_ids:
+        trip = trips_collection.find_one({"transactionId": trip_id})
+        if trip:
+            updated_trip = await process_trip_data(trip)
+            trips_collection.replace_one({"_id": trip["_id"]}, updated_trip)
+            updated_count += 1
+
+    return jsonify({"message": f"Geocoding refreshed for {updated_count} trips.", "updated_count": updated_count}), 200
+
 @app.route("/api/upload", methods=["POST"])
 async def upload_files():
     """

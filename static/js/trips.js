@@ -99,6 +99,12 @@ function initializeEventListeners() {
         bulkDeleteBtn.addEventListener('click', bulkDeleteTrips);
     }
 
+    // Add refresh geocoding button listener
+    const refreshGeocodingBtn = document.getElementById('refresh-geocoding-btn');
+    if (refreshGeocodingBtn) {
+        refreshGeocodingBtn.addEventListener('click', refreshGeocoding);
+    }
+
     // Add to initializeEventListeners function
     $('#trips-table').on('click', '.edit-trip-btn', function(e) {
         e.preventDefault();
@@ -406,6 +412,46 @@ function bulkDeleteTrips() {
             console.error('Error deleting trips:', error);
             showNotification('Error deleting trip(s). Please try again.', 'danger');
         });
+    }
+}
+
+// Add this function to handle refreshing geocoding
+async function refreshGeocoding() {
+    const selectedTrips = [];
+    $('.trip-checkbox:checked').each(function() {
+        const rowData = tripsTable.row($(this).closest('tr')).data();
+        selectedTrips.push(rowData.transactionId);
+    });
+
+    if (selectedTrips.length === 0) {
+        showNotification('No trips selected to refresh.', 'warning');
+        return;
+    }
+
+    if (confirm(`Are you sure you want to refresh geocoding for ${selectedTrips.length} trip(s)?`)) {
+        try {
+            const response = await fetch('/api/trips/refresh_geocoding', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    trip_ids: selectedTrips
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to refresh geocoding');
+            }
+
+            const data = await response.json();
+            showNotification(`Successfully refreshed geocoding for ${data.updated_count} trip(s).`, 'success');
+            fetchTrips(); // Refresh the trips table
+        } catch (error) {
+            console.error('Error refreshing geocoding:', error);
+            showNotification(error.message || 'Error refreshing geocoding. Please try again.', 'danger');
+        }
     }
 }
 
