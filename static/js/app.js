@@ -780,7 +780,7 @@
             alert('Please validate a location first.');
             return;
         }
-
+    
         fetch('/api/generate_geojson', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -789,12 +789,20 @@
                 streetsOnly,
             }),
         })
-        .then((res) => res.json())
+        .then((res) => {
+            if (!res.ok) {
+                // Handle HTTP errors (e.g., 400, 500)
+                return res.json().then(errData => {
+                    throw new Error(errData.error || 'Unknown error generating OSM data');
+                });
+            }
+            return res.json();
+        })
         .then((geojson) => {
             if (!geojson || geojson.type !== 'FeatureCollection') {
                 throw new Error('Invalid GeoJSON data from Overpass');
             }
-
+    
             const layer = L.geoJSON(geojson, {
                 style: {
                     color: streetsOnly ? mapLayers.osmStreets.color : mapLayers.osmBoundary.color,
@@ -802,17 +810,20 @@
                     opacity: 0.7
                 },
             });
-
+    
             if (streetsOnly) {
                 mapLayers.osmStreets.layer = layer;
             } else {
                 mapLayers.osmBoundary.layer = layer;
             }
-
+    
             updateMap();
             updateLayerOrderUI();
         })
-        .catch((err) => console.error('Error generating OSM data:', err));
+        .catch((err) => {
+            console.error('Error generating OSM data:', err);
+            alert(err.message); // Display error to the user
+        });
     }
 
     /*

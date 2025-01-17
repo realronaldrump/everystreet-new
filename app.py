@@ -114,10 +114,12 @@ matched_trips_collection = db["matched_trips"]
 historical_trips_collection = db["historical_trips"]
 uploaded_trips_collection = db["uploaded_trips"]
 places_collection = db["places"]
+osm_data_collection = db["osm_data"]
 
 # Ensure some indexes
 uploaded_trips_collection.create_index("transactionId", unique=True)
 matched_trips_collection.create_index("transactionId", unique=True)
+osm_data_collection.create_index([("location", 1), ("type", 1)], unique=True)
 
 #############################
 # Model or helper class
@@ -1010,25 +1012,31 @@ def validate_location_osm(location, location_type):
 # Generate GeoJSON from Overpass
 #############################
 @app.route("/api/generate_geojson", methods=["POST"])
+@app.route("/api/generate_geojson", methods=["POST"])
 def generate_geojson():
     """
-    Given a validated location with osm_id/type, query Overpass for boundary or ways.
+    Given a validated location with osm_id/type, query Overpass and return GeoJSON.
     """
     data = request.json
     location = data.get("location")
     streets_only = data.get("streetsOnly", False)
     geojson_data, err = generate_geojson_osm(location, streets_only)
     if geojson_data:
-        return jsonify(geojson_data)
+        return jsonify(geojson_data)  # Directly return GeoJSON
     return jsonify({"error": err}), 400
 
 def generate_geojson_osm(location, streets_only=False):
     """
     Query Overpass for the given location's geometry or highways only.
+    Bypass MongoDB storage for large data and return directly.
     """
     try:
         if not isinstance(location, dict) or "osm_id" not in location or "osm_type" not in location:
             return None, "Invalid location data"
+
+        osm_type = "streets" if streets_only else "boundary"
+
+        # We won't try to fetch from the database since we're bypassing storage for large data
 
         area_id = int(location["osm_id"])
         if location["osm_type"] == "relation":
@@ -1062,9 +1070,35 @@ def generate_geojson_osm(location, streets_only=False):
         if features:
             gdf = gpd.GeoDataFrame.from_features(features)
             gdf = gdf.set_geometry("geometry")
-            return json.loads(gdf.to_json()), None
+            geojson_data = json.loads(gdf.to_json())
+
+            # Estimate BSON size (very approximate)
+            bson_size_estimate = len(json.dumps(geojson_data).encode('utf-8'))
+
+            if bson_size_estimate <= 16793598:  # Check if within MongoDB's limit
+                # Store in database
+                existing_data = osm_data_collection.find_one({"location": location, "type": osm_type})
+                if existing_data:
+                    osm_data_collection.update_one(
+                        {"_id": existing_data["_id"]},
+                        {"$set": {"geojson": geojson_data, "updated_at": datetime.now(timezone.utc)}}
+                    )
+                    logger.info(f"Updated OSM data for {location['display_name']}, type: {osm_type}")
+                else:
+                    osm_data_collection.insert_one({
+                        "location": location,
+                        "type": osm_type,
+                        "geojson": geojson_data,
+                        "created_at": datetime.now(timezone.utc)
+                    })
+                    logger.info(f"Stored OSM data for {location['display_name']}, type: {osm_type}")
+            else:
+                logger.warning(f"Data for {location['display_name']}, type: {osm_type} is too large for MongoDB ({bson_size_estimate} bytes). Returning directly.")
+
+            return geojson_data, None  # Return GeoJSON directly
         else:
             return None, "No features found"
+
     except Exception as e:
         logger.error(f"Error generating geojson: {e}")
         return None, str(e)
