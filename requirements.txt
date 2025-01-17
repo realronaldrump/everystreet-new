@@ -16,3 +16,4 @@ pyproj
 dateutils
 gunicorn
 python-dateutil
+Flask[async]
