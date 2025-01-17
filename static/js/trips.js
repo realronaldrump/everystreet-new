@@ -333,7 +333,7 @@ function initializeTripsTable() {
                                 <li><a class="dropdown-item" href="#" onclick="exportTrip('${row.transactionId}', 'gpx')">Export GPX</a></li>
                                 <li><a class="dropdown-item edit-trip-btn" href="#" data-trip-id="${row.transactionId}">Edit</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteTrip('${row.transactionId}')">Delete</a></li>
+                                <li><a class="dropdown-item text-danger" href="#" onclick="EveryStreet.Trips.deleteTrip('${row.transactionId}');">Delete</a></li>
                             </ul>
                         </div>
                         <div class="edit-actions d-none">
@@ -552,7 +552,32 @@ window.EveryStreet.Trips = {
     fetchTrips,
     updateDatesAndFetch,
     getFilterParams,
-    createEditableCell
+    createEditableCell,
+    deleteTrip: function(tripId) {
+        if (confirm('Are you sure you want to delete this trip?')) {
+            fetch(`/api/trips/${tripId}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    showNotification('Trip deleted successfully', 'success');
+                    EveryStreet.Trips.fetchTrips(); // Refresh the trips table
+                } else {
+                    showNotification(`Error: ${data.message}`, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting trip:', error);
+                showNotification('Error deleting trip. Please try again.', 'danger');
+            });
+        }
+    }
 };
 
 function exportTrip(tripId, format) {

@@ -370,8 +370,13 @@
                     .map((trip) => ({
                         ...trip.properties,
                         gps: trip.geometry,
-                        destination: trip.properties.destination || 'N/A',
-                        isCustomPlace: trip.properties.isCustomPlace || false,
+                        destination: trip.properties.destinationPlaceId
+                            ? trip.properties.destination
+                            : trip.properties.destination || 'N/A',
+                        startLocation: trip.properties.startPlaceId
+                            ? trip.properties.startLocation
+                            : trip.properties.startLocation || 'N/A',
+                        isCustomPlace: !!(trip.properties.startPlaceId || trip.properties.destinationPlaceId),
                         distance: (+trip.properties.distance).toFixed(2),
                     }));
 

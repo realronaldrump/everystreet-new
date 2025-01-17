@@ -2080,13 +2080,24 @@ def store_trip(trip):
     for field in ["startTime", "endTime"]:
         if isinstance(trip[field], str):
             trip[field] = parser.isoparse(trip[field])
-    trips_collection.update_one({"transactionId": trip["transactionId"]}, {"$set": trip}, upsert=True)
+
+    # Add these fields to the update operation
+    update_data = {
+        "$set": {
+            **trip,
+            "startPlaceId": trip.get("startPlaceId"),
+            "destinationPlaceId": trip.get("destinationPlaceId"),
+        }
+    }
+
+    trips_collection.update_one({"transactionId": trip["transactionId"]}, update_data, upsert=True)
     logger.info(f"Stored trip {trip['transactionId']}")
     return True
 
 async def process_trip_data(trip):
     """
     Reverse geocode start/dest if missing.
+    Check if start/end are within a custom place.
     """
     try:
         gps_data = trip["gps"]
@@ -2095,14 +2106,42 @@ async def process_trip_data(trip):
         coords = gps_data["coordinates"]
         st = coords[0]
         en = coords[-1]
-        if not trip.get("destination"):
-            trip["destination"] = await reverse_geocode_nominatim(en[1], en[0])
-        if not trip.get("startLocation"):
+
+        start_point = Point(st[0], st[1])
+        end_point = Point(en[0], en[1])
+
+        # Check for custom places
+        start_place = get_place_at_point(start_point)
+        end_place = get_place_at_point(end_point)
+
+        if start_place:
+            trip["startLocation"] = start_place["name"]
+            trip["startPlaceId"] = start_place["_id"]
+        else:
             trip["startLocation"] = await reverse_geocode_nominatim(st[1], st[0])
+
+        if end_place:
+            trip["destination"] = end_place["name"]
+            trip["destinationPlaceId"] = end_place["_id"]
+        else:
+            trip["destination"] = await reverse_geocode_nominatim(en[1], en[0])
+
         return trip
     except Exception as e:
         logger.error(f"Error in process_trip_data: {e}")
         return None
+
+def get_place_at_point(point):
+    """
+    Find a custom place that contains the given point.
+    """
+    places = list(places_collection.find({}))
+    for p in places:
+        place_shape = shape(p["geometry"])
+        if place_shape.contains(point):
+            return p
+    return None
+
 
 async def fetch_and_store_trips_in_range(start_date, end_date):
     """
@@ -2432,6 +2471,34 @@ def get_single_trip(trip_id):
         return jsonify({"status": "success", "trip": t}), 200
     except Exception as e:
         logger.error(f"get_single_trip error: {e}")
+        return jsonify({"status": "error", "message": "Internal server error"}), 500
+    
+@app.route("/api/trips/<trip_id>", methods=["DELETE"])
+def delete_trip(trip_id):
+    """
+    Deletes a trip by its ID.
+    """
+    try:
+        # Find the trip in both collections
+        trip = trips_collection.find_one({"transactionId": trip_id})
+        if not trip:
+            trip = matched_trips_collection.find_one({"transactionId": trip_id})
+            if not trip:
+                return jsonify({"status": "error", "message": "Trip not found"}), 404
+            else:
+                collection = matched_trips_collection
+        else:
+            collection = trips_collection
+
+        # Delete the trip
+        result = collection.delete_one({"transactionId": trip_id})
+
+        if result.deleted_count == 1:
+            return jsonify({"status": "success", "message": "Trip deleted successfully"}), 200
+        else:
+            return jsonify({"status": "error", "message": "Failed to delete trip"}), 500
+    except Exception as e:
+        logger.error(f"Error deleting trip: {e}")
         return jsonify({"status": "error", "message": "Internal server error"}), 500
 
 @app.route("/api/debug/trip/<trip_id>", methods=["GET"])
