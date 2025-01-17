@@ -1,7 +1,8 @@
-/* global L, EveryStreet, LoadingManager, Chart*/
+/* global L, EveryStreet, LoadingManager, Chart */
+
 class VisitsManager {
-    constructor() {
-        this.map = null;
+    constructor(map) {
+        this.map = map;
         this.places = new Map();
         this.drawControl = null;
         this.currentPolygon = null;
@@ -78,7 +79,7 @@ class VisitsManager {
                         message: '<strong>Error:</strong> Shape edges cannot cross!',
                     },
                     shapeOptions: {
-                        color: '#BB86FC',
+                        color: '#BB86FC'
                     },
                 },
                 circle: false,
@@ -213,11 +214,8 @@ class VisitsManager {
 				  </button>
 			  </div>
 		  `);
-
+        polygon.on('click', () => this.showPlaceStatistics(place._id));
         this.customPlacesLayer.addLayer(polygon);
-
-        // Update visits table immediately after adding a place
-        this.updateVisitsData();
     }
 
     async updateVisitsData() {
@@ -241,6 +239,7 @@ class VisitsManager {
                 visitsData.push({
                     name: place.name,
                     totalVisits: stats.totalVisits,
+                    firstVisit: stats.firstVisit,
                     lastVisit: stats.lastVisit,
                     avgTimeSpent: stats.averageTimeSpent,
                 });

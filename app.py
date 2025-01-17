@@ -1849,6 +1849,10 @@ def get_place_statistics(place_id):
         last_visit = None
 
         all_trips_sorted = list(trips_collection.find().sort("startTime", 1))
+        all_trips_sorted += list(historical_trips_collection.find().sort("startTime", 1))
+        all_trips_sorted += list(uploaded_trips_collection.find().sort("startTime", 1))
+    # Sort the combined list
+        all_trips_sorted.sort(key=lambda x: x["startTime"])
         current_time = datetime.now(timezone.utc)
 
         for i, t in enumerate(all_trips_sorted):
