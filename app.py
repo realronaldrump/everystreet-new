@@ -66,7 +66,6 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "supersecretfallback")
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 
 # Bouncie config
 CLIENT_ID = os.getenv("CLIENT_ID")
@@ -115,6 +114,7 @@ historical_trips_collection = db["historical_trips"]
 uploaded_trips_collection = db["uploaded_trips"]
 places_collection = db["places"]
 osm_data_collection = db["osm_data"]
+realtime_data_collection = db["realtime_data"] # New collection for real-time data
 
 # Ensure some indexes
 uploaded_trips_collection.create_index("transactionId", unique=True)
@@ -2026,44 +2026,46 @@ def bouncie_webhook():
         txid = data.get("transactionId")
 
         if event_type == "tripStart":
-            active_trips[txid] = {
+            # Store trip start data
+            realtime_data_collection.insert_one({
+                "transactionId": txid,
                 "imei": imei,
-                "start_time": datetime.now(timezone.utc),
-                "path": [],
-                "last_update": datetime.now(timezone.utc),
-            }
+                "event_type": event_type,
+                "timestamp": datetime.now(timezone.utc),
+                "data": data
+            })
             emit_data = {
                 "transactionId": txid,
                 "imei": imei,
-                "start_time": active_trips[txid]["start_time"].isoformat(),
+                "start_time": datetime.now(timezone.utc).isoformat(),
             }
             socketio.emit("trip_started", emit_data)
 
         elif event_type == "tripData":
-            if txid in active_trips:
-                new_points = []
-                for p in data.get("data", []):
-                    if "gps" in p and p["gps"]:
-                        lat = p["gps"]["lat"]
-                        lon = p["gps"]["lon"]
-                        ts = p.get("timestamp") or datetime.now(timezone.utc).isoformat()
-                        new_points.append({"lat": lat, "lon": lon, "timestamp": ts})
-                new_points.sort(key=lambda x: parser.isoparse(x["timestamp"]))
-                for np in new_points:
-                    active_trips[txid]["path"].append({"lat": np["lat"], "lon": np["lon"]})
-                active_trips[txid]["last_update"] = datetime.now(timezone.utc)
-                socketio.emit("trip_update", {
-                    "transactionId": txid,
-                    "path": active_trips[txid]["path"],
-                })
+            # Append trip data
+            realtime_data_collection.insert_one({
+                "transactionId": txid,
+                "imei": imei,
+                "event_type": event_type,
+                "timestamp": datetime.now(timezone.utc),
+                "data": data
+            })
+            socketio.emit("trip_update", {
+                "transactionId": txid,
+                "path": data.get("data", [])
+            })
 
         elif event_type == "tripEnd":
-            if txid in active_trips:
-                def remove_trip():
-                    if txid in active_trips:
-                        del active_trips[txid]
-                        socketio.emit("trip_ended", {"transactionId": txid})
-                threading.Timer(600, remove_trip).start()  # remove after 10min
+            # Finalize and move to trips_collection
+            realtime_trip_data = list(realtime_data_collection.find({"transactionId": txid}))
+            if realtime_trip_data:
+                # Process and combine data as needed
+                # ...
+                # Insert into trips_collection
+                # ...
+                # Clean up from realtime_data_collection
+                realtime_data_collection.delete_many({"transactionId": txid})
+                socketio.emit("trip_ended", {"transactionId": txid})
 
         return jsonify({"status": "success"}), 200
     except Exception as e:
@@ -2073,20 +2075,11 @@ def bouncie_webhook():
 #############################
 # Socket.IO events
 #############################
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+
 @socketio.on("connect")
 def handle_connect():
     logger.info("Client connected (socket.io).")
-    # Send current active trips
-    for txid, tdata in active_trips.items():
-        emit("trip_started", {
-            "transactionId": txid,
-            "imei": tdata["imei"],
-            "start_time": tdata["start_time"].isoformat(),
-        })
-        emit("trip_update", {
-            "transactionId": txid,
-            "path": [{"lat": c["lat"], "lon": c["lon"]} for c in tdata["path"]],
-        })
 
 @socketio.on("disconnect")
 def handle_disconnect():
@@ -2186,7 +2179,6 @@ def get_place_at_point(point):
         if place_shape.contains(point):
             return p
     return None
-
 
 async def fetch_and_store_trips_in_range(start_date, end_date):
     """
