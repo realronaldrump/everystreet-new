@@ -1325,14 +1325,15 @@ def export_page():
 @app.route("/api/export/trips")
 def export_trips():
     """
-    Provide direct link to exporting in geojson or gpx from an API standpoint. 
+    Provide direct link to exporting in geojson or gpx from an API standpoint.
     This delegates to create_geojson, create_gpx, etc.
+    Now fetches from all three collections.
     """
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
     fmt = request.args.get("format")
 
-    ts = fetch_trips(start_date, end_date)
+    ts = fetch_all_trips(start_date, end_date)
 
     if fmt == "geojson":
         geojson_data = create_geojson(ts)
@@ -1340,7 +1341,7 @@ def export_trips():
             io.BytesIO(geojson_data.encode()),
             mimetype="application/geo+json",
             as_attachment=True,
-            download_name="trips.geojson",
+            download_name="all_trips.geojson",
         )
     elif fmt == "gpx":
         gpx_data = create_gpx(ts)
@@ -1348,8 +1349,22 @@ def export_trips():
             io.BytesIO(gpx_data.encode()),
             mimetype="application/gpx+xml",
             as_attachment=True,
-            download_name="trips.gpx",
+            download_name="all_trips.gpx",
         )
+
+def fetch_all_trips(start_date_str, end_date_str):
+    sd = parser.parse(start_date_str)
+    ed = parser.parse(end_date_str)
+    query = {"startTime": {"$gte": sd, "$lte": ed}}
+    
+    # Fetch from all three collections
+    trips = list(trips_collection.find(query))
+    uploaded_trips = list(uploaded_trips_collection.find(query))
+    historical_trips = list(historical_trips_collection.find(query))
+    
+    # Combine the results
+    all_trips = trips + uploaded_trips + historical_trips
+    return all_trips
 
 def fetch_trips(start_date_str, end_date_str):
     sd = parser.parse(start_date_str)
