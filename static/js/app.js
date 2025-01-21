@@ -874,10 +874,6 @@
         document.getElementById('map-match-historical-trips')
           ?.addEventListener('click', () => mapMatchTrips(true));
 
-        // Historical
-        document.getElementById('load-historical-data')
-          ?.addEventListener('click', loadHistoricalData);
-
         // Coverage
         document.getElementById('generate-coverage')
           ?.addEventListener('click', generateStreetCoverage);

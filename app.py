@@ -33,6 +33,7 @@ from flask import (
     session,
 )
 from flask_socketio import SocketIO
+from flask import render_template
 from geojson import dumps as geojson_dumps, loads as geojson_loads
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
@@ -54,6 +55,8 @@ from map_matching import (
 
 # Import from utils.py
 from utils import validate_location_osm
+
+from update_geo_points import update_geo_points
 
 load_dotenv()
 
@@ -527,6 +530,10 @@ def trips_page():
     """Trips listing page."""
     return render_template("trips.html")
 
+@app.route("/settings")
+def settings():
+    """Render the settings page."""
+    return render_template("settings.html")
 
 @app.route("/driving-insights")
 def driving_insights_page():
@@ -2571,6 +2578,32 @@ async def process_trip_data(trip):
     except Exception as e:
         logger.error(f"Error in process_trip_data: {e}")
         return None
+
+
+# add the update geo points route to the settings page
+
+@app.route("/update_geo_points", methods=["POST"])
+def update_geo_points_route():
+    """
+    Update GeoPoints for a given collection.
+    """
+    collection_name = request.json.get("collection")
+    if collection_name not in ["trips", "historical_trips", "uploaded_trips"]:
+        return jsonify({"message": "Invalid collection name"}), 400
+
+    # Map collection name to actual collection object
+    if collection_name == "trips":
+        collection = trips_collection
+    elif collection_name == "historical_trips":
+        collection = historical_trips_collection
+    elif collection_name == "uploaded_trips":
+        collection = uploaded_trips_collection
+
+    try:
+        update_geo_points(collection)
+        return jsonify({"message": f"GeoPoints updated for {collection_name}"})
+    except Exception as e:
+        return jsonify({"message": f"Error updating GeoPoints: {e}"}), 500
 
 
 def get_place_at_point(point):
