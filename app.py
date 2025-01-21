@@ -2555,6 +2555,18 @@ async def process_trip_data(trip):
         else:
             trip["destination"] = await reverse_geocode_nominatim(en[1], en[0])
 
+        # Set destinationGeoPoint for geospatial querying
+        trip["destinationGeoPoint"] = {
+            "type": "Point",
+            "coordinates": [en[0], en[1]]  # Longitude, Latitude
+        }
+
+        # Set startGeoPoint for geospatial querying
+        trip["startGeoPoint"] = {
+            "type": "Point",
+            "coordinates": [st[0], st[1]]  # Longitude, Latitude
+        }
+
         return trip
     except Exception as e:
         logger.error(f"Error in process_trip_data: {e}")
