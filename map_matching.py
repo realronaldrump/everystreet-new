@@ -158,6 +158,7 @@ async def process_and_map_match_trip(trip):
 
             # Add location information using reverse geocoding on matched coordinates
             matched_coords = map_match_result["matchings"][0]["geometry"]["coordinates"]
+            location_name = None  # Initialize location_name to None
             if matched_coords:
                 start_lon, start_lat = matched_coords[0]
                 end_lon, end_lat = matched_coords[-1]
@@ -175,8 +176,8 @@ async def process_and_map_match_trip(trip):
                     else:
                         location_name = location.get("display_name", "")
 
-                    matched_trip["location"] = location_name
-                else:
+                    
+                if not location_name:
                     location = await reverse_geocode_nominatim(end_lat, end_lon)
                     if location and "address" in location:
                         if "city" in location["address"]:
@@ -188,14 +189,21 @@ async def process_and_map_match_trip(trip):
                         else:
                             location_name = location.get("display_name", "")
 
-                    matched_trip["location"] = location_name
+            # Only update if location_name is found
+            if location_name:
+                matched_trip["location"] = location_name
 
             matched_trips_collection.insert_one(matched_trip)
             logger.info(f"Map-matched trip {trip['transactionId']} stored.")
 
-            # Update street coverage if location information is available
-            if matched_trip.get("location"):
-                update_street_coverage(matched_trip["location"])
+            # Update street coverage if location information is available and valid
+            if location_name:
+                try:
+                    update_street_coverage(location_name)
+                except Exception as e:
+                    logger.error(f"Error updating street coverage for {location_name}: {e}")
+            else:
+                logger.warning(f"Could not determine location for trip {trip['transactionId']}.")
 
         else:
             logger.error(

@@ -1,18 +1,17 @@
-# preprocess_streets.py
 import json
 import logging
 import os
 from datetime import datetime, timezone
-import argparse  # Import argparse
+import argparse
 
 import requests
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from shapely.geometry import LineString, mapping, Point
-from shapely.ops import transform, unary_union
+from shapely.ops import transform
 import pyproj
 
-# Now we also import validate_location_osm from utils.py
+# Import validate_location_osm from utils.py
 from utils import validate_location_osm
 
 load_dotenv()
@@ -33,7 +32,7 @@ OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
 # WGS84 (EPSG:4326) and UTM Zone 10N (EPSG:32610) -  Adjust the UTM zone if needed
 wgs84 = pyproj.CRS("EPSG:4326")
-utm = pyproj.CRS("EPSG:32610")
+utm = pyproj.CRS("EPSG:32610")  # You might need to change this based on your location
 
 project_to_utm = pyproj.Transformer.from_crs(wgs84, utm, always_xy=True).transform
 project_to_wgs84 = pyproj.Transformer.from_crs(utm, wgs84, always_xy=True).transform
@@ -86,7 +85,8 @@ def segment_street(line, segment_length_meters=100):
 
     for i in range(0, int(length), segment_length_meters):
         segment = cut(line, i, min(i + segment_length_meters, length))
-        segments.append(segment)
+        if segment:  # Only add the segment if it's not None
+            segments.append(segment)
 
     return segments
 
@@ -109,13 +109,11 @@ def cut(line, start_distance, end_distance):
     if start_distance == 0 and end_distance == line.length:
         return line
 
-    start_point = line.interpolate(start_distance)
-    end_point = line.interpolate(end_distance)
-
     segment_coords = []
     
     # Add the start point only if it's not the very beginning of the line
     if start_distance > 0:
+        start_point = line.interpolate(start_distance)
         segment_coords.append((start_point.x, start_point.y))
 
     # Add intermediate coordinates that fall within the segment
@@ -127,6 +125,7 @@ def cut(line, start_distance, end_distance):
 
     # Add the end point only if it's not the very end of the line
     if end_distance < line.length:
+        end_point = line.interpolate(end_distance)
         segment_coords.append((end_point.x, end_point.y))
 
     # Ensure there are at least two points to form a valid line segment
@@ -181,9 +180,6 @@ def process_osm_data(osm_data, location):
             "features": features,
         }
         streets_collection.insert_many(geojson_data["features"])
-
-        # Calculate total length of all segments for this location
-        total_length = sum(feature["properties"]["length"] for feature in features)
 
         # Update or insert coverage metadata
         coverage_metadata_collection.update_one(

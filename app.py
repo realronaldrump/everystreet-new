@@ -1668,6 +1668,7 @@ def get_street_coverage():
 def update_street_coverage(location_name):
     """
     Updates the driven status of street segments based on recent trips.
+    Now it gets the location from the segments themselves.
     """
     logger.info(f"Updating street coverage for location: {location_name}")
     try:
@@ -1678,28 +1679,24 @@ def update_street_coverage(location_name):
 
         # Find new trips since the last update
         new_trips = list(matched_trips_collection.find({
-            "startTime": {"$gt": last_processed_trip_time},
-            "$or": [
-                {"startLocation": location_name},
-                {"destination": location_name}
-            ]
+            "startTime": {"$gt": last_processed_trip_time}
         }))
 
-        logger.info(f"Found {len(new_trips)} new trips for {location_name}")
+        logger.info(f"Found {len(new_trips)} new trips (no location filter)")
 
         if not new_trips:
-            logger.info(f"No new trips found for {location_name} since {last_processed_trip_time}")
+            logger.info(f"No new trips found since {last_processed_trip_time}")
             return
 
         # Buffer trip lines and update street segments
+        updated_segments = set()  # Keep track of updated segments for this location
         for trip in new_trips:
             logger.info(f"Processing trip: {trip['transactionId']}")
             try:
                 trip_line = shape(geojson_loads(trip["matchedGps"]))
                 buffered_line = trip_line.buffer(0.00005)  # Buffer by ~5 meters
-                logger.info(f"Buffered line: {buffered_line.wkt}")
 
-                # Find intersecting segments and update their driven status
+                # Find intersecting segments for the specific location using a geospatial query
                 intersecting_segments = streets_collection.find({
                     "properties.location": location_name,
                     "geometry": {
@@ -1709,26 +1706,20 @@ def update_street_coverage(location_name):
                     }
                 })
 
-                # Use a set to track updated segment IDs
-                updated_segment_ids = set()
-
                 for segment in intersecting_segments:
                     segment_id = segment["properties"]["segment_id"]
-                    logger.info(f"Found intersecting segment: {segment_id}")
 
-                    # Only update if the segment hasn't been updated already for this trip
-                    if segment_id not in updated_segment_ids:
+                    # Only update if the segment hasn't been updated already
+                    if segment_id not in updated_segments:
                         streets_collection.update_one(
-                            {"_id": segment["_id"], "properties.location": location_name}, # Add location to query
+                            {"_id": segment["_id"]},
                             {
                                 "$set": {"properties.driven": True, "properties.last_updated": datetime.now(timezone.utc)},
-                                "$addToSet": {"properties.matched_trips": trip["transactionId"]}  # Store matched trip IDs
+                                "$addToSet": {"properties.matched_trips": trip["transactionId"]}
                             }
                         )
-                        updated_segment_ids.add(segment_id)
+                        updated_segments.add(segment_id)  # Add to the set of updated segments
                         logger.info(f"Updated segment: {segment_id}")
-                    else:
-                        logger.info(f"Segment {segment_id} already updated for this trip, skipping.")
 
             except Exception as e:
                 logger.error(f"Error processing trip {trip['transactionId']}: {e}")
