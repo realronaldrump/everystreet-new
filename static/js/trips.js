@@ -163,7 +163,7 @@ function initializeEventListeners() {
         try {
             // Get the correct trip ID
             let tripId;
-            if (rowData.properties && rowData.properties.transactionId) {
+            if (rowData.properties?.transactionId) {
                 tripId = rowData.properties.transactionId;
             } else if (rowData.transactionId) {
                 tripId = rowData.transactionId;

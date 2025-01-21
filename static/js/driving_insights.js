@@ -413,7 +413,7 @@ function updateSummaryMetrics(data) {
     document.getElementById('longest-trip').textContent = `${(data.longest_trip_distance || 0).toFixed(2)} miles`;
 
     const mostVisitedElement = document.getElementById('most-visited');
-    if (data.most_visited && data.most_visited._id) {
+    if (data.most_visited?._id) {
         const {
             _id,
             count,

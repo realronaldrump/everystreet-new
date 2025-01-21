@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		const layers = [];
 
 		trips.forEach(trip => {
-			if (trip.geometry && trip.geometry.coordinates) {
+			if (trip.geometry?.coordinates) {
 				const coordinates = trip.geometry.coordinates.map(coord => [coord[1], coord[0]]);
 				const tripLayer = L.polyline(coordinates, {
 					color: trip.properties.imei === 'HISTORICAL' ? '#CF6679' : '#BB86FC',

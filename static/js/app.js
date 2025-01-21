@@ -125,7 +125,7 @@
         // Update a sub-operation's progress
         updateSubOperation(operationName, subOperationName, progress) {
             const operation = this.operations[operationName];
-            if (operation && operation.subOperations[subOperationName]) {
+            if (operation?.subOperations[subOperationName]) {
                 operation.subOperations[subOperationName].progress = progress;
                 this.updateOperationProgress(operationName);
             }
@@ -555,7 +555,7 @@
                         const b = (typeof linfo.layer.getBounds === 'function')
                           ? linfo.layer.getBounds()
                           : L.geoJSON(linfo.layer).getBounds();
-                        if (b && b.isValid()) {
+                        if (b?.isValid()) {
                             bounds.extend(b);
                             validBounds = true;
                         }
