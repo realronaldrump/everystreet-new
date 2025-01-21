@@ -2037,10 +2037,12 @@ def meters_to_miles(m):
     return m * 0.000621371
 
 
-async def process_and_store_trip(trip, uploaded=[]):
+async def process_and_store_trip(trip, uploaded=None):
     """
     Insert trip into uploaded_trips_collection with reverse geocode for start/dest.
     """
+    if uploaded is None:
+        uploaded = []
     try:
         gps_data = trip["gps"]
         if isinstance(gps_data, str):
