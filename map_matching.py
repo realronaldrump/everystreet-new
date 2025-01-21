@@ -4,7 +4,6 @@ import math
 import logging
 import aiohttp
 from geojson import loads as geojson_loads, dumps as geojson_dumps
-from shapely.geometry import Point
 from dotenv import load_dotenv
 import os
 

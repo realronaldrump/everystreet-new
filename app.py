@@ -3,7 +3,6 @@ import glob
 import io
 import json
 import logging
-import math
 import os
 import traceback
 import zipfile
@@ -24,7 +23,6 @@ from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
 from bson import ObjectId
 from dateutil import parser
 from dotenv import load_dotenv
-from shapely.strtree import STRtree
 from flask import (
     Flask,
     Response,
@@ -34,37 +32,28 @@ from flask import (
     send_file,
     session,
 )
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO
 from geojson import dumps as geojson_dumps, loads as geojson_loads
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
-from pyproj import Transformer
 from shapely.geometry import (
     LineString,
-    MultiLineString,
-    MultiPolygon,
     Point,
     Polygon,
     mapping,
     shape,
 )
-from shapely.ops import linemerge, unary_union, polygonize, transform as shapely_transform
-from shapely.errors import TopologicalError
 from timezonefinder import TimezoneFinder
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # We import the map_matching logic
 from map_matching import (
     haversine_distance,
-    map_match_coordinates,
     process_and_map_match_trip,
 )
 
 # Import from utils.py
 from utils import validate_location_osm
-
-# Import from preprocess_streets.py
-from preprocess_streets import process_osm_data, fetch_osm_data
 
 load_dotenv()
 
