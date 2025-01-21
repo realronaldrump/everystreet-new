@@ -77,7 +77,7 @@ class LiveTripTracker {
 
       // Add new coordinates with their timestamps
       data.path.forEach(point => {
-          if (point.gps && point.gps.lat && point.gps.lon) {
+          if (point.gps?.lat && point.gps.lon) {
               // Assuming the timestamp is available in each point under a 'timestamp' field
               const timestamp = point.timestamp ? new Date(point.timestamp) : new Date();
               trip.coordinates.push([point.gps.lat, point.gps.lon]);
