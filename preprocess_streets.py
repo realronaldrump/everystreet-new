@@ -31,10 +31,14 @@ OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
 # WGS84 (EPSG:4326) and UTM Zone 10N (EPSG:32610) -  Adjust the UTM zone if needed
 wgs84 = pyproj.CRS("EPSG:4326")
-utm = pyproj.CRS("EPSG:32610")  # You might need to change this based on your location
+# You might need to change this based on your location
+utm = pyproj.CRS("EPSG:32610")
 
-project_to_utm = pyproj.Transformer.from_crs(wgs84, utm, always_xy=True).transform
-project_to_wgs84 = pyproj.Transformer.from_crs(utm, wgs84, always_xy=True).transform
+project_to_utm = pyproj.Transformer.from_crs(
+    wgs84, utm, always_xy=True).transform
+project_to_wgs84 = pyproj.Transformer.from_crs(
+    utm, wgs84, always_xy=True).transform
+
 
 def fetch_osm_data(location, streets_only=True):
     """Fetches OSM data for the given location using the Overpass API."""
@@ -65,6 +69,7 @@ def fetch_osm_data(location, streets_only=True):
     response.raise_for_status()
     return response.json()
 
+
 def segment_street(line, segment_length_meters=100):
     """
     Splits a LineString into segments of a specified length.
@@ -89,6 +94,7 @@ def segment_street(line, segment_length_meters=100):
 
     return segments
 
+
 def cut(line, start_distance, end_distance):
     """
     Cuts a LineString at specified distances from the start.
@@ -109,7 +115,7 @@ def cut(line, start_distance, end_distance):
         return line
 
     segment_coords = []
-    
+
     # Add the start point only if it's not the very beginning of the line
     if start_distance > 0:
         start_point = line.interpolate(start_distance)
@@ -133,6 +139,7 @@ def cut(line, start_distance, end_distance):
 
     return LineString(segment_coords)
 
+
 def process_osm_data(osm_data, location):
     """Processes OSM data, segments streets, and stores them in MongoDB."""
     features = []
@@ -141,7 +148,8 @@ def process_osm_data(osm_data, location):
         if element["type"] == "way":
             try:
                 # Project to UTM for accurate length calculation
-                line = transform(project_to_utm, LineString([(node["lon"], node["lat"]) for node in element["geometry"]]))
+                line = transform(project_to_utm, LineString(
+                    [(node["lon"], node["lat"]) for node in element["geometry"]]))
 
                 # Segment the street
                 segments = segment_street(line)
@@ -196,15 +204,19 @@ def process_osm_data(osm_data, location):
             upsert=True,
         )
 
-        logger.info(f"Processed and stored {len(features)} street segments for {location['display_name']}")
+        logger.info(
+            f"Processed and stored {len(features)} street segments for {location['display_name']}")
+
 
 def main():
     """
     Main function to preprocess street data for a given location.
     Now accepts location and location_type as command-line arguments.
     """
-    parser = argparse.ArgumentParser(description="Preprocess street data for a given location.")
-    parser.add_argument("location", help="Location query (e.g., 'Beverly Hills, TX')")
+    parser = argparse.ArgumentParser(
+        description="Preprocess street data for a given location.")
+    parser.add_argument(
+        "location", help="Location query (e.g., 'Beverly Hills, TX')")
     parser.add_argument(
         "--type",
         dest="location_type",
@@ -227,6 +239,7 @@ def main():
 
     # Process OSM data and store in MongoDB
     process_osm_data(osm_data, validated_location)
+
 
 if __name__ == "__main__":
     main()
