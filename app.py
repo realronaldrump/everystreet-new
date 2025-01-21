@@ -225,9 +225,8 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
                         trip["endTime"] = local_time
 
                 return trips
-            else:
-                logger.error(f"Error fetching trips: {response.status}")
-                return []
+            logger.error(f"Error fetching trips: {response.status}")
+            return []
     except Exception as e:
         logger.error(f"Exception in get_trips_from_api: {e}")
         return []
@@ -1192,8 +1191,7 @@ def generate_geojson_osm(location, streets_only=False):
                     f"Data for {location['display_name']}, type: {osm_type} is too large for MongoDB ({bson_size_estimate} bytes). Returning directly.")
 
             return geojson_data, None  # Return GeoJSON directly
-        else:
-            return None, "No features found"
+        return None, "No features found"
 
     except Exception as e:
         logger.error(f"Error generating geojson: {e}")
@@ -1376,7 +1374,7 @@ def export_single_trip(trip_id):
                 headers={
                     "Content-Disposition": f'attachment; filename="trip_{trip_id}.geojson"'}
             )
-        elif fmt == "gpx":
+        if fmt == "gpx":
             gpx = gpxpy.gpx.GPX()
             track = gpxpy.gpx.GPXTrack()
             gpx.tracks.append(track)
@@ -1398,8 +1396,7 @@ def export_single_trip(trip_id):
                 headers={
                     "Content-Disposition": f'attachment; filename="trip_{trip_id}.gpx"'},
             )
-        else:
-            return jsonify({"error": "Unsupported format"}), 400
+        return jsonify({"error": "Unsupported format"}), 400
     except Exception as e:
         logger.error(f"Error exporting trip {trip_id}: {e}")
         return jsonify({"error": str(e)}), 500
@@ -1453,7 +1450,7 @@ def export_trips():
             as_attachment=True,
             download_name="all_trips.geojson",
         )
-    elif fmt == "gpx":
+    if fmt == "gpx":
         gpx_data = create_gpx(ts)
         return send_file(
             io.BytesIO(gpx_data.encode()),
@@ -1553,7 +1550,7 @@ def export_matched_trips():
             as_attachment=True,
             download_name="matched_trips.geojson",
         )
-    elif fmt == "gpx":
+    if fmt == "gpx":
         data = create_gpx(ms)
         return send_file(
             io.BytesIO(data.encode()),
@@ -1590,7 +1587,7 @@ def export_streets():
             as_attachment=True,
             download_name="streets.geojson",
         )
-    elif fmt == "shapefile":
+    if fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
@@ -1636,7 +1633,7 @@ def export_boundary():
             as_attachment=True,
             download_name="boundary.geojson",
         )
-    elif fmt == "shapefile":
+    if fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
@@ -1704,14 +1701,13 @@ def preprocess_streets_route():
                     "message": f"Street data processed for {validated_location['display_name']}",
                 }
             )
-        else:
-            logger.error(
-                f"Error in preprocess_streets_route: {stderr.decode()}")
-            return (
-                jsonify(
-                    {"status": "error", "message": "Error during preprocessing"}),
-                500,
-            )
+        logger.error(
+            f"Error in preprocess_streets_route: {stderr.decode()}")
+        return (
+            jsonify(
+                {"status": "error", "message": "Error during preprocessing"}),
+            500,
+        )
 
     except Exception as e:
         logger.error(f"Error in preprocess_streets_route: {e}")
@@ -2233,11 +2229,10 @@ def handle_places():
         return jsonify([
             {"_id": str(p["_id"]), **CustomPlace.from_dict(p).to_dict()} for p in pls
         ])
-    else:
-        data = request.json
-        place = CustomPlace(data["name"], data["geometry"])
-        r = places_collection.insert_one(place.to_dict())
-        return jsonify({"_id": str(r.inserted_id), **place.to_dict()})
+    data = request.json
+    place = CustomPlace(data["name"], data["geometry"])
+    r = places_collection.insert_one(place.to_dict())
+    return jsonify({"_id": str(r.inserted_id), **place.to_dict()})
 
 
 @app.route("/api/places/<place_id>", methods=["DELETE"])
@@ -2968,8 +2963,7 @@ def delete_trip(trip_id):
                 {"transactionId": trip_id})
             if not trip:
                 return jsonify({"status": "error", "message": "Trip not found"}), 404
-            else:
-                collection = matched_trips_collection
+            collection = matched_trips_collection
         else:
             collection = trips_collection
 
@@ -2978,8 +2972,7 @@ def delete_trip(trip_id):
 
         if result.deleted_count == 1:
             return jsonify({"status": "success", "message": "Trip deleted successfully"}), 200
-        else:
-            return jsonify({"status": "error", "message": "Failed to delete trip"}), 500
+        return jsonify({"status": "error", "message": "Failed to delete trip"}), 500
     except Exception as e:
         logger.error(f"Error deleting trip: {e}")
         return jsonify({"status": "error", "message": "Internal server error"}), 500
