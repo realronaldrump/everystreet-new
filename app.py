@@ -530,10 +530,12 @@ def trips_page():
     """Trips listing page."""
     return render_template("trips.html")
 
+
 @app.route("/settings")
 def settings():
     """Render the settings page."""
     return render_template("settings.html")
+
 
 @app.route("/driving-insights")
 def driving_insights_page():
