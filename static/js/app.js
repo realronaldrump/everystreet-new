@@ -899,6 +899,9 @@
                 updateMap();
             });
         }
+
+        // Preprocess streets
+        document.getElementById('preprocess-streets')?.addEventListener('click', preprocessStreets);
     }
 
     function handleDatePresetClick() {
@@ -1121,81 +1124,158 @@
      *   STREET COVERAGE
      * -------------------------------------------------------------------
      */
-    function generateStreetCoverage() {
+    async function generateStreetCoverage() {
+        // Start the loading operation
+        loadingManager.startOperation('Generating Street Coverage');
+    
         if (!window.validatedLocation) {
             alert('Validate a location first.');
+            loadingManager.finish('Generating Street Coverage');
             return;
         }
+    
         const coverageBtn = document.getElementById('generate-coverage');
         const originalText = coverageBtn.innerHTML;
         coverageBtn.disabled = true;
         coverageBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
-
-        fetch('/api/street_coverage', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ location: window.validatedLocation })
-        })
-        .then((r) => {
-            if (!r.ok) throw new Error('Network response not ok');
-            return r.json();
-        })
-        .then(visualizeStreetCoverage)
-        .catch((err) => {
-            console.error('Error generating coverage:', err);
-            alert('Error generating coverage. Try again.');
-        })
-        .finally(() => {
+    
+        try {
+            const response = await fetch('/api/street_coverage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    location: window.validatedLocation
+                })
+            });
+    
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to generate street coverage');
+            }
+    
+            const coverageData = await response.json();
+            visualizeStreetCoverage(coverageData);
+        } catch (error) {
+            console.error('Error generating street coverage:', error);
+            alert(error.message || 'An error occurred while generating street coverage.');
+        } finally {
             coverageBtn.disabled = false;
             coverageBtn.innerHTML = originalText;
-        });
+            loadingManager.finish('Generating Street Coverage');
+        }
     }
-
+    
     function visualizeStreetCoverage(coverageData) {
         if (mapLayers.streetCoverage.layer) {
             layerGroup.removeLayer(mapLayers.streetCoverage.layer);
+            mapLayers.streetCoverage.layer = null;
         }
+    
         mapLayers.streetCoverage.layer = L.geoJSON(coverageData.streets_data, {
             style: (feature) => ({
                 color: feature.properties.driven ? '#00FF00' : '#FF4444',
                 weight: 3,
                 opacity: feature.properties.driven ? 0.8 : 0.4
             }),
-            onEachFeature: (feature, lyr) => {
-                lyr.bindPopup(`
-                  <strong>${feature.properties.name || 'Unnamed Street'}</strong><br/>
-                  Status: ${feature.properties.driven ? 'Driven' : 'Not driven yet'}
-                `);
+            onEachFeature: (feature, layer) => {
+                layer.on('click', () => {
+                    fetchSegmentDetails(feature.properties.segment_id);
+                });
             }
         });
-
-        updateCoverageStats(coverageData);
+    
+        // Add the layer to the layer group
+        mapLayers.streetCoverage.layer.addTo(layerGroup);
+    
+        // Update the layer order UI and the map
+        updateLayerOrderUI();
         updateMap();
+    
+        updateCoverageStats(coverageData);
     }
 
+    function fetchSegmentDetails(segmentId) {
+        fetch(`/api/street_segment/${segmentId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Segment not found');
+                }
+                return response.json();
+            })
+            .then(segmentData => {
+                const properties = segmentData.properties;
+                const popupContent = `
+                    <strong>${properties.street_name || 'Unnamed Street'}</strong><br>
+                    Segment ID: ${properties.segment_id}<br>
+                    Status: ${properties.driven ? 'Driven' : 'Not driven'}<br>
+                    Last Updated: ${properties.last_updated ? new Date(properties.last_updated).toLocaleString() : 'N/A'}<br>
+                    Length: ${properties.length.toFixed(2)} meters<br>
+                    Part of Street: ${properties.street_id}
+                `;
+    
+                // Find the clicked segment's layer and open the popup
+                mapLayers.streetCoverage.layer.eachLayer(layer => {
+                    if (layer.feature.properties.segment_id === segmentId) {
+                        layer.bindPopup(popupContent).openPopup();
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching segment details:', error);
+                alert('Error fetching segment details. Please try again.');
+            });
+    }
+    
     function updateCoverageStats(coverageData) {
         const statsDiv = document.getElementById('coverage-stats');
         const progressBar = document.getElementById('coverage-progress');
         const detailsSpan = document.getElementById('coverage-details');
-
+    
         if (!statsDiv || !progressBar || !detailsSpan) return;
+    
         statsDiv.classList.remove('d-none');
-
+    
         const percent = coverageData.coverage_percentage;
         progressBar.style.width = `${percent}%`;
         progressBar.setAttribute('aria-valuenow', percent);
-
-        const totalFeet = coverageData.total_length; // coverageData in feet or meters?
-        const drivenFeet = coverageData.driven_length;
-        // Original code might be in miles: if coverage_data is in feet, convert
-        // (or if in meters, adjust accordingly)
-        const totalMiles = (coverageData.total_length * 0.000621371).toFixed(2);
-        const drivenMiles = (coverageData.driven_length * 0.000621371).toFixed(2);
-
+    
         detailsSpan.innerHTML = `
-          ${percent.toFixed(1)}% complete<br/>
-          ${drivenMiles} / ${totalMiles} miles driven
+            ${percent.toFixed(1)}% complete<br>
+            ${coverageData.driven_length.toFixed(2)} / ${coverageData.total_length.toFixed(2)} miles driven
         `;
+    }
+
+    function preprocessStreets() {
+        const location = document.getElementById('location-input').value;
+        const locationType = document.getElementById('location-type').value;
+    
+        if (!location) {
+            alert('Please enter and validate a location first.');
+            return;
+        }
+    
+        fetch('/api/preprocess_streets', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                location: location,
+                location_type: locationType
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+            } else {
+                alert(`Error: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error preprocessing streets:', error);
+            alert('Error preprocessing streets. Please check the console for details.');
+        });
     }
 
     /*

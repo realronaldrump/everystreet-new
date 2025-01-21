@@ -105,7 +105,7 @@ async def process_and_map_match_trip(trip):
     and stores or updates the matched result in matched_trips_collection.
     """
     try:
-        from app import matched_trips_collection, trips_collection, historical_trips_collection, validate_trip_data
+        from app import matched_trips_collection, trips_collection, historical_trips_collection, validate_trip_data, update_street_coverage, reverse_geocode_nominatim
 
         # Validate trip data
         is_valid, error_message = validate_trip_data(trip)
@@ -155,8 +155,48 @@ async def process_and_map_match_trip(trip):
             matched_trip["matchedGps"] = geojson_dumps(
                 map_match_result["matchings"][0]["geometry"]
             )
+
+            # Add location information using reverse geocoding on matched coordinates
+            matched_coords = map_match_result["matchings"][0]["geometry"]["coordinates"]
+            if matched_coords:
+                start_lon, start_lat = matched_coords[0]
+                end_lon, end_lat = matched_coords[-1]
+
+                # Use either start or end location (or both, or a more sophisticated logic)
+                location = await reverse_geocode_nominatim(start_lat, start_lon)
+                
+                if location and "address" in location:
+                    if "city" in location["address"]:
+                        location_name = location["address"]["city"]
+                    elif "town" in location["address"]:
+                        location_name = location["address"]["town"]
+                    elif "village" in location["address"]:
+                        location_name = location["address"]["village"]
+                    else:
+                        location_name = location.get("display_name", "")
+
+                    matched_trip["location"] = location_name
+                else:
+                    location = await reverse_geocode_nominatim(end_lat, end_lon)
+                    if location and "address" in location:
+                        if "city" in location["address"]:
+                            location_name = location["address"]["city"]
+                        elif "town" in location["address"]:
+                            location_name = location["address"]["town"]
+                        elif "village" in location["address"]:
+                            location_name = location["address"]["village"]
+                        else:
+                            location_name = location.get("display_name", "")
+
+                    matched_trip["location"] = location_name
+
             matched_trips_collection.insert_one(matched_trip)
             logger.info(f"Map-matched trip {trip['transactionId']} stored.")
+
+            # Update street coverage if location information is available
+            if matched_trip.get("location"):
+                update_street_coverage(matched_trip["location"])
+
         else:
             logger.error(
                 f"Map matching failed for {trip['transactionId']}: {map_match_result['message']}"

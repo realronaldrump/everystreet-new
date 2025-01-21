@@ -10,6 +10,7 @@ import zipfile
 import threading
 from datetime import datetime, timedelta, timezone
 
+import subprocess
 import aiohttp
 import certifi
 import geopandas as gpd
@@ -50,6 +51,7 @@ from shapely.geometry import (
 from shapely.ops import linemerge, unary_union, polygonize, transform as shapely_transform
 from shapely.errors import TopologicalError
 from timezonefinder import TimezoneFinder
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # We import the map_matching logic
 from map_matching import (
@@ -57,6 +59,12 @@ from map_matching import (
     map_match_coordinates,
     process_and_map_match_trip,
 )
+
+# Import from utils.py
+from utils import validate_location_osm
+
+# Import from preprocess_streets.py
+from preprocess_streets import process_osm_data, fetch_osm_data
 
 load_dotenv()
 
@@ -115,11 +123,16 @@ uploaded_trips_collection = db["uploaded_trips"]
 places_collection = db["places"]
 osm_data_collection = db["osm_data"]
 realtime_data_collection = db["realtime_data"] # New collection for real-time data
+streets_collection = db["streets"] # New collection for street segments
+coverage_metadata_collection = db["coverage_metadata"] # New collection for coverage metadata
 
 # Ensure some indexes
 uploaded_trips_collection.create_index("transactionId", unique=True)
 matched_trips_collection.create_index("transactionId", unique=True)
 osm_data_collection.create_index([("location", 1), ("type", 1)], unique=True)
+streets_collection.create_index([("geometry", "2dsphere")])
+streets_collection.create_index([("properties.location", 1)])
+coverage_metadata_collection.create_index([("location", 1)], unique=True)
 
 #############################
 # Model or helper class
@@ -1540,47 +1553,239 @@ def export_boundary():
         )
 
 #############################
+# Preprocessing Route
+#############################
+@app.route("/api/preprocess_streets", methods=["POST"])
+def preprocess_streets_route():
+    """
+    Triggers the preprocessing of street data for a given location.
+    Expects JSON payload: {"location": "Davis, CA", "location_type": "city"}
+    """
+    try:
+        data = request.json
+        location_query = data.get("location")
+        location_type = data.get("location_type", "city")  # Default to "city" if not provided
+
+        if not location_query:
+            return jsonify({"status": "error", "message": "Location is required"}), 400
+
+        # Validate the location (you can still keep this check here)
+        validated_location = validate_location_osm(location_query, location_type)
+        if not validated_location:
+            return jsonify({"status": "error", "message": "Invalid location"}), 400
+
+        # Run the preprocessing script as a separate process
+        process = subprocess.Popen(
+            [
+                "python",  # Or the path to your Python interpreter in the virtual environment
+                "preprocess_streets.py",
+                location_query,
+                "--type",
+                location_type,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdout, stderr = process.communicate()
+
+        if process.returncode == 0:
+            return jsonify(
+                {
+                    "status": "success",
+                    "message": f"Street data processed for {validated_location['display_name']}",
+                }
+            )
+        else:
+            logger.error(f"Error in preprocess_streets_route: {stderr.decode()}")
+            return (
+                jsonify({"status": "error", "message": "Error during preprocessing"}),
+                500,
+            )
+
+    except Exception as e:
+        logger.error(f"Error in preprocess_streets_route: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+#############################
+# Street Segment Details Route
+#############################
+@app.route("/api/street_segment/<segment_id>", methods=["GET"])
+def get_street_segment_details(segment_id):
+    """
+    Returns details for a specific street segment.
+    """
+    try:
+        segment = streets_collection.find_one({"properties.segment_id": segment_id}, {"_id": 0})
+        if not segment:
+            return jsonify({"status": "error", "message": "Segment not found"}), 404
+
+        return jsonify(segment)
+
+    except Exception as e:
+        logger.error(f"Error fetching segment details: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
+#############################
 # Street coverage
 #############################
-@app.route("/api/streets", methods=["POST"])
-def get_streets():
+@app.route("/api/street_coverage", methods=["POST"])
+def get_street_coverage():
     """
-    Return street coverage for a location.
+    Return street coverage for a location, including segment data.
     """
-    loc = request.json.get("location")
-    if not loc or not isinstance(loc, dict) or "type" not in loc:
-        return jsonify({"status": "error", "message": "Invalid location data."}), 400
+    try:
+        data = request.json
+        location = data.get("location")
+        if not location or not isinstance(location, dict) or "display_name" not in location:
+            return jsonify({"status": "error", "message": "Invalid location data."}), 400
 
-    data, err = generate_geojson_osm(loc, streets_only=True)
-    if data is None:
-        return jsonify({"status": "error", "message": f"Error: {err}"}), 500
+        location_name = location["display_name"]
 
-    # gather all trips
-    all_trips = list(trips_collection.find())
-    lines = []
-    for t in all_trips:
-        gps_data = t["gps"]
-        if isinstance(gps_data, str):
-            gps_data = geojson_loads(gps_data)
-        geom = shape(gps_data)
-        if isinstance(geom, LineString):
-            lines.append(geom)
-        elif isinstance(geom, MultiLineString):
-            lines.extend(geom.geoms)
+        # Get coverage stats from MongoDB
+        coverage_stats = coverage_metadata_collection.find_one({"location": location_name})
 
-    streets_gdf = gpd.GeoDataFrame.from_features(data["features"])
-    streets_gdf.set_crs(epsg=4326, inplace=True)
+        if not coverage_stats:
+            return jsonify({"status": "error", "message": "Coverage data not found for this location"}), 404
 
-    if lines:
-        # Merge
-        from shapely.ops import linemerge
-        trips_merged = linemerge(lines)
-        # Mark each street as driven if intersects
-        streets_gdf["driven"] = streets_gdf.geometry.intersects(trips_merged)
-    else:
-        streets_gdf["driven"] = False
+        # Get street segments from MongoDB
+        street_segments = list(streets_collection.find({"properties.location": location_name}, {"_id": 0}))
 
-    return jsonify(json.loads(streets_gdf.to_json()))
+        return jsonify({
+            "total_length": coverage_stats["total_length"],
+            "driven_length": coverage_stats["driven_length"],
+            "coverage_percentage": coverage_stats["coverage_percentage"],
+            "streets_data": {
+                "type": "FeatureCollection",
+                "features": street_segments
+            },
+        })
+
+    except Exception as e:
+        logger.error(f"Error calculating coverage: {e}\n{traceback.format_exc()}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# New function to update street coverage (to be called periodically or after new trips are added)
+def update_street_coverage(location_name):
+    """
+    Updates the driven status of street segments based on recent trips.
+    """
+    logger.info(f"Updating street coverage for location: {location_name}")
+    try:
+        # Get the last processed trip timestamp for the location
+        coverage_metadata = coverage_metadata_collection.find_one({"location": location_name})
+        last_processed_trip_time = coverage_metadata.get("last_processed_trip_time", datetime.min.replace(tzinfo=timezone.utc)) if coverage_metadata else datetime.min.replace(tzinfo=timezone.utc)
+        logger.info(f"Last processed trip time: {last_processed_trip_time}")
+
+        # Find new trips since the last update
+        new_trips = list(matched_trips_collection.find({
+            "startTime": {"$gt": last_processed_trip_time},
+            "$or": [
+                {"startLocation": location_name},
+                {"destination": location_name}
+            ]
+        }))
+
+        logger.info(f"Found {len(new_trips)} new trips for {location_name}")
+
+        if not new_trips:
+            logger.info(f"No new trips found for {location_name} since {last_processed_trip_time}")
+            return
+
+        # Buffer trip lines and update street segments
+        for trip in new_trips:
+            logger.info(f"Processing trip: {trip['transactionId']}")
+            try:
+                trip_line = shape(geojson_loads(trip["matchedGps"]))
+                buffered_line = trip_line.buffer(0.00005)  # Buffer by ~5 meters
+                logger.info(f"Buffered line: {buffered_line.wkt}")
+
+                # Find intersecting segments and update their driven status
+                intersecting_segments = streets_collection.find({
+                    "properties.location": location_name,
+                    "geometry": {
+                        "$geoIntersects": {
+                            "$geometry": mapping(buffered_line)
+                        }
+                    }
+                })
+
+                # Use a set to track updated segment IDs
+                updated_segment_ids = set()
+
+                for segment in intersecting_segments:
+                    segment_id = segment["properties"]["segment_id"]
+                    logger.info(f"Found intersecting segment: {segment_id}")
+
+                    # Only update if the segment hasn't been updated already for this trip
+                    if segment_id not in updated_segment_ids:
+                        streets_collection.update_one(
+                            {"_id": segment["_id"], "properties.location": location_name}, # Add location to query
+                            {
+                                "$set": {"properties.driven": True, "properties.last_updated": datetime.now(timezone.utc)},
+                                "$addToSet": {"properties.matched_trips": trip["transactionId"]}  # Store matched trip IDs
+                            }
+                        )
+                        updated_segment_ids.add(segment_id)
+                        logger.info(f"Updated segment: {segment_id}")
+                    else:
+                        logger.info(f"Segment {segment_id} already updated for this trip, skipping.")
+
+            except Exception as e:
+                logger.error(f"Error processing trip {trip['transactionId']}: {e}")
+
+        # Recalculate and update coverage metadata
+        total_segments = streets_collection.count_documents({"properties.location": location_name})
+        driven_segments = streets_collection.count_documents({"properties.location": location_name, "properties.driven": True})
+        total_length = sum(segment["properties"]["length"] for segment in streets_collection.find({"properties.location": location_name}, {"properties.length": 1}))
+        driven_length = sum(segment["properties"]["length"] for segment in streets_collection.find({"properties.location": location_name, "properties.driven": True}, {"properties.length": 1}))
+        coverage_percentage = (driven_length / total_length) * 100 if total_length > 0 else 0
+
+        logger.info(f"Updating coverage metadata for {location_name}:")
+        logger.info(f"  Total segments: {total_segments}")
+        logger.info(f"  Driven segments: {driven_segments}")
+        logger.info(f"  Total length: {total_length}")
+        logger.info(f"  Driven length: {driven_length}")
+        logger.info(f"  Coverage percentage: {coverage_percentage}")
+
+        coverage_metadata_collection.update_one(
+            {"location": location_name},
+            {
+                "$set": {
+                    "total_segments": total_segments,
+                    "driven_segments": driven_segments,
+                    "total_length": total_length,
+                    "driven_length": driven_length,
+                    "coverage_percentage": coverage_percentage,
+                    "last_updated": datetime.now(timezone.utc),
+                    "last_processed_trip_time": max(trip["startTime"] for trip in new_trips)
+                }
+            },
+            upsert=True
+        )
+
+        logger.info(f"Street coverage updated for {location_name}")
+
+    except Exception as e:
+        logger.error(f"Error updating street coverage for {location_name}: {e}")
+        raise
+
+def update_coverage_for_all_locations():
+    """
+    Updates street coverage for all locations in the coverage_metadata collection.
+    """
+    logger.info("Starting periodic street coverage update for all locations...")
+    locations = coverage_metadata_collection.distinct("location")
+    for location in locations:
+        try:
+            update_street_coverage(location)
+        except Exception as e:
+            logger.error(f"Error updating coverage for {location}: {e}")
+    logger.info("Finished periodic street coverage update.")
+
+# Initialize scheduler
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=update_coverage_for_all_locations, trigger="interval", minutes=60)  # Run every 60 minutes
+scheduler.start()
 
 #############################
 # Load historical
@@ -2597,81 +2802,6 @@ def debug_trip(trip_id):
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-@app.route("/api/street_coverage", methods=["POST"])
-def get_street_coverage():
-    """
-    Example coverage calculation. 
-    (Implementation remains large/complex; we keep the structure, just ensure it works.)
-    """
-    try:
-        data = request.json
-        location = data.get("location")
-        if not location:
-            return jsonify({"status": "error", "message": "No location"}), 400
-
-        # Reuse existing coverage function
-        # We'll do a minimal approach for demonstration
-        streets_data, err = generate_geojson_osm(location, streets_only=True)
-        if not streets_data:
-            return jsonify({"status": "error", "message": f"Street data error: {err}"}), 500
-
-        matched = list(matched_trips_collection.find())
-        coverage_data = calculate_street_coverage(location, streets_data, matched)
-        return jsonify(coverage_data)
-    except Exception as e:
-        logger.error(f"Error calculating coverage: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-def calculate_street_coverage(location, streets_geojson, matched_trips):
-    """
-    Stub coverage function that checks if each street intersects the union of matched trips.
-    For brevity, left mostly as is. 
-    """
-    try:
-        # We basically do the same steps as the main coverage function. 
-        # We'll keep it short.
-
-        # Convert matched trips to lines & unify
-        lines = []
-        for t in matched_trips:
-            gps_data = t.get("matchedGps")
-            if isinstance(gps_data, str):
-                gps_data = geojson_loads(gps_data)
-            g = shape(gps_data)
-            if isinstance(g, LineString):
-                lines.append(g)
-            elif isinstance(g, MultiLineString):
-                lines.extend(list(g.geoms))
-
-        if lines:
-            unioned = linemerge(lines)
-        else:
-            unioned = None
-
-        # Mark streets
-        sgdf = gpd.GeoDataFrame.from_features(streets_geojson["features"])
-        sgdf.set_crs(epsg=4326, inplace=True)
-
-        if unioned:
-            sgdf["driven"] = sgdf.intersects(unioned)
-        else:
-            sgdf["driven"] = False
-
-        # Some arbitrary coverage metrics
-        total = sgdf.geometry.length.sum()
-        driven = sgdf[sgdf["driven"]].geometry.length.sum()
-        coverage_pct = (driven / total * 100.0) if total > 0 else 0
-        return {
-            "total_length": float(total),
-            "driven_length": float(driven),
-            "coverage_percentage": round(coverage_pct, 2),
-            "streets_data": json.loads(sgdf.to_json()),
-        }
-
-    except Exception as e:
-        logger.error(f"calc coverage error: {e}\n{traceback.format_exc()}")
-        raise
 
 #############################
 # Run
