@@ -15,6 +15,7 @@ trips_collection = db["trips"]
 historical_trips_collection = db["historical_trips"]
 uploaded_trips_collection = db["uploaded_trips"]
 
+
 def update_geo_points(collection):
     """
     Updates documents in the given collection to add startGeoPoint and destinationGeoPoint.
@@ -50,12 +51,14 @@ def update_geo_points(collection):
                 }
 
             if update_fields:
-                collection.update_one({"_id": doc["_id"]}, {"$set": update_fields})
+                collection.update_one({"_id": doc["_id"]}, {
+                                      "$set": update_fields})
                 updated_count += 1
         except (KeyError, IndexError, json.JSONDecodeError) as e:
             print(f"Error updating document {doc.get('_id', '?')}: {e}")
 
     print(f"Updated {updated_count} documents in {collection.name}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
