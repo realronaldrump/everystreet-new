@@ -16,7 +16,8 @@ from utils import validate_location_osm
 load_dotenv()
 
 # Logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO,  # Set default level to INFO
+                    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # MongoDB
@@ -65,9 +66,13 @@ def fetch_osm_data(location, streets_only=True):
         out geom;
         """
 
-    response = requests.get(OVERPASS_URL, params={"data": query})
-    response.raise_for_status()
-    return response.json()
+    try:
+        response = requests.get(OVERPASS_URL, params={"data": query}, timeout=30) # Added timeout
+        response.raise_for_status() # Raise HTTPError for bad status codes
+        return response.json()
+    except requests.exceptions.RequestException as e: # Catch broader exceptions
+        logger.error(f"Error fetching OSM data from Overpass for location {location['display_name']}: {e}", exc_info=True) # Include location in log
+        raise # Re-raise exception for handling in main function
 
 
 def segment_street(line, segment_length_meters=100):
@@ -178,7 +183,7 @@ def process_osm_data(osm_data, location):
                     features.append(feature)
                     total_length += segment_length  # Accumulate the total length
             except Exception as e:
-                logger.error(f"Error processing element {element['id']}: {e}")
+                logger.error(f"Error processing element {element['id']} (way): {e}", exc_info=True) # Include element ID in log
 
     if features:
         # Convert features to GeoJSON and insert into MongoDB
@@ -228,17 +233,22 @@ def main():
     location_query = args.location
     location_type = args.location_type
 
-    # Validate the location using Nominatim
-    validated_location = validate_location_osm(location_query, location_type)
-    if not validated_location:
-        logger.error(f"Location '{location_query}' not found.")
-        return
+    try: # Wrap main logic in try-except for top-level error handling
+        # Validate the location using Nominatim
+        validated_location = validate_location_osm(location_query, location_type)
+        if not validated_location:
+            logger.error(f"Location '{location_query}' of type '{location_type}' not found.") # Log invalid location
+            return
 
-    # Fetch OSM data
-    osm_data = fetch_osm_data(validated_location)
+        # Fetch OSM data
+        osm_data = fetch_osm_data(validated_location)
 
-    # Process OSM data and store in MongoDB
-    process_osm_data(osm_data, validated_location)
+        # Process OSM data and store in MongoDB
+        process_osm_data(osm_data, validated_location)
+
+        logger.info(f"Street preprocessing completed for {validated_location['display_name']}.") # Log completion
+    except Exception as e: # Catch any exceptions in main function
+        logger.error(f"Error in main function during street preprocessing: {e}", exc_info=True) # Log top-level exceptions
 
 
 if __name__ == "__main__":
