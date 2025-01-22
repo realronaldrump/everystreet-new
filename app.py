@@ -2441,14 +2441,14 @@ def organize_hourly_data(results):
 
 
 @app.route("/webhook/bouncie", methods=["POST"])
-def bouncie_webhook():
+async def bouncie_webhook():
     """
     Bouncie real-time webhook endpoint.
     """
     wh_key = os.getenv("WEBHOOK_KEY")
     auth_header = request.headers.get("Authorization")
     if not auth_header or auth_header != wh_key:
-        logger.error(f"Invalid webhook key received: {auth_header}") # Log invalid webhook key
+        logger.error(f"Invalid webhook key received: {auth_header}")
         return jsonify({"error": "Invalid webhook key"}), 401
 
     try:
@@ -2472,7 +2472,7 @@ def bouncie_webhook():
                 "start_time": datetime.now(timezone.utc).isoformat(),
             }
             socketio.emit("trip_started", emit_data)
-            logger.debug(f"Webhook tripStart event received for transactionId: {txid}") # Debug log for webhook event
+            logger.debug(f"Webhook tripStart event received for transactionId: {txid}")
 
         elif event_type == "tripData":
             # Append trip data
@@ -2487,26 +2487,43 @@ def bouncie_webhook():
                 "transactionId": txid,
                 "path": data.get("data", [])
             })
-            logger.debug(f"Webhook tripData event received for transactionId: {txid}") # Debug log for webhook event
+            logger.debug(f"Webhook tripData event received for transactionId: {txid}")
 
         elif event_type == "tripEnd":
-            # Finalize and move to trips_collection
-            realtime_trip_data = list(
-                realtime_data_collection.find({"transactionId": txid}))
-            if realtime_trip_data:
-                # Process and combine data as needed
-                # ...
-                # Insert into trips_collection
-                # ...
-                # Clean up from realtime_data_collection
-                realtime_data_collection.delete_many({"transactionId": txid})
-                socketio.emit("trip_ended", {"transactionId": txid})
-                logger.debug(f"Webhook tripEnd event received for transactionId: {txid}") # Debug log for webhook event
+            logger.info(f"Processing tripEnd webhook event for transactionId: {txid}")
+            realtime_trip_data = list(realtime_data_collection.find({"transactionId": txid}).sort("timestamp", pymongo.ASCENDING)) # Ensure chronological order
+            if not realtime_trip_data:
+                logger.warning(f"No realtime data found for transactionId: {txid} at tripEnd event.")
+                return jsonify({"status": "warning", "message": "No realtime data found, tripEnd processed but no data to finalize."}), 200
+
+            try:
+                processed_trip = await assemble_trip_from_realtime_data(realtime_trip_data)
+                if processed_trip:
+                    is_valid, validation_message = validate_trip_data(processed_trip)
+                    if is_valid:
+                        stored = store_trip(processed_trip) # Use existing store_trip function
+                        if stored:
+                            realtime_data_collection.delete_many({"transactionId": txid}) # Cleanup after successful store
+                            socketio.emit("trip_ended", {"transactionId": txid})
+                            logger.info(f"Trip {txid} finalized and stored from webhook data.")
+                        else:
+                            logger.error(f"Failed to store trip {txid} from webhook data.")
+                            return jsonify({"status": "error", "message": f"Failed to store trip {txid}."}), 500
+                    else:
+                        logger.error(f"Invalid trip data assembled from webhook for {txid}: {validation_message}")
+                        return jsonify({"status": "error", "message": f"Invalid trip data from webhook: {validation_message}"}), 400
+                else:
+                    logger.error(f"Failed to assemble trip from webhook data for {txid}.")
+                    return jsonify({"status": "error", "message": f"Failed to assemble trip data for {txid}."}), 500
+
+            except Exception as e:
+                logger.error(f"Error processing tripEnd event for {txid}: {e}", exc_info=True)
+                return jsonify({"status": "error", "message": f"Error finalizing trip: {e}"}), 500
 
         return jsonify({"status": "success"}), 200
     except Exception as e:
-        logger.error(f"webhook error: {e}", exc_info=True) # Log webhook errors
-        return jsonify({"status": "success"}), 200
+        logger.error(f"webhook error: {e}", exc_info=True)
+        return jsonify({"status": "success"}), 200 # Still return success for webhook ack
 
 
 #############################
@@ -2579,17 +2596,87 @@ def store_trip(trip):
         logger.error(f"Error storing trip {trip['transactionId']}: {e}", exc_info=True) # Log trip storage errors
         return False
 
+async def assemble_trip_from_realtime_data(realtime_trip_data):
+    """
+    Assembles a complete trip object from a list of realtime data events.
+    """
+    if not realtime_trip_data:
+        return None
+
+    trip_start_event = next((event for event in realtime_trip_data if event['event_type'] == 'tripStart'), None)
+    trip_end_event = next((event for event in realtime_trip_data if event['event_type'] == 'tripEnd'), None)
+    trip_data_events = [event['data']['data'] for event in realtime_trip_data if event['event_type'] == 'tripData' and 'data' in event['data'] and event['data']['data']]
+
+    if not trip_start_event or not trip_end_event:
+        logger.error(f"Missing tripStart or tripEnd event in realtime data, cannot assemble trip.")
+        return None
+
+    start_time = parser.isoparse(trip_start_event['data']['start']['timestamp'])
+    end_time = parser.isoparse(trip_end_event['data']['end']['timestamp'])
+    imei = trip_start_event['imei']
+    transaction_id = trip_start_event['transactionId']
+
+    all_coords = []
+    for data_chunk in trip_data_events: # Iterate over chunks of tripData
+        for point in data_chunk: # Iterate over points within each chunk
+            if point.get('gps') and point['gps'].get('lat') is not None and point['gps'].get('lon') is not None: # Robust GPS data check
+                all_coords.append([point['gps']['lon'], point['gps']['lat']]) # Ensure lon, lat order
+
+    if not all_coords:
+        logger.warning(f"No valid GPS coordinates found in realtime data for trip {transaction_id}.")
+        return None
+
+    trip_gps = {
+        "type": "LineString",
+        "coordinates": all_coords
+    }
+
+    trip = {
+        "transactionId": transaction_id,
+        "imei": imei,
+        "startTime": start_time,
+        "endTime": end_time,
+        "gps": trip_gps,
+        "source": "webhook", # Mark source as webhook
+        "startOdometer": trip_start_event['data']['start']['odometer'],
+        "endOdometer": trip_end_event['data']['end']['odometer'],
+        "fuelConsumed": trip_end_event['data']['end']['fuelConsumed'],
+        "timeZone": trip_start_event['data']['start']['timeZone'],
+        "maxSpeed": 0, # Initialize, can be calculated later if needed
+        "averageSpeed": 0, # Initialize, can be calculated later
+        "totalIdleDuration": 0, # Initialize, can be calculated later
+        "hardBrakingCount": 0, # Initialize, can be updated from metrics if available later
+        "hardAccelerationCount": 0, # Initialize, can be updated from metrics if available later
+    }
+
+    processed_trip = await process_trip_data(trip) # Use existing processing for geocoding etc.
+    return processed_trip
 
 async def process_trip_data(trip):
     """
     Reverse geocode start/dest if missing.
     Check if start/end are within a custom place.
+    Robustly handle missing or incorrect gps data.
     """
     try:
-        gps_data = trip["gps"]
+        gps_data = trip.get("gps") # Use .get() to avoid KeyError
+        if not gps_data:
+            logger.warning(f"Trip {trip.get('transactionId', '?')} has no GPS data to process.")
+            return trip # Return trip as is, or handle differently?
+
         if isinstance(gps_data, str):
-            gps_data = json.loads(gps_data)
-        coords = gps_data["coordinates"]
+            try:
+                gps_data = json.loads(gps_data)
+            except json.JSONDecodeError:
+                logger.error(f"Invalid JSON in gps data for trip {trip.get('transactionId', '?')}.", exc_info=True)
+                return trip # Return trip as is, or handle differently?
+
+        coords = gps_data.get("coordinates") # Use .get() to avoid KeyError
+        if not coords or not isinstance(coords, list) or len(coords) < 2:
+            logger.warning(f"Trip {trip.get('transactionId', '?')} has invalid or insufficient coordinates.")
+            return trip # Return trip as is, or handle differently?
+
+
         st = coords[0]
         en = coords[-1]
 
@@ -2626,8 +2713,8 @@ async def process_trip_data(trip):
 
         return trip
     except Exception as e:
-        logger.error(f"Error in process_trip_data: {e}", exc_info=True)
-        return None
+        logger.error(f"Error in process_trip_data for trip {trip.get('transactionId', '?')}: {e}", exc_info=True)
+        return trip # Return trip as is, or handle differently?
 
 
 # add the update geo points route to the settings page
