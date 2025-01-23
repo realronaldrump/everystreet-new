@@ -2565,17 +2565,27 @@ def get_trip_from_db(trip_id):
 
 
 def store_trip(trip):
+    """
+    Stores a trip in the trips_collection, with enhanced logging.
+    """
+    transaction_id = trip.get('transactionId', '?') # Get transaction ID safely
+    logger.info(f"Storing trip {transaction_id} in trips_collection...") # Log function entry
+
     ok, msg = validate_trip_data(trip)
     if not ok:
-        logger.error(f"Invalid trip data: {msg}")
+        logger.error(f"Trip data validation failed for trip {transaction_id}: {msg}") # Log validation failure
         return False
+    logger.debug(f"Trip data validation passed for trip {transaction_id}.") # Log validation success
+
     if isinstance(trip["gps"], dict):
+        logger.debug(f"Converting gps data to JSON string for trip {transaction_id}.") # Log GPS conversion
         trip["gps"] = json.dumps(trip["gps"])
+
     for field in ["startTime", "endTime"]:
         if isinstance(trip[field], str):
+            logger.debug(f"Parsing {field} from string for trip {transaction_id}.") # Log time parsing
             trip[field] = parser.isoparse(trip[field])
 
-    # Add these fields to the update operation
     update_data = {
         "$set": {
             **trip,
@@ -2585,9 +2595,9 @@ def store_trip(trip):
     }
 
     try:
-        trips_collection.update_one(
+        result = trips_collection.update_one(
             {"transactionId": trip["transactionId"]}, update_data, upsert=True)
-        logger.info(f"Stored trip {trip['transactionId']} successfully.") # Log successful storage
+        logger.info(f"Stored trip {trip['transactionId']} successfully. Modified count: {result.modified_count}, Upserted: {result.upserted_id is not None}") # Log successful storage with details
         return True
     except Exception as e:
         logger.error(f"Error storing trip {trip['transactionId']}: {e}", exc_info=True) # Log trip storage errors
