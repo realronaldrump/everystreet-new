@@ -2443,13 +2443,18 @@ def organize_hourly_data(results):
 @app.route("/webhook/bouncie", methods=["POST"])
 async def bouncie_webhook():
     """
-    Bouncie real-time webhook endpoint.
+    Bouncie real-time webhook endpoint with enhanced logging.
     """
     wh_key = os.getenv("WEBHOOK_KEY")
     auth_header = request.headers.get("Authorization")
+
+    logger.info("Received webhook request, validating authorization...") # Log request received
+
     if not auth_header or auth_header != wh_key:
-        logger.error(f"Invalid webhook key received: {auth_header}")
+        logger.warning(f"Webhook authorization failed. Invalid key received: {auth_header}") # Log warning for invalid key
         return jsonify({"error": "Invalid webhook key"}), 401
+
+    logger.info("Webhook authorization successful.") # Log success
 
     try:
         data = request.json
@@ -2457,8 +2462,10 @@ async def bouncie_webhook():
         imei = data.get("imei")
         txid = data.get("transactionId")
 
+        logger.debug(f"Webhook event received: type={event_type}, transactionId={txid}, imei={imei}") # Debug log event details
+
         if event_type == "tripStart":
-            # Store trip start data
+            logger.info(f"Processing tripStart event for transactionId: {txid}") # Info log for tripStart
             realtime_data_collection.insert_one({
                 "transactionId": txid,
                 "imei": imei,
@@ -2472,10 +2479,9 @@ async def bouncie_webhook():
                 "start_time": datetime.now(timezone.utc).isoformat(),
             }
             socketio.emit("trip_started", emit_data)
-            logger.debug(f"Webhook tripStart event received for transactionId: {txid}")
+            logger.debug(f"Emitted socketio 'trip_started' event for transactionId: {txid}") # Debug log socket emit
 
         elif event_type == "tripData":
-            # Append trip data
             realtime_data_collection.insert_one({
                 "transactionId": txid,
                 "imei": imei,
@@ -2487,7 +2493,7 @@ async def bouncie_webhook():
                 "transactionId": txid,
                 "path": data.get("data", [])
             })
-            logger.debug(f"Webhook tripData event received for transactionId: {txid}")
+            logger.debug(f"Webhook tripData event received and stored for transactionId: {txid}, emitting socketio 'trip_update'") # Debug log tripData
 
         elif event_type == "tripEnd":
             logger.info(f"Processing tripEnd webhook event for transactionId: {txid}")
