@@ -2499,19 +2499,10 @@ async def bouncie_webhook():
             try:
                 processed_trip = await assemble_trip_from_realtime_data(realtime_trip_data)
                 if processed_trip:
-                    is_valid, validation_message = validate_trip_data(processed_trip)
-                    if is_valid:
-                        stored = store_trip(processed_trip) # Use existing store_trip function
-                        if stored:
-                            realtime_data_collection.delete_many({"transactionId": txid}) # Cleanup after successful store
-                            socketio.emit("trip_ended", {"transactionId": txid})
-                            logger.info(f"Trip {txid} finalized and stored from webhook data.")
-                        else:
-                            logger.error(f"Failed to store trip {txid} from webhook data.")
-                            return jsonify({"status": "error", "message": f"Failed to store trip {txid}."}), 500
-                    else:
-                        logger.error(f"Invalid trip data assembled from webhook for {txid}: {validation_message}")
-                        return jsonify({"status": "error", "message": f"Invalid trip data from webhook: {validation_message}"}), 400
+                    # Skip validation and storage in trips_collection for live trips
+                    realtime_data_collection.delete_many({"transactionId": txid}) # Cleanup after processing
+                    socketio.emit("trip_ended", {"transactionId": txid})
+                    logger.info(f"Real-time trip {txid} processing completed and visualization ended.")
                 else:
                     logger.error(f"Failed to assemble trip from webhook data for {txid}.")
                     return jsonify({"status": "error", "message": f"Failed to assemble trip data for {txid}."}), 500
