@@ -2667,32 +2667,36 @@ async def process_trip_data(trip):
     """
     Reverse geocode start/dest if missing.
     Check if start/end are within a custom place.
-    Robustly handle missing or incorrect gps data.
+    Robustly handle missing or incorrect gps data, with enhanced logging.
     """
+    transaction_id = trip.get('transactionId', '?') # Get transaction ID safely
+    logger.info(f"Processing trip data for trip {transaction_id}...") # Log function entry
+
     try:
         gps_data = trip.get("gps") # Use .get() to avoid KeyError
         if not gps_data:
-            logger.warning(f"Trip {trip.get('transactionId', '?')} has no GPS data to process.")
+            logger.warning(f"Trip {transaction_id} has no GPS data to process.")
             return trip # Return trip as is, or handle differently?
 
         if isinstance(gps_data, str):
             try:
                 gps_data = json.loads(gps_data)
             except json.JSONDecodeError:
-                logger.error(f"Invalid JSON in gps data for trip {trip.get('transactionId', '?')}.", exc_info=True)
+                logger.error(f"Invalid JSON in gps data for trip {transaction_id}.", exc_info=True)
                 return trip # Return trip as is, or handle differently?
 
         coords = gps_data.get("coordinates") # Use .get() to avoid KeyError
         if not coords or not isinstance(coords, list) or len(coords) < 2:
-            logger.warning(f"Trip {trip.get('transactionId', '?')} has invalid or insufficient coordinates.")
+            logger.warning(f"Trip {transaction_id} has invalid or insufficient coordinates.")
             return trip # Return trip as is, or handle differently?
-
 
         st = coords[0]
         en = coords[-1]
 
         start_point = Point(st[0], st[1])
         end_point = Point(en[0], en[1])
+
+        logger.debug(f"Extracted start point: {st}, end point: {en} for trip {transaction_id}") # Log extracted points
 
         # Check for custom places
         start_place = get_place_at_point(start_point)
@@ -2701,14 +2705,20 @@ async def process_trip_data(trip):
         if start_place:
             trip["startLocation"] = start_place["name"]
             trip["startPlaceId"] = start_place["_id"]
+            logger.debug(f"Start point of trip {transaction_id} is within custom place: {start_place['name']}") # Log start place found
         else:
-            trip["startLocation"] = await reverse_geocode_nominatim(st[1], st[0])
+            start_location_name = await reverse_geocode_nominatim(st[1], st[0])
+            trip["startLocation"] = start_location_name
+            logger.debug(f"Start point of trip {transaction_id} reverse geocoded to: {start_location_name}") # Log start geocode result
 
         if end_place:
             trip["destination"] = end_place["name"]
             trip["destinationPlaceId"] = end_place["_id"]
+            logger.debug(f"End point of trip {transaction_id} is within custom place: {end_place['name']}") # Log end place found
         else:
-            trip["destination"] = await reverse_geocode_nominatim(en[1], en[0])
+            destination_name = await reverse_geocode_nominatim(en[1], en[0])
+            trip["destination"] = destination_name
+            logger.debug(f"End point of trip {transaction_id} reverse geocoded to: {destination_name}") # Log end geocode result
 
         # Set destinationGeoPoint for geospatial querying
         trip["destinationGeoPoint"] = {
@@ -2721,10 +2731,12 @@ async def process_trip_data(trip):
             "type": "Point",
             "coordinates": [st[0], st[1]]  # Longitude, Latitude
         }
+        logger.debug(f"GeoPoints set for trip {transaction_id}.") # Log GeoPoints set
 
+        logger.info(f"Trip data processing completed for trip {transaction_id}.") # Log function completion
         return trip
     except Exception as e:
-        logger.error(f"Error in process_trip_data for trip {trip.get('transactionId', '?')}: {e}", exc_info=True)
+        logger.error(f"Error in process_trip_data for trip {transaction_id}: {e}", exc_info=True)
         return trip # Return trip as is, or handle differently?
 
 
