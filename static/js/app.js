@@ -1225,20 +1225,26 @@
     function updateCoverageStats(coverageData) {
         const statsDiv = document.getElementById('coverage-stats');
         const progressBar = document.getElementById('coverage-progress');
-        const detailsSpan = document.getElementById('coverage-details');
-    
-        if (!statsDiv || !progressBar || !detailsSpan) return;
-    
+        const coveragePercentageSpan = document.getElementById('coverage-percentage');
+        const totalStreetLengthSpan = document.getElementById('total-street-length');
+        const milesDrivenSpan = document.getElementById('miles-driven');
+
+        if (!statsDiv || !progressBar || !coveragePercentageSpan || !totalStreetLengthSpan || !milesDrivenSpan) {
+            console.error("One or more coverage stats elements not found!");
+            return;
+        }
+
         statsDiv.classList.remove('d-none');
-    
+
         const percent = coverageData.coverage_percentage;
+        const totalLengthMiles = coverageData.streets_data.metadata.total_length_miles;
+        const drivenLengthMiles = coverageData.streets_data.metadata.driven_length_miles;
         progressBar.style.width = `${percent}%`;
         progressBar.setAttribute('aria-valuenow', percent);
-    
-        detailsSpan.innerHTML = `
-            ${percent.toFixed(1)}% complete<br>
-            ${coverageData.driven_length.toFixed(2)} / ${coverageData.total_length.toFixed(2)} miles driven
-        `;
+
+        coveragePercentageSpan.textContent = percent.toFixed(1);
+        totalStreetLengthSpan.textContent = totalLengthMiles.toFixed(2);
+        milesDrivenSpan.textContent = drivenLengthMiles.toFixed(2);
     }
 
     function preprocessStreets() {

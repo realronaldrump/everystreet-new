@@ -1744,8 +1744,8 @@ def get_street_segment_details(segment_id):
 @app.route("/api/street_coverage", methods=["POST"])
 def get_street_coverage():
     """
-    Return street coverage for a location, including segment data.
-    """
+     Return street coverage for a location, including segment data.
+     """
     try:
         data = request.json
         location = data.get("location")
@@ -1771,6 +1771,10 @@ def get_street_coverage():
             "coverage_percentage": coverage_stats["coverage_percentage"],
             "streets_data": {
                 "type": "FeatureCollection",
+                "metadata": {
+                    "total_length_miles": meters_to_miles(coverage_stats["total_length"]),
+                    "driven_length_miles": meters_to_miles(coverage_stats["driven_length"]),
+                },
                 "features": street_segments
             },
         })
