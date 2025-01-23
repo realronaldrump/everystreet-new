@@ -278,27 +278,23 @@ async def fetch_trips_in_intervals(main_session, access_token, imei, start_date,
 #############################
 
 
-def periodic_fetch_trips():
+async def periodic_fetch_trips():
     """
     Called every X minutes to fetch new trips from Bouncie in the background.
     """
-    with app.app_context():
-        try:
-            last_trip = trips_collection.find_one(sort=[("endTime", -1)])
-            start_date = (
-                last_trip["endTime"]
-                if last_trip
-                else datetime.now(timezone.utc) - timedelta(days=7)
-            )
-            end_date = datetime.now(timezone.utc)
-            logger.info(f"Periodic trip fetch started from {start_date} to {end_date}")
-            asyncio.run(fetch_and_store_trips_in_range(start_date, end_date))
-            logger.info("Periodic trip fetch completed successfully.")
-        except Exception as e:
-            logger.error(f"Error during periodic trip fetch: {e}", exc_info=True) # Log full exception info
-        finally:
-            threading.Timer(
-                30 * 60, periodic_fetch_trips).start()  # 30 minutes
+    try:
+        last_trip = trips_collection.find_one(sort=[("endTime", -1)])
+        start_date = (
+            last_trip["endTime"]
+            if last_trip
+            else datetime.now(timezone.utc) - timedelta(days=7)
+        )
+        end_date = datetime.now(timezone.utc)
+        logger.info(f"Periodic trip fetch started from {start_date} to {end_date}")
+        await fetch_and_store_trips_in_range(start_date, end_date)
+        logger.info("Periodic trip fetch completed successfully.")
+    except Exception as e:
+        logger.error(f"Error during periodic trip fetch: {e}", exc_info=True) # Log full exception info
 
 #############################
 # Data Validation
@@ -1908,10 +1904,32 @@ def update_coverage_for_all_locations():
     logger.info("Finished periodic street coverage update.")
 
 
+#Remove this line
+#threading.Timer(1, periodic_fetch_trips).start()
+
+# Replace these lines with the updated code below
+# scheduler = BackgroundScheduler()
+# scheduler.add_job(func=update_coverage_for_all_locations,
+#                   trigger="interval", minutes=60)  # Run every 60 minutes
+# scheduler.start()
+
+def run_periodic_fetches():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(periodic_fetch_trips())
+    finally:
+        loop.close()
+
 # Initialize scheduler
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=update_coverage_for_all_locations,
                   trigger="interval", minutes=60)  # Run every 60 minutes
+scheduler.add_job(
+    func=run_periodic_fetches,
+    trigger="interval",
+    minutes=30
+)
 scheduler.start()
 
 #############################
@@ -2521,15 +2539,16 @@ async def bouncie_webhook():
                 return jsonify({"status": "warning", "message": "No realtime data found, tripEnd processed but no data to finalize."}), 200
 
             try:
-                processed_trip = await assemble_trip_from_realtime_data(realtime_trip_data)
-                if processed_trip:
-                    # Skip validation and storage in trips_collection for live trips
-                    realtime_data_collection.delete_many({"transactionId": txid}) # Cleanup after processing
-                    socketio.emit("trip_ended", {"transactionId": txid})
-                    logger.info(f"Real-time trip {txid} processing completed and visualization ended.")
+                # We do not want to process the trip as before, so the logic changes here.
+                # Delete the trip data from the real-time collection
+                deleted_count = realtime_data_collection.delete_many({"transactionId": txid}).deleted_count # Cleanup after processing
+                if deleted_count > 0:
+                    logger.info(f"Deleted {deleted_count} trip data entries for transactionId: {txid}")
                 else:
-                    logger.error(f"Failed to assemble trip from webhook data for {txid}.")
-                    return jsonify({"status": "error", "message": f"Failed to assemble trip data for {txid}."}), 500
+                    logger.warning(f"No trip data entries were deleted for transactionId: {txid}")
+                socketio.emit("trip_ended", {"transactionId": txid})
+                logger.info(f"Real-time trip {txid} processing completed and visualization ended.")
+                return jsonify({"status": "success"}), 200
 
             except Exception as e:
                 logger.error(f"Error processing tripEnd event for {txid}: {e}", exc_info=True)
