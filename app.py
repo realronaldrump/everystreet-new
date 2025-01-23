@@ -2496,7 +2496,7 @@ async def bouncie_webhook():
                 "imei": imei,
                 "start_time": datetime.now(timezone.utc).isoformat(),
             }
-            socketio.emit("trip_started", emit_data)
+            await socketio.emit("trip_started", emit_data)
             logger.debug(f"Emitted socketio 'trip_started' event for transactionId: {txid}") # Debug log socket emit
 
         elif event_type == "tripData":
