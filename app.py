@@ -2595,23 +2595,32 @@ def store_trip(trip):
 
 async def assemble_trip_from_realtime_data(realtime_trip_data):
     """
-    Assembles a complete trip object from a list of realtime data events.
+    Assembles a complete trip object from a list of realtime data events, with enhanced logging.
     """
+    logger.info("Assembling trip from realtime data...") # Log function entry
     if not realtime_trip_data:
+        logger.warning("Realtime trip data list is empty, cannot assemble trip.") # Log empty data
         return None
+
+    logger.debug(f"Realtime data contains {len(realtime_trip_data)} events.") # Log number of events
 
     trip_start_event = next((event for event in realtime_trip_data if event['event_type'] == 'tripStart'), None)
     trip_end_event = next((event for event in realtime_trip_data if event['event_type'] == 'tripEnd'), None)
     trip_data_events = [event['data']['data'] for event in realtime_trip_data if event['event_type'] == 'tripData' and 'data' in event['data'] and event['data']['data']]
 
-    if not trip_start_event or not trip_end_event:
-        logger.error(f"Missing tripStart or tripEnd event in realtime data, cannot assemble trip.")
+    if not trip_start_event:
+        logger.error("Missing tripStart event in realtime data, cannot assemble trip.") # Log missing start event
+        return None
+    if not trip_end_event:
+        logger.error("Missing tripEnd event in realtime data, cannot assemble trip.") # Log missing end event
         return None
 
     start_time = parser.isoparse(trip_start_event['data']['start']['timestamp'])
     end_time = parser.isoparse(trip_end_event['data']['end']['timestamp'])
     imei = trip_start_event['imei']
     transaction_id = trip_start_event['transactionId']
+
+    logger.debug(f"Parsed startTime: {start_time}, endTime: {end_time}, transactionId: {transaction_id}, imei: {imei}") # Log parsed basic trip info
 
     all_coords = []
     for data_chunk in trip_data_events: # Iterate over chunks of tripData
@@ -2620,8 +2629,9 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
                 all_coords.append([point['gps']['lon'], point['gps']['lat']]) # Ensure lon, lat order
 
     if not all_coords:
-        logger.warning(f"No valid GPS coordinates found in realtime data for trip {transaction_id}.")
+        logger.warning(f"No valid GPS coordinates found in realtime data for trip {transaction_id}.") # Log no coords warning
         return None
+    logger.debug(f"Extracted {len(all_coords)} coordinates from tripData events.") # Log coord count
 
     trip_gps = {
         "type": "LineString",
@@ -2646,7 +2656,11 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
         "hardAccelerationCount": 0, # Initialize, can be updated from metrics if available later
     }
 
+    logger.debug(f"Assembled trip object with transactionId: {transaction_id}") # Log trip object assembled
+
     processed_trip = await process_trip_data(trip) # Use existing processing for geocoding etc.
+
+    logger.info(f"Trip assembly completed for transactionId: {transaction_id}.") # Log function completion
     return processed_trip
 
 async def process_trip_data(trip):
