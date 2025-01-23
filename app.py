@@ -307,25 +307,43 @@ def periodic_fetch_trips():
 
 def validate_trip_data(trip):
     """
-    Ensure the trip has transactionId, startTime, endTime, gps, etc. Return (bool_ok, error_message)
+    Ensure the trip has transactionId, startTime, endTime, gps, etc.
+    Return (bool_ok, error_message), with enhanced logging.
     """
+    transaction_id = trip.get('transactionId', '?') # Get transaction ID safely
+    logger.info(f"Validating trip data for trip {transaction_id}...") # Log function entry
+
     required = ["transactionId", "startTime", "endTime", "gps"]
     for field in required:
         if field not in trip:
-            return (False, f"Missing {field}")
+            error_message = f"Missing required field: {field}"
+            logger.warning(f"Validation failed for trip {transaction_id}: {error_message}") # Log missing field as warning
+            return (False, error_message)
+    logger.debug(f"Required fields present for trip {transaction_id}.") # Log if required fields are present
+
     try:
         gps_data = trip["gps"]
         if isinstance(gps_data, str):
             gps_data = json.loads(gps_data)
         if "type" not in gps_data or "coordinates" not in gps_data:
-            return (False, "gps data missing 'type' or 'coordinates'")
+            error_message = "gps data missing 'type' or 'coordinates'"
+            logger.warning(f"Validation failed for trip {transaction_id}: {error_message}") # Log GPS data structure issue
+            return (False, error_message)
         if not isinstance(gps_data["coordinates"], list):
-            return (False, "gps['coordinates'] must be a list")
+            error_message = "gps['coordinates'] must be a list"
+            logger.warning(f"Validation failed for trip {transaction_id}: {error_message}") # Log coords not a list
+            return (False, error_message)
+        logger.debug(f"GPS data structure is valid for trip {transaction_id}.") # Log valid GPS structure
     except json.JSONDecodeError as e: # Catch JSON decoding errors specifically
-        return (False, f"Invalid gps data format: {str(e)}")
+        error_message = f"Invalid gps data format: {str(e)}"
+        logger.warning(f"Validation failed for trip {transaction_id}: {error_message}", exc_info=True) # Log JSON decode error with exception info
+        return (False, error_message)
     except Exception as e: # Catch other potential errors during validation
-        return (False, f"Error validating gps data: {str(e)}")
+        error_message = f"Error validating gps data: {str(e)}"
+        logger.error(f"Error during gps data validation for trip {transaction_id}: {error_message}", exc_info=True) # Log general validation error with exception info
+        return (False, error_message)
 
+    logger.info(f"Trip data validation successful for trip {transaction_id}.") # Log validation success
     return (True, None)
 
 #############################
