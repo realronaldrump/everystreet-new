@@ -2563,7 +2563,7 @@ async def bouncie_webhook():
 #############################
 # Socket.IO events
 #############################
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 
 
 @socketio.on("connect")
@@ -3264,6 +3264,6 @@ def debug_trip(trip_id):
 #############################
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8080"))
-    threading.Timer(1, periodic_fetch_trips).start()
+    # threading.Timer(1, periodic_fetch_trips).start()
     socketio.run(app, host="0.0.0.0", port=port,
                  debug=False, allow_unsafe_werkzeug=True)
