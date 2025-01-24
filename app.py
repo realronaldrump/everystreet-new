@@ -1771,6 +1771,10 @@ def get_street_coverage():
             "coverage_percentage": coverage_stats["coverage_percentage"],
             "streets_data": {
                 "type": "FeatureCollection",
+                "metadata": {
+                    "total_length_miles": meters_to_miles(coverage_stats["total_length"]),
+                    "driven_length_miles": meters_to_miles(coverage_stats["driven_length"]),
+                },
                 "features": street_segments
             },
         })
