@@ -2577,7 +2577,7 @@ async def bouncie_webhook():
 #############################
 # Socket.IO events
 #############################
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="asgi")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="asyncio")
 
 
 @socketio.on("connect")
