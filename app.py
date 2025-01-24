@@ -1074,6 +1074,22 @@ async def hourly_fetch_trips():
         logger.info(f"Hourly trip fetch started for range: {start_date} to {end_date}")
         await fetch_and_store_trips_in_range(start_date, end_date)
         logger.info("Hourly trip fetch completed successfully.")
+
+        # Map match the newly fetched trips
+        logger.info("Starting map matching for hourly fetched trips...")
+        current_hour_end = datetime.now(timezone.utc)
+        current_hour_start = current_hour_end - timedelta(hours=1)
+        new_trips_to_match = trips_collection.find({
+            "startTime": {"$gte": current_hour_start, "$lte": current_hour_end}
+        })
+
+        map_matched_count = 0
+        for trip in new_trips_to_match:
+            await process_and_map_match_trip(trip)
+            map_matched_count += 1
+        logger.info(f"Map matching completed for {map_matched_count} hourly fetched trips.")
+
+
     except Exception as e:
         logger.error(f"Error during hourly trip fetch: {e}", exc_info=True)
 
