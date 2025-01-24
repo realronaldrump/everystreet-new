@@ -1056,9 +1056,9 @@ def export_gpx():
 
 async def start_background_tasks():
     """
-    Called on startup to fetch trips, or maybe do cleanup.
+    Called on startup to fetch trips for the last hour.
     """
-    await fetch_and_store_trips()
+    await hourly_fetch_trips()  # Call hourly_fetch_trips instead of fetch_and_store_trips
 
 
 async def hourly_fetch_trips():
