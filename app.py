@@ -3313,6 +3313,6 @@ def debug_trip(trip_id):
 #############################
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8080"))
-    threading.Timer(1, periodic_fetch_trips).start()
+    asyncio.run(start_background_tasks()) # Run startup tasks
     socketio.run(app, host="0.0.0.0", port=port,
                  debug=False, allow_unsafe_werkzeug=True)
