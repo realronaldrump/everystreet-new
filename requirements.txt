@@ -21,3 +21,4 @@ uvloop
 httptools
 ujson
 apscheduler
+uvicorn
