@@ -606,8 +606,6 @@ def process_trip(trip):
 # Flask endpoints
 #############################
 
-# ... (rest of the Flask endpoints - I've added basic error logging to some, but you should review and enhance all)
-
 @app.route("/api/trips")
 def get_trips():
     """
@@ -911,6 +909,15 @@ def api_fetch_trips_range():
         logger.error(f"Error in api_fetch_trips_range endpoint: {e}", exc_info=True) # Log endpoint specific errors
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route("/api/fetch_trips_last_hour", methods=["POST"])
+def api_fetch_trips_last_hour():
+    """API endpoint to manually trigger fetching trips from the last hour."""
+    try:
+        hourly_fetch_trips() # Call the function directly, no need for asyncio.run here as hourly_fetch_trips is already async
+        return jsonify({"status": "success", "message": "Hourly trip fetch initiated."}), 200
+    except Exception as e:
+        logger.error(f"Error initiating hourly trip fetch via API: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": "Failed to initiate hourly trip fetch."}), 500
 
 #############################
 # After request
@@ -1052,6 +1059,23 @@ async def start_background_tasks():
     Called on startup to fetch trips, or maybe do cleanup.
     """
     await fetch_and_store_trips()
+
+
+async def hourly_fetch_trips():
+    """
+    Fetches and stores trips from the last hour.
+    This function is meant to be run periodically by the scheduler.
+    """
+    try:
+        # Calculate the current UTC time and the time 1 hour ago
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(hours=1)
+
+        logger.info(f"Hourly trip fetch started for range: {start_date} to {end_date}")
+        await fetch_and_store_trips_in_range(start_date, end_date)
+        logger.info("Hourly trip fetch completed successfully.")
+    except Exception as e:
+        logger.error(f"Error during hourly trip fetch: {e}", exc_info=True)
 
 #############################
 # Location validation
@@ -1933,6 +1957,11 @@ scheduler.add_job(
     func=run_periodic_fetches,
     trigger="interval",
     minutes=30
+)
+scheduler.add_job(
+    func=hourly_fetch_trips,
+    trigger="interval",
+    hours=1  # Run every 1 hour
 )
 scheduler.start()
 
