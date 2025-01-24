@@ -722,12 +722,6 @@ canvas {
   color: #fff;
 }
 
-/* Trip and Vehicle Markers */
-.trip-marker,
-.vehicle-marker {
-  background: none;
-  border: none;
-}
 
 .trip-marker i {
   color: #ff5722;
@@ -966,12 +960,6 @@ canvas {
   gap: 0.5rem;
 }
 
-/* Vehicle Marker */
-.vehicle-marker {
-  align-items: center;
-  display: flex;
-  justify-content: center;
-}
 
 .vehicle-marker i {
   animation: pulse 1.5s infinite;

@@ -105,13 +105,12 @@ class LiveTripTracker {
   updateVehicleMarker(tripId, position) {
     const trip = this.activeTrips.get(tripId);
     if (!trip) return;
-
+  
     if (!trip.vehicleMarker) {
       const icon = L.divIcon({
-        className: "vehicle-marker",
-        html: '<i class="fas fa-car"></i>',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
+        className: "vehicle-marker", // Use the CSS class for styling
+        iconSize: [12, 12], // Adjust size as needed
+        iconAnchor: [6, 6], // Center the icon
       });
       trip.vehicleMarker = L.marker([position[0], position[1]], { icon }).addTo(this.liveTripsLayer);
     } else {
