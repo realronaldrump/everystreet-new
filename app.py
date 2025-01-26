@@ -369,19 +369,19 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
                     data = await response.json()
                     display_name = data.get("display_name", None)
                     if display_name:
-                        logger.debug(f"Reverse geocoded ({lat},{lon}) to: {display_name} (attempt {attempt})") # Debug log on success
+                        logger.debug(f"Reverse geocoded ({lat},{lon}) to: {display_name} (attempt {attempt})")
                         return display_name
                     else:
-                        logger.warning(f"Nominatim reverse geocode returned no display_name for ({lat},{lon}) (attempt {attempt})") # Warning if no display_name
-                        return None # Explicitly return None when no display_name
+                        logger.warning(f"Nominatim reverse geocode returned no display_name for ({lat},{lon}) (attempt {attempt})")
+
         except (ClientResponseError, ClientConnectorError, asyncio.TimeoutError) as e:
-            log_level = logging.WARNING if attempt < retries else logging.ERROR # Warning on retry, Error on final fail
-            logger.log(log_level, f"Nominatim error attempt {attempt} for ({lat},{lon}): {e}", exc_info=True) # Log exception info
+            log_level = logging.WARNING if attempt < retries else logging.ERROR
+            logger.log(log_level, f"Nominatim error attempt {attempt} for ({lat},{lon}): {e}", exc_info=True)
             if attempt < retries:
                 await asyncio.sleep(backoff_factor * (2 ** (attempt - 1)))
 
-    logger.error(f"Failed to reverse geocode ({lat},{lon}) after {retries} attempts.") # Error if all retries fail
-    return None
+    logger.error(f"Failed to reverse geocode ({lat},{lon}) after {retries} attempts.")
+    return None  # Return None after all retries have failed
 
 
 #############################
@@ -491,7 +491,7 @@ async def fetch_and_store_trips():
         async with aiohttp.ClientSession() as client_session:
             access_token = await get_access_token(client_session)
             if not access_token:
-                logger.error("Failed to obtain access token, aborting fetch_and_store_trips.") # Log if no token
+                logger.error("Failed to obtain access token, aborting fetch_and_store_trips.")
                 return
 
             end_date = datetime.now(timezone.utc)
@@ -547,13 +547,13 @@ async def fetch_and_store_trips():
                     trips_collection.update_one(
                         {"transactionId": trip["transactionId"]}, {"$set": trip}, upsert=True
                     )
-                    logger.debug(f"Trip {trip.get('transactionId')} processed and stored/updated.") # Debug log for successful trip processing
+                    logger.debug(f"Trip {trip.get('transactionId')} processed and stored/updated.")
                 except Exception as e:
                     logger.error(
-                        f"Error inserting/updating trip {trip.get('transactionId')}: {e}", exc_info=True) # Log specific trip insertion errors
+                        f"Error inserting/updating trip {trip.get('transactionId')}: {e}", exc_info=True)
 
     except Exception as e:
-        logger.error(f"Error in fetch_and_store_trips: {e}", exc_info=True) # Log general fetch and store errors
+        logger.error(f"Error in fetch_and_store_trips: {e}", exc_info=True)
 
 
 def process_trip(trip):
@@ -1099,15 +1099,15 @@ async def hourly_fetch_trips():
 
 
 @app.route("/api/validate_location", methods=["POST"])
-def validate_location():
+async def validate_location():
     data = request.json
     location = data.get("location")
     location_type = data.get("locationType")
-    validated = validate_location_osm(location, location_type)
+    validated = await validate_location_osm(location, location_type)
     return jsonify(validated)
 
 
-def validate_location_osm(location, location_type):
+async def validate_location_osm(location, location_type):
     """
     Use OSM Nominatim to see if location is valid. Return the first match or None.
     """
@@ -1119,36 +1119,39 @@ def validate_location_osm(location, location_type):
     }
     headers = {"User-Agent": "GeojsonGenerator/1.0"}
     try:
-        response = requests.get(
-            "https://nominatim.openstreetmap.org/search", params=params, headers=headers, timeout=10) # Add timeout
-        response.raise_for_status() # Raise HTTPError for bad status
-        data = response.json()
-        return data[0] if data else None
-    except requests.exceptions.RequestException as e: # Catch broader request exceptions
-        logger.error(f"Error validating location with Nominatim: {e}", exc_info=True) # Log Nominatim validation errors
+        async with aiohttp.ClientSession() as session:  # Create aiohttp session
+            async with session.get(
+                "https://nominatim.openstreetmap.org/search",
+                params=params,
+                headers=headers,
+                timeout=10
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()  # Await response.json()
+                return data[0] if data else None
+    except aiohttp.ClientError as e:  # Catch aiohttp exceptions
+        logger.error(f"Error validating location with Nominatim: {e}", exc_info=True)
         return None
 
 #############################
 # Generate GeoJSON from Overpass
 #############################
 
-
 @app.route("/api/generate_geojson", methods=["POST"])
-@app.route("/api/generate_geojson", methods=["POST"])
-def generate_geojson():
+async def generate_geojson():
     """
     Given a validated location with osm_id/type, query Overpass and return GeoJSON.
     """
     data = request.json
     location = data.get("location")
     streets_only = data.get("streetsOnly", False)
-    geojson_data, err = generate_geojson_osm(location, streets_only)
+    geojson_data, err = await generate_geojson_osm(location, streets_only)
     if geojson_data:
         return jsonify(geojson_data)  # Directly return GeoJSON
     return jsonify({"error": err}), 400
 
 
-def generate_geojson_osm(location, streets_only=False):
+async def generate_geojson_osm(location, streets_only=False):
     """
     Query Overpass for the given location's geometry or highways only.
     Bypass MongoDB storage for large data and return directly.
@@ -1158,9 +1161,6 @@ def generate_geojson_osm(location, streets_only=False):
             return None, "Invalid location data"
 
         osm_type = "streets" if streets_only else "boundary"
-
-        # We won't try to fetch from the database since we're bypassing storage for large data
-
         area_id = int(location["osm_id"])
         if location["osm_type"] == "relation":
             area_id += 3600000000
@@ -1183,10 +1183,11 @@ def generate_geojson_osm(location, streets_only=False):
             );
             out geom;
             """
+        async with aiohttp.ClientSession() as session:  # Create aiohttp session
+            async with session.get(OVERPASS_URL, params={"data": query}, timeout=30) as response:  # Async get
+                response.raise_for_status()  # Raise HTTPError for bad status
+                data = await response.json()  # Await response.json()
 
-        response = requests.get(OVERPASS_URL, params={"data": query}, timeout=30) # Add timeout to Overpass request
-        response.raise_for_status() # Raise HTTPError for bad status
-        data = response.json()
         features = process_elements(data["elements"], streets_only)
         if features:
             gdf = gpd.GeoDataFrame.from_features(features)
@@ -1224,8 +1225,8 @@ def generate_geojson_osm(location, streets_only=False):
             return geojson_data, None  # Return GeoJSON directly
         return None, "No features found"
 
-    except requests.exceptions.RequestException as e: # Catch broader request exceptions
-        logger.error(f"Error generating geojson from Overpass: {e}", exc_info=True) # Log Overpass errors
+    except aiohttp.ClientError as e:  # Catch aiohttp exceptions
+        logger.error(f"Error generating geojson from Overpass: {e}", exc_info=True)  # Log Overpass errors
         return None, "Error communicating with Overpass API"
     except Exception as e:
         logger.error(f"Error generating geojson: {e}", exc_info=True)
@@ -1607,7 +1608,7 @@ def fetch_matched_trips(start_date_str, end_date_str):
 
 
 @app.route("/api/export/streets")
-def export_streets():
+async def export_streets():
     location = request.args.get("location")
     fmt = request.args.get("format")
     if not location:
@@ -1615,7 +1616,7 @@ def export_streets():
 
     # parse location JSON
     loc = json.loads(location)
-    data, _ = generate_geojson_osm(loc, streets_only=True)
+    data, _ = await generate_geojson_osm(loc, streets_only=True)
     if not data:
         return jsonify({"error": "No data returned"}), 500
 
@@ -1652,17 +1653,17 @@ def export_streets():
         return send_file(
             buf, mimetype="application/zip", as_attachment=True, download_name="streets.zip"
         )
-    return jsonify({"error": "Invalid export format"}), 400 # Handle invalid format here
+    return jsonify({"error": "Invalid export format"}), 400
 
 
 @app.route("/api/export/boundary")
-def export_boundary():
+async def export_boundary():
     location = request.args.get("location")
     fmt = request.args.get("format")
     if not location:
         return jsonify({"error": "No location"}), 400
     loc = json.loads(location)
-    data, _ = generate_geojson_osm(loc, streets_only=False)
+    data, _ = await generate_geojson_osm(loc, streets_only=False)
     if not data:
         return jsonify({"error": "No boundary data"}), 500
 
@@ -1693,7 +1694,7 @@ def export_boundary():
         return send_file(
             buf, mimetype="application/zip", as_attachment=True, download_name="boundary.zip"
         )
-    return jsonify({"error": "Invalid export format"}), 400 # Handle invalid format here
+    return jsonify({"error": "Invalid export format"}), 400
 
 #############################
 # Preprocessing Route
@@ -2765,26 +2766,26 @@ async def process_trip_data(trip):
     Check if start/end are within a custom place.
     Robustly handle missing or incorrect gps data, with enhanced logging.
     """
-    transaction_id = trip.get('transactionId', '?') # Get transaction ID safely
-    logger.info(f"Processing trip data for trip {transaction_id}...") # Log function entry
+    transaction_id = trip.get('transactionId', '?')
+    logger.info(f"Processing trip data for trip {transaction_id}...")
 
     try:
-        gps_data = trip.get("gps") # Use .get() to avoid KeyError
+        gps_data = trip.get("gps")
         if not gps_data:
             logger.warning(f"Trip {transaction_id} has no GPS data to process.")
-            return trip # Return trip as is, or handle differently?
+            return trip
 
         if isinstance(gps_data, str):
             try:
                 gps_data = json.loads(gps_data)
             except json.JSONDecodeError:
                 logger.error(f"Invalid JSON in gps data for trip {transaction_id}.", exc_info=True)
-                return trip # Return trip as is, or handle differently?
+                return trip
 
-        coords = gps_data.get("coordinates") # Use .get() to avoid KeyError
+        coords = gps_data.get("coordinates")
         if not coords or not isinstance(coords, list) or len(coords) < 2:
             logger.warning(f"Trip {transaction_id} has invalid or insufficient coordinates.")
-            return trip # Return trip as is, or handle differently?
+            return trip
 
         st = coords[0]
         en = coords[-1]
@@ -2792,7 +2793,7 @@ async def process_trip_data(trip):
         start_point = Point(st[0], st[1])
         end_point = Point(en[0], en[1])
 
-        logger.debug(f"Extracted start point: {st}, end point: {en} for trip {transaction_id}") # Log extracted points
+        logger.debug(f"Extracted start point: {st}, end point: {en} for trip {transaction_id}")
 
         # Check for custom places
         start_place = get_place_at_point(start_point)
@@ -2801,20 +2802,20 @@ async def process_trip_data(trip):
         if start_place:
             trip["startLocation"] = start_place["name"]
             trip["startPlaceId"] = start_place["_id"]
-            logger.debug(f"Start point of trip {transaction_id} is within custom place: {start_place['name']}") # Log start place found
+            logger.debug(f"Start point of trip {transaction_id} is within custom place: {start_place['name']}")
         else:
             start_location_name = await reverse_geocode_nominatim(st[1], st[0])
             trip["startLocation"] = start_location_name
-            logger.debug(f"Start point of trip {transaction_id} reverse geocoded to: {start_location_name}") # Log start geocode result
+            logger.debug(f"Start point of trip {transaction_id} reverse geocoded to: {start_location_name}")
 
         if end_place:
             trip["destination"] = end_place["name"]
             trip["destinationPlaceId"] = end_place["_id"]
-            logger.debug(f"End point of trip {transaction_id} is within custom place: {end_place['name']}") # Log end place found
+            logger.debug(f"End point of trip {transaction_id} is within custom place: {end_place['name']}")
         else:
             destination_name = await reverse_geocode_nominatim(en[1], en[0])
             trip["destination"] = destination_name
-            logger.debug(f"End point of trip {transaction_id} reverse geocoded to: {destination_name}") # Log end geocode result
+            logger.debug(f"End point of trip {transaction_id} reverse geocoded to: {destination_name}")
 
         # Set destinationGeoPoint for geospatial querying
         trip["destinationGeoPoint"] = {
@@ -2827,13 +2828,13 @@ async def process_trip_data(trip):
             "type": "Point",
             "coordinates": [st[0], st[1]]  # Longitude, Latitude
         }
-        logger.debug(f"GeoPoints set for trip {transaction_id}.") # Log GeoPoints set
+        logger.debug(f"GeoPoints set for trip {transaction_id}.")
 
-        logger.info(f"Trip data processing completed for trip {transaction_id}.") # Log function completion
+        logger.info(f"Trip data processing completed for trip {transaction_id}.")
         return trip
     except Exception as e:
         logger.error(f"Error in process_trip_data for trip {transaction_id}: {e}", exc_info=True)
-        return trip # Return trip as is, or handle differently?
+        return trip
 
 
 # add the update geo points route to the settings page
