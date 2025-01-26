@@ -8,8 +8,6 @@ from dotenv import load_dotenv
 import os
 import asyncio
 
-from app import update_street_coverage
-
 load_dotenv()
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
@@ -112,6 +110,7 @@ async def process_and_map_match_trip(trip):
     and stores or updates the matched result in matched_trips_collection.
     """
     try:
+        from app import update_street_coverage
         from app import matched_trips_collection, trips_collection, historical_trips_collection, validate_trip_data, reverse_geocode_nominatim
 
         # Validate trip data
