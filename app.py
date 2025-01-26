@@ -1308,7 +1308,7 @@ async def map_match_trips():
     Initiates map matching for trips in a date range from 'trips_collection'.
     """
     try:
-        data = request.json
+        data = request.get_json()
         start_date_str = data.get("start_date")
         end_date_str = data.get("end_date")
 
@@ -1328,7 +1328,7 @@ async def map_match_trips():
 
         return jsonify({"status": "success", "message": "Map matching started for trips."})
     except Exception as e:
-        logger.error(f"Error in map_match_trips endpoint: {e}", exc_info=True) # Log endpoint errors
+        logger.error(f"Error in map_match_trips endpoint: {e}", exc_info=True)  # Log endpoint errors
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
