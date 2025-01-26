@@ -33,7 +33,7 @@ from flask import (
     session,
 )
 from flask_socketio import SocketIO
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from flask import render_template
 from geojson import dumps as geojson_dumps, loads as geojson_loads
 from pymongo import MongoClient
@@ -1056,9 +1056,33 @@ def export_gpx():
 
 async def start_background_tasks():
     """
-    Called on startup to fetch trips for the last hour.
+    Starts background tasks using apscheduler.
     """
-    await hourly_fetch_trips()  # Call hourly_fetch_trips instead of fetch_and_store_trips
+    try:
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(
+            update_coverage_for_all_locations, "interval", minutes=60, max_instances=3
+        )
+        scheduler.add_job(
+            fetch_and_store_trips, "interval", minutes=60, max_instances=3
+        )
+        # Update GeoPoints for each collection
+        scheduler.add_job(
+            update_geo_points, "interval", minutes=60, max_instances=3, args=[trips_collection]
+        )
+        scheduler.add_job(
+            update_geo_points, "interval", minutes=60, max_instances=3, args=[historical_trips_collection]
+        )
+        scheduler.add_job(
+            update_geo_points, "interval", minutes=60, max_instances=3, args=[uploaded_trips_collection]
+        )
+        scheduler.add_job(
+            cleanup_invalid_trips, "interval", minutes=60, max_instances=3
+        )
+        scheduler.start()
+        logger.info("Background tasks started.")
+    except Exception as e:
+        logger.error(f"Error starting background tasks: {e}", exc_info=True)
 
 
 async def hourly_fetch_trips():
@@ -1702,7 +1726,7 @@ async def export_boundary():
 
 
 @app.route("/api/preprocess_streets", methods=["POST"])
-def preprocess_streets_route():
+async def preprocess_streets_route():
     """
     Triggers the preprocessing of street data for a given location.
     Expects JSON payload: {"location": "Davis, CA", "location_type": "city"}
@@ -1717,43 +1741,49 @@ def preprocess_streets_route():
             return jsonify({"status": "error", "message": "Location is required"}), 400
 
         # Validate the location (you can still keep this check here)
-        validated_location = validate_location_osm(
+        validated_location = await validate_location_osm(
             location_query, location_type)
         if not validated_location:
             return jsonify({"status": "error", "message": "Invalid location"}), 400
 
-        # Run the preprocessing script as a separate process
-        process = subprocess.Popen(
-            [
-                "python",  # Or the path to your Python interpreter in the virtual environment
-                "preprocess_streets.py",
-                location_query,
-                "--type",
-                location_type,
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        stdout, stderr = process.communicate()
+        # Run the preprocessing script as an asynchronous task
+        asyncio.create_task(run_preprocess_streets(validated_location, location_type))
 
-        if process.returncode == 0:
-            return jsonify(
-                {
-                    "status": "success",
-                    "message": f"Street data processed for {validated_location['display_name']}",
-                }
-            )
-        logger.error(
-            f"Error in preprocess_streets_route: {stderr.decode()}")
-        return (
-            jsonify(
-                {"status": "error", "message": "Error during preprocessing"}),
-            500,
+        return jsonify(
+            {
+                "status": "success",
+                "message": f"Street data preprocessing initiated for {validated_location['display_name']}. Check server logs for progress.",
+            }
         )
 
     except Exception as e:
         logger.error(f"Error in preprocess_streets_route: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
+
+async def run_preprocess_streets(validated_location, location_type):
+    """
+    Runs the preprocess_streets.py script with the given location and type.
+    """
+    try:
+        process = await asyncio.create_subprocess_exec(
+            "python",
+            "preprocess_streets.py",
+            validated_location["display_name"],
+            "--type",
+            location_type,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stdout, stderr = await process.communicate()
+
+        if process.returncode == 0:
+            logger.info(f"Successfully processed street data for {validated_location['display_name']}")
+        else:
+            logger.error(f"Error processing street data for {validated_location['display_name']}: {stderr.decode()}")
+
+    except Exception as e:
+        logger.error(f"Error running preprocess_streets.py: {e}", exc_info=True)
 
 #############################
 # Street Segment Details Route
@@ -1956,12 +1986,6 @@ def run_periodic_fetches():
         loop.run_until_complete(periodic_fetch_trips())
     finally:
         loop.close()
-
-scheduler = BackgroundScheduler()
-scheduler.add_job(update_coverage_for_all_locations, "interval", minutes=60)
-scheduler.add_job(run_periodic_fetches, "interval", minutes=30)
-scheduler.add_job(hourly_fetch_trips, "interval", hours=1)
-scheduler.start()
 
 #############################
 # Loading historical data
