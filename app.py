@@ -33,6 +33,7 @@ from flask import (
     session,
 )
 from flask_socketio import SocketIO
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from flask import render_template
 from geojson import dumps as geojson_dumps, loads as geojson_loads
 from pymongo import MongoClient
@@ -1828,7 +1829,7 @@ def get_street_coverage():
 # New function to update street coverage (to be called periodically or after new trips are added)
 
 
-def update_street_coverage(location_name):
+async def update_street_coverage(location_name):
     """
     Updates the driven status of street segments based on recent trips.
     Now it gets the location from the segments themselves.
@@ -1935,7 +1936,7 @@ def update_street_coverage(location_name):
         raise
 
 
-def update_coverage_for_all_locations():
+async def update_coverage_for_all_locations():
     """
     Updates street coverage for all locations in the coverage_metadata collection.
     """
@@ -1943,20 +1944,11 @@ def update_coverage_for_all_locations():
     locations = coverage_metadata_collection.distinct("location")
     for location in locations:
         try:
-            update_street_coverage(location)
+            await update_street_coverage(location)
         except Exception as e:
             logger.error(f"Error updating coverage for {location}: {e}")
     logger.info("Finished periodic street coverage update.")
 
-
-#Remove this line
-#threading.Timer(1, periodic_fetch_trips).start()
-
-# Replace these lines with the updated code below
-# scheduler = BackgroundScheduler()
-# scheduler.add_job(func=update_coverage_for_all_locations,
-#                   trigger="interval", minutes=60)  # Run every 60 minutes
-# scheduler.start()
 
 def run_periodic_fetches():
     loop = asyncio.new_event_loop()
@@ -1966,10 +1958,9 @@ def run_periodic_fetches():
     finally:
         loop.close()
 
-# Initialize scheduler
-scheduler = BackgroundScheduler()
-scheduler.add_job(func=update_coverage_for_all_locations,
-                  trigger="interval", minutes=60)  # Run every 60 minutes
+# Initialize async scheduler
+scheduler = AsyncIOScheduler()
+scheduler.add_job(update_coverage_for_all_locations, 'interval', minutes=60)
 scheduler.add_job(
     func=run_periodic_fetches,
     trigger="interval",
@@ -1981,11 +1972,6 @@ scheduler.add_job(
     hours=1  # Run every 1 hour
 )
 scheduler.start()
-
-#############################
-# Load historical
-#############################
-
 
 #############################
 # Loading historical data

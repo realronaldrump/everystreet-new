@@ -1,4 +1,3 @@
-# map_matching.py
 import json
 import math
 import logging
@@ -9,6 +8,8 @@ from dotenv import load_dotenv
 import os
 import asyncio
 
+from app import update_street_coverage
+
 load_dotenv()
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
@@ -18,7 +19,6 @@ MAX_MAPBOX_COORDINATES = 100
 logging.basicConfig(level=logging.INFO,  # Set default level to INFO
                     format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 logger = logging.getLogger(__name__)
-
 
 async def map_match_coordinates(coordinates):
     """
@@ -101,12 +101,10 @@ async def map_match_coordinates(coordinates):
         ],
     }
 
-
 def is_valid_coordinate(coord):
     """Check if a coordinate pair [lon, lat] is within valid WGS84 boundaries."""
     lon, lat = coord
     return -180 <= lon <= 180 and -90 <= lat <= 90
-
 
 async def process_and_map_match_trip(trip):
     """
@@ -114,7 +112,7 @@ async def process_and_map_match_trip(trip):
     and stores or updates the matched result in matched_trips_collection.
     """
     try:
-        from app import matched_trips_collection, trips_collection, historical_trips_collection, validate_trip_data, update_street_coverage, reverse_geocode_nominatim
+        from app import matched_trips_collection, trips_collection, historical_trips_collection, validate_trip_data, reverse_geocode_nominatim
 
         # Validate trip data
         is_valid, error_message = validate_trip_data(trip)
@@ -175,7 +173,7 @@ async def process_and_map_match_trip(trip):
                 end_lon, end_lat = matched_coords[-1]
 
                 # Use either start or end location (or both, or a more sophisticated logic)
-                location = await reverse_geocode_nominatim(start_lat, start_lon)
+                location = await reverse_geocode_nominatim(start_lat, start_lon)  # Await async call
 
                 if location and "address" in location:
                     if "city" in location["address"]:
@@ -188,7 +186,7 @@ async def process_and_map_match_trip(trip):
                         location_name = location.get("display_name", "")
 
                 if not location_name:
-                    location = await reverse_geocode_nominatim(end_lat, end_lon)
+                    location = await reverse_geocode_nominatim(end_lat, end_lon)  # Await async call
                     if location and "address" in location:
                         if "city" in location["address"]:
                             location_name = location["address"]["city"]
@@ -209,7 +207,7 @@ async def process_and_map_match_trip(trip):
             # Update street coverage if location information is available and valid
             if location_name:
                 try:
-                    update_street_coverage(location_name)
+                    await update_street_coverage(location_name)  # Await async call
                 except Exception as e:
                     logger.error(
                         f"Error updating street coverage for {location_name}: {e}", exc_info=True)
@@ -226,7 +224,6 @@ async def process_and_map_match_trip(trip):
         logger.error(
             f"Error processing map matching for trip {trip.get('transactionId', 'Unknown')}: {str(e)}", exc_info=True)
         return None
-
 
 def haversine_distance(coord1, coord2):
     """Haversine distance in miles between two [lon, lat] points (WGS84)."""
