@@ -20,13 +20,15 @@ logging.basicConfig(level=logging.INFO,  # Set default level to INFO
                     format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
 async def map_match_coordinates(coordinates):
     """
     Given a list of [lon, lat] coordinate pairs, calls Mapbox's map matching API
     in chunks if necessary, and combines them into a single matched geometry.
     """
     if len(coordinates) < 2:
-        logger.warning("Insufficient coordinates for map matching.") # Log warning for insufficient coordinates
+        # Log warning for insufficient coordinates
+        logger.warning("Insufficient coordinates for map matching.")
         return {
             "code": "Error",
             "message": "At least two coordinates are required for map matching.",
@@ -52,16 +54,20 @@ async def map_match_coordinates(coordinates):
 
             try:
                 async with client_session.get(url_with_coords, params=params) as response:
-                    response.raise_for_status() # Raise HTTPError for bad responses
+                    response.raise_for_status()  # Raise HTTPError for bad responses
                     data = await response.json()
                     if data["code"] == "Ok":
                         # Take the first matching geometry
                         matched_geometries.extend(
                             data["matchings"][0]["geometry"]["coordinates"]
                         )
-                        logger.debug(f"Map Matching successful for chunk of {len(chunk)} coordinates.") # Debug log for successful chunk matching
+                        # Debug log for successful chunk matching
+                        logger.debug(
+                            f"Map Matching successful for chunk of {len(chunk)} coordinates.")
                     else:
-                        logger.error(f"Map Matching API error: {data.get('message', 'No message')}, Code: {data['code']}") # Log Mapbox API error with code
+                        # Log Mapbox API error with code
+                        logger.error(
+                            f"Map Matching API error: {data.get('message', 'No message')}, Code: {data['code']}")
                         return {
                             "code": "Error",
                             "message": data.get("message", "Map Matching API Error"),
@@ -69,25 +75,33 @@ async def map_match_coordinates(coordinates):
                 # No need to handle 422 specifically here, raise_for_status handles non-200 responses
             except ClientResponseError as e:
                 error_data = await e.response.json() if e.response.content_type == 'application/json' else None
-                logger.error(f"Map Matching API ClientResponseError: {e.status} - {e.message}, URL: {e.request_info.url}, Response Data: {error_data}", exc_info=True) # Include URL and response data in log
+                # Include URL and response data in log
+                logger.error(
+                    f"Map Matching API ClientResponseError: {e.status} - {e.message}, URL: {e.request_info.url}, Response Data: {error_data}", exc_info=True)
                 return {
                     "code": "Error",
                     "message": error_data.get("message", f"Mapbox API error {e.status}") if error_data else f"Mapbox API error {e.status}",
                 }
             except ClientConnectorError as e:
-                logger.error(f"Map Matching API ClientConnectorError: {e}, URL: {url_with_coords}", exc_info=True) # Include URL in log
+                # Include URL in log
+                logger.error(
+                    f"Map Matching API ClientConnectorError: {e}, URL: {url_with_coords}", exc_info=True)
                 return {
                     "code": "Error",
                     "message": f"Connection error to Mapbox API: {str(e)}",
                 }
             except asyncio.TimeoutError:
-                logger.error(f"Map Matching API TimeoutError: Request timed out, URL: {url_with_coords}", exc_info=True) # Log timeout errors
+                # Log timeout errors
+                logger.error(
+                    f"Map Matching API TimeoutError: Request timed out, URL: {url_with_coords}", exc_info=True)
                 return {
                     "code": "Error",
                     "message": "Mapbox API request timed out.",
                 }
             except Exception as e:
-                logger.error(f"Map Matching API Exception: {e}, URL: {url_with_coords}", exc_info=True) # Log unexpected exceptions
+                # Log unexpected exceptions
+                logger.error(
+                    f"Map Matching API Exception: {e}, URL: {url_with_coords}", exc_info=True)
                 return {
                     "code": "Error",
                     "message": f"Exception in map matching: {str(e)}",
@@ -101,10 +115,12 @@ async def map_match_coordinates(coordinates):
         ],
     }
 
+
 def is_valid_coordinate(coord):
     """Check if a coordinate pair [lon, lat] is within valid WGS84 boundaries."""
     lon, lat = coord
     return -180 <= lon <= 180 and -90 <= lat <= 90
+
 
 async def process_and_map_match_trip(trip):
     """
@@ -117,7 +133,9 @@ async def process_and_map_match_trip(trip):
         # Validate trip data
         is_valid, error_message = validate_trip_data(trip)
         if not is_valid:
-            logger.error(f"Invalid trip data for map matching (transactionId: {trip.get('transactionId', 'N/A')}): {error_message}") # Include transactionId in log
+            # Include transactionId in log
+            logger.error(
+                f"Invalid trip data for map matching (transactionId: {trip.get('transactionId', 'N/A')}): {error_message}")
             return None
 
         existing_matched = matched_trips_collection.find_one(
@@ -144,7 +162,9 @@ async def process_and_map_match_trip(trip):
 
         # Validate coords
         if not coordinates:
-            logger.warning(f"Trip {trip['transactionId']} has no coordinates. Skipping map matching.") # Warning log for no coords
+            # Warning log for no coords
+            logger.warning(
+                f"Trip {trip['transactionId']} has no coordinates. Skipping map matching.")
             return
         if not all(is_valid_coordinate(c) for c in coordinates):
             logger.error(
@@ -173,7 +193,8 @@ async def process_and_map_match_trip(trip):
                 end_lon, end_lat = matched_coords[-1]
 
                 # Use either start or end location (or both, or a more sophisticated logic)
-                location = await reverse_geocode_nominatim(start_lat, start_lon)  # Await async call
+                # Await async call
+                location = await reverse_geocode_nominatim(start_lat, start_lon)
 
                 if location and "address" in location:
                     if "city" in location["address"]:
@@ -186,7 +207,8 @@ async def process_and_map_match_trip(trip):
                         location_name = location.get("display_name", "")
 
                 if not location_name:
-                    location = await reverse_geocode_nominatim(end_lat, end_lon)  # Await async call
+                    # Await async call
+                    location = await reverse_geocode_nominatim(end_lat, end_lon)
                     if location and "address" in location:
                         if "city" in location["address"]:
                             location_name = location["address"]["city"]
@@ -207,7 +229,8 @@ async def process_and_map_match_trip(trip):
             # Update street coverage if location information is available and valid
             if location_name:
                 try:
-                    await update_street_coverage(location_name)  # Await async call
+                    # Await async call
+                    await update_street_coverage(location_name)
                 except Exception as e:
                     logger.error(
                         f"Error updating street coverage for {location_name}: {e}", exc_info=True)
@@ -224,6 +247,7 @@ async def process_and_map_match_trip(trip):
         logger.error(
             f"Error processing map matching for trip {trip.get('transactionId', 'Unknown')}: {str(e)}", exc_info=True)
         return None
+
 
 def haversine_distance(coord1, coord2):
     """Haversine distance in miles between two [lon, lat] points (WGS84)."""
