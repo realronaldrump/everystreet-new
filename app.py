@@ -33,7 +33,7 @@ from flask import (
     session,
 )
 from flask_socketio import SocketIO
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 from flask import render_template
 from geojson import dumps as geojson_dumps, loads as geojson_loads
 from pymongo import MongoClient
@@ -46,7 +46,6 @@ from shapely.geometry import (
     shape,
 )
 from timezonefinder import TimezoneFinder
-from apscheduler.schedulers.background import BackgroundScheduler
 
 # We import the map_matching logic
 from map_matching import (
@@ -1958,19 +1957,10 @@ def run_periodic_fetches():
     finally:
         loop.close()
 
-# Initialize async scheduler
-scheduler = AsyncIOScheduler()
-scheduler.add_job(update_coverage_for_all_locations, 'interval', minutes=60)
-scheduler.add_job(
-    func=run_periodic_fetches,
-    trigger="interval",
-    minutes=30
-)
-scheduler.add_job(
-    func=hourly_fetch_trips,
-    trigger="interval",
-    hours=1  # Run every 1 hour
-)
+scheduler = BackgroundScheduler()
+scheduler.add_job(update_coverage_for_all_locations, "interval", minutes=60)
+scheduler.add_job(run_periodic_fetches, "interval", minutes=30)
+scheduler.add_job(hourly_fetch_trips, "interval", hours=1)
 scheduler.start()
 
 #############################
