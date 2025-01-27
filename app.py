@@ -2647,13 +2647,15 @@ def stream():
             # Get active trips from live_trips_collection
             active_trips = live_trips_collection.find({})
             for trip in active_trips:
+                # Convert ObjectId to string for JSON serialization
+                trip['_id'] = str(trip['_id']) if '_id' in trip else None
                 data = json.dumps({
                     "type": "trip_update",
                     "data": trip
                 })
                 yield f"data: {data}\n\n"
             time.sleep(1)  # Poll every second
-            
+
     return Response(event_stream(), mimetype="text/event-stream")
 
 @app.route("/webhook/bouncie", methods=["POST"])
@@ -2696,89 +2698,6 @@ def bouncie_webhook():
             live_trips_collection.delete_one({"transactionId": txid})
 
     return jsonify({"status": "success"}), 200
-
-# @app.route("/webhook/bouncie", methods=["POST"])
-# def bouncie_webhook():
-#     """
-#     Bouncie real-time webhook endpoint with enhanced logging.
-#     """
-#     wh_key = os.getenv("WEBHOOK_KEY")
-#     auth_header = request.headers.get("Authorization")
-
-#     logger.info("Received webhook request, validating authorization...") # Log request received
-
-#     if not auth_header or auth_header != wh_key:
-#         logger.warning(f"Webhook authorization failed. Invalid key received: {auth_header}") # Log warning for invalid key
-#         return jsonify({"error": "Invalid webhook key"}), 401
-
-#     logger.info("Webhook authorization successful.") # Log success
-
-#     try:
-#         data = request.json
-#         event_type = data.get("eventType")
-#         imei = data.get("imei")
-#         txid = data.get("transactionId")
-
-#         logger.debug(f"Webhook event received: type={event_type}, transactionId={txid}, imei={imei}") # Debug log event details
-
-#         if event_type == "tripStart":
-#             logger.info(f"Processing tripStart event for transactionId: {txid}") # Info log for tripStart
-#             realtime_data_collection.insert_one({
-#                 "transactionId": txid,
-#                 "imei": imei,
-#                 "event_type": event_type,
-#                 "timestamp": datetime.now(timezone.utc),
-#                 "data": data
-#             })
-#             emit_data = {
-#                 "transactionId": txid,
-#                 "imei": imei,
-#                 "start_time": datetime.now(timezone.utc).isoformat(),
-#             }
-#             socketio.emit("trip_started", emit_data)
-#             logger.debug(f"Emitted socketio 'trip_started' event for transactionId: {txid}") # Debug log socket emit
-
-#         elif event_type == "tripData":
-#             realtime_data_collection.insert_one({
-#                 "transactionId": txid,
-#                 "imei": imei,
-#                 "event_type": event_type,
-#                 "timestamp": datetime.now(timezone.utc),
-#                 "data": data
-#             })
-#             socketio.emit("trip_update", {
-#                 "transactionId": txid,
-#                 "path": data.get("data", [])
-#             })
-#             logger.debug(f"Webhook tripData event received and stored for transactionId: {txid}, emitting socketio 'trip_update'") # Debug log tripData
-
-#         elif event_type == "tripEnd":
-#             logger.info(f"Processing tripEnd webhook event for transactionId: {txid}")
-#             realtime_trip_data = list(realtime_data_collection.find({"transactionId": txid}).sort("timestamp", pymongo.ASCENDING)) # Ensure chronological order
-#             if not realtime_trip_data:
-#                 logger.warning(f"No realtime data found for transactionId: {txid} at tripEnd event.")
-#                 return jsonify({"status": "warning", "message": "No realtime data found, tripEnd processed but no data to finalize."}), 200
-
-#             try:
-#                 # We do not want to process the trip as before, so the logic changes here.
-#                 # Delete the trip data from the real-time collection
-#                 deleted_count = realtime_data_collection.delete_many({"transactionId": txid}).deleted_count # Cleanup after processing
-#                 if deleted_count > 0:
-#                     logger.info(f"Deleted {deleted_count} trip data entries for transactionId: {txid}")
-#                 else:
-#                     logger.warning(f"No trip data entries were deleted for transactionId: {txid}")
-#                 socketio.emit("trip_ended", {"transactionId": txid})
-#                 logger.info(f"Real-time trip {txid} processing completed and visualization ended.")
-#                 return jsonify({"status": "success"}), 200
-
-#             except Exception as e:
-#                 logger.error(f"Error processing tripEnd event for {txid}: {e}", exc_info=True)
-#                 return jsonify({"status": "error", "message": f"Error finalizing trip: {e}"}), 500
-
-#         return jsonify({"status": "success"}), 200
-#     except Exception as e:
-#         logger.error(f"webhook error: {e}", exc_info=True)
-#         return jsonify({"status": "success"}), 200 # Still return success for webhook ack
 
 
 #############################
