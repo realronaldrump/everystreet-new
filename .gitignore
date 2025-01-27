@@ -46,3 +46,4 @@ olddrivingdata
 .coverage
 database_conversion.py
 migrate_geo_points.py
+docs/document.json
