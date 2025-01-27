@@ -2379,10 +2379,6 @@ def delete_place(place_id):
 
 @app.route("/api/places/<place_id>/statistics")
 async def get_place_statistics(place_id):
-    """
-    Calculate how many times user ended a trip at that place.
-    Optimized to fetch trips with a geospatial query.
-    """
     try:
         p = places_collection.find_one({"_id": ObjectId(place_id)})
         if not p:
@@ -2392,7 +2388,8 @@ async def get_place_statistics(place_id):
         visits = []
         first_visit = None
         last_visit = None
-        current_time = datetime.now(timezone.utc)
+        
+        # NOTE: current_time logic will be removed.
 
         # Construct a geospatial query to find trips ending within the place's geometry
         query = {
@@ -2403,40 +2400,48 @@ async def get_place_statistics(place_id):
             }
         }
 
-        # Fetch relevant trips from each collection using the geospatial query
+        # Fetch relevant trips (regular/historical/uploaded)
         trips_cursor = trips_collection.find(query)
         historical_trips_cursor = historical_trips_collection.find(query)
         uploaded_trips_cursor = uploaded_trips_collection.find(query)
 
-        # Combine the results
-        all_trips = list(
-            trips_cursor) + list(historical_trips_cursor) + list(uploaded_trips_cursor)
+        all_trips = (
+            list(trips_cursor)
+            + list(historical_trips_cursor)
+            + list(uploaded_trips_cursor)
+        )
+        # Sort by endTime
         all_trips.sort(key=lambda x: x["endTime"])
 
         for i, t in enumerate(all_trips):
             try:
-                t_end = t["endTime"].replace(
-                    tzinfo=timezone.utc) if t["endTime"].tzinfo is None else t["endTime"]
+                # Normalize time to UTC
+                t_end = t["endTime"].replace(tzinfo=timezone.utc) \
+                    if t["endTime"].tzinfo is None else t["endTime"]
+
+                # Track first and last visits
                 if first_visit is None:
                     first_visit = t_end
-                last_visit = t_end  # Update last visit here
+                last_visit = t_end  # Keep updating as we go
 
+                # Only compute a duration if there's a *next* trip
                 if i < len(all_trips) - 1:
                     next_t = all_trips[i + 1]
-                    n_start = next_t["startTime"].replace(
-                        tzinfo=timezone.utc) if next_t["startTime"].tzinfo is None else next_t["startTime"]
-                    duration = (n_start - t_end).total_seconds() / 60.0
-                else:
-                    duration = (current_time - t_end).total_seconds() / 60.0
+                    n_start = next_t["startTime"].replace(tzinfo=timezone.utc) \
+                        if next_t["startTime"].tzinfo is None else next_t["startTime"]
 
-                visits.append(duration)
+                    duration = (n_start - t_end).total_seconds() / 60.0
+                    visits.append(duration)
+
+                # else: do nothing for the last trip
+                # (skip the "current_time - t_end" calculation entirely)
 
             except Exception as e:
                 logger.error(f"Place {p['name']} trip check error: {e}", exc_info=True)
                 continue
 
         total_visits = len(visits)
-        if total_visits:
+        if total_visits > 0:
             avg_min = sum(visits) / total_visits
             hh = int(avg_min // 60)
             mm = int(avg_min % 60)
