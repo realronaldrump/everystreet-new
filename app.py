@@ -1,5 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
 import asyncio
 import glob
 import io
@@ -26,18 +24,16 @@ from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
 from bson import ObjectId
 from dateutil import parser
 from dotenv import load_dotenv
-from flask import (
-    Flask,
+from quart import (
+    Quart,
     Response,
     jsonify,
     render_template,
     request,
     send_file,
-    session,
 )
-from flask_socketio import SocketIO
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from flask import render_template
+from quart import render_template
 from geojson import dumps as geojson_dumps, loads as geojson_loads
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
@@ -68,7 +64,7 @@ logging.basicConfig(level=logging.INFO,  # Set default level to INFO
                     format='%(asctime)s - %(levelname)s - %(name)s - %(message)s') # Simple format for console
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+app = Quart(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "supersecretfallback")
 
 # Bouncie config
@@ -388,36 +384,36 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
 
 
 #############################
-# Flask endpoints
+# Quart endpoints
 #############################
 
 
 @app.route("/")
-def index():
+async def index():
     """Renders the main map page."""
-    return render_template("index.html")
+    return await render_template("index.html")
 
 
 @app.route("/trips")
-def trips_page():
+async def trips_page():
     """Trips listing page."""
-    return render_template("trips.html")
+    return await render_template("trips.html")
 
 @app.route("/settings")
-def settings():
+async def settings():
     """Render the settings page."""
-    return render_template("settings.html")
+    return await render_template("settings.html")
 
 @app.route("/driving-insights")
-def driving_insights_page():
+async def driving_insights_page():
     """Driving insights page."""
-    return render_template("driving_insights.html")
+    return await render_template("driving_insights.html")
 
 
 @app.route("/visits")
-def visits_page():
+async def visits_page():
     """Custom places visits & stats page."""
-    return render_template("visits.html")
+    return await render_template("visits.html")
 
 #############################
 #  Fetch for geojson map
@@ -508,7 +504,7 @@ async def fetch_and_store_trips():
                 )
                 all_trips.extend(device_trips)
                 progress = int((device_count / total_devices) * 100)
-                socketio.emit("loading_progress", {"progress": progress})
+                # await socketio.emit("loading_progress", {"progress": progress})
 
             # Insert or update each trip
             for trip in all_trips:
@@ -606,11 +602,11 @@ def process_trip(trip):
         return None
 
 #############################
-# Flask endpoints
+# Quart endpoints
 #############################
 
 @app.route("/api/trips")
-def get_trips():
+async def get_trips():
     """
     Return regular, uploaded, historical trips as combined FeatureCollection.
     """
@@ -708,7 +704,7 @@ def format_idle_time(seconds):
 
 
 @app.route("/api/driving-insights")
-def get_driving_insights():
+async def get_driving_insights():
     """
     Summarize total trips, distances, speed, etc. across trips and uploads.
     """
@@ -820,7 +816,7 @@ def get_driving_insights():
 
 
 @app.route("/api/metrics")
-def get_metrics():
+async def get_metrics():
     """
     Example metrics for a date range:
     total trips, distance, average distance,
@@ -904,26 +900,26 @@ async def api_fetch_trips():
 
 
 @app.route("/api/fetch_trips_range", methods=["POST"])
-def api_fetch_trips_range():
+async def api_fetch_trips_range():
     """Fetch & store trips in a certain date range for all devices."""
     try:
-        data = request.json
+        data = await request.get_json()
         start_date = datetime.fromisoformat(
             data["start_date"]).replace(tzinfo=timezone.utc)
         end_date = datetime.fromisoformat(data["end_date"]).replace(
             hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
         ) + timedelta(days=1)
-        asyncio.run(fetch_and_store_trips_in_range(start_date, end_date))
+        await fetch_and_store_trips_in_range(start_date, end_date)
         return jsonify({"status": "success", "message": "Trips fetched & stored."}), 200
     except Exception as e:
         logger.error(f"Error in api_fetch_trips_range endpoint: {e}", exc_info=True) # Log endpoint specific errors
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/api/fetch_trips_last_hour", methods=["POST"])
-def api_fetch_trips_last_hour():
+async def api_fetch_trips_last_hour():
     """API endpoint to manually trigger fetching trips from the last hour."""
     try:
-        hourly_fetch_trips() # Call the function directly, no need for asyncio.run here as hourly_fetch_trips is already async
+        await hourly_fetch_trips() # Call the function directly
         return jsonify({"status": "success", "message": "Hourly trip fetch initiated."}), 200
     except Exception as e:
         logger.error(f"Error initiating hourly trip fetch via API: {e}", exc_info=True)
@@ -935,7 +931,7 @@ def api_fetch_trips_last_hour():
 
 
 @app.after_request
-def add_header(response):
+async def add_header(response):
     """
     Add no-cache headers.
     """
@@ -950,7 +946,7 @@ def add_header(response):
 
 
 @app.route("/export/geojson")
-def export_geojson():
+async def export_geojson():
     """
     Exports a range of trips as GeoJSON.
     """
@@ -1001,7 +997,7 @@ def export_geojson():
 
 
 @app.route("/export/gpx")
-def export_gpx():
+async def export_gpx():
     """
     Exports a range of trips as GPX.
     """
@@ -1068,34 +1064,38 @@ def start_background_tasks():
     """
     Starts background tasks using apscheduler.
     """
-    try:
-        scheduler = AsyncIOScheduler()
-        scheduler.add_job(
-            update_coverage_for_all_locations, "interval", minutes=60, max_instances=3
-        )
-        scheduler.add_job(
-            fetch_and_store_trips, "interval", minutes=60, max_instances=3
-        )
-        # Update GeoPoints for each collection
-        scheduler.add_job(
-            update_geo_points, "interval", minutes=60, max_instances=3, args=[trips_collection]
-        )
-        scheduler.add_job(
-            update_geo_points, "interval", minutes=60, max_instances=3, args=[historical_trips_collection]
-        )
-        scheduler.add_job(
-            update_geo_points, "interval", minutes=60, max_instances=3, args=[uploaded_trips_collection]
-        )
-        scheduler.add_job(
-            cleanup_invalid_trips, "interval", minutes=60, max_instances=3
-        )
-        scheduler.start()
-        logger.info("Background tasks started.")
+    async def run_scheduler():
+        try:
+            scheduler = AsyncIOScheduler()
+            scheduler.add_job(
+                update_coverage_for_all_locations, "interval", minutes=60, max_instances=3
+            )
+            scheduler.add_job(
+                fetch_and_store_trips, "interval", minutes=60, max_instances=3
+            )
+            # Update GeoPoints for each collection
+            scheduler.add_job(
+                update_geo_points, "interval", minutes=60, max_instances=3, args=[trips_collection]
+            )
+            scheduler.add_job(
+                update_geo_points, "interval", minutes=60, max_instances=3, args=[historical_trips_collection]
+            )
+            scheduler.add_job(
+                update_geo_points, "interval", minutes=60, max_instances=3, args=[uploaded_trips_collection]
+            )
+            scheduler.add_job(
+                cleanup_invalid_trips, "interval", minutes=60, max_instances=3
+            )
+            scheduler.start()
+            logger.info("Background tasks started.")
 
-        # Use socketio.start_background_task to run periodic_fetch_trips
-        socketio.start_background_task(periodic_fetch_trips)
-    except Exception as e:
-        logger.error(f"Error starting background tasks: {e}", exc_info=True)
+            # Use Quart's event loop to run periodic_fetch_trips
+            await periodic_fetch_trips()
+
+        except Exception as e:
+            logger.error(f"Error starting background tasks: {e}", exc_info=True)
+
+    asyncio.run(run_scheduler())
 
 
 async def hourly_fetch_trips():
@@ -1137,7 +1137,7 @@ async def hourly_fetch_trips():
 
 @app.route("/api/validate_location", methods=["POST"])
 async def validate_location():
-    data = request.json
+    data = await request.get_json()
     location = data.get("location")
     location_type = data.get("locationType")
     validated = await validate_location_osm(location, location_type)
@@ -1179,7 +1179,7 @@ async def generate_geojson():
     """
     Given a validated location with osm_id/type, query Overpass and return GeoJSON.
     """
-    data = request.json
+    data = await request.get_json()
     location = data.get("location")
     streets_only = data.get("streetsOnly", False)
     geojson_data, err = await generate_geojson_osm(location, streets_only)
@@ -1321,7 +1321,7 @@ async def map_match_trips():
     Initiates map matching for trips in a date range from 'trips_collection'.
     """
     try:
-        data = request.get_json()
+        data = await request.get_json()
         start_date_str = data.get("start_date")
         end_date_str = data.get("end_date")
 
@@ -1351,7 +1351,7 @@ async def map_match_historical_trips():
     Similar to map_match_trips but for 'historical_trips_collection'.
     """
     try:
-        data = request.json
+        data = await request.get_json()
         start_date_str = data.get("start_date")
         end_date_str = data.get("end_date")
 
@@ -1376,7 +1376,7 @@ async def map_match_historical_trips():
 
 
 @app.route("/api/matched_trips")
-def get_matched_trips():
+async def get_matched_trips():
     """
     Return matched trips from matched_trips_collection in a date range.
     """
@@ -1417,7 +1417,7 @@ def get_matched_trips():
 
 
 @app.route("/api/export/trip/<trip_id>")
-def export_single_trip(trip_id):
+async def export_single_trip(trip_id):
     """
     Exports a single trip by ID in geojson or gpx format (specify ?format=).
     """
@@ -1477,7 +1477,7 @@ def export_single_trip(trip_id):
 
 
 @app.route("/api/matched_trips/<trip_id>", methods=["DELETE"])
-def delete_matched_trip(trip_id):
+async def delete_matched_trip(trip_id):
     """
     Delete a matched trip doc by transactionId.
     """
@@ -1499,13 +1499,13 @@ def delete_matched_trip(trip_id):
 
 
 @app.route("/export")
-def export_page():
+async def export_page():
     """Renders the export page."""
-    return render_template("export.html")
+    return await render_template("export.html")
 
 
 @app.route("/api/export/trips")
-def export_trips():
+async def export_trips():
     """
     Provide direct link to exporting in geojson or gpx from an API standpoint.
     This delegates to create_geojson, create_gpx, etc.
@@ -1515,19 +1515,19 @@ def export_trips():
     end_date = request.args.get("end_date")
     fmt = request.args.get("format")
 
-    ts = fetch_all_trips(start_date, end_date)
+    ts = await fetch_all_trips(start_date, end_date)
 
     if fmt == "geojson":
-        geojson_data = create_geojson(ts)
-        return send_file(
+        geojson_data = await create_geojson(ts)
+        return await send_file(
             io.BytesIO(geojson_data.encode()),
             mimetype="application/geo+json",
             as_attachment=True,
             download_name="all_trips.geojson",
         )
     if fmt == "gpx":
-        gpx_data = create_gpx(ts)
-        return send_file(
+        gpx_data = await create_gpx(ts)
+        return await send_file(
             io.BytesIO(gpx_data.encode()),
             mimetype="application/gpx+xml",
             as_attachment=True,
@@ -1536,7 +1536,7 @@ def export_trips():
     return jsonify({"error": "Invalid export format"}), 400 # Handle invalid format here
 
 
-def fetch_all_trips(start_date_str, end_date_str):
+async def fetch_all_trips(start_date_str, end_date_str):
     sd = parser.parse(start_date_str)
     ed = parser.parse(end_date_str)
     query = {"startTime": {"$gte": sd, "$lte": ed}}
@@ -1558,7 +1558,7 @@ def fetch_trips(start_date_str, end_date_str):
     return list(trips_collection.find(query))
 
 
-def create_geojson(trips):
+async def create_geojson(trips):
     features = []
     for t in trips:
         gps_data = t["gps"]
@@ -1580,7 +1580,7 @@ def create_geojson(trips):
     return json.dumps({"type": "FeatureCollection", "features": features})
 
 
-def create_gpx(trips):
+async def create_gpx(trips):
     gpx = gpxpy.gpx.GPX()
     for t in trips:
         track = gpxpy.gpx.GPXTrack()
@@ -1607,9 +1607,8 @@ def create_gpx(trips):
         track.description = f"{t.get('startLocation')} => {t.get('destination')}"
     return gpx.to_xml()
 
-
 @app.route("/api/export/matched_trips")
-def export_matched_trips():
+async def export_matched_trips():
     """
     Export matched trips in geojson or gpx.
     """
@@ -1617,18 +1616,18 @@ def export_matched_trips():
     end_date = request.args.get("end_date")
     fmt = request.args.get("format")
 
-    ms = fetch_matched_trips(start_date, end_date)
+    ms = await fetch_matched_trips(start_date, end_date)
     if fmt == "geojson":
-        fc = create_geojson(ms)
-        return send_file(
+        fc = await create_geojson(ms)
+        return await send_file(
             io.BytesIO(fc.encode()),
             mimetype="application/geo+json",
             as_attachment=True,
             download_name="matched_trips.geojson",
         )
     if fmt == "gpx":
-        data = create_gpx(ms)
-        return send_file(
+        data = await create_gpx(ms)
+        return await send_file(
             io.BytesIO(data.encode()),
             mimetype="application/gpx+xml",
             as_attachment=True,
@@ -1636,13 +1635,11 @@ def export_matched_trips():
         )
     return jsonify({"error": "Invalid export format"}), 400 # Handle invalid format here
 
-
-def fetch_matched_trips(start_date_str, end_date_str):
+async def fetch_matched_trips(start_date_str, end_date_str):
     sd = parser.parse(start_date_str)
     ed = parser.parse(end_date_str)
     query = {"startTime": {"$gte": sd, "$lte": ed}}
     return list(matched_trips_collection.find(query))
-
 
 @app.route("/api/export/streets")
 async def export_streets():
@@ -1658,7 +1655,7 @@ async def export_streets():
         return jsonify({"error": "No data returned"}), 500
 
     if fmt == "geojson":
-        return send_file(
+        return await send_file(
             io.BytesIO(json.dumps(data).encode()),
             mimetype="application/geo+json",
             as_attachment=True,
@@ -1687,11 +1684,10 @@ async def export_streets():
                     os.remove(os.path.join(tmp_dir, f))
                 os.rmdir(tmp_dir)
         buf.seek(0)
-        return send_file(
+        return await send_file(
             buf, mimetype="application/zip", as_attachment=True, download_name="streets.zip"
         )
     return jsonify({"error": "Invalid export format"}), 400
-
 
 @app.route("/api/export/boundary")
 async def export_boundary():
@@ -1705,7 +1701,7 @@ async def export_boundary():
         return jsonify({"error": "No boundary data"}), 500
 
     if fmt == "geojson":
-        return send_file(
+        return await send_file(
             io.BytesIO(json.dumps(data).encode()),
             mimetype="application/geo+json",
             as_attachment=True,
@@ -1728,7 +1724,7 @@ async def export_boundary():
                 os.remove(os.path.join(tmp_dir, f))
             os.rmdir(tmp_dir)
         buf.seek(0)
-        return send_file(
+        return await send_file(
             buf, mimetype="application/zip", as_attachment=True, download_name="boundary.zip"
         )
     return jsonify({"error": "Invalid export format"}), 400
@@ -1737,7 +1733,6 @@ async def export_boundary():
 # Preprocessing Route
 #############################
 
-
 @app.route("/api/preprocess_streets", methods=["POST"])
 async def preprocess_streets_route():
     """
@@ -1745,7 +1740,7 @@ async def preprocess_streets_route():
     Expects JSON payload: {"location": "Davis, CA", "location_type": "city"}
     """
     try:
-        data = request.json
+        data = await request.get_json()
         location_query = data.get("location")
         # Default to "city" if not provided
         location_type = data.get("location_type", "city")
@@ -1760,7 +1755,7 @@ async def preprocess_streets_route():
             return jsonify({"status": "error", "message": "Invalid location"}), 400
 
         # Run the preprocessing script as an asynchronous task
-        socketio.start_background_task(run_preprocess_streets(validated_location, location_type))
+        # await socketio.start_background_task(run_preprocess_streets, validated_location, location_type)
 
         return jsonify(
             {
@@ -1802,9 +1797,8 @@ async def run_preprocess_streets(validated_location, location_type):
 # Street Segment Details Route
 #############################
 
-
 @app.route("/api/street_segment/<segment_id>", methods=["GET"])
-def get_street_segment_details(segment_id):
+async def get_street_segment_details(segment_id):
     """
     Returns details for a specific street segment.
     """
@@ -1824,14 +1818,13 @@ def get_street_segment_details(segment_id):
 # Street coverage
 #############################
 
-
 @app.route("/api/street_coverage", methods=["POST"])
-def get_street_coverage():
+async def get_street_coverage():
     """
     Return street coverage for a location, including segment data.
     """
     try:
-        data = request.json
+        data = await request.get_json()
         location = data.get("location")
         if not location or not isinstance(location, dict) or "display_name" not in location:
             return jsonify({"status": "error", "message": "Invalid location data."}), 400
@@ -1869,7 +1862,6 @@ def get_street_coverage():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # New function to update street coverage (to be called periodically or after new trips are added)
-
 
 async def update_street_coverage(location_name):
     """
@@ -1977,7 +1969,6 @@ async def update_street_coverage(location_name):
             f"Error updating street coverage for {location_name}: {e}")
         raise
 
-
 async def update_coverage_for_all_locations():
     """
     Updates street coverage for all locations in the coverage_metadata collection.
@@ -1990,7 +1981,6 @@ async def update_coverage_for_all_locations():
         except Exception as e:
             logger.error(f"Error updating coverage for {location}: {e}")
     logger.info("Finished periodic street coverage update.")
-
 
 def run_periodic_fetches():
     loop = asyncio.new_event_loop()
@@ -2065,8 +2055,8 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
 @app.route("/load_historical_data", methods=["POST"])
 async def load_historical_data_endpoint():
     """Load historical data route, for older geojson data files."""
-    start_date = request.json.get("start_date")
-    end_date = request.json.get("end_date")
+    start_date = (await request.get_json()).get("start_date")
+    end_date = (await request.get_json()).get("end_date")
     inserted_count = await load_historical_data(start_date, end_date)
     return jsonify({"message": f"Loaded historical data. Inserted {inserted_count} new trips."})
 
@@ -2079,9 +2069,8 @@ async def load_historical_data_endpoint():
 # Last trip point
 #############################
 
-
 @app.route("/api/last_trip_point")
-def get_last_trip_point():
+async def get_last_trip_point():
     """
     Return the last coordinate of the most recent trip for live tracking map init.
     """
@@ -2104,11 +2093,9 @@ def get_last_trip_point():
 # Upload
 #############################
 
-
 @app.route("/upload")
-def upload_page():
-    return render_template("upload.html")
-
+async def upload_page():
+    return await render_template("upload.html")
 
 @app.route("/api/upload_gpx", methods=["POST"])
 async def upload_gpx():
@@ -2116,8 +2103,8 @@ async def upload_gpx():
     Accept multi-file upload of GPX or GeoJSON. Insert into uploaded_trips_collection.
     """
     try:
-        files = request.files.getlist("files[]")
-        map_match = request.form.get("map_match", "false") == "true"
+        files = await request.files.getlist("files[]")
+        map_match = (await request.form).get("map_match", "false") == "true"
         if not files:
             return jsonify({"status": "error", "message": "No files found"}), 400
 
@@ -2125,7 +2112,7 @@ async def upload_gpx():
         for f in files:
             filename = f.filename.lower()
             if filename.endswith(".gpx"):
-                gpx_data = f.read()
+                gpx_data = await f.read()
                 gpx = gpxpy.parse(gpx_data)
                 for track in gpx.tracks:
                     for seg in track.segments:
@@ -2154,7 +2141,7 @@ async def upload_gpx():
                         success_count += 1
 
             elif filename.endswith(".geojson"):
-                data_geojson = json.loads(f.read())
+                data_geojson = json.loads(await f.read())
                 trips = process_geojson_trip(data_geojson)
                 if trips:
                     for t in trips:
@@ -2171,7 +2158,6 @@ async def upload_gpx():
         logger.error(f"Error upload_gpx: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 def calculate_gpx_distance(coords):
     """Calculate distance in meters from consecutive lon/lat pairs using gpxpy's haversine."""
     dist = 0
@@ -2179,12 +2165,10 @@ def calculate_gpx_distance(coords):
         lon1, lat1 = coords[i]
         lon2, lat2 = coords[i + 1]
         dist += gpxpy.geo.haversine_distance(lat1, lon1, lat2, lon2)
-    return dist
-
+        return dist
 
 def meters_to_miles(m):
     return m * 0.000621371
-
 
 async def process_and_store_trip(trip, uploaded=[]):
     """
@@ -2227,7 +2211,6 @@ async def process_and_store_trip(trip, uploaded=[]):
         logger.error(f"process_and_store_trip error: {e}", exc_info=True)
         raise
 
-
 def process_geojson_trip(geojson_data):
     """
     Extract trip-like features from a geojson FeatureCollection with 'properties'.
@@ -2267,7 +2250,6 @@ def process_geojson_trip(geojson_data):
         logger.error(f"Error in process_geojson_trip: {e}", exc_info=True)
         return None
 
-
 def calculate_distance(coords):
     """
     Approx distance in miles from consecutive coords in a linestring.
@@ -2282,9 +2264,8 @@ def calculate_distance(coords):
 # Manage uploaded trips
 #############################
 
-
 @app.route("/api/uploaded_trips")
-def get_uploaded_trips():
+async def get_uploaded_trips():
     """
     Return all uploaded trips.
     """
@@ -2301,9 +2282,8 @@ def get_uploaded_trips():
         logger.error(f"Error get_uploaded_trips: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @app.route("/api/uploaded_trips/<trip_id>", methods=["DELETE"])
-def delete_uploaded_trip(trip_id):
+async def delete_uploaded_trip(trip_id):
     """
     Delete a single uploaded trip by its DB _id.
     """
@@ -2317,14 +2297,13 @@ def delete_uploaded_trip(trip_id):
         logger.error(f"Error deleting uploaded trip: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @app.route("/api/uploaded_trips/bulk_delete", methods=["DELETE"])
-def bulk_delete_uploaded_trips():
+async def bulk_delete_uploaded_trips():
     """
     Delete multiple uploaded trips by their DB _id or transactionId. Also remove matched trips.
     """
     try:
-        data = request.json
+        data = await request.get_json()
         trip_ids = data.get("trip_ids", [])
         if not trip_ids:
             return jsonify({"status": "error", "message": "No trip IDs"}), 400
@@ -2366,9 +2345,8 @@ def bulk_delete_uploaded_trips():
 # Places
 #############################
 
-
 @app.route("/api/places", methods=["GET", "POST"])
-def handle_places():
+async def handle_places():
     """
     GET: Return all places
     POST: Insert new place
@@ -2378,17 +2356,15 @@ def handle_places():
         return jsonify([
             {"_id": str(p["_id"]), **CustomPlace.from_dict(p).to_dict()} for p in pls
         ])
-    data = request.json
+    data = await request.get_json()
     place = CustomPlace(data["name"], data["geometry"])
     r = places_collection.insert_one(place.to_dict())
     return jsonify({"_id": str(r.inserted_id), **place.to_dict()})
 
-
 @app.route("/api/places/<place_id>", methods=["DELETE"])
-def delete_place(place_id):
+async def delete_place(place_id):
     places_collection.delete_one({"_id": ObjectId(place_id)})
     return "", 204
-
 
 @app.route("/api/places/<place_id>/statistics")
 async def get_place_statistics(place_id):
@@ -2571,7 +2547,7 @@ async def get_non_custom_places_visits():
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/trip-analytics")
-def get_trip_analytics():
+async def get_trip_analytics():
     """
     Demo: Return daily distances & time distribution for charting.
     """
@@ -2610,7 +2586,6 @@ def get_trip_analytics():
         logger.error(f"Error trip analytics: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-
 def organize_daily_data(results):
     daily_data = {}
     for r in results:
@@ -2624,7 +2599,6 @@ def organize_daily_data(results):
         {"date": d, "distance": v["distance"], "count": v["count"]}
         for d, v in sorted(daily_data.items())
     ]
-
 
 def organize_hourly_data(results):
     hourly_data = {}
@@ -2640,28 +2614,33 @@ def organize_hourly_data(results):
 #############################
 
 @app.route("/stream")
-def stream():
+async def stream():
     """Server-Sent Events endpoint for live trip updates"""
-    def event_stream():
+    async def event_stream():
         while True:
             # Get active trips from live_trips_collection
             active_trips = live_trips_collection.find({})
             for trip in active_trips:
-                # Convert ObjectId to string for JSON serialization
+                # Convert ObjectId and datetime objects to strings
                 trip['_id'] = str(trip['_id']) if '_id' in trip else None
+                if 'startTime' in trip:
+                    trip['startTime'] = trip['startTime'].isoformat()
+                if 'lastUpdate' in trip:
+                    trip['lastUpdate'] = trip['lastUpdate'].isoformat()
+
                 data = json.dumps({
                     "type": "trip_update",
                     "data": trip
                 })
                 yield f"data: {data}\n\n"
-            time.sleep(1)  # Poll every second
+            await asyncio.sleep(1)  # Poll every second
 
     return Response(event_stream(), mimetype="text/event-stream")
 
 @app.route("/webhook/bouncie", methods=["POST"])
-def bouncie_webhook():
+async def bouncie_webhook():
     """Handle Bouncie webhooks and store in live_trips collection"""
-    data = request.json
+    data = await request.get_json()
     event_type = data.get("eventType")
     txid = data.get("transactionId")
 
@@ -2699,26 +2678,21 @@ def bouncie_webhook():
 
     return jsonify({"status": "success"}), 200
 
-
 #############################
 # Socket.IO events
 #############################
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 
+# @socketio.on("connect")
+# async def handle_connect():
+#     logger.info("Client connected (socket.io).")
 
-@socketio.on("connect")
-def handle_connect():
-    logger.info("Client connected (socket.io).")
-
-
-@socketio.on("disconnect")
-def handle_disconnect():
-    logger.info("Client disconnected (socket.io).")
+# @socketio.on("disconnect")
+# async def handle_disconnect():
+#     logger.info("Client disconnected (socket.io).")
 
 #############################
 # DB helpers
 #############################
-
 
 def get_trip_from_db(trip_id):
     try:
@@ -2739,7 +2713,6 @@ def get_trip_from_db(trip_id):
     except Exception as e:
         logger.error(f"Error retrieving trip {trip_id}: {e}", exc_info=True)
         return None
-
 
 def store_trip(trip):
     """
@@ -2926,15 +2899,14 @@ async def process_trip_data(trip):
         logger.error(f"Error in process_trip_data for trip {transaction_id}: {e}", exc_info=True)
         return trip
 
-
 # add the update geo points route to the settings page
 
 @app.route("/update_geo_points", methods=["POST"])
-def update_geo_points_route():
+async def update_geo_points_route():
     """
     Update GeoPoints for a given collection.
     """
-    collection_name = request.json.get("collection")
+    collection_name = (await request.get_json()).get("collection")
     if collection_name not in ["trips", "historical_trips", "uploaded_trips"]:
         return jsonify({"message": "Invalid collection name"}), 400
 
@@ -2947,7 +2919,7 @@ def update_geo_points_route():
         collection = uploaded_trips_collection
 
     try:
-        update_geo_points(collection)
+        await update_geo_points(collection)
         return jsonify({"message": f"GeoPoints updated for {collection_name}"})
     except Exception as e:
         logger.error(f"Error in update_geo_points_route: {e}", exc_info=True) # Log endpoint errors
@@ -2981,7 +2953,6 @@ def get_place_at_point(point):
             return p
     return None
 
-
 async def fetch_and_store_trips_in_range(start_date, end_date):
     """
     Main function used by /api/fetch_trips_range
@@ -3007,7 +2978,7 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                 logger.info(f"Fetched {len(dev_trips)} trips for {imei}")
                 all_trips.extend(dev_trips)
                 prog = (idx + 1) / total_devices * 100
-                socketio.emit("fetch_progress", {"progress": prog})
+                # await socketio.emit("fetch_progress", {"progress": prog})
 
             logger.info(f"Total fetched: {len(all_trips)}")
             processed_count = 0
@@ -3046,9 +3017,8 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
 # Earliest trip date
 #############################
 
-
 @app.route("/api/first_trip_date")
-def get_first_trip_date():
+async def get_first_trip_date():
     """
     Return earliest startTime across trips, uploaded, historical.
     """
@@ -3081,20 +3051,17 @@ def get_first_trip_date():
 # Error handlers
 #############################
 
-
 @app.errorhandler(404)
-def not_found_error(error):
+async def not_found_error(error):
     return jsonify({"error": "Endpoint not found"}), 404
 
-
 @app.errorhandler(500)
-def internal_error(error):
+async def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
 
 #############################
 # Cleanup invalid trips
 #############################
-
 
 async def cleanup_invalid_trips():
     """
@@ -3117,14 +3084,13 @@ async def cleanup_invalid_trips():
 # Bulk delete
 #############################
 
-
 @app.route("/api/trips/bulk_delete", methods=["DELETE"])
-def bulk_delete_trips():
+async def bulk_delete_trips():
     """
     Let user delete multiple trip docs by transactionId.
     """
     try:
-        data = request.json
+        data = await request.get_json()
         trip_ids = data.get("trip_ids", [])
         if not trip_ids:
             return jsonify({"status": "error", "message": "No trip IDs"}), 400
@@ -3146,7 +3112,6 @@ def bulk_delete_trips():
 #############################
 # GeoJSON trip from .geojson
 #############################
-
 
 def process_gpx(gpx):
     """
@@ -3173,15 +3138,13 @@ def process_gpx(gpx):
             })
     return out
 
-
 @app.route("/edit_trips")
-def edit_trips_page():
+async def edit_trips_page():
     """Renders the edit trips page."""
-    return render_template("edit_trips.html")
-
+    return await render_template("edit_trips.html")
 
 @app.route("/api/edit_trips", methods=["GET"])
-def get_edit_trips():
+async def get_edit_trips():
     """
     Return a list of trips for editing.
     """
@@ -3208,13 +3171,12 @@ def get_edit_trips():
         logger.error(f"Error fetching trips for editing: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Internal server error"}), 500
 
-
 @app.route("/api/trips/refresh_geocoding", methods=["POST"])
 async def refresh_geocoding_for_trips():
     """
     Refreshes geocoding for selected trips.
     """
-    data = request.get_json()
+    data = await request.get_json()
     trip_ids = data.get("trip_ids", [])
 
     updated_count = 0
@@ -3227,7 +3189,6 @@ async def refresh_geocoding_for_trips():
 
     return jsonify({"message": f"Geocoding refreshed for {updated_count} trips.", "updated_count": updated_count}), 200
 
-
 @app.route("/api/upload", methods=["POST"])
 async def upload_files():
     """
@@ -3235,18 +3196,18 @@ async def upload_files():
     Similar to /api/upload_gpx.
     """
     try:
-        files = request.files.getlist("files[]")
+        files = await request.files.getlist("files[]")
         count = 0
         up = []
         for f in files:
             if f.filename.endswith(".gpx"):
-                gpx = gpxpy.parse(f)
+                gpx = gpxpy.parse(await f.read())
                 gtrips = process_gpx(gpx)
                 for t in gtrips:
                     await process_and_store_trip(t, up)
                     count += 1
             elif f.filename.endswith(".geojson"):
-                data = json.load(f)
+                data = json.load(await f.read())
                 trips = process_geojson_trip(data)
                 if trips:
                     for t in trips:
@@ -3256,7 +3217,6 @@ async def upload_files():
     except Exception as e:
         logger.error(f"Error uploading: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 def validate_trip_update(data):
     try:
@@ -3269,14 +3229,13 @@ def validate_trip_update(data):
     except:
         return (False, "Invalid data format")
 
-
 @app.route("/api/trips/<trip_id>", methods=["PUT"])
-def update_trip(trip_id):
+async def update_trip(trip_id):
     """
     Generic update of a trip (regular or matched).
     """
     try:
-        data = request.json
+        data = await request.get_json()
         ttype = data.get("type")
         geometry = data.get("geometry")
         props = data.get("properties", {})
@@ -3340,9 +3299,8 @@ def update_trip(trip_id):
         logger.error(f"Error updating {trip_id}: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/api/trips/<trip_id>", methods=["GET"])
-def get_single_trip(trip_id):
+async def get_single_trip(trip_id):
     """
     Return single trip by _id from 'trips_collection'.
     """
@@ -3358,9 +3316,8 @@ def get_single_trip(trip_id):
         logger.error(f"get_single_trip error: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Internal server error"}), 500
 
-
 @app.route("/api/trips/<trip_id>", methods=["DELETE"])
-def delete_trip(trip_id):
+async def delete_trip(trip_id):
     """
     Deletes a trip by its ID.
     """
@@ -3386,9 +3343,8 @@ def delete_trip(trip_id):
         logger.error(f"Error deleting trip: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Internal server error"}), 500
 
-
 @app.route("/api/debug/trip/<trip_id>", methods=["GET"])
-def debug_trip(trip_id):
+async def debug_trip(trip_id):
     """
     Debug helper, check if found in trips or matched_trips, ID mismatch, etc.
     """
@@ -3414,11 +3370,13 @@ def debug_trip(trip_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 #############################
 # Run
 #############################
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8080"))
-    socketio.start_background_task(start_background_tasks) # Correct way to start the task
-    socketio.run(app, host="0.0.0.0", port=port, debug=False, allow_unsafe_werkzeug=True)
+    start_background_tasks()
+    # Use uvicorn or hypercorn to run the app
+    # Example using uvicorn:
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
