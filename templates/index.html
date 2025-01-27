@@ -1,8 +1,11 @@
-{% extends "base.html" %} {% block title %}Every Street - Map{% endblock %} {% block content %} <div class="d-flex flex-column h-100">
+{% extends "base.html" %} 
+{% block title %}Every Street - Map{% endblock %} 
+{% block content %}
+<div class="d-flex flex-column h-100">
   <!-- Map Container -->
-  <div id="map" class="flex-grow-1">
+  <div id="map" class="flex-grow-1 position-relative">
     <!-- Live Tracking Status Panel - Position absolutely within map -->
-    <div class="live-tracking-status card bg-dark border-secondary">
+    <div class="live-tracking-status card bg-dark border-secondary position-absolute top-0 end-0 m-3" style="z-index: 1000;">
       <div class="card-header border-secondary">
         <h5 class="mb-0">Live Tracking</h5>
       </div>
@@ -14,7 +17,7 @@
           </div>
           <div class="d-flex align-items-center">
             <span class="me-2">Active Trips:</span>
-            <span class="active-trips-count badge bg-primary">0</span>
+            <span id="active-trips-count" class="badge bg-primary">0</span>
           </div>
         </div>
         <div class="live-trip-metrics">
@@ -137,33 +140,45 @@
               <h3 class="h6 mb-0">Map Display Options</h3>
             </div>
             <div class="card-body">
-              <div class="d-grid gap-2">
-                <button id="highlight-recent-trips" class="btn btn-primary" type="button">
-                  <i class="fas fa-clock me-1"></i>
-                  <span class="button-text">Disable Recent Trips Highlight</span>
-                </button>
-                <!-- Room for additional display controls -->
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="highlight-recent-trips" checked>
+                <label class="form-check-label" for="highlight-recent-trips">Highlight Recent Trips</label>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </div> {% endblock %} {% block extra_css %}
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" /> {% endblock %} {% block extra_js %} <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-  <script src="{{ url_for('static', filename='js/custom-places.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/live_tracking.js') }}"></script>
-  <script>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+<style>
+    /* You can add custom styles here if needed */
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="{{ url_for('static', filename='js/custom-places.js') }}"></script>
+<script src="{{ url_for('static', filename='js/live_tracking.js') }}"></script>
+<script>
     document.addEventListener('DOMContentLoaded', () => {
-      // Wait for EveryStreet initialization
-      const checkMap = setInterval(() => {
-        const map = window.EveryStreet?.getMap();
-        if (map) {
-          clearInterval(checkMap);
-          window.liveTracker = new LiveTripTracker(map);
-        }
-      }, 100);
-      // Clear interval after 10 seconds to prevent infinite checking
-      setTimeout(() => clearInterval(checkMap), 10000);
+        const checkMap = setInterval(() => {
+            const map = window.EveryStreet?.getMap();
+            if (map) {
+                clearInterval(checkMap);
+                try {
+                    window.liveTracker = new LiveTripTracker(map);
+                } catch (e) {
+                    console.error('Error initializing LiveTripTracker:', e);
+                }
+            }
+        }, 100);
+
+        setTimeout(() => clearInterval(checkMap), 10000);
     });
-  </script> {% endblock %}
+</script>
+{% endblock %}

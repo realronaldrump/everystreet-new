@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 import asyncio
 import glob
 import io
@@ -1054,7 +1056,7 @@ def export_gpx():
 #############################
 
 
-async def start_background_tasks():
+def start_background_tasks():
     """
     Starts background tasks using apscheduler.
     """
@@ -1081,6 +1083,9 @@ async def start_background_tasks():
         )
         scheduler.start()
         logger.info("Background tasks started.")
+
+        # Use socketio.start_background_task to run periodic_fetch_trips
+        socketio.start_background_task(periodic_fetch_trips)
     except Exception as e:
         logger.error(f"Error starting background tasks: {e}", exc_info=True)
 
@@ -1747,7 +1752,7 @@ async def preprocess_streets_route():
             return jsonify({"status": "error", "message": "Invalid location"}), 400
 
         # Run the preprocessing script as an asynchronous task
-        asyncio.create_task(run_preprocess_streets(validated_location, location_type))
+        socketio.start_background_task(run_preprocess_streets(validated_location, location_type))
 
         return jsonify(
             {
@@ -2628,7 +2633,7 @@ def organize_hourly_data(results):
 
 
 @app.route("/webhook/bouncie", methods=["POST"])
-async def bouncie_webhook():
+def bouncie_webhook():
     """
     Bouncie real-time webhook endpoint with enhanced logging.
     """
@@ -2714,7 +2719,7 @@ async def bouncie_webhook():
 #############################
 # Socket.IO events
 #############################
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 
 
 @socketio.on("connect")
@@ -3431,6 +3436,5 @@ def debug_trip(trip_id):
 #############################
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8080"))
-    asyncio.run(start_background_tasks()) # Run startup tasks
-    socketio.run(app, host="0.0.0.0", port=port,
-                 debug=False, allow_unsafe_werkzeug=True)
+    socketio.start_background_task(start_background_tasks) # Correct way to start the task
+    socketio.run(app, host="0.0.0.0", port=port, debug=False, allow_unsafe_werkzeug=True)
