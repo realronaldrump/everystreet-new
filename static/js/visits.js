@@ -1,4 +1,4 @@
-/* global L, EveryStreet, LoadingManager, Chart */
+/* global L, EveryStreet, LoadingManager, Chart, $ */
 
 class VisitsManager {
     constructor(map) {
@@ -8,9 +8,12 @@ class VisitsManager {
         this.currentPolygon = null;
         this.visitsChart = null;
         this.visitsTable = null;
+        this.tripsTable = null; // For the detailed trips view
         this.drawingEnabled = false;
         this.customPlacesLayer = null;
-        this.loadingManager = new LoadingManager(); // Use the LoadingManager
+        this.loadingManager = new LoadingManager();
+
+        this.isDetailedView = false; // Track if in detailed view
 
         this.initialize();
     }
@@ -125,6 +128,12 @@ class VisitsManager {
             ],
             columns: [{
                     data: 'name',
+                    render: (data, type, row) => {
+                        if (type === 'display') {
+                            return `<a href="#" class="place-link" data-place-id="${row._id}">${data}</a>`;
+                        }
+                        return data;
+                    }
                 },
                 {
                     data: 'totalVisits',
@@ -146,6 +155,39 @@ class VisitsManager {
                 emptyTable: 'No visits recorded for custom places',
             },
         });
+
+        this.tripsTable = $('#trips-for-place-table').DataTable({
+            responsive: true,
+            order: [[1, "desc"]], // Add default sorting to endTime column (index 1)
+            columns: [
+                { data: 'transactionId' },
+                {
+                    data: 'endTime',
+                    render: function(data, type, row) {
+                        if (type === 'display' || type === 'filter') {
+                            return new Date(data).toLocaleDateString();
+                        }
+                        return data; // Use the raw data for sorting
+                    }
+                },
+                {
+                    data: 'endTime',
+                    render: function(data, type, row) {
+                        if (type === 'display' || type === 'filter') {
+                            // Assuming you have the timezone info in your data
+                            const timezone = row.timeZone || 'America/Chicago'; 
+                            return new Date(data).toLocaleTimeString([], { timeZone: timezone, hour: '2-digit', minute: '2-digit' });
+                        }
+                        return data; // Use the raw data for sorting
+                    }
+                },
+                { data: 'duration' },
+                { data: 'timeSinceLastVisit' },
+            ],
+            language: {
+                emptyTable: 'No trips found for this place',
+            },
+        });
     }
 
     setupEventListeners() {
@@ -164,6 +206,18 @@ class VisitsManager {
             this.currentPolygon = e.layer;
             this.map.addLayer(this.currentPolygon);
             document.getElementById('save-place').disabled = false;
+        });
+
+        // Add event listener for place links using event delegation
+        $('#visits-table').on('click', '.place-link', (event) => {
+            event.preventDefault();
+            const placeId = $(event.target).data('place-id');
+            this.toggleView(placeId);
+        });
+
+        // Add event listener for toggle view button
+        document.getElementById('toggle-view-btn').addEventListener('click', () => {
+            this.toggleView();
         });
     }
 
@@ -237,6 +291,7 @@ class VisitsManager {
                 }
                 const stats = await response.json();
                 visitsData.push({
+                    _id: id, // Add the _id field here
                     name: place.name,
                     totalVisits: stats.totalVisits,
                     firstVisit: stats.firstVisit,
@@ -346,21 +401,67 @@ class VisitsManager {
                 throw new Error('Failed to fetch place statistics');
             }
             const stats = await response.json();
-
-            // Update the visits table with the new statistics
-            const visitsData = [{
-                name: this.places.get(placeId).name,
-                totalVisits: stats.totalVisits,
-                firstVisit: stats.firstVisit,
-                lastVisit: stats.lastVisit,
-                avgTimeSpent: stats.averageTimeSpent,
-            }, ];
-
-            this.visitsTable.clear().rows.add(visitsData).draw();
+    
+            // Create the content for the popup
+            const popupContent = `
+                <div class="custom-place-popup">
+                    <h6>${this.places.get(placeId).name}</h6>
+                    <p>Total Visits: ${stats.totalVisits}</p>
+                    <p>First Visit: ${stats.firstVisit ? new Date(stats.firstVisit).toLocaleDateString() : 'N/A'}</p>
+                    <p>Last Visit: ${stats.lastVisit ? new Date(stats.lastVisit).toLocaleDateString() : 'N/A'}</p>
+                    <p>Avg Time Spent: ${stats.averageTimeSpent || 'N/A'}</p>
+                    <p>Avg Time Since Last Visit: ${stats.averageTimeSinceLastVisit ? stats.averageTimeSinceLastVisit.toFixed(2) + ' hours' : 'N/A'}</p>
+                </div>
+            `;
+    
+            // Find the layer associated with the placeId and update its popup content
+            this.customPlacesLayer.eachLayer(layer => {
+                if (layer.feature && layer.feature.properties.placeId === placeId) {
+                    layer.setPopupContent(popupContent);
+                }
+            });
+    
             this.loadingManager.finish();
         } catch (error) {
             console.error('Error fetching place statistics:', error);
             this.loadingManager.error('Failed to fetch place statistics');
+        }
+    }
+
+    async toggleView(placeId = null) {
+        this.isDetailedView = !this.isDetailedView;
+
+        if (this.isDetailedView) {
+            if (!placeId) {
+                console.error("Place ID is undefined");
+                this.isDetailedView = false;
+                return;
+            }
+            await this.showTripsForPlace(placeId);
+            document.getElementById('visits-table-container').style.display = 'none';
+            document.getElementById('trips-for-place-container').style.display = 'block';
+            document.getElementById('toggle-view-btn').textContent = 'Show All Places';
+        } else {
+            document.getElementById('visits-table-container').style.display = 'block';
+            document.getElementById('trips-for-place-container').style.display = 'none';
+            document.getElementById('toggle-view-btn').textContent = 'Show Trips for Selected Place';
+        }
+    }
+
+    async showTripsForPlace(placeId) {
+        try {
+            const response = await fetch(`/api/places/${placeId}/trips`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch trips for place');
+            }
+            const trips = await response.json();
+    
+            // Sort trips by endTime in descending order (most recent first)
+            trips.sort((a, b) => new Date(b.endTime) - new Date(a.endTime));
+    
+            this.tripsTable.clear().rows.add(trips).draw();
+        } catch (error) {
+            console.error('Error fetching trips for place:', error);
         }
     }
 }
