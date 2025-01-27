@@ -295,9 +295,11 @@
 
     function initializeDatePickers() {
         const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
         const commonConfig = {
             dateFormat: 'Y-m-d',
-            maxDate: today,
+            maxDate: tomorrow,
             enableTime: false,
             static: true,
             onChange: () => {},

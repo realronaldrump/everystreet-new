@@ -16,19 +16,24 @@ function initializeDatePickers() {
     const endDate = document.getElementById('end-date');
 
     if (startDate && endDate) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
 
         // Get dates from localStorage or use today
         const storedStartDate = localStorage.getItem('startDate');
         const storedEndDate = localStorage.getItem('endDate');
 
-        startDate.value = storedStartDate || today;
-        endDate.value = storedEndDate || today;
+        startDate.max = tomorrow.toISOString().split('T')[0];
+        endDate.max = tomorrow.toISOString().split('T')[0];
+
+        startDate.value = storedStartDate || today.toISOString().split('T')[0];
+        endDate.value = storedEndDate || today.toISOString().split('T')[0];
 
         // Store dates if not already stored
         if (!storedStartDate || !storedEndDate) {
-            localStorage.setItem('startDate', today);
-            localStorage.setItem('endDate', today);
+            localStorage.setItem('startDate', today.toISOString().split('T')[0]);
+            localStorage.setItem('endDate', today.toISOString().split('T')[0]);
         }
     }
 }
