@@ -2517,6 +2517,46 @@ async def get_trips_for_place(place_id):
         logger.error(f"Error fetching trips for place {place_id}: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/non_custom_places_visits")
+async def get_non_custom_places_visits():
+    """
+    Returns visit statistics for places that are NOT custom places (i.e., geocoded destinations).
+    """
+    try:
+        # Use aggregation to find frequent destinations that are not custom places
+        pipeline = [
+            {"$match": {"destination": {"$ne": None}, "destinationPlaceId": None}}, # Destination exists, but not a custom place
+            {"$group": {
+                "_id": "$destination",
+                "totalVisits": {"$sum": 1},
+                "firstVisit": {"$min": "$endTime"},
+                "lastVisit": {"$max": "$endTime"},
+            }},
+            {"$match": {"totalVisits": {"$gte": 5}}},  # Only include places visited at least 5 times (you can adjust this)
+            {"$sort": {"totalVisits": -1}}, # Sort by most visited
+        ]
+
+        # Combine results from all three collections
+        all_trips = list(trips_collection.aggregate(pipeline)) + \
+                    list(historical_trips_collection.aggregate(pipeline)) + \
+                    list(uploaded_trips_collection.aggregate(pipeline))
+
+        # Process the results to match the expected format
+        visits_data = []
+        for doc in all_trips:
+            visits_data.append({
+                "name": doc["_id"],
+                "totalVisits": doc["totalVisits"],
+                "firstVisit": doc["firstVisit"].isoformat() if doc["firstVisit"] else None,
+                "lastVisit": doc["lastVisit"].isoformat() if doc["lastVisit"] else None,
+            })
+
+        return jsonify(visits_data)
+
+    except Exception as e:
+        logger.error(f"Error fetching non-custom place visits: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/trip-analytics")
 def get_trip_analytics():
     """

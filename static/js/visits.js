@@ -27,7 +27,8 @@ class VisitsManager {
             this.loadingManager.addSubOperation('chart', 10);
             this.loadingManager.addSubOperation('table', 10);
             this.loadingManager.addSubOperation('listeners', 10);
-            this.loadingManager.addSubOperation('places', 40);
+            this.loadingManager.addSubOperation('places', 30);
+            this.loadingManager.addSubOperation('nonCustom', 10);
 
             await this.initializeMap();
             this.loadingManager.updateSubOperation('map', 100);
@@ -38,7 +39,7 @@ class VisitsManager {
             this.initializeChart();
             this.loadingManager.updateSubOperation('chart', 100);
 
-            this.initializeTable();
+            this.initializeTables();
             this.loadingManager.updateSubOperation('table', 100);
 
             this.setupEventListeners();
@@ -46,6 +47,9 @@ class VisitsManager {
 
             await this.loadPlaces();
             this.loadingManager.updateSubOperation('places', 100);
+
+            await this.loadNonCustomPlacesVisits();
+            this.loadingManager.updateSubOperation('nonCustom', 100);
 
             this.loadingManager.finish();
         } catch (error) {
@@ -120,17 +124,18 @@ class VisitsManager {
         });
     }
 
-    initializeTable() {
+    initializeTables() {
         this.visitsTable = $('#visits-table').DataTable({
             responsive: true,
             order: [
                 [1, 'desc']
             ],
-            columns: [{
+            columns: [
+                {
                     data: 'name',
                     render: (data, type, row) => {
                         if (type === 'display') {
-                            return `<a href="#" class="place-link" data-place-id="${row._id}">${data}</a>`;
+                            return `<button class="btn btn-link place-link" data-place-id="${row._id}">${data}</button>`;
                         }
                         return data;
                     }
@@ -140,7 +145,7 @@ class VisitsManager {
                 },
                 {
                     data: 'firstVisit',
-                    render: (data) => (data ? new Date(data).toLocaleDateString() : 'N/A'),
+                    render: (data, type) => (data ? new Date(data).toLocaleDateString() : 'N/A'),
                 },
                 {
                     data: 'lastVisit',
@@ -155,30 +160,43 @@ class VisitsManager {
                 emptyTable: 'No visits recorded for custom places',
             },
         });
+    
+        this.nonCustomVisitsTable = $('#non-custom-visits-table').DataTable({
+            responsive: true,
+            order: [[1, 'desc']],
+            columns: [
+                { data: 'name' },
+                { data: 'totalVisits' },
+                { data: 'firstVisit', render: (data) => (data ? new Date(data).toLocaleDateString() : 'N/A') },
+                { data: 'lastVisit', render: (data) => (data ? new Date(data).toLocaleDateString() : 'N/A') },
+            ],
+            language: {
+                emptyTable: 'No visits recorded for non-custom places',
+            },
+        });
 
         this.tripsTable = $('#trips-for-place-table').DataTable({
             responsive: true,
-            order: [[1, "desc"]], // Add default sorting to endTime column (index 1)
+            order: [[1, "desc"]], // Sort by the "Date" column (index 1) in descending order
             columns: [
                 { data: 'transactionId' },
-                {
+                { 
                     data: 'endTime',
                     render: function(data, type, row) {
                         if (type === 'display' || type === 'filter') {
                             return new Date(data).toLocaleDateString();
                         }
-                        return data; // Use the raw data for sorting
+                        return data; // Use raw data for sorting
                     }
                 },
                 {
                     data: 'endTime',
                     render: function(data, type, row) {
                         if (type === 'display' || type === 'filter') {
-                            // Assuming you have the timezone info in your data
                             const timezone = row.timeZone || 'America/Chicago'; 
                             return new Date(data).toLocaleTimeString([], { timeZone: timezone, hour: '2-digit', minute: '2-digit' });
                         }
-                        return data; // Use the raw data for sorting
+                        return data; 
                     }
                 },
                 { data: 'duration' },
@@ -462,6 +480,19 @@ class VisitsManager {
             this.tripsTable.clear().rows.add(trips).draw();
         } catch (error) {
             console.error('Error fetching trips for place:', error);
+        }
+    }
+
+    async loadNonCustomPlacesVisits() {
+        try {
+            const response = await fetch('/api/non_custom_places_visits');
+            if (!response.ok) {
+                throw new Error('Failed to fetch visits for non-custom places');
+            }
+            const visitsData = await response.json();
+            this.nonCustomVisitsTable.clear().rows.add(visitsData).draw();
+        } catch (error) {
+            console.error('Error fetching visits for non-custom places:', error);
         }
     }
 }

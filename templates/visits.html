@@ -37,8 +37,7 @@
                         <i class="fas fa-cog me-1"></i> Manage Places
                     </button>
                     <div id="places-list" class="list-group">
-                        <!-- Places will be populated here -->
-                    </div>
+                        </div>
                 </div>
             </div>
         </div>
@@ -66,24 +65,52 @@
         <!-- Visit Statistics -->
         <div class="col-12" id="visits-table-container">
             <div class="card bg-dark border-secondary">
-                <div class="card-header border-secondary">
+                <div class="card-header border-secondary d-flex justify-content-between align-items-center">
                     <h3 class="h5 mb-0">Visit Statistics</h3>
+                    <button id="toggle-view-btn" class="btn btn-sm btn-outline-primary">Show Trips for Selected Place</button>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <canvas id="visitsChart"></canvas>
+                    <ul class="nav nav-tabs" id="visitsTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="custom-places-tab" data-bs-toggle="tab" data-bs-target="#custom-places-content" type="button" role="tab">Custom Places</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="non-custom-places-tab" data-bs-toggle="tab" data-bs-target="#non-custom-places-content" type="button" role="tab">Non-Custom Places</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content" id="visitsTabContent">
+                        <div class="tab-pane fade show active" id="custom-places-content" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <canvas id="visitsChart"></canvas>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="table-responsive">
+                                        <table id="visits-table" class="table table-dark table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>Place</th>
+                                                    <th>Total Visits</th>
+                                                    <th>First Visit</th>
+                                                    <th>Last Visit</th>
+                                                    <th>Avg Time Spent</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="tab-pane fade" id="non-custom-places-content" role="tabpanel">
                             <div class="table-responsive">
-                                <table id="visits-table" class="table table-dark table-striped">
+                                <table id="non-custom-visits-table" class="table table-dark table-striped">
                                     <thead>
                                         <tr>
                                             <th>Place</th>
                                             <th>Total Visits</th>
                                             <th>First Visit</th>
                                             <th>Last Visit</th>
-                                            <th>Avg Time Spent</th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody>
