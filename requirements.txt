@@ -24,3 +24,4 @@ apscheduler
 uvicorn
 python-socketio
 gevent
+fiona

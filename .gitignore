@@ -43,3 +43,4 @@ static/favicon.ico
 static/site.webmanifest
 drivingdatainapi
 olddrivingdata
+.coverage
