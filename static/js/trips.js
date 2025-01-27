@@ -182,7 +182,7 @@ function initializeEventListeners() {
     
             // If there's existing geometry, include it
             if (rowData.geometry || rowData.gps) {
-                updatePayload.geometry = rowData.geometry || JSON.parse(rowData.gps);
+                updatePayload.geometry = rowData.geometry || rowData.gps;
             }
     
             const response = await fetch(`/api/trips/${tripId}`, {
