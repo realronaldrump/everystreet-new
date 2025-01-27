@@ -757,15 +757,6 @@ canvas {
   }
 }
 
-/* Live Tracking Status */
-.live-tracking-status {
-  background-color: rgba(33, 37, 41, 0.9) !important;
-  min-width: 250px;
-  position: absolute;
-  right: 20px;
-  top: 20px;
-  z-index: 1000;
-}
 
 .status-indicator {
   background-color: #dc3545;
@@ -785,10 +776,6 @@ canvas {
   padding: 0.25rem 0.5rem;
 }
 
-.live-trip-metrics {
-  color: #ffffff;
-  font-size: 0.9rem;
-}
 
 @keyframes pulse {
   0% {
@@ -961,13 +948,6 @@ canvas {
 }
 
 
-.vehicle-marker i {
-  animation: pulse 1.5s infinite;
-  color: #FF5722;
-  font-size: 24px;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
 /* Trip Marker */
 .trip-marker {
   align-items: center;
@@ -1073,4 +1053,52 @@ canvas {
 .place-link:focus {
   text-decoration: underline;
   color: var(--primary-variant); /* Lighter shade of primary color on hover/focus */
+}
+
+/* Live Tracking Status Styles */
+.live-tracking-status {
+  min-width: 300px;
+  max-width: 400px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+
+.status-indicator.connected {
+  background-color: #28a745;
+  animation: pulse 2s infinite;
+}
+
+.live-trip-metrics {
+  font-size: 0.9rem;
+}
+
+.trip-metrics {
+  background: rgba(0,0,0,0.2);
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.trip-metrics:last-child {
+  margin-bottom: 0;
+}
+
+.trip-end-marker {
+  color: #4CAF50;
+  text-shadow: 0 0 4px rgba(76,175,80,0.8);
+}
+
+@keyframes pulse {
+  0% {
+      transform: scale(1);
+      opacity: 1;
+  }
+  50% {
+      transform: scale(1.2);
+      opacity: 0.7;
+  }
+  100% {
+      transform: scale(1);
+      opacity: 1;
+  }
 }
