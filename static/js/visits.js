@@ -9,6 +9,7 @@ class VisitsManager {
         this.visitsChart = null;
         this.visitsTable = null;
         this.tripsTable = null; // For the detailed trips view
+        this.nonCustomVisitsTable = null;
         this.drawingEnabled = false;
         this.customPlacesLayer = null;
         this.loadingManager = new LoadingManager();
@@ -128,14 +129,14 @@ class VisitsManager {
         this.visitsTable = $('#visits-table').DataTable({
             responsive: true,
             order: [
-                [1, 'desc']
+                [3, 'desc'] // Sort by last visit (index 3) in descending order initially
             ],
-            columns: [
-                {
+            columns: [{
                     data: 'name',
                     render: (data, type, row) => {
                         if (type === 'display') {
-                            return `<button class="btn btn-link place-link" data-place-id="${row._id}">${data}</button>`;
+                            // Style the place name as a link and add data attribute
+                            return `<a href="#" class="place-link" data-place-id="${row._id}">${data}</a>`;
                         }
                         return data;
                     }
@@ -145,11 +146,21 @@ class VisitsManager {
                 },
                 {
                     data: 'firstVisit',
-                    render: (data, type) => (data ? new Date(data).toLocaleDateString() : 'N/A'),
+                    render: (data, type) => {
+                        if (type === 'display' || type === 'filter') {
+                            return data ? new Date(data).toLocaleDateString('en-US') : 'N/A';
+                        }
+                        return data; // Use raw data for sorting
+                    }
                 },
                 {
                     data: 'lastVisit',
-                    render: (data) => (data ? new Date(data).toLocaleDateString() : 'N/A'),
+                    render: (data, type) => {
+                        if (type === 'display' || type === 'filter') {
+                            return data ? new Date(data).toLocaleDateString('en-US') : 'N/A';
+                        }
+                        return data; // Use raw data for sorting
+                    }
                 },
                 {
                     data: 'avgTimeSpent',
@@ -160,15 +171,31 @@ class VisitsManager {
                 emptyTable: 'No visits recorded for custom places',
             },
         });
-    
+
         this.nonCustomVisitsTable = $('#non-custom-visits-table').DataTable({
             responsive: true,
-            order: [[1, 'desc']],
+            order: [[3, 'desc']], // Sort by last visit (index 3) in descending order
             columns: [
                 { data: 'name' },
                 { data: 'totalVisits' },
-                { data: 'firstVisit', render: (data) => (data ? new Date(data).toLocaleDateString() : 'N/A') },
-                { data: 'lastVisit', render: (data) => (data ? new Date(data).toLocaleDateString() : 'N/A') },
+                {
+                    data: 'firstVisit',
+                    render: (data, type) => {
+                        if (type === 'display' || type === 'filter') {
+                            return data ? new Date(data).toLocaleDateString('en-US') : 'N/A';
+                        }
+                        return data; // Use raw data for sorting
+                    }
+                },
+                {
+                    data: 'lastVisit',
+                    render: (data, type) => {
+                        if (type === 'display' || type === 'filter') {
+                            return data ? new Date(data).toLocaleDateString('en-US') : 'N/A';
+                        }
+                        return data; // Use raw data for sorting
+                    }
+                },
             ],
             language: {
                 emptyTable: 'No visits recorded for non-custom places',
@@ -177,26 +204,27 @@ class VisitsManager {
 
         this.tripsTable = $('#trips-for-place-table').DataTable({
             responsive: true,
-            order: [[1, "desc"]], // Sort by the "Date" column (index 1) in descending order
+            order: [[1, "desc"]], // Sort by endTime (index 1) in descending order
             columns: [
                 { data: 'transactionId' },
-                { 
+                {
                     data: 'endTime',
                     render: function(data, type, row) {
                         if (type === 'display' || type === 'filter') {
-                            return new Date(data).toLocaleDateString();
+                            return new Date(data).toLocaleDateString('en-US');
                         }
-                        return data; // Use raw data for sorting
+                        return data; // Use the raw data for sorting
                     }
                 },
                 {
                     data: 'endTime',
                     render: function(data, type, row) {
                         if (type === 'display' || type === 'filter') {
+                            // Assuming you have the timezone info in your data
                             const timezone = row.timeZone || 'America/Chicago'; 
-                            return new Date(data).toLocaleTimeString([], { timeZone: timezone, hour: '2-digit', minute: '2-digit' });
+                            return new Date(data).toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit' });
                         }
-                        return data; 
+                        return data; // Use the raw data for sorting
                     }
                 },
                 { data: 'duration' },
@@ -226,15 +254,15 @@ class VisitsManager {
             document.getElementById('save-place').disabled = false;
         });
 
-        // Add event listener for place links using event delegation
-        $('#visits-table').on('click', '.place-link', (event) => {
+        // Handle clicks on place links in both tables
+        $('#visits-table, #non-custom-visits-table').on('click', '.place-link', (event) => {
             event.preventDefault();
             const placeId = $(event.target).data('place-id');
             this.toggleView(placeId);
         });
 
-        // Add event listener for toggle view button
-        document.getElementById('toggle-view-btn').addEventListener('click', () => {
+        // Toggle view button (moved to the table header)
+        $('#visits-table-container').on('click', '#toggle-view-btn', () => {
             this.toggleView();
         });
     }
@@ -448,8 +476,10 @@ class VisitsManager {
 
     async toggleView(placeId = null) {
         this.isDetailedView = !this.isDetailedView;
-
+    
         if (this.isDetailedView) {
+            // Hide the chart
+            document.getElementById('visitsChart').style.display = 'none';
             if (!placeId) {
                 console.error("Place ID is undefined");
                 this.isDetailedView = false;
@@ -460,6 +490,8 @@ class VisitsManager {
             document.getElementById('trips-for-place-container').style.display = 'block';
             document.getElementById('toggle-view-btn').textContent = 'Show All Places';
         } else {
+            // Show the chart again
+            document.getElementById('visitsChart').style.display = 'block';
             document.getElementById('visits-table-container').style.display = 'block';
             document.getElementById('trips-for-place-container').style.display = 'none';
             document.getElementById('toggle-view-btn').textContent = 'Show Trips for Selected Place';
