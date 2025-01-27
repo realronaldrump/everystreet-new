@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateGeoPointsBtn = document.getElementById('update-geo-points');
     const collectionSelect = document.getElementById('collection-select');
     const updateStatus = document.getElementById('update-geo-points-status');
+    const regeocodeAllTripsBtn = document.getElementById('re-geocode-all-trips');
+    const regeocodeStatus = document.getElementById('re-geocode-all-trips-status');
 
     if (loadHistoricalDataBtn) {
         loadHistoricalDataBtn.addEventListener('click', loadHistoricalData);
@@ -12,6 +14,20 @@ document.addEventListener('DOMContentLoaded', () => {
         updateGeoPointsBtn.addEventListener('click', () => {
             const selectedCollection = collectionSelect.value;
             updateGeoPoints(selectedCollection);
+        });
+    }
+
+    if (regeocodeAllTripsBtn) {
+        regeocodeAllTripsBtn.addEventListener('click', () => {
+            regeocodeStatus.textContent = 'Re-geocoding all trips... This may take a while.';
+            regeocodeAllTrips()
+                .then(() => {
+                    regeocodeStatus.textContent = 'All trips have been re-geocoded.';
+                })
+                .catch((error) => {
+                    console.error('Error re-geocoding trips:', error);
+                    regeocodeStatus.textContent = 'Error re-geocoding trips. See console for details.';
+                });
         });
     }
 });
@@ -36,8 +52,8 @@ function loadHistoricalData() {
     })
     .then((data) => {
         alert(data.message);
-        if (window.fetchTrips) {
-            window.fetchTrips();
+        if (window.EveryStreet && window.EveryStreet.Map) {
+            window.EveryStreet.Map.fetchTrips();
         }
     })
     .catch((err) => {
@@ -67,4 +83,16 @@ function updateGeoPoints(collectionName) {
         console.error('Error:', error);
         updateStatus.textContent = 'Error updating GeoPoints.';
     });
+}
+
+async function regeocodeAllTrips() {
+    const response = await fetch('/api/regeocode_all_trips', {
+        method: 'POST',
+    });
+
+    if (!response.ok) {
+        throw new Error('Network response was not ok');
+    }
+
+    return response.json();
 }

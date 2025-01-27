@@ -2924,6 +2924,22 @@ def update_geo_points_route():
         logger.error(f"Error in update_geo_points_route: {e}", exc_info=True) # Log endpoint errors
         return jsonify({"message": f"Error updating GeoPoints: {e}"}), 500
 
+@app.route("/api/regeocode_all_trips", methods=["POST"])
+async def regeocode_all_trips():
+    """
+    Re-geocodes all trips in the database to check if they are within custom places.
+    """
+    try:
+        collections = [trips_collection, historical_trips_collection, uploaded_trips_collection]
+        for collection in collections:
+            for trip in collection.find({}):  # Iterate synchronously using regular for loop
+                await process_trip_data(trip)  # Still await the async function
+                collection.replace_one({"_id": trip["_id"]}, trip)
+
+        return jsonify({"message": "All trips re-geocoded successfully."})
+    except Exception as e:
+        logger.error(f"Error in regeocode_all_trips: {e}", exc_info=True)
+        return jsonify({"message": f"Error re-geocoding trips: {e}"}), 500
 
 def get_place_at_point(point):
     """
