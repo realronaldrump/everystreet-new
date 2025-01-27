@@ -44,3 +44,5 @@ static/site.webmanifest
 drivingdatainapi
 olddrivingdata
 .coverage
+database_conversion.py
+migrate_geo_points.py
