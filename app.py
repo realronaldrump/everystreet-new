@@ -726,11 +726,11 @@ def get_driving_insights():
                     "$group": {
                         "_id": None,
                         "total_trips": {"$sum": 1},
-                        "total_distance": {"$sum": "$distance"},
-                        "total_fuel_consumed": {"$sum": "$fuelConsumed"},
-                        "max_speed": {"$max": "$maxSpeed"},
-                        "total_idle_duration": {"$sum": "$totalIdleDuration"},
-                        "longest_trip_distance": {"$max": "$distance"},
+                        "total_distance": {"$sum": {"$ifNull": ["$distance", 0]}},
+                        "total_fuel_consumed": {"$sum": {"$ifNull": ["$fuelConsumed", 0]}},
+                        "max_speed": {"$max": {"$ifNull": ["$maxSpeed", 0]}},
+                        "total_idle_duration": {"$sum": {"$ifNull": ["$totalIdleDuration", 0]}},
+                        "longest_trip_distance": {"$max": {"$ifNull": ["$distance", 0]}},
                     }
                 },
             ])
