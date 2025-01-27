@@ -685,10 +685,17 @@ def get_trips():
 
 def format_idle_time(seconds):
     """
-    Convert integer 'seconds' to hh:mm:ss string.
+    Convert float 'seconds' to hh:mm:ss string, handling potential floats.
     """
     if not seconds:
         return "00:00:00"
+
+    try:
+        seconds = int(seconds)  # Convert to integer
+    except (TypeError, ValueError):
+        logger.error(f"Invalid input for format_idle_time: {seconds}")
+        return "Invalid Input"
+
     h = seconds // 3600
     m = (seconds % 3600) // 60
     s = seconds % 60
