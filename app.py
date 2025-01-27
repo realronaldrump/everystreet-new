@@ -31,6 +31,9 @@ from quart import (
     render_template,
     request,
     send_file,
+    copy_current_websocket_context,
+    websocket,
+    copy_current_app_context
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from quart import render_template
@@ -84,10 +87,16 @@ tf = TimezoneFinder()
 # For active, real-time trips
 active_trips = {}
 
+# Global variable to store progress information
+progress_data = {
+    "fetch_and_store_trips": {"status": "idle", "progress": 0, "message": ""},
+    "fetch_and_store_trips_in_range": {"status": "idle", "progress": 0, "message": ""},
+    "run_preprocess_streets": {"status": "idle", "progress": 0, "message": ""},
+}
+
 #############################
 # MongoDB Initialization
 #############################
-
 
 def get_mongo_client():
     """
@@ -107,7 +116,6 @@ def get_mongo_client():
     except Exception as e:
         logger.error(f"Failed to initialize MongoDB client: {e}", exc_info=True) # Log exception details
         raise
-
 
 mongo_client = get_mongo_client()
 db = mongo_client["every_street"]
@@ -134,7 +142,6 @@ coverage_metadata_collection.create_index([("location", 1)], unique=True)
 #############################
 # Model or helper class
 #############################
-
 
 class CustomPlace:
     """Represents a custom-defined place with a name, geometry, and creation time."""
@@ -164,7 +171,6 @@ class CustomPlace:
 #############################
 # Bouncie Authentication
 #############################
-
 
 async def get_access_token(client_session):
     """
@@ -200,7 +206,6 @@ async def get_access_token(client_session):
 #############################
 # API calls to Bouncie
 #############################
-
 
 async def get_trips_from_api(client_session, access_token, imei, start_date, end_date):
     """
@@ -252,7 +257,6 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
         logger.error(f"Unexpected error fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
         return []
 
-
 async def fetch_trips_in_intervals(main_session, access_token, imei, start_date, end_date):
     """
     Breaks the date range into 7-day intervals to avoid hitting any Bouncie restrictions.
@@ -276,7 +280,6 @@ async def fetch_trips_in_intervals(main_session, access_token, imei, start_date,
 # Periodic fetch
 #############################
 
-
 async def periodic_fetch_trips():
     """
     Called every X minutes to fetch new trips from Bouncie in the background.
@@ -290,7 +293,7 @@ async def periodic_fetch_trips():
         )
         end_date = datetime.now(timezone.utc)
         logger.info(f"Periodic trip fetch started from {start_date} to {end_date}")
-        await fetch_and_store_trips_in_range(start_date, end_date)
+        await fetch_and_store_trips_in_range(start_date, end_date, update_progress=False)
         logger.info("Periodic trip fetch completed successfully.")
     except Exception as e:
         logger.error(f"Error during periodic trip fetch: {e}", exc_info=True) # Log full exception info
@@ -298,7 +301,6 @@ async def periodic_fetch_trips():
 #############################
 # Data Validation
 #############################
-
 
 def validate_trip_data(trip):
     """
@@ -345,7 +347,6 @@ def validate_trip_data(trip):
 # Reverse geocode with Nominatim
 #############################
 
-
 async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
     """
     Reverse geocode lat/lon using the OSM Nominatim service. Return display_name or None.
@@ -382,17 +383,14 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
     logger.error(f"Failed to reverse geocode ({lat},{lon}) after {retries} attempts.")
     return None  # Return None after all retries have failed
 
-
 #############################
 # Quart endpoints
 #############################
-
 
 @app.route("/")
 async def index():
     """Renders the main map page."""
     return await render_template("index.html")
-
 
 @app.route("/trips")
 async def trips_page():
@@ -409,7 +407,6 @@ async def driving_insights_page():
     """Driving insights page."""
     return await render_template("driving_insights.html")
 
-
 @app.route("/visits")
 async def visits_page():
     """Custom places visits & stats page."""
@@ -418,7 +415,6 @@ async def visits_page():
 #############################
 #  Fetch for geojson map
 #############################
-
 
 def fetch_trips_for_geojson():
     """
@@ -448,7 +444,6 @@ def fetch_trips_for_geojson():
             logger.error(f"Error processing trip {trip.get('transactionId')}: {e}", exc_info=True) # Log error for individual trip processing
 
     return geojson_module.FeatureCollection(features)
-
 
 def get_trip_timezone(trip):
     """
@@ -480,17 +475,23 @@ def get_trip_timezone(trip):
 # Main fetch/store logic
 #############################
 
-
 async def fetch_and_store_trips():
     """
     For all authorized devices, fetch last 4 years of trips from Bouncie,
     store them in the 'trips' collection.
     """
+    global progress_data
+    progress_data["fetch_and_store_trips"]["status"] = "running"
+    progress_data["fetch_and_store_trips"]["progress"] = 0
+    progress_data["fetch_and_store_trips"]["message"] = "Starting fetch"
+
     try:
         async with aiohttp.ClientSession() as client_session:
             access_token = await get_access_token(client_session)
             if not access_token:
                 logger.error("Failed to obtain access token, aborting fetch_and_store_trips.")
+                progress_data["fetch_and_store_trips"]["status"] = "failed"
+                progress_data["fetch_and_store_trips"]["message"] = "Failed to obtain access token"
                 return
 
             end_date = datetime.now(timezone.utc)
@@ -499,15 +500,18 @@ async def fetch_and_store_trips():
             all_trips = []
             total_devices = len(AUTHORIZED_DEVICES)
             for device_count, imei in enumerate(AUTHORIZED_DEVICES, 1):
+                progress_data["fetch_and_store_trips"]["message"] = f"Fetching trips for device {device_count} of {total_devices}"
                 device_trips = await fetch_trips_in_intervals(
                     client_session, access_token, imei, start_date, end_date
                 )
                 all_trips.extend(device_trips)
-                progress = int((device_count / total_devices) * 100)
-                # await socketio.emit("loading_progress", {"progress": progress})
+                progress = int((device_count / total_devices) * 50) # Progress goes to 50% here
+                progress_data["fetch_and_store_trips"]["progress"] = progress
 
             # Insert or update each trip
-            for trip in all_trips:
+            progress_data["fetch_and_store_trips"]["message"] = "Storing trips in database"
+            total_trips = len(all_trips)
+            for index, trip in enumerate(all_trips):
                 try:
                     existing = trips_collection.find_one(
                         {"transactionId": trip["transactionId"]})
@@ -547,13 +551,22 @@ async def fetch_and_store_trips():
                         {"transactionId": trip["transactionId"]}, {"$set": trip}, upsert=True
                     )
                     logger.debug(f"Trip {trip.get('transactionId')} processed and stored/updated.")
+
+                    # Update progress
+                    progress = int(50 + (index / total_trips) * 50) # Remaining 50%
+                    progress_data["fetch_and_store_trips"]["progress"] = progress
                 except Exception as e:
                     logger.error(
                         f"Error inserting/updating trip {trip.get('transactionId')}: {e}", exc_info=True)
 
+            progress_data["fetch_and_store_trips"]["status"] = "completed"
+            progress_data["fetch_and_store_trips"]["progress"] = 100
+            progress_data["fetch_and_store_trips"]["message"] = "Fetch and store completed"
+
     except Exception as e:
         logger.error(f"Error in fetch_and_store_trips: {e}", exc_info=True)
-
+        progress_data["fetch_and_store_trips"]["status"] = "failed"
+        progress_data["fetch_and_store_trips"]["message"] = f"Error: {e}"
 
 def process_trip(trip):
     """
@@ -679,7 +692,6 @@ async def get_trips():
         logger.error(f"Error in /api/trips endpoint: {e}", exc_info=True) # Log endpoint specific errors
         return jsonify({"error": "Failed to retrieve trips"}), 500
 
-
 def format_idle_time(seconds):
     """
     Convert float 'seconds' to hh:mm:ss string, handling potential floats.
@@ -701,7 +713,6 @@ def format_idle_time(seconds):
 #############################
 # Driving Insights
 #############################
-
 
 @app.route("/api/driving-insights")
 async def get_driving_insights():
@@ -814,7 +825,6 @@ async def get_driving_insights():
         logger.error(f"Error in get_driving_insights: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/api/metrics")
 async def get_metrics():
     """
@@ -887,7 +897,6 @@ async def get_metrics():
         "max_speed": f"{round(max_speed, 2)}",
     })
 
-
 @app.route("/api/fetch_trips", methods=["POST"])
 async def api_fetch_trips():
     """Triggers the big fetch from Bouncie for all devices (4 yrs)."""
@@ -898,10 +907,13 @@ async def api_fetch_trips():
         logger.error(f"Error in api_fetch_trips endpoint: {e}", exc_info=True) # Log endpoint specific errors
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @app.route("/api/fetch_trips_range", methods=["POST"])
 async def api_fetch_trips_range():
     """Fetch & store trips in a certain date range for all devices."""
+    global progress_data
+    progress_data["fetch_and_store_trips_in_range"]["status"] = "running"
+    progress_data["fetch_and_store_trips_in_range"]["progress"] = 0
+    progress_data["fetch_and_store_trips_in_range"]["message"] = "Starting fetch in range"
     try:
         data = await request.get_json()
         start_date = datetime.fromisoformat(
@@ -909,10 +921,12 @@ async def api_fetch_trips_range():
         end_date = datetime.fromisoformat(data["end_date"]).replace(
             hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
         ) + timedelta(days=1)
-        await fetch_and_store_trips_in_range(start_date, end_date)
+        await fetch_and_store_trips_in_range(start_date, end_date, update_progress=True)
         return jsonify({"status": "success", "message": "Trips fetched & stored."}), 200
     except Exception as e:
         logger.error(f"Error in api_fetch_trips_range endpoint: {e}", exc_info=True) # Log endpoint specific errors
+        progress_data["fetch_and_store_trips_in_range"]["status"] = "failed"
+        progress_data["fetch_and_store_trips_in_range"]["message"] = f"Error: {e}"
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/api/fetch_trips_last_hour", methods=["POST"])
@@ -929,7 +943,6 @@ async def api_fetch_trips_last_hour():
 # After request
 #############################
 
-
 @app.after_request
 async def add_header(response):
     """
@@ -943,7 +956,6 @@ async def add_header(response):
 #############################
 # Exports
 #############################
-
 
 @app.route("/export/geojson")
 async def export_geojson():
@@ -994,7 +1006,6 @@ async def export_geojson():
     except Exception as e:
         logger.error(f"Error exporting GeoJSON: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/export/gpx")
 async def export_gpx():
@@ -1059,7 +1070,6 @@ async def export_gpx():
 # Start background tasks
 #############################
 
-
 def start_background_tasks():
     """
     Starts background tasks using apscheduler.
@@ -1089,14 +1099,12 @@ def start_background_tasks():
             scheduler.start()
             logger.info("Background tasks started.")
 
-            # Use Quart's event loop to run periodic_fetch_trips
-            await periodic_fetch_trips()
-
+            # Run periodic_fetch_trips using Quart's run_task
+            app.add_background_task(periodic_fetch_trips)
         except Exception as e:
             logger.error(f"Error starting background tasks: {e}", exc_info=True)
 
     asyncio.run(run_scheduler())
-
 
 async def hourly_fetch_trips():
     """
@@ -1125,15 +1133,12 @@ async def hourly_fetch_trips():
             await process_and_map_match_trip(trip)
             map_matched_count += 1
         logger.info(f"Map matching completed for {map_matched_count} hourly fetched trips.")
-
-
     except Exception as e:
         logger.error(f"Error during hourly trip fetch: {e}", exc_info=True)
 
 #############################
 # Location validation
 #############################
-
 
 @app.route("/api/validate_location", methods=["POST"])
 async def validate_location():
@@ -1142,7 +1147,6 @@ async def validate_location():
     location_type = data.get("locationType")
     validated = await validate_location_osm(location, location_type)
     return jsonify(validated)
-
 
 async def validate_location_osm(location, location_type):
     """
@@ -1186,7 +1190,6 @@ async def generate_geojson():
     if geojson_data:
         return jsonify(geojson_data)  # Directly return GeoJSON
     return jsonify({"error": err}), 400
-
 
 async def generate_geojson_osm(location, streets_only=False):
     """
@@ -1269,7 +1272,6 @@ async def generate_geojson_osm(location, streets_only=False):
         logger.error(f"Error generating geojson: {e}", exc_info=True)
         return None, str(e)
 
-
 def process_elements(elements, streets_only):
     """
     Convert Overpass 'elements' to a list of GeoJSON features.
@@ -1314,7 +1316,6 @@ def process_elements(elements, streets_only):
 # Map match endpoints
 #############################
 
-
 @app.route("/api/map_match_trips", methods=["POST"])
 async def map_match_trips():
     """
@@ -1344,7 +1345,6 @@ async def map_match_trips():
         logger.error(f"Error in map_match_trips endpoint: {e}", exc_info=True)  # Log endpoint errors
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @app.route("/api/map_match_historical_trips", methods=["POST"])
 async def map_match_historical_trips():
     """
@@ -1373,7 +1373,6 @@ async def map_match_historical_trips():
     except Exception as e:
         logger.error(f"Error in map_match_historical_trips endpoint: {e}", exc_info=True) # Log endpoint errors
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 @app.route("/api/matched_trips")
 async def get_matched_trips():
@@ -1414,7 +1413,6 @@ async def get_matched_trips():
         ))
 
     return jsonify(geojson_module.FeatureCollection(fc))
-
 
 @app.route("/api/export/trip/<trip_id>")
 async def export_single_trip(trip_id):
@@ -1475,7 +1473,6 @@ async def export_single_trip(trip_id):
         logger.error(f"Error exporting trip {trip_id}: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/api/matched_trips/<trip_id>", methods=["DELETE"])
 async def delete_matched_trip(trip_id):
     """
@@ -1497,12 +1494,10 @@ async def delete_matched_trip(trip_id):
         logger.error(f"Error deleting matched trip {trip_id}: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @app.route("/export")
 async def export_page():
     """Renders the export page."""
     return await render_template("export.html")
-
 
 @app.route("/api/export/trips")
 async def export_trips():
@@ -1535,7 +1530,6 @@ async def export_trips():
         )
     return jsonify({"error": "Invalid export format"}), 400 # Handle invalid format here
 
-
 async def fetch_all_trips(start_date_str, end_date_str):
     sd = parser.parse(start_date_str)
     ed = parser.parse(end_date_str)
@@ -1550,13 +1544,11 @@ async def fetch_all_trips(start_date_str, end_date_str):
     all_trips = trips + uploaded_trips + historical_trips
     return all_trips
 
-
 def fetch_trips(start_date_str, end_date_str):
     sd = parser.parse(start_date_str)
     ed = parser.parse(end_date_str)
     query = {"startTime": {"$gte": sd, "$lte": ed}}
     return list(trips_collection.find(query))
-
 
 async def create_geojson(trips):
     features = []
@@ -1578,7 +1570,6 @@ async def create_geojson(trips):
         }
         features.append(feat)
     return json.dumps({"type": "FeatureCollection", "features": features})
-
 
 async def create_gpx(trips):
     gpx = gpxpy.gpx.GPX()
@@ -1739,6 +1730,10 @@ async def preprocess_streets_route():
     Triggers the preprocessing of street data for a given location.
     Expects JSON payload: {"location": "Davis, CA", "location_type": "city"}
     """
+    global progress_data
+    progress_data["run_preprocess_streets"]["status"] = "running"
+    progress_data["run_preprocess_streets"]["progress"] = 0
+    progress_data["run_preprocess_streets"]["message"] = "Starting preprocessing"
     try:
         data = await request.get_json()
         location_query = data.get("location")
@@ -1755,7 +1750,7 @@ async def preprocess_streets_route():
             return jsonify({"status": "error", "message": "Invalid location"}), 400
 
         # Run the preprocessing script as an asynchronous task
-        # await socketio.start_background_task(run_preprocess_streets, validated_location, location_type)
+        asyncio.create_task(run_preprocess_streets(validated_location, location_type))
 
         return jsonify(
             {
@@ -1766,12 +1761,16 @@ async def preprocess_streets_route():
 
     except Exception as e:
         logger.error(f"Error in preprocess_streets_route: {e}", exc_info=True)
+        progress_data["run_preprocess_streets"]["status"] = "failed"
+        progress_data["run_preprocess_streets"]["message"] = f"Error: {e}"
         return jsonify({"status": "error", "message": str(e)}), 500
 
 async def run_preprocess_streets(validated_location, location_type):
     """
     Runs the preprocess_streets.py script with the given location and type.
     """
+    global progress_data
+    progress_data["run_preprocess_streets"]["message"] = f"Preprocessing: {validated_location['display_name']}"
     try:
         process = await asyncio.create_subprocess_exec(
             "python",
@@ -1783,15 +1782,38 @@ async def run_preprocess_streets(validated_location, location_type):
             stderr=asyncio.subprocess.PIPE,
         )
 
+        # Read output line by line and update progress
+        while True:
+            line = await process.stdout.readline()
+            if not line:
+                break
+            line = line.decode().strip()
+            logger.info(f"preprocess_streets.py output: {line}")
+
+            # Parse progress from output (this is just an example, adapt as needed)
+            if "%" in line:
+                try:
+                    percentage = int(line.split("%")[0].split(" ")[-1])
+                    progress_data["run_preprocess_streets"]["progress"] = percentage
+                except ValueError:
+                    pass
+
         stdout, stderr = await process.communicate()
 
         if process.returncode == 0:
             logger.info(f"Successfully processed street data for {validated_location['display_name']}")
+            progress_data["run_preprocess_streets"]["status"] = "completed"
+            progress_data["run_preprocess_streets"]["progress"] = 100
+            progress_data["run_preprocess_streets"]["message"] = "Preprocessing completed"
         else:
             logger.error(f"Error processing street data for {validated_location['display_name']}: {stderr.decode()}")
+            progress_data["run_preprocess_streets"]["status"] = "failed"
+            progress_data["run_preprocess_streets"]["message"] = f"Error: {stderr.decode()}"
 
     except Exception as e:
         logger.error(f"Error running preprocess_streets.py: {e}", exc_info=True)
+        progress_data["run_preprocess_streets"]["status"] = "failed"
+        progress_data["run_preprocess_streets"]["message"] = f"Error: {e}"
 
 #############################
 # Street Segment Details Route
@@ -2103,7 +2125,7 @@ async def upload_gpx():
     Accept multi-file upload of GPX or GeoJSON. Insert into uploaded_trips_collection.
     """
     try:
-        files = await request.files.getlist("files[]")
+        files = (await request.files).getlist("files[]")
         map_match = (await request.form).get("map_match", "false") == "true"
         if not files:
             return jsonify({"status": "error", "message": "No files found"}), 400
@@ -2165,7 +2187,7 @@ def calculate_gpx_distance(coords):
         lon1, lat1 = coords[i]
         lon2, lat2 = coords[i + 1]
         dist += gpxpy.geo.haversine_distance(lat1, lon1, lat2, lon2)
-        return dist
+    return dist
 
 def meters_to_miles(m):
     return m * 0.000621371
@@ -2615,7 +2637,7 @@ def organize_hourly_data(results):
 
 @app.route("/stream")
 async def stream():
-    """Server-Sent Events endpoint for live trip updates"""
+    """Server-Sent Events endpoint for live trip updates and progress information"""
     async def event_stream():
         while True:
             # Get active trips from live_trips_collection
@@ -2628,11 +2650,12 @@ async def stream():
                 if 'lastUpdate' in trip:
                     trip['lastUpdate'] = trip['lastUpdate'].isoformat()
 
-                data = json.dumps({
-                    "type": "trip_update",
-                    "data": trip
-                })
-                yield f"data: {data}\n\n"
+                # Send trip update
+                yield f"event: trip_update\ndata: {json.dumps(trip)}\n\n"
+
+            # Send progress update
+            yield f"event: progress_update\ndata: {json.dumps(progress_data)}\n\n"
+
             await asyncio.sleep(1)  # Poll every second
 
     return Response(event_stream(), mimetype="text/event-stream")
@@ -2677,18 +2700,6 @@ async def bouncie_webhook():
             live_trips_collection.delete_one({"transactionId": txid})
 
     return jsonify({"status": "success"}), 200
-
-#############################
-# Socket.IO events
-#############################
-
-# @socketio.on("connect")
-# async def handle_connect():
-#     logger.info("Client connected (socket.io).")
-
-# @socketio.on("disconnect")
-# async def handle_disconnect():
-#     logger.info("Client disconnected (socket.io).")
 
 #############################
 # DB helpers
@@ -2953,10 +2964,15 @@ def get_place_at_point(point):
             return p
     return None
 
-async def fetch_and_store_trips_in_range(start_date, end_date):
+async def fetch_and_store_trips_in_range(start_date, end_date, update_progress=False):
     """
     Main function used by /api/fetch_trips_range
     """
+    global progress_data
+    if update_progress:
+        progress_data["fetch_and_store_trips_in_range"]["status"] = "running"
+        progress_data["fetch_and_store_trips_in_range"]["progress"] = 0
+        progress_data["fetch_and_store_trips_in_range"]["message"] = "Fetching trips in range"
     try:
         logger.info(
             f"fetch_and_store_trips_in_range {start_date} -> {end_date}")
@@ -2969,6 +2985,9 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
             token = await get_access_token(sess)
             if not token:
                 logger.error("No Bouncie token retrieved.")
+                if update_progress:
+                    progress_data["fetch_and_store_trips_in_range"]["status"] = "failed"
+                    progress_data["fetch_and_store_trips_in_range"]["message"] = "Failed to get Bouncie access token"
                 return
 
             all_trips = []
@@ -2977,15 +2996,18 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                 dev_trips = await fetch_trips_in_intervals(sess, token, imei, start_date, end_date)
                 logger.info(f"Fetched {len(dev_trips)} trips for {imei}")
                 all_trips.extend(dev_trips)
-                prog = (idx + 1) / total_devices * 100
-                # await socketio.emit("fetch_progress", {"progress": prog})
+                if update_progress:
+                    prog = int((idx + 1) / total_devices * 50)
+                    progress_data["fetch_and_store_trips_in_range"]["progress"] = prog
+                    progress_data["fetch_and_store_trips_in_range"]["message"] = f"Fetched trips for device {idx + 1} of {total_devices}"
 
             logger.info(f"Total fetched: {len(all_trips)}")
             processed_count = 0
             skipped_count = 0
             error_count = 0
 
-            for trip in all_trips:
+            total_trips = len(all_trips)
+            for index, trip in enumerate(all_trips):
                 try:
                     existing = get_trip_from_db(trip["transactionId"])
                     if existing:
@@ -3007,11 +3029,24 @@ async def fetch_and_store_trips_in_range(start_date, end_date):
                     logger.error(
                         f"Error processing trip {trip.get('transactionId','?')}: {e}", exc_info=True)
                     error_count += 1
+                if update_progress:
+                    prog = int(50 + (index / total_trips) * 50)
+                    progress_data["fetch_and_store_trips_in_range"]["progress"] = prog
+                    progress_data["fetch_and_store_trips_in_range"]["message"] = f"Processed trip {index + 1} of {total_trips}"
 
             logger.info(
                 f"Done range: {processed_count} ok, {skipped_count} skipped, {error_count} errors")
+
+            if update_progress:
+                progress_data["fetch_and_store_trips_in_range"]["status"] = "completed"
+                progress_data["fetch_and_store_trips_in_range"]["progress"] = 100
+                progress_data["fetch_and_store_trips_in_range"]["message"] = "Fetch and store completed"
+
     except Exception as e:
         logger.error(f"Error fetch_and_store_trips_in_range: {e}", exc_info=True)
+        if update_progress:
+            progress_data["fetch_and_store_trips_in_range"]["status"] = "failed"
+            progress_data["fetch_and_store_trips_in_range"]["message"] = f"Error: {e}"
 
 #############################
 # Earliest trip date
@@ -3375,6 +3410,7 @@ async def debug_trip(trip_id):
 #############################
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8080"))
+    # Start the background tasks before running the app
     start_background_tasks()
     # Use uvicorn or hypercorn to run the app
     # Example using uvicorn:
