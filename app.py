@@ -2628,23 +2628,24 @@ async def stream():
     """Server-Sent Events endpoint for live trip updates and progress information"""
     async def event_stream():
         while True:
-            # Get active trips from live_trips_collection
-            active_trips = live_trips_collection.find({})
-            for trip in active_trips:
-                # Convert ObjectId and datetime objects to strings
-                trip['_id'] = str(trip['_id']) if '_id' in trip else None
-                if 'startTime' in trip:
-                    trip['startTime'] = trip['startTime'].isoformat()
-                if 'lastUpdate' in trip:
-                    trip['lastUpdate'] = trip['lastUpdate'].isoformat()
+            try:
+                # Fetch active trips from MongoDB
+                active_trips = live_trips_collection.find({})
+                for trip in active_trips:
+                    # Transform MongoDB data into expected SSE format
+                    trip['_id'] = str(trip['_id'])  # Ensure string ID
+                    trip_data = {
+                        "type": "trip_update",
+                        "data": {
+                            "transactionId": trip["transactionId"],
+                            "coordinates": trip.get("coordinates", []),
+                        },
+                    }
+                    yield f"data: {json.dumps(trip_data)}\n\n"
 
-                # Send trip update
-                yield f"event: trip_update\ndata: {json.dumps(trip)}\n\n"
-
-            # Send progress update
-            yield f"event: progress_update\ndata: {json.dumps(progress_data)}\n\n"
-
-            await asyncio.sleep(1)  # Poll every second
+                await asyncio.sleep(1)  # Poll every second
+            except Exception as e:
+                logger.error(f"Error in event_stream: {e}", exc_info=True)
 
     return Response(event_stream(), mimetype="text/event-stream")
 
@@ -2656,28 +2657,24 @@ async def bouncie_webhook():
     txid = data.get("transactionId")
 
     if event_type == "tripStart":
-        # Create new live trip document
         live_trips_collection.insert_one({
             "transactionId": txid,
             "status": "active",
             "coordinates": [],
             "startTime": datetime.now(timezone.utc),
-            "lastUpdate": datetime.now(timezone.utc)
+            "lastUpdate": datetime.now(timezone.utc),
         })
 
     elif event_type == "tripData":
-        # Update coordinates for active trip
-        new_coords = data.get("data", [])
         live_trips_collection.update_one(
             {"transactionId": txid},
             {
-                "$push": {"coordinates": {"$each": new_coords}},
-                "$set": {"lastUpdate": datetime.now(timezone.utc)}
+                "$push": {"coordinates": {"$each": data.get("data", [])}},
+                "$set": {"lastUpdate": datetime.now(timezone.utc)},
             }
         )
 
     elif event_type == "tripEnd":
-        # Move trip to archived collection and remove from live
         trip = live_trips_collection.find_one({"transactionId": txid})
         if trip:
             archived_live_trips_collection.insert_one({
@@ -2685,6 +2682,8 @@ async def bouncie_webhook():
                 "endTime": datetime.now(timezone.utc),
                 "status": "completed"
             })
+            # Allow 100 seconds before cleanup
+            await asyncio.sleep(100)
             live_trips_collection.delete_one({"transactionId": txid})
 
     return jsonify({"status": "success"}), 200
