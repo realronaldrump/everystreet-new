@@ -36,6 +36,7 @@ from quart import (
     copy_current_app_context
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.jobstores.memory import MemoryJobStore
 from quart import render_template
 from geojson import dumps as geojson_dumps, loads as geojson_loads
 from pymongo import MongoClient
@@ -1442,9 +1443,11 @@ async def export_single_trip(trip_id):
             }
             fc = {"type": "FeatureCollection", "features": [feature]}
             return Response(
-                json.dumps(fc), mimetype="application/geo+json",
+                json.dumps(fc),
+                mimetype="application/geo+json",
                 headers={
-                    "Content-Disposition": f'attachment; filename="trip_{trip_id}.geojson"'}
+                    "Content-Disposition": f'attachment; filename="trip_{trip_id}.geojson"'
+                },
             )
         if fmt == "gpx":
             gpx = gpxpy.gpx.GPX()
@@ -1466,7 +1469,8 @@ async def export_single_trip(trip_id):
                 gpx.to_xml(),
                 mimetype="application/gpx+xml",
                 headers={
-                    "Content-Disposition": f'attachment; filename="trip_{trip_id}.gpx"'},
+                    "Content-Disposition": f'attachment; filename="trip_{trip_id}.gpx"'
+                },
             )
         return jsonify({"error": "Unsupported format"}), 400
     except Exception as e:
@@ -1518,7 +1522,7 @@ async def export_trips():
             io.BytesIO(geojson_data.encode()),
             mimetype="application/geo+json",
             as_attachment=True,
-            download_name="all_trips.geojson",
+            attachment_filename="all_trips.geojson",  # Fixed keyword
         )
     if fmt == "gpx":
         gpx_data = await create_gpx(ts)
@@ -1526,9 +1530,9 @@ async def export_trips():
             io.BytesIO(gpx_data.encode()),
             mimetype="application/gpx+xml",
             as_attachment=True,
-            download_name="all_trips.gpx",
+            attachment_filename="all_trips.gpx",  # Fixed keyword
         )
-    return jsonify({"error": "Invalid export format"}), 400 # Handle invalid format here
+    return jsonify({"error": "Invalid export format"}), 400  # Handle invalid format here
 
 async def fetch_all_trips(start_date_str, end_date_str):
     sd = parser.parse(start_date_str)
@@ -1614,7 +1618,7 @@ async def export_matched_trips():
             io.BytesIO(fc.encode()),
             mimetype="application/geo+json",
             as_attachment=True,
-            download_name="matched_trips.geojson",
+            attachment_filename="matched_trips.geojson",  # Fixed keyword
         )
     if fmt == "gpx":
         data = await create_gpx(ms)
@@ -1622,9 +1626,9 @@ async def export_matched_trips():
             io.BytesIO(data.encode()),
             mimetype="application/gpx+xml",
             as_attachment=True,
-            download_name="matched_trips.gpx",
+            attachment_filename="matched_trips.gpx",  # Fixed keyword
         )
-    return jsonify({"error": "Invalid export format"}), 400 # Handle invalid format here
+    return jsonify({"error": "Invalid export format"}), 400
 
 async def fetch_matched_trips(start_date_str, end_date_str):
     sd = parser.parse(start_date_str)
@@ -1639,7 +1643,6 @@ async def export_streets():
     if not location:
         return jsonify({"error": "No location param"}), 400
 
-    # parse location JSON
     loc = json.loads(location)
     data, _ = await generate_geojson_osm(loc, streets_only=True)
     if not data:
@@ -1650,33 +1653,27 @@ async def export_streets():
             io.BytesIO(json.dumps(data).encode()),
             mimetype="application/geo+json",
             as_attachment=True,
-            download_name="streets.geojson",
+            attachment_filename="streets.geojson",  # Fixed keyword
         )
     if fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
-            # In-memory shapefile writing is trickier; we can do a direct approach if needed.
-            # We'll do a quick approach writing to a temporary in-memory file.
-            # Some libraries require a real file, but let's do best effort.
-            with gpd.io.file.fiona.Env():
-                tmp_dir = "inmem_shp"
-                if not os.path.exists(tmp_dir):
-                    os.mkdir(tmp_dir)
-                out_path = os.path.join(tmp_dir, "streets.shp")
-                gdf.to_file(out_path, driver="ESRI Shapefile")
-                # Add all relevant shapefile parts
-                for f in os.listdir(tmp_dir):
-                    fpath = os.path.join(tmp_dir, f)
-                    with open(fpath, "rb") as fh:
-                        zf.writestr(f"streets/{f}", fh.read())
-                # Clean up
-                for f in os.listdir(tmp_dir):
-                    os.remove(os.path.join(tmp_dir, f))
-                os.rmdir(tmp_dir)
+            tmp_dir = "inmem_shp"
+            if not os.path.exists(tmp_dir):
+                os.mkdir(tmp_dir)
+            out_path = os.path.join(tmp_dir, "streets.shp")
+            gdf.to_file(out_path, driver="ESRI Shapefile")
+            for f in os.listdir(tmp_dir):
+                with open(os.path.join(tmp_dir, f), "rb") as fh:
+                    zf.writestr(f"streets/{f}", fh.read())
+            os.rmdir(tmp_dir)
         buf.seek(0)
         return await send_file(
-            buf, mimetype="application/zip", as_attachment=True, download_name="streets.zip"
+            buf,
+            mimetype="application/zip",
+            as_attachment=True,
+            attachment_filename="streets.zip",  # Fixed keyword
         )
     return jsonify({"error": "Invalid export format"}), 400
 
@@ -1686,6 +1683,7 @@ async def export_boundary():
     fmt = request.args.get("format")
     if not location:
         return jsonify({"error": "No location"}), 400
+
     loc = json.loads(location)
     data, _ = await generate_geojson_osm(loc, streets_only=False)
     if not data:
@@ -1696,7 +1694,7 @@ async def export_boundary():
             io.BytesIO(json.dumps(data).encode()),
             mimetype="application/geo+json",
             as_attachment=True,
-            download_name="boundary.geojson",
+            attachment_filename="boundary.geojson",  # Fixed keyword
         )
     if fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
@@ -1708,15 +1706,15 @@ async def export_boundary():
             out_path = os.path.join(tmp_dir, "boundary.shp")
             gdf.to_file(out_path, driver="ESRI Shapefile")
             for f in os.listdir(tmp_dir):
-                fpath = os.path.join(tmp_dir, f)
-                with open(fpath, "rb") as fh:
+                with open(os.path.join(tmp_dir, f), "rb") as fh:
                     zf.writestr(f"boundary/{f}", fh.read())
-            for f in os.listdir(tmp_dir):
-                os.remove(os.path.join(tmp_dir, f))
             os.rmdir(tmp_dir)
         buf.seek(0)
         return await send_file(
-            buf, mimetype="application/zip", as_attachment=True, download_name="boundary.zip"
+            buf,
+            mimetype="application/zip",
+            as_attachment=True,
+            attachment_filename="boundary.zip",  # Fixed keyword
         )
     return jsonify({"error": "Invalid export format"}), 400
 
