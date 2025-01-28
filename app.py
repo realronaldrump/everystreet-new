@@ -2672,76 +2672,66 @@ async def bouncie_webhook():
     Handles Bouncie webhooks for tripStart, tripData, and tripEnd.
     """
     try:
-        data = await request.get_json()
-        event_type = data.get("eventType")
-        txid = data.get("transactionId")
+        payload = await request.get_json()
+        event_type = payload.get("eventType")
+        data = payload.get("data")
+
+        if not event_type or not data:
+            logger.error("Invalid payload: Missing eventType or data.")
+            return jsonify({"status": "error", "message": "Invalid payload"}), 400
+
+        transaction_id = data.get("transactionId")
+        if not transaction_id:
+            logger.error("Missing transactionId in data payload.")
+            return jsonify({"status": "error", "message": "Missing transactionId"}), 400
 
         if event_type == "tripStart":
-            # Initialize a new trip in live_trips_collection
             live_trips_collection.insert_one({
-                "transactionId": txid,
-                "status": "active",
-                "coordinates": [],
+                "transactionId": transaction_id,
                 "startTime": datetime.now(timezone.utc),
-                "lastUpdate": datetime.now(timezone.utc),
-                "startOdometer": data["data"]["start"]["odometer"],
-                "fuelConsumed": data["data"]["start"].get("fuelConsumed", 0),
-                "vehicleId": data["data"]["vehicle"]["id"],
-                "vehicleName": data["data"]["vehicle"]["name"]
+                "coordinates": [],
+                "status": "active",
+                "startOdometer": data.get("start", {}).get("odometer"),
+                "vehicleId": data.get("vehicle", {}).get("id"),
+                "vehicleName": data.get("vehicle", {}).get("name"),
             })
-            logger.info(f"Trip {txid} started.")
+            logger.info(f"Trip {transaction_id} started.")
 
         elif event_type == "tripData":
-            # Process real-time trip updates
-            new_coords = data.get("data", [])
-            trip = live_trips_collection.find_one({"transactionId": txid})
+            new_coords = data.get("coordinates", [])
+            if not new_coords:
+                logger.warning(f"No coordinates provided in tripData for {transaction_id}.")
+                return jsonify({"status": "error", "message": "No coordinates provided"}), 400
 
-            if trip:
-                # Validate and filter GPS points
-                new_coords = [
-                    coord for coord in new_coords if is_valid_gps_point(coord)
-                ]
+            trip = live_trips_collection.find_one({"transactionId": transaction_id})
+            if not trip:
+                logger.error(f"Trip {transaction_id} not found.")
+                return jsonify({"status": "error", "message": "Trip not found"}), 404
 
-                # Update the trip with new GPS coordinates and metrics
-                if new_coords:
-                    existing_coords = trip.get("coordinates", [])
-                    for coord in new_coords:
-                        if existing_coords:
-                            last_coord = existing_coords[-1]["gps"]
-                            distance = calculate_distance(
-                                last_coord["lat"], last_coord["lon"],
-                                coord["gps"]["lat"], coord["gps"]["lon"]
-                            )
-                            coord["distance"] = distance
-
-                    live_trips_collection.update_one(
-                        {"transactionId": txid},
-                        {
-                            "$push": {"coordinates": {"$each": new_coords}},
-                            "$set": {"lastUpdate": datetime.now(timezone.utc)},
-                        }
-                    )
-                    logger.info(f"Trip {txid} updated with {len(new_coords)} GPS points.")
+            # Update trip with new coordinates
+            live_trips_collection.update_one(
+                {"transactionId": transaction_id},
+                {
+                    "$push": {"coordinates": {"$each": new_coords}},
+                    "$set": {"lastUpdate": datetime.now(timezone.utc)},
+                }
+            )
+            logger.info(f"Updated trip {transaction_id} with {len(new_coords)} coordinates.")
 
         elif event_type == "tripEnd":
-            # Archive the trip and mark it as completed
-            trip = live_trips_collection.find_one({"transactionId": txid})
-            if trip:
-                archived_live_trips_collection.insert_one({
-                    **trip,
-                    "endTime": datetime.now(timezone.utc),
-                    "status": "completed",
-                    "totalDistance": sum(
-                        coord.get("distance", 0)
-                        for coord in trip.get("coordinates", [])
-                    ),
-                    "fuelConsumed": data["data"]["end"].get("fuelConsumed", 0),
-                    "endOdometer": data["data"]["end"]["odometer"]
-                })
-                live_trips_collection.delete_one({"transactionId": txid})
-                logger.info(f"Trip {txid} ended and archived.")
+            trip = live_trips_collection.find_one({"transactionId": transaction_id})
+            if not trip:
+                logger.error(f"Trip {transaction_id} not found for ending.")
+                return jsonify({"status": "error", "message": "Trip not found"}), 404
+
+            live_trips_collection.update_one(
+                {"transactionId": transaction_id},
+                {"$set": {"status": "completed", "endTime": datetime.now(timezone.utc)}}
+            )
+            logger.info(f"Trip {transaction_id} ended and archived.")
 
         return jsonify({"status": "success"}), 200
+
     except Exception as e:
         logger.error(f"Error in bouncie_webhook: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
