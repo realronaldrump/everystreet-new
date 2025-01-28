@@ -7,6 +7,7 @@ import json
 BASE_URL = "http://localhost:8080"  # Adjust if different
 WEBHOOK_URL = f"{BASE_URL}/webhook/bouncie"
 
+
 def simulate_trip():
     # Sample coordinates for a short trip (adjust these to your local area)
     coordinates = [
@@ -32,7 +33,7 @@ def simulate_trip():
             "odometer": 1000
         }
     }
-    
+
     print("Sending trip start event...")
     response = requests.post(WEBHOOK_URL, json=start_event)
     print(f"Start response: {response.status_code}")
@@ -48,7 +49,7 @@ def simulate_trip():
             "vin": "TEST-VIN",
             "data": []
         }
-        
+
         for coord in current_coords:
             data_event["data"].append({
                 "timestamp": datetime.utcnow().isoformat(),
@@ -59,7 +60,7 @@ def simulate_trip():
                 },
                 "speed": 25
             })
-        
+
         print(f"Sending trip data update {i//2 + 1}...")
         response = requests.post(WEBHOOK_URL, json=data_event)
         print(f"Data response: {response.status_code}")
@@ -78,10 +79,11 @@ def simulate_trip():
             "fuelConsumed": 0.2
         }
     }
-    
+
     print("Sending trip end event...")
     response = requests.post(WEBHOOK_URL, json=end_event)
     print(f"End response: {response.status_code}")
+
 
 if __name__ == "__main__":
     print("Starting trip simulation...")
