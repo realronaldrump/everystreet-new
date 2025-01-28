@@ -2723,28 +2723,24 @@ def is_valid_gps_point(point):
     return lat is not None and lon is not None and -90 <= lat <= 90 and -180 <= lon <= 180
 
 async def cleanup_stale_trips():
-    """
-    Periodically archives trips that haven't been updated in the last 5 minutes.
-    """
+    """Periodically archives trips that haven't been updated in 5 minutes"""
     try:
         now = datetime.now(timezone.utc)
         stale_threshold = now - timedelta(minutes=5)
-
-        stale_trips = live_trips_collection.find({"lastUpdate": {"$lt": stale_threshold}})
+        
+        stale_trips = live_trips_collection.find({
+            "lastUpdate": {"$lt": stale_threshold},
+            "status": "active"
+        })
+        
         for trip in stale_trips:
-            archived_live_trips_collection.insert_one({
-                **trip,
-                "endTime": now,
-                "status": "stale",
-                "totalDistance": sum(
-                    coord.get("distance", 0) for coord in trip.get("coordinates", [])
-                )
-            })
+            trip["status"] = "stale"
+            trip["endTime"] = now
+            archived_live_trips_collection.insert_one(trip)
             live_trips_collection.delete_one({"_id": trip["_id"]})
-            logger.info(f"Archived stale trip {trip['transactionId']}.")
-
+            
     except Exception as e:
-        logger.error(f"Error during stale trip cleanup: {e}", exc_info=True)
+        logger.error(f"Error cleaning up stale trips: {e}")
 
 #############################
 # DB helpers
