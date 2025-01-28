@@ -40,6 +40,7 @@ scheduler = AsyncIOScheduler()
 from quart import render_template
 from geojson import dumps as geojson_dumps, loads as geojson_loads
 from pymongo import MongoClient
+from math import radians, cos, sin, sqrt, atan2
 from pymongo.errors import DuplicateKeyError
 from shapely.geometry import (
     LineString,
@@ -1083,6 +1084,9 @@ def start_background_tasks():
 
         # Run coverage calculations for all locations periodically (every hour)
         scheduler.add_job(update_coverage_for_all_locations, "interval", hours=1, max_instances=1)
+
+        # Periodic cleanup of stale trips
+        scheduler.add_job(cleanup_stale_trips, "interval", minutes=5, max_instances=1)
 
         # Cleanup invalid trips every 24 hours
         scheduler.add_job(cleanup_invalid_trips, "interval", hours=24, max_instances=1)
@@ -2260,15 +2264,16 @@ def process_geojson_trip(geojson_data):
         logger.error(f"Error in process_geojson_trip: {e}", exc_info=True)
         return None
 
-def calculate_distance(coords):
+def calculate_distance(lat1, lon1, lat2, lon2):
     """
-    Approx distance in miles from consecutive coords in a linestring.
-    coords = [[lon, lat], [lon, lat], ...].
+    Calculate the distance between two points in miles using the Haversine formula.
     """
-    dist = 0.0
-    for i in range(len(coords) - 1):
-        dist += haversine_distance(coords[i], coords[i + 1])
-    return dist
+    R = 3958.8  # Radius of Earth in miles
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat / 2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return R * c
 
 #############################
 # Manage uploaded trips
@@ -2626,19 +2631,18 @@ def organize_hourly_data(results):
 @app.route("/stream")
 async def stream():
     """
-    Server-Sent Events (SSE) endpoint for live trip updates and progress information.
-    Keeps the connection alive by sending periodic heartbeat messages.
+    Server-Sent Events (SSE) endpoint for live trip updates.
+    Sends periodic heartbeats when no active trips exist.
     """
     async def event_stream():
         while True:
             try:
-                # Check for active trips in the database
+                # Fetch active trips from the database
                 active_trips = live_trips_collection.find({})
                 trips_sent = False
 
-                # Send updates for active trips
                 for trip in active_trips:
-                    trip['_id'] = str(trip['_id'])  # Ensure _id is a string
+                    trip["_id"] = str(trip["_id"])  # Ensure _id is a string
                     trip_data = {
                         "type": "trip_update",
                         "data": {
@@ -2649,71 +2653,128 @@ async def stream():
                     yield f"data: {json.dumps(trip_data)}\n\n"
                     trips_sent = True
 
-                # If no trips are active, send a heartbeat to keep the connection alive
+                # Send a heartbeat if no trips are active
                 if not trips_sent:
-                    yield "data: {}\n\n"  # Send an empty message as a heartbeat
+                    yield "data: {\"type\": \"heartbeat\"}\n\n"
 
                 await asyncio.sleep(1)  # Poll every second
-
             except Exception as e:
                 logger.error(f"Error in event_stream: {e}", exc_info=True)
-                break  # Exit the generator on an unrecoverable error
+                break  # Exit the generator on error
 
     return Response(event_stream(), mimetype="text/event-stream")
 
 @app.route("/webhook/bouncie", methods=["POST"])
 async def bouncie_webhook():
-    """Handle Bouncie webhooks and store in live_trips collection"""
-    data = await request.get_json()
-    event_type = data.get("eventType")
-    txid = data.get("transactionId")
+    """
+    Handles Bouncie webhooks for tripStart, tripData, and tripEnd.
+    """
+    try:
+        data = await request.get_json()
+        event_type = data.get("eventType")
+        txid = data.get("transactionId")
 
-    if event_type == "tripStart":
-        live_trips_collection.insert_one({
-            "transactionId": txid,
-            "status": "active",
-            "coordinates": [],
-            "startTime": datetime.now(timezone.utc),
-            "lastUpdate": datetime.now(timezone.utc),
-        })
+        if event_type == "tripStart":
+            # Initialize a new trip in live_trips_collection
+            live_trips_collection.insert_one({
+                "transactionId": txid,
+                "status": "active",
+                "coordinates": [],
+                "startTime": datetime.now(timezone.utc),
+                "lastUpdate": datetime.now(timezone.utc),
+                "startOdometer": data["data"]["start"]["odometer"],
+                "fuelConsumed": data["data"]["start"].get("fuelConsumed", 0),
+                "vehicleId": data["data"]["vehicle"]["id"],
+                "vehicleName": data["data"]["vehicle"]["name"]
+            })
+            logger.info(f"Trip {txid} started.")
 
-    elif event_type == "tripData":
-        new_coords = data.get("data", [])
-        trip = live_trips_collection.find_one({"transactionId": txid})
+        elif event_type == "tripData":
+            # Process real-time trip updates
+            new_coords = data.get("data", [])
+            trip = live_trips_collection.find_one({"transactionId": txid})
 
-        if trip and new_coords:
-            existing_coords = trip.get("coordinates", [])
-            if existing_coords:
-                # Calculate distance from last point
-                last_coord = existing_coords[-1]["gps"]
-                for coord in new_coords:
-                    distance = calculate_distance(
-                        last_coord["lat"], last_coord["lon"], coord["gps"]["lat"], coord["gps"]["lon"]
+            if trip:
+                # Validate and filter GPS points
+                new_coords = [
+                    coord for coord in new_coords if is_valid_gps_point(coord)
+                ]
+
+                # Update the trip with new GPS coordinates and metrics
+                if new_coords:
+                    existing_coords = trip.get("coordinates", [])
+                    for coord in new_coords:
+                        if existing_coords:
+                            last_coord = existing_coords[-1]["gps"]
+                            distance = calculate_distance(
+                                last_coord["lat"], last_coord["lon"],
+                                coord["gps"]["lat"], coord["gps"]["lon"]
+                            )
+                            coord["distance"] = distance
+
+                    live_trips_collection.update_one(
+                        {"transactionId": txid},
+                        {
+                            "$push": {"coordinates": {"$each": new_coords}},
+                            "$set": {"lastUpdate": datetime.now(timezone.utc)},
+                        }
                     )
-                    coord["distance"] = distance  # Append distance to each GPS point
+                    logger.info(f"Trip {txid} updated with {len(new_coords)} GPS points.")
 
-            # Update the trip with new data
-            live_trips_collection.update_one(
-                {"transactionId": txid},
-                {
-                    "$push": {"coordinates": {"$each": new_coords}},
-                    "$set": {"lastUpdate": datetime.now(timezone.utc)},
-                }
-            )
+        elif event_type == "tripEnd":
+            # Archive the trip and mark it as completed
+            trip = live_trips_collection.find_one({"transactionId": txid})
+            if trip:
+                archived_live_trips_collection.insert_one({
+                    **trip,
+                    "endTime": datetime.now(timezone.utc),
+                    "status": "completed",
+                    "totalDistance": sum(
+                        coord.get("distance", 0)
+                        for coord in trip.get("coordinates", [])
+                    ),
+                    "fuelConsumed": data["data"]["end"].get("fuelConsumed", 0),
+                    "endOdometer": data["data"]["end"]["odometer"]
+                })
+                live_trips_collection.delete_one({"transactionId": txid})
+                logger.info(f"Trip {txid} ended and archived.")
 
-    elif event_type == "tripEnd":
-        trip = live_trips_collection.find_one({"transactionId": txid})
-        if trip:
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        logger.error(f"Error in bouncie_webhook: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
+def is_valid_gps_point(point):
+    """
+    Validate GPS point data for correctness.
+    """
+    gps = point.get("gps", {})
+    lat, lon = gps.get("lat"), gps.get("lon")
+    return lat is not None and lon is not None and -90 <= lat <= 90 and -180 <= lon <= 180
+
+async def cleanup_stale_trips():
+    """
+    Periodically archives trips that haven't been updated in the last 5 minutes.
+    """
+    try:
+        now = datetime.now(timezone.utc)
+        stale_threshold = now - timedelta(minutes=5)
+
+        stale_trips = live_trips_collection.find({"lastUpdate": {"$lt": stale_threshold}})
+        for trip in stale_trips:
             archived_live_trips_collection.insert_one({
                 **trip,
-                "endTime": datetime.now(timezone.utc),
-                "status": "completed"
+                "endTime": now,
+                "status": "stale",
+                "totalDistance": sum(
+                    coord.get("distance", 0) for coord in trip.get("coordinates", [])
+                )
             })
-            # Allow 100 seconds before cleanup
-            await asyncio.sleep(100)
-            live_trips_collection.delete_one({"transactionId": txid})
+            live_trips_collection.delete_one({"_id": trip["_id"]})
+            logger.info(f"Archived stale trip {trip['transactionId']}.")
 
-    return jsonify({"status": "success"}), 200
+    except Exception as e:
+        logger.error(f"Error during stale trip cleanup: {e}", exc_info=True)
 
 #############################
 # DB helpers
