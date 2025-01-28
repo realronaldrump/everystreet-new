@@ -23,9 +23,8 @@ class LiveTripTracker {
             marker: {
                 icon: L.divIcon({
                     className: 'vehicle-marker',
-                    html: '<i class="fas fa-car"></i>',
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
+                    iconSize: [12, 12],
+                    iconAnchor: [6, 6]
                 })
             }
         };
