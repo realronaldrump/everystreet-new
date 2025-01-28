@@ -2678,13 +2678,28 @@ async def bouncie_webhook():
         })
 
     elif event_type == "tripData":
-        live_trips_collection.update_one(
-            {"transactionId": txid},
-            {
-                "$push": {"coordinates": {"$each": data.get("data", [])}},
-                "$set": {"lastUpdate": datetime.now(timezone.utc)},
-            }
-        )
+        new_coords = data.get("data", [])
+        trip = live_trips_collection.find_one({"transactionId": txid})
+
+        if trip and new_coords:
+            existing_coords = trip.get("coordinates", [])
+            if existing_coords:
+                # Calculate distance from last point
+                last_coord = existing_coords[-1]["gps"]
+                for coord in new_coords:
+                    distance = calculate_distance(
+                        last_coord["lat"], last_coord["lon"], coord["gps"]["lat"], coord["gps"]["lon"]
+                    )
+                    coord["distance"] = distance  # Append distance to each GPS point
+
+            # Update the trip with new data
+            live_trips_collection.update_one(
+                {"transactionId": txid},
+                {
+                    "$push": {"coordinates": {"$each": new_coords}},
+                    "$set": {"lastUpdate": datetime.now(timezone.utc)},
+                }
+            )
 
     elif event_type == "tripEnd":
         trip = live_trips_collection.find_one({"transactionId": txid})
