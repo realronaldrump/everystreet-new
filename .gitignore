@@ -47,3 +47,5 @@ olddrivingdata
 database_conversion.py
 migrate_geo_points.py
 docs/document.json
+test_live_tracking.py
+advanced_test_live_tracking.py
