@@ -1,145 +1,127 @@
 class LiveTripTracker {
     constructor(map) {
-        if (!map) throw new Error("Map instance is required");
-
         this.map = map;
-        this.activeTrips = new Map();
+        this.currentTrip = null;
         this.eventSource = null;
+        this.polyline = null;
+        this.marker = null;
 
+        // Configuration
         this.config = {
-            tripLine: {
-                color: "#00f7ff",
-                weight: 4,
-                opacity: 0.8,
-                className: "active-trip",
+            polyline: {
+                color: '#00FF00',
+                weight: 3,
+                opacity: 0.8
             },
-            vehicleIcon: {
-                className: "vehicle-marker",
-                html: '<i class="fas fa-car"></i>',
-                iconSize: [24, 24],
-                iconAnchor: [12, 12],
-            },
-        };
-
-        this.layers = {
-            liveTrips: L.layerGroup().addTo(this.map),
-            vehicles: L.layerGroup().addTo(this.map),
+            marker: {
+                icon: L.divIcon({
+                    className: 'vehicle-marker',
+                    html: '<i class="fas fa-car"></i>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                })
+            }
         };
 
         this.initialize();
     }
 
     initialize() {
-        this.setupEventSource();
+        // Create layers
+        this.polyline = L.polyline([], this.config.polyline).addTo(this.map);
+        this.marker = L.marker([0, 0], {
+            icon: this.config.marker.icon
+        }).addTo(this.map);
+        
+        // Hide initially
+        this.marker.setOpacity(0);
+        
+        // Start listening for updates
+        this.connectEventSource();
     }
 
-    setupEventSource() {
-        try {
-            this.eventSource = new EventSource("/stream");
+    connectEventSource() {
+        if (this.eventSource) {
+            this.eventSource.close();
+        }
 
-            this.eventSource.onopen = () => {
-                console.log("SSE connection established");
-            };
+        this.eventSource = new EventSource('/stream');
 
-            this.eventSource.onmessage = (event) => {
+        this.eventSource.onmessage = (event) => {
+            try {
                 const data = JSON.parse(event.data);
-                this.handleTripUpdate(data);
-            };
-
-            this.eventSource.onerror = () => {
-                console.error("SSE connection error");
-                if (this.eventSource) this.eventSource.close();
-            };
-        } catch (error) {
-            console.error("Error setting up EventSource:", error);
-        }
-    }
-
-    handleTripUpdate(data) {
-        if (!data || !data.data || !data.data.transactionId) {
-            console.warn("Invalid trip update data received:", data);
-            return;
-        }
-
-        const tripId = data.data.transactionId;
-        const coords = data.data.coordinates;
-
-        switch (data.type) {
-            case "trip_start":
-                this.initializeTrip(tripId);
-                break;
-
-            case "trip_update":
-                this.updateTripPath(tripId, coords);
-                break;
-
-            case "trip_end":
-                this.completeTrip(tripId);
-                break;
-
-            default:
-                console.warn(`Unhandled event type: ${data.type}`);
-        }
-    }
-
-    initializeTrip(tripId) {
-        if (this.activeTrips.has(tripId)) {
-            console.warn(`Trip ${tripId} already exists.`);
-            return;
-        }
-
-        const tripData = {
-            polyline: L.polyline([], this.config.tripLine).addTo(this.layers.liveTrips),
-            marker: null,
+                this.handleUpdate(data);
+            } catch (error) {
+                console.error('Error processing event:', error);
+            }
         };
 
-        this.activeTrips.set(tripId, tripData);
-        console.log(`Trip ${tripId} initialized.`);
+        this.eventSource.onerror = (error) => {
+            console.error('EventSource error:', error);
+            setTimeout(() => this.connectEventSource(), 5000); // Reconnect after 5s
+        };
     }
 
-    updateTripPath(tripId, coords) {
-        const trip = this.activeTrips.get(tripId);
-        if (!trip) {
-            console.warn(`Trip ${tripId} not found. Initializing.`);
-            this.initializeTrip(tripId);
-            return;
+    handleUpdate(data) {
+        if (!data || !data.type) return;
+
+        switch (data.type) {
+            case 'trip_start':
+                this.handleTripStart(data.data);
+                break;
+
+            case 'trip_update':
+                this.handleTripUpdate(data.data);
+                break;
+
+            case 'trip_end':
+                this.handleTripEnd(data.data);
+                break;
         }
+    }
 
-        if (coords && coords.length) {
-            const latlngs = coords.map((c) => [c.lat, c.lon]);
-            trip.polyline.setLatLngs(latlngs);
+    handleTripStart(tripData) {
+        this.currentTrip = tripData.transactionId;
+        this.polyline.setLatLngs([]);
+        this.marker.setOpacity(1);
+    }
 
-            const lastPos = latlngs[latlngs.length - 1];
-            if (!trip.marker) {
-                trip.marker = L.marker(lastPos, {
-                    icon: L.divIcon(this.config.vehicleIcon),
-                }).addTo(this.layers.vehicles);
-            } else {
-                trip.marker.setLatLng(lastPos);
-            }
+    handleTripUpdate(tripData) {
+        if (!this.currentTrip || tripData.transactionId !== this.currentTrip) return;
 
+        const coordinates = tripData.coordinates.map(coord => [coord.lat, coord.lon]);
+        
+        // Update polyline
+        this.polyline.setLatLngs(coordinates);
+        
+        // Update vehicle marker
+        if (coordinates.length > 0) {
+            const lastPos = coordinates[coordinates.length - 1];
+            this.marker.setLatLng(lastPos);
+            
+            // Auto-follow vehicle
             this.map.panTo(lastPos);
         }
     }
 
-    completeTrip(tripId) {
-        const trip = this.activeTrips.get(tripId);
-        if (!trip) return;
-
-        this.layers.liveTrips.removeLayer(trip.polyline);
-        if (trip.marker) {
-            this.layers.vehicles.removeLayer(trip.marker);
-        }
-
-        this.activeTrips.delete(tripId);
-        console.log(`Trip ${tripId} completed and removed.`);
+    handleTripEnd(tripData) {
+        if (!this.currentTrip || tripData.transactionId !== this.currentTrip) return;
+        
+        // Keep displaying for 5 minutes then clear
+        setTimeout(() => {
+            if (this.currentTrip === tripData.transactionId) {
+                this.polyline.setLatLngs([]);
+                this.marker.setOpacity(0);
+                this.currentTrip = null;
+            }
+        }, 5 * 60 * 1000);
     }
 }
 
-// Initialize LiveTripTracker when the DOM is ready
-document.addEventListener("DOMContentLoaded", () => {
+// Initialize when the map is ready
+document.addEventListener('DOMContentLoaded', () => {
     const map = window.EveryStreet?.getMap();
     if (map) {
-        new LiveTripTracker(map);
+        window.liveTracker = new LiveTripTracker(map);
     }
 });
