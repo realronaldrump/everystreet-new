@@ -2631,8 +2631,8 @@ def organize_hourly_data(results):
 @app.route("/stream")
 async def stream():
     """
-    Server-Sent Events (SSE) endpoint for live trip updates.
-    Sends periodic heartbeats when no active trips exist.
+    Server-Sent Events (SSE) endpoint for live trip updates and progress information.
+    Keeps the connection alive by sending periodic heartbeat messages.
     """
     async def event_stream():
         while True:
@@ -2641,6 +2641,7 @@ async def stream():
                 active_trips = live_trips_collection.find({})
                 trips_sent = False
 
+                # Send updates for active trips
                 for trip in active_trips:
                     trip["_id"] = str(trip["_id"])  # Ensure _id is a string
                     trip_data = {
@@ -2655,12 +2656,13 @@ async def stream():
 
                 # Send a heartbeat if no trips are active
                 if not trips_sent:
-                    yield "data: {\"type\": \"heartbeat\"}\n\n"
+                    yield "data: {\"type\": \"heartbeat\"}\n\n"  # Periodic keep-alive message
 
                 await asyncio.sleep(1)  # Poll every second
             except Exception as e:
                 logger.error(f"Error in event_stream: {e}", exc_info=True)
-                break  # Exit the generator on error
+                yield "event: error\ndata: {}\n\n"  # Send an error event to the client
+                break  # Exit the generator on unrecoverable error
 
     return Response(event_stream(), mimetype="text/event-stream")
 
