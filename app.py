@@ -2657,8 +2657,6 @@ async def stream():
 
     return Response(event_stream(), mimetype="text/event-stream")
 
-    return Response(event_stream(), mimetype="text/event-stream")
-
 @app.route("/webhook/bouncie", methods=["POST"])
 async def bouncie_webhook():
     """Handle Bouncie webhooks for live tracking"""
