@@ -36,7 +36,7 @@ from quart import (
     copy_current_app_context
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.jobstores.memory import MemoryJobStore
+scheduler = AsyncIOScheduler()
 from quart import render_template
 from geojson import dumps as geojson_dumps, loads as geojson_loads
 from pymongo import MongoClient
@@ -283,7 +283,8 @@ async def fetch_trips_in_intervals(main_session, access_token, imei, start_date,
 
 async def periodic_fetch_trips():
     """
-    Called every X minutes to fetch new trips from Bouncie in the background.
+    Periodically fetch trips from Bouncie API and store them.
+    This task runs in the background on a schedule.
     """
     try:
         last_trip = trips_collection.find_one(sort=[("endTime", -1)])
@@ -297,7 +298,7 @@ async def periodic_fetch_trips():
         await fetch_and_store_trips_in_range(start_date, end_date, update_progress=False)
         logger.info("Periodic trip fetch completed successfully.")
     except Exception as e:
-        logger.error(f"Error during periodic trip fetch: {e}", exc_info=True) # Log full exception info
+        logger.error(f"Error during periodic trip fetch: {e}", exc_info=True)
 
 #############################
 # Data Validation
@@ -1071,41 +1072,29 @@ async def export_gpx():
 # Start background tasks
 #############################
 
+
 def start_background_tasks():
     """
-    Starts background tasks using apscheduler.
+    Starts background tasks using the APScheduler for periodic executions.
     """
-    async def run_scheduler():
-        try:
-            scheduler = AsyncIOScheduler()
-            scheduler.add_job(
-                update_coverage_for_all_locations, "interval", minutes=60, max_instances=3
-            )
-            scheduler.add_job(
-                fetch_and_store_trips, "interval", minutes=60, max_instances=3
-            )
-            # Update GeoPoints for each collection
-            scheduler.add_job(
-                update_geo_points, "interval", minutes=60, max_instances=3, args=[trips_collection]
-            )
-            scheduler.add_job(
-                update_geo_points, "interval", minutes=60, max_instances=3, args=[historical_trips_collection]
-            )
-            scheduler.add_job(
-                update_geo_points, "interval", minutes=60, max_instances=3, args=[uploaded_trips_collection]
-            )
-            scheduler.add_job(
-                cleanup_invalid_trips, "interval", minutes=60, max_instances=3
-            )
-            scheduler.start()
-            logger.info("Background tasks started.")
+    try:
+        # Fetch and store trips periodically (every hour)
+        scheduler.add_job(fetch_and_store_trips, "interval", hours=1, max_instances=1)
 
-            # Run periodic_fetch_trips using Quart's run_task
-            app.add_background_task(periodic_fetch_trips)
-        except Exception as e:
-            logger.error(f"Error starting background tasks: {e}", exc_info=True)
+        # Run coverage calculations for all locations periodically (every hour)
+        scheduler.add_job(update_coverage_for_all_locations, "interval", hours=1, max_instances=1)
 
-    asyncio.run(run_scheduler())
+        # Cleanup invalid trips every 24 hours
+        scheduler.add_job(cleanup_invalid_trips, "interval", hours=24, max_instances=1)
+
+        # Run periodic fetch trips every 30 minutes
+        scheduler.add_job(periodic_fetch_trips, "interval", minutes=30, max_instances=1)
+
+        # Start the scheduler
+        scheduler.start()
+        logger.info("Scheduler initialized and background tasks started successfully.")
+    except Exception as e:
+        logger.error(f"Failed to start scheduler: {e}", exc_info=True)
 
 async def hourly_fetch_trips():
     """
@@ -1992,15 +1981,16 @@ async def update_street_coverage(location_name):
 async def update_coverage_for_all_locations():
     """
     Updates street coverage for all locations in the coverage_metadata collection.
+    This task runs periodically in the background.
     """
-    logger.info("Starting periodic street coverage update for all locations...")
-    locations = coverage_metadata_collection.distinct("location")
-    for location in locations:
-        try:
+    try:
+        logger.info("Starting periodic street coverage update for all locations...")
+        locations = coverage_metadata_collection.distinct("location")
+        for location in locations:
             await update_street_coverage(location)
-        except Exception as e:
-            logger.error(f"Error updating coverage for {location}: {e}")
-    logger.info("Finished periodic street coverage update.")
+        logger.info("Finished periodic street coverage update.")
+    except Exception as e:
+        logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)
 
 def run_periodic_fetches():
     loop = asyncio.new_event_loop()
@@ -3411,6 +3401,5 @@ if __name__ == "__main__":
     # Start the background tasks before running the app
     start_background_tasks()
     # Use uvicorn or hypercorn to run the app
-    # Example using uvicorn:
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
