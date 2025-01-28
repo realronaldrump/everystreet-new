@@ -5,8 +5,15 @@ class LiveTripTracker {
         this.eventSource = null;
         this.polyline = null;
         this.marker = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
 
-        // Configuration
+        // Status elements
+        this.statusIndicator = document.querySelector('.status-indicator');
+        this.statusText = document.querySelector('.status-text');
+        this.activeTripsCount = document.querySelector('#active-trips-count');
+        this.tripMetrics = document.querySelector('.live-trip-metrics');
+
         this.config = {
             polyline: {
                 color: '#00FF00',
@@ -27,17 +34,26 @@ class LiveTripTracker {
     }
 
     initialize() {
-        // Create layers
         this.polyline = L.polyline([], this.config.polyline).addTo(this.map);
         this.marker = L.marker([0, 0], {
             icon: this.config.marker.icon
         }).addTo(this.map);
         
-        // Hide initially
         this.marker.setOpacity(0);
-        
-        // Start listening for updates
         this.connectEventSource();
+    }
+
+    updateStatus(connected) {
+        if (this.statusIndicator && this.statusText) {
+            this.statusIndicator.classList.toggle('connected', connected);
+            this.statusText.textContent = connected ? 'Connected' : 'Disconnected';
+        }
+    }
+
+    updateActiveTripsCount(count) {
+        if (this.activeTripsCount) {
+            this.activeTripsCount.textContent = count;
+        }
     }
 
     connectEventSource() {
@@ -46,6 +62,12 @@ class LiveTripTracker {
         }
 
         this.eventSource = new EventSource('/stream');
+
+        this.eventSource.onopen = () => {
+            console.log('SSE Connection established');
+            this.updateStatus(true);
+            this.reconnectAttempts = 0;
+        };
 
         this.eventSource.onmessage = (event) => {
             try {
@@ -58,7 +80,16 @@ class LiveTripTracker {
 
         this.eventSource.onerror = (error) => {
             console.error('EventSource error:', error);
-            setTimeout(() => this.connectEventSource(), 5000); // Reconnect after 5s
+            this.updateStatus(false);
+            this.eventSource.close();
+            
+            if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                this.reconnectAttempts++;
+                console.log(`Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+                setTimeout(() => this.connectEventSource(), 5000);
+            } else {
+                console.error('Max reconnection attempts reached');
+            }
         };
     }
 
@@ -66,62 +97,41 @@ class LiveTripTracker {
         if (!data || !data.type) return;
 
         switch (data.type) {
-            case 'trip_start':
-                this.handleTripStart(data.data);
+            case 'connected':
+                console.log('Connected to live tracking');
+                this.updateStatus(true);
+                break;
+
+            case 'heartbeat':
+                // Ignore heartbeat
                 break;
 
             case 'trip_update':
                 this.handleTripUpdate(data.data);
                 break;
 
-            case 'trip_end':
-                this.handleTripEnd(data.data);
+            case 'error':
+                console.error('Server error:', data.message);
                 break;
         }
     }
 
-    handleTripStart(tripData) {
-        this.currentTrip = tripData.transactionId;
-        this.polyline.setLatLngs([]);
-        this.marker.setOpacity(1);
-    }
-
     handleTripUpdate(tripData) {
-        if (!this.currentTrip || tripData.transactionId !== this.currentTrip) return;
+        if (!tripData || !tripData.coordinates || !tripData.coordinates.length) return;
 
+        this.currentTrip = tripData.transactionId;
         const coordinates = tripData.coordinates.map(coord => [coord.lat, coord.lon]);
         
-        // Update polyline
+        this.updateActiveTripsCount(1);  // We know we have an active trip
         this.polyline.setLatLngs(coordinates);
+        this.marker.setOpacity(1);
         
-        // Update vehicle marker
-        if (coordinates.length > 0) {
-            const lastPos = coordinates[coordinates.length - 1];
-            this.marker.setLatLng(lastPos);
-            
-            // Auto-follow vehicle
+        const lastPos = coordinates[coordinates.length - 1];
+        this.marker.setLatLng(lastPos);
+        
+        // Only pan to vehicle if we're actively tracking
+        if (this.map.getBounds().contains(lastPos)) {
             this.map.panTo(lastPos);
         }
     }
-
-    handleTripEnd(tripData) {
-        if (!this.currentTrip || tripData.transactionId !== this.currentTrip) return;
-        
-        // Keep displaying for 5 minutes then clear
-        setTimeout(() => {
-            if (this.currentTrip === tripData.transactionId) {
-                this.polyline.setLatLngs([]);
-                this.marker.setOpacity(0);
-                this.currentTrip = null;
-            }
-        }, 5 * 60 * 1000);
-    }
 }
-
-// Initialize when the map is ready
-document.addEventListener('DOMContentLoaded', () => {
-    const map = window.EveryStreet?.getMap();
-    if (map) {
-        window.liveTracker = new LiveTripTracker(map);
-    }
-});

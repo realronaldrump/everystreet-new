@@ -2632,30 +2632,44 @@ def organize_hourly_data(results):
 async def stream():
     """SSE endpoint for live trip updates"""
     async def event_stream():
-        while True:
-            try:
-                # Get current active trip if any
-                active_trip = live_trips_collection.find_one({"status": "active"})
-                
-                if active_trip:
-                    # Send trip data
-                    data = {
-                        "type": "trip_update",
-                        "data": {
-                            "transactionId": active_trip["transactionId"],
-                            "coordinates": active_trip["coordinates"]
+        try:
+            # Send initial connection established message
+            yield "data: {\"type\": \"connected\"}\n\n"
+            
+            while True:
+                try:
+                    # Get current active trip if any
+                    active_trip = live_trips_collection.find_one({"status": "active"})
+                    
+                    if active_trip:
+                        # Send trip data
+                        data = {
+                            "type": "trip_update",
+                            "data": {
+                                "transactionId": active_trip["transactionId"],
+                                "coordinates": active_trip.get("coordinates", [])
+                            }
                         }
-                    }
-                    yield f"data: {json.dumps(data)}\n\n"
-                
-                await asyncio.sleep(1)  # Update every second
-                
-            except Exception as e:
-                logger.error(f"Error in event stream: {e}")
-                yield f"data: {json.dumps({'type': 'error'})}\n\n"
-                await asyncio.sleep(5)  # Wait before retrying
+                        yield f"data: {json.dumps(data)}\n\n"
+                    else:
+                        # Send heartbeat to keep connection alive
+                        yield "data: {\"type\": \"heartbeat\"}\n\n"
+                    
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    logger.error(f"Error in event stream loop: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Error in event stream: {e}")
 
-    return Response(event_stream(), mimetype="text/event-stream")
+    response = Response(event_stream(), mimetype="text/event-stream")
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['Connection'] = 'keep-alive'
+    response.headers['X-Accel-Buffering'] = 'no'  # Important for nginx
+    return response
+
+
 
 @app.route("/webhook/bouncie", methods=["POST"])
 async def bouncie_webhook():
@@ -2670,13 +2684,18 @@ async def bouncie_webhook():
         transaction_id = data.get("transactionId")
         
         if event_type == "tripStart":
+            # Delete any existing active trips first
+            live_trips_collection.delete_many({"status": "active"})
+            
             # Start new trip
             live_trips_collection.insert_one({
                 "transactionId": transaction_id,
                 "status": "active",
                 "startTime": datetime.now(timezone.utc),
-                "coordinates": []
+                "coordinates": [],
+                "lastUpdate": datetime.now(timezone.utc)
             })
+            logger.info(f"Started new trip: {transaction_id}")
             
         elif event_type == "tripData":
             # Update trip coordinates
@@ -2689,13 +2708,16 @@ async def bouncie_webhook():
                             "lon": point["gps"]["lon"]
                         })
                 
-                live_trips_collection.update_one(
-                    {"transactionId": transaction_id},
-                    {
-                        "$push": {"coordinates": {"$each": coordinates}},
-                        "$set": {"lastUpdate": datetime.now(timezone.utc)}
-                    }
-                )
+                if coordinates:
+                    # Update with new coordinates
+                    live_trips_collection.update_one(
+                        {"transactionId": transaction_id, "status": "active"},
+                        {
+                            "$push": {"coordinates": {"$each": coordinates}},
+                            "$set": {"lastUpdate": datetime.now(timezone.utc)}
+                        }
+                    )
+                    logger.info(f"Updated trip {transaction_id} with {len(coordinates)} coordinates")
                 
         elif event_type == "tripEnd":
             # Archive trip
@@ -2704,13 +2726,16 @@ async def bouncie_webhook():
                 trip["endTime"] = datetime.now(timezone.utc)
                 trip["status"] = "completed"
                 archived_live_trips_collection.insert_one(trip)
-                live_trips_collection.delete_one({"transactionId": transaction_id})
+                live_trips_collection.delete_one({"_id": trip["_id"]})
+                logger.info(f"Archived trip: {transaction_id}")
 
         return jsonify({"status": "success"}), 200
 
     except Exception as e:
         logger.error(f"Error in bouncie_webhook: {e}")
         return jsonify({"error": str(e)}), 500
+
+
     
 def is_valid_gps_point(point):
     """
