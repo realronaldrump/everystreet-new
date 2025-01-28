@@ -2625,15 +2625,20 @@ def organize_hourly_data(results):
 
 @app.route("/stream")
 async def stream():
-    """Server-Sent Events endpoint for live trip updates and progress information"""
+    """
+    Server-Sent Events (SSE) endpoint for live trip updates and progress information.
+    Keeps the connection alive by sending periodic heartbeat messages.
+    """
     async def event_stream():
         while True:
             try:
-                # Fetch active trips from MongoDB
+                # Check for active trips in the database
                 active_trips = live_trips_collection.find({})
+                trips_sent = False
+
+                # Send updates for active trips
                 for trip in active_trips:
-                    # Transform MongoDB data into expected SSE format
-                    trip['_id'] = str(trip['_id'])  # Ensure string ID
+                    trip['_id'] = str(trip['_id'])  # Ensure _id is a string
                     trip_data = {
                         "type": "trip_update",
                         "data": {
@@ -2642,10 +2647,17 @@ async def stream():
                         },
                     }
                     yield f"data: {json.dumps(trip_data)}\n\n"
+                    trips_sent = True
+
+                # If no trips are active, send a heartbeat to keep the connection alive
+                if not trips_sent:
+                    yield "data: {}\n\n"  # Send an empty message as a heartbeat
 
                 await asyncio.sleep(1)  # Poll every second
+
             except Exception as e:
                 logger.error(f"Error in event_stream: {e}", exc_info=True)
+                break  # Exit the generator on an unrecoverable error
 
     return Response(event_stream(), mimetype="text/event-stream")
 
