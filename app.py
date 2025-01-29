@@ -1,7 +1,6 @@
 from update_geo_points import update_geo_points
 from utils import validate_location_osm
 from map_matching import (
-    haversine_distance,
     process_and_map_match_trip,
 )
 from timezonefinder import TimezoneFinder
@@ -20,16 +19,12 @@ from quart import render_template
 import asyncio
 import glob
 import io
-import time
 import json
 import logging
 import os
 import traceback
 import zipfile
-import threading
 from datetime import datetime, timedelta, timezone
-
-import subprocess
 import aiohttp
 import certifi
 import geopandas as gpd
@@ -38,7 +33,6 @@ import gpxpy
 import gpxpy.gpx
 import pymongo
 import pytz
-import requests
 from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
 from bson import ObjectId
 from dateutil import parser
@@ -49,10 +43,7 @@ from quart import (
     jsonify,
     render_template,
     request,
-    send_file,
-    copy_current_websocket_context,
-    websocket,
-    copy_current_app_context
+    send_file
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 scheduler = AsyncIOScheduler()

@@ -1,7 +1,5 @@
 from pymongo import MongoClient
-from shapely.geometry import Point
 import json
-from datetime import datetime, timezone
 import os
 import sys
 import logging  # Import logging
