@@ -1482,6 +1482,7 @@ async def get_matched_trips():
     end_date_str = request.args.get("end_date")
     imei = request.args.get("imei")
 
+    # Convert start/end date strings to datetime objects
     start_date = datetime.fromisoformat(start_date_str).replace(
         tzinfo=timezone.utc) if start_date_str else None
     end_date = datetime.fromisoformat(end_date_str).replace(
@@ -1494,24 +1495,29 @@ async def get_matched_trips():
     if imei:
         query["imei"] = imei
 
-    matched = list(matched_trips_collection.find(query))
-    fc = []
-    for m in matched:
-        fc.append(geojson_module.Feature(
-            geometry=geojson_loads(m["matchedGps"]),
-            properties={
-                "transactionId": m["transactionId"],
-                "imei": m.get("imei", ""),
-                "startTime": m["startTime"].isoformat() if m.get("startTime") else "",
-                "endTime": m["endTime"].isoformat() if m.get("endTime") else "",
-                "distance": m.get("distance", 0),
-                "timeZone": m.get("timeZone", "America/Chicago"),
-                "destination": m.get("destination", "N/A"),
-                "startLocation": m.get("startLocation", "N/A"),
-            },
-        ))
+    matched_trips = list(matched_trips_collection.find(query))
 
-    return jsonify(geojson_module.FeatureCollection(fc))
+    features = []
+    for trip in matched_trips:
+        try:
+            feature = geojson_module.Feature(
+                geometry=geojson_loads(trip["matchedGps"]),
+                properties={
+                    "transactionId": trip["transactionId"],
+                    "imei": trip.get("imei", ""),
+                    "startTime": trip["startTime"].isoformat() if trip.get("startTime") else "",
+                    "endTime": trip["endTime"].isoformat() if trip.get("endTime") else "",
+                    "distance": trip.get("distance", 0),
+                    "timeZone": trip.get("timeZone", "UTC"),
+                    "destination": trip.get("destination", "N/A"),
+                    "startLocation": trip.get("startLocation", "N/A"),
+                },
+            )
+            features.append(feature)
+        except Exception as e:
+            logger.error(f"Error processing matched trip {trip.get('transactionId')}: {e}", exc_info=True)
+
+    return jsonify(geojson_module.FeatureCollection(features))
 
 
 @app.route("/api/export/trip/<trip_id>")
