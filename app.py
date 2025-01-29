@@ -15,7 +15,6 @@ from pymongo.errors import DuplicateKeyError
 from math import radians, cos, sin, sqrt, atan2
 from pymongo import MongoClient
 from geojson import dumps as geojson_dumps, loads as geojson_loads
-from quart import render_template
 import asyncio
 import glob
 import io
