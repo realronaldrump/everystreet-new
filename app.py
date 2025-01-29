@@ -2853,12 +2853,12 @@ async def bouncie_webhook():
     try:
         data = await request.get_json()
         event_type = data.get("eventType")
-        
+
         if not event_type:
             return jsonify({"error": "Missing eventType"}), 400
 
         transaction_id = data.get("transactionId")
-        
+
         if event_type == "tripStart":
             live_trips_collection.delete_many({"status": "active"})
             live_trips_collection.insert_one({
@@ -2868,22 +2868,23 @@ async def bouncie_webhook():
                 "coordinates": [],
                 "lastUpdate": datetime.now(timezone.utc)
             })
-            
+
         elif event_type == "tripData":
             if "data" in data:
                 coordinates = []
                 seen_coords = set()  # Track unique coordinates
-                
+
                 for point in data["data"]:
                     if "gps" in point:
-                        coord_tuple = (point["gps"]["lat"], point["gps"]["lon"])
+                        coord_tuple = (point["gps"]["lat"],
+                                       point["gps"]["lon"])
                         if coord_tuple not in seen_coords:
                             coordinates.append({
                                 "lat": point["gps"]["lat"],
                                 "lon": point["gps"]["lon"]
                             })
                             seen_coords.add(coord_tuple)
-                
+
                 if coordinates:
                     live_trips_collection.update_one(
                         {"transactionId": transaction_id, "status": "active"},
@@ -2894,9 +2895,10 @@ async def bouncie_webhook():
                             }
                         }
                     )
-                
+
         elif event_type == "tripEnd":
-            trip = live_trips_collection.find_one({"transactionId": transaction_id})
+            trip = live_trips_collection.find_one(
+                {"transactionId": transaction_id})
             if trip:
                 trip["endTime"] = datetime.now(timezone.utc)
                 trip["status"] = "completed"
@@ -2908,7 +2910,6 @@ async def bouncie_webhook():
     except Exception as e:
         logger.error(f"Error in bouncie_webhook: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 
 def is_valid_gps_point(point):
