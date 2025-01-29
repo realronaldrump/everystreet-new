@@ -1515,7 +1515,8 @@ async def get_matched_trips():
             )
             features.append(feature)
         except Exception as e:
-            logger.error(f"Error processing matched trip {trip.get('transactionId')}: {e}", exc_info=True)
+            logger.error(
+                f"Error processing matched trip {trip.get('transactionId')}: {e}", exc_info=True)
 
     return jsonify(geojson_module.FeatureCollection(features))
 
@@ -2881,8 +2882,10 @@ async def bouncie_webhook():
                 seen_coords = set()
 
                 # Fetch existing coordinates from MongoDB
-                trip = live_trips_collection.find_one({"transactionId": transaction_id, "status": "active"})
-                existing_coordinates = trip.get("coordinates", []) if trip else []
+                trip = live_trips_collection.find_one(
+                    {"transactionId": transaction_id, "status": "active"})
+                existing_coordinates = trip.get(
+                    "coordinates", []) if trip else []
 
                 # Populate seen_coords with existing coordinates to avoid duplicates
                 for coord_obj in existing_coordinates:
@@ -2890,7 +2893,8 @@ async def bouncie_webhook():
 
                 for point in data["data"]:
                     if "gps" in point:
-                        coord_tuple = (point["gps"]["lat"], point["gps"]["lon"])
+                        coord_tuple = (point["gps"]["lat"],
+                                       point["gps"]["lon"])
                         if coord_tuple not in seen_coords:
                             coordinates_to_add.append({
                                 "lat": point["gps"]["lat"],
@@ -2910,7 +2914,8 @@ async def bouncie_webhook():
                         f"Updated trip {transaction_id} with {len(coordinates_to_add)} new coordinates")
 
         elif event_type == "tripEnd":
-            trip = live_trips_collection.find_one({"transactionId": transaction_id})
+            trip = live_trips_collection.find_one(
+                {"transactionId": transaction_id})
             if trip:
                 trip["endTime"] = datetime.now(timezone.utc)
                 trip["status"] = "completed"
@@ -2940,6 +2945,7 @@ async def get_active_trip():
     except Exception as e:
         logger.error(f"Error in get_active_trip: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 def is_valid_gps_point(point):
     """
