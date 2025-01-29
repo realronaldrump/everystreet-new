@@ -313,13 +313,13 @@ function initializeTripsTable() {
                 }
             },
             {
-                data: 'totalIdleDurationFormatted',
-                title: 'Idle Duration',
-                render: function(data, type, row) {
-                    if (type === 'display') {
-                        return createEditableCell(data, type, 'totalIdleDurationFormatted', 'text');
-                    }
-                    return data;
+                //Corrected the data source for idle duration to 'totalIdleDuration'
+                data: 'totalIdleDuration',
+                title: 'Idle Duration (min)',
+                render: function(data, type) {
+                    //Convert idle duration in seconds to minutes
+                    const value = data !== undefined && data !== null ? (data / 60).toFixed(2) : 'N/A';
+                    return createEditableCell(value, type, 'totalIdleDuration', 'number');
                 }
             },
             {
@@ -522,7 +522,8 @@ async function fetchTrips() {
                 isCustomPlace: trip.properties.isCustomPlace || false,
                 distance: parseFloat(trip.properties.distance).toFixed(2),
                 maxSpeed: trip.properties.maxSpeed || (trip.properties.endLocation?.obdMaxSpeed || 0),
-                totalIdleDuration: trip.properties.totalIdleDuration || (trip.properties.idle?.length || 0) * 60, // Convert idle events to duration
+                //Removed calculation for idle duration here
+                totalIdleDuration: trip.properties.totalIdleDuration,
                 fuelConsumed: trip.properties.fuelConsumed || 0
             }));
 
@@ -580,7 +581,8 @@ function createEditableCell(data, type, field, inputType = 'text') {
         } else if ((field === 'distance' || field === 'maxSpeed' || field === 'fuelConsumed') && data) {
             displayValue = parseFloat(data).toFixed(2);
         } else if (field === 'totalIdleDuration' && data) {
-            displayValue = (parseFloat(data) / 60).toFixed(2);
+            // Removed the division by 60, since the value is already in minutes
+            displayValue = parseFloat(data).toFixed(2);
         }
 
         let inputValue = (field === 'startTime' || field === 'endTime') && data ?
