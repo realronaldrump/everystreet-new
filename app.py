@@ -1839,7 +1839,7 @@ async def export_boundary():
 async def preprocess_streets_route():
     """
     Triggers the preprocessing of street data for a given location.
-    Expects JSON payload: {"location": "Davis, CA", "location_type": "city"}
+    Expects JSON payload: {"location": "Waco, TX", "location_type": "city"}
     """
     global progress_data
     progress_data["run_preprocess_streets"]["status"] = "running"
