@@ -7,6 +7,7 @@ class LiveTripTracker {
         this.marker = null;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
+        this.lastCoordinateIndex = 0; // Initialize the index
 
         // Status elements
         this.statusIndicator = document.querySelector('.status-indicator');
@@ -39,20 +40,21 @@ class LiveTripTracker {
         }).addTo(this.map);
 
         this.marker.setOpacity(0);
-        this.loadInitialTripData(); // <--- ADD THIS LINE BEFORE connectEventSource()
+        this.lastCoordinateIndex = 0; // Reset the index
+        this.loadInitialTripData();
         this.connectEventSource();
     }
 
-    async loadInitialTripData() { // <--- NEW METHOD TO FETCH INITIAL DATA
+    async loadInitialTripData() {
         try {
-            const response = await fetch('/api/active_trip'); // <--- NEW API ENDPOINT
+            const response = await fetch('/api/active_trip');
             if (!response.ok) {
                 console.error('Failed to fetch initial trip data:', response.statusText);
-                return; // Don't proceed if fetch fails, but don't break initialization
+                return;
             }
             const data = await response.json();
             if (data && data.transactionId && data.coordinates) {
-                this.handleTripUpdate(data); // Use existing handler to draw initial polyline
+                this.handleTripUpdate(data);
             } else {
                 console.log('No active trip data found on server.');
             }
@@ -154,12 +156,11 @@ class LiveTripTracker {
         // Update last coordinate index
         this.lastCoordinateIndex = tripData.coordinates.length;
 
-        const lastPos = updatedLatLngs[updatedLatLngs.length - 1];
+        // Use the last of the *new* coordinates for marker update
+        const lastPos = newCoordinates.length > 0 ? newCoordinates[newCoordinates.length - 1] : currentLatLngs[currentLatLngs.length - 1];
         this.marker.setLatLng(lastPos);
 
-        // Only pan to vehicle if we're actively tracking
-        if (this.map.getBounds().contains(lastPos)) {
-            this.map.panTo(lastPos);
-        }
+        // Smoothly pan the map to the new position
+        this.map.panTo(lastPos, { animate: true, duration: 1 });
     }
 }

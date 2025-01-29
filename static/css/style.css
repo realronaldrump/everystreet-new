@@ -736,12 +736,6 @@ canvas {
   color: #f44336;
 }
 
-.vehicle-marker i {
-  animation: marker-pulse 1.5s infinite;
-  color: #2196f3;
-  font-size: 24px;
-}
-
 @keyframes marker-pulse {
   0% {
     opacity: 1;
@@ -1024,6 +1018,7 @@ canvas {
   border-radius: 50%;
   box-shadow: 0 0 0 rgba(0, 247, 255, 0.4);
   animation: pulse 1.5s infinite;
+  transition: left 0.5s linear, top 0.5s linear;
 }
 
 @keyframes pulse {
