@@ -2850,21 +2850,17 @@ async def stream():
 
 @app.route("/webhook/bouncie", methods=["POST"])
 async def bouncie_webhook():
-    """Handle Bouncie webhooks for live tracking"""
     try:
         data = await request.get_json()
         event_type = data.get("eventType")
-
+        
         if not event_type:
             return jsonify({"error": "Missing eventType"}), 400
 
         transaction_id = data.get("transactionId")
-
+        
         if event_type == "tripStart":
-            # Delete any existing active trips first
             live_trips_collection.delete_many({"status": "active"})
-
-            # Start new trip
             live_trips_collection.insert_one({
                 "transactionId": transaction_id,
                 "status": "active",
@@ -2872,47 +2868,47 @@ async def bouncie_webhook():
                 "coordinates": [],
                 "lastUpdate": datetime.now(timezone.utc)
             })
-            logger.info(f"Started new trip: {transaction_id}")
-
+            
         elif event_type == "tripData":
-            # Update trip coordinates
             if "data" in data:
                 coordinates = []
+                seen_coords = set()  # Track unique coordinates
+                
                 for point in data["data"]:
                     if "gps" in point:
-                        coordinates.append({
-                            "lat": point["gps"]["lat"],
-                            "lon": point["gps"]["lon"]
-                        })
-
+                        coord_tuple = (point["gps"]["lat"], point["gps"]["lon"])
+                        if coord_tuple not in seen_coords:
+                            coordinates.append({
+                                "lat": point["gps"]["lat"],
+                                "lon": point["gps"]["lon"]
+                            })
+                            seen_coords.add(coord_tuple)
+                
                 if coordinates:
-                    # Update with new coordinates
                     live_trips_collection.update_one(
                         {"transactionId": transaction_id, "status": "active"},
                         {
-                            "$push": {"coordinates": {"$each": coordinates}},
-                            "$set": {"lastUpdate": datetime.now(timezone.utc)}
+                            "$set": {
+                                "coordinates": coordinates,  # Replace instead of push
+                                "lastUpdate": datetime.now(timezone.utc)
+                            }
                         }
                     )
-                    logger.info(
-                        f"Updated trip {transaction_id} with {len(coordinates)} coordinates")
-
+                
         elif event_type == "tripEnd":
-            # Archive trip
-            trip = live_trips_collection.find_one(
-                {"transactionId": transaction_id})
+            trip = live_trips_collection.find_one({"transactionId": transaction_id})
             if trip:
                 trip["endTime"] = datetime.now(timezone.utc)
                 trip["status"] = "completed"
                 archived_live_trips_collection.insert_one(trip)
                 live_trips_collection.delete_one({"_id": trip["_id"]})
-                logger.info(f"Archived trip: {transaction_id}")
 
         return jsonify({"status": "success"}), 200
 
     except Exception as e:
         logger.error(f"Error in bouncie_webhook: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 def is_valid_gps_point(point):
