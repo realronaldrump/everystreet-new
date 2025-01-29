@@ -37,9 +37,28 @@ class LiveTripTracker {
         this.marker = L.marker([0, 0], {
             icon: this.config.marker.icon
         }).addTo(this.map);
-        
+
         this.marker.setOpacity(0);
+        this.loadInitialTripData(); // <--- ADD THIS LINE BEFORE connectEventSource()
         this.connectEventSource();
+    }
+
+    async loadInitialTripData() { // <--- NEW METHOD TO FETCH INITIAL DATA
+        try {
+            const response = await fetch('/api/active_trip'); // <--- NEW API ENDPOINT
+            if (!response.ok) {
+                console.error('Failed to fetch initial trip data:', response.statusText);
+                return; // Don't proceed if fetch fails, but don't break initialization
+            }
+            const data = await response.json();
+            if (data && data.transactionId && data.coordinates) {
+                this.handleTripUpdate(data); // Use existing handler to draw initial polyline
+            } else {
+                console.log('No active trip data found on server.');
+            }
+        } catch (error) {
+            console.error('Error fetching initial trip data:', error);
+        }
     }
 
     updateStatus(connected) {
@@ -81,7 +100,7 @@ class LiveTripTracker {
             console.error('EventSource error:', error);
             this.updateStatus(false);
             this.eventSource.close();
-            
+
             if (this.reconnectAttempts < this.maxReconnectAttempts) {
                 this.reconnectAttempts++;
                 console.log(`Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
@@ -119,15 +138,25 @@ class LiveTripTracker {
         if (!tripData || !tripData.coordinates || !tripData.coordinates.length) return;
 
         this.currentTrip = tripData.transactionId;
-        const coordinates = tripData.coordinates.map(coord => [coord.lat, coord.lon]);
-        
-        this.updateActiveTripsCount(1);  // We know we have an active trip
-        this.polyline.setLatLngs(coordinates);
+
+        // Only process new coordinates since the last update
+        const newCoordinates = tripData.coordinates.slice(this.lastCoordinateIndex).map(coord => [coord.lat, coord.lon]);
+
+        this.updateActiveTripsCount(1);
+
+        // Append new coordinates to the existing polyline
+        const currentLatLngs = this.polyline.getLatLngs();
+        const updatedLatLngs = currentLatLngs.concat(newCoordinates);
+        this.polyline.setLatLngs(updatedLatLngs);
+
         this.marker.setOpacity(1);
-        
-        const lastPos = coordinates[coordinates.length - 1];
+
+        // Update last coordinate index
+        this.lastCoordinateIndex = tripData.coordinates.length;
+
+        const lastPos = updatedLatLngs[updatedLatLngs.length - 1];
         this.marker.setLatLng(lastPos);
-        
+
         // Only pan to vehicle if we're actively tracking
         if (this.map.getBounds().contains(lastPos)) {
             this.map.panTo(lastPos);

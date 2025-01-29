@@ -170,27 +170,4 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script src="{{ url_for('static', filename='js/custom-places.js') }}"></script>
 <script src="{{ url_for('static', filename='js/live_tracking.js') }}"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const checkMap = setInterval(() => {
-            const map = window.EveryStreet?.getMap();
-            if (map) {
-                clearInterval(checkMap);
-                try {
-                    window.liveTracker = new LiveTripTracker(map);
-                } catch (e) {
-                    console.error('Error initializing LiveTripTracker:', e);
-                    // Show error in status panel
-                    const errorDiv = document.querySelector('.error-message');
-                    if (errorDiv) {
-                        errorDiv.textContent = 'Failed to initialize live tracking. Please refresh the page.';
-                        errorDiv.classList.remove('d-none');
-                    }
-                }
-            }
-        }, 100);
-
-        setTimeout(() => clearInterval(checkMap), 10000);
-    });
-</script>
 {% endblock %}
