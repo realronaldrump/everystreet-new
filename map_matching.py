@@ -108,19 +108,17 @@ async def process_and_map_match_trip(trip):
     """
     Processes a single trip from the database, performs map matching on its coords,
     and stores or updates the matched result in matched_trips_collection.
-    It now also performs map matching for live trips from the webhook.
     """
     try:
         from app import update_street_coverage
-        from app import matched_trips_collection, trips_collection, historical_trips_collection, live_trips_collection, validate_trip_data, reverse_geocode_nominatim
+        from app import matched_trips_collection, trips_collection, historical_trips_collection, validate_trip_data, reverse_geocode_nominatim
 
         # Validate trip data
         is_valid, error_message = validate_trip_data(trip)
         if not is_valid:
-            logger.error(f"Invalid trip data for map matching (transactionId: {trip.get('transactionId', 'N/A')}): {error_message}")
+            logger.error(f"Invalid trip data for map matching (transactionId: {trip.get('transactionId', 'N/A')}): {error_message}") # Include transactionId in log
             return None
 
-        # Check if the trip is already map-matched
         existing_matched = matched_trips_collection.find_one(
             {"transactionId": trip["transactionId"]}
         )
@@ -132,8 +130,6 @@ async def process_and_map_match_trip(trip):
         # Decide which collection the original trip is from
         if trip.get("imei") == "HISTORICAL":
             source_collection = historical_trips_collection
-        elif "source" in trip and trip["source"] == "webhook":
-            source_collection = live_trips_collection
         else:
             source_collection = trips_collection
 
@@ -147,7 +143,7 @@ async def process_and_map_match_trip(trip):
 
         # Validate coords
         if not coordinates:
-            logger.warning(f"Trip {trip['transactionId']} has no coordinates. Skipping map matching.")
+            logger.warning(f"Trip {trip['transactionId']} has no coordinates. Skipping map matching.") # Warning log for no coords
             return
         if not all(is_valid_coordinate(c) for c in coordinates):
             logger.error(
@@ -170,12 +166,13 @@ async def process_and_map_match_trip(trip):
 
             # Add location information using reverse geocoding on matched coordinates
             matched_coords = map_match_result["matchings"][0]["geometry"]["coordinates"]
-            location_name = None
+            location_name = None  # Initialize location_name to None
             if matched_coords:
                 start_lon, start_lat = matched_coords[0]
                 end_lon, end_lat = matched_coords[-1]
 
-                location = await reverse_geocode_nominatim(start_lat, start_lon)
+                # Use either start or end location (or both, or a more sophisticated logic)
+                location = await reverse_geocode_nominatim(start_lat, start_lon)  # Await async call
 
                 if location and "address" in location:
                     if "city" in location["address"]:
@@ -188,7 +185,7 @@ async def process_and_map_match_trip(trip):
                         location_name = location.get("display_name", "")
 
                 if not location_name:
-                    location = await reverse_geocode_nominatim(end_lat, end_lon)
+                    location = await reverse_geocode_nominatim(end_lat, end_lon)  # Await async call
                     if location and "address" in location:
                         if "city" in location["address"]:
                             location_name = location["address"]["city"]
@@ -209,7 +206,7 @@ async def process_and_map_match_trip(trip):
             # Update street coverage if location information is available and valid
             if location_name:
                 try:
-                    await update_street_coverage(location_name)
+                    await update_street_coverage(location_name)  # Await async call
                 except Exception as e:
                     logger.error(
                         f"Error updating street coverage for {location_name}: {e}", exc_info=True)
