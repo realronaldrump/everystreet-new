@@ -67,12 +67,15 @@ def fetch_osm_data(location, streets_only=True):
         """
 
     try:
-        response = requests.get(OVERPASS_URL, params={"data": query}, timeout=30) # Added timeout
-        response.raise_for_status() # Raise HTTPError for bad status codes
+        response = requests.get(OVERPASS_URL, params={
+                                "data": query}, timeout=30)  # Added timeout
+        response.raise_for_status()  # Raise HTTPError for bad status codes
         return response.json()
-    except requests.exceptions.RequestException as e: # Catch broader exceptions
-        logger.error(f"Error fetching OSM data from Overpass for location {location['display_name']}: {e}", exc_info=True) # Include location in log
-        raise # Re-raise exception for handling in main function
+    except requests.exceptions.RequestException as e:  # Catch broader exceptions
+        # Include location in log
+        logger.error(
+            f"Error fetching OSM data from Overpass for location {location['display_name']}: {e}", exc_info=True)
+        raise  # Re-raise exception for handling in main function
 
 
 def segment_street(line, segment_length_meters=100):
@@ -183,7 +186,9 @@ def process_osm_data(osm_data, location):
                     features.append(feature)
                     total_length += segment_length  # Accumulate the total length
             except Exception as e:
-                logger.error(f"Error processing element {element['id']} (way): {e}", exc_info=True) # Include element ID in log
+                # Include element ID in log
+                logger.error(
+                    f"Error processing element {element['id']} (way): {e}", exc_info=True)
 
     if features:
         # Convert features to GeoJSON and insert into MongoDB
@@ -233,11 +238,14 @@ def main():
     location_query = args.location
     location_type = args.location_type
 
-    try: # Wrap main logic in try-except for top-level error handling
+    try:  # Wrap main logic in try-except for top-level error handling
         # Validate the location using Nominatim
-        validated_location = validate_location_osm(location_query, location_type)
+        validated_location = validate_location_osm(
+            location_query, location_type)
         if not validated_location:
-            logger.error(f"Location '{location_query}' of type '{location_type}' not found.") # Log invalid location
+            # Log invalid location
+            logger.error(
+                f"Location '{location_query}' of type '{location_type}' not found.")
             return
 
         # Fetch OSM data
@@ -246,9 +254,13 @@ def main():
         # Process OSM data and store in MongoDB
         process_osm_data(osm_data, validated_location)
 
-        logger.info(f"Street preprocessing completed for {validated_location['display_name']}.") # Log completion
-    except Exception as e: # Catch any exceptions in main function
-        logger.error(f"Error in main function during street preprocessing: {e}", exc_info=True) # Log top-level exceptions
+        # Log completion
+        logger.info(
+            f"Street preprocessing completed for {validated_location['display_name']}.")
+    except Exception as e:  # Catch any exceptions in main function
+        # Log top-level exceptions
+        logger.error(
+            f"Error in main function during street preprocessing: {e}", exc_info=True)
 
 
 if __name__ == "__main__":
