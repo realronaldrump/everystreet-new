@@ -2850,7 +2850,7 @@ async def bouncie_webhook():
     """
     Receives Bouncie webhook events (tripStart, tripData, tripEnd, etc.)
     and updates or stores active trip data in live_trips_collection.
-    
+
     Changes:
       - For tripData events, we now parse the 'timestamp' from each data point,
         store it as a datetime with lat/lon, then re-sort all coordinates
@@ -2859,7 +2859,7 @@ async def bouncie_webhook():
       - We also skip duplicates by timestamp (and optionally lat,lon).
     """
     import dateutil.parser
-    
+
     try:
         data = await request.get_json()
         event_type = data.get("eventType")
@@ -2885,7 +2885,8 @@ async def bouncie_webhook():
                 "transactionId": transaction_id,
                 "status": "active",
                 "startTime": now_utc,
-                "coordinates": [],  # Will store dicts: {lat, lon, timestamp (datetime)}
+                # Will store dicts: {lat, lon, timestamp (datetime)}
+                "coordinates": [],
                 "lastUpdate": now_utc
             })
 
@@ -2913,7 +2914,7 @@ async def bouncie_webhook():
                 # Convert to list of (timestamp, lat, lon) for easy manipulation
                 existing_tuples = [
                     (
-                        coord.get("timestamp"), 
+                        coord.get("timestamp"),
                         coord.get("lat"),
                         coord.get("lon")
                     )
