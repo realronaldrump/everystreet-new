@@ -10,8 +10,8 @@ logging.basicConfig(level=logging.INFO,  # Set default level to INFO
 logger = logging.getLogger(__name__)
 
 # Database setup (ensure these match your settings)
-MONGO_URI = os.environ.get("MONGO_URI")  # Fetch from environment variable
-DB_NAME = "every_street"  # Replace with your database name
+MONGO_URI = os.environ.get("MONGO_URI")
+DB_NAME = "every_street"
 
 client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
@@ -25,9 +25,9 @@ def update_geo_points(collection):
     Updates documents in the given collection to add startGeoPoint and destinationGeoPoint.
     """
     logger.info(
-        f"Starting GeoPoint update for collection: {collection.name}")  # Log start of update process
+        f"Starting GeoPoint update for collection: {collection.name}")
     updated_count = 0
-    try:  # Wrap the entire process in a try-except block
+    try:
         for doc in collection.find(
             {
                 "$or": [
@@ -36,7 +36,7 @@ def update_geo_points(collection):
                 ]
             }, no_cursor_timeout=True  # Added no_cursor_timeout to prevent cursor timeout for large collections
         ):
-            try:  # Wrap individual document processing in try-except
+            try:
                 gps_data = doc["gps"]
                 if isinstance(gps_data, str):
                     gps_data = json.loads(gps_data)
@@ -60,11 +60,10 @@ def update_geo_points(collection):
                     collection.update_one({"_id": doc["_id"]}, {
                                           "$set": update_fields})
                     updated_count += 1
-                    # Debug log for each updated doc
                     logger.debug(
                         f"Updated GeoPoints for document _id: {doc.get('_id', '?')}")
-            except (KeyError, IndexError) as e:  # Catch specific index/key errors
-                # Warning for data issues
+            except (KeyError, IndexError) as e:
+
                 logger.warning(
                     f"Skipping document {doc.get('_id', '?')}: GPS data incomplete or missing coordinates - {e}")
             except json.JSONDecodeError as e:  # Catch JSONDecodeError
