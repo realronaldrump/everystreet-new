@@ -6,130 +6,152 @@
 <div class="container mt-4">
     <h1 class="mb-4">Settings</h1>
 
-    <!-- =============================== -->
-    <!-- Load Historical Data -->
-    <!-- =============================== -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h2 class="h5 mb-0">Historical Data</h2>
-        </div>
-        <div class="card-body">
-            <p>Load historical trip data from older GeoJSON files.</p>
-            <button id="load-historical-data" class="btn btn-primary">
-                <i class="fas fa-history me-1"></i> Load Historical Data
-            </button>
-            <div id="historical-data-status" class="mt-2"></div>
-        </div>
-    </div>
-
-    <!-- =============================== -->
-    <!-- GeoPoint Update -->
-    <!-- =============================== -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h2 class="h5 mb-0">GeoPoint Update</h2>
-        </div>
-        <div class="card-body">
-            <p>Ensure trips contain start and destination GeoPoints.</p>
-            <div class="mb-3">
-                <label for="collection-select" class="form-label">Select Collection:</label>
-                <select id="collection-select" class="form-select">
-                    <option value="trips">Trips</option>
-                    <option value="historical_trips">Historical Trips</option>
-                    <option value="uploaded_trips">Uploaded Trips</option>
-                </select>
-            </div>
-            <button id="update-geo-points" class="btn btn-secondary">
-                Update GeoPoints
-            </button>
-            <div id="update-geo-points-status" class="mt-2"></div>
-        </div>
-    </div>
-
-    <!-- =============================== -->
-    <!-- Re-geocode Trips -->
-    <!-- =============================== -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h2 class="h5 mb-0">Re-geocode All Trips</h2>
-        </div>
-        <div class="card-body">
-            <p>Re-run geocoding for all trips to check against custom places.</p>
-            <button id="re-geocode-all-trips" class="btn btn-warning">
-                <i class="fas fa-map-marker-alt me-1"></i> Re-geocode All Trips
-            </button>
-            <div id="re-geocode-all-trips-status" class="mt-2"></div>
-        </div>
-    </div>
-
-    <!-- =============================== -->
-    <!-- Background Task Management -->
-    <!-- =============================== -->
-    <div class="card mt-4">
-        <div class="card-header">
-            <h2 class="h5 mb-0">Background Task Configuration</h2>
-        </div>
-        <div class="card-body">
-            <!-- Global Controls -->
-            <div class="mb-3 d-flex flex-wrap align-items-center">
-                <div class="form-check form-switch me-3">
-                    <input class="form-check-input" type="checkbox" id="globalDisableSwitch" />
-                    <label class="form-check-label" for="globalDisableSwitch">Disable All Tasks</label>
+    <div class="row">
+        <!-- Historical Data -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h5 mb-0"><i class="fas fa-history me-2"></i>Historical Data</h2>
                 </div>
-                <button id="pauseBtn" class="btn btn-secondary me-2" data-bs-toggle="modal" data-bs-target="#pauseModal">
-                    Pause Tasks...
-                </button>
-                <button id="resumeBtn" class="btn btn-info me-2">Resume</button>
-                <button id="stopAllBtn" class="btn btn-danger me-2">Stop All Tasks</button>
-                <button id="enableAllBtn" class="btn btn-primary me-2">Enable All</button>
-                <button id="disableAllBtn" class="btn btn-warning me-2">Disable All</button>
+                <div class="card-body">
+                    <p>Load historical trip data from older GeoJSON files.</p>
+                    <button id="load-historical-data" class="btn btn-primary">
+                        Load Historical Data
+                    </button>
+                    <div id="historical-data-status" class="mt-2"></div>
+                </div>
             </div>
+        </div>
 
-            <!-- Pause Modal -->
-            <div class="modal fade" id="pauseModal" tabindex="-1" aria-labelledby="pauseModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-sm modal-dialog-centered">
-                    <div class="modal-content bg-dark text-light">
-                        <div class="modal-header border-secondary">
-                            <h5 class="modal-title" id="pauseModalLabel">Pause Tasks</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <label for="pauseDuration" class="form-label">Pause for:</label>
-                            <select id="pauseDuration" class="form-select">
-                                <option value="5">5 Minutes</option>
-                                <option value="30">30 Minutes</option>
-                                <option value="60">1 Hour</option>
-                                <option value="360">6 Hours</option>
-                                <option value="720">12 Hours</option>
-                                <option value="1440">1 Day</option>
-                            </select>
-                        </div>
-                        <div class="modal-footer border-secondary">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" id="confirmPause">Pause</button>
+        <!-- GeoPoint Update -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h2 class="h5 mb-0"><i class="fas fa-map-marker-alt me-2"></i>GeoPoint Update</h2>
+                </div>
+                <div class="card-body">
+                    <p>Ensure trips contain start and destination GeoPoints.</p>
+                    <div class="mb-3">
+                        <label for="collection-select" class="form-label">Select Collection:</label>
+                        <select id="collection-select" class="form-select">
+                            <option value="trips">Trips</option>
+                            <option value="historical_trips">Historical Trips</option>
+                            <option value="uploaded_trips">Uploaded Trips</option>
+                        </select>
+                    </div>
+                    <button id="update-geo-points" class="btn btn-secondary">
+                        Update GeoPoints
+                    </button>
+                    <div id="update-geo-points-status" class="mt-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Re-geocode Trips -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h2 class="h5 mb-0"><i class="fas fa-sync-alt me-2"></i>Re-geocode All Trips</h2>
+                </div>
+                <div class="card-body">
+                    <p>Re-run geocoding for all trips to check against custom places.</p>
+                    <button id="re-geocode-all-trips" class="btn btn-warning">
+                        Re-geocode All Trips
+                    </button>
+                    <div id="re-geocode-all-trips-status" class="mt-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Background Task Management -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h2 class="h5 mb-0"><i class="fas fa-tasks me-2"></i>Background Task Configuration</h2>
+                </div>
+                <div class="card-body">
+                    <!-- Global Controls -->
+                    <div class="d-flex flex-wrap align-items-center mb-3">
+                        <button id="pauseBtn" class="btn btn-secondary me-2" data-bs-toggle="modal"
+                            data-bs-target="#pauseModal">
+                            <i class="fas fa-pause me-1"></i>Pause Tasks...
+                        </button>
+                        <button id="resumeBtn" class="btn btn-info me-2">
+                            <i class="fas fa-play me-1"></i>Resume
+                        </button>
+                        <button id="stopAllBtn" class="btn btn-danger me-2">
+                            <i class="fas fa-stop me-1"></i>Stop All Tasks
+                        </button>
+                        <div class="form-check form-switch ms-auto">
+                            <input class="form-check-input" type="checkbox" id="globalDisableSwitch" />
+                            <label class="form-check-label" for="globalDisableSwitch">Disable All Tasks</label>
                         </div>
                     </div>
-                </div>
-            </div>
+                    <div class="d-flex flex-wrap align-items-center mb-3">
+                        <button id="enableAllBtn" class="btn btn-success me-2">
+                            <i class="fas fa-check me-1"></i>Enable All
+                        </button>
+                        <button id="disableAllBtn" class="btn btn-warning me-2">
+                            <i class="fas fa-ban me-1"></i>Disable All
+                        </button>
+                        <button id="manualRunAllBtn" class="btn btn-info ms-auto">
+                            <i class="fas fa-running me-1"></i>Run All Now
+                        </button>
+                    </div>
 
-            <!-- Tasks Table -->
-            <div class="table-responsive mt-4">
-                <table class="table table-dark table-striped align-middle" id="taskConfigTable">
-                    <thead>
-                        <tr>
-                            <th>Task</th>
-                            <th>Interval</th>
-                            <th>Enable</th>
-                            <th>Manual Run</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-            <hr />
-            <div>
-                <button id="saveTaskConfigBtn" class="btn btn-success">Save Changes</button>
-                <button id="manualRunAllBtn" class="btn btn-info float-end">Run All Now</button>
+                    <!-- Pause Modal -->
+                    <div class="modal fade" id="pauseModal" tabindex="-1" aria-labelledby="pauseModalLabel"
+                        aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="pauseModalLabel">Pause Tasks</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                        aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <label for="pauseDuration" class="form-label">Pause for:</label>
+                                    <select id="pauseDuration" class="form-select">
+                                        <option value="5">5 Minutes</option>
+                                        <option value="30">30 Minutes</option>
+                                        <option value="60">1 Hour</option>
+                                        <option value="360">6 Hours</option>
+                                        <option value="720">12 Hours</option>
+                                        <option value="1440">1 Day</option>
+                                    </select>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary"
+                                        data-bs-dismiss="modal">Cancel</button>
+                                    <button type="button" class="btn btn-primary" id="confirmPause">Confirm
+                                        Pause</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tasks Table -->
+                    <div class="table-responsive mt-3">
+                        <table class="table table-striped table-hover" id="taskConfigTable">
+                            <thead>
+                                <tr>
+                                    <th>Task</th>
+                                    <th>Interval</th>
+                                    <th>Enable</th>
+                                    <th>Manual Run</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3">
+                        <button id="saveTaskConfigBtn" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i>Save Changes
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
