@@ -102,4 +102,25 @@
       </div>
     </div>
   </div>
+  <div class="row mt-4">
+    <!-- New Column: Export All Trips -->
+    <div class="col-md-6">
+      <div class="card mb-4">
+        <div class="card-header">Export All Trips</div>
+        <div class="card-body">
+          <form id="export-all-form">
+            <div class="mb-3">
+              <label for="all-format" class="form-label">Format</label>
+              <select class="form-select" id="all-format" required>
+                <option value="geojson" selected>GeoJSON</option>
+                <option value="gpx">GPX</option>
+                <option value="json">Raw JSON</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Export All Trips</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 </div> {% endblock %} {% block extra_js %} <script src="{{ url_for('static', filename='js/export.js') }}"></script> {% endblock %}

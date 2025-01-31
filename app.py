@@ -1620,6 +1620,53 @@ async def export_page():
     """Renders the export page."""
     return await render_template("export.html")
 
+@app.route("/api/export/all_trips")
+async def export_all_trips():
+    """
+    Exports ALL trips (from trips, uploaded_trips, and historical_trips) in the specified format.
+    No date filtering; everything in the DB is returned.
+    """
+    fmt = request.args.get("format", "geojson").lower()  # Default to geojson
+
+    # 1) Fetch EVERYTHING from all trip collections:
+    all_trips = await fetch_all_trips_no_filter()
+
+    # 2) Format output accordingly:
+    if fmt == "geojson":
+        geojson_data = await create_geojson(all_trips)
+        return await send_file(
+            io.BytesIO(geojson_data.encode()),
+            mimetype="application/geo+json",
+            as_attachment=True,
+            attachment_filename="all_trips.geojson"
+        )
+
+    elif fmt == "gpx":
+        gpx_data = await create_gpx(all_trips)
+        return await send_file(
+            io.BytesIO(gpx_data.encode()),
+            mimetype="application/gpx+xml",
+            as_attachment=True,
+            attachment_filename="all_trips.gpx"
+        )
+
+    elif fmt == "json":
+        return jsonify(all_trips)
+
+    return jsonify({"error": "Invalid export format"}), 400
+
+async def fetch_all_trips_no_filter():
+    """
+    Fetches ALL trips from:
+      - trips_collection
+      - uploaded_trips_collection
+      - historical_trips_collection
+    """
+    trips = list(trips_collection.find())
+    uploaded_trips = list(uploaded_trips_collection.find())
+    historical_trips = list(historical_trips_collection.find())
+
+    return trips + uploaded_trips + historical_trips
 
 @app.route("/api/export/trips")
 async def export_trips():
@@ -1676,29 +1723,38 @@ def fetch_trips(start_date_str, end_date_str):
     return list(trips_collection.find(query))
 
 
+
 async def create_geojson(trips):
+    """
+    Converts a list of trips into a GeoJSON FeatureCollection.
+    This function ensures that all MongoDB ObjectId fields are converted to strings.
+    """
     features = []
+    
     for t in trips:
-        gps_data = t["gps"]
+        gps_data = t.get("gps")
         if isinstance(gps_data, str):
             gps_data = json.loads(gps_data)
-        feat = {
+
+        # Ensure `_id` is converted to string (to prevent ObjectId serialization issues)
+        properties_dict = {
+            k: (v.isoformat() if isinstance(v, datetime) else str(v) if isinstance(v, ObjectId) else v)
+            for k, v in t.items() if k != "_id"
+        }
+
+        feature = {
             "type": "Feature",
             "geometry": gps_data,
-            "properties": {
-                "transactionId": t["transactionId"],
-                "startTime": t["startTime"].isoformat(),
-                "endTime": t["endTime"].isoformat(),
-                "distance": t.get("distance", 0),
-                "startLocation": t.get("startLocation"),
-                "destination": t.get("destination"),
-            },
+            "properties": properties_dict
         }
-        features.append(feat)
+        features.append(feature)
+
     return json.dumps({"type": "FeatureCollection", "features": features})
 
-
 async def create_gpx(trips):
+    """
+    Converts a list of trips into a GPX file.
+    """
     gpx = gpxpy.gpx.GPX()
     for t in trips:
         track = gpxpy.gpx.GPXTrack()
@@ -1706,14 +1762,14 @@ async def create_gpx(trips):
         segment = gpxpy.gpx.GPXTrackSegment()
         track.segments.append(segment)
 
-        gps_data = t["gps"]
+        gps_data = t.get("gps")
         if isinstance(gps_data, str):
             gps_data = json.loads(gps_data)
 
         if gps_data.get("type") == "LineString":
-            for c in gps_data.get("coordinates", []):
-                if len(c) >= 2:
-                    lon, lat = c
+            for coord in gps_data.get("coordinates", []):
+                if len(coord) >= 2:
+                    lon, lat = coord
                     segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
         elif gps_data.get("type") == "Point":
             coords = gps_data.get("coordinates", [])
@@ -1721,8 +1777,8 @@ async def create_gpx(trips):
                 lon, lat = coords
                 segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
 
-        track.name = t.get("transactionId", "Unnamed")
-        track.description = f"{t.get('startLocation')} => {t.get('destination')}"
+        track.name = f"Trip {t.get('transactionId', 'UNKNOWN')}"
+    
     return gpx.to_xml()
 
 

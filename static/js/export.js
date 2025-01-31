@@ -1,5 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
 	initializeExportForms();
+	// Add a new init for the "Export All" form
+	const exportAllForm = document.getElementById('export-all-form');
+	if (exportAllForm) {
+		exportAllForm.addEventListener('submit', (event) => {
+			event.preventDefault();
+			exportAllTrips();
+		});
+	}
 });
 
 function initializeExportForms() {
@@ -116,4 +124,11 @@ function validateLocation(inputId) {
 		console.error('Error validating location:', error);
 		alert('Error validating location. Please try again.');
 	});
+}
+
+// The new function to handle "Export All"
+function exportAllTrips() {
+	const format = document.getElementById('all-format').value;
+	const url = `/api/export/all_trips?format=${format}`;
+	downloadFile(url, `all_trips.${format}`);
 }
