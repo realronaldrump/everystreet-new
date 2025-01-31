@@ -295,25 +295,7 @@ async def fetch_trips_in_intervals(main_session, access_token, imei, start_date,
 #############################
 
 
-async def periodic_fetch_trips():
-    """
-    Periodically fetch trips from Bouncie API and store them.
-    This task runs in the background on a schedule.
-    """
-    try:
-        last_trip = trips_collection.find_one(sort=[("endTime", -1)])
-        start_date = (
-            last_trip["endTime"]
-            if last_trip
-            else datetime.now(timezone.utc) - timedelta(days=7)
-        )
-        end_date = datetime.now(timezone.utc)
-        logger.info(
-            f"Periodic trip fetch started from {start_date} to {end_date}")
-        await fetch_and_store_trips_in_range(start_date, end_date, update_progress=False)
-        logger.info("Periodic trip fetch completed successfully.")
-    except Exception as e:
-        logger.error(f"Error during periodic trip fetch: {e}", exc_info=True)
+
 
 #############################
 # Data Validation
@@ -1141,55 +1123,31 @@ async def export_gpx():
         return jsonify({"error": str(e)}), 500
 
 #############################
-# Start background tasks
+# Background tasks
 #############################
-
-
-def start_background_tasks():
-    """
-    Starts background tasks using the APScheduler for periodic executions.
-    """
+async def periodic_fetch_trips():
+    """Periodically fetch trips from Bouncie API and store them."""
     try:
-        # Fetch and store trips periodically (every hour)
-        scheduler.add_job(fetch_and_store_trips, "interval",
-                          hours=1, max_instances=1)
-
-        # Run coverage calculations for all locations periodically (every hour)
-        scheduler.add_job(update_coverage_for_all_locations,
-                          "interval", hours=1, max_instances=1)
-
-        # Periodic cleanup of stale trips
-        scheduler.add_job(cleanup_stale_trips, "interval",
-                          minutes=5, max_instances=1)
-
-        # Cleanup invalid trips every 24 hours
-        scheduler.add_job(cleanup_invalid_trips, "interval",
-                          hours=24, max_instances=1)
-
-        # Run periodic fetch trips every 30 minutes
-        scheduler.add_job(periodic_fetch_trips, "interval",
-                          minutes=30, max_instances=1)
-
-        # Start the scheduler
-        scheduler.start()
-        logger.info(
-            "Scheduler initialized and background tasks started successfully.")
+        last_trip = trips_collection.find_one(sort=[("endTime", -1)])
+        start_date = (
+            last_trip["endTime"]
+            if last_trip
+            else datetime.now(timezone.utc) - timedelta(days=7)
+        )
+        end_date = datetime.now(timezone.utc)
+        logger.info(f"Periodic trip fetch started from {start_date} to {end_date}")
+        await fetch_and_store_trips_in_range(start_date, end_date, update_progress=False)
+        logger.info("Periodic trip fetch completed successfully.")
     except Exception as e:
-        logger.error(f"Failed to start scheduler: {e}", exc_info=True)
+        logger.error(f"Error during periodic trip fetch: {e}", exc_info=True)
 
 
 async def hourly_fetch_trips():
-    """
-    Fetches and stores trips from the last hour.
-    This function is meant to be run periodically by the scheduler.
-    """
+    """Fetches and stores trips from the last hour."""
     try:
-        # Calculate the current UTC time and the time 1 hour ago
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(hours=1)
-
-        logger.info(
-            f"Hourly trip fetch started for range: {start_date} to {end_date}")
+        logger.info(f"Hourly trip fetch started for range: {start_date} to {end_date}")
         await fetch_and_store_trips_in_range(start_date, end_date)
         logger.info("Hourly trip fetch completed successfully.")
 
@@ -1205,10 +1163,70 @@ async def hourly_fetch_trips():
         for trip in new_trips_to_match:
             await process_and_map_match_trip(trip)
             map_matched_count += 1
-        logger.info(
-            f"Map matching completed for {map_matched_count} hourly fetched trips.")
+        logger.info(f"Map matching completed for {map_matched_count} hourly fetched trips.")
+
     except Exception as e:
         logger.error(f"Error during hourly trip fetch: {e}", exc_info=True)
+
+
+async def update_coverage_for_all_locations():
+    """Updates street coverage for all locations."""
+    try:
+        logger.info("Starting periodic street coverage update for all locations...")
+        locations = coverage_metadata_collection.distinct("location")
+        for location in locations:
+            await update_street_coverage(location)
+        logger.info("Finished periodic street coverage update.")
+    except Exception as e:
+        logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)
+
+
+async def cleanup_stale_trips():
+    """Periodically archives trips that haven't been updated in 5 minutes."""
+    try:
+        now = datetime.now(timezone.utc)
+        stale_threshold = now - timedelta(minutes=5)
+        stale_trips = live_trips_collection.find({
+            "lastUpdate": {"$lt": stale_threshold},
+            "status": "active"
+        })
+        for trip in stale_trips:
+            trip["status"] = "stale"
+            trip["endTime"] = now
+            archived_live_trips_collection.insert_one(trip)
+            live_trips_collection.delete_one({"_id": trip["_id"]})
+    except Exception as e:
+        logger.error(f"Error cleaning up stale trips: {e}", exc_info=True)
+
+
+async def cleanup_invalid_trips():
+    """Optionally run to mark invalid trip docs."""
+    try:
+        all_trips = list(trips_collection.find({}))
+        for t in all_trips:
+            ok, msg = validate_trip_data(t)
+            if not ok:
+                logger.warning(f"Invalid trip {t.get('transactionId','?')}: {msg}")
+                trips_collection.update_one(
+                    {"_id": t["_id"]}, {"$set": {"invalid": True}}
+                )
+        logger.info("Trip cleanup done.")
+    except Exception as e:
+        logger.error(f"cleanup_invalid_trips: {e}", exc_info=True)
+
+
+def start_background_tasks():
+    """Add jobs to the scheduler and start it."""
+    # Example intervals lowered for demonstration, adjust as needed.
+    scheduler.add_job(fetch_and_store_trips, "interval", hours=4, max_instances=1)
+    scheduler.add_job(update_coverage_for_all_locations, "interval", hours=4, max_instances=1)
+    scheduler.add_job(cleanup_stale_trips, "interval", minutes=5, max_instances=1)
+    scheduler.add_job(cleanup_invalid_trips, "interval", hours=24, max_instances=1)
+    scheduler.add_job(periodic_fetch_trips, "interval", minutes=30, max_instances=1)
+    scheduler.start()
+    logger.info("Scheduler initialized and background tasks started successfully.")
+
+
 
 #############################
 # Location validation
@@ -2003,40 +2021,26 @@ async def get_street_coverage():
 
 
 async def update_street_coverage(location_name):
-    """
-    Updates the driven status of street segments based on recent trips.
-    Now it gets the location from the segments themselves.
-    """
+    """Updates the driven status of street segments based on recent trips."""
     logger.info(f"Updating street coverage for location: {location_name}")
     try:
-        # Get the last processed trip timestamp for the location
-        coverage_metadata = coverage_metadata_collection.find_one(
-            {"location": location_name})
-        last_processed_trip_time = coverage_metadata.get("last_processed_trip_time", datetime.min.replace(
-            tzinfo=timezone.utc)) if coverage_metadata else datetime.min.replace(tzinfo=timezone.utc)
+        coverage_metadata = coverage_metadata_collection.find_one({"location": location_name})
+        last_processed_trip_time = coverage_metadata.get("last_processed_trip_time", datetime.min.replace(tzinfo=timezone.utc)) if coverage_metadata else datetime.min.replace(tzinfo=timezone.utc)
         logger.info(f"Last processed trip time: {last_processed_trip_time}")
-
-        # Find new trips since the last update
         new_trips = list(matched_trips_collection.find({
             "startTime": {"$gt": last_processed_trip_time}
         }))
-
-        logger.info(f"Found {len(new_trips)} new trips (no location filter)")
-
+        logger.info(f"Found {len(new_trips)} new trips for coverage update (no location filter).")
         if not new_trips:
             logger.info(f"No new trips found since {last_processed_trip_time}")
             return
 
-        # Buffer trip lines and update street segments
-        updated_segments = set()  # Keep track of updated segments for this location
+        updated_segments = set()
         for trip in new_trips:
-            logger.info(f"Processing trip: {trip['transactionId']}")
+            logger.info(f"Processing trip coverage: {trip['transactionId']}")
             try:
-                trip_line = shape(geojson_loads(trip["matchedGps"]))
-                buffered_line = trip_line.buffer(
-                    0.00005)  # Buffer by ~5 meters
-
-                # Find intersecting segments for the specific location using a geospatial query
+                trip_line = shape(geojson_module.loads(trip["matchedGps"]))
+                buffered_line = trip_line.buffer(0.00005)  # ~5 meters
                 intersecting_segments = streets_collection.find({
                     "properties.location": location_name,
                     "geometry": {
@@ -2045,11 +2049,8 @@ async def update_street_coverage(location_name):
                         }
                     }
                 })
-
                 for segment in intersecting_segments:
                     segment_id = segment["properties"]["segment_id"]
-
-                    # Only update if the segment hasn't been updated already
                     if segment_id not in updated_segments:
                         streets_collection.update_one(
                             {"_id": segment["_id"]},
@@ -2058,32 +2059,17 @@ async def update_street_coverage(location_name):
                                 "$addToSet": {"properties.matched_trips": trip["transactionId"]}
                             }
                         )
-                        # Add to the set of updated segments
                         updated_segments.add(segment_id)
                         logger.info(f"Updated segment: {segment_id}")
 
             except Exception as e:
-                logger.error(
-                    f"Error processing trip {trip['transactionId']}: {e}")
+                logger.error(f"Error processing trip {trip['transactionId']}: {e}")
 
-        # Recalculate and update coverage metadata
-        total_segments = streets_collection.count_documents(
-            {"properties.location": location_name})
-        driven_segments = streets_collection.count_documents(
-            {"properties.location": location_name, "properties.driven": True})
-        total_length = sum(segment["properties"]["length"] for segment in streets_collection.find(
-            {"properties.location": location_name}, {"properties.length": 1}))
-        driven_length = sum(segment["properties"]["length"] for segment in streets_collection.find(
-            {"properties.location": location_name, "properties.driven": True}, {"properties.length": 1}))
-        coverage_percentage = (driven_length / total_length) * \
-            100 if total_length > 0 else 0
-
-        logger.info(f"Updating coverage metadata for {location_name}:")
-        logger.info(f"  Total segments: {total_segments}")
-        logger.info(f"  Driven segments: {driven_segments}")
-        logger.info(f"  Total length: {total_length}")
-        logger.info(f"  Driven length: {driven_length}")
-        logger.info(f"  Coverage percentage: {coverage_percentage}")
+        total_segments = streets_collection.count_documents({"properties.location": location_name})
+        driven_segments = streets_collection.count_documents({"properties.location": location_name, "properties.driven": True})
+        total_length = sum(s["properties"]["length"] for s in streets_collection.find({"properties.location": location_name}, {"properties.length": 1}))
+        driven_length = sum(s["properties"]["length"] for s in streets_collection.find({"properties.location": location_name, "properties.driven": True}, {"properties.length": 1}))
+        coverage_percentage = (driven_length / total_length)*100 if total_length > 0 else 0
 
         coverage_metadata_collection.update_one(
             {"location": location_name},
@@ -2100,31 +2086,11 @@ async def update_street_coverage(location_name):
             },
             upsert=True
         )
-
         logger.info(f"Street coverage updated for {location_name}")
 
     except Exception as e:
-        logger.error(
-            f"Error updating street coverage for {location_name}: {e}")
+        logger.error(f"Error updating street coverage for {location_name}: {e}")
         raise
-
-
-async def update_coverage_for_all_locations():
-    """
-    Updates street coverage for all locations in the coverage_metadata collection.
-    This task runs periodically in the background.
-    """
-    try:
-        logger.info(
-            "Starting periodic street coverage update for all locations...")
-        locations = coverage_metadata_collection.distinct("location")
-        for location in locations:
-            await update_street_coverage(location)
-        logger.info("Finished periodic street coverage update.")
-    except Exception as e:
-        logger.error(
-            f"Error updating coverage for all locations: {e}", exc_info=True)
-
 
 def run_periodic_fetches():
     loop = asyncio.new_event_loop()
@@ -3111,25 +3077,7 @@ def is_valid_gps_point(point):
     return lat is not None and lon is not None and -90 <= lat <= 90 and -180 <= lon <= 180
 
 
-async def cleanup_stale_trips():
-    """Periodically archives trips that haven't been updated in 5 minutes"""
-    try:
-        now = datetime.now(timezone.utc)
-        stale_threshold = now - timedelta(minutes=5)
 
-        stale_trips = live_trips_collection.find({
-            "lastUpdate": {"$lt": stale_threshold},
-            "status": "active"
-        })
-
-        for trip in stale_trips:
-            trip["status"] = "stale"
-            trip["endTime"] = now
-            archived_live_trips_collection.insert_one(trip)
-            live_trips_collection.delete_one({"_id": trip["_id"]})
-
-    except Exception as e:
-        logger.error(f"Error cleaning up stale trips: {e}")
 
 #############################
 # DB helpers
@@ -3588,27 +3536,7 @@ async def not_found_error(error):
 async def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
 
-#############################
-# Cleanup invalid trips
-#############################
 
-
-async def cleanup_invalid_trips():
-    """
-    Optionally run to mark invalid trip docs.
-    """
-    try:
-        all_trips = list(trips_collection.find({}))
-        for t in all_trips:
-            ok, msg = validate_trip_data(t)
-            if not ok:
-                logger.warning(
-                    f"Invalid trip {t.get('transactionId','?')}: {msg}")
-                trips_collection.update_one(
-                    {"_id": t["_id"]}, {"$set": {"invalid": True}})
-        logger.info("Trip cleanup done.")
-    except Exception as e:
-        logger.error(f"cleanup_invalid_trips: {e}", exc_info=True)
 
 #############################
 # Bulk delete
@@ -3910,14 +3838,24 @@ async def debug_trip(trip_id):
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+#############################
+#   Hook APScheduler into Quart's event loop
+#############################
+@app.before_serving
+async def init_background_tasks():
+    """
+    This is CRUCIAL to ensure APScheduler uses the same event loop as Quart/Uvicorn.
+    """
+    loop = asyncio.get_event_loop()
+    scheduler.configure(event_loop=loop)  # Tie the scheduler to Quart's loop
+    start_background_tasks()
 
 #############################
 # Run
 #############################
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", "8080"))
-    # Start the background tasks before running the app
-    start_background_tasks()
-    # Use uvicorn or hypercorn to run the app
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    port = int(os.getenv("PORT", "8080"))
+    # If you run "python app.py" this block will fire.  Use uvicorn to serve.
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info", use_colors=True)
