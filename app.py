@@ -3287,21 +3287,14 @@ async def stream():
     return response
 
 
+from timestamp_utils import parse_bouncie_timestamp, get_trip_timestamps, sort_and_filter_trip_coordinates
+
 @app.route("/webhook/bouncie", methods=["POST"])
 async def bouncie_webhook():
     """
-    Receives Bouncie webhook events (tripStart, tripData, tripEnd, etc.)
-    and updates or stores active trip data in live_trips_collection.
-    
-    Changes:
-      - For tripData events, we now parse the 'timestamp' from each data point,
-        store it as a datetime with lat/lon, then re-sort all coordinates
-        by time before saving back.
-      - This prevents out-of-order lines on the live map.
-      - We also skip duplicates by timestamp (and optionally lat,lon).
+    Handles incoming Bouncie webhook events and updates/stores trip data.
+    Uses Bouncie’s timestamps instead of `now_utc`.
     """
-    import dateutil.parser
-    
     try:
         data = await request.get_json()
         event_type = data.get("eventType")
@@ -3309,148 +3302,66 @@ async def bouncie_webhook():
             return jsonify({"error": "Missing eventType"}), 400
 
         transaction_id = data.get("transactionId")
-        # For clarity, store the current UTC now
-        now_utc = datetime.now(timezone.utc)
 
-        # If missing transactionId on trip events, just bail
         if event_type in ("tripStart", "tripData", "tripEnd") and not transaction_id:
             return jsonify({"error": "Missing transactionId for trip event"}), 400
 
         if event_type == "tripStart":
-            # Make sure no active trip is left behind
-            live_trips_collection.delete_many({
-                "transactionId": transaction_id,
-                "status": "active"
-            })
+            start_time, _ = get_trip_timestamps(data)
+
+            # Ensure no active trip is left behind
+            live_trips_collection.delete_many({"transactionId": transaction_id, "status": "active"})
 
             live_trips_collection.insert_one({
                 "transactionId": transaction_id,
                 "status": "active",
-                "startTime": now_utc,
-                "coordinates": [],  # Will store dicts: {lat, lon, timestamp (datetime)}
-                "lastUpdate": now_utc
+                "startTime": start_time,
+                "coordinates": [],
+                "lastUpdate": start_time
             })
 
         elif event_type == "tripData":
-            # If the doc doesn't exist, we can create or skip
-            trip_doc = live_trips_collection.find_one(
-                {"transactionId": transaction_id, "status": "active"}
-            )
+            trip_doc = live_trips_collection.find_one({"transactionId": transaction_id, "status": "active"})
             if not trip_doc:
-                # Either ignore or create a new partial doc
-                # Let's create it here for safety
                 live_trips_collection.insert_one({
                     "transactionId": transaction_id,
                     "status": "active",
-                    "startTime": now_utc,
+                    "startTime": datetime.now(timezone.utc),  # Fallback if tripStart was never received
                     "coordinates": [],
-                    "lastUpdate": now_utc
+                    "lastUpdate": datetime.now(timezone.utc)
                 })
-                trip_doc = live_trips_collection.find_one(
-                    {"transactionId": transaction_id, "status": "active"}
-                )
+                trip_doc = live_trips_collection.find_one({"transactionId": transaction_id, "status": "active"})
 
             if "data" in data:
-                existing_coords = trip_doc.get("coordinates", [])
-                # Convert to list of (timestamp, lat, lon) for easy manipulation
-                existing_tuples = [
-                    (
-                        coord.get("timestamp"), 
-                        coord.get("lat"),
-                        coord.get("lon")
-                    )
-                    for coord in existing_coords
-                ]
-                existing_set = set(existing_tuples)  # For dedupe
+                new_coords = sort_and_filter_trip_coordinates(data["data"])
+                all_coords = trip_doc.get("coordinates", []) + new_coords
+                all_coords.sort(key=lambda c: c["timestamp"])
 
-                new_coords = []
-
-                for point in data["data"]:
-                    # parse the point's time
-                    raw_ts = point.get("timestamp")
-                    if not raw_ts or "gps" not in point:
-                        continue  # skip malformed
-                    try:
-                        parsed_time = dateutil.parser.isoparse(raw_ts)
-                    except Exception:
-                        continue  # skip if unparseable
-
-                    lat = point["gps"].get("lat")
-                    lon = point["gps"].get("lon")
-                    if lat is None or lon is None:
-                        continue
-
-                    # create a 3-tuple key to deduplicate by (time, lat, lon)
-                    coord_key = (parsed_time.isoformat(), lat, lon)
-                    if coord_key not in existing_set:
-                        existing_set.add(coord_key)
-                        new_coords.append({
-                            "timestamp": parsed_time,
-                            "lat": lat,
-                            "lon": lon
-                        })
-
-                if new_coords:
-                    # Merge with existing doc coords
-                    all_coords = existing_coords + new_coords
-                    # Sort them by .timestamp
-                    all_coords.sort(key=lambda c: c["timestamp"])
-                    # Update the doc
-                    live_trips_collection.update_one(
-                        {"_id": trip_doc["_id"]},
-                        {
-                            "$set": {
-                                "coordinates": all_coords,
-                                "lastUpdate": now_utc
-                            }
+                live_trips_collection.update_one(
+                    {"_id": trip_doc["_id"]},
+                    {
+                        "$set": {
+                            "coordinates": all_coords,
+                            "lastUpdate": all_coords[-1]["timestamp"] if all_coords else trip_doc["startTime"]
                         }
-                    )
+                    }
+                )
 
         elif event_type == "tripEnd":
-            # Move from live_trips_collection to archived
-            trip = live_trips_collection.find_one(
-                {"transactionId": transaction_id}
-            )
+            start_time, end_time = get_trip_timestamps(data)
+
+            trip = live_trips_collection.find_one({"transactionId": transaction_id})
             if trip:
-                trip["endTime"] = now_utc
+                trip["endTime"] = end_time
                 trip["status"] = "completed"
                 archived_live_trips_collection.insert_one(trip)
                 live_trips_collection.delete_one({"_id": trip["_id"]})
-
-        # else: handle other eventTypes like mil, battery, etc. if you wish
 
         return jsonify({"status": "success"}), 200
 
     except Exception as e:
         logger.error(f"Error in bouncie_webhook: {e}")
         return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/active_trip", methods=["GET"])
-async def get_active_trip():
-    """API endpoint to get the current active trip data for persistence"""
-    try:
-        active_trip = live_trips_collection.find_one({"status": "active"})
-        if active_trip:
-            trip_data = {
-                "transactionId": active_trip["transactionId"],
-                "coordinates": active_trip.get("coordinates", [])
-            }
-            return jsonify(trip_data), 200
-        else:
-            return jsonify({}), 200  # Return empty JSON if no active trip
-    except Exception as e:
-        logger.error(f"Error in get_active_trip: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-def is_valid_gps_point(point):
-    """
-    Validate GPS point data for correctness.
-    """
-    gps = point.get("gps", {})
-    lat, lon = gps.get("lat"), gps.get("lon")
-    return lat is not None and lon is not None and -90 <= lat <= 90 and -180 <= lon <= 180
 
 
 
@@ -3778,87 +3689,91 @@ def get_place_at_point(point):
 
 async def fetch_and_store_trips_in_range(start_date, end_date, update_progress=False):
     """
-    Main function used by /api/fetch_trips_range
+    Fetches trips from Bouncie's API in a given date range and stores them.
+    Ensures timestamps are parsed correctly and prevents null startTime/endTime values.
     """
     global progress_data
     if update_progress:
         progress_data["fetch_and_store_trips_in_range"]["status"] = "running"
         progress_data["fetch_and_store_trips_in_range"]["progress"] = 0
-        progress_data["fetch_and_store_trips_in_range"]["message"] = "Fetching trips in range"
+
     try:
-        logger.info(
-            f"fetch_and_store_trips_in_range {start_date} -> {end_date}")
-        if start_date.tzinfo is None:
-            start_date = start_date.replace(tzinfo=timezone.utc)
-        if end_date.tzinfo is None:
-            end_date = end_date.replace(tzinfo=timezone.utc)
+        logger.info(f"Fetching trips from {start_date} -> {end_date}")
+
+        # Ensure timestamps are timezone-aware
+        start_date = parse_bouncie_timestamp(start_date.isoformat())
+        end_date = parse_bouncie_timestamp(end_date.isoformat())
 
         async with aiohttp.ClientSession() as sess:
             token = await get_access_token(sess)
             if not token:
-                logger.error("No Bouncie token retrieved.")
-                if update_progress:
-                    progress_data["fetch_and_store_trips_in_range"]["status"] = "failed"
-                    progress_data["fetch_and_store_trips_in_range"]["message"] = "Failed to get Bouncie access token"
+                logger.error("No Bouncie token retrieved. Aborting trip fetch.")
                 return
 
             all_trips = []
             total_devices = len(AUTHORIZED_DEVICES)
-            for idx, imei in enumerate(AUTHORIZED_DEVICES):
-                dev_trips = await fetch_trips_in_intervals(sess, token, imei, start_date, end_date)
-                logger.info(f"Fetched {len(dev_trips)} trips for {imei}")
-                all_trips.extend(dev_trips)
-                if update_progress:
-                    prog = int((idx + 1) / total_devices * 50)
-                    progress_data["fetch_and_store_trips_in_range"]["progress"] = prog
-                    progress_data["fetch_and_store_trips_in_range"][
-                        "message"] = f"Fetched trips for device {idx + 1} of {total_devices}"
 
-            logger.info(f"Total fetched: {len(all_trips)}")
+            # Fetch trips for each device
+            for idx, imei in enumerate(AUTHORIZED_DEVICES, 1):
+                dev_trips = await fetch_trips_in_intervals(sess, token, imei, start_date, end_date)
+                all_trips.extend(dev_trips)
+                logger.info(f"Fetched {len(dev_trips)} trips for device {imei}")
+
+                if update_progress:
+                    progress_data["fetch_and_store_trips_in_range"]["progress"] = int((idx / total_devices) * 50)
+
+            logger.info(f"Total fetched: {len(all_trips)} trips.")
+
+            # Process and store trips
             processed_count = 0
             skipped_count = 0
             error_count = 0
-
             total_trips = len(all_trips)
+
             for index, trip in enumerate(all_trips):
                 try:
+                    # If already in DB, skip
                     existing = get_trip_from_db(trip["transactionId"])
                     if existing:
-                        logger.info(
-                            f"Skipping existing trip {trip['transactionId']}")
+                        logger.info(f"Skipping existing trip {trip['transactionId']}")
                         skipped_count += 1
                         continue
 
-                    tr = await process_trip_data(trip)
-                    if not tr:
+                    # Parse timestamps directly from "startTime" and "endTime" fields
+                    trip["startTime"] = parse_bouncie_timestamp(trip.get("startTime"))
+                    trip["endTime"] = parse_bouncie_timestamp(trip.get("endTime"))
+
+                    # Ensure timestamps are not None
+                    if not trip["startTime"] or not trip["endTime"]:
+                        logger.warning(f"Skipping trip {trip['transactionId']} due to missing timestamps.")
                         error_count += 1
                         continue
 
-                    if not store_trip(tr):
-                        error_count += 1
-                        continue
-                    processed_count += 1
+                    # Process trip data (geocoding, structure, etc.)
+                    processed_trip = await process_trip_data(trip)
+
+                    # Store trip in DB
+                    if store_trip(processed_trip):
+                        processed_count += 1
+                        logger.info(f"Stored trip {trip['transactionId']} successfully.")
+
+                    if update_progress:
+                        progress_data["fetch_and_store_trips_in_range"]["progress"] = int(50 + (index / total_trips) * 50)
+
                 except Exception as e:
-                    logger.error(
-                        f"Error processing trip {trip.get('transactionId','?')}: {e}", exc_info=True)
+                    logger.error(f"Error processing trip {trip.get('transactionId', '?')}: {e}", exc_info=True)
                     error_count += 1
-                if update_progress:
-                    prog = int(50 + (index / total_trips) * 50)
-                    progress_data["fetch_and_store_trips_in_range"]["progress"] = prog
-                    progress_data["fetch_and_store_trips_in_range"][
-                        "message"] = f"Processed trip {index + 1} of {total_trips}"
 
             logger.info(
-                f"Done range: {processed_count} ok, {skipped_count} skipped, {error_count} errors")
+                f"Trip fetch completed: {processed_count} stored, {skipped_count} skipped, {error_count} errors."
+            )
 
             if update_progress:
                 progress_data["fetch_and_store_trips_in_range"]["status"] = "completed"
                 progress_data["fetch_and_store_trips_in_range"]["progress"] = 100
-                progress_data["fetch_and_store_trips_in_range"]["message"] = "Fetch and store completed"
 
     except Exception as e:
-        logger.error(
-            f"Error fetch_and_store_trips_in_range: {e}", exc_info=True)
+        logger.error(f"Error in fetch_and_store_trips_in_range: {e}", exc_info=True)
         if update_progress:
             progress_data["fetch_and_store_trips_in_range"]["status"] = "failed"
             progress_data["fetch_and_store_trips_in_range"]["message"] = f"Error: {e}"
