@@ -2618,8 +2618,10 @@ async def get_place_statistics(place_id):
                         next_start = next_trip.get("startTime")
                         if next_start and isinstance(next_start, datetime):
                             if next_start.tzinfo is None:
-                                next_start = next_start.replace(tzinfo=timezone.utc)
-                            duration_minutes = (next_start - t_end).total_seconds() / 60.0
+                                next_start = next_start.replace(
+                                    tzinfo=timezone.utc)
+                            duration_minutes = (
+                                next_start - t_end).total_seconds() / 60.0
                             # Only add if it's positive and sensible
                             if duration_minutes > 0:
                                 durations.append(duration_minutes)
@@ -2640,7 +2642,8 @@ async def get_place_statistics(place_id):
                     if prev_end and isinstance(prev_end, datetime):
                         if prev_end.tzinfo is None:
                             prev_end = prev_end.replace(tzinfo=timezone.utc)
-                        hrs_since_last = (t_end - prev_end).total_seconds() / 3600.0
+                        hrs_since_last = (
+                            t_end - prev_end).total_seconds() / 3600.0
                         if hrs_since_last >= 0:
                             time_since_last_visits.append(hrs_since_last)
 
@@ -2656,15 +2659,18 @@ async def get_place_statistics(place_id):
         # *** The big fix: durations are only from consecutive "end@place" => "start@place" pairs. ***
         avg_duration = sum(durations) / len(durations) if durations else 0
         # Convert to an h:mm string:
+
         def format_h_m(m):
             # m is total minutes
             hh = int(m // 60)
             mm = int(m % 60)
             return f"{hh}h {mm:02d}m"
 
-        avg_duration_str = format_h_m(avg_duration) if avg_duration > 0 else "0h 00m"
+        avg_duration_str = format_h_m(
+            avg_duration) if avg_duration > 0 else "0h 00m"
 
-        avg_time_since_last = sum(time_since_last_visits) / len(time_since_last_visits) if time_since_last_visits else 0
+        avg_time_since_last = sum(
+            time_since_last_visits) / len(time_since_last_visits) if time_since_last_visits else 0
 
         return jsonify({
             "totalVisits": total_visits,
@@ -2747,8 +2753,10 @@ async def get_trips_for_place(place_id):
                     next_start = next_trip.get("startTime")
                     if next_start and isinstance(next_start, datetime):
                         if next_start.tzinfo is None:
-                            next_start = next_start.replace(tzinfo=timezone.utc)
-                        duration_minutes = (next_start - end_time).total_seconds() / 60.0
+                            next_start = next_start.replace(
+                                tzinfo=timezone.utc)
+                        duration_minutes = (
+                            next_start - end_time).total_seconds() / 60.0
                         # Format h:mm
                         hh = int(duration_minutes // 60)
                         mm = int(duration_minutes % 60)
@@ -2766,8 +2774,10 @@ async def get_trips_for_place(place_id):
                 prev_trip_end = valid_trips[i - 1]["endTime"]
                 if prev_trip_end and isinstance(prev_trip_end, datetime):
                     if prev_trip_end.tzinfo is None:
-                        prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
-                    hrs_since_last = (end_time - prev_trip_end).total_seconds() / 3600.0
+                        prev_trip_end = prev_trip_end.replace(
+                            tzinfo=timezone.utc)
+                    hrs_since_last = (
+                        end_time - prev_trip_end).total_seconds() / 3600.0
                     time_since_last_str = f"{hrs_since_last:.2f} hours"
                 else:
                     time_since_last_str = "N/A"
@@ -2784,7 +2794,8 @@ async def get_trips_for_place(place_id):
         return jsonify(trips_data)
 
     except Exception as e:
-        logger.error(f"Error fetching trips for place {place_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error fetching trips for place {place_id}: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -2950,7 +2961,7 @@ async def bouncie_webhook():
     """
     Receives Bouncie webhook events (tripStart, tripData, tripEnd, etc.)
     and updates or stores active trip data in live_trips_collection.
-    
+
     Changes:
       - For tripData events, we now parse the 'timestamp' from each data point,
         store it as a datetime with lat/lon, then re-sort all coordinates
@@ -2959,7 +2970,7 @@ async def bouncie_webhook():
       - We also skip duplicates by timestamp (and optionally lat,lon).
     """
     import dateutil.parser
-    
+
     try:
         data = await request.get_json()
         event_type = data.get("eventType")
@@ -2985,7 +2996,8 @@ async def bouncie_webhook():
                 "transactionId": transaction_id,
                 "status": "active",
                 "startTime": now_utc,
-                "coordinates": [],  # Will store dicts: {lat, lon, timestamp (datetime)}
+                # Will store dicts: {lat, lon, timestamp (datetime)}
+                "coordinates": [],
                 "lastUpdate": now_utc
             })
 
@@ -3013,7 +3025,7 @@ async def bouncie_webhook():
                 # Convert to list of (timestamp, lat, lon) for easy manipulation
                 existing_tuples = [
                     (
-                        coord.get("timestamp"), 
+                        coord.get("timestamp"),
                         coord.get("lat"),
                         coord.get("lon")
                     )
