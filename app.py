@@ -45,6 +45,7 @@ from quart import (
     send_file
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.jobstores.base import JobLookupError
 scheduler = AsyncIOScheduler()
 
 # We import the map_matching logic
@@ -126,6 +127,7 @@ streets_collection = db["streets"]
 coverage_metadata_collection = db["coverage_metadata"]
 live_trips_collection = db["live_trips"]
 archived_live_trips_collection = db["archived_live_trips"]
+task_config_collection = db["task_config"]
 
 # Ensure some indexes
 uploaded_trips_collection.create_index("transactionId", unique=True)
@@ -135,10 +137,313 @@ streets_collection.create_index([("geometry", "2dsphere")])
 streets_collection.create_index([("properties.location", 1)])
 coverage_metadata_collection.create_index([("location", 1)], unique=True)
 
+# tasks
+
+AVAILABLE_TASKS = [
+    {
+        "id": "fetch_and_store_trips",
+        "display_name": "Fetch & Store Trips",
+        "default_interval_minutes": 30,
+    },
+    {
+        "id": "periodic_fetch_trips",
+        "display_name": "Periodic Trip Fetch",
+        "default_interval_minutes": 30,
+    },
+    {
+        "id": "update_coverage_for_all_locations",
+        "display_name": "Update Coverage (All Locations)",
+        "default_interval_minutes": 60,
+    },
+    {
+        "id": "cleanup_stale_trips",
+        "display_name": "Cleanup Stale Trips",
+        "default_interval_minutes": 60,
+    },
+    {
+        "id": "cleanup_invalid_trips",
+        "display_name": "Cleanup Invalid Trips",
+        "default_interval_minutes": 1440,  # once per day
+    },
+]
+
+def get_task_config():
+    """
+    Retrieves the background task config doc from MongoDB.
+    If none exists, we create a default one.
+    """
+    cfg = task_config_collection.find_one({"_id": "global_background_task_config"})
+    if not cfg:
+        # create a default
+        cfg = {
+            "_id": "global_background_task_config",
+            "pausedUntil": None,  # if globally paused
+            "disabled": False,    # if globally disabled
+            "tasks": {
+                # each task: { "interval_minutes": X, "enabled": True/False }
+            },
+        }
+        # Prepopulate with defaults
+        for t in AVAILABLE_TASKS:
+            cfg["tasks"][t["id"]] = {
+                "interval_minutes": t["default_interval_minutes"],
+                "enabled": True,
+            }
+        task_config_collection.insert_one(cfg)
+    return cfg
+
+
+def save_task_config(cfg):
+    """
+    Saves the given config doc to the DB, overwriting the old one.
+    """
+    task_config_collection.replace_one({"_id": "global_background_task_config"}, cfg, upsert=True)
+
+@app.route("/api/background_tasks/config", methods=["GET"])
+async def get_background_tasks_config():
+    """
+    Returns the current background task configuration, including intervals,
+    whether globally disabled, paused, etc.
+    """
+    cfg = get_task_config()
+    return jsonify(cfg)
+
+
+@app.route("/api/background_tasks/config", methods=["POST"])
+async def update_background_tasks_config():
+    """
+    Allows the client to update the intervals or enable/disable each task.
+    Expects JSON like:
+    {
+      "tasks": {
+         "fetch_and_store_trips": { "interval_minutes": 60, "enabled": true },
+         "periodic_fetch_trips":  { "interval_minutes": 180, "enabled": false },
+         ...
+      }
+    }
+    Also can set "globalDisable": bool,
+    or "pauseDurationMinutes": int to do a one-time pause for X minutes
+    """
+    data = await request.get_json()
+    cfg = get_task_config()
+
+    # If client wants to set global disable
+    if "globalDisable" in data:
+        cfg["disabled"] = bool(data["globalDisable"])
+        # If disabled, we can pause all jobs. If re-enabled, we will restore them in start_background_tasks.
+        # We'll actually handle that logic in start_background_tasks().
+
+    # If client wants to set a pause for X minutes
+    if "pauseDurationMinutes" in data:
+        mins = data["pauseDurationMinutes"]
+        if mins > 0:
+            cfg["pausedUntil"] = datetime.now(timezone.utc) + timedelta(minutes=mins)
+        else:
+            cfg["pausedUntil"] = None  # unpause if 0
+
+    # If client wants to update individual tasks
+    if "tasks" in data:
+        for task_id, task_data in data["tasks"].items():
+            if task_id in cfg["tasks"]:
+                # update interval
+                if "interval_minutes" in task_data:
+                    cfg["tasks"][task_id]["interval_minutes"] = task_data["interval_minutes"]
+                # update enable
+                if "enabled" in task_data:
+                    cfg["tasks"][task_id]["enabled"] = bool(task_data["enabled"])
+
+    save_task_config(cfg)
+    # Also re-initialize background tasks so changes take effect immediately
+    reinitialize_scheduler_tasks()
+
+    return jsonify({"status": "success", "message": "Background task config updated"})
+
+
+@app.route("/api/background_tasks/pause", methods=["POST"])
+async def pause_background_tasks():
+    """
+    Pause all background tasks for a specified duration or until a specific time.
+    Expects JSON like { "minutes": 30 } or { "minutes": 0 } to unpause
+    """
+    data = await request.get_json()
+    mins = data.get("minutes", 0)
+    cfg = get_task_config()
+    if mins > 0:
+        cfg["pausedUntil"] = datetime.now(timezone.utc) + timedelta(minutes=mins)
+    else:
+        # unpause
+        cfg["pausedUntil"] = None
+    save_task_config(cfg)
+    reinitialize_scheduler_tasks()
+    return jsonify({"status": "success", "message": f"Paused for {mins} minutes" if mins>0 else "Unpaused"})
+
+
+@app.route("/api/background_tasks/resume", methods=["POST"])
+async def resume_background_tasks():
+    """
+    Immediately unpause tasks if they were paused.
+    """
+    cfg = get_task_config()
+    cfg["pausedUntil"] = None
+    save_task_config(cfg)
+    reinitialize_scheduler_tasks()
+    return jsonify({"status": "success", "message": "Tasks resumed"})
+
+
+@app.route("/api/background_tasks/stop_all", methods=["POST"])
+async def stop_all_background_tasks():
+    """
+    Immediately stop all tasks that might be 'in process' by removing them from the scheduler entirely.
+    They will remain out of schedule unless reinitialized or re-enabled.
+    """
+    # We remove all job definitions from APScheduler
+    for t in AVAILABLE_TASKS:
+        job_id = t["id"]
+        try:
+            scheduler.remove_job(job_id)
+        except JobLookupError:
+            pass
+    return jsonify({"status": "success", "message": "All background tasks removed from scheduler."})
+
+
+@app.route("/api/background_tasks/enable", methods=["POST"])
+async def enable_all_background_tasks():
+    """
+    Enable tasks globally (disable=false) and reinitialize.
+    """
+    cfg = get_task_config()
+    cfg["disabled"] = False
+    save_task_config(cfg)
+    reinitialize_scheduler_tasks()
+    return jsonify({"status": "success", "message": "All tasks globally enabled"})
+
+
+@app.route("/api/background_tasks/disable", methods=["POST"])
+async def disable_all_background_tasks():
+    """
+    Disable tasks globally. This will remove them from the schedule
+    until re-enabled. We'll also set disabled=true in the config.
+    """
+    cfg = get_task_config()
+    cfg["disabled"] = True
+    save_task_config(cfg)
+    reinitialize_scheduler_tasks()
+    return jsonify({"status": "success", "message": "All tasks globally disabled"})
+
+
+@app.route("/api/background_tasks/manual_run", methods=["POST"])
+async def manually_run_tasks():
+    """
+    Manually trigger one or multiple tasks. 
+    Expects JSON like { "tasks": ["fetch_and_store_trips", ...] }
+    or { "tasks": ["ALL"] } to run all available tasks.
+    """
+    data = await request.get_json()
+    tasks_to_run = data.get("tasks", [])
+    if not tasks_to_run:
+        return jsonify({"status": "error", "message": "No tasks provided"}), 400
+
+    if "ALL" in tasks_to_run:
+        tasks_to_run = [t["id"] for t in AVAILABLE_TASKS]
+
+    # We'll just call the functions directly in an async manner
+    # Note these are async, so we'll do them in a create_task fashion
+    import asyncio
+
+    async def run_task_by_id(task_id):
+        if task_id == "fetch_and_store_trips":
+            await fetch_and_store_trips()
+        elif task_id == "periodic_fetch_trips":
+            await periodic_fetch_trips()
+        elif task_id == "update_coverage_for_all_locations":
+            await update_coverage_for_all_locations()
+        elif task_id == "cleanup_stale_trips":
+            await cleanup_stale_trips()
+        elif task_id == "cleanup_invalid_trips":
+            await cleanup_invalid_trips()
+        else:
+            return False
+        return True
+
+    results = []
+    for t in tasks_to_run:
+        ok = await run_task_by_id(t)
+        results.append({"task": t, "success": ok})
+
+    return jsonify({"status": "success", "results": results})
+
+
+def reinitialize_scheduler_tasks():
+    """
+    Re-read the config from DB, remove existing jobs, re-add them with correct intervals if enabled,
+    unless globally disabled or paused.
+    """
+    # We'll remove all existing jobs for these tasks, then re-add according to config
+    for t in AVAILABLE_TASKS:
+        job_id = t["id"]
+        try:
+            scheduler.remove_job(job_id)
+        except JobLookupError:
+            pass
+
+    cfg = get_task_config()
+    # if globally disabled, do not schedule anything
+    if cfg.get("disabled"):
+        logger.info("Background tasks are globally disabled. No tasks scheduled.")
+        return
+
+    # if pausedUntil is in future, that means we do not schedule them until it is unpaused
+    paused_until = cfg.get("pausedUntil")
+    is_currently_paused = False
+    if paused_until:
+        now_utc = datetime.now(timezone.utc)
+        if paused_until > now_utc:
+            is_currently_paused = True
+
+    for t in AVAILABLE_TASKS:
+        task_id = t["id"]
+        task_settings = cfg["tasks"].get(task_id, {})
+        if not task_settings:
+            # if not found in config, skip
+            continue
+        if not task_settings.get("enabled", True):
+            continue  # skip if not individually enabled
+        interval = task_settings.get("interval_minutes", t["default_interval_minutes"])
+
+        # We'll add the job with that interval, but if "paused" we set next_run_time in the future
+        next_run_time = None
+        if is_currently_paused:
+            # we schedule but set next_run_time to paused_until
+            next_run_time = paused_until + timedelta(seconds=1)
+
+        # For the function mapping, we do:
+        if task_id == "fetch_and_store_trips":
+            job_func = fetch_and_store_trips
+        elif task_id == "periodic_fetch_trips":
+            job_func = periodic_fetch_trips
+        elif task_id == "update_coverage_for_all_locations":
+            job_func = update_coverage_for_all_locations
+        elif task_id == "cleanup_stale_trips":
+            job_func = cleanup_stale_trips
+        elif task_id == "cleanup_invalid_trips":
+            job_func = cleanup_invalid_trips
+        else:
+            continue
+
+        # Now schedule it
+        scheduler.add_job(
+            job_func,
+            "interval",
+            minutes=interval,
+            id=task_id,
+            next_run_time=next_run_time,
+            max_instances=1,
+        )
+
+    logger.info("Scheduler tasks reinitialized based on new config.")
 #############################
 # Model or helper class
 #############################
-
 
 class CustomPlace:
     """Represents a custom-defined place with a name, geometry, and creation time."""
@@ -1216,14 +1521,14 @@ async def cleanup_invalid_trips():
 
 
 def start_background_tasks():
-    """Add jobs to the scheduler and start it."""
-    scheduler.add_job(fetch_and_store_trips, "interval", minutes=30, max_instances=1)
-    scheduler.add_job(update_coverage_for_all_locations, "interval", hours=1, max_instances=1)
-    scheduler.add_job(cleanup_stale_trips, "interval", minutes=60, max_instances=1)
-    scheduler.add_job(cleanup_invalid_trips, "interval", hours=24, max_instances=1)
-    scheduler.add_job(periodic_fetch_trips, "interval", minutes=30, max_instances=1)
-    scheduler.start()
-    logger.info("Scheduler initialized and background tasks started successfully.")
+    """
+    Called once at app startup (see @app.before_serving).
+    We'll just call reinitialize_scheduler_tasks to handle everything.
+    """
+    # Make sure the scheduler is started once
+    if not scheduler.running:
+        scheduler.start()
+    reinitialize_scheduler_tasks()
 
 
 
@@ -2923,61 +3228,46 @@ def organize_hourly_data(results):
 #############################
 
 
-
 @app.route("/stream")
 async def stream():
-    """
-    SSE endpoint for live trip updates. Sends either an active trip with
-    lat/lon/time or a 'heartbeat' event to keep the connection alive.
-    """
+    """SSE endpoint for live trip updates"""
     async def event_stream():
         try:
-            # Send a one-time message to confirm connection
+            # Send initial connection established message
             yield "data: {\"type\": \"connected\"}\n\n"
 
             while True:
                 try:
-                    active_trip = live_trips_collection.find_one({"status": "active"})
+                    # Get current active trip if any
+                    active_trip = live_trips_collection.find_one(
+                        {"status": "active"})
+
                     if active_trip:
-                        # Convert any datetime fields to strings
-                        # in particular, coordinates[].timestamp and lastUpdate
-                        for coord in active_trip.get("coordinates", []):
-                            if isinstance(coord.get("timestamp"), datetime):
-                                coord["timestamp"] = coord["timestamp"].isoformat()
-
-                        if isinstance(active_trip.get("lastUpdate"), datetime):
-                            active_trip["lastUpdate"] = active_trip["lastUpdate"].isoformat()
-
-                        # Construct the data payload in pure JSON-compatible form
+                        # Send trip data
                         data = {
                             "type": "trip_update",
                             "data": {
-                                "transactionId": active_trip.get("transactionId"),
-                                "coordinates": active_trip.get("coordinates", []),
-                                "lastUpdate": active_trip.get("lastUpdate"),
+                                "transactionId": active_trip["transactionId"],
+                                "coordinates": active_trip.get("coordinates", [])
                             }
                         }
                         yield f"data: {json.dumps(data)}\n\n"
-
                     else:
-                        # No active trip: send a simple heartbeat to keep SSE alive
+                        # Send heartbeat to keep connection alive
                         yield "data: {\"type\": \"heartbeat\"}\n\n"
 
-                    # Adjust sleep interval as needed
                     await asyncio.sleep(1)
-
                 except Exception as e:
                     logger.error(f"Error in event stream loop: {e}")
-                    # Continue sending SSEs even if one iteration fails
                     continue
 
         except Exception as e:
-            logger.error(f"Error in event stream outer block: {e}")
+            logger.error(f"Error in event stream: {e}")
 
     response = Response(event_stream(), mimetype="text/event-stream")
-    response.headers["Cache-Control"] = "no-cache"
-    response.headers["Connection"] = "keep-alive"
-    response.headers["X-Accel-Buffering"] = "no"  # important for proxies
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['Connection'] = 'keep-alive'
+    response.headers['X-Accel-Buffering'] = 'no'  # Important for nginx
     return response
 
 
