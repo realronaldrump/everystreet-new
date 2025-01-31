@@ -295,8 +295,6 @@ async def fetch_trips_in_intervals(main_session, access_token, imei, start_date,
 #############################
 
 
-
-
 #############################
 # Data Validation
 #############################
@@ -1125,6 +1123,8 @@ async def export_gpx():
 #############################
 # Background tasks
 #############################
+
+
 async def periodic_fetch_trips():
     """Periodically fetch trips from Bouncie API and store them."""
     try:
@@ -1135,7 +1135,8 @@ async def periodic_fetch_trips():
             else datetime.now(timezone.utc) - timedelta(days=7)
         )
         end_date = datetime.now(timezone.utc)
-        logger.info(f"Periodic trip fetch started from {start_date} to {end_date}")
+        logger.info(
+            f"Periodic trip fetch started from {start_date} to {end_date}")
         await fetch_and_store_trips_in_range(start_date, end_date, update_progress=False)
         logger.info("Periodic trip fetch completed successfully.")
     except Exception as e:
@@ -1147,7 +1148,8 @@ async def hourly_fetch_trips():
     try:
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(hours=1)
-        logger.info(f"Hourly trip fetch started for range: {start_date} to {end_date}")
+        logger.info(
+            f"Hourly trip fetch started for range: {start_date} to {end_date}")
         await fetch_and_store_trips_in_range(start_date, end_date)
         logger.info("Hourly trip fetch completed successfully.")
 
@@ -1163,7 +1165,8 @@ async def hourly_fetch_trips():
         for trip in new_trips_to_match:
             await process_and_map_match_trip(trip)
             map_matched_count += 1
-        logger.info(f"Map matching completed for {map_matched_count} hourly fetched trips.")
+        logger.info(
+            f"Map matching completed for {map_matched_count} hourly fetched trips.")
 
     except Exception as e:
         logger.error(f"Error during hourly trip fetch: {e}", exc_info=True)
@@ -1172,13 +1175,15 @@ async def hourly_fetch_trips():
 async def update_coverage_for_all_locations():
     """Updates street coverage for all locations."""
     try:
-        logger.info("Starting periodic street coverage update for all locations...")
+        logger.info(
+            "Starting periodic street coverage update for all locations...")
         locations = coverage_metadata_collection.distinct("location")
         for location in locations:
             await update_street_coverage(location)
         logger.info("Finished periodic street coverage update.")
     except Exception as e:
-        logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)
+        logger.error(
+            f"Error updating coverage for all locations: {e}", exc_info=True)
 
 
 async def cleanup_stale_trips():
@@ -1206,7 +1211,8 @@ async def cleanup_invalid_trips():
         for t in all_trips:
             ok, msg = validate_trip_data(t)
             if not ok:
-                logger.warning(f"Invalid trip {t.get('transactionId','?')}: {msg}")
+                logger.warning(
+                    f"Invalid trip {t.get('transactionId','?')}: {msg}")
                 trips_collection.update_one(
                     {"_id": t["_id"]}, {"$set": {"invalid": True}}
                 )
@@ -1218,14 +1224,19 @@ async def cleanup_invalid_trips():
 def start_background_tasks():
     """Add jobs to the scheduler and start it."""
     # Example intervals lowered for demonstration, adjust as needed.
-    scheduler.add_job(fetch_and_store_trips, "interval", minutes=30, max_instances=1)
-    scheduler.add_job(update_coverage_for_all_locations, "interval", hours=1, max_instances=1)
-    scheduler.add_job(cleanup_stale_trips, "interval", minutes=60, max_instances=1)
-    scheduler.add_job(cleanup_invalid_trips, "interval", hours=24, max_instances=1)
-    scheduler.add_job(periodic_fetch_trips, "interval", minutes=30, max_instances=1)
+    scheduler.add_job(fetch_and_store_trips, "interval",
+                      minutes=30, max_instances=1)
+    scheduler.add_job(update_coverage_for_all_locations,
+                      "interval", hours=1, max_instances=1)
+    scheduler.add_job(cleanup_stale_trips, "interval",
+                      minutes=60, max_instances=1)
+    scheduler.add_job(cleanup_invalid_trips, "interval",
+                      hours=24, max_instances=1)
+    scheduler.add_job(periodic_fetch_trips, "interval",
+                      minutes=30, max_instances=1)
     scheduler.start()
-    logger.info("Scheduler initialized and background tasks started successfully.")
-
+    logger.info(
+        "Scheduler initialized and background tasks started successfully.")
 
 
 #############################
@@ -1620,6 +1631,7 @@ async def export_page():
     """Renders the export page."""
     return await render_template("export.html")
 
+
 @app.route("/api/export/all_trips")
 async def export_all_trips():
     """
@@ -1655,6 +1667,7 @@ async def export_all_trips():
 
     return jsonify({"error": "Invalid export format"}), 400
 
+
 async def fetch_all_trips_no_filter():
     """
     Fetches ALL trips from:
@@ -1667,6 +1680,7 @@ async def fetch_all_trips_no_filter():
     historical_trips = list(historical_trips_collection.find())
 
     return trips + uploaded_trips + historical_trips
+
 
 @app.route("/api/export/trips")
 async def export_trips():
@@ -1723,14 +1737,13 @@ def fetch_trips(start_date_str, end_date_str):
     return list(trips_collection.find(query))
 
 
-
 async def create_geojson(trips):
     """
     Converts a list of trips into a GeoJSON FeatureCollection.
     This function ensures that all MongoDB ObjectId fields are converted to strings.
     """
     features = []
-    
+
     for t in trips:
         gps_data = t.get("gps")
         if isinstance(gps_data, str):
@@ -1738,7 +1751,8 @@ async def create_geojson(trips):
 
         # Ensure `_id` is converted to string (to prevent ObjectId serialization issues)
         properties_dict = {
-            k: (v.isoformat() if isinstance(v, datetime) else str(v) if isinstance(v, ObjectId) else v)
+            k: (v.isoformat() if isinstance(v, datetime)
+                else str(v) if isinstance(v, ObjectId) else v)
             for k, v in t.items() if k != "_id"
         }
 
@@ -1750,6 +1764,7 @@ async def create_geojson(trips):
         features.append(feature)
 
     return json.dumps({"type": "FeatureCollection", "features": features})
+
 
 async def create_gpx(trips):
     """
@@ -1778,7 +1793,7 @@ async def create_gpx(trips):
                 segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
 
         track.name = f"Trip {t.get('transactionId', 'UNKNOWN')}"
-    
+
     return gpx.to_xml()
 
 
@@ -2080,13 +2095,16 @@ async def update_street_coverage(location_name):
     """Updates the driven status of street segments based on recent trips."""
     logger.info(f"Updating street coverage for location: {location_name}")
     try:
-        coverage_metadata = coverage_metadata_collection.find_one({"location": location_name})
-        last_processed_trip_time = coverage_metadata.get("last_processed_trip_time", datetime.min.replace(tzinfo=timezone.utc)) if coverage_metadata else datetime.min.replace(tzinfo=timezone.utc)
+        coverage_metadata = coverage_metadata_collection.find_one(
+            {"location": location_name})
+        last_processed_trip_time = coverage_metadata.get("last_processed_trip_time", datetime.min.replace(
+            tzinfo=timezone.utc)) if coverage_metadata else datetime.min.replace(tzinfo=timezone.utc)
         logger.info(f"Last processed trip time: {last_processed_trip_time}")
         new_trips = list(matched_trips_collection.find({
             "startTime": {"$gt": last_processed_trip_time}
         }))
-        logger.info(f"Found {len(new_trips)} new trips for coverage update (no location filter).")
+        logger.info(
+            f"Found {len(new_trips)} new trips for coverage update (no location filter).")
         if not new_trips:
             logger.info(f"No new trips found since {last_processed_trip_time}")
             return
@@ -2119,13 +2137,19 @@ async def update_street_coverage(location_name):
                         logger.info(f"Updated segment: {segment_id}")
 
             except Exception as e:
-                logger.error(f"Error processing trip {trip['transactionId']}: {e}")
+                logger.error(
+                    f"Error processing trip {trip['transactionId']}: {e}")
 
-        total_segments = streets_collection.count_documents({"properties.location": location_name})
-        driven_segments = streets_collection.count_documents({"properties.location": location_name, "properties.driven": True})
-        total_length = sum(s["properties"]["length"] for s in streets_collection.find({"properties.location": location_name}, {"properties.length": 1}))
-        driven_length = sum(s["properties"]["length"] for s in streets_collection.find({"properties.location": location_name, "properties.driven": True}, {"properties.length": 1}))
-        coverage_percentage = (driven_length / total_length)*100 if total_length > 0 else 0
+        total_segments = streets_collection.count_documents(
+            {"properties.location": location_name})
+        driven_segments = streets_collection.count_documents(
+            {"properties.location": location_name, "properties.driven": True})
+        total_length = sum(s["properties"]["length"] for s in streets_collection.find(
+            {"properties.location": location_name}, {"properties.length": 1}))
+        driven_length = sum(s["properties"]["length"] for s in streets_collection.find(
+            {"properties.location": location_name, "properties.driven": True}, {"properties.length": 1}))
+        coverage_percentage = (driven_length / total_length) * \
+            100 if total_length > 0 else 0
 
         coverage_metadata_collection.update_one(
             {"location": location_name},
@@ -2145,8 +2169,10 @@ async def update_street_coverage(location_name):
         logger.info(f"Street coverage updated for {location_name}")
 
     except Exception as e:
-        logger.error(f"Error updating street coverage for {location_name}: {e}")
+        logger.error(
+            f"Error updating street coverage for {location_name}: {e}")
         raise
+
 
 def run_periodic_fetches():
     loop = asyncio.new_event_loop()
@@ -2640,8 +2666,10 @@ async def get_place_statistics(place_id):
                         next_start = next_trip.get("startTime")
                         if next_start and isinstance(next_start, datetime):
                             if next_start.tzinfo is None:
-                                next_start = next_start.replace(tzinfo=timezone.utc)
-                            duration_minutes = (next_start - t_end).total_seconds() / 60.0
+                                next_start = next_start.replace(
+                                    tzinfo=timezone.utc)
+                            duration_minutes = (
+                                next_start - t_end).total_seconds() / 60.0
                             # Only add if it's positive and sensible
                             if duration_minutes > 0:
                                 durations.append(duration_minutes)
@@ -2662,7 +2690,8 @@ async def get_place_statistics(place_id):
                     if prev_end and isinstance(prev_end, datetime):
                         if prev_end.tzinfo is None:
                             prev_end = prev_end.replace(tzinfo=timezone.utc)
-                        hrs_since_last = (t_end - prev_end).total_seconds() / 3600.0
+                        hrs_since_last = (
+                            t_end - prev_end).total_seconds() / 3600.0
                         if hrs_since_last >= 0:
                             time_since_last_visits.append(hrs_since_last)
 
@@ -2678,15 +2707,18 @@ async def get_place_statistics(place_id):
         # *** The big fix: durations are only from consecutive "end@place" => "start@place" pairs. ***
         avg_duration = sum(durations) / len(durations) if durations else 0
         # Convert to an h:mm string:
+
         def format_h_m(m):
             # m is total minutes
             hh = int(m // 60)
             mm = int(m % 60)
             return f"{hh}h {mm:02d}m"
 
-        avg_duration_str = format_h_m(avg_duration) if avg_duration > 0 else "0h 00m"
+        avg_duration_str = format_h_m(
+            avg_duration) if avg_duration > 0 else "0h 00m"
 
-        avg_time_since_last = sum(time_since_last_visits) / len(time_since_last_visits) if time_since_last_visits else 0
+        avg_time_since_last = sum(
+            time_since_last_visits) / len(time_since_last_visits) if time_since_last_visits else 0
 
         return jsonify({
             "totalVisits": total_visits,
@@ -2769,8 +2801,10 @@ async def get_trips_for_place(place_id):
                     next_start = next_trip.get("startTime")
                     if next_start and isinstance(next_start, datetime):
                         if next_start.tzinfo is None:
-                            next_start = next_start.replace(tzinfo=timezone.utc)
-                        duration_minutes = (next_start - end_time).total_seconds() / 60.0
+                            next_start = next_start.replace(
+                                tzinfo=timezone.utc)
+                        duration_minutes = (
+                            next_start - end_time).total_seconds() / 60.0
                         # Format h:mm
                         hh = int(duration_minutes // 60)
                         mm = int(duration_minutes % 60)
@@ -2788,8 +2822,10 @@ async def get_trips_for_place(place_id):
                 prev_trip_end = valid_trips[i - 1]["endTime"]
                 if prev_trip_end and isinstance(prev_trip_end, datetime):
                     if prev_trip_end.tzinfo is None:
-                        prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
-                    hrs_since_last = (end_time - prev_trip_end).total_seconds() / 3600.0
+                        prev_trip_end = prev_trip_end.replace(
+                            tzinfo=timezone.utc)
+                    hrs_since_last = (
+                        end_time - prev_trip_end).total_seconds() / 3600.0
                     time_since_last_str = f"{hrs_since_last:.2f} hours"
                 else:
                     time_since_last_str = "N/A"
@@ -2806,7 +2842,8 @@ async def get_trips_for_place(place_id):
         return jsonify(trips_data)
 
     except Exception as e:
-        logger.error(f"Error fetching trips for place {place_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error fetching trips for place {place_id}: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -2972,7 +3009,7 @@ async def bouncie_webhook():
     """
     Receives Bouncie webhook events (tripStart, tripData, tripEnd, etc.)
     and updates or stores active trip data in live_trips_collection.
-    
+
     Changes:
       - For tripData events, we now parse the 'timestamp' from each data point,
         store it as a datetime with lat/lon, then re-sort all coordinates
@@ -2981,7 +3018,7 @@ async def bouncie_webhook():
       - We also skip duplicates by timestamp (and optionally lat,lon).
     """
     import dateutil.parser
-    
+
     try:
         data = await request.get_json()
         event_type = data.get("eventType")
@@ -3007,7 +3044,8 @@ async def bouncie_webhook():
                 "transactionId": transaction_id,
                 "status": "active",
                 "startTime": now_utc,
-                "coordinates": [],  # Will store dicts: {lat, lon, timestamp (datetime)}
+                # Will store dicts: {lat, lon, timestamp (datetime)}
+                "coordinates": [],
                 "lastUpdate": now_utc
             })
 
@@ -3035,7 +3073,7 @@ async def bouncie_webhook():
                 # Convert to list of (timestamp, lat, lon) for easy manipulation
                 existing_tuples = [
                     (
-                        coord.get("timestamp"), 
+                        coord.get("timestamp"),
                         coord.get("lat"),
                         coord.get("lon")
                     )
@@ -3131,8 +3169,6 @@ def is_valid_gps_point(point):
     gps = point.get("gps", {})
     lat, lon = gps.get("lat"), gps.get("lon")
     return lat is not None and lon is not None and -90 <= lat <= 90 and -180 <= lon <= 180
-
-
 
 
 #############################
@@ -3593,7 +3629,6 @@ async def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
 
 
-
 #############################
 # Bulk delete
 #############################
@@ -3894,10 +3929,12 @@ async def debug_trip(trip_id):
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
+
 #############################
 #   Hook APScheduler into Quart's event loop
 #############################
+
+
 @app.before_serving
 async def init_background_tasks():
     """
@@ -3914,4 +3951,5 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8080"))
     # If you run "python app.py" this block will fire.  Use uvicorn to serve.
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info", use_colors=True)
+    uvicorn.run(app, host="0.0.0.0", port=port,
+                log_level="info", use_colors=True)
