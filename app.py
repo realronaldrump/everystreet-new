@@ -2535,94 +2535,136 @@ async def get_place_statistics(place_id):
     """
     Calculate how many times the user ended a trip at that place,
     along with duration of stay and time since last visit.
-    Now filters out any trips that have a None or invalid endTime to avoid sort errors.
+
+    **FIXED** so that "time spent" is only computed if the *next* trip also starts at the same place.
+    Otherwise we skip adding a giant idle gap.
     """
     try:
         p = places_collection.find_one({"_id": ObjectId(place_id)})
         if not p:
             return jsonify({"error": "Place not found"}), 404
 
-        # We'll gather all relevant trips from each collection
+        # We'll gather all relevant trips from each collection (that ended at this place).
+        # Also exclude trips missing a valid endTime to avoid sort errors.
+        # The place geometry is in p["geometry"] or we can rely on a placeId.
+
+        # We can match by "destinationPlaceId == place_id"
+        # or by geospatial match on "destinationGeoPoint" if no placeId is recorded.
+        # For safety, we handle both conditions:
         query = {
-            "destinationGeoPoint": {
-                "$geoWithin": {
-                    "$geometry": p["geometry"]
+            "$or": [
+                {"destinationPlaceId": place_id},
+                {
+                    "destinationGeoPoint": {
+                        "$geoWithin": {
+                            "$geometry": p["geometry"]
+                        }
+                    }
                 }
-            }
+            ],
+            "endTime": {"$ne": None},
         }
 
-        # Collect only those trips that have a valid (non-None) endTime
         valid_trips = []
-        for collection in [trips_collection, historical_trips_collection, uploaded_trips_collection]:
-            for trip in collection.find(query):
+        for coll in [trips_collection, historical_trips_collection, uploaded_trips_collection]:
+            cursor = coll.find(query)
+            for trip in cursor:
+                # Make sure endTime is valid
                 end_t = trip.get("endTime")
-                # Ensure endTime is actually a datetime and not None
                 if end_t and isinstance(end_t, datetime):
                     valid_trips.append(trip)
 
-        # Now it's safe to sort on endTime because we know it is present
+        # Sort all those trips strictly by endTime ascending:
         valid_trips.sort(key=lambda x: x["endTime"])
 
         visits = []
+        durations = []  # We'll store the computed "time spent" at place
+        time_since_last_visits = []
         first_visit = None
         last_visit = None
-        durations = []
-        time_since_last_visits = []
         current_time = datetime.now(timezone.utc)
 
         for i, t in enumerate(valid_trips):
             try:
-                # Ensure endTime is tz-aware, default to UTC if missing tzinfo
+                # Ensure endTime is tz-aware
                 t_end = t["endTime"]
                 if t_end.tzinfo is None:
                     t_end = t_end.replace(tzinfo=timezone.utc)
 
-                # Track first and last visits
+                # Set first/last visit
                 if first_visit is None:
                     first_visit = t_end
                 last_visit = t_end
 
-                # Duration of stay (time until next trip's start)
+                # 1) Calculate "time spent at place" => (startTime_of_next_trip - endTime_of_this_trip)
+                # ONLY if the next trip *starts* at the SAME place (startPlaceId or geometry check).
                 if i < len(valid_trips) - 1:
                     next_trip = valid_trips[i + 1]
-                    next_start = next_trip.get("startTime")
-
-                    # If next_start is missing or invalid, skip the duration logic
-                    if next_start and isinstance(next_start, datetime):
-                        if next_start.tzinfo is None:
-                            next_start = next_start.replace(tzinfo=timezone.utc)
-                        duration_minutes = (next_start - t_end).total_seconds() / 60.0
+                    # Check if next_trip started at the same place:
+                    # a) check placeId if present:
+                    same_place = False
+                    if "startPlaceId" in next_trip and next_trip["startPlaceId"] == place_id:
+                        same_place = True
                     else:
-                        # If the next trip doesn't have a startTime, just skip
-                        duration_minutes = 0
-                    durations.append(duration_minutes)
+                        # or fallback geospatial check if startGeoPoint is inside p["geometry"]
+                        start_pt = next_trip.get("startGeoPoint")
+                        if start_pt and isinstance(start_pt, dict) and "coordinates" in start_pt:
+                            place_shape = shape(p["geometry"])
+                            start_shape = shape(start_pt)
+                            if place_shape.contains(start_shape):
+                                same_place = True
 
-                    # Time since last visit:
-                    if i > 0:
-                        prev_end = valid_trips[i - 1]["endTime"]
-                        if prev_end and isinstance(prev_end, datetime):
-                            if prev_end.tzinfo is None:
-                                prev_end = prev_end.replace(tzinfo=timezone.utc)
-                            hrs_since_last = (t_end - prev_end).total_seconds() / 3600.0
-                            time_since_last_visits.append(hrs_since_last)
+                    if same_place:
+                        next_start = next_trip.get("startTime")
+                        if next_start and isinstance(next_start, datetime):
+                            if next_start.tzinfo is None:
+                                next_start = next_start.replace(tzinfo=timezone.utc)
+                            duration_minutes = (next_start - t_end).total_seconds() / 60.0
+                            # Only add if it's positive and sensible
+                            if duration_minutes > 0:
+                                durations.append(duration_minutes)
+                        # else next_start is missing or invalid => skip
+                    # else next trip is not from this place => skip adding to durations
+
                 else:
-                    # For the very last trip, measure from its endTime to 'now'
-                    duration_minutes = (current_time - t_end).total_seconds() / 60.0
-                    durations.append(duration_minutes)
+                    # If there's no next trip, we can measure from its endTime to 'now' or skip.
+                    # The old code used to do this, but it can also cause huge intervals if no new trip started.
+                    # Typically we skip it or measure zero. We'll do 0.0 for safety:
+                    pass
 
-                visits.append(duration_minutes)
+                # 2) Calculate "time since last visit"
+                # This is (endTime_of_this - endTime_of_previous) if the previous trip is also at same place
+                if i > 0:
+                    prev_trip = valid_trips[i - 1]
+                    prev_end = prev_trip.get("endTime")
+                    if prev_end and isinstance(prev_end, datetime):
+                        if prev_end.tzinfo is None:
+                            prev_end = prev_end.replace(tzinfo=timezone.utc)
+                        hrs_since_last = (t_end - prev_end).total_seconds() / 3600.0
+                        if hrs_since_last >= 0:
+                            time_since_last_visits.append(hrs_since_last)
 
+                # Collect durations array for "visits"
+                visits.append(t_end)
             except Exception as ex:
                 logger.error(f"Issue processing a trip in get_place_statistics for place {place_id}: {ex}",
                              exc_info=True)
-                # Continue to the next trip if there's a problem with one
                 continue
 
         total_visits = len(visits)
-        avg_duration = sum(durations) / total_visits if total_visits else 0
-        avg_duration_str = f"{int(avg_duration // 60)}h {int(avg_duration % 60)}m" if avg_duration > 0 else "0h 00m"
-        avg_time_since_last = (sum(time_since_last_visits) / len(time_since_last_visits)
-                               if time_since_last_visits else 0)
+
+        # *** The big fix: durations are only from consecutive "end@place" => "start@place" pairs. ***
+        avg_duration = sum(durations) / len(durations) if durations else 0
+        # Convert to an h:mm string:
+        def format_h_m(m):
+            # m is total minutes
+            hh = int(m // 60)
+            mm = int(m % 60)
+            return f"{hh}h {mm:02d}m"
+
+        avg_duration_str = format_h_m(avg_duration) if avg_duration > 0 else "0h 00m"
+
+        avg_time_since_last = sum(time_since_last_visits) / len(time_since_last_visits) if time_since_last_visits else 0
 
         return jsonify({
             "totalVisits": total_visits,
@@ -2641,24 +2683,34 @@ async def get_place_statistics(place_id):
 @app.route("/api/places/<place_id>/trips")
 async def get_trips_for_place(place_id):
     """
-    Returns a list of trips that ended at the specified place,
-    including duration of stay and time since the last visit.
-    Now safely filters out trips with invalid or None endTime before sorting.
+    Returns a list of trips that *ended* at the specified place,
+    including the new, corrected 'duration of stay' logic.
+
+    We do not artificially compute "duration" from each trip to the next
+    unless the *next trip* also starts at the same place. But the main
+    summary is in get_place_statistics. This route simply returns the
+    trip list for UI display.
     """
     try:
         place = places_collection.find_one({"_id": ObjectId(place_id)})
         if not place:
             return jsonify({"error": "Place not found"}), 404
 
+        # Gather from all trip collections, only those that ended at this place
         query = {
-            "destinationGeoPoint": {
-                "$geoWithin": {
-                    "$geometry": place["geometry"]
+            "$or": [
+                {"destinationPlaceId": place_id},
+                {
+                    "destinationGeoPoint": {
+                        "$geoWithin": {
+                            "$geometry": place["geometry"]
+                        }
+                    }
                 }
-            }
+            ],
+            "endTime": {"$ne": None},
         }
 
-        # Gather from all trip collections, but only keep those with valid endTime
         valid_trips = []
         for coll in [trips_collection, historical_trips_collection, uploaded_trips_collection]:
             for trip in coll.find(query):
@@ -2666,48 +2718,67 @@ async def get_trips_for_place(place_id):
                 if end_t and isinstance(end_t, datetime):
                     valid_trips.append(trip)
 
-        # Now we can safely sort
+        # Sort by endTime
         valid_trips.sort(key=lambda x: x["endTime"])
 
         trips_data = []
         for i, trip in enumerate(valid_trips):
-            # Make sure we handle tzinfo or missing data
+            # We'll keep the old pattern of measuring "duration" as time until next trip start,
+            # but only if that next trip starts at the same place.
             end_time = trip["endTime"]
             if end_time.tzinfo is None:
                 end_time = end_time.replace(tzinfo=timezone.utc)
 
-            # Calculate duration of stay (time until next trip starts)
             if i < len(valid_trips) - 1:
                 next_trip = valid_trips[i + 1]
-                next_start = next_trip.get("startTime")
-                if next_start and isinstance(next_start, datetime):
-                    if next_start.tzinfo is None:
-                        next_start = next_start.replace(tzinfo=timezone.utc)
-                    duration_minutes = (next_start - end_time).total_seconds() / 60.0
+                same_place = False
+                if next_trip.get("startPlaceId") == place_id:
+                    same_place = True
                 else:
-                    duration_minutes = 0.0
-            else:
-                # If there's no "next trip," measure from endTime to now
-                duration_minutes = (datetime.now(timezone.utc) - end_time).total_seconds() / 60.0
+                    # fallback geometry check
+                    start_pt = next_trip.get("startGeoPoint")
+                    if start_pt and isinstance(start_pt, dict) and "coordinates" in start_pt:
+                        place_shape = shape(place["geometry"])
+                        start_shape = shape(start_pt)
+                        if place_shape.contains(start_shape):
+                            same_place = True
 
-            # Calculate time since last visit
+                if same_place:
+                    next_start = next_trip.get("startTime")
+                    if next_start and isinstance(next_start, datetime):
+                        if next_start.tzinfo is None:
+                            next_start = next_start.replace(tzinfo=timezone.utc)
+                        duration_minutes = (next_start - end_time).total_seconds() / 60.0
+                        # Format h:mm
+                        hh = int(duration_minutes // 60)
+                        mm = int(duration_minutes % 60)
+                        duration_str = f"{hh}h {mm:02d}m"
+                    else:
+                        duration_str = "0h 00m"
+                else:
+                    duration_str = "0h 00m"  # Next trip not from same place => time spent 0
+            else:
+                # no next trip => skip or measure 0
+                duration_str = "0h 00m"
+
+            # Compute time since last visit if i>0
             if i > 0:
-                prev_trip_end = valid_trips[i - 1].get("endTime")
+                prev_trip_end = valid_trips[i - 1]["endTime"]
                 if prev_trip_end and isinstance(prev_trip_end, datetime):
                     if prev_trip_end.tzinfo is None:
                         prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
                     hrs_since_last = (end_time - prev_trip_end).total_seconds() / 3600.0
+                    time_since_last_str = f"{hrs_since_last:.2f} hours"
                 else:
-                    hrs_since_last = None
+                    time_since_last_str = "N/A"
             else:
-                hrs_since_last = None
+                time_since_last_str = "N/A"
 
-            # Build a row to return
             trips_data.append({
                 "transactionId": trip["transactionId"],
                 "endTime": end_time.isoformat(),
-                "duration": f"{int(duration_minutes // 60)}h {int(duration_minutes % 60)}m",
-                "timeSinceLastVisit": (f"{hrs_since_last:.2f} hours" if hrs_since_last is not None else "N/A"),
+                "duration": duration_str,
+                "timeSinceLastVisit": time_since_last_str,
             })
 
         return jsonify(trips_data)
