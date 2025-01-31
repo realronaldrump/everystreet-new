@@ -3414,88 +3414,84 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
 
 async def process_trip_data(trip):
     """
-    Reverse geocode start/dest if missing.
-    Check if start/end are within a custom place.
-    Robustly handle missing or incorrect gps data, with enhanced logging.
+    Processes a trip’s geocoding data. For both the start and destination points:
+      - If the point falls within a defined custom place, assign the custom place’s name.
+      - Otherwise, call reverse_geocode_nominatim and extract its "display_name".
+    Also sets the geo point fields for geospatial queries.
+    
+    This fixes the error where, if not in a custom place, the full geocoding response
+    (an object) was being assigned rather than its "display_name".
     """
     transaction_id = trip.get('transactionId', '?')
     logger.info(f"Processing trip data for trip {transaction_id}...")
-
     try:
         gps_data = trip.get("gps")
         if not gps_data:
-            logger.warning(
-                f"Trip {transaction_id} has no GPS data to process.")
+            logger.warning(f"Trip {transaction_id} has no GPS data to process.")
             return trip
 
+        # If GPS data is a string, parse it into a dict.
         if isinstance(gps_data, str):
             try:
                 gps_data = json.loads(gps_data)
-            except json.JSONDecodeError:
-                logger.error(
-                    f"Invalid JSON in gps data for trip {transaction_id}.", exc_info=True)
+            except Exception as e:
+                logger.error(f"Error parsing GPS data for trip {transaction_id}: {e}", exc_info=True)
                 return trip
+        # Update the trip's GPS data
+        trip["gps"] = gps_data
 
-        coords = gps_data.get("coordinates")
-        if not coords or not isinstance(coords, list) or len(coords) < 2:
-            logger.warning(
-                f"Trip {transaction_id} has invalid or insufficient coordinates.")
+        if not gps_data.get("coordinates"):
+            logger.warning(f"Trip {transaction_id} has no coordinates in GPS data.")
             return trip
 
-        st = coords[0]
-        en = coords[-1]
+        # Extract the first (start) and last (end) coordinates
+        st = gps_data["coordinates"][0]
+        en = gps_data["coordinates"][-1]
 
         start_point = Point(st[0], st[1])
         end_point = Point(en[0], en[1])
+        logger.debug(f"Extracted start point: {st}, end point: {en} for trip {transaction_id}")
 
-        logger.debug(
-            f"Extracted start point: {st}, end point: {en} for trip {transaction_id}")
-
-        # Check for custom places
+        # Check if the start point falls within a custom place.
         start_place = get_place_at_point(start_point)
-        end_place = get_place_at_point(end_point)
-
         if start_place:
             trip["startLocation"] = start_place["name"]
-            trip["startPlaceId"] = start_place["_id"]
-            logger.debug(
-                f"Start point of trip {transaction_id} is within custom place: {start_place['name']}")
+            trip["startPlaceId"] = str(start_place.get("_id", ""))
+            logger.debug(f"Start point of trip {transaction_id} is within custom place: {start_place['name']}")
         else:
-            start_location_name = await reverse_geocode_nominatim(st[1], st[0])
-            trip["startLocation"] = start_location_name
-            logger.debug(
-                f"Start point of trip {transaction_id} reverse geocoded to: {start_location_name}")
+            # Otherwise, use reverse geocoding and extract "display_name"
+            geocode_data = await reverse_geocode_nominatim(st[1], st[0])
+            start_location = ""
+            if geocode_data and isinstance(geocode_data, dict):
+                start_location = geocode_data.get("display_name", "")
+            trip["startLocation"] = start_location
+            logger.debug(f"Start point of trip {transaction_id} reverse geocoded to: {start_location}")
 
+        # Check if the end point falls within a custom place.
+        end_place = get_place_at_point(end_point)
         if end_place:
             trip["destination"] = end_place["name"]
-            trip["destinationPlaceId"] = end_place["_id"]
-            logger.debug(
-                f"End point of trip {transaction_id} is within custom place: {end_place['name']}")
+            trip["destinationPlaceId"] = str(end_place.get("_id", ""))
+            logger.debug(f"End point of trip {transaction_id} is within custom place: {end_place['name']}")
         else:
-            destination_name = await reverse_geocode_nominatim(en[1], en[0])
+            geocode_data = await reverse_geocode_nominatim(en[1], en[0])
+            destination_name = ""
+            if geocode_data and isinstance(geocode_data, dict):
+                destination_name = geocode_data.get("display_name", "")
             trip["destination"] = destination_name
-            logger.debug(
-                f"End point of trip {transaction_id} reverse geocoded to: {destination_name}")
+            logger.debug(f"End point of trip {transaction_id} reverse geocoded to: {destination_name}")
 
-        # Set destinationGeoPoint for geospatial querying
-        trip["destinationGeoPoint"] = {
-            "type": "Point",
-            "coordinates": [en[0], en[1]]  # Longitude, Latitude
-        }
+        # Set GeoPoint fields for geospatial queries.
+        trip["startGeoPoint"] = {"type": "Point", "coordinates": [st[0], st[1]]}
+        trip["destinationGeoPoint"] = {"type": "Point", "coordinates": [en[0], en[1]]}
 
-        # Set startGeoPoint for geospatial querying
-        trip["startGeoPoint"] = {
-            "type": "Point",
-            "coordinates": [st[0], st[1]]  # Longitude, Latitude
-        }
         logger.debug(f"GeoPoints set for trip {transaction_id}.")
-
-        logger.info(
-            f"Trip data processing completed for trip {transaction_id}.")
+        logger.info(f"Trip data processing completed for trip {transaction_id}.")
         return trip
+
     except Exception as e:
-        logger.error(
-            f"Error in process_trip_data for trip {transaction_id}: {e}", exc_info=True)
+        logger.error(f"Error in process_trip_data for trip {transaction_id}: {e}", exc_info=True)
+        return trip
         return trip
 
 # add the update geo points route to the settings page
