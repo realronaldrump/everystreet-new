@@ -137,30 +137,66 @@ class LiveTripTracker {
     }
 
     handleTripUpdate(tripData) {
+        /*
+          Called when the server sends a "trip_update" SSE event with:
+            {
+              "transactionId": "...",
+              "coordinates": [
+                 { "lat": 31.1234, "lon": -97.1234, "timestamp": "2025-01-30T13:51:20Z" },
+                 ...
+              ]
+            }
+    
+          We store them in memory, deduplicate if needed,
+          then sort by timestamp before drawing.
+        */
         if (!tripData || !tripData.coordinates || !tripData.coordinates.length) return;
-
+    
         this.currentTrip = tripData.transactionId;
-
-        // Only process new coordinates since the last update
-        const newCoordinates = tripData.coordinates.slice(this.lastCoordinateIndex).map(coord => [coord.lat, coord.lon]);
-
-        this.updateActiveTripsCount(1);
-
-        // Append new coordinates to the existing polyline
-        const currentLatLngs = this.polyline.getLatLngs();
-        const updatedLatLngs = currentLatLngs.concat(newCoordinates);
-        this.polyline.setLatLngs(updatedLatLngs);
-
-        this.marker.setOpacity(1);
-
-        // Update last coordinate index
-        this.lastCoordinateIndex = tripData.coordinates.length;
-
-        // Use the last of the *new* coordinates for marker update
-        const lastPos = newCoordinates.length > 0 ? newCoordinates[newCoordinates.length - 1] : currentLatLngs[currentLatLngs.length - 1];
+    
+        // Attempt to preserve existing local coords
+        if (!this.localCoords) {
+            // localCoords is a client-side array we keep
+            this.localCoords = [];
+        }
+    
+        // Turn existing local coords into a map or set for dedup
+        const existingSet = new Set(
+            this.localCoords.map(c =>
+                `${c.timestamp}-${c.lat.toFixed(6)}-${c.lon.toFixed(6)}`
+            )
+        );
+    
+        const newPoints = [];
+        for (const c of tripData.coordinates) {
+            if (!c.timestamp || c.lat == null || c.lon == null) continue;
+            const key = `${c.timestamp}-${c.lat.toFixed(6)}-${c.lon.toFixed(6)}`;
+            if (!existingSet.has(key)) {
+                existingSet.add(key);
+                newPoints.push(c);
+            }
+        }
+    
+        if (newPoints.length) {
+            // Combine
+            this.localCoords = this.localCoords.concat(newPoints);
+            // Sort by timestamp
+            this.localCoords.sort((a, b) => {
+                return new Date(a.timestamp) - new Date(b.timestamp);
+            });
+        }
+    
+        // Now that we have a strictly time-ordered list,
+        // re-draw the polyline with localCoords
+        const latLngs = this.localCoords.map(coord => [coord.lat, coord.lon]);
+        this.polyline.setLatLngs(latLngs);
+    
+        // Move marker to the last coordinate
+        const lastPos = latLngs[latLngs.length - 1];
         this.marker.setLatLng(lastPos);
-
-        // Smoothly pan the map to the new position
-        this.map.panTo(lastPos, { animate: true, duration: 1 });
+        this.marker.setOpacity(1);
+    
+        // Optionally auto-pan
+        // this.map.panTo(lastPos, { animate: true, duration: 1 });
     }
 }

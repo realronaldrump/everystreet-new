@@ -2847,70 +2847,135 @@ async def stream():
 
 @app.route("/webhook/bouncie", methods=["POST"])
 async def bouncie_webhook():
+    """
+    Receives Bouncie webhook events (tripStart, tripData, tripEnd, etc.)
+    and updates or stores active trip data in live_trips_collection.
+    
+    Changes:
+      - For tripData events, we now parse the 'timestamp' from each data point,
+        store it as a datetime with lat/lon, then re-sort all coordinates
+        by time before saving back.
+      - This prevents out-of-order lines on the live map.
+      - We also skip duplicates by timestamp (and optionally lat,lon).
+    """
+    import dateutil.parser
+    
     try:
         data = await request.get_json()
         event_type = data.get("eventType")
-
         if not event_type:
             return jsonify({"error": "Missing eventType"}), 400
 
         transaction_id = data.get("transactionId")
+        # For clarity, store the current UTC now
+        now_utc = datetime.now(timezone.utc)
+
+        # If missing transactionId on trip events, just bail
+        if event_type in ("tripStart", "tripData", "tripEnd") and not transaction_id:
+            return jsonify({"error": "Missing transactionId for trip event"}), 400
 
         if event_type == "tripStart":
-            live_trips_collection.delete_many({"status": "active"})
+            # Make sure no active trip is left behind
+            live_trips_collection.delete_many({
+                "transactionId": transaction_id,
+                "status": "active"
+            })
+
             live_trips_collection.insert_one({
                 "transactionId": transaction_id,
                 "status": "active",
-                "startTime": datetime.now(timezone.utc),
-                "coordinates": [],
-                "lastUpdate": datetime.now(timezone.utc)
+                "startTime": now_utc,
+                "coordinates": [],  # Will store dicts: {lat, lon, timestamp (datetime)}
+                "lastUpdate": now_utc
             })
 
         elif event_type == "tripData":
+            # If the doc doesn't exist, we can create or skip
+            trip_doc = live_trips_collection.find_one(
+                {"transactionId": transaction_id, "status": "active"}
+            )
+            if not trip_doc:
+                # Either ignore or create a new partial doc
+                # Let's create it here for safety
+                live_trips_collection.insert_one({
+                    "transactionId": transaction_id,
+                    "status": "active",
+                    "startTime": now_utc,
+                    "coordinates": [],
+                    "lastUpdate": now_utc
+                })
+                trip_doc = live_trips_collection.find_one(
+                    {"transactionId": transaction_id, "status": "active"}
+                )
+
             if "data" in data:
-                coordinates_to_add = []
-                seen_coords = set()
+                existing_coords = trip_doc.get("coordinates", [])
+                # Convert to list of (timestamp, lat, lon) for easy manipulation
+                existing_tuples = [
+                    (
+                        coord.get("timestamp"), 
+                        coord.get("lat"),
+                        coord.get("lon")
+                    )
+                    for coord in existing_coords
+                ]
+                existing_set = set(existing_tuples)  # For dedupe
 
-                # Fetch existing coordinates from MongoDB
-                trip = live_trips_collection.find_one(
-                    {"transactionId": transaction_id, "status": "active"})
-                existing_coordinates = trip.get(
-                    "coordinates", []) if trip else []
-
-                # Populate seen_coords with existing coordinates to avoid duplicates
-                for coord_obj in existing_coordinates:
-                    seen_coords.add((coord_obj["lat"], coord_obj["lon"]))
+                new_coords = []
 
                 for point in data["data"]:
-                    if "gps" in point:
-                        coord_tuple = (point["gps"]["lat"],
-                                       point["gps"]["lon"])
-                        if coord_tuple not in seen_coords:
-                            coordinates_to_add.append({
-                                "lat": point["gps"]["lat"],
-                                "lon": point["gps"]["lon"]
-                            })
-                            seen_coords.add(coord_tuple)
+                    # parse the point's time
+                    raw_ts = point.get("timestamp")
+                    if not raw_ts or "gps" not in point:
+                        continue  # skip malformed
+                    try:
+                        parsed_time = dateutil.parser.isoparse(raw_ts)
+                    except Exception:
+                        continue  # skip if unparseable
 
-                if coordinates_to_add:
+                    lat = point["gps"].get("lat")
+                    lon = point["gps"].get("lon")
+                    if lat is None or lon is None:
+                        continue
+
+                    # create a 3-tuple key to deduplicate by (time, lat, lon)
+                    coord_key = (parsed_time.isoformat(), lat, lon)
+                    if coord_key not in existing_set:
+                        existing_set.add(coord_key)
+                        new_coords.append({
+                            "timestamp": parsed_time,
+                            "lat": lat,
+                            "lon": lon
+                        })
+
+                if new_coords:
+                    # Merge with existing doc coords
+                    all_coords = existing_coords + new_coords
+                    # Sort them by .timestamp
+                    all_coords.sort(key=lambda c: c["timestamp"])
+                    # Update the doc
                     live_trips_collection.update_one(
-                        {"transactionId": transaction_id, "status": "active"},
+                        {"_id": trip_doc["_id"]},
                         {
-                            "$push": {"coordinates": {"$each": coordinates_to_add}},
-                            "$set": {"lastUpdate": datetime.now(timezone.utc)}
+                            "$set": {
+                                "coordinates": all_coords,
+                                "lastUpdate": now_utc
+                            }
                         }
                     )
-                    logger.info(
-                        f"Updated trip {transaction_id} with {len(coordinates_to_add)} new coordinates")
 
         elif event_type == "tripEnd":
+            # Move from live_trips_collection to archived
             trip = live_trips_collection.find_one(
-                {"transactionId": transaction_id})
+                {"transactionId": transaction_id}
+            )
             if trip:
-                trip["endTime"] = datetime.now(timezone.utc)
+                trip["endTime"] = now_utc
                 trip["status"] = "completed"
                 archived_live_trips_collection.insert_one(trip)
                 live_trips_collection.delete_one({"_id": trip["_id"]})
+
+        # else: handle other eventTypes like mil, battery, etc. if you wish
 
         return jsonify({"status": "success"}), 200
 
