@@ -3230,44 +3230,60 @@ def organize_hourly_data(results):
 
 @app.route("/stream")
 async def stream():
-    """SSE endpoint for live trip updates"""
+    """
+    SSE endpoint for live trip updates.
+    Periodically checks if there's an active trip in 'live_trips_collection'.
+    If found, sends the trip data (with coordinates) to the client every second.
+    Converts any datetime fields in 'coordinates' to ISO-strings before json.dumps().
+    """
     async def event_stream():
         try:
-            # Send initial connection established message
+            # Upon client connection, send a "connected" message immediately
             yield "data: {\"type\": \"connected\"}\n\n"
 
             while True:
                 try:
-                    # Get current active trip if any
-                    active_trip = live_trips_collection.find_one(
-                        {"status": "active"})
-
+                    # Find the current active trip in the live_trips_collection
+                    active_trip = live_trips_collection.find_one({"status": "active"})
                     if active_trip:
-                        # Send trip data
+                        # Convert datetime fields in coordinates to string
+                        coords = active_trip.get("coordinates", [])
+                        for c in coords:
+                            # If 'timestamp' is a datetime, convert to ISO string
+                            ts = c.get("timestamp")
+                            if isinstance(ts, datetime):
+                                c["timestamp"] = ts.isoformat()
+
+                        # Build SSE data payload
                         data = {
                             "type": "trip_update",
                             "data": {
                                 "transactionId": active_trip["transactionId"],
-                                "coordinates": active_trip.get("coordinates", [])
+                                "coordinates": coords
                             }
                         }
+                        # Send as SSE 'data:' event
                         yield f"data: {json.dumps(data)}\n\n"
                     else:
-                        # Send heartbeat to keep connection alive
+                        # No active trip => Send heartbeat
                         yield "data: {\"type\": \"heartbeat\"}\n\n"
 
+                    # Sleep for 1 second before checking again
                     await asyncio.sleep(1)
+
                 except Exception as e:
                     logger.error(f"Error in event stream loop: {e}")
+                    # Continue means we keep the loop alive even if one iteration fails
                     continue
 
         except Exception as e:
             logger.error(f"Error in event stream: {e}")
 
+    # Build and return the streaming response
     response = Response(event_stream(), mimetype="text/event-stream")
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['Connection'] = 'keep-alive'
-    response.headers['X-Accel-Buffering'] = 'no'  # Important for nginx
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Connection"] = "keep-alive"
+    response.headers["X-Accel-Buffering"] = "no"  # Important for nginx or some proxies
     return response
 
 
