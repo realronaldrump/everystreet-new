@@ -9,6 +9,7 @@ import requests
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
+
 def validate_location_osm(location, location_type):
     """
     Use OSM Nominatim to see if location is valid. Return the first match or None.
@@ -20,7 +21,8 @@ def validate_location_osm(location, location_type):
         "featuretype": location_type
     }
     headers = {"User-Agent": "EveryStreet-Validator/1.0"}
-    response = requests.get("https://nominatim.openstreetmap.org/search", params=params, headers=headers)
+    response = requests.get(
+        "https://nominatim.openstreetmap.org/search", params=params, headers=headers)
     if response.status_code == 200:
         data = response.json()
         return data[0] if data else None
@@ -124,7 +126,7 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
                 async with session.get(url, params=params, headers=headers) as response:
                     response.raise_for_status()
                     data = await response.json()
-                    
+
                     # Return the ENTIRE JSON dict from Nominatim
                     logger.debug(
                         f"Reverse geocoded ({lat}, {lon}): got top-level keys {list(data.keys())} (attempt {attempt})"
