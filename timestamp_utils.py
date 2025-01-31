@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def parse_bouncie_timestamp(ts: str) -> datetime:
     """
     Parses an ISO 8601 timestamp from Bouncie's API and ensures it is timezone-aware.
@@ -28,7 +29,7 @@ def get_trip_timestamps(event_data: dict) -> tuple:
     """
     Extracts startTime and endTime from Bouncie's webhook event data.
     Handles different event types (`tripStart`, `tripEnd`).
-    
+
     If timestamps are missing or invalid, logs a warning.
     """
     start_time = None
@@ -37,12 +38,14 @@ def get_trip_timestamps(event_data: dict) -> tuple:
     if "start" in event_data and event_data["start"].get("timestamp"):
         start_time = parse_bouncie_timestamp(event_data["start"]["timestamp"])
         if start_time is None:
-            logger.warning(f"Invalid or missing startTime in event: {event_data}")
+            logger.warning(
+                f"Invalid or missing startTime in event: {event_data}")
 
     if "end" in event_data and event_data["end"].get("timestamp"):
         end_time = parse_bouncie_timestamp(event_data["end"]["timestamp"])
         if end_time is None:
-            logger.warning(f"Invalid or missing endTime in event: {event_data}")
+            logger.warning(
+                f"Invalid or missing endTime in event: {event_data}")
 
     return start_time, end_time
 
