@@ -1,4 +1,4 @@
-/* global L, EveryStreet, LoadingManager */
+/* global L, LoadingManager */
 class CustomPlacesManager {
     constructor(map) {
         this.map = map;
@@ -6,15 +6,13 @@ class CustomPlacesManager {
         this.currentPolygon = null;
         this.places = new Map();
         this.drawingEnabled = false;
-        this.customPlacesLayer = EveryStreet.mapLayers.customPlaces.layer;
+        this.customPlacesLayer = L.layerGroup().addTo(this.map);
+        this.loadingManager = new LoadingManager();
 
         this.cacheDOMElements();
         this.initializeControls();
         this.loadPlaces();
         this.setupEventListeners();
-
-        // Get the LoadingManager instance
-        this.loadingManager = new LoadingManager();
     }
 
     cacheDOMElements() {
@@ -52,7 +50,6 @@ class CustomPlacesManager {
         this.startDrawingBtn?.addEventListener('click', () => this.startDrawing());
         this.savePlaceBtn?.addEventListener('click', () => this.savePlace());
         this.managePlacesBtn?.addEventListener('click', () => this.showManagePlacesModal());
-
         this.map?.on(L.Draw.Event.CREATED, (e) => this.onPolygonCreated(e));
     }
 
@@ -91,12 +88,17 @@ class CustomPlacesManager {
 
             if (response.ok) {
                 const savedPlace = await response.json();
+                savedPlace.geometry.coordinates = savedPlace.geometry.coordinates[0];
                 this.places.set(savedPlace._id, savedPlace);
                 this.displayPlace(savedPlace);
                 this.resetDrawing();
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to save place');
             }
         } catch (error) {
             console.error('Error saving place:', error);
+            alert(error.message || 'An error occurred while saving the place.');
         }
     }
 
@@ -107,6 +109,9 @@ class CustomPlacesManager {
                 fillColor: '#BB86FC',
                 fillOpacity: 0.2
             },
+            onEachFeature: (feature, layer) => {
+                feature.properties.placeId = place._id;
+            }
         });
 
         polygon.bindPopup(`
@@ -153,7 +158,7 @@ class CustomPlacesManager {
             const place = this.places.get(placeId);
 
             L.popup()
-                .setLatLng(place.geometry.coordinates[0][0])
+                .setLatLng(L.GeoJSON.coordsToLatLng(place.geometry.coordinates[0]))
                 .setContent(`
                     <div class="custom-place-popup">
                         <h6>${place.name}</h6>
@@ -173,10 +178,17 @@ class CustomPlacesManager {
             this.loadingManager.addSubOperation('fetch', 50);
             this.loadingManager.addSubOperation('display', 50);
 
-            const places = await fetch('/api/places').then((response) => response.json());
+            const response = await fetch('/api/places');
+            if (!response.ok) {
+                throw new Error('Failed to fetch places');
+            }
+
+            const places = await response.json();
             this.loadingManager.updateSubOperation('fetch', 100);
 
             places.forEach((place) => {
+                // Ensure the coordinates are in the correct format
+                place.geometry.coordinates = place.geometry.coordinates[0];
                 this.places.set(place._id, place);
                 this.displayPlace(place);
             });
@@ -185,8 +197,9 @@ class CustomPlacesManager {
             await this.updateVisitsData();
         } catch (error) {
             console.error('Error loading places:', error);
+            this.loadingManager.error('Failed to load places');
         } finally {
-            this.loadingManager.finish();
+            this.loadingManager.finish('Loading Places');
         }
     }
 
@@ -224,31 +237,35 @@ class CustomPlacesManager {
 
             if (response.ok) {
                 this.places.delete(placeId);
-                this.customPlacesLayer.eachLayer((layer) => {
-                    if (layer.feature?.properties?.placeId === placeId) {
-                        this.map.removeLayer(layer);
+                // Remove the layer associated with the deleted place
+                this.customPlacesLayer.eachLayer(layer => {
+                    if (layer.feature && layer.feature.properties.placeId === placeId) {
+                        this.customPlacesLayer.removeLayer(layer);
                     }
                 });
                 this.showManagePlacesModal();
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to delete place');
             }
         } catch (error) {
             console.error('Error deleting place:', error);
+            alert(error.message || 'An error occurred while deleting the place.');
         }
     }
 }
 
 // Initialize when the map is ready
 document.addEventListener('DOMContentLoaded', () => {
-    const checkEveryStreet = setInterval(() => {
-        if (window.EveryStreet && document.getElementById('start-drawing')) {
-            clearInterval(checkEveryStreet);
-            window.customPlaces = new CustomPlacesManager(window.EveryStreet.getMap());
-        } else if (window.EveryStreet) {
-            clearInterval(checkEveryStreet);
-            console.log('Custom places controls not found, skipping initialization');
+    const checkMapReady = setInterval(() => {
+        // Simplified check for map element
+        if (document.getElementById('map')) {
+            clearInterval(checkMapReady);
+            // Initialize CustomPlacesManager with the map instance
+            window.customPlaces = new CustomPlacesManager(L.map('map'));
         }
     }, 100);
 
     // Clear interval after 10 seconds to prevent infinite checking
-    setTimeout(() => clearInterval(checkEveryStreet), 10000);
+    setTimeout(() => clearInterval(checkMapReady), 10000);
 });

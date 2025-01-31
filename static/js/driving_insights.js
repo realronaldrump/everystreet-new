@@ -18,7 +18,6 @@ const defaultChartOptions = {
     },
 };
 
-// Use the LoadingManager for managing loading state
 const loadingManager = new LoadingManager();
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -34,12 +33,10 @@ function initializeDatePickers() {
     const endDate = document.getElementById('end-date');
 
     if (startDate && endDate) {
-        const storedStartDate = localStorage.getItem('startDate');
-        const storedEndDate = localStorage.getItem('endDate');
         const todayStr = new Date().toISOString().split('T')[0];
 
-        startDate.value = storedStartDate || todayStr;
-        endDate.value = storedEndDate || todayStr;
+        startDate.value = localStorage.getItem('startDate') || todayStr;
+        endDate.value = localStorage.getItem('endDate') || todayStr;
 
         [startDate, endDate].forEach((picker) => {
             picker.addEventListener('change', (event) => {
@@ -457,3 +454,4 @@ function showError(message) {
     errorDiv.innerHTML = `${message} <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
     document.querySelector('.container-fluid')?.prepend(errorDiv);
 }
+

@@ -14,17 +14,16 @@ class LoadingManager {
             totalSteps: totalSteps,
             currentStep: 0,
         };
+        this.subOperations.clear();
 
-        if (this.overlay) {
-            this.overlay.style.display = 'flex';
-            this.updateDisplay();
-        }
+        this.overlay.style.display = 'flex';
+        this.updateDisplay();
     }
 
     updateProgress(step, message = null) {
         if (!this.currentOperation) return;
 
-        this.currentOperation.currentStep = Math.min(Math.max(step, 0), 100);
+        this.currentOperation.currentStep = Math.min(Math.max(step, 0), this.currentOperation.totalSteps);
         if (message) {
             this.currentOperation.name = message;
         }
@@ -67,21 +66,30 @@ class LoadingManager {
     updateDisplay() {
         if (!this.loadingText || !this.loadingBar) return;
 
-        const percentage = Math.round(this.currentOperation.currentStep);
+        const percentage = Math.round((this.currentOperation.currentStep / this.currentOperation.totalSteps) * 100);
         this.loadingText.textContent = `${this.currentOperation.name}: ${percentage}%`;
         this.loadingBar.style.width = `${percentage}%`;
         this.loadingBar.setAttribute('aria-valuenow', percentage);
     }
 
-    finish() {
-        if (!this.overlay) return;
-
-        this.updateProgress(100, 'Complete');
-        setTimeout(() => {
-            this.overlay.style.display = 'none';
-            this.currentOperation = null;
-            this.subOperations.clear();
-        }, 500);
+    finish(operationName = null) {
+        if (operationName) {
+            if (this.currentOperation && this.currentOperation.name === operationName) {
+                this.updateProgress(this.currentOperation.totalSteps);
+                setTimeout(() => {
+                    this.overlay.style.display = 'none';
+                    this.currentOperation = null;
+                    this.subOperations.clear();
+                }, 500);
+            }
+        } else {
+            this.updateProgress(this.currentOperation.totalSteps);
+            setTimeout(() => {
+                this.overlay.style.display = 'none';
+                this.currentOperation = null;
+                this.subOperations.clear();
+            }, 500);
+        }
     }
 
     error(message) {
@@ -89,11 +97,5 @@ class LoadingManager {
         if (this.loadingText) {
             this.loadingText.textContent = `Error: ${message}`;
         }
-        // Optionally display error on the overlay with a different style or message
-        // For example:
-        // if (this.loadingText) {
-        //     this.loadingText.textContent = `Error: ${message}. Please try again.`;
-        //     this.loadingText.style.color = 'red'; // Example styling
-        // }
     }
 }
