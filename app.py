@@ -1218,9 +1218,9 @@ async def cleanup_invalid_trips():
 def start_background_tasks():
     """Add jobs to the scheduler and start it."""
     # Example intervals lowered for demonstration, adjust as needed.
-    scheduler.add_job(fetch_and_store_trips, "interval", hours=4, max_instances=1)
-    scheduler.add_job(update_coverage_for_all_locations, "interval", hours=4, max_instances=1)
-    scheduler.add_job(cleanup_stale_trips, "interval", minutes=5, max_instances=1)
+    scheduler.add_job(fetch_and_store_trips, "interval", minutes=30, max_instances=1)
+    scheduler.add_job(update_coverage_for_all_locations, "interval", hours=1, max_instances=1)
+    scheduler.add_job(cleanup_stale_trips, "interval", minutes=60, max_instances=1)
     scheduler.add_job(cleanup_invalid_trips, "interval", hours=24, max_instances=1)
     scheduler.add_job(periodic_fetch_trips, "interval", minutes=30, max_instances=1)
     scheduler.start()
