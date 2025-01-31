@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 def parse_bouncie_timestamp(ts: str) -> datetime:
     """
     Parses an ISO 8601 timestamp from Bouncie's API and ensures it is timezone-aware.
-    
+
     If parsing fails, it returns the current UTC timestamp (with a log warning).
     """
     if not ts:
@@ -29,7 +29,8 @@ def get_trip_timestamps(event_data: dict) -> tuple:
     end_time = None
 
     if "start" in event_data:
-        start_time = parse_bouncie_timestamp(event_data["start"].get("timestamp"))
+        start_time = parse_bouncie_timestamp(
+            event_data["start"].get("timestamp"))
 
     if "end" in event_data:
         end_time = parse_bouncie_timestamp(event_data["end"].get("timestamp"))

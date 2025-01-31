@@ -1,3 +1,4 @@
+from timestamp_utils import parse_bouncie_timestamp, get_trip_timestamps, sort_and_filter_trip_coordinates
 from update_geo_points import update_geo_points
 from utils import validate_location_osm
 from map_matching import (
@@ -167,12 +168,14 @@ AVAILABLE_TASKS = [
     },
 ]
 
+
 def get_task_config():
     """
     Retrieves the background task config doc from MongoDB.
     If none exists, we create a default one.
     """
-    cfg = task_config_collection.find_one({"_id": "global_background_task_config"})
+    cfg = task_config_collection.find_one(
+        {"_id": "global_background_task_config"})
     if not cfg:
         # create a default
         cfg = {
@@ -197,7 +200,9 @@ def save_task_config(cfg):
     """
     Saves the given config doc to the DB, overwriting the old one.
     """
-    task_config_collection.replace_one({"_id": "global_background_task_config"}, cfg, upsert=True)
+    task_config_collection.replace_one(
+        {"_id": "global_background_task_config"}, cfg, upsert=True)
+
 
 @app.route("/api/background_tasks/config", methods=["GET"])
 async def get_background_tasks_config():
@@ -237,7 +242,8 @@ async def update_background_tasks_config():
     if "pauseDurationMinutes" in data:
         mins = data["pauseDurationMinutes"]
         if mins > 0:
-            cfg["pausedUntil"] = datetime.now(timezone.utc) + timedelta(minutes=mins)
+            cfg["pausedUntil"] = datetime.now(
+                timezone.utc) + timedelta(minutes=mins)
         else:
             cfg["pausedUntil"] = None  # unpause if 0
 
@@ -250,7 +256,8 @@ async def update_background_tasks_config():
                     cfg["tasks"][task_id]["interval_minutes"] = task_data["interval_minutes"]
                 # update enable
                 if "enabled" in task_data:
-                    cfg["tasks"][task_id]["enabled"] = bool(task_data["enabled"])
+                    cfg["tasks"][task_id]["enabled"] = bool(
+                        task_data["enabled"])
 
     save_task_config(cfg)
     # Also re-initialize background tasks so changes take effect immediately
@@ -269,13 +276,14 @@ async def pause_background_tasks():
     mins = data.get("minutes", 0)
     cfg = get_task_config()
     if mins > 0:
-        cfg["pausedUntil"] = datetime.now(timezone.utc) + timedelta(minutes=mins)
+        cfg["pausedUntil"] = datetime.now(
+            timezone.utc) + timedelta(minutes=mins)
     else:
         # unpause
         cfg["pausedUntil"] = None
     save_task_config(cfg)
     reinitialize_scheduler_tasks()
-    return jsonify({"status": "success", "message": f"Paused for {mins} minutes" if mins>0 else "Unpaused"})
+    return jsonify({"status": "success", "message": f"Paused for {mins} minutes" if mins > 0 else "Unpaused"})
 
 
 @app.route("/api/background_tasks/resume", methods=["POST"])
@@ -389,7 +397,8 @@ def reinitialize_scheduler_tasks():
     cfg = get_task_config()
     # if globally disabled, do not schedule anything
     if cfg.get("disabled"):
-        logger.info("Background tasks are globally disabled. No tasks scheduled.")
+        logger.info(
+            "Background tasks are globally disabled. No tasks scheduled.")
         return
 
     # if pausedUntil is in future, that means we do not schedule them until it is unpaused
@@ -408,7 +417,8 @@ def reinitialize_scheduler_tasks():
             continue
         if not task_settings.get("enabled", True):
             continue  # skip if not individually enabled
-        interval = task_settings.get("interval_minutes", t["default_interval_minutes"])
+        interval = task_settings.get(
+            "interval_minutes", t["default_interval_minutes"])
 
         # We'll add the job with that interval, but if "paused" we set next_run_time in the future
         next_run_time = None
@@ -444,6 +454,7 @@ def reinitialize_scheduler_tasks():
 #############################
 # Model or helper class
 #############################
+
 
 class CustomPlace:
     """Represents a custom-defined place with a name, geometry, and creation time."""
@@ -598,8 +609,6 @@ async def fetch_trips_in_intervals(main_session, access_token, imei, start_date,
 #############################
 # Periodic fetch
 #############################
-
-
 
 
 #############################
@@ -1430,6 +1439,8 @@ async def export_gpx():
 #############################
 # Background tasks
 #############################
+
+
 async def periodic_fetch_trips():
     """Periodically fetch trips from Bouncie API and store them."""
     try:
@@ -1440,7 +1451,8 @@ async def periodic_fetch_trips():
             else datetime.now(timezone.utc) - timedelta(days=7)
         )
         end_date = datetime.now(timezone.utc)
-        logger.info(f"Periodic trip fetch started from {start_date} to {end_date}")
+        logger.info(
+            f"Periodic trip fetch started from {start_date} to {end_date}")
         await fetch_and_store_trips_in_range(start_date, end_date, update_progress=False)
         logger.info("Periodic trip fetch completed successfully.")
     except Exception as e:
@@ -1452,7 +1464,8 @@ async def hourly_fetch_trips():
     try:
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(hours=1)
-        logger.info(f"Hourly trip fetch started for range: {start_date} to {end_date}")
+        logger.info(
+            f"Hourly trip fetch started for range: {start_date} to {end_date}")
         await fetch_and_store_trips_in_range(start_date, end_date)
         logger.info("Hourly trip fetch completed successfully.")
 
@@ -1468,7 +1481,8 @@ async def hourly_fetch_trips():
         for trip in new_trips_to_match:
             await process_and_map_match_trip(trip)
             map_matched_count += 1
-        logger.info(f"Map matching completed for {map_matched_count} hourly fetched trips.")
+        logger.info(
+            f"Map matching completed for {map_matched_count} hourly fetched trips.")
 
     except Exception as e:
         logger.error(f"Error during hourly trip fetch: {e}", exc_info=True)
@@ -1477,13 +1491,15 @@ async def hourly_fetch_trips():
 async def update_coverage_for_all_locations():
     """Updates street coverage for all locations."""
     try:
-        logger.info("Starting periodic street coverage update for all locations...")
+        logger.info(
+            "Starting periodic street coverage update for all locations...")
         locations = coverage_metadata_collection.distinct("location")
         for location in locations:
             await update_street_coverage(location)
         logger.info("Finished periodic street coverage update.")
     except Exception as e:
-        logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)
+        logger.error(
+            f"Error updating coverage for all locations: {e}", exc_info=True)
 
 
 async def cleanup_stale_trips():
@@ -1511,7 +1527,8 @@ async def cleanup_invalid_trips():
         for t in all_trips:
             ok, msg = validate_trip_data(t)
             if not ok:
-                logger.warning(f"Invalid trip {t.get('transactionId','?')}: {msg}")
+                logger.warning(
+                    f"Invalid trip {t.get('transactionId','?')}: {msg}")
                 trips_collection.update_one(
                     {"_id": t["_id"]}, {"$set": {"invalid": True}}
                 )
@@ -1529,7 +1546,6 @@ def start_background_tasks():
     if not scheduler.running:
         scheduler.start()
     reinitialize_scheduler_tasks()
-
 
 
 #############################
@@ -1924,6 +1940,7 @@ async def export_page():
     """Renders the export page."""
     return await render_template("export.html")
 
+
 @app.route("/api/export/all_trips")
 async def export_all_trips():
     """
@@ -1959,6 +1976,7 @@ async def export_all_trips():
 
     return jsonify({"error": "Invalid export format"}), 400
 
+
 async def fetch_all_trips_no_filter():
     """
     Fetches ALL trips from:
@@ -1971,6 +1989,7 @@ async def fetch_all_trips_no_filter():
     historical_trips = list(historical_trips_collection.find())
 
     return trips + uploaded_trips + historical_trips
+
 
 @app.route("/api/export/trips")
 async def export_trips():
@@ -2027,14 +2046,13 @@ def fetch_trips(start_date_str, end_date_str):
     return list(trips_collection.find(query))
 
 
-
 async def create_geojson(trips):
     """
     Converts a list of trips into a GeoJSON FeatureCollection.
     This function ensures that all MongoDB ObjectId fields are converted to strings.
     """
     features = []
-    
+
     for t in trips:
         gps_data = t.get("gps")
         if isinstance(gps_data, str):
@@ -2042,7 +2060,8 @@ async def create_geojson(trips):
 
         # Ensure `_id` is converted to string (to prevent ObjectId serialization issues)
         properties_dict = {
-            k: (v.isoformat() if isinstance(v, datetime) else str(v) if isinstance(v, ObjectId) else v)
+            k: (v.isoformat() if isinstance(v, datetime)
+                else str(v) if isinstance(v, ObjectId) else v)
             for k, v in t.items() if k != "_id"
         }
 
@@ -2054,6 +2073,7 @@ async def create_geojson(trips):
         features.append(feature)
 
     return json.dumps({"type": "FeatureCollection", "features": features})
+
 
 async def create_gpx(trips):
     """
@@ -2082,7 +2102,7 @@ async def create_gpx(trips):
                 segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
 
         track.name = f"Trip {t.get('transactionId', 'UNKNOWN')}"
-    
+
     return gpx.to_xml()
 
 
@@ -2384,13 +2404,16 @@ async def update_street_coverage(location_name):
     """Updates the driven status of street segments based on recent trips."""
     logger.info(f"Updating street coverage for location: {location_name}")
     try:
-        coverage_metadata = coverage_metadata_collection.find_one({"location": location_name})
-        last_processed_trip_time = coverage_metadata.get("last_processed_trip_time", datetime.min.replace(tzinfo=timezone.utc)) if coverage_metadata else datetime.min.replace(tzinfo=timezone.utc)
+        coverage_metadata = coverage_metadata_collection.find_one(
+            {"location": location_name})
+        last_processed_trip_time = coverage_metadata.get("last_processed_trip_time", datetime.min.replace(
+            tzinfo=timezone.utc)) if coverage_metadata else datetime.min.replace(tzinfo=timezone.utc)
         logger.info(f"Last processed trip time: {last_processed_trip_time}")
         new_trips = list(matched_trips_collection.find({
             "startTime": {"$gt": last_processed_trip_time}
         }))
-        logger.info(f"Found {len(new_trips)} new trips for coverage update (no location filter).")
+        logger.info(
+            f"Found {len(new_trips)} new trips for coverage update (no location filter).")
         if not new_trips:
             logger.info(f"No new trips found since {last_processed_trip_time}")
             return
@@ -2423,13 +2446,19 @@ async def update_street_coverage(location_name):
                         logger.info(f"Updated segment: {segment_id}")
 
             except Exception as e:
-                logger.error(f"Error processing trip {trip['transactionId']}: {e}")
+                logger.error(
+                    f"Error processing trip {trip['transactionId']}: {e}")
 
-        total_segments = streets_collection.count_documents({"properties.location": location_name})
-        driven_segments = streets_collection.count_documents({"properties.location": location_name, "properties.driven": True})
-        total_length = sum(s["properties"]["length"] for s in streets_collection.find({"properties.location": location_name}, {"properties.length": 1}))
-        driven_length = sum(s["properties"]["length"] for s in streets_collection.find({"properties.location": location_name, "properties.driven": True}, {"properties.length": 1}))
-        coverage_percentage = (driven_length / total_length)*100 if total_length > 0 else 0
+        total_segments = streets_collection.count_documents(
+            {"properties.location": location_name})
+        driven_segments = streets_collection.count_documents(
+            {"properties.location": location_name, "properties.driven": True})
+        total_length = sum(s["properties"]["length"] for s in streets_collection.find(
+            {"properties.location": location_name}, {"properties.length": 1}))
+        driven_length = sum(s["properties"]["length"] for s in streets_collection.find(
+            {"properties.location": location_name, "properties.driven": True}, {"properties.length": 1}))
+        coverage_percentage = (driven_length / total_length) * \
+            100 if total_length > 0 else 0
 
         coverage_metadata_collection.update_one(
             {"location": location_name},
@@ -2449,8 +2478,10 @@ async def update_street_coverage(location_name):
         logger.info(f"Street coverage updated for {location_name}")
 
     except Exception as e:
-        logger.error(f"Error updating street coverage for {location_name}: {e}")
+        logger.error(
+            f"Error updating street coverage for {location_name}: {e}")
         raise
+
 
 def run_periodic_fetches():
     loop = asyncio.new_event_loop()
@@ -2944,8 +2975,10 @@ async def get_place_statistics(place_id):
                         next_start = next_trip.get("startTime")
                         if next_start and isinstance(next_start, datetime):
                             if next_start.tzinfo is None:
-                                next_start = next_start.replace(tzinfo=timezone.utc)
-                            duration_minutes = (next_start - t_end).total_seconds() / 60.0
+                                next_start = next_start.replace(
+                                    tzinfo=timezone.utc)
+                            duration_minutes = (
+                                next_start - t_end).total_seconds() / 60.0
                             # Only add if it's positive and sensible
                             if duration_minutes > 0:
                                 durations.append(duration_minutes)
@@ -2966,7 +2999,8 @@ async def get_place_statistics(place_id):
                     if prev_end and isinstance(prev_end, datetime):
                         if prev_end.tzinfo is None:
                             prev_end = prev_end.replace(tzinfo=timezone.utc)
-                        hrs_since_last = (t_end - prev_end).total_seconds() / 3600.0
+                        hrs_since_last = (
+                            t_end - prev_end).total_seconds() / 3600.0
                         if hrs_since_last >= 0:
                             time_since_last_visits.append(hrs_since_last)
 
@@ -2982,15 +3016,18 @@ async def get_place_statistics(place_id):
         # *** The big fix: durations are only from consecutive "end@place" => "start@place" pairs. ***
         avg_duration = sum(durations) / len(durations) if durations else 0
         # Convert to an h:mm string:
+
         def format_h_m(m):
             # m is total minutes
             hh = int(m // 60)
             mm = int(m % 60)
             return f"{hh}h {mm:02d}m"
 
-        avg_duration_str = format_h_m(avg_duration) if avg_duration > 0 else "0h 00m"
+        avg_duration_str = format_h_m(
+            avg_duration) if avg_duration > 0 else "0h 00m"
 
-        avg_time_since_last = sum(time_since_last_visits) / len(time_since_last_visits) if time_since_last_visits else 0
+        avg_time_since_last = sum(
+            time_since_last_visits) / len(time_since_last_visits) if time_since_last_visits else 0
 
         return jsonify({
             "totalVisits": total_visits,
@@ -3073,8 +3110,10 @@ async def get_trips_for_place(place_id):
                     next_start = next_trip.get("startTime")
                     if next_start and isinstance(next_start, datetime):
                         if next_start.tzinfo is None:
-                            next_start = next_start.replace(tzinfo=timezone.utc)
-                        duration_minutes = (next_start - end_time).total_seconds() / 60.0
+                            next_start = next_start.replace(
+                                tzinfo=timezone.utc)
+                        duration_minutes = (
+                            next_start - end_time).total_seconds() / 60.0
                         # Format h:mm
                         hh = int(duration_minutes // 60)
                         mm = int(duration_minutes % 60)
@@ -3092,8 +3131,10 @@ async def get_trips_for_place(place_id):
                 prev_trip_end = valid_trips[i - 1]["endTime"]
                 if prev_trip_end and isinstance(prev_trip_end, datetime):
                     if prev_trip_end.tzinfo is None:
-                        prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
-                    hrs_since_last = (end_time - prev_trip_end).total_seconds() / 3600.0
+                        prev_trip_end = prev_trip_end.replace(
+                            tzinfo=timezone.utc)
+                    hrs_since_last = (
+                        end_time - prev_trip_end).total_seconds() / 3600.0
                     time_since_last_str = f"{hrs_since_last:.2f} hours"
                 else:
                     time_since_last_str = "N/A"
@@ -3110,7 +3151,8 @@ async def get_trips_for_place(place_id):
         return jsonify(trips_data)
 
     except Exception as e:
-        logger.error(f"Error fetching trips for place {place_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error fetching trips for place {place_id}: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -3244,7 +3286,8 @@ async def stream():
             while True:
                 try:
                     # Find the current active trip in the live_trips_collection
-                    active_trip = live_trips_collection.find_one({"status": "active"})
+                    active_trip = live_trips_collection.find_one(
+                        {"status": "active"})
                     if active_trip:
                         # Convert datetime fields in coordinates to string
                         coords = active_trip.get("coordinates", [])
@@ -3283,11 +3326,10 @@ async def stream():
     response = Response(event_stream(), mimetype="text/event-stream")
     response.headers["Cache-Control"] = "no-cache"
     response.headers["Connection"] = "keep-alive"
-    response.headers["X-Accel-Buffering"] = "no"  # Important for nginx or some proxies
+    # Important for nginx or some proxies
+    response.headers["X-Accel-Buffering"] = "no"
     return response
 
-
-from timestamp_utils import parse_bouncie_timestamp, get_trip_timestamps, sort_and_filter_trip_coordinates
 
 @app.route("/webhook/bouncie", methods=["POST"])
 async def bouncie_webhook():
@@ -3310,7 +3352,8 @@ async def bouncie_webhook():
             start_time, _ = get_trip_timestamps(data)
 
             # Ensure no active trip is left behind
-            live_trips_collection.delete_many({"transactionId": transaction_id, "status": "active"})
+            live_trips_collection.delete_many(
+                {"transactionId": transaction_id, "status": "active"})
 
             live_trips_collection.insert_one({
                 "transactionId": transaction_id,
@@ -3321,16 +3364,19 @@ async def bouncie_webhook():
             })
 
         elif event_type == "tripData":
-            trip_doc = live_trips_collection.find_one({"transactionId": transaction_id, "status": "active"})
+            trip_doc = live_trips_collection.find_one(
+                {"transactionId": transaction_id, "status": "active"})
             if not trip_doc:
                 live_trips_collection.insert_one({
                     "transactionId": transaction_id,
                     "status": "active",
-                    "startTime": datetime.now(timezone.utc),  # Fallback if tripStart was never received
+                    # Fallback if tripStart was never received
+                    "startTime": datetime.now(timezone.utc),
                     "coordinates": [],
                     "lastUpdate": datetime.now(timezone.utc)
                 })
-                trip_doc = live_trips_collection.find_one({"transactionId": transaction_id, "status": "active"})
+                trip_doc = live_trips_collection.find_one(
+                    {"transactionId": transaction_id, "status": "active"})
 
             if "data" in data:
                 new_coords = sort_and_filter_trip_coordinates(data["data"])
@@ -3350,7 +3396,8 @@ async def bouncie_webhook():
         elif event_type == "tripEnd":
             start_time, end_time = get_trip_timestamps(data)
 
-            trip = live_trips_collection.find_one({"transactionId": transaction_id})
+            trip = live_trips_collection.find_one(
+                {"transactionId": transaction_id})
             if trip:
                 trip["endTime"] = end_time
                 trip["status"] = "completed"
@@ -3362,8 +3409,6 @@ async def bouncie_webhook():
     except Exception as e:
         logger.error(f"Error in bouncie_webhook: {e}")
         return jsonify({"error": str(e)}), 500
-
-
 
 
 #############################
@@ -3707,7 +3752,8 @@ async def fetch_and_store_trips_in_range(start_date, end_date, update_progress=F
         async with aiohttp.ClientSession() as sess:
             token = await get_access_token(sess)
             if not token:
-                logger.error("No Bouncie token retrieved. Aborting trip fetch.")
+                logger.error(
+                    "No Bouncie token retrieved. Aborting trip fetch.")
                 return
 
             all_trips = []
@@ -3717,10 +3763,12 @@ async def fetch_and_store_trips_in_range(start_date, end_date, update_progress=F
             for idx, imei in enumerate(AUTHORIZED_DEVICES, 1):
                 dev_trips = await fetch_trips_in_intervals(sess, token, imei, start_date, end_date)
                 all_trips.extend(dev_trips)
-                logger.info(f"Fetched {len(dev_trips)} trips for device {imei}")
+                logger.info(
+                    f"Fetched {len(dev_trips)} trips for device {imei}")
 
                 if update_progress:
-                    progress_data["fetch_and_store_trips_in_range"]["progress"] = int((idx / total_devices) * 50)
+                    progress_data["fetch_and_store_trips_in_range"]["progress"] = int(
+                        (idx / total_devices) * 50)
 
             logger.info(f"Total fetched: {len(all_trips)} trips.")
 
@@ -3735,17 +3783,21 @@ async def fetch_and_store_trips_in_range(start_date, end_date, update_progress=F
                     # If already in DB, skip
                     existing = get_trip_from_db(trip["transactionId"])
                     if existing:
-                        logger.info(f"Skipping existing trip {trip['transactionId']}")
+                        logger.info(
+                            f"Skipping existing trip {trip['transactionId']}")
                         skipped_count += 1
                         continue
 
                     # Parse timestamps directly from "startTime" and "endTime" fields
-                    trip["startTime"] = parse_bouncie_timestamp(trip.get("startTime"))
-                    trip["endTime"] = parse_bouncie_timestamp(trip.get("endTime"))
+                    trip["startTime"] = parse_bouncie_timestamp(
+                        trip.get("startTime"))
+                    trip["endTime"] = parse_bouncie_timestamp(
+                        trip.get("endTime"))
 
                     # Ensure timestamps are not None
                     if not trip["startTime"] or not trip["endTime"]:
-                        logger.warning(f"Skipping trip {trip['transactionId']} due to missing timestamps.")
+                        logger.warning(
+                            f"Skipping trip {trip['transactionId']} due to missing timestamps.")
                         error_count += 1
                         continue
 
@@ -3755,13 +3807,16 @@ async def fetch_and_store_trips_in_range(start_date, end_date, update_progress=F
                     # Store trip in DB
                     if store_trip(processed_trip):
                         processed_count += 1
-                        logger.info(f"Stored trip {trip['transactionId']} successfully.")
+                        logger.info(
+                            f"Stored trip {trip['transactionId']} successfully.")
 
                     if update_progress:
-                        progress_data["fetch_and_store_trips_in_range"]["progress"] = int(50 + (index / total_trips) * 50)
+                        progress_data["fetch_and_store_trips_in_range"]["progress"] = int(
+                            50 + (index / total_trips) * 50)
 
                 except Exception as e:
-                    logger.error(f"Error processing trip {trip.get('transactionId', '?')}: {e}", exc_info=True)
+                    logger.error(
+                        f"Error processing trip {trip.get('transactionId', '?')}: {e}", exc_info=True)
                     error_count += 1
 
             logger.info(
@@ -3773,7 +3828,8 @@ async def fetch_and_store_trips_in_range(start_date, end_date, update_progress=F
                 progress_data["fetch_and_store_trips_in_range"]["progress"] = 100
 
     except Exception as e:
-        logger.error(f"Error in fetch_and_store_trips_in_range: {e}", exc_info=True)
+        logger.error(
+            f"Error in fetch_and_store_trips_in_range: {e}", exc_info=True)
         if update_progress:
             progress_data["fetch_and_store_trips_in_range"]["status"] = "failed"
             progress_data["fetch_and_store_trips_in_range"]["message"] = f"Error: {e}"
@@ -3826,7 +3882,6 @@ async def not_found_error(error):
 @app.errorhandler(500)
 async def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
-
 
 
 #############################
@@ -4129,10 +4184,12 @@ async def debug_trip(trip_id):
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
+
 #############################
 #   Hook APScheduler into Quart's event loop
 #############################
+
+
 @app.before_serving
 async def init_background_tasks():
     """
@@ -4149,4 +4206,5 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8080"))
     # If you run "python app.py" this block will fire.  Use uvicorn to serve.
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info", use_colors=True)
+    uvicorn.run(app, host="0.0.0.0", port=port,
+                log_level="info", use_colors=True)
