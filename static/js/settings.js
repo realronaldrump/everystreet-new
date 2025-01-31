@@ -30,7 +30,7 @@ function setupHistoricalData() {
 }
 
 /***************************************************
- * GEOPROINT UPDATES
+ * GEOPOINT UPDATES
  ***************************************************/
 function setupGeoPointsUpdate() {
     const updateGeoPointsBtn = document.getElementById('update-geo-points');
@@ -136,26 +136,35 @@ function populateTaskConfigUI(cfg) {
         { value: 1440, label: 'Every 24 hours' },
     ];
 
-    Object.entries(cfg.tasks).forEach(([taskId, taskData]) => {
+    const knownTasks = [
+        { id: "fetch_and_store_trips", name: "Fetch & Store Trips" },
+        { id: "periodic_fetch_trips", name: "Periodic Trip Fetch" },
+        { id: "update_coverage_for_all_locations", name: "Update Coverage (All)" },
+        { id: "cleanup_stale_trips", name: "Cleanup Stale Trips" },
+        { id: "cleanup_invalid_trips", name: "Cleanup Invalid Trips" },
+      ];
+
+    knownTasks.forEach((task) => {
         const row = document.createElement('tr');
 
         const tdName = document.createElement('td');
-        tdName.textContent = taskId.replace(/_/g, ' ').toUpperCase();
+        tdName.textContent = task.name;
         row.appendChild(tdName);
 
         const tdInterval = document.createElement('td');
-        const sel = document.createElement('select');
-        sel.className = 'form-select form-select-sm w-auto';
+        const currentInterval = cfg.tasks[task.id]?.interval_minutes || 60;
+        const sel = document.createElement("select");
+        sel.className = "form-select form-select-sm w-auto";
         intervalOptions.forEach((opt) => {
-            const optionEl = document.createElement('option');
-            optionEl.value = opt.value;
-            optionEl.textContent = opt.label;
-            if (opt.value == taskData.interval_minutes) {
-                optionEl.selected = true;
-            }
-            sel.appendChild(optionEl);
+          const optionEl = document.createElement("option");
+          optionEl.value = opt.value;
+          optionEl.textContent = opt.label;
+          if (opt.value == currentInterval) {
+            optionEl.selected = true;
+          }
+          sel.appendChild(optionEl);
         });
-        sel.dataset.taskId = taskId;
+        sel.dataset.taskId = task.id;
         tdInterval.appendChild(sel);
         row.appendChild(tdInterval);
 
@@ -163,8 +172,8 @@ function populateTaskConfigUI(cfg) {
         const enableCheck = document.createElement('input');
         enableCheck.type = 'checkbox';
         enableCheck.classList.add('form-check-input');
-        enableCheck.checked = !!taskData.enabled;
-        enableCheck.dataset.taskId = taskId;
+        enableCheck.checked = !!cfg.tasks[task.id]?.enabled;
+        enableCheck.dataset.taskId = task.id;
         tdEnable.appendChild(enableCheck);
         row.appendChild(tdEnable);
 
@@ -172,7 +181,7 @@ function populateTaskConfigUI(cfg) {
         const btnRun = document.createElement('button');
         btnRun.className = 'btn btn-sm btn-info';
         btnRun.textContent = 'Run Now';
-        btnRun.addEventListener('click', () => manualRunTasks([taskId]));
+        btnRun.addEventListener('click', () => manualRunTasks([task.id]));
         tdRun.appendChild(btnRun);
         row.appendChild(tdRun);
 
@@ -220,7 +229,14 @@ function submitTaskConfigUpdate(config) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
-    }).then((res) => res.json());
+    }).then((res) => {
+        if (!res.ok) {
+          return res.json().then((errData) => {
+            throw new Error(errData.message || "Error updating config");
+          });
+        }
+        return res.json();
+      });
 }
 
 /***************************************************
@@ -229,25 +245,91 @@ function submitTaskConfigUpdate(config) {
 function confirmPause() {
     const mins = parseInt(document.getElementById('pauseDuration').value, 10);
     fetch('/api/background_tasks/pause', { method: 'POST', body: JSON.stringify({ minutes: mins }) })
-        .then(() => loadBackgroundTasksConfig());
+        .then((r) => r.json())
+        .then((data) => {
+            alert(data.message);
+            loadBackgroundTasksConfig();
+            // close modal
+            const pauseModal = document.getElementById("pauseModal");
+            const modalInstance = bootstrap.Modal.getInstance(pauseModal);
+            modalInstance.hide();
+        })
+        .catch((err) => {
+            console.error("Error pausing tasks:", err);
+            alert("Error pausing tasks");
+        });
 }
 
 function resumeBackgroundTasks() {
-    fetch('/api/background_tasks/resume', { method: 'POST' }).then(() => loadBackgroundTasksConfig());
+    fetch('/api/background_tasks/resume', { method: 'POST' })
+    .then((r) => r.json())
+    .then((data) => {
+        alert(data.message);
+        loadBackgroundTasksConfig();
+    })
+    .catch((err) => {
+        console.error("Error resuming tasks:", err);
+        alert("Error resuming tasks");
+    });
 }
 
 function stopAllBackgroundTasks() {
-    fetch('/api/background_tasks/stop_all', { method: 'POST' }).then(() => loadBackgroundTasksConfig());
+    if (!confirm("Are you sure you want to STOP ALL tasks?")) return;
+    fetch('/api/background_tasks/stop_all', { method: 'POST' })
+    .then((r) => r.json())
+    .then((data) => {
+        alert(data.message);
+        loadBackgroundTasksConfig();
+    })
+    .catch((err) => {
+        console.error("Error stopping tasks:", err);
+        alert("Error stopping tasks");
+    });
 }
 
 function enableAllTasks() {
-    fetch('/api/background_tasks/enable', { method: 'POST' }).then(() => loadBackgroundTasksConfig());
+    fetch('/api/background_tasks/enable', { method: 'POST' })
+    .then((r) => r.json())
+    .then((data) => {
+        alert(data.message);
+        loadBackgroundTasksConfig();
+    })
+    .catch((err) => {
+        console.error("Error enabling tasks:", err);
+        alert("Error enabling tasks");
+    });
 }
 
 function disableAllTasks() {
-    fetch('/api/background_tasks/disable', { method: 'POST' }).then(() => loadBackgroundTasksConfig());
+    fetch('/api/background_tasks/disable', { method: 'POST' })
+    .then((r) => r.json())
+    .then((data) => {
+        alert(data.message);
+        loadBackgroundTasksConfig();
+    })
+    .catch((err) => {
+        console.error("Error disabling tasks:", err);
+        alert("Error disabling tasks");
+    });
 }
 
 function manualRunTasks(tasksArr) {
-    fetch('/api/background_tasks/manual_run', { method: 'POST', body: JSON.stringify({ tasks: tasksArr }) });
+    fetch('/api/background_tasks/manual_run', { 
+        method: 'POST', 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks: tasksArr })
+    })
+    .then((r) => r.json())
+    .then((data) => {
+      if (data.status === "success") {
+        let msg = "Tasks triggered:\n" + data.results.map((r) => `${r.task}: ${r.success ? "OK" : "Unknown"}`).join("\n");
+        alert(msg);
+      } else {
+        alert("Error: " + data.message);
+      }
+    })
+    .catch((err) => {
+      console.error("Error triggering tasks manually:", err);
+      alert("Error triggering tasks. Check console.");
+    });
 }
