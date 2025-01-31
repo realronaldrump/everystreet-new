@@ -1217,7 +1217,6 @@ async def cleanup_invalid_trips():
 
 def start_background_tasks():
     """Add jobs to the scheduler and start it."""
-    # Example intervals lowered for demonstration, adjust as needed.
     scheduler.add_job(fetch_and_store_trips, "interval", minutes=30, max_instances=1)
     scheduler.add_job(update_coverage_for_all_locations, "interval", hours=1, max_instances=1)
     scheduler.add_job(cleanup_stale_trips, "interval", minutes=60, max_instances=1)
@@ -2924,46 +2923,61 @@ def organize_hourly_data(results):
 #############################
 
 
+
 @app.route("/stream")
 async def stream():
-    """SSE endpoint for live trip updates"""
+    """
+    SSE endpoint for live trip updates. Sends either an active trip with
+    lat/lon/time or a 'heartbeat' event to keep the connection alive.
+    """
     async def event_stream():
         try:
-            # Send initial connection established message
+            # Send a one-time message to confirm connection
             yield "data: {\"type\": \"connected\"}\n\n"
 
             while True:
                 try:
-                    # Get current active trip if any
-                    active_trip = live_trips_collection.find_one(
-                        {"status": "active"})
-
+                    active_trip = live_trips_collection.find_one({"status": "active"})
                     if active_trip:
-                        # Send trip data
+                        # Convert any datetime fields to strings
+                        # in particular, coordinates[].timestamp and lastUpdate
+                        for coord in active_trip.get("coordinates", []):
+                            if isinstance(coord.get("timestamp"), datetime):
+                                coord["timestamp"] = coord["timestamp"].isoformat()
+
+                        if isinstance(active_trip.get("lastUpdate"), datetime):
+                            active_trip["lastUpdate"] = active_trip["lastUpdate"].isoformat()
+
+                        # Construct the data payload in pure JSON-compatible form
                         data = {
                             "type": "trip_update",
                             "data": {
-                                "transactionId": active_trip["transactionId"],
-                                "coordinates": active_trip.get("coordinates", [])
+                                "transactionId": active_trip.get("transactionId"),
+                                "coordinates": active_trip.get("coordinates", []),
+                                "lastUpdate": active_trip.get("lastUpdate"),
                             }
                         }
                         yield f"data: {json.dumps(data)}\n\n"
+
                     else:
-                        # Send heartbeat to keep connection alive
+                        # No active trip: send a simple heartbeat to keep SSE alive
                         yield "data: {\"type\": \"heartbeat\"}\n\n"
 
+                    # Adjust sleep interval as needed
                     await asyncio.sleep(1)
+
                 except Exception as e:
                     logger.error(f"Error in event stream loop: {e}")
+                    # Continue sending SSEs even if one iteration fails
                     continue
 
         except Exception as e:
-            logger.error(f"Error in event stream: {e}")
+            logger.error(f"Error in event stream outer block: {e}")
 
     response = Response(event_stream(), mimetype="text/event-stream")
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['Connection'] = 'keep-alive'
-    response.headers['X-Accel-Buffering'] = 'no'  # Important for nginx
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Connection"] = "keep-alive"
+    response.headers["X-Accel-Buffering"] = "no"  # important for proxies
     return response
 
 
