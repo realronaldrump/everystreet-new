@@ -857,50 +857,78 @@ def process_trip(trip):
 @app.route("/api/trips")
 async def get_trips():
     """
-    Return regular, uploaded, historical trips as combined FeatureCollection.
+    Return a combined FeatureCollection of regular, uploaded, and historical trips.
+    Trips missing a valid startTime or endTime will be skipped.
     """
     try:
+        # Parse query parameters (if provided)
         start_date_str = request.args.get("start_date")
         end_date_str = request.args.get("end_date")
         imei = request.args.get("imei")
 
-        start_date = datetime.fromisoformat(start_date_str).replace(
-            tzinfo=timezone.utc) if start_date_str else None
-        end_date = datetime.fromisoformat(end_date_str).replace(
-            hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
-        ) if end_date_str else None
+        start_date = (
+            datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
+            if start_date_str
+            else None
+        )
+        end_date = (
+            datetime.fromisoformat(end_date_str)
+            .replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc)
+            if end_date_str
+            else None
+        )
 
+        # Build MongoDB query
         query = {}
         if start_date and end_date:
             query["startTime"] = {"$gte": start_date, "$lte": end_date}
         if imei:
             query["imei"] = imei
 
+        # Get trips from all three collections
         regular = list(trips_collection.find(query))
         uploaded = list(uploaded_trips_collection.find(query))
         historical = list(historical_trips_collection.find(query))
         all_trips = regular + uploaded + historical
+
         features = []
 
         for trip in all_trips:
             try:
-                # make sure times are tz-aware
-                if trip["startTime"].tzinfo is None:
-                    trip["startTime"] = trip["startTime"].replace(
-                        tzinfo=timezone.utc)
-                if trip["endTime"].tzinfo is None:
-                    trip["endTime"] = trip["endTime"].replace(
-                        tzinfo=timezone.utc)
+                # Ensure that both startTime and endTime exist
+                st = trip.get("startTime")
+                et = trip.get("endTime")
+                if st is None or et is None:
+                    logger.warning(
+                        f"Skipping trip {trip.get('transactionId', 'unknown')} due to missing startTime or endTime"
+                    )
+                    continue
 
-                geometry = trip["gps"]
+                # If stored as strings, parse them
+                if isinstance(st, str):
+                    st = parser.isoparse(st)
+                if isinstance(et, str):
+                    et = parser.isoparse(et)
+
+                # If the datetime objects are not tz‐aware, set UTC as default
+                if st.tzinfo is None:
+                    st = st.replace(tzinfo=timezone.utc)
+                if et.tzinfo is None:
+                    et = et.replace(tzinfo=timezone.utc)
+                # Save back into the trip
+                trip["startTime"] = st
+                trip["endTime"] = et
+
+                # Process GPS geometry
+                geometry = trip.get("gps")
                 if isinstance(geometry, str):
                     geometry = geojson_loads(geometry)
 
                 properties = {
                     "transactionId": trip.get("transactionId", "??"),
                     "imei": trip.get("imei", "UPLOAD"),
-                    "startTime": trip["startTime"].astimezone(timezone.utc).isoformat(),
-                    "endTime": trip["endTime"].astimezone(timezone.utc).isoformat(),
+                    "startTime": st.astimezone(timezone.utc).isoformat(),
+                    "endTime": et.astimezone(timezone.utc).isoformat(),
                     "distance": float(trip.get("distance", 0)),
                     "timeZone": trip.get("timeZone", "America/Chicago"),
                     "maxSpeed": float(trip.get("maxSpeed", 0)),
@@ -918,18 +946,21 @@ async def get_trips():
                 }
 
                 feature = geojson_module.Feature(
-                    geometry=geometry, properties=properties)
+                    geometry=geometry, properties=properties
+                )
                 features.append(feature)
             except Exception as e:
                 logger.error(
-                    f"Error processing trip {trip.get('transactionId')}: {e}", exc_info=True)
+                    f"Error processing trip {trip.get('transactionId', 'unknown')}: {e}",
+                    exc_info=True,
+                )
+                # Optionally continue processing other trips
+                continue
 
         return jsonify(geojson_module.FeatureCollection(features))
     except Exception as e:
-        # Log endpoint specific errors
         logger.error(f"Error in /api/trips endpoint: {e}", exc_info=True)
         return jsonify({"error": "Failed to retrieve trips"}), 500
-
 
 def format_idle_time(seconds):
     """
