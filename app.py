@@ -1808,9 +1808,9 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
 
 @app.route("/load_historical_data", methods=["POST"])
 async def load_historical_data_endpoint():
-    """Load historical data route, for older geojson data files."""
-    start_date = (await request.get_json()).get("start_date")
-    end_date = (await request.get_json()).get("end_date")
+    data = await request.get_json()
+    start_date = data.get("start_date")
+    end_date = data.get("end_date")
     inserted_count = await load_historical_data(start_date, end_date)
     return jsonify({"message": f"Loaded historical data. Inserted {inserted_count} new trips."})
 
@@ -2506,60 +2506,42 @@ def organize_hourly_data(results):
 
 @app.route("/stream")
 async def stream():
-    """
-    SSE endpoint for live trip updates.
-    Periodically checks if there's an active trip in 'live_trips_collection'.
-    If found, sends the trip data (with coordinates) to the client every second.
-    Converts any datetime fields in 'coordinates' to ISO-strings before json.dumps().
-    """
     async def event_stream():
         try:
-            # Upon client connection, send a "connected" message immediately
-            yield "data: {\"type\": \"connected\"}\n\n"
-
+            # Immediately send a connection acknowledgment
+            yield ("data: {\"type\": \"connected\"}\n\n").encode("utf-8")
             while True:
                 try:
-                    # Find the current active trip in the live_trips_collection
                     active_trip = live_trips_collection.find_one({"status": "active"})
                     if active_trip:
-                        # Convert datetime fields in coordinates to string
-                        coords = active_trip.get("coordinates", [])
-                        for c in coords:
-                            # If 'timestamp' is a datetime, convert to ISO string
+                        # Convert any datetime fields in the trip's coordinates to ISO strings
+                        for c in active_trip.get("coordinates", []):
                             ts = c.get("timestamp")
                             if isinstance(ts, datetime):
                                 c["timestamp"] = ts.isoformat()
-
-                        # Build SSE data payload
                         data = {
                             "type": "trip_update",
                             "data": {
                                 "transactionId": active_trip["transactionId"],
-                                "coordinates": coords
+                                "coordinates": active_trip.get("coordinates", [])
                             }
                         }
-                        # Send as SSE 'data:' event
-                        yield f"data: {json.dumps(data)}\n\n"
+                        yield (f"data: {json.dumps(data)}\n\n").encode("utf-8")
                     else:
-                        # No active trip => Send heartbeat
-                        yield "data: {\"type\": \"heartbeat\"}\n\n"
-
-                    # Sleep for 1 second before checking again
+                        yield ("data: {\"type\": \"heartbeat\"}\n\n").encode("utf-8")
                     await asyncio.sleep(1)
-
-                except Exception as e:
-                    logger.error(f"Error in event stream loop: {e}")
-                    # Continue means we keep the loop alive even if one iteration fails
-                    continue
-
-        except Exception as e:
-            logger.error(f"Error in event stream: {e}")
-
-    # Build and return the streaming response
+                except Exception as loop_err:
+                    logger.error(f"Error in event stream loop: {loop_err}", exc_info=True)
+                    # Yield an error event and wait before continuing
+                    yield ("data: {\"type\": \"error\", \"message\": \"Internal error\"}\n\n").encode("utf-8")
+                    await asyncio.sleep(1)
+        except Exception as stream_err:
+            logger.error(f"Error in event stream: {stream_err}", exc_info=True)
+            yield ("data: {\"type\": \"error\", \"message\": \"Stream error\"}\n\n").encode("utf-8")
     response = Response(event_stream(), mimetype="text/event-stream")
     response.headers["Cache-Control"] = "no-cache"
     response.headers["Connection"] = "keep-alive"
-    response.headers["X-Accel-Buffering"] = "no"  # Important for nginx or some proxies
+    response.headers["X-Accel-Buffering"] = "no"
     return response
 
 

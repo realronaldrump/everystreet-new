@@ -6,7 +6,6 @@
   
     // Initialize on DOM load
     document.addEventListener('DOMContentLoaded', () => {
-      initializeDatePickers();
       initializeEventListeners();
       initializeTripsTable();
       fetchTrips(); // Initial load
