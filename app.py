@@ -57,7 +57,15 @@ import pytz
 from bson import ObjectId
 from dateutil import parser
 from dotenv import load_dotenv
-from quart import Quart, Response, jsonify, render_template, request, send_file, websocket
+from quart import (
+    Quart,
+    Response,
+    jsonify,
+    render_template,
+    request,
+    send_file,
+    websocket,
+)
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.base import JobLookupError
 from datetime import datetime, timezone
@@ -3498,7 +3506,7 @@ async def debug_trip(trip_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.websocket('/ws/live_trip')
+@app.websocket("/ws/live_trip")
 async def ws_live_trip():
     """
     A WebSocket endpoint that continuously sends live trip data.
@@ -3510,14 +3518,20 @@ async def ws_live_trip():
             active_trip = live_trips_collection.find_one({"status": "active"})
             if active_trip:
                 # Convert datetime fields to ISO strings for JSON serialization
-                if active_trip.get("startTime") and isinstance(active_trip["startTime"], datetime):
+                if active_trip.get("startTime") and isinstance(
+                    active_trip["startTime"], datetime
+                ):
                     active_trip["startTime"] = active_trip["startTime"].isoformat()
-                if active_trip.get("lastUpdate") and isinstance(active_trip["lastUpdate"], datetime):
+                if active_trip.get("lastUpdate") and isinstance(
+                    active_trip["lastUpdate"], datetime
+                ):
                     active_trip["lastUpdate"] = active_trip["lastUpdate"].isoformat()
                 # Convert any datetime in coordinates
                 if "coordinates" in active_trip:
                     for coord in active_trip["coordinates"]:
-                        if "timestamp" in coord and isinstance(coord["timestamp"], datetime):
+                        if "timestamp" in coord and isinstance(
+                            coord["timestamp"], datetime
+                        ):
                             coord["timestamp"] = coord["timestamp"].isoformat()
                 message = {"type": "trip_update", "data": active_trip}
             else:
@@ -3529,6 +3543,7 @@ async def ws_live_trip():
         logger.info("WebSocket connection cancelled (client disconnected).")
     except Exception as e:
         logger.error("Error in WebSocket endpoint /ws/live_trip: %s", e, exc_info=True)
+
 
 #   Hook APScheduler into Quart's event loop
 
