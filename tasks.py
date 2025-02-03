@@ -6,6 +6,8 @@ Tasks include periodic trip fetching, hourly trip fetching, cleanup of stale or 
 and updating coverage for all locations.
 
 It also contains helper functions to load/save task configuration and reinitialize the scheduler.
+
+All scheduling is handled via a single global scheduler instance defined here.
 """
 
 import asyncio
@@ -34,12 +36,11 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
 
-# Create the APScheduler instance.
+# Create a single global APScheduler instance.
 scheduler = AsyncIOScheduler()
 
-#  Task configuration
+# Task configuration for available background tasks.
 AVAILABLE_TASKS = [
-    # For tasks that require no parameters, schedule the parameterless function.
     {
         "id": "fetch_and_store_trips",
         "display_name": "Fetch & Store Trips",
@@ -70,8 +71,8 @@ AVAILABLE_TASKS = [
 
 def get_task_config():
     """
-    Retrieves the background task config doc from MongoDB.
-    If none exists, creates a default one.
+    Retrieves the background task configuration document from MongoDB.
+    If none exists, creates a default configuration.
     """
     cfg = task_config_collection.find_one({"_id": "global_background_task_config"})
     if not cfg:
@@ -92,14 +93,14 @@ def get_task_config():
 
 def save_task_config(cfg):
     """
-    Saves the given config doc to the DB.
+    Saves the given configuration document to the database.
     """
     task_config_collection.replace_one(
         {"_id": "global_background_task_config"}, cfg, upsert=True
     )
 
 
-#  Background Task Functions
+# Background Task Functions
 
 
 async def periodic_fetch_trips():
@@ -178,13 +179,13 @@ async def cleanup_invalid_trips():
         logger.error(f"cleanup_invalid_trips: {e}", exc_info=True)
 
 
-#  Scheduler Management Functions
+# Scheduler Management Functions
 
 
 def reinitialize_scheduler_tasks():
     """
-    Re-read the config from the DB, remove existing jobs, and re-add them with the correct intervals,
-    unless globally disabled or paused.
+    Re-read the configuration from the database, remove existing jobs,
+    and re-add them with the correct intervals unless globally disabled or paused.
     """
     for t in AVAILABLE_TASKS:
         job_id = t["id"]
@@ -215,8 +216,7 @@ def reinitialize_scheduler_tasks():
             paused_until + timedelta(seconds=1) if is_currently_paused else None
         )
 
-        # IMPORTANT: Instead of mapping "fetch_and_store_trips" to fetch_bouncie_trips_in_range (which needs arguments),
-        # we map both "fetch_and_store_trips" and "periodic_fetch_trips" to periodic_fetch_trips.
+        # Map task IDs to background functions.
         if task_id in ("fetch_and_store_trips", "periodic_fetch_trips"):
             job_func = periodic_fetch_trips
         elif task_id == "update_coverage_for_all_locations":
@@ -241,7 +241,8 @@ def reinitialize_scheduler_tasks():
 
 def start_background_tasks():
     """
-    Called at application startup to start the scheduler and initialize tasks.
+    Start the scheduler if it's not running and initialize tasks.
+    This should be called once at application startup.
     """
     if not scheduler.running:
         scheduler.start()

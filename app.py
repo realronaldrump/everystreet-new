@@ -3130,14 +3130,20 @@ async def delete_matched_trips():
     """
     try:
         data = await request.get_json()
-        start_date = datetime.fromisoformat(data.get("start_date")).replace(tzinfo=timezone.utc)
-        end_date = datetime.fromisoformat(data.get("end_date")).replace(tzinfo=timezone.utc)
+        start_date = datetime.fromisoformat(data.get("start_date")).replace(
+            tzinfo=timezone.utc
+        )
+        end_date = datetime.fromisoformat(data.get("end_date")).replace(
+            tzinfo=timezone.utc
+        )
         interval_days = int(data.get("interval_days", 0))
 
         if interval_days > 0:
             current_start = start_date
             while current_start < end_date:
-                current_end = min(current_start + timedelta(days=interval_days), end_date)
+                current_end = min(
+                    current_start + timedelta(days=interval_days), end_date
+                )
                 delete_count = matched_trips_collection.delete_many(
                     {"startTime": {"$gte": current_start, "$lt": current_end}}
                 ).deleted_count
@@ -3148,9 +3154,10 @@ async def delete_matched_trips():
             ).deleted_count
 
         return jsonify({"status": "success", "deleted_count": delete_count})
-    
+
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route("/api/matched_trips/remap", methods=["POST"])
 async def remap_matched_trips():
@@ -3167,7 +3174,9 @@ async def remap_matched_trips():
             start_date = datetime.utcnow() - timedelta(days=interval_days)
             end_date = datetime.utcnow()
         else:
-            start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
+            start_date = datetime.fromisoformat(start_date_str).replace(
+                tzinfo=timezone.utc
+            )
             end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc)
 
         # Delete old matched trips
@@ -3186,6 +3195,7 @@ async def remap_matched_trips():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 def get_place_at_point(point):
     """
@@ -3571,11 +3581,6 @@ async def debug_trip(trip_id):
 
 @app.websocket("/ws/live_trip")
 async def ws_live_trip():
-    """
-    A WebSocket endpoint that continuously sends live trip data.
-    Every second, it queries the database for the current active trip and
-    sends either a trip update or a heartbeat.
-    """
     try:
         while True:
             active_trip = live_trips_collection.find_one({"status": "active"})
@@ -3589,6 +3594,9 @@ async def ws_live_trip():
                     active_trip["lastUpdate"], datetime
                 ):
                     active_trip["lastUpdate"] = active_trip["lastUpdate"].isoformat()
+                # Convert the _id field to a string
+                if active_trip.get("_id"):
+                    active_trip["_id"] = str(active_trip["_id"])
                 # Convert any datetime in coordinates
                 if "coordinates" in active_trip:
                     for coord in active_trip["coordinates"]:
@@ -3602,7 +3610,6 @@ async def ws_live_trip():
             await websocket.send(json.dumps(message))
             await asyncio.sleep(1)
     except asyncio.CancelledError:
-        # This exception is raised when the client disconnects.
         logger.info("WebSocket connection cancelled (client disconnected).")
     except Exception as e:
         logger.error("Error in WebSocket endpoint /ws/live_trip: %s", e, exc_info=True)
@@ -3613,13 +3620,10 @@ async def ws_live_trip():
 
 @app.before_serving
 async def init_background_tasks():
-    """
-    Ensures APScheduler uses the same event loop as Quart/Uvicorn.
-    Starts the scheduler and initializes scheduled tasks.
-    """
     loop = asyncio.get_running_loop()
     scheduler.configure(event_loop=loop)
-    start_background_tasks()
+    if os.environ.get("RUN_SCHEDULER", "true").lower() == "true":
+        start_background_tasks()
 
 
 # Run
