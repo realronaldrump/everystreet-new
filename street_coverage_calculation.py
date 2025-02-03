@@ -269,13 +269,12 @@ async def update_coverage_for_all_locations():
             if not loc:
                 continue
             if isinstance(loc, str):
-                # If it's a string, skip or remove the doc
+                # If it's a string, skip it (or handle it by re-validating the location)
                 logger.warning(
                     f"Skipping coverage doc {doc['_id']} because location is a string: {loc}"
                 )
                 continue
 
-            # Now safe to do loc.get("display_name", "Unknown")
             result = compute_coverage_for_location(loc)
             if result:
                 display_name = loc.get("display_name", "Unknown")
@@ -283,6 +282,7 @@ async def update_coverage_for_all_locations():
                     {"location.display_name": display_name},
                     {
                         "$set": {
+                            "location": loc,  # use the full location dictionary
                             "total_length": result["total_length"],
                             "driven_length": result["driven_length"],
                             "coverage_percentage": result["coverage_percentage"],

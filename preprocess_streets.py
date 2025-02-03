@@ -178,12 +178,13 @@ def process_osm_data(osm_data, location):
         except Exception as e:
             logger.error(f"Error inserting street segments: {e}", exc_info=True)
         try:
+            # Use location.get("display_name") to get the display name from the location dict.
             coverage_metadata_collection.update_one(
-                {"location": location["display_name"]},
+                {"location.display_name": location.get("display_name")},
                 {
                     "$set": {
+                        "location": location,  # store the full location dict
                         "total_segments": len(features),
-                        "driven_segments": 0,
                         "total_length": total_length,
                         "driven_length": 0,
                         "coverage_percentage": 0.0,
