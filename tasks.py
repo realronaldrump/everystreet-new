@@ -70,12 +70,14 @@ AVAILABLE_TASKS = [
     },
 ]
 
+
 def get_task_config():
     """
     Retrieves the background task config doc from MongoDB.
     If none exists, creates a default one.
     """
-    cfg = task_config_collection.find_one({"_id": "global_background_task_config"})
+    cfg = task_config_collection.find_one(
+        {"_id": "global_background_task_config"})
     if not cfg:
         cfg = {
             "_id": "global_background_task_config",
@@ -91,13 +93,16 @@ def get_task_config():
         task_config_collection.insert_one(cfg)
     return cfg
 
+
 def save_task_config(cfg):
     """
     Saves the given config doc to the DB.
     """
-    task_config_collection.replace_one({"_id": "global_background_task_config"}, cfg, upsert=True)
+    task_config_collection.replace_one(
+        {"_id": "global_background_task_config"}, cfg, upsert=True)
 
 # ----- Background Task Functions -----
+
 
 async def periodic_fetch_trips():
     """Periodically fetch trips from the Bouncie API and store them."""
@@ -108,18 +113,21 @@ async def periodic_fetch_trips():
         else:
             start_date = datetime.now(timezone.utc) - timedelta(days=7)
         end_date = datetime.now(timezone.utc)
-        logger.info(f"Periodic trip fetch started from {start_date} to {end_date}")
+        logger.info(
+            f"Periodic trip fetch started from {start_date} to {end_date}")
         await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=False)
         logger.info("Periodic trip fetch completed successfully.")
     except Exception as e:
         logger.error(f"Error during periodic trip fetch: {e}", exc_info=True)
+
 
 async def hourly_fetch_trips():
     """Fetch trips from the last hour and then map-match them."""
     try:
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(hours=1)
-        logger.info(f"Hourly trip fetch started for range: {start_date} to {end_date}")
+        logger.info(
+            f"Hourly trip fetch started for range: {start_date} to {end_date}")
         await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=True)
         logger.info("Hourly trip fetch completed successfully.")
 
@@ -134,9 +142,11 @@ async def hourly_fetch_trips():
         for trip in new_trips_to_match:
             await process_and_map_match_trip(trip)
             map_matched_count += 1
-        logger.info(f"Map matching completed for {map_matched_count} hourly fetched trips.")
+        logger.info(
+            f"Map matching completed for {map_matched_count} hourly fetched trips.")
     except Exception as e:
         logger.error(f"Error during hourly trip fetch: {e}", exc_info=True)
+
 
 async def cleanup_stale_trips():
     """Archive trips that haven't been updated in the last 5 minutes."""
@@ -155,6 +165,7 @@ async def cleanup_stale_trips():
     except Exception as e:
         logger.error(f"Error cleaning up stale trips: {e}", exc_info=True)
 
+
 async def cleanup_invalid_trips():
     """Mark invalid trip documents based on validation failure."""
     try:
@@ -162,13 +173,16 @@ async def cleanup_invalid_trips():
         for t in all_trips:
             ok, msg = validate_trip_data(t)
             if not ok:
-                logger.warning(f"Invalid trip {t.get('transactionId', '?')}: {msg}")
-                trips_collection.update_one({"_id": t["_id"]}, {"$set": {"invalid": True}})
+                logger.warning(
+                    f"Invalid trip {t.get('transactionId', '?')}: {msg}")
+                trips_collection.update_one(
+                    {"_id": t["_id"]}, {"$set": {"invalid": True}})
         logger.info("Trip cleanup done.")
     except Exception as e:
         logger.error(f"cleanup_invalid_trips: {e}", exc_info=True)
 
 # ----- Scheduler Management Functions -----
+
 
 def reinitialize_scheduler_tasks():
     """
@@ -184,7 +198,8 @@ def reinitialize_scheduler_tasks():
 
     cfg = get_task_config()
     if cfg.get("disabled"):
-        logger.info("Background tasks are globally disabled. No tasks scheduled.")
+        logger.info(
+            "Background tasks are globally disabled. No tasks scheduled.")
         return
 
     paused_until = cfg.get("pausedUntil")
@@ -199,8 +214,10 @@ def reinitialize_scheduler_tasks():
         task_settings = cfg["tasks"].get(task_id, {})
         if not task_settings or not task_settings.get("enabled", True):
             continue
-        interval = task_settings.get("interval_minutes", t["default_interval_minutes"])
-        next_run_time = paused_until + timedelta(seconds=1) if is_currently_paused else None
+        interval = task_settings.get(
+            "interval_minutes", t["default_interval_minutes"])
+        next_run_time = paused_until + \
+            timedelta(seconds=1) if is_currently_paused else None
 
         # IMPORTANT: Instead of mapping "fetch_and_store_trips" to fetch_bouncie_trips_in_range (which needs arguments),
         # we map both "fetch_and_store_trips" and "periodic_fetch_trips" to periodic_fetch_trips.
@@ -225,6 +242,7 @@ def reinitialize_scheduler_tasks():
         )
     logger.info("Scheduler tasks reinitialized based on new config.")
 
+
 def start_background_tasks():
     """
     Called at application startup to start the scheduler and initialize tasks.
@@ -232,6 +250,7 @@ def start_background_tasks():
     if not scheduler.running:
         scheduler.start()
     reinitialize_scheduler_tasks()
+
 
 # ----- Optional: Standalone Execution for Testing -----
 if __name__ == "__main__":
