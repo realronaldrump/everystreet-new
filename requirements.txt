@@ -17,6 +17,7 @@ dateutils
 gunicorn
 python-dateutil
 Flask[async]
+rasterio
 uvloop
 httptools
 ujson
