@@ -34,7 +34,7 @@ async def map_match_coordinates(coordinates):
     base_url = "https://api.mapbox.com/matching/v5/mapbox/driving/"
     # Break coordinates into chunks
     chunks = [
-        coordinates[i : i + MAX_MAPBOX_COORDINATES]
+        coordinates[i: i + MAX_MAPBOX_COORDINATES]
         for i in range(0, len(coordinates), MAX_MAPBOX_COORDINATES)
     ]
     matched_geometries = []
@@ -60,7 +60,8 @@ async def map_match_coordinates(coordinates):
                         )
                     else:
                         msg = data.get("message", "Mapbox API error")
-                        logger.error(f"Chunk {index+1}: Map Matching API error: {msg}")
+                        logger.error(
+                            f"Chunk {index+1}: Map Matching API error: {msg}")
                         return {"code": "Error", "message": msg}
             except ClientResponseError as e:
                 error_data = None
@@ -92,7 +93,8 @@ async def map_match_coordinates(coordinates):
                 )
                 return {"code": "Error", "message": "Mapbox API request timed out."}
             except Exception as e:
-                logger.error(f"Chunk {index+1}: Unexpected error: {e}", exc_info=True)
+                logger.error(
+                    f"Chunk {index+1}: Unexpected error: {e}", exc_info=True)
                 return {"code": "Error", "message": str(e)}
 
     return {
@@ -199,7 +201,8 @@ async def process_and_map_match_trip(trip):
             return
 
         if matched_trips_collection.find_one({"transactionId": trip["transactionId"]}):
-            logger.info(f"Trip {trip['transactionId']} already matched. Skipping.")
+            logger.info(
+                f"Trip {trip['transactionId']} already matched. Skipping.")
             return
 
         source_collection = (
@@ -241,7 +244,8 @@ async def process_and_map_match_trip(trip):
                         lon,
                         lat,
                         start_dt
-                        + timedelta(seconds=(i / (len(coords) - 1)) * total_secs),
+                        + timedelta(seconds=(i / (len(coords) - 1))
+                                    * total_secs),
                     ]
                     for i, (lon, lat) in enumerate(coords)
                 ]
@@ -252,7 +256,8 @@ async def process_and_map_match_trip(trip):
             coords_with_time, max_speed_m_s=60.0
         )
         if len(coords_with_time) > 2 and isinstance(coords_with_time[0][-1], datetime):
-            segments = split_trip_on_time_gaps(coords_with_time, max_gap_minutes=15)
+            segments = split_trip_on_time_gaps(
+                coords_with_time, max_gap_minutes=15)
         else:
             segments = [coords_with_time]
 
@@ -289,7 +294,8 @@ async def process_and_map_match_trip(trip):
 
         matched_trip = trip.copy()
         matched_trip["gps"] = (
-            json.dumps(trip["gps"]) if isinstance(trip["gps"], dict) else trip["gps"]
+            json.dumps(trip["gps"]) if isinstance(
+                trip["gps"], dict) else trip["gps"]
         )
         matched_trip["matchedGps"] = {
             "type": "LineString",
@@ -302,7 +308,8 @@ async def process_and_map_match_trip(trip):
                 first_lon, first_lat = matched_coords_combined[0]
                 city_info = await reverse_geocode_nominatim(first_lat, first_lon)
                 if city_info:
-                    matched_trip["location"] = city_info.get("display_name", "Unknown")
+                    matched_trip["location"] = city_info.get(
+                        "display_name", "Unknown")
         except Exception as geocode_err:
             logger.warning(
                 f"Reverse geocode error for trip {trip.get('transactionId', '?')}: {geocode_err}"
