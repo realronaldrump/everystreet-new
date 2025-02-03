@@ -14,14 +14,15 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+
 async def create_geojson(trips):
     """
     Converts a list of trip dictionaries into a GeoJSON FeatureCollection.
-    
+
     Each trip’s "gps" field is expected to be stored as a JSON string; this function
     parses that string and attaches it as the geometry. In addition, any datetime or ObjectId
     in the trip properties are converted into serializable forms.
-    
+
     Returns the GeoJSON as a JSON-formatted string.
     """
     features = []
@@ -32,7 +33,8 @@ async def create_geojson(trips):
             try:
                 gps_data = json.loads(gps_data)
             except Exception as e:
-                logger.error(f"Error parsing gps data for trip {t.get('transactionId', '?')}: {e}")
+                logger.error(
+                    f"Error parsing gps data for trip {t.get('transactionId', '?')}: {e}")
                 continue
 
         # Convert non-serializable fields in properties.
@@ -54,14 +56,15 @@ async def create_geojson(trips):
     feature_collection = {"type": "FeatureCollection", "features": features}
     return json.dumps(feature_collection)
 
+
 async def create_gpx(trips):
     """
     Converts a list of trip dictionaries into a GPX file.
-    
+
     Each trip’s "gps" field is expected to be a JSON string representing either a Point or
     a LineString. This function builds a GPX file (using the gpxpy library) that contains
     a track for each trip.
-    
+
     Returns the GPX XML as a string.
     """
     import gpxpy
@@ -76,7 +79,8 @@ async def create_gpx(trips):
             try:
                 gps_data = json.loads(gps_data)
             except Exception as e:
-                logger.error(f"Error parsing gps data for trip {t.get('transactionId', '?')}: {e}")
+                logger.error(
+                    f"Error parsing gps data for trip {t.get('transactionId', '?')}: {e}")
                 continue
         if gps_data.get("type") == "LineString":
             for coord in gps_data.get("coordinates", []):

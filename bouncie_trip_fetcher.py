@@ -121,14 +121,19 @@ async def fetch_trips_for_device(
             trips = await response.json()
             for trip in trips:
                 try:
-                    trip["startTime"] = date_parser.isoparse(trip["startTime"]).replace(tzinfo=timezone.utc)
-                    trip["endTime"] = date_parser.isoparse(trip["endTime"]).replace(tzinfo=timezone.utc)
+                    trip["startTime"] = date_parser.isoparse(
+                        trip["startTime"]).replace(tzinfo=timezone.utc)
+                    trip["endTime"] = date_parser.isoparse(
+                        trip["endTime"]).replace(tzinfo=timezone.utc)
                 except Exception as te:
-                    logger.error(f"Timestamp parsing error for trip {trip.get('transactionId', '?')}: {te}", exc_info=True)
-            logger.info(f"Fetched {len(trips)} trips for device {imei} from {start_dt.isoformat()} to {end_dt.isoformat()}.")
+                    logger.error(
+                        f"Timestamp parsing error for trip {trip.get('transactionId', '?')}: {te}", exc_info=True)
+            logger.info(
+                f"Fetched {len(trips)} trips for device {imei} from {start_dt.isoformat()} to {end_dt.isoformat()}.")
             return trips
     except Exception as e:
-        logger.error(f"Error fetching trips for device {imei}: {e}", exc_info=True)
+        logger.error(
+            f"Error fetching trips for device {imei}: {e}", exc_info=True)
         return []
 
 
@@ -139,7 +144,8 @@ async def store_trip(trip: dict) -> bool:
     """
     transaction_id = trip.get("transactionId")
     if trips_collection.find_one({"transactionId": transaction_id}):
-        logger.info(f"Trip {transaction_id} already exists. Skipping insertion.")
+        logger.info(
+            f"Trip {transaction_id} already exists. Skipping insertion.")
         return False
 
     is_valid, error_msg = validate_trip_data(trip)
@@ -164,16 +170,19 @@ async def store_trip(trip: dict) -> bool:
                 geo_data = await reverse_geocode_nominatim(end_coords[1], end_coords[0])
                 trip["destination"] = geo_data.get("display_name", "")
         else:
-            logger.warning(f"Trip {transaction_id} has insufficient coordinate data.")
+            logger.warning(
+                f"Trip {transaction_id} has insufficient coordinate data.")
     except Exception as e:
-        logger.error(f"Error during reverse geocoding for trip {transaction_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error during reverse geocoding for trip {transaction_id}: {e}", exc_info=True)
 
     try:
         trips_collection.insert_one(trip)
         logger.info(f"Inserted trip {transaction_id} into the database.")
         return True
     except Exception as e:
-        logger.error(f"Error inserting trip {transaction_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error inserting trip {transaction_id}: {e}", exc_info=True)
         return False
 
 
@@ -209,10 +218,12 @@ async def fetch_bouncie_trips_in_range(
                     if await store_trip(trip):
                         device_new_trips.append(trip)
                 if progress_data is not None:
-                    progress_data["progress"] = int((device_index / total_devices) * 50)
+                    progress_data["progress"] = int(
+                        (device_index / total_devices) * 50)
                 current_start = current_end
             all_new_trips.extend(device_new_trips)
-            logger.info(f"Device {imei}: {len(device_new_trips)} new trips inserted.")
+            logger.info(
+                f"Device {imei}: {len(device_new_trips)} new trips inserted.")
 
         if do_map_match and all_new_trips:
             logger.info("Starting map matching for new trips...")
@@ -227,7 +238,8 @@ async def fetch_bouncie_trips_in_range(
             progress_data["status"] = "completed"
 
         return all_new_trips
-    
+
+
 async def get_trips_from_api(client_session, access_token, imei, start_date, end_date):
     """
     Pulls trips from Bouncie's /trips endpoint, for a device IMEI and date range.
@@ -281,7 +293,7 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
         logger.error(
             f"Unexpected error fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
         return []
-    
+
     #############################
 # API calls to Bouncie
 #############################
@@ -362,6 +374,7 @@ async def fetch_trips_in_intervals(main_session, access_token, imei, start_date,
         current_start = current_end
 
     return all_trips
+
 
 async def fetch_and_store_trips():
     """
