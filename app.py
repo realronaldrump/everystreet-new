@@ -577,34 +577,28 @@ async def get_street_coverage():
         data = await request.get_json()
         location = data.get("location")
         if not location or not isinstance(location, dict):
-            return (
-                jsonify({"status": "error", "message": "Invalid location data."}),
-                400,
-            )
+            return jsonify({"status": "error", "message": "Invalid location data."}), 400
 
         logger.info(
             f"Calculating coverage for location: {location.get('display_name', 'Unknown')}"
         )
 
-        # Pass the entire validated location object to the new function.
+        # Compute coverage (this function now expects location to be a dictionary)
         result = compute_coverage_for_location(location)
         if result is None:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "message": "No street data found or error in computation.",
-                    }
-                ),
-                404,
-            )
+            return jsonify({
+                "status": "error",
+                "message": "No street data found or error in computation."
+            }), 404
 
-        # Optionally update coverage metadata in the DB using the location's display_name.
+        # Get the display name from the location dict
         display_name = location.get("display_name", "Unknown")
+        # Update the coverage metadata document using the key "location.display_name"
         coverage_metadata_collection.update_one(
-            {"location": display_name},
+            {"location.display_name": display_name},
             {
                 "$set": {
+                    "location": location,  # store the full location object
                     "total_length": result["total_length"],
                     "driven_length": result["driven_length"],
                     "coverage_percentage": result["coverage_percentage"],
@@ -632,10 +626,7 @@ async def get_street_coverage():
         return jsonify(response_obj)
     except Exception as e:
         import traceback
-
-        logger.error(
-            f"Error in street coverage calculation: {e}\n{traceback.format_exc()}"
-        )
+        logger.error(f"Error in street coverage calculation: {e}\n{traceback.format_exc()}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 

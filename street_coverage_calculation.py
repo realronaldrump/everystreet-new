@@ -11,7 +11,6 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
 
-
 # Database setup (Ensure these environment variables are set)
 load_dotenv()
 MONGO_URI = os.getenv("MONGO_URI")
@@ -262,15 +261,18 @@ async def update_coverage_for_all_locations():
     Periodically updates street coverage for all locations using the new raster‑based method.
     """
     try:
-        logger.info(
-            "Starting periodic street coverage update for all locations (raster-based)..."
-        )
-        locations = coverage_metadata_collection.distinct("location")
-        for location in locations:
-            result = compute_coverage_for_location(location)
+        logger.info("Starting periodic street coverage update for all locations (raster-based)...")
+        # Get all documents that have a stored location dictionary.
+        cursor = coverage_metadata_collection.find({}, {"location": 1, "_id": 0})
+        for doc in cursor:
+            loc = doc.get("location")
+            if not loc:
+                continue
+            result = compute_coverage_for_location(loc)
             if result:
+                display_name = loc.get("display_name", "Unknown")
                 coverage_metadata_collection.update_one(
-                    {"location": location},
+                    {"location.display_name": display_name},
                     {
                         "$set": {
                             "total_length": result["total_length"],
@@ -281,9 +283,7 @@ async def update_coverage_for_all_locations():
                     },
                     upsert=True,
                 )
-                logger.info(
-                    f"Updated coverage for {location}: {result['coverage_percentage']:.2f}%"
-                )
+                logger.info(f"Updated coverage for {display_name}: {result['coverage_percentage']:.2f}%")
         logger.info("Finished periodic street coverage update (raster-based).")
     except Exception as e:
         logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)
