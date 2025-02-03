@@ -1572,7 +1572,7 @@ async def export_all_trips():
             attachment_filename="all_trips.geojson",
         )
 
-    elif fmt == "gpx":
+    if fmt == "gpx":
         gpx_data = await create_gpx(all_trips)
         return await send_file(
             io.BytesIO(gpx_data.encode()),
@@ -1581,7 +1581,7 @@ async def export_all_trips():
             attachment_filename="all_trips.gpx",
         )
 
-    elif fmt == "json":
+    if fmt == "json":
         return jsonify(all_trips)
 
     return jsonify({"error": "Invalid export format"}), 400
@@ -2796,8 +2796,7 @@ async def get_active_trip():
             if isinstance(active_trip.get("lastUpdate"), datetime):
                 active_trip["lastUpdate"] = active_trip["lastUpdate"].isoformat()
             return jsonify(active_trip)
-        else:
-            return jsonify({}), 404
+        return jsonify({}), 404
     except Exception as e:
         logger.error(f"Error retrieving active trip: {e}", exc_info=True)
         return jsonify({"error": "Internal Server Error"}), 500

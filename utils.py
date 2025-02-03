@@ -33,11 +33,10 @@ async def validate_location_osm(location, location_type):
                         f"Received {len(data)} results for location '{location}'."
                     )
                     return data[0] if data else None
-                else:
-                    logger.error(
-                        f"HTTP {response.status} error for location '{location}'."
-                    )
-                    return None
+                logger.error(
+                    f"HTTP {response.status} error for location '{location}'."
+                )
+                return None
     except Exception as e:
         logger.error(
             f"Exception during validate_location_osm for '{location}': {e}",
