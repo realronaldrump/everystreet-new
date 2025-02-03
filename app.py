@@ -3,21 +3,19 @@ from utils import validate_location_osm
 from map_matching import (
     process_and_map_match_trip,
 )
-from bouncie_trip_fetcher import fetch_bouncie_trips_in_range, get_access_token, fetch_trips_in_intervals, get_trips_from_api, fetch_and_store_trips
+from bouncie_trip_fetcher import fetch_bouncie_trips_in_range, fetch_and_store_trips
 from preprocess_streets import preprocess_streets as async_preprocess_streets
 from utils import validate_trip_data, reverse_geocode_nominatim, validate_location_osm
 from tasks import cleanup_stale_trips, cleanup_invalid_trips, periodic_fetch_trips, start_background_tasks, scheduler
 from db import trips_collection, matched_trips_collection, historical_trips_collection, \
     uploaded_trips_collection, live_trips_collection, archived_live_trips_collection, task_config_collection, osm_data_collection, streets_collection, coverage_metadata_collection, places_collection
-from trip_processing import format_idle_time, process_trip
+from trip_processing import format_idle_time
 from export_helpers import create_geojson, create_gpx
 from shapely.geometry import (
     LineString,
     Point,
     Polygon,
-    mapping,
-    shape,
-    box
+    shape
 )
 from street_coverage_calculation import (
     compute_coverage_for_location,
@@ -44,7 +42,6 @@ import gpxpy
 import gpxpy.gpx
 import pymongo
 import pytz
-from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
 from bson import ObjectId
 from dateutil import parser
 from dotenv import load_dotenv
@@ -58,12 +55,6 @@ from quart import (
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.base import JobLookupError
-import numpy as np
-import shapely.ops
-from affine import Affine
-import rasterio
-from rasterio.features import rasterize
-import pyproj
 from datetime import datetime, timezone
 scheduler = AsyncIOScheduler()
 
@@ -2521,7 +2512,7 @@ async def stream():
     return response
 
 
-from timestamp_utils import parse_bouncie_timestamp, get_trip_timestamps, sort_and_filter_trip_coordinates
+from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinates
 
 @app.route("/webhook/bouncie", methods=["POST"])
 async def bouncie_webhook():

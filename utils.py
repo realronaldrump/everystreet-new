@@ -3,7 +3,6 @@ import asyncio
 import logging
 import aiohttp
 from aiohttp import ClientConnectorError, ClientResponseError
-import requests
 from geojson import loads as geojson_loads
 from timezonefinder import TimezoneFinder
 
