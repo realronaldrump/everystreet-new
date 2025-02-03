@@ -626,7 +626,8 @@ async def get_street_coverage():
         return jsonify(response_obj)
     except Exception as e:
         import traceback
-        logger.error(f"Error in street coverage calculation: {e}\n{traceback.format_exc()}")
+        logger.error(
+            f"Error in street coverage calculation: {e}\n{traceback.format_exc()}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
