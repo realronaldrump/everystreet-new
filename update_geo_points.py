@@ -47,23 +47,32 @@ def update_geo_points(collection):
                 end_coord = coords[-1]
                 update_fields = {}
                 if "startGeoPoint" not in doc:
-                    update_fields["startGeoPoint"] = {"type": "Point", "coordinates": start_coord}
+                    update_fields["startGeoPoint"] = {
+                        "type": "Point", "coordinates": start_coord}
                 if "destinationGeoPoint" not in doc:
-                    update_fields["destinationGeoPoint"] = {"type": "Point", "coordinates": end_coord}
+                    update_fields["destinationGeoPoint"] = {
+                        "type": "Point", "coordinates": end_coord}
                 if update_fields:
-                    collection.update_one({"_id": doc["_id"]}, {"$set": update_fields})
+                    collection.update_one({"_id": doc["_id"]}, {
+                                          "$set": update_fields})
                     updated_count += 1
-                    logger.debug(f"Updated GeoPoints for document _id: {doc.get('_id', '?')}")
+                    logger.debug(
+                        f"Updated GeoPoints for document _id: {doc.get('_id', '?')}")
             except (KeyError, IndexError) as e:
-                logger.warning(f"Skipping document {doc.get('_id', '?')}: Incomplete GPS data - {e}")
+                logger.warning(
+                    f"Skipping document {doc.get('_id', '?')}: Incomplete GPS data - {e}")
             except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON in 'gps' for document {doc.get('_id', '?')}: {e}", exc_info=True)
+                logger.error(
+                    f"Invalid JSON in 'gps' for document {doc.get('_id', '?')}: {e}", exc_info=True)
             except Exception as e:
-                logger.error(f"Error updating document {doc.get('_id', '?')}: {e}", exc_info=True)
+                logger.error(
+                    f"Error updating document {doc.get('_id', '?')}: {e}", exc_info=True)
     except Exception as e:
-        logger.error(f"Error iterating collection {collection.name}: {e}", exc_info=True)
+        logger.error(
+            f"Error iterating collection {collection.name}: {e}", exc_info=True)
     finally:
-        logger.info(f"GeoPoint update for collection {collection.name} completed. Updated {updated_count} documents.")
+        logger.info(
+            f"GeoPoint update for collection {collection.name} completed. Updated {updated_count} documents.")
 
 
 if __name__ == "__main__":

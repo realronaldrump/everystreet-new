@@ -37,8 +37,10 @@ OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 # Coordinate reference systems and transformers
 wgs84 = pyproj.CRS("EPSG:4326")
 utm = pyproj.CRS("EPSG:32610")  # Adjust UTM zone as needed
-project_to_utm = pyproj.Transformer.from_crs(wgs84, utm, always_xy=True).transform
-project_to_wgs84 = pyproj.Transformer.from_crs(utm, wgs84, always_xy=True).transform
+project_to_utm = pyproj.Transformer.from_crs(
+    wgs84, utm, always_xy=True).transform
+project_to_wgs84 = pyproj.Transformer.from_crs(
+    utm, wgs84, always_xy=True).transform
 
 
 def fetch_osm_data(location, streets_only=True):
@@ -78,7 +80,8 @@ def fetch_osm_data(location, streets_only=True):
     try:
         return asyncio.run(_fetch())
     except Exception as e:
-        logger.error(f"Error fetching OSM data from Overpass for {location['display_name']}: {e}", exc_info=True)
+        logger.error(
+            f"Error fetching OSM data from Overpass for {location['display_name']}: {e}", exc_info=True)
         raise
 
 
@@ -133,7 +136,8 @@ def process_osm_data(osm_data, location):
         if element.get("type") != "way":
             continue
         try:
-            nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
+            nodes = [(node["lon"], node["lat"])
+                     for node in element["geometry"]]
             line = transform(project_to_utm, LineString(nodes))
             segments = segment_street(line)
             for i, segment in enumerate(segments):
@@ -156,7 +160,8 @@ def process_osm_data(osm_data, location):
                 features.append(feature)
                 total_length += segment_length
         except Exception as e:
-            logger.error(f"Error processing element {element.get('id')}: {e}", exc_info=True)
+            logger.error(
+                f"Error processing element {element.get('id')}: {e}", exc_info=True)
 
     if features:
         geojson_data = {"type": "FeatureCollection", "features": features}
@@ -173,7 +178,8 @@ def process_osm_data(osm_data, location):
             }},
             upsert=True,
         )
-        logger.info(f"Stored {len(features)} street segments for {location['display_name']}")
+        logger.info(
+            f"Stored {len(features)} street segments for {location['display_name']}")
 
 
 def main():
@@ -181,8 +187,10 @@ def main():
     Main entry point for command–line street preprocessing.
     Accepts a location query and an optional location type.
     """
-    parser = argparse.ArgumentParser(description="Preprocess street data for a given location.")
-    parser.add_argument("location", help="Location query (e.g., 'Beverly Hills, TX')")
+    parser = argparse.ArgumentParser(
+        description="Preprocess street data for a given location.")
+    parser.add_argument(
+        "location", help="Location query (e.g., 'Beverly Hills, TX')")
     parser.add_argument("--type", dest="location_type", default="city",
                         help="Location type (e.g., 'city', 'county', 'state')")
     args = parser.parse_args()
@@ -190,13 +198,16 @@ def main():
     location_type = args.location_type
 
     try:
-        validated_location = validate_location_osm(location_query, location_type)
+        validated_location = validate_location_osm(
+            location_query, location_type)
         if not validated_location:
-            logger.error(f"Location '{location_query}' of type '{location_type}' not found.")
+            logger.error(
+                f"Location '{location_query}' of type '{location_type}' not found.")
             return
         osm_data = fetch_osm_data(validated_location)
         process_osm_data(osm_data, validated_location)
-        logger.info(f"Street preprocessing completed for {validated_location['display_name']}.")
+        logger.info(
+            f"Street preprocessing completed for {validated_location['display_name']}.")
     except Exception as e:
         logger.error(f"Error during street preprocessing: {e}", exc_info=True)
 
