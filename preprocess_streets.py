@@ -9,6 +9,8 @@ from pymongo import MongoClient
 from shapely.geometry import LineString, mapping, Point
 from shapely.ops import transform
 import pyproj
+import aiohttp
+import asyncio
 
 # Import validate_location_osm from utils.py
 from utils import validate_location_osm
@@ -42,7 +44,10 @@ project_to_wgs84 = pyproj.Transformer.from_crs(
 
 
 def fetch_osm_data(location, streets_only=True):
-    """Fetches OSM data for the given location using the Overpass API."""
+    """
+    Fetches OSM data for the given location using the Overpass API asynchronously.
+    This function uses asyncio.run() since it is called in a synchronous command‐line script.
+    """
     area_id = int(location["osm_id"])
     if location["osm_type"] == "relation":
         area_id += 3600000000
@@ -65,14 +70,16 @@ def fetch_osm_data(location, streets_only=True):
         );
         out geom;
         """
-
+    async def _fetch():
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+            async with session.get("http://overpass-api.de/api/interpreter", params={"data": query}) as response:
+                response.raise_for_status()
+                return await response.json()
     try:
-        response = requests.get(OVERPASS_URL, params={"data": query}, timeout=30) # Added timeout
-        response.raise_for_status() # Raise HTTPError for bad status codes
-        return response.json()
-    except requests.exceptions.RequestException as e: # Catch broader exceptions
-        logger.error(f"Error fetching OSM data from Overpass for location {location['display_name']}: {e}", exc_info=True) # Include location in log
-        raise # Re-raise exception for handling in main function
+        return asyncio.run(_fetch())
+    except Exception as e:
+        logger.error(f"Error fetching OSM data from Overpass for location {location['display_name']}: {e}", exc_info=True)
+        raise
 
 
 def segment_street(line, segment_length_meters=100):

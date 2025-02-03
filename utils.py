@@ -9,9 +9,10 @@ import requests
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
-def validate_location_osm(location, location_type):
+async def validate_location_osm(location, location_type):
     """
-    Use OSM Nominatim to see if location is valid. Return the first match or None.
+    Asynchronously validate a location using the OSM Nominatim search API.
+    Returns the first matching location dict or None.
     """
     params = {
         "q": location,
@@ -20,11 +21,19 @@ def validate_location_osm(location, location_type):
         "featuretype": location_type
     }
     headers = {"User-Agent": "EveryStreet-Validator/1.0"}
-    response = requests.get("https://nominatim.openstreetmap.org/search", params=params, headers=headers)
-    if response.status_code == 200:
-        data = response.json()
-        return data[0] if data else None
-    return None
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
+            async with session.get("https://nominatim.openstreetmap.org/search", params=params, headers=headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    logger.debug(f"validate_location_osm: received {len(data)} results for location '{location}'")
+                    return data[0] if data else None
+                else:
+                    logger.error(f"validate_location_osm: HTTP {response.status} error for location '{location}'")
+                    return None
+    except Exception as e:
+        logger.error(f"validate_location_osm: Exception {e} for location '{location}'", exc_info=True)
+        return None
 
 #############################
 # Data Validation

@@ -4,7 +4,7 @@ from map_matching import (
     process_and_map_match_trip,
 )
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
-from utils import validate_trip_data, reverse_geocode_nominatim
+from utils import validate_trip_data, reverse_geocode_nominatim, validate_location_osm
 from timezonefinder import TimezoneFinder
 from shapely.geometry import (
     LineString,
@@ -885,10 +885,16 @@ async def get_trips():
         if imei:
             query["imei"] = imei
 
-        # Get trips from all three collections
-        regular = list(trips_collection.find(query))
-        uploaded = list(uploaded_trips_collection.find(query))
-        historical = list(historical_trips_collection.find(query))
+        # Run blocking PyMongo calls off the event loop.
+        async def fetch_trips(collection, query):
+            return await asyncio.to_thread(lambda: list(collection.find(query)))
+
+        regular, uploaded, historical = await asyncio.gather(
+            fetch_trips(trips_collection, query),
+            fetch_trips(uploaded_trips_collection, query),
+            fetch_trips(historical_trips_collection, query)
+        )
+
         all_trips = regular + uploaded + historical
 
         features = []
@@ -910,7 +916,7 @@ async def get_trips():
                 if isinstance(et, str):
                     et = parser.isoparse(et)
 
-                # If the datetime objects are not tz‐aware, set UTC as default
+                # If the datetime objects are not tz-aware, set UTC as default
                 if st.tzinfo is None:
                     st = st.replace(tzinfo=timezone.utc)
                 if et.tzinfo is None:
@@ -1447,34 +1453,6 @@ async def validate_location():
     location_type = data.get("locationType")
     validated = await validate_location_osm(location, location_type)
     return jsonify(validated)
-
-
-async def validate_location_osm(location, location_type):
-    """
-    Use OSM Nominatim to see if location is valid. Return the first match or None.
-    """
-    params = {
-        "q": location,
-        "format": "json",
-        "limit": 1,
-        "featuretype": location_type
-    }
-    headers = {"User-Agent": "GeojsonGenerator/1.0"}
-    try:
-        async with aiohttp.ClientSession() as session:  # Create aiohttp session
-            async with session.get(
-                "https://nominatim.openstreetmap.org/search",
-                params=params,
-                headers=headers,
-                timeout=10
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()  # Await response.json()
-                return data[0] if data else None
-    except aiohttp.ClientError as e:  # Catch aiohttp exceptions
-        logger.error(
-            f"Error validating location with Nominatim: {e}", exc_info=True)
-        return None
 
 #############################
 # Generate GeoJSON from Overpass
