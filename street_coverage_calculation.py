@@ -82,7 +82,8 @@ def compute_coverage_for_location(location):
             )
             road_segments = list(
                 streets_collection.find(
-                    {"properties.location": location.get("display_name")}, {"_id": 0}
+                    {"properties.location": location.get("display_name")}, {
+                        "_id": 0}
                 )
             )
             if not road_segments:
@@ -93,7 +94,8 @@ def compute_coverage_for_location(location):
                 try:
                     geom = shape(seg["geometry"])
                 except Exception as e:
-                    logger.warning(f"Skipping a segment due to geometry error: {e}")
+                    logger.warning(
+                        f"Skipping a segment due to geometry error: {e}")
                     continue
                 if bounds is None:
                     bounds = list(geom.bounds)  # [minx, miny, maxx, maxy]
@@ -134,7 +136,8 @@ def compute_coverage_for_location(location):
             try:
                 geom = shape(seg["geometry"])
             except Exception as e:
-                logger.warning("Skipping segment due to geometry error: " + str(e))
+                logger.warning(
+                    "Skipping segment due to geometry error: " + str(e))
                 continue
             if bounds is None:
                 bounds = list(geom.bounds)
@@ -184,7 +187,8 @@ def compute_coverage_for_location(location):
             try:
                 geom = shape(seg["geometry"])
             except Exception as e:
-                logger.warning("Skipping segment during rasterization: " + str(e))
+                logger.warning(
+                    "Skipping segment during rasterization: " + str(e))
                 continue
             projected_geom = shapely.ops.transform(proj_to_utm, geom)
             road_shapes.append((projected_geom, 1))
@@ -219,7 +223,8 @@ def compute_coverage_for_location(location):
                     driven_shapes.append((projected_geom, 1))
                 except Exception as e:
                     logger.warning(
-                        "Skipping a trip during driven rasterization: " + str(e)
+                        "Skipping a trip during driven rasterization: " +
+                        str(e)
                     )
             driven_raster = rasterize(
                 shapes=driven_shapes,
@@ -231,7 +236,8 @@ def compute_coverage_for_location(location):
             )
         else:
             driven_raster = np.zeros((nrows, ncols), dtype="uint8")
-        driven_road_pixels = int(np.sum((road_raster == 1) & (driven_raster == 1)))
+        driven_road_pixels = int(
+            np.sum((road_raster == 1) & (driven_raster == 1)))
         coverage_percentage = (
             (driven_road_pixels / total_road_pixels * 100)
             if total_road_pixels > 0
@@ -252,7 +258,8 @@ def compute_coverage_for_location(location):
             "raster_dimensions": {"nrows": int(nrows), "ncols": int(ncols)},
         }
     except Exception as e:
-        logger.error(f"Error computing coverage for location: {e}", exc_info=True)
+        logger.error(
+            f"Error computing coverage for location: {e}", exc_info=True)
         return None
 
 
@@ -261,9 +268,11 @@ async def update_coverage_for_all_locations():
     Periodically updates street coverage for all locations using the new raster‑based method.
     """
     try:
-        logger.info("Starting periodic street coverage update for all locations (raster-based)...")
+        logger.info(
+            "Starting periodic street coverage update for all locations (raster-based)...")
 
-        cursor = coverage_metadata_collection.find({}, {"location": 1, "_id": 1})
+        cursor = coverage_metadata_collection.find(
+            {}, {"location": 1, "_id": 1})
         for doc in cursor:
             loc = doc.get("location")
             if not loc:
@@ -298,4 +307,5 @@ async def update_coverage_for_all_locations():
         logger.info("Finished periodic street coverage update (raster-based).")
 
     except Exception as e:
-        logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)
+        logger.error(
+            f"Error updating coverage for all locations: {e}", exc_info=True)
