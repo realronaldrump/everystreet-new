@@ -24,5 +24,7 @@ apscheduler
 uvicorn
 python-socketio
 gevent
+bison
+affine
 fiona
 quart
