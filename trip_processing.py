@@ -44,7 +44,8 @@ def process_trip(trip):
 
         # Check for gps data.
         if "gps" not in trip:
-            logger.error(f"Trip {trip.get('transactionId', '?')} missing gps data.")
+            logger.error(
+                f"Trip {trip.get('transactionId', '?')} missing gps data.")
             return None
 
         # Ensure gps data is a dictionary and then convert back to JSON string.

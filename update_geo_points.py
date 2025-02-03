@@ -56,7 +56,8 @@ def update_geo_points(collection):
                         "coordinates": end_coord,
                     }
                 if update_fields:
-                    collection.update_one({"_id": doc["_id"]}, {"$set": update_fields})
+                    collection.update_one({"_id": doc["_id"]}, {
+                                          "$set": update_fields})
                     updated_count += 1
                     logger.debug(
                         f"Updated GeoPoints for document _id: {doc.get('_id', '?')}"
