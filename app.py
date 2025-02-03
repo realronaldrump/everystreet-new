@@ -2508,13 +2508,13 @@ def organize_hourly_data(results):
 async def stream():
     async def event_stream():
         try:
-            # Immediately send a connection acknowledgment
+            # Immediately notify the client of a successful connection.
             yield ("data: {\"type\": \"connected\"}\n\n").encode("utf-8")
             while True:
                 try:
                     active_trip = live_trips_collection.find_one({"status": "active"})
                     if active_trip:
-                        # Convert any datetime fields in the trip's coordinates to ISO strings
+                        # Convert any datetime in coordinates to ISO strings.
                         for c in active_trip.get("coordinates", []):
                             ts = c.get("timestamp")
                             if isinstance(ts, datetime):
@@ -2530,13 +2530,18 @@ async def stream():
                     else:
                         yield ("data: {\"type\": \"heartbeat\"}\n\n").encode("utf-8")
                     await asyncio.sleep(1)
+                except asyncio.CancelledError:
+                    # If the client disconnects, this exception is raised.
+                    logger.info("Stream cancelled (client disconnected).")
+                    break
                 except Exception as loop_err:
                     logger.error(f"Error in event stream loop: {loop_err}", exc_info=True)
-                    # Yield an error event and wait before continuing
                     yield ("data: {\"type\": \"error\", \"message\": \"Internal error\"}\n\n").encode("utf-8")
                     await asyncio.sleep(1)
-        except Exception as stream_err:
-            logger.error(f"Error in event stream: {stream_err}", exc_info=True)
+        except asyncio.CancelledError:
+            logger.info("Stream cancelled (client disconnected).")
+        except Exception as e:
+            logger.error(f"Error in event stream: {e}", exc_info=True)
             yield ("data: {\"type\": \"error\", \"message\": \"Stream error\"}\n\n").encode("utf-8")
     response = Response(event_stream(), mimetype="text/event-stream")
     response.headers["Cache-Control"] = "no-cache"
