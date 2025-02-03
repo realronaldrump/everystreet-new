@@ -14,6 +14,10 @@ from shapely.geometry import (
     shape,
     box
 )
+from street_coverage_calculation import (
+    compute_coverage_for_location,
+    update_coverage_for_all_locations,
+)
 from pymongo.errors import DuplicateKeyError
 from math import radians, cos, sin, sqrt, atan2
 from pymongo import MongoClient
@@ -649,6 +653,67 @@ async def fetch_and_store_trips():
         progress_data["fetch_and_store_trips"]["status"] = "failed"
         progress_data["fetch_and_store_trips"]["message"] = f"Error: {e}"
 
+@app.route("/api/street_coverage", methods=["POST"])
+async def get_street_coverage():
+    """
+    Calculates street coverage using a new raster-based method.
+    
+    Expects a JSON payload with a key "location" containing the validated location object.
+    This object should ideally include a "boundingbox" (or "geojson") and a "display_name".
+    
+    Returns a JSON response containing:
+      - total_length (meters)
+      - driven_length (meters)
+      - coverage_percentage
+      - raster_dimensions (nrows, ncols)
+      - streets_data: { metadata: { total_length_miles, driven_length_miles }, features: [] }
+    """
+    try:
+        data = await request.get_json()
+        location = data.get("location")
+        if not location or not isinstance(location, dict):
+            return jsonify({"status": "error", "message": "Invalid location data."}), 400
+
+        logger.info(f"Calculating coverage for location: {location.get('display_name', 'Unknown')}")
+        
+        # Pass the entire validated location object to the new function.
+        result = compute_coverage_for_location(location)
+        if result is None:
+            return jsonify({"status": "error", "message": "No street data found or error in computation."}), 404
+
+        # Optionally update coverage metadata in the DB using the location's display_name.
+        display_name = location.get("display_name", "Unknown")
+        coverage_metadata_collection.update_one(
+            {"location": display_name},
+            {"$set": {
+                "total_length": result["total_length"],
+                "driven_length": result["driven_length"],
+                "coverage_percentage": result["coverage_percentage"],
+                "last_updated": datetime.now(timezone.utc)
+            }},
+            upsert=True
+        )
+
+        # Assemble the response object.
+        response_obj = {
+            "total_length": result["total_length"],
+            "driven_length": result["driven_length"],
+            "coverage_percentage": result["coverage_percentage"],
+            "raster_dimensions": result["raster_dimensions"],
+            "streets_data": {
+                "metadata": {
+                    "total_length_miles": float(result["total_length"]) * 0.000621371,
+                    "driven_length_miles": float(result["driven_length"]) * 0.000621371
+                },
+                "features": []  # This approach uses raster data only.
+            }
+        }
+
+        return jsonify(response_obj)
+    except Exception as e:
+        import traceback
+        logger.error(f"Error in street coverage calculation: {e}\n{traceback.format_exc()}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 def process_trip(trip):
     """
@@ -1231,160 +1296,6 @@ async def hourly_fetch_trips():
 
     except Exception as e:
         logger.error(f"Error during hourly trip fetch: {e}", exc_info=True)
-
-def compute_coverage_for_location(location_name):
-    """
-    Compute street coverage for a given location using a raster‐based method.
-    It queries the road segments (from streets_collection) with
-    properties.location == location_name and rasterizes them as well as the
-    map‐matched trips (from matched_trips_collection).
-    
-    Returns a dict with:
-      - total_length (meters)
-      - driven_length (meters)
-      - coverage_percentage
-      - raster_dimensions (nrows, ncols)
-    """
-    try:
-        # Query all road segments for this location.
-        road_segments = list(streets_collection.find({"properties.location": location_name}, {"_id": 0}))
-        if not road_segments:
-            return None
-
-        # Compute a union bounding box over the road segments.
-        bounds = None
-        for seg in road_segments:
-            try:
-                geom = shape(seg["geometry"])
-            except Exception as e:
-                logger.warning(f"Skipping a segment due to geometry error: {e}")
-                continue
-            if bounds is None:
-                bounds = list(geom.bounds)  # [minx, miny, maxx, maxy]
-            else:
-                bounds[0] = min(bounds[0], geom.bounds[0])
-                bounds[1] = min(bounds[1], geom.bounds[1])
-                bounds[2] = max(bounds[2], geom.bounds[2])
-                bounds[3] = max(bounds[3], geom.bounds[3])
-        if bounds is None:
-            return None
-
-        # Create a bounding box and compute its centroid.
-        bounds_box = box(*bounds)
-        centroid = bounds_box.centroid
-
-        # Determine UTM zone (assuming northern hemisphere).
-        utm_zone = int((centroid.x + 180) / 6) + 1
-        epsg_code = 32600 + utm_zone
-        proj_to_utm = pyproj.Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_code}", always_xy=True).transform
-
-        # Project the bounding box to UTM.
-        minx_utm, miny_utm = proj_to_utm(bounds[0], bounds[1])
-        maxx_utm, maxy_utm = proj_to_utm(bounds[2], bounds[3])
-        width_m = maxx_utm - minx_utm
-        height_m = maxy_utm - miny_utm
-
-        # Choose a resolution (cell size) in meters.
-        resolution_m = 5  # 5-meter cells
-
-        # Compute raster dimensions and cast to Python int.
-        ncols = int(np.ceil(width_m / resolution_m))
-        nrows = int(np.ceil(height_m / resolution_m))
-
-        # Build an affine transform for the raster grid.
-        transform_affine = Affine.translation(minx_utm, maxy_utm) * Affine.scale(resolution_m, -resolution_m)
-
-        # Rasterize the road segments.
-        road_shapes = []
-        for seg in road_segments:
-            try:
-                geom = shape(seg["geometry"])
-            except Exception as e:
-                logger.warning(f"Skipping segment during rasterization: {e}")
-                continue
-            projected_geom = shapely.ops.transform(proj_to_utm, geom)
-            road_shapes.append((projected_geom, 1))
-        road_raster = rasterize(
-            shapes=road_shapes,
-            out_shape=(nrows, ncols),
-            transform=transform_affine,
-            fill=0,
-            all_touched=True,
-            dtype='uint8'
-        )
-        total_road_pixels = int(np.sum(road_raster == 1))
-        logger.info(f"Total road pixels: {total_road_pixels}")
-
-        # Rasterize the driven (map‐matched) trips.
-        matched_trips = list(matched_trips_collection.find({"location": location_name}))
-        if matched_trips:
-            driven_shapes = []
-            for trip in matched_trips:
-                try:
-                    gps = trip.get("matchedGps")
-                    if not gps:
-                        continue
-                    if isinstance(gps, str):
-                        geom = shape(json.loads(gps))
-                    else:
-                        geom = shape(gps)
-                    projected_geom = shapely.ops.transform(proj_to_utm, geom)
-                    driven_shapes.append((projected_geom, 1))
-                except Exception as e:
-                    logger.warning(f"Skipping a trip during driven rasterization: {e}")
-            driven_raster = rasterize(
-                shapes=driven_shapes,
-                out_shape=(nrows, ncols),
-                transform=transform_affine,
-                fill=0,
-                all_touched=True,
-                dtype='uint8'
-            )
-        else:
-            driven_raster = np.zeros((nrows, ncols), dtype='uint8')
-
-        driven_road_pixels = int(np.sum((road_raster == 1) & (driven_raster == 1)))
-        coverage_percentage = (driven_road_pixels / total_road_pixels * 100) if total_road_pixels > 0 else 0.0
-        logger.info(f"Driven road pixels: {driven_road_pixels}, Coverage: {coverage_percentage:.2f}%")
-
-        # Compute approximate lengths (each pixel represents resolution_m meters).
-        total_length = int(total_road_pixels * resolution_m)
-        driven_length = int(driven_road_pixels * resolution_m)
-
-        return {
-            "total_length": total_length,
-            "driven_length": driven_length,
-            "coverage_percentage": coverage_percentage,
-            "raster_dimensions": {"nrows": int(nrows), "ncols": int(ncols)}
-        }
-    except Exception as e:
-        logger.error(f"Error computing coverage for {location_name}: {e}")
-        return None
-
-async def update_coverage_for_all_locations():
-    """
-    Periodically updates street coverage for all locations using the new raster‑based method.
-    """
-    try:
-        logger.info("Starting periodic street coverage update for all locations (raster-based)...")
-        locations = coverage_metadata_collection.distinct("location")
-        for location in locations:
-            result = compute_coverage_for_location(location)
-            if result:
-                coverage_metadata_collection.update_one(
-                    {"location": location},
-                    {"$set": {
-                        "total_length": result["total_length"],
-                        "driven_length": result["driven_length"],
-                        "coverage_percentage": result["coverage_percentage"],
-                        "last_updated": datetime.now(timezone.utc)
-                    }},
-                    upsert=True
-                )
-                logger.info(f"Updated coverage for {location}: {result['coverage_percentage']:.2f}%")
-        logger.info("Finished periodic street coverage update (raster-based).")
-    except Exception as e:
-        logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)
 
 
 async def cleanup_stale_trips():
@@ -2132,65 +2043,6 @@ async def get_street_segment_details(segment_id):
         logger.error(f"Error fetching segment details: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-#############################
-# Street coverage
-#############################
-
-
-@app.route("/api/street_coverage", methods=["POST"])
-async def get_street_coverage():
-    """
-    New endpoint that calculates street coverage using the raster‐based method.
-    Expects a JSON payload with a key "location" containing at least a "display_name".
-    Returns total_length (meters), driven_length (meters), coverage_percentage,
-    and also a "streets_data" object with "metadata" (for front-end compatibility).
-    """
-    try:
-        data = await request.get_json()
-        location = data.get("location")
-        if not location or not isinstance(location, dict) or "display_name" not in location:
-            return jsonify({"status": "error", "message": "Invalid location data."}), 400
-
-        location_name = location["display_name"]
-        logger.info(f"Calculating coverage for location: {location_name}")
-
-        result = compute_coverage_for_location(location_name)
-        if result is None:
-            return jsonify({"status": "error", "message": "No street data found or error in computation."}), 404
-
-        # Optionally update coverage metadata in the DB.
-        coverage_metadata_collection.update_one(
-            {"location": location_name},
-            {"$set": {
-                "total_length": result["total_length"],
-                "driven_length": result["driven_length"],
-                "coverage_percentage": result["coverage_percentage"],
-                "last_updated": datetime.now(timezone.utc)
-            }},
-            upsert=True
-        )
-
-        # Wrap the result so that the client sees a "streets_data" object with a "metadata" property.
-        response_obj = {
-            "total_length": result["total_length"],
-            "driven_length": result["driven_length"],
-            "coverage_percentage": result["coverage_percentage"],
-            "raster_dimensions": result["raster_dimensions"],
-            "streets_data": {
-                "metadata": {
-                    "total_length_miles": float(result["total_length"]) * 0.000621371,
-                    "driven_length_miles": float(result["driven_length"]) * 0.000621371
-                },
-                "features": []  # No vector features available in this raster-based approach.
-            }
-        }
-
-        return jsonify(response_obj)
-    except Exception as e:
-        import traceback
-        logger.error(f"Error in street coverage calculation: {e}\n{traceback.format_exc()}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 
 #############################
 # Loading historical data
@@ -2264,11 +2116,6 @@ async def load_historical_data_endpoint():
     end_date = (await request.get_json()).get("end_date")
     inserted_count = await load_historical_data(start_date, end_date)
     return jsonify({"message": f"Loaded historical data. Inserted {inserted_count} new trips."})
-
-#############################
-# Coverage calculation (long)
-#############################
-# The coverage endpoints for boundary coverage are kept the same
 
 #############################
 # Last trip point

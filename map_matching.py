@@ -32,7 +32,7 @@ async def map_match_coordinates(coordinates):
     base_url = "https://api.mapbox.com/matching/v5/mapbox/driving/"
     # Break coordinates into chunks
     chunks = [
-        coordinates[i : i + MAX_MAPBOX_COORDINATES]
+        coordinates[i: i + MAX_MAPBOX_COORDINATES]
         for i in range(0, len(coordinates), MAX_MAPBOX_COORDINATES)
     ]
     matched_geometries = []
@@ -164,7 +164,6 @@ async def process_and_map_match_trip(trip):
             trips_collection,
             validate_trip_data,
             reverse_geocode_nominatim,
-            update_street_coverage,
         )
         is_valid, error_message = validate_trip_data(trip)
         if not is_valid:
@@ -259,11 +258,6 @@ async def process_and_map_match_trip(trip):
         matched_trips_collection.insert_one(matched_trip)
         logger.info(f"Stored map–matched trip {trip['transactionId']} with {len(matched_coords_combined)} coordinates.")
 
-        if matched_trip.get("location"):
-            try:
-                await update_street_coverage(matched_trip["location"])
-            except Exception as e:
-                logger.error(f"Error updating street coverage for location {matched_trip['location']}: {e}", exc_info=True)
     except Exception as e:
         logger.error(f"Error in process_and_map_match_trip for trip {trip.get('transactionId', 'Unknown')}: {e}", exc_info=True)
 

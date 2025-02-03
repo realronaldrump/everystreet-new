@@ -10,6 +10,7 @@ from shapely.geometry import LineString, mapping, Point, shape, box
 from shapely.ops import transform
 import pyproj
 from dotenv import load_dotenv
+from street_coverage_calculation import compute_coverage_for_location, update_coverage_for_all_locations
 
 from utils import validate_location_osm
 
