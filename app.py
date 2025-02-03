@@ -3624,7 +3624,8 @@ async def init_background_tasks():
 
 # Run
 if __name__ == "__main__":
-    import uvicorn
+    # Read the PORT from the environment variable, default to 8000 if not set
+    port = int(os.getenv("PORT", 8000))  
 
-    port = int(os.getenv("PORT", "8080"))
+    # Start the Uvicorn server with correct port
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info", use_colors=True)
