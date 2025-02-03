@@ -139,7 +139,8 @@ def process_osm_data(osm_data, location):
         if element.get("type") != "way":
             continue
         try:
-            nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
+            nodes = [(node["lon"], node["lat"])
+                     for node in element["geometry"]]
             line = LineString(nodes)
             # Project to UTM for segmentation.
             projected_line = transform(project_to_utm, line)
@@ -147,7 +148,8 @@ def process_osm_data(osm_data, location):
             for i, segment in enumerate(segments):
                 # Reproject each segment back to WGS84.
                 segment_wgs84 = transform(project_to_wgs84, segment)
-                segment_length = segment.length  # length in meters (in UTM units)
+                # length in meters (in UTM units)
+                segment_length = segment.length
                 feature = {
                     "type": "Feature",
                     "geometry": mapping(segment_wgs84),
@@ -176,7 +178,8 @@ def process_osm_data(osm_data, location):
         try:
             streets_collection.insert_many(geojson_data["features"])
         except Exception as e:
-            logger.error(f"Error inserting street segments: {e}", exc_info=True)
+            logger.error(
+                f"Error inserting street segments: {e}", exc_info=True)
         try:
             # Use location.get("display_name") to get the display name from the location dict.
             coverage_metadata_collection.update_one(
@@ -194,12 +197,14 @@ def process_osm_data(osm_data, location):
                 upsert=True,
             )
         except Exception as e:
-            logger.error(f"Error updating coverage metadata: {e}", exc_info=True)
+            logger.error(
+                f"Error updating coverage metadata: {e}", exc_info=True)
         logger.info(
             f"Stored {len(features)} street segments for {location['display_name']}."
         )
     else:
-        logger.info(f"No valid street segments found for {location['display_name']}.")
+        logger.info(
+            f"No valid street segments found for {location['display_name']}.")
 
 
 async def preprocess_streets(validated_location):
