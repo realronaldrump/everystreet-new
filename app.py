@@ -2379,7 +2379,7 @@ async def get_non_custom_places_visits():
             }},
             # Only include places visited at least 5 times (you can adjust this)
             {"$match": {"totalVisits": {"$gte": 5}}},
-            {"$sort": {"totalVisits": -1}},  # Sort by most visited
+            {"$sort": {"totalVisits": -1}},
         ]
 
         # Combine results from all three collections
