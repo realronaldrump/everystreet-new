@@ -3245,7 +3245,23 @@ async def bouncie_webhook():
         return jsonify({"error": str(e)}), 500
 
 
-
+@app.route("/api/active_trip")
+async def get_active_trip():
+    try:
+        active_trip = live_trips_collection.find_one({"status": "active"})
+        if active_trip:
+            # Convert ObjectId and datetime fields to string for JSON serialization
+            active_trip['_id'] = str(active_trip['_id'])
+            if isinstance(active_trip.get('startTime'), datetime):
+                active_trip['startTime'] = active_trip['startTime'].isoformat()
+            if isinstance(active_trip.get('lastUpdate'), datetime):
+                active_trip['lastUpdate'] = active_trip['lastUpdate'].isoformat()
+            return jsonify(active_trip)
+        else:
+            return jsonify({}), 404
+    except Exception as e:
+        logger.error(f"Error retrieving active trip: {e}", exc_info=True)
+        return jsonify({"error": "Internal Server Error"}), 500
 
 #############################
 # DB helpers
