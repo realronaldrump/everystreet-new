@@ -74,7 +74,8 @@ def get_task_config():
     Retrieves the background task configuration document from MongoDB.
     If none exists, creates a default configuration.
     """
-    cfg = task_config_collection.find_one({"_id": "global_background_task_config"})
+    cfg = task_config_collection.find_one(
+        {"_id": "global_background_task_config"})
     if not cfg:
         cfg = {
             "_id": "global_background_task_config",
@@ -112,7 +113,8 @@ async def periodic_fetch_trips():
         else:
             start_date = datetime.now(timezone.utc) - timedelta(days=7)
         end_date = datetime.now(timezone.utc)
-        logger.info(f"Periodic trip fetch started from {start_date} to {end_date}")
+        logger.info(
+            f"Periodic trip fetch started from {start_date} to {end_date}")
         await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=False)
         logger.info("Periodic trip fetch completed successfully.")
     except Exception as e:
@@ -124,7 +126,8 @@ async def hourly_fetch_trips():
     try:
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(hours=1)
-        logger.info(f"Hourly trip fetch started for range: {start_date} to {end_date}")
+        logger.info(
+            f"Hourly trip fetch started for range: {start_date} to {end_date}")
         await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=True)
         logger.info("Hourly trip fetch completed successfully.")
 
@@ -170,7 +173,8 @@ async def cleanup_invalid_trips():
         for t in all_trips:
             ok, msg = validate_trip_data(t)
             if not ok:
-                logger.warning(f"Invalid trip {t.get('transactionId', '?')}: {msg}")
+                logger.warning(
+                    f"Invalid trip {t.get('transactionId', '?')}: {msg}")
                 trips_collection.update_one(
                     {"_id": t["_id"]}, {"$set": {"invalid": True}}
                 )
@@ -196,7 +200,8 @@ def reinitialize_scheduler_tasks():
 
     cfg = get_task_config()
     if cfg.get("disabled"):
-        logger.info("Background tasks are globally disabled. No tasks scheduled.")
+        logger.info(
+            "Background tasks are globally disabled. No tasks scheduled.")
         return
 
     paused_until = cfg.get("pausedUntil")
@@ -211,9 +216,11 @@ def reinitialize_scheduler_tasks():
         task_settings = cfg["tasks"].get(task_id, {})
         if not task_settings or not task_settings.get("enabled", True):
             continue
-        interval = task_settings.get("interval_minutes", t["default_interval_minutes"])
+        interval = task_settings.get(
+            "interval_minutes", t["default_interval_minutes"])
         next_run_time = (
-            paused_until + timedelta(seconds=1) if is_currently_paused else None
+            paused_until +
+            timedelta(seconds=1) if is_currently_paused else None
         )
 
         # Map task IDs to background functions.
