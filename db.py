@@ -28,7 +28,8 @@ def get_mongo_client():
         logger.info("MongoDB client initialized successfully.")
         return client
     except Exception as e:
-        logger.error(f"Failed to initialize MongoDB client: {e}", exc_info=True)
+        logger.error(
+            f"Failed to initialize MongoDB client: {e}", exc_info=True)
         raise
 
 
