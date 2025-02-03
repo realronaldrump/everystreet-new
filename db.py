@@ -11,6 +11,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 def get_mongo_client():
     """
     Creates and returns a MongoClient using TLS and CA checks.
@@ -28,8 +29,10 @@ def get_mongo_client():
         logger.info("MongoDB client initialized successfully.")
         return client
     except Exception as e:
-        logger.error(f"Failed to initialize MongoDB client: {e}", exc_info=True)
+        logger.error(
+            f"Failed to initialize MongoDB client: {e}", exc_info=True)
         raise
+
 
 # Initialize the client and the database.
 mongo_client = get_mongo_client()
