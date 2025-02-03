@@ -37,7 +37,7 @@ logging.basicConfig(
 # Create the APScheduler instance.
 scheduler = AsyncIOScheduler()
 
-# ----- Task configuration -----
+#  Task configuration
 AVAILABLE_TASKS = [
     # For tasks that require no parameters, schedule the parameterless function.
     {
@@ -99,7 +99,7 @@ def save_task_config(cfg):
     )
 
 
-# ----- Background Task Functions -----
+#  Background Task Functions
 
 
 async def periodic_fetch_trips():
@@ -178,7 +178,7 @@ async def cleanup_invalid_trips():
         logger.error(f"cleanup_invalid_trips: {e}", exc_info=True)
 
 
-# ----- Scheduler Management Functions -----
+#  Scheduler Management Functions
 
 
 def reinitialize_scheduler_tasks():

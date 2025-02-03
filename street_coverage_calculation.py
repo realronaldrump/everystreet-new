@@ -49,7 +49,7 @@ def compute_coverage_for_location(location):
         coverage_percentage, and raster_dimensions (nrows and ncols), or None on failure.
     """
     try:
-        # --- STEP 1: Determine the boundary polygon for the area ---
+        #  STEP 1: Determine the boundary polygon for the area
         if "boundingbox" in location:
             # Nominatim typically returns boundingbox as [south, north, west, east]
             bbox = location["boundingbox"]
@@ -118,7 +118,7 @@ def compute_coverage_for_location(location):
                 ],
             }
 
-        # --- STEP 2: Query road segments by spatial intersection ---
+        #  STEP 2: Query road segments by spatial intersection
         road_segments = list(
             streets_collection.find(
                 {"geometry": {"$geoIntersects": {"$geometry": boundary_polygon}}},
@@ -147,7 +147,7 @@ def compute_coverage_for_location(location):
         if bounds is None:
             return None
 
-        # --- STEP 3: Set up raster parameters ---
+        #  STEP 3: Set up raster parameters
         from shapely.geometry import box
         from affine import Affine
         import pyproj
@@ -175,7 +175,7 @@ def compute_coverage_for_location(location):
             resolution_m, -resolution_m
         )
 
-        # --- STEP 4: Rasterize the road segments ---
+        #  STEP 4: Rasterize the road segments
         import rasterio
         from rasterio.features import rasterize
         import shapely.ops
@@ -200,7 +200,7 @@ def compute_coverage_for_location(location):
         total_road_pixels = int(np.sum(road_raster == 1))
         logger.info(f"Total road pixels: {total_road_pixels}")
 
-        # --- STEP 5: Rasterize the driven (map‐matched) trips ---
+        #  STEP 5: Rasterize the driven (map‐matched) trips
         import json
 
         matched_trips = list(
@@ -242,7 +242,7 @@ def compute_coverage_for_location(location):
             f"Driven road pixels: {driven_road_pixels}, Coverage: {coverage_percentage:.2f}%"
         )
 
-        # --- STEP 6: Compute approximate lengths (each pixel represents resolution_m meters) ---
+        #  STEP 6: Compute approximate lengths (each pixel represents resolution_m meters)
         total_length = int(total_road_pixels * resolution_m)
         driven_length = int(driven_road_pixels * resolution_m)
 

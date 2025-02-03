@@ -10,7 +10,7 @@
       setupRegeocode();
     });
   
-    // --- HISTORICAL DATA MANAGEMENT ---
+    //  HISTORICAL DATA MANAGEMENT 
     function setupHistoricalData() {
       const btn = document.getElementById('load-historical-data');
       if (!btn) return;
@@ -30,7 +30,7 @@
       });
     }
   
-    // --- GEOPOINT UPDATES ---
+    //  GEOPOINT UPDATES 
     function setupGeoPointsUpdate() {
       const btn = document.getElementById('update-geo-points');
       const select = document.getElementById('collection-select');
@@ -52,7 +52,7 @@
       }
     }
   
-    // --- RE-GEOCODE ALL TRIPS ---
+    //  RE-GEOCODE ALL TRIPS 
     function setupRegeocode() {
       const btn = document.getElementById('re-geocode-all-trips');
       if (btn) {
@@ -72,7 +72,7 @@
       }
     }
   
-    // --- BACKGROUND TASK CONFIGURATION ---
+    //  BACKGROUND TASK CONFIGURATION 
     function setupTaskConfigEventListeners() {
       document.getElementById('saveTaskConfigBtn')?.addEventListener('click', saveBackgroundTasksConfig);
       document.getElementById('confirmPause')?.addEventListener('click', confirmPause);
@@ -94,7 +94,7 @@
       }
     }
   
-    // --- LOAD TASK CONFIGURATION ---
+    //  LOAD TASK CONFIGURATION 
     function loadBackgroundTasksConfig() {
       fetch('/api/background_tasks/config')
         .then(r => r.json())
@@ -102,7 +102,7 @@
         .catch(err => console.error('Error loading background task config:', err));
     }
   
-    // --- POPULATE TASK CONFIGURATION UI ---
+    //  POPULATE TASK CONFIGURATION UI 
     function populateTaskConfigUI(cfg) {
       document.getElementById('globalDisableSwitch').checked = !!cfg.disabled;
       const tableBody = document.querySelector('#taskConfigTable tbody');
@@ -169,7 +169,7 @@
       });
     }
   
-    // --- SAVE TASK CONFIGURATION ---
+    //  SAVE TASK CONFIGURATION 
     function saveBackgroundTasksConfig() {
       const config = gatherTaskConfigFromUI();
       submitTaskConfigUpdate(config)
@@ -216,7 +216,7 @@
       });
     }
   
-    // --- TASK CONTROLS ---
+    //  TASK CONTROLS 
     function confirmPause() {
       const mins = parseInt(document.getElementById('pauseDuration').value, 10);
       fetch('/api/background_tasks/pause', { method: 'POST', body: JSON.stringify({ minutes: mins }) })

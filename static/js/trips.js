@@ -11,7 +11,7 @@
       fetchTrips(); // Initial load
     });
   
-    // --- EVENT LISTENERS ---
+    //  EVENT LISTENERS 
     function initializeEventListeners() {
       const applyFiltersButton = document.getElementById('apply-filters');
       if (applyFiltersButton) {
@@ -156,7 +156,7 @@
       });
     }
   
-    // --- HELPER FUNCTIONS ---
+    //  HELPER FUNCTIONS 
     function updateDatesAndFetch(startDate, endDate) {
       const startDateStr = startDate.toISOString().split('T')[0];
       const endDateStr = endDate.toISOString().split('T')[0];

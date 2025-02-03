@@ -27,7 +27,7 @@
     document.getElementById('apply-filters')?.addEventListener('click', fetchDrivingInsights);
   });
 
-  // --- INITIALIZATION FUNCTIONS ---
+  //  INITIALIZATION FUNCTIONS 
   function initializeCharts() {
     // Daily Trips Chart (Line Chart)
     const tripCountsCtx = document.getElementById('tripCountsChart').getContext('2d');
@@ -160,7 +160,7 @@
     // (No additional event listeners for now)
   }
 
-  // --- UTILITY FUNCTIONS ---
+  //  UTILITY FUNCTIONS 
   function getFilterParams() {
     const startDate = localStorage.getItem('startDate') || new Date().toISOString().split('T')[0];
     const endDate = localStorage.getItem('endDate') || new Date().toISOString().split('T')[0];
@@ -199,7 +199,7 @@
     }
   }
 
-  // --- CHART UPDATE FUNCTIONS ---
+  //  CHART UPDATE FUNCTIONS 
   function updateTripCountsChart(data) {
     if (!tripCountsChart || !data) return;
     tripCountsChart.data.datasets = [
@@ -282,7 +282,7 @@
     insightsTable.clear().rows.add([visitedPlace]).draw();
   }
 
-  // --- ERROR HANDLING ---
+  //  ERROR HANDLING 
   function showError(message) {
     const errorDiv = document.createElement('div');
     errorDiv.className = 'alert alert-danger alert-dismissible fade show';
