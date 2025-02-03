@@ -286,62 +286,6 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
 # API calls to Bouncie
 #############################
 
-
-async def get_trips_from_api(client_session, access_token, imei, start_date, end_date):
-    """
-    Pulls trips from Bouncie's /trips endpoint, for a device IMEI and date range.
-    """
-    headers = {"Authorization": access_token,
-               "Content-Type": "application/json"}
-    params = {
-        "imei": imei,
-        "gps-format": "geojson",
-        "starts-after": start_date.isoformat(),
-        "ends-before": end_date.isoformat(),
-    }
-    try:
-        async with client_session.get(
-            f"{API_BASE_URL}/trips", headers=headers, params=params
-        ) as response:
-            response.raise_for_status()
-            trips = await response.json()
-            # Attempt localizing times
-            for trip in trips:
-                tz_str = get_trip_timezone(trip)
-                timezone_obj = pytz.timezone(tz_str)
-
-                if "startTime" in trip and isinstance(trip["startTime"], str):
-                    parsed = parser.isoparse(trip["startTime"])
-                    if parsed.tzinfo is None:
-                        parsed = parsed.replace(tzinfo=pytz.UTC)
-                    local_time = parsed.astimezone(timezone_obj)
-                    trip["startTime"] = local_time
-                    trip["timeZone"] = tz_str
-
-                if "endTime" in trip and isinstance(trip["endTime"], str):
-                    parsed = parser.isoparse(trip["endTime"])
-                    if parsed.tzinfo is None:
-                        parsed = parsed.replace(tzinfo=pytz.UTC)
-                    local_time = parsed.astimezone(timezone_obj)
-                    trip["endTime"] = local_time
-
-            logger.info(
-                f"Successfully fetched {len(trips)} trips from Bouncie API for IMEI: {imei}, date range: {start_date} to {end_date}")
-            return trips
-    except ClientResponseError as e:
-        logger.error(
-            f"ClientResponseError fetching trips from Bouncie API: {e.status} - {e.message}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
-        return []
-    except ClientConnectorError as e:
-        logger.error(
-            f"ClientConnectorError fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
-        return []
-    except Exception as e:
-        logger.error(
-            f"Unexpected error fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
-        return []
-
-
 async def fetch_trips_in_intervals(main_session, access_token, imei, start_date, end_date):
     """
     Breaks the date range into 7-day intervals to avoid hitting any Bouncie restrictions.
