@@ -265,7 +265,7 @@
     if (!distanceChart || !Array.isArray(data)) return;
     distanceChart.data.datasets[0] = {
       label: "Daily Distance (miles)",
-      data: data.map((d) => ({ x: d.date, y: +d.distance.toFixed(2) })),
+      data: data.map((d) => ({ x: d.date, y: Number(d.distance.toFixed(2)) })),
       backgroundColor: "#03DAC6",
       borderColor: "#018786",
       borderWidth: 1,
