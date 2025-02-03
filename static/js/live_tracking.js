@@ -196,7 +196,5 @@ class LiveTripTracker {
         this.marker.setLatLng(lastPos);
         this.marker.setOpacity(1);
     
-        // Optionally auto-pan
-        // this.map.panTo(lastPos, { animate: true, duration: 1 });
     }
 }
