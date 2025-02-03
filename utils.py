@@ -4,7 +4,10 @@ import logging
 import aiohttp
 from aiohttp import ClientConnectorError, ClientResponseError
 import requests
+from geojson import loads as geojson_loads
+from timezonefinder import TimezoneFinder
 
+tf = TimezoneFinder()
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -107,3 +110,30 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
                 await asyncio.sleep(backoff_factor * (2 ** (attempt - 1)))
     logger.error(f"Failed to reverse geocode ({lat}, {lon}) after {retries} attempts.")
     return None
+
+def get_trip_timezone(trip):
+    """
+    Simple function that attempts to figure out the timezone for a trip
+    by looking at the first coordinate if available, or default 'UTC'.
+    """
+    try:
+        if isinstance(trip["gps"], str):
+            gps_data = geojson_loads(trip["gps"])
+        else:
+            gps_data = trip["gps"]
+        coords = gps_data.get("coordinates", [])
+        if not coords:
+            return "UTC"
+
+        # if it's a Point, just coords
+        if gps_data["type"] == "Point":
+            lon, lat = coords
+        else:
+            lon, lat = coords[0]
+
+        tz = tf.timezone_at(lng=lon, lat=lat)
+        return tz or "UTC"
+    except Exception as e:
+        # Log timezone retrieval errors
+        logger.error(f"Error getting trip timezone: {e}", exc_info=True)
+        return "UTC"

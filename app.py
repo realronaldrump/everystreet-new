@@ -3,15 +3,16 @@ from utils import validate_location_osm
 from map_matching import (
     process_and_map_match_trip,
 )
-from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
+from bouncie_trip_fetcher import fetch_bouncie_trips_in_range, get_access_token, fetch_trips_in_intervals, get_trips_from_api
+from preprocess_streets import preprocess_streets as async_preprocess_streets
 from utils import validate_trip_data, reverse_geocode_nominatim, validate_location_osm
-from timezonefinder import TimezoneFinder
 from shapely.geometry import (
     LineString,
     Point,
     Polygon,
     mapping,
     shape,
+    box
 )
 from pymongo.errors import DuplicateKeyError
 from math import radians, cos, sin, sqrt, atan2
@@ -48,11 +49,14 @@ from quart import (
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.base import JobLookupError
+import numpy as np
+import shapely.ops
+from affine import Affine
+import rasterio
+from rasterio.features import rasterize
+import pyproj
+from datetime import datetime, timezone
 scheduler = AsyncIOScheduler()
-
-# We import the map_matching logic
-
-# Import from utils.py
 
 
 load_dotenv()
@@ -77,8 +81,6 @@ AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
 OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
-tf = TimezoneFinder()
-
 # For active, real-time trips
 active_trips = {}
 
@@ -86,7 +88,7 @@ active_trips = {}
 progress_data = {
     "fetch_and_store_trips": {"status": "idle", "progress": 0, "message": ""},
     "fetch_bouncie_trips_in_range": {"status": "idle", "progress": 0, "message": ""},
-    "run_preprocess_streets": {"status": "idle", "progress": 0, "message": ""},
+    "preprocess_streets": {"status": "idle", "progress": 0, "message": ""},
 }
 
 #############################
@@ -472,131 +474,6 @@ class CustomPlace:
             created_at=data.get("created_at", datetime.now(timezone.utc)),
         )
 
-#############################
-# Bouncie Authentication
-#############################
-
-
-async def get_access_token(client_session):
-    """
-    Retrieves an access token from the Bouncie API using OAuth.
-    """
-    payload = {
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
-        "grant_type": "authorization_code",
-        "code": AUTH_CODE,
-        "redirect_uri": REDIRECT_URI,
-    }
-    try:
-        async with client_session.post(AUTH_URL, data=payload) as auth_response:
-            auth_response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
-            data = await auth_response.json()
-            access_token = data.get("access_token")
-            if not access_token:
-                # Log if token is missing
-                logger.error(f"Access token not found in response: {data}")
-                return None
-            logger.info(
-                "Successfully retrieved access token from Bouncie API.")
-            return access_token
-    except ClientResponseError as e:
-        # Log ClientResponseError with details
-        logger.error(
-            f"ClientResponseError retrieving access token: {e.status} - {e.message}", exc_info=True)
-        return None
-    except ClientConnectorError as e:
-        # Log ClientConnectorError
-        logger.error(
-            f"ClientConnectorError retrieving access token: {e}", exc_info=True)
-        return None
-    except Exception as e:
-        # Log any other exceptions
-        logger.error(
-            f"Unexpected error retrieving access token: {e}", exc_info=True)
-        return None
-
-#############################
-# API calls to Bouncie
-#############################
-
-
-async def get_trips_from_api(client_session, access_token, imei, start_date, end_date):
-    """
-    Pulls trips from Bouncie's /trips endpoint, for a device IMEI and date range.
-    """
-    headers = {"Authorization": access_token,
-               "Content-Type": "application/json"}
-    params = {
-        "imei": imei,
-        "gps-format": "geojson",
-        "starts-after": start_date.isoformat(),
-        "ends-before": end_date.isoformat(),
-    }
-    try:
-        async with client_session.get(
-            f"{API_BASE_URL}/trips", headers=headers, params=params
-        ) as response:
-            response.raise_for_status()
-            trips = await response.json()
-            # Attempt localizing times
-            for trip in trips:
-                tz_str = get_trip_timezone(trip)
-                timezone_obj = pytz.timezone(tz_str)
-
-                if "startTime" in trip and isinstance(trip["startTime"], str):
-                    parsed = parser.isoparse(trip["startTime"])
-                    if parsed.tzinfo is None:
-                        parsed = parsed.replace(tzinfo=pytz.UTC)
-                    local_time = parsed.astimezone(timezone_obj)
-                    trip["startTime"] = local_time
-                    trip["timeZone"] = tz_str
-
-                if "endTime" in trip and isinstance(trip["endTime"], str):
-                    parsed = parser.isoparse(trip["endTime"])
-                    if parsed.tzinfo is None:
-                        parsed = parsed.replace(tzinfo=pytz.UTC)
-                    local_time = parsed.astimezone(timezone_obj)
-                    trip["endTime"] = local_time
-
-            logger.info(
-                f"Successfully fetched {len(trips)} trips from Bouncie API for IMEI: {imei}, date range: {start_date} to {end_date}")
-            return trips
-    except ClientResponseError as e:
-        logger.error(
-            f"ClientResponseError fetching trips from Bouncie API: {e.status} - {e.message}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
-        return []
-    except ClientConnectorError as e:
-        logger.error(
-            f"ClientConnectorError fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
-        return []
-    except Exception as e:
-        logger.error(
-            f"Unexpected error fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
-        return []
-
-
-async def fetch_trips_in_intervals(main_session, access_token, imei, start_date, end_date):
-    """
-    Breaks the date range into 7-day intervals to avoid hitting any Bouncie restrictions.
-    """
-    all_trips = []
-    current_start = start_date.replace(tzinfo=timezone.utc)
-    end_date = end_date.replace(tzinfo=timezone.utc)
-
-    while current_start < end_date:
-        current_end = min(current_start + timedelta(days=7), end_date)
-        try:
-            trips = await get_trips_from_api(main_session, access_token, imei, current_start, current_end)
-            all_trips.extend(trips)
-        except Exception as e:
-            # Log interval specific errors
-            logger.error(
-                f"Error fetching trips for interval {current_start} to {current_end}: {e}", exc_info=True)
-        current_start = current_end
-
-    return all_trips
-
 
 #############################
 # Quart endpoints
@@ -668,33 +545,6 @@ def fetch_trips_for_geojson():
 
     return geojson_module.FeatureCollection(features)
 
-
-def get_trip_timezone(trip):
-    """
-    Simple function that attempts to figure out the timezone for a trip
-    by looking at the first coordinate if available, or default 'UTC'.
-    """
-    try:
-        if isinstance(trip["gps"], str):
-            gps_data = geojson_loads(trip["gps"])
-        else:
-            gps_data = trip["gps"]
-        coords = gps_data.get("coordinates", [])
-        if not coords:
-            return "UTC"
-
-        # if it's a Point, just coords
-        if gps_data["type"] == "Point":
-            lon, lat = coords
-        else:
-            lon, lat = coords[0]
-
-        tz = tf.timezone_at(lng=lon, lat=lat)
-        return tz or "UTC"
-    except Exception as e:
-        # Log timezone retrieval errors
-        logger.error(f"Error getting trip timezone: {e}", exc_info=True)
-        return "UTC"
 
 #############################
 # Main fetch/store logic
@@ -1382,15 +1232,157 @@ async def hourly_fetch_trips():
     except Exception as e:
         logger.error(f"Error during hourly trip fetch: {e}", exc_info=True)
 
+def compute_coverage_for_location(location_name):
+    """
+    Compute street coverage for a given location using a raster‐based method.
+    It queries the road segments (from streets_collection) with
+    properties.location == location_name and rasterizes them as well as the
+    map‐matched trips (from matched_trips_collection).
+    
+    Returns a dict with:
+      - total_length (meters)
+      - driven_length (meters)
+      - coverage_percentage
+      - raster_dimensions (nrows, ncols)
+    """
+    try:
+        # Query all road segments for this location.
+        road_segments = list(streets_collection.find({"properties.location": location_name}, {"_id": 0}))
+        if not road_segments:
+            return None
+
+        # Compute a union bounding box over the road segments.
+        bounds = None
+        for seg in road_segments:
+            try:
+                geom = shape(seg["geometry"])
+            except Exception as e:
+                logger.warning(f"Skipping a segment due to geometry error: {e}")
+                continue
+            if bounds is None:
+                bounds = list(geom.bounds)  # [minx, miny, maxx, maxy]
+            else:
+                bounds[0] = min(bounds[0], geom.bounds[0])
+                bounds[1] = min(bounds[1], geom.bounds[1])
+                bounds[2] = max(bounds[2], geom.bounds[2])
+                bounds[3] = max(bounds[3], geom.bounds[3])
+        if bounds is None:
+            return None
+
+        # Create a bounding box and compute its centroid.
+        bounds_box = box(*bounds)
+        centroid = bounds_box.centroid
+
+        # Determine UTM zone (assuming northern hemisphere).
+        utm_zone = int((centroid.x + 180) / 6) + 1
+        epsg_code = 32600 + utm_zone
+        proj_to_utm = pyproj.Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_code}", always_xy=True).transform
+
+        # Project the bounding box to UTM.
+        minx_utm, miny_utm = proj_to_utm(bounds[0], bounds[1])
+        maxx_utm, maxy_utm = proj_to_utm(bounds[2], bounds[3])
+        width_m = maxx_utm - minx_utm
+        height_m = maxy_utm - miny_utm
+
+        # Choose a resolution (cell size) in meters.
+        resolution_m = 5  # 5-meter cells
+
+        # Compute raster dimensions and cast to Python int.
+        ncols = int(np.ceil(width_m / resolution_m))
+        nrows = int(np.ceil(height_m / resolution_m))
+
+        # Build an affine transform for the raster grid.
+        transform_affine = Affine.translation(minx_utm, maxy_utm) * Affine.scale(resolution_m, -resolution_m)
+
+        # Rasterize the road segments.
+        road_shapes = []
+        for seg in road_segments:
+            try:
+                geom = shape(seg["geometry"])
+            except Exception as e:
+                logger.warning(f"Skipping segment during rasterization: {e}")
+                continue
+            projected_geom = shapely.ops.transform(proj_to_utm, geom)
+            road_shapes.append((projected_geom, 1))
+        road_raster = rasterize(
+            shapes=road_shapes,
+            out_shape=(nrows, ncols),
+            transform=transform_affine,
+            fill=0,
+            all_touched=True,
+            dtype='uint8'
+        )
+        total_road_pixels = int(np.sum(road_raster == 1))
+        logger.info(f"Total road pixels: {total_road_pixels}")
+
+        # Rasterize the driven (map‐matched) trips.
+        matched_trips = list(matched_trips_collection.find({"location": location_name}))
+        if matched_trips:
+            driven_shapes = []
+            for trip in matched_trips:
+                try:
+                    gps = trip.get("matchedGps")
+                    if not gps:
+                        continue
+                    if isinstance(gps, str):
+                        geom = shape(json.loads(gps))
+                    else:
+                        geom = shape(gps)
+                    projected_geom = shapely.ops.transform(proj_to_utm, geom)
+                    driven_shapes.append((projected_geom, 1))
+                except Exception as e:
+                    logger.warning(f"Skipping a trip during driven rasterization: {e}")
+            driven_raster = rasterize(
+                shapes=driven_shapes,
+                out_shape=(nrows, ncols),
+                transform=transform_affine,
+                fill=0,
+                all_touched=True,
+                dtype='uint8'
+            )
+        else:
+            driven_raster = np.zeros((nrows, ncols), dtype='uint8')
+
+        driven_road_pixels = int(np.sum((road_raster == 1) & (driven_raster == 1)))
+        coverage_percentage = (driven_road_pixels / total_road_pixels * 100) if total_road_pixels > 0 else 0.0
+        logger.info(f"Driven road pixels: {driven_road_pixels}, Coverage: {coverage_percentage:.2f}%")
+
+        # Compute approximate lengths (each pixel represents resolution_m meters).
+        total_length = int(total_road_pixels * resolution_m)
+        driven_length = int(driven_road_pixels * resolution_m)
+
+        return {
+            "total_length": total_length,
+            "driven_length": driven_length,
+            "coverage_percentage": coverage_percentage,
+            "raster_dimensions": {"nrows": int(nrows), "ncols": int(ncols)}
+        }
+    except Exception as e:
+        logger.error(f"Error computing coverage for {location_name}: {e}")
+        return None
 
 async def update_coverage_for_all_locations():
-    """Updates street coverage for all locations."""
+    """
+    Periodically updates street coverage for all locations using the new raster‑based method.
+    """
     try:
-        logger.info("Starting periodic street coverage update for all locations...")
+        logger.info("Starting periodic street coverage update for all locations (raster-based)...")
         locations = coverage_metadata_collection.distinct("location")
         for location in locations:
-            await update_street_coverage(location)
-        logger.info("Finished periodic street coverage update.")
+            result = compute_coverage_for_location(location)
+            if result:
+                coverage_metadata_collection.update_one(
+                    {"location": location},
+                    {"$set": {
+                        "total_length": result["total_length"],
+                        "driven_length": result["driven_length"],
+                        "coverage_percentage": result["coverage_percentage"],
+                        "last_updated": datetime.now(timezone.utc)
+                    }},
+                    upsert=True
+                )
+                logger.info(f"Updated coverage for {location}: {result['coverage_percentage']:.2f}%")
+        logger.info("Finished periodic street coverage update (raster-based).")
     except Exception as e:
         logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)
 
@@ -2090,103 +2082,33 @@ async def export_boundary():
 # Preprocessing Route
 #############################
 
-
 @app.route("/api/preprocess_streets", methods=["POST"])
 async def preprocess_streets_route():
     """
     Triggers the preprocessing of street data for a given location.
     Expects JSON payload: {"location": "Waco, TX", "location_type": "city"}
+    Updated to call the imported asynchronous function rather than launching a subprocess.
     """
-    global progress_data
-    progress_data["run_preprocess_streets"]["status"] = "running"
-    progress_data["run_preprocess_streets"]["progress"] = 0
-    progress_data["run_preprocess_streets"]["message"] = "Starting preprocessing"
     try:
         data = await request.get_json()
         location_query = data.get("location")
-        # Default to "city" if not provided
         location_type = data.get("location_type", "city")
-
         if not location_query:
             return jsonify({"status": "error", "message": "Location is required"}), 400
 
-        # Validate the location (you can still keep this check here)
-        validated_location = await validate_location_osm(
-            location_query, location_type)
+        validated_location = await validate_location_osm(location_query, location_type)
         if not validated_location:
             return jsonify({"status": "error", "message": "Invalid location"}), 400
 
-        # Run the preprocessing script as an asynchronous task
-        asyncio.create_task(run_preprocess_streets(
-            validated_location, location_type))
-
-        return jsonify(
-            {
-                "status": "success",
-                "message": f"Street data preprocessing initiated for {validated_location['display_name']}. Check server logs for progress.",
-            }
-        )
-
+        # Launch the new asynchronous preprocess function as a background task.
+        asyncio.create_task(async_preprocess_streets(validated_location))
+        return jsonify({
+            "status": "success",
+            "message": f"Street data preprocessing initiated for {validated_location['display_name']}. Check server logs for progress."
+        })
     except Exception as e:
         logger.error(f"Error in preprocess_streets_route: {e}", exc_info=True)
-        progress_data["run_preprocess_streets"]["status"] = "failed"
-        progress_data["run_preprocess_streets"]["message"] = f"Error: {e}"
         return jsonify({"status": "error", "message": str(e)}), 500
-
-
-async def run_preprocess_streets(validated_location, location_type):
-    """
-    Runs the preprocess_streets.py script with the given location and type.
-    """
-    global progress_data
-    progress_data["run_preprocess_streets"][
-        "message"] = f"Preprocessing: {validated_location['display_name']}"
-    try:
-        process = await asyncio.create_subprocess_exec(
-            "python",
-            "preprocess_streets.py",
-            validated_location["display_name"],
-            "--type",
-            location_type,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        # Read output line by line and update progress
-        while True:
-            line = await process.stdout.readline()
-            if not line:
-                break
-            line = line.decode().strip()
-            logger.info(f"preprocess_streets.py output: {line}")
-
-            # Parse progress from output (this is just an example, adapt as needed)
-            if "%" in line:
-                try:
-                    percentage = int(line.split("%")[0].split(" ")[-1])
-                    progress_data["run_preprocess_streets"]["progress"] = percentage
-                except ValueError:
-                    pass
-
-        stdout, stderr = await process.communicate()
-
-        if process.returncode == 0:
-            logger.info(
-                f"Successfully processed street data for {validated_location['display_name']}")
-            progress_data["run_preprocess_streets"]["status"] = "completed"
-            progress_data["run_preprocess_streets"]["progress"] = 100
-            progress_data["run_preprocess_streets"]["message"] = "Preprocessing completed"
-        else:
-            logger.error(
-                f"Error processing street data for {validated_location['display_name']}: {stderr.decode()}")
-            progress_data["run_preprocess_streets"]["status"] = "failed"
-            progress_data["run_preprocess_streets"]["message"] = f"Error: {stderr.decode()}"
-
-    except Exception as e:
-        logger.error(
-            f"Error running preprocess_streets.py: {e}", exc_info=True)
-        progress_data["run_preprocess_streets"]["status"] = "failed"
-        progress_data["run_preprocess_streets"]["message"] = f"Error: {e}"
 
 #############################
 # Street Segment Details Route
@@ -2218,7 +2140,10 @@ async def get_street_segment_details(segment_id):
 @app.route("/api/street_coverage", methods=["POST"])
 async def get_street_coverage():
     """
-    Return street coverage for a location, including segment data.
+    New endpoint that calculates street coverage using the raster‐based method.
+    Expects a JSON payload with a key "location" containing at least a "display_name".
+    Returns total_length (meters), driven_length (meters), coverage_percentage,
+    and also a "streets_data" object with "metadata" (for front-end compatibility).
     """
     try:
         data = await request.get_json()
@@ -2227,119 +2152,45 @@ async def get_street_coverage():
             return jsonify({"status": "error", "message": "Invalid location data."}), 400
 
         location_name = location["display_name"]
+        logger.info(f"Calculating coverage for location: {location_name}")
 
-        # Get coverage stats from MongoDB
-        coverage_stats = coverage_metadata_collection.find_one(
-            {"location": location_name})
+        result = compute_coverage_for_location(location_name)
+        if result is None:
+            return jsonify({"status": "error", "message": "No street data found or error in computation."}), 404
 
-        if not coverage_stats:
-            return jsonify({"status": "error", "message": "Coverage data not found for this location"}), 404
-
-        # Get street segments from MongoDB
-        street_segments = list(streets_collection.find(
-            {"properties.location": location_name}, {"_id": 0}))
-
-        return jsonify({
-            "total_length": coverage_stats["total_length"],
-            "driven_length": coverage_stats["driven_length"],
-            "coverage_percentage": coverage_stats["coverage_percentage"],
-            "streets_data": {
-                "type": "FeatureCollection",
-                "metadata": {
-                    "total_length_miles": meters_to_miles(coverage_stats["total_length"]),
-                    "driven_length_miles": meters_to_miles(coverage_stats["driven_length"]),
-                },
-                "features": street_segments
-            },
-        })
-
-    except Exception as e:
-        logger.error(
-            f"Error calculating coverage: {e}\n{traceback.format_exc()}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-# New function to update street coverage (to be called periodically or after new trips are added)
-
-
-async def update_street_coverage(location_name):
-    """Updates the driven status of street segments based on recent trips."""
-    logger.info(f"Updating street coverage for location: {location_name}")
-    try:
-        coverage_metadata = coverage_metadata_collection.find_one({"location": location_name})
-        last_processed_trip_time = coverage_metadata.get("last_processed_trip_time", datetime.min.replace(tzinfo=timezone.utc)) if coverage_metadata else datetime.min.replace(tzinfo=timezone.utc)
-        logger.info(f"Last processed trip time: {last_processed_trip_time}")
-        new_trips = list(matched_trips_collection.find({
-            "startTime": {"$gt": last_processed_trip_time}
-        }))
-        logger.info(f"Found {len(new_trips)} new trips for coverage update (no location filter).")
-        if not new_trips:
-            logger.info(f"No new trips found since {last_processed_trip_time}")
-            return
-
-        updated_segments = set()
-        for trip in new_trips:
-            logger.info(f"Processing trip coverage: {trip['transactionId']}")
-            try:
-                trip_line = shape(geojson_module.loads(trip["matchedGps"]))
-                buffered_line = trip_line.buffer(0.00005)  # ~5 meters
-                intersecting_segments = streets_collection.find({
-                    "properties.location": location_name,
-                    "geometry": {
-                        "$geoIntersects": {
-                            "$geometry": mapping(buffered_line)
-                        }
-                    }
-                })
-                for segment in intersecting_segments:
-                    segment_id = segment["properties"]["segment_id"]
-                    if segment_id not in updated_segments:
-                        streets_collection.update_one(
-                            {"_id": segment["_id"]},
-                            {
-                                "$set": {"properties.driven": True, "properties.last_updated": datetime.now(timezone.utc)},
-                                "$addToSet": {"properties.matched_trips": trip["transactionId"]}
-                            }
-                        )
-                        updated_segments.add(segment_id)
-                        logger.info(f"Updated segment: {segment_id}")
-
-            except Exception as e:
-                logger.error(f"Error processing trip {trip['transactionId']}: {e}")
-
-        total_segments = streets_collection.count_documents({"properties.location": location_name})
-        driven_segments = streets_collection.count_documents({"properties.location": location_name, "properties.driven": True})
-        total_length = sum(s["properties"]["length"] for s in streets_collection.find({"properties.location": location_name}, {"properties.length": 1}))
-        driven_length = sum(s["properties"]["length"] for s in streets_collection.find({"properties.location": location_name, "properties.driven": True}, {"properties.length": 1}))
-        coverage_percentage = (driven_length / total_length)*100 if total_length > 0 else 0
-
+        # Optionally update coverage metadata in the DB.
         coverage_metadata_collection.update_one(
             {"location": location_name},
-            {
-                "$set": {
-                    "total_segments": total_segments,
-                    "driven_segments": driven_segments,
-                    "total_length": total_length,
-                    "driven_length": driven_length,
-                    "coverage_percentage": coverage_percentage,
-                    "last_updated": datetime.now(timezone.utc),
-                    "last_processed_trip_time": max(trip["startTime"] for trip in new_trips)
-                }
-            },
+            {"$set": {
+                "total_length": result["total_length"],
+                "driven_length": result["driven_length"],
+                "coverage_percentage": result["coverage_percentage"],
+                "last_updated": datetime.now(timezone.utc)
+            }},
             upsert=True
         )
-        logger.info(f"Street coverage updated for {location_name}")
 
+        # Wrap the result so that the client sees a "streets_data" object with a "metadata" property.
+        response_obj = {
+            "total_length": result["total_length"],
+            "driven_length": result["driven_length"],
+            "coverage_percentage": result["coverage_percentage"],
+            "raster_dimensions": result["raster_dimensions"],
+            "streets_data": {
+                "metadata": {
+                    "total_length_miles": float(result["total_length"]) * 0.000621371,
+                    "driven_length_miles": float(result["driven_length"]) * 0.000621371
+                },
+                "features": []  # No vector features available in this raster-based approach.
+            }
+        }
+
+        return jsonify(response_obj)
     except Exception as e:
-        logger.error(f"Error updating street coverage for {location_name}: {e}")
-        raise
+        import traceback
+        logger.error(f"Error in street coverage calculation: {e}\n{traceback.format_exc()}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-def run_periodic_fetches():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(periodic_fetch_trips())
-    finally:
-        loop.close()
 
 #############################
 # Loading historical data

@@ -1,15 +1,12 @@
 import os
-import sys
 import json
-import argparse
 import asyncio
 import logging
 from datetime import datetime, timezone
 
-import requests
 import aiohttp
 from pymongo import MongoClient
-from shapely.geometry import LineString, mapping, Point
+from shapely.geometry import LineString, mapping, Point, shape, box
 from shapely.ops import transform
 import pyproj
 from dotenv import load_dotenv
@@ -36,15 +33,17 @@ OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
 # Coordinate reference systems and transformers
 wgs84 = pyproj.CRS("EPSG:4326")
-utm = pyproj.CRS("EPSG:32610")  # Adjust UTM zone as needed
-project_to_utm = pyproj.Transformer.from_crs(wgs84, utm, always_xy=True).transform
-project_to_wgs84 = pyproj.Transformer.from_crs(utm, wgs84, always_xy=True).transform
+# For segmentation purposes, we define a default UTM projection.
+default_utm = pyproj.CRS("EPSG:32610")  # Adjust the UTM zone as needed.
+project_to_utm = pyproj.Transformer.from_crs(wgs84, default_utm, always_xy=True).transform
+project_to_wgs84 = pyproj.Transformer.from_crs(default_utm, wgs84, always_xy=True).transform
 
 
-def fetch_osm_data(location, streets_only=True):
+async def fetch_osm_data(location, streets_only=True):
     """
     Asynchronously fetch OSM data for the given location using the Overpass API.
-    This function runs an async fetch using asyncio.run().
+    This version is fully async (do not use asyncio.run here) so that it works
+    within the application's event loop.
     """
     area_id = int(location["osm_id"])
     if location["osm_type"] == "relation":
@@ -68,18 +67,11 @@ def fetch_osm_data(location, streets_only=True):
         );
         out geom;
         """
-
-    async def _fetch():
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-            async with session.get(OVERPASS_URL, params={"data": query}) as response:
-                response.raise_for_status()
-                return await response.json()
-
-    try:
-        return asyncio.run(_fetch())
-    except Exception as e:
-        logger.error(f"Error fetching OSM data from Overpass for {location['display_name']}: {e}", exc_info=True)
-        raise
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+        async with session.get(OVERPASS_URL, params={"data": query}) as response:
+            response.raise_for_status()
+            osm_data = await response.json()
+            return osm_data
 
 
 def segment_street(line, segment_length_meters=100):
@@ -125,20 +117,31 @@ def cut(line, start_distance, end_distance):
 def process_osm_data(osm_data, location):
     """
     Process OSM elements: segment each street (way) and store them in MongoDB.
-    Also update coverage metadata.
+    Also update coverage metadata for the location.
+    This function:
+      1. Iterates over all elements of type "way" in the OSM data.
+      2. Creates a LineString from the node coordinates.
+      3. Projects the line using the default transformer (project_to_utm) and segments it.
+      4. Reprojects each segment back to WGS84.
+      5. Assembles a GeoJSON Feature for each segment with metadata and inserts them into the streets_collection.
+      6. Updates the coverage_metadata_collection for the location.
     """
     features = []
     total_length = 0
+
     for element in osm_data.get("elements", []):
         if element.get("type") != "way":
             continue
         try:
             nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
-            line = transform(project_to_utm, LineString(nodes))
-            segments = segment_street(line)
+            line = LineString(nodes)
+            # Project to UTM for segmentation.
+            projected_line = transform(project_to_utm, line)
+            segments = segment_street(projected_line)
             for i, segment in enumerate(segments):
+                # Reproject each segment back to WGS84.
                 segment_wgs84 = transform(project_to_wgs84, segment)
-                segment_length = segment.length
+                segment_length = segment.length  # length in meters (in UTM units)
                 feature = {
                     "type": "Feature",
                     "geometry": mapping(segment_wgs84),
@@ -160,46 +163,50 @@ def process_osm_data(osm_data, location):
 
     if features:
         geojson_data = {"type": "FeatureCollection", "features": features}
-        streets_collection.insert_many(geojson_data["features"])
-        coverage_metadata_collection.update_one(
-            {"location": location["display_name"]},
-            {"$set": {
-                "total_segments": len(features),
-                "driven_segments": 0,
-                "total_length": total_length,
-                "driven_length": 0,
-                "coverage_percentage": 0.0,
-                "last_updated": datetime.now(timezone.utc),
-            }},
-            upsert=True,
-        )
-        logger.info(f"Stored {len(features)} street segments for {location['display_name']}")
+        try:
+            streets_collection.insert_many(geojson_data["features"])
+        except Exception as e:
+            logger.error(f"Error inserting street segments: {e}", exc_info=True)
+        try:
+            coverage_metadata_collection.update_one(
+                {"location": location["display_name"]},
+                {"$set": {
+                    "total_segments": len(features),
+                    "driven_segments": 0,
+                    "total_length": total_length,
+                    "driven_length": 0,
+                    "coverage_percentage": 0.0,
+                    "last_updated": datetime.now(timezone.utc),
+                }},
+                upsert=True,
+            )
+        except Exception as e:
+            logger.error(f"Error updating coverage metadata: {e}", exc_info=True)
+        logger.info(f"Stored {len(features)} street segments for {location['display_name']}.")
+    else:
+        logger.info(f"No valid street segments found for {location['display_name']}.")
 
 
-def main():
+async def preprocess_streets(validated_location):
     """
-    Main entry point for command–line street preprocessing.
-    Accepts a location query and an optional location type.
+    Asynchronously preprocess street data for a given validated location.
+    This function is designed to be invoked by the application.
+    
+    It performs the following steps:
+      1. Asynchronously fetches OSM data for the location.
+      2. Processes the OSM data (segments the streets) and inserts the segments into MongoDB.
+      3. Updates coverage metadata for the location.
     """
-    parser = argparse.ArgumentParser(description="Preprocess street data for a given location.")
-    parser.add_argument("location", help="Location query (e.g., 'Beverly Hills, TX')")
-    parser.add_argument("--type", dest="location_type", default="city",
-                        help="Location type (e.g., 'city', 'county', 'state')")
-    args = parser.parse_args()
-    location_query = args.location
-    location_type = args.location_type
-
     try:
-        validated_location = validate_location_osm(location_query, location_type)
-        if not validated_location:
-            logger.error(f"Location '{location_query}' of type '{location_type}' not found.")
-            return
-        osm_data = fetch_osm_data(validated_location)
-        process_osm_data(osm_data, validated_location)
+        osm_data = await fetch_osm_data(validated_location)
+        # Run the synchronous process_osm_data in a thread so as not to block the event loop.
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, process_osm_data, osm_data, validated_location)
         logger.info(f"Street preprocessing completed for {validated_location['display_name']}.")
     except Exception as e:
         logger.error(f"Error during street preprocessing: {e}", exc_info=True)
 
 
+# This module is intended for import within the application.
 if __name__ == "__main__":
-    main()
+    logger.info("This module is not meant to be run independently. Use it via your application.")

@@ -8,18 +8,21 @@ and (optionally) triggers map matching on the newly inserted trips.
 
 import os
 import json
+import pytz
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
 from dateutil import parser as date_parser
 import aiohttp
+from dateutil import parser
 from geojson import dumps as geojson_dumps, loads as geojson_loads
 from pymongo import MongoClient
 
 # Import shared utilities and map matching function
-from utils import validate_trip_data, reverse_geocode_nominatim
+from utils import validate_trip_data, reverse_geocode_nominatim, get_trip_timezone
 from map_matching import process_and_map_match_trip
+from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
 
 # -----------------------------------------------------------------------------
 # Logging Configuration
@@ -36,10 +39,10 @@ logger = logging.getLogger(__name__)
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
-AUTHORIZATION_CODE = os.getenv("AUTHORIZATION_CODE")
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
 AUTHORIZED_DEVICES = os.getenv("AUTHORIZED_DEVICES", "").split(",")
+AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 
 # -----------------------------------------------------------------------------
 # MongoDB configuration
@@ -54,27 +57,43 @@ trips_collection = db["trips"]
 # -----------------------------------------------------------------------------
 
 
-async def get_access_token(session: aiohttp.ClientSession) -> str:
+async def get_access_token(client_session):
     """
-    Retrieve an OAuth access token from the Bouncie API.
+    Retrieves an access token from the Bouncie API using OAuth.
     """
     payload = {
         "client_id": CLIENT_ID,
         "client_secret": CLIENT_SECRET,
         "grant_type": "authorization_code",
-        "code": AUTHORIZATION_CODE,
+        "code": AUTH_CODE,
         "redirect_uri": REDIRECT_URI,
     }
     try:
-        async with session.post(AUTH_URL, json=payload) as response:
-            response.raise_for_status()
-            data = await response.json()
-            token = data.get("access_token")
-            if not token:
-                logger.error("No access token found in Bouncie response.")
-            return token
+        async with client_session.post(AUTH_URL, data=payload) as auth_response:
+            auth_response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+            data = await auth_response.json()
+            access_token = data.get("access_token")
+            if not access_token:
+                # Log if token is missing
+                logger.error(f"Access token not found in response: {data}")
+                return None
+            logger.info(
+                "Successfully retrieved access token from Bouncie API.")
+            return access_token
+    except ClientResponseError as e:
+        # Log ClientResponseError with details
+        logger.error(
+            f"ClientResponseError retrieving access token: {e.status} - {e.message}", exc_info=True)
+        return None
+    except ClientConnectorError as e:
+        # Log ClientConnectorError
+        logger.error(
+            f"ClientConnectorError retrieving access token: {e}", exc_info=True)
+        return None
     except Exception as e:
-        logger.error(f"Error retrieving access token: {e}", exc_info=True)
+        # Log any other exceptions
+        logger.error(
+            f"Unexpected error retrieving access token: {e}", exc_info=True)
         return None
 
 
@@ -209,3 +228,138 @@ async def fetch_bouncie_trips_in_range(
             progress_data["status"] = "completed"
 
         return all_new_trips
+    
+async def get_trips_from_api(client_session, access_token, imei, start_date, end_date):
+    """
+    Pulls trips from Bouncie's /trips endpoint, for a device IMEI and date range.
+    """
+    headers = {"Authorization": access_token,
+               "Content-Type": "application/json"}
+    params = {
+        "imei": imei,
+        "gps-format": "geojson",
+        "starts-after": start_date.isoformat(),
+        "ends-before": end_date.isoformat(),
+    }
+    try:
+        async with client_session.get(
+            f"{API_BASE_URL}/trips", headers=headers, params=params
+        ) as response:
+            response.raise_for_status()
+            trips = await response.json()
+            # Attempt localizing times
+            for trip in trips:
+                tz_str = get_trip_timezone(trip)
+                timezone_obj = pytz.timezone(tz_str)
+
+                if "startTime" in trip and isinstance(trip["startTime"], str):
+                    parsed = parser.isoparse(trip["startTime"])
+                    if parsed.tzinfo is None:
+                        parsed = parsed.replace(tzinfo=pytz.UTC)
+                    local_time = parsed.astimezone(timezone_obj)
+                    trip["startTime"] = local_time
+                    trip["timeZone"] = tz_str
+
+                if "endTime" in trip and isinstance(trip["endTime"], str):
+                    parsed = parser.isoparse(trip["endTime"])
+                    if parsed.tzinfo is None:
+                        parsed = parsed.replace(tzinfo=pytz.UTC)
+                    local_time = parsed.astimezone(timezone_obj)
+                    trip["endTime"] = local_time
+
+            logger.info(
+                f"Successfully fetched {len(trips)} trips from Bouncie API for IMEI: {imei}, date range: {start_date} to {end_date}")
+            return trips
+    except ClientResponseError as e:
+        logger.error(
+            f"ClientResponseError fetching trips from Bouncie API: {e.status} - {e.message}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
+        return []
+    except ClientConnectorError as e:
+        logger.error(
+            f"ClientConnectorError fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
+        return []
+    except Exception as e:
+        logger.error(
+            f"Unexpected error fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
+        return []
+    
+    #############################
+# API calls to Bouncie
+#############################
+
+
+async def get_trips_from_api(client_session, access_token, imei, start_date, end_date):
+    """
+    Pulls trips from Bouncie's /trips endpoint, for a device IMEI and date range.
+    """
+    headers = {"Authorization": access_token,
+               "Content-Type": "application/json"}
+    params = {
+        "imei": imei,
+        "gps-format": "geojson",
+        "starts-after": start_date.isoformat(),
+        "ends-before": end_date.isoformat(),
+    }
+    try:
+        async with client_session.get(
+            f"{API_BASE_URL}/trips", headers=headers, params=params
+        ) as response:
+            response.raise_for_status()
+            trips = await response.json()
+            # Attempt localizing times
+            for trip in trips:
+                tz_str = get_trip_timezone(trip)
+                timezone_obj = pytz.timezone(tz_str)
+
+                if "startTime" in trip and isinstance(trip["startTime"], str):
+                    parsed = parser.isoparse(trip["startTime"])
+                    if parsed.tzinfo is None:
+                        parsed = parsed.replace(tzinfo=pytz.UTC)
+                    local_time = parsed.astimezone(timezone_obj)
+                    trip["startTime"] = local_time
+                    trip["timeZone"] = tz_str
+
+                if "endTime" in trip and isinstance(trip["endTime"], str):
+                    parsed = parser.isoparse(trip["endTime"])
+                    if parsed.tzinfo is None:
+                        parsed = parsed.replace(tzinfo=pytz.UTC)
+                    local_time = parsed.astimezone(timezone_obj)
+                    trip["endTime"] = local_time
+
+            logger.info(
+                f"Successfully fetched {len(trips)} trips from Bouncie API for IMEI: {imei}, date range: {start_date} to {end_date}")
+            return trips
+    except ClientResponseError as e:
+        logger.error(
+            f"ClientResponseError fetching trips from Bouncie API: {e.status} - {e.message}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
+        return []
+    except ClientConnectorError as e:
+        logger.error(
+            f"ClientConnectorError fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
+        return []
+    except Exception as e:
+        logger.error(
+            f"Unexpected error fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
+        return []
+
+
+async def fetch_trips_in_intervals(main_session, access_token, imei, start_date, end_date):
+    """
+    Breaks the date range into 7-day intervals to avoid hitting any Bouncie restrictions.
+    """
+    all_trips = []
+    current_start = start_date.replace(tzinfo=timezone.utc)
+    end_date = end_date.replace(tzinfo=timezone.utc)
+
+    while current_start < end_date:
+        current_end = min(current_start + timedelta(days=7), end_date)
+        try:
+            trips = await get_trips_from_api(main_session, access_token, imei, current_start, current_end)
+            all_trips.extend(trips)
+        except Exception as e:
+            # Log interval specific errors
+            logger.error(
+                f"Error fetching trips for interval {current_start} to {current_end}: {e}", exc_info=True)
+        current_start = current_end
+
+    return all_trips
