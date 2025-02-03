@@ -334,8 +334,6 @@ async def manually_run_tasks():
     if "ALL" in tasks_to_run:
         tasks_to_run = [t["id"] for t in AVAILABLE_TASKS]
 
-    # We'll just call the functions directly in an async manner
-    # Note these are async, so we'll do them in a create_task fashion
     import asyncio
 
     async def run_task_by_id(task_id):
@@ -366,7 +364,7 @@ def reinitialize_scheduler_tasks():
     Re-read the config from DB, remove existing jobs, re-add them with correct intervals if enabled,
     unless globally disabled or paused.
     """
-    # We'll remove all existing jobs for these tasks, then re-add according to config
+
     for t in AVAILABLE_TASKS:
         job_id = t["id"]
         try:
@@ -2287,8 +2285,6 @@ async def get_trips_for_place(place_id):
 
         trips_data = []
         for i, trip in enumerate(valid_trips):
-            # We'll keep the old pattern of measuring "duration" as time until next trip start,
-            # but only if that next trip starts at the same place.
             end_time = trip["endTime"]
             if end_time.tzinfo is None:
                 end_time = end_time.replace(tzinfo=timezone.utc)
