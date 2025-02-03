@@ -17,14 +17,12 @@ from apscheduler.jobstores.base import JobLookupError
 
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from map_matching import process_and_map_match_trip
-from utils import validate_trip_data, reverse_geocode_nominatim
+from utils import validate_trip_data
 from street_coverage_calculation import update_coverage_for_all_locations
 
 # Import your database collections from a centralized module (db.py)
 from db import (
     trips_collection,
-    historical_trips_collection,
-    uploaded_trips_collection,
     live_trips_collection,
     archived_live_trips_collection,
     task_config_collection,

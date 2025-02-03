@@ -7,7 +7,6 @@ and (optionally) triggers map matching on the newly inserted trips.
 """
 
 import os
-import json
 import pytz
 import asyncio
 import logging

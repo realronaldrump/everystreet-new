@@ -11,7 +11,6 @@ and converting stored gps JSON strings into the appropriate structures.
 import json
 import logging
 from datetime import datetime
-from bson import ObjectId
 
 logger = logging.getLogger(__name__)
 
