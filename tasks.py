@@ -246,12 +246,3 @@ def start_background_tasks():
     if not scheduler.running:
         scheduler.start()
     reinitialize_scheduler_tasks()
-
-
-# ----- Optional: Standalone Execution for Testing -----
-if __name__ == "__main__":
-    start_background_tasks()
-    try:
-        asyncio.get_event_loop().run_forever()
-    except KeyboardInterrupt:
-        scheduler.shutdown()

@@ -23,17 +23,17 @@ from utils import validate_trip_data, reverse_geocode_nominatim, get_trip_timezo
 from map_matching import process_and_map_match_trip
 from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
 
-# -----------------------------------------------------------------------------
+
 # Logging Configuration
-# -----------------------------------------------------------------------------
+
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-# -----------------------------------------------------------------------------
+
 # Bouncie API & Environment configuration
-# -----------------------------------------------------------------------------
+
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
@@ -42,17 +42,15 @@ API_BASE_URL = "https://api.bouncie.dev/v1"
 AUTHORIZED_DEVICES = os.getenv("AUTHORIZED_DEVICES", "").split(",")
 AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 
-# -----------------------------------------------------------------------------
 # MongoDB configuration
-# -----------------------------------------------------------------------------
+
 MONGO_URI = os.getenv("MONGO_URI")
 mongo_client = MongoClient(MONGO_URI)
 db = mongo_client["every_street"]
 trips_collection = db["trips"]
 
-# -----------------------------------------------------------------------------
+
 # API Functions
-# -----------------------------------------------------------------------------
 
 
 async def get_access_token(client_session):
@@ -307,11 +305,8 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
         )
         return []
 
-    #############################
-
 
 # API calls to Bouncie
-#############################
 
 
 async def fetch_trips_in_intervals(
