@@ -1,5 +1,4 @@
 /* global L, flatpickr */
-
 (() => {
   "use strict";
 
@@ -144,7 +143,7 @@
       setTimeout(() => (loadingOverlay.style.display = "none"), 500);
   }
 
-  // Map initialization
+  // Map initialization (note: ensure this code runs only once)
   function initializeMap() {
     if (mapInitialized || !document.getElementById("map")) return;
     try {
@@ -260,7 +259,7 @@
             gps: trip.geometry,
             destination: trip.properties.destination || "N/A",
             startLocation: trip.properties.startLocation || "N/A",
-            distance: (Number(trip.properties.distance)).toFixed(2),
+            distance: Number(trip.properties.distance).toFixed(2),
           }));
         await new Promise((resolve) => {
           window.tripsTable.clear().rows.add(formattedTrips).draw();
@@ -332,6 +331,7 @@
           "Updating map visualization",
         );
         if (name === "streetCoverage" || name === "customPlaces") {
+          // For streetCoverage, the layer is already an L.geoJSON layer
           info.layer.addTo(layerGroup);
         } else if (
           ["trips", "historicalTrips", "matchedTrips"].includes(name)
@@ -362,9 +362,16 @@
                   <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
                   <strong>Start Time:</strong> ${formatter.format(startTime)}<br>
                   <strong>End Time:</strong> ${formatter.format(endTime)}<br>
-                  <strong>Distance:</strong> ${(Number(feature.properties.distance)).toFixed(2)} miles<br>
-                  ${mapSettings.highlightRecentTrips && startTime.getTime() > sixHoursAgo ? "<br><strong>(Recent Trip)</strong>" : ""}
-                  <button class="btn btn-danger btn-sm mt-2 delete-matched-trip" data-trip-id="${feature.properties.transactionId}">
+                  <strong>Distance:</strong> ${Number(feature.properties.distance).toFixed(2)} miles<br>
+                  ${
+                    mapSettings.highlightRecentTrips &&
+                    startTime.getTime() > sixHoursAgo
+                      ? "<br><strong>(Recent Trip)</strong>"
+                      : ""
+                  }
+                  <button class="btn btn-danger btn-sm mt-2 delete-matched-trip" data-trip-id="${
+                    feature.properties.transactionId
+                  }">
                     Delete Matched Trip
                   </button>`;
               lyr.bindPopup(popupContent).on("popupopen", () => {
@@ -448,7 +455,9 @@
       div.dataset.layerName = name;
       div.innerHTML = `
         <label class="custom-checkbox">
-          <input type="checkbox" id="${name}-toggle" ${info.visible ? "checked" : ""}>
+          <input type="checkbox" id="${name}-toggle" ${
+        info.visible ? "checked" : ""
+      }>
           <span class="checkmark"></span>
         </label>
         <label for="${name}-toggle">${info.name || name}</label>
@@ -672,7 +681,7 @@
       )
       .then((results) => {
         console.log("Map matching responses:", results);
-        alert("Map matching completed selected trips.");
+        alert("Map matching completed for selected trips.");
         fetchTrips();
       })
       .catch((err) => {
@@ -914,11 +923,14 @@
       coverageBtn.innerHTML = originalText;
     }
   }
+
   function visualizeStreetCoverage(coverageData) {
+    // Remove any existing streetCoverage layer
     if (mapLayers.streetCoverage.layer) {
       layerGroup.removeLayer(mapLayers.streetCoverage.layer);
       mapLayers.streetCoverage.layer = null;
     }
+    // Use the GeoJSON FeatureCollection returned by the backend
     mapLayers.streetCoverage.layer = L.geoJSON(coverageData.streets_data, {
       style: (feature) => ({
         color: feature.properties.driven ? "#00FF00" : "#FF4444",
@@ -932,10 +944,12 @@
       },
     });
     mapLayers.streetCoverage.layer.addTo(layerGroup);
+    mapLayers.streetCoverage.visible = true;
     updateLayerOrderUI();
     updateMap();
     updateCoverageStats(coverageData);
   }
+
   function fetchSegmentDetails(segmentId) {
     fetch(`/api/street_segment/${segmentId}`)
       .then((response) => {
@@ -943,17 +957,21 @@
         return response.json();
       })
       .then((segmentData) => {
-        const props = segmentData.properties,
+        const props = segmentData.properties || {},
           popupContent = `
             <strong>${props.street_name || "Unnamed Street"}</strong><br>
             Segment ID: ${props.segment_id}<br>
             Status: ${props.driven ? "Driven" : "Not driven"}<br>
-            Last Updated: ${props.last_updated ? new Date(props.last_updated).toLocaleString() : "N/A"}<br>
-            Length: ${props.length.toFixed(2)} meters<br>
+            Last Updated: ${
+              props.last_updated
+                ? new Date(props.last_updated).toLocaleString()
+                : "N/A"
+            }<br>
+            Length: ${props.length ? props.length.toFixed(2) : "??"} meters<br>
           `;
-        mapLayers.streetCoverage.layer.eachLayer((layer) => {
-          if (layer.feature.properties.segment_id === segmentId) {
-            layer.bindPopup(popupContent).openPopup();
+        mapLayers.streetCoverage.layer.eachLayer((lyr) => {
+          if (lyr.feature?.properties?.segment_id === segmentId) {
+            lyr.bindPopup(popupContent).openPopup();
           }
         });
       })
@@ -962,12 +980,14 @@
         alert("Error fetching segment details. Please try again.");
       });
   }
+
   function updateCoverageStats(coverageData) {
     const statsDiv = document.getElementById("coverage-stats"),
       progressBar = document.getElementById("coverage-progress"),
       coveragePercentageSpan = document.getElementById("coverage-percentage"),
       totalStreetLengthSpan = document.getElementById("total-street-length"),
       milesDrivenSpan = document.getElementById("miles-driven");
+
     if (
       !statsDiv ||
       !progressBar ||
@@ -978,16 +998,20 @@
       console.error("One or more coverage stats elements not found!");
       return;
     }
+
+    // Unhide the stats panel
     statsDiv.classList.remove("d-none");
-    const percent = coverageData.coverage_percentage,
-      totalLengthMiles = coverageData.streets_data.metadata.total_length_miles,
-      drivenLengthMiles =
-        coverageData.streets_data.metadata.driven_length_miles;
+
+    const percent = coverageData.coverage_percentage || 0;
+    // Convert meters to miles (0.000621371 conversion factor)
+    const totalMiles = (coverageData.total_length || 0) * 0.000621371;
+    const drivenMiles = (coverageData.driven_length || 0) * 0.000621371;
+
     progressBar.style.width = `${percent}%`;
-    progressBar.setAttribute("aria-valuenow", percent);
+    progressBar.setAttribute("aria-valuenow", percent.toFixed(1));
     coveragePercentageSpan.textContent = percent.toFixed(1);
-    totalStreetLengthSpan.textContent = totalLengthMiles.toFixed(2);
-    milesDrivenSpan.textContent = drivenLengthMiles.toFixed(2);
+    totalStreetLengthSpan.textContent = totalMiles.toFixed(2);
+    milesDrivenSpan.textContent = drivenMiles.toFixed(2);
   }
 
   // Main initialization on DOM load

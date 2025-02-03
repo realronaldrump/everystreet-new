@@ -1404,14 +1404,11 @@ async def map_match_historical_trips():
 
 @app.route("/api/matched_trips")
 async def get_matched_trips():
-    """
-    Return matched trips from matched_trips_collection in a date range.
-    """
     start_date_str = request.args.get("start_date")
     end_date_str = request.args.get("end_date")
     imei = request.args.get("imei")
 
-    # Convert start/end date strings to datetime objects
+    # Convert start/end date
     start_date = (
         datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
         if start_date_str
@@ -1436,8 +1433,17 @@ async def get_matched_trips():
     features = []
     for trip in matched_trips:
         try:
+            mgps = trip["matchedGps"]
+            # If it’s already a dict, skip geojson_loads
+            if isinstance(mgps, dict):
+                geometry_dict = mgps
+            else:
+                # Otherwise parse string as GeoJSON
+                geometry_dict = geojson_loads(mgps)
+            
+            # Build a Feature
             feature = geojson_module.Feature(
-                geometry=geojson_loads(trip["matchedGps"]),
+                geometry=geometry_dict,
                 properties={
                     "transactionId": trip["transactionId"],
                     "imei": trip.get("imei", ""),
@@ -1454,11 +1460,13 @@ async def get_matched_trips():
                 },
             )
             features.append(feature)
+
         except Exception as e:
             logger.error(
                 f"Error processing matched trip {trip.get('transactionId')}: {e}",
                 exc_info=True,
             )
+            # skip this trip but continue others
 
     return jsonify(geojson_module.FeatureCollection(features))
 
