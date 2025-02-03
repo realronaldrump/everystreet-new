@@ -291,9 +291,7 @@ async def process_and_map_match_trip(trip):
         matched_trip["gps"] = (
             json.dumps(trip["gps"]) if isinstance(trip["gps"], dict) else trip["gps"]
         )
-        matched_trip["matchedGps"] = geojson_dumps(
-            {"type": "LineString", "coordinates": matched_coords_combined}
-        )
+        matched_trip["matchedGps"] = {"type": "LineString", "coordinates": matched_coords_combined}
 
         # Optionally update location via reverse geocode
         try:
