@@ -128,7 +128,7 @@
 
   //  POPULATE TASK CONFIGURATION UI
   function populateTaskConfigUI(cfg) {
-    document.getElementById("globalDisableSwitch").checked = !!cfg.disabled;
+    document.getElementById("globalDisableSwitch").checked = Boolean(cfg.disabled);
     const tableBody = document.querySelector("#taskConfigTable tbody");
     if (!tableBody || !cfg.tasks) return;
     tableBody.innerHTML = "";
@@ -179,7 +179,7 @@
       const enableCheck = document.createElement("input");
       enableCheck.type = "checkbox";
       enableCheck.classList.add("form-check-input");
-      enableCheck.checked = !!cfg.tasks[task.id]?.enabled;
+      enableCheck.checked = Boolean(cfg.tasks[task.id]?.enabled);
       enableCheck.dataset.taskId = task.id;
       tdEnable.appendChild(enableCheck);
       row.appendChild(tdEnable);

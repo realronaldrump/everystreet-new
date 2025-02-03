@@ -260,7 +260,7 @@
             gps: trip.geometry,
             destination: trip.properties.destination || "N/A",
             startLocation: trip.properties.startLocation || "N/A",
-            distance: (+trip.properties.distance).toFixed(2),
+            distance: (Number(trip.properties.distance)).toFixed(2),
           }));
         await new Promise((resolve) => {
           window.tripsTable.clear().rows.add(formattedTrips).draw();
@@ -362,7 +362,7 @@
                   <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
                   <strong>Start Time:</strong> ${formatter.format(startTime)}<br>
                   <strong>End Time:</strong> ${formatter.format(endTime)}<br>
-                  <strong>Distance:</strong> ${(+feature.properties.distance).toFixed(2)} miles<br>
+                  <strong>Distance:</strong> ${(Number(feature.properties.distance)).toFixed(2)} miles<br>
                   ${mapSettings.highlightRecentTrips && startTime.getTime() > sixHoursAgo ? "<br><strong>(Recent Trip)</strong>" : ""}
                   <button class="btn btn-danger btn-sm mt-2 delete-matched-trip" data-trip-id="${feature.properties.transactionId}">
                     Delete Matched Trip
