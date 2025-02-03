@@ -39,7 +39,7 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
-AUTHORIZED_DEVICES = os.getenv("AUTHORIZED_DEVICES", "").split(",")
+AUTHORIZED_DEVICES = [d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d]
 AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 
 # MongoDB configuration

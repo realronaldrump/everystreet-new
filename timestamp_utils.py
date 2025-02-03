@@ -1,11 +1,12 @@
 import dateutil.parser
 from datetime import datetime, timezone
 import logging
+from typing import Optional, Tuple, List, Dict
 
 logger = logging.getLogger(__name__)
 
 
-def parse_bouncie_timestamp(ts: str) -> datetime:
+def parse_bouncie_timestamp(ts: str) -> Optional[datetime]:
     """
     Parse an ISO 8601 timestamp from Bouncie’s API ensuring it is timezone-aware.
     Returns None if parsing fails.
@@ -23,7 +24,9 @@ def parse_bouncie_timestamp(ts: str) -> datetime:
         return None
 
 
-def get_trip_timestamps(event_data: dict) -> tuple:
+def get_trip_timestamps(
+    event_data: dict,
+) -> Tuple[Optional[datetime], Optional[datetime]]:
     """
     Extract startTime and endTime from Bouncie webhook event data.
     Logs a warning if any timestamp is missing or invalid.
@@ -41,7 +44,7 @@ def get_trip_timestamps(event_data: dict) -> tuple:
     return start_time, end_time
 
 
-def sort_and_filter_trip_coordinates(trip_data: list) -> list:
+def sort_and_filter_trip_coordinates(trip_data: List[dict]) -> List[Dict]:
     """
     Extract, sort, and deduplicate trip coordinates based on timestamps.
     Each valid point is a dict with keys: "timestamp", "lat", and "lon".
