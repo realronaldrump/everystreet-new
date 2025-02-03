@@ -1,4 +1,4 @@
-/* global showLoadingOverlay, hideLoadingOverlay, bootstrap */
+/* global showLoadingOverlay, hideLoadingOverlay, bootstrap, flatpickr */
 
 (() => {
   "use strict";
@@ -10,9 +10,11 @@
     setupHistoricalData();
     setupGeoPointsUpdate();
     setupRegeocode();
+    setupDeleteMatchedTrips();
+    setupRemapMatchedTrips();
   });
 
-  //  HISTORICAL DATA MANAGEMENT
+  // HISTORICAL DATA MANAGEMENT
   function setupHistoricalData() {
     const btn = document.getElementById("load-historical-data");
     if (!btn) return;
@@ -29,82 +31,165 @@
           console.error("Error loading historical data:", err);
           alert("Error loading historical data. Check console.");
         })
-        .finally(hideLoadingOverlay);
+        .finally(() => hideLoadingOverlay());
     });
   }
 
-  //  GEOPOINT UPDATES
+  // GEOPOINT UPDATES
   function setupGeoPointsUpdate() {
     const btn = document.getElementById("update-geo-points");
     const select = document.getElementById("collection-select");
-    if (btn && select) {
-      btn.addEventListener("click", () => {
-        const collection = select.value;
-        document.getElementById("update-geo-points-status").textContent =
-          "Updating...";
-        fetch("/update_geo_points", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ collection }),
+    if (!btn || !select) return;
+    btn.addEventListener("click", () => {
+      const collection = select.value;
+      document.getElementById("update-geo-points-status").textContent =
+        "Updating...";
+      fetch("/update_geo_points", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collection }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          document.getElementById("update-geo-points-status").textContent =
+            data.message;
         })
-          .then((r) => r.json())
-          .then((data) => {
-            document.getElementById("update-geo-points-status").textContent =
-              data.message;
-          })
-          .catch((err) => console.error("Error updating GeoPoints:", err));
-      });
-    }
+        .catch((err) => console.error("Error updating GeoPoints:", err));
+    });
   }
 
-  //  RE-GEOCODE ALL TRIPS
+  // RE-GEOCODE ALL TRIPS
   function setupRegeocode() {
     const btn = document.getElementById("re-geocode-all-trips");
-    if (btn) {
-      btn.addEventListener("click", () => {
-        document.getElementById("re-geocode-all-trips-status").textContent =
-          "Re-geocoding all trips...";
-        fetch("/api/regeocode_all_trips", { method: "POST" })
-          .then((r) => r.json())
-          .then((data) => {
-            document.getElementById("re-geocode-all-trips-status").textContent =
-              "All trips have been re-geocoded.";
-            alert(data.message);
-          })
-          .catch((err) => {
-            console.error("Error re-geocoding trips:", err);
-            document.getElementById("re-geocode-all-trips-status").textContent =
-              "Error re-geocoding trips. See console.";
-          });
-      });
-    }
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      document.getElementById("re-geocode-all-trips-status").textContent =
+        "Re-geocoding all trips...";
+      fetch("/api/regeocode_all_trips", { method: "POST" })
+        .then((r) => r.json())
+        .then((data) => {
+          document.getElementById("re-geocode-all-trips-status").textContent =
+            "All trips have been re-geocoded.";
+          alert(data.message);
+        })
+        .catch((err) => {
+          console.error("Error re-geocoding trips:", err);
+          document.getElementById("re-geocode-all-trips-status").textContent =
+            "Error re-geocoding trips. See console.";
+        });
+    });
   }
 
-  //  BACKGROUND TASK CONFIGURATION
-  function setupTaskConfigEventListeners() {
-    document
-      .getElementById("saveTaskConfigBtn")
-      ?.addEventListener("click", saveBackgroundTasksConfig);
-    document
-      .getElementById("confirmPause")
-      ?.addEventListener("click", confirmPause);
-    document
-      .getElementById("resumeBtn")
-      ?.addEventListener("click", resumeBackgroundTasks);
-    document
-      .getElementById("stopAllBtn")
-      ?.addEventListener("click", stopAllBackgroundTasks);
-    document
-      .getElementById("enableAllBtn")
-      ?.addEventListener("click", enableAllTasks);
-    document
-      .getElementById("disableAllBtn")
-      ?.addEventListener("click", disableAllTasks);
-    document
-      .getElementById("manualRunAllBtn")
-      ?.addEventListener("click", () => manualRunTasks(["ALL"]));
+  // DELETE MATCHED TRIPS
+  function setupDeleteMatchedTrips() {
+    const btn = document.getElementById("delete-matched-trips");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      if (!confirm("Are you sure you want to delete all matched trips?"))
+        return;
+      document.getElementById("delete-matched-trips-status").textContent =
+        "Deleting...";
+      fetch("/api/matched_trips/delete", { method: "POST" })
+        .then((r) => r.json())
+        .then((data) => {
+          document.getElementById("delete-matched-trips-status").textContent =
+            data.message;
+          alert(data.message);
+        })
+        .catch((err) => {
+          console.error("Error deleting matched trips:", err);
+          document.getElementById("delete-matched-trips-status").textContent =
+            "Error deleting matched trips. See console.";
+        });
+    });
+  }
 
+  // REMAP MATCHED TRIPS
+  function setupRemapMatchedTrips() {
+    const remapType = document.getElementById("remap-type");
+    const dateRangeDiv = document.getElementById("remap-date-range");
+    const intervalDiv = document.getElementById("remap-interval");
+    if (!remapType || !dateRangeDiv || !intervalDiv) return;
+
+    // Toggle between date range and interval selection
+    remapType.addEventListener("change", function () {
+      if (this.value === "date") {
+        dateRangeDiv.style.display = "block";
+        intervalDiv.style.display = "none";
+      } else {
+        dateRangeDiv.style.display = "none";
+        intervalDiv.style.display = "block";
+      }
+    });
+
+    const remapBtn = document.getElementById("remap-btn");
+    if (!remapBtn) return;
+    remapBtn.addEventListener("click", function () {
+      const method = remapType.value;
+      let start_date,
+        end_date,
+        interval_days = 0;
+
+      if (method === "date") {
+        start_date = document.getElementById("remap-start").value;
+        end_date = document.getElementById("remap-end").value;
+        if (!start_date || !end_date) {
+          alert("Please select both start and end dates.");
+          return;
+        }
+      } else {
+        interval_days = parseInt(
+          document.getElementById("remap-interval-select").value,
+          10,
+        );
+        start_date = new Date();
+        start_date.setDate(start_date.getDate() - interval_days);
+        start_date = start_date.toISOString().split("T")[0]; // Convert to YYYY-MM-DD
+        end_date = new Date().toISOString().split("T")[0];
+      }
+
+      fetch("/api/matched_trips/remap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ start_date, end_date, interval_days }),
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          document.getElementById("remap-status").textContent = data.message;
+        })
+        .catch((error) => {
+          console.error("Error re-matching trips:", error);
+          document.getElementById("remap-status").textContent =
+            "Error re-matching trips.";
+        });
+    });
+
+    // Initialize datepickers
+    flatpickr(".datepicker", { dateFormat: "Y-m-d" });
+  }
+
+  // BACKGROUND TASK CONFIGURATION
+  function setupTaskConfigEventListeners() {
+    const saveTaskConfigBtn = document.getElementById("saveTaskConfigBtn");
+    const confirmPauseBtn = document.getElementById("confirmPause");
+    const resumeBtn = document.getElementById("resumeBtn");
+    const stopAllBtn = document.getElementById("stopAllBtn");
+    const enableAllBtn = document.getElementById("enableAllBtn");
+    const disableAllBtn = document.getElementById("disableAllBtn");
+    const manualRunAllBtn = document.getElementById("manualRunAllBtn");
     const globalSwitch = document.getElementById("globalDisableSwitch");
+
+    if (saveTaskConfigBtn)
+      saveTaskConfigBtn.addEventListener("click", saveBackgroundTasksConfig);
+    if (confirmPauseBtn)
+      confirmPauseBtn.addEventListener("click", confirmPause);
+    if (resumeBtn) resumeBtn.addEventListener("click", resumeBackgroundTasks);
+    if (stopAllBtn) stopAllBtn.addEventListener("click", stopAllBackgroundTasks);
+    if (enableAllBtn) enableAllBtn.addEventListener("click", enableAllTasks);
+    if (disableAllBtn) disableAllBtn.addEventListener("click", disableAllTasks);
+    if (manualRunAllBtn)
+      manualRunAllBtn.addEventListener("click", () => manualRunTasks(["ALL"]));
+
     if (globalSwitch) {
       globalSwitch.addEventListener("change", function () {
         const config = gatherTaskConfigFromUI();
@@ -116,7 +201,7 @@
     }
   }
 
-  //  LOAD TASK CONFIGURATION
+  // LOAD TASK CONFIGURATION
   function loadBackgroundTasksConfig() {
     fetch("/api/background_tasks/config")
       .then((r) => r.json())
@@ -126,9 +211,11 @@
       );
   }
 
-  //  POPULATE TASK CONFIGURATION UI
+  // POPULATE TASK CONFIGURATION UI
   function populateTaskConfigUI(cfg) {
-    document.getElementById("globalDisableSwitch").checked = Boolean(cfg.disabled);
+    const globalDisableSwitch = document.getElementById("globalDisableSwitch");
+    if (globalDisableSwitch)
+      globalDisableSwitch.checked = Boolean(cfg.disabled);
     const tableBody = document.querySelector("#taskConfigTable tbody");
     if (!tableBody || !cfg.tasks) return;
     tableBody.innerHTML = "";
@@ -196,7 +283,7 @@
     });
   }
 
-  //  SAVE TASK CONFIGURATION
+  // SAVE TASK CONFIGURATION
   function saveBackgroundTasksConfig() {
     const config = gatherTaskConfigFromUI();
     submitTaskConfigUpdate(config)
@@ -210,6 +297,7 @@
       });
   }
 
+  // GATHER TASK CONFIGURATION FROM UI
   function gatherTaskConfigFromUI() {
     const tasks = {};
     document.querySelectorAll("#taskConfigTable tbody tr").forEach((row) => {
@@ -223,11 +311,12 @@
       };
     });
     return {
-      globalDisable: document.getElementById("globalDisableSwitch").checked,
+      globalDisable: document.getElementById("globalDisableSwitch")?.checked,
       tasks: tasks,
     };
   }
 
+  // SUBMIT TASK CONFIGURATION UPDATE
   function submitTaskConfigUpdate(config) {
     return fetch("/api/background_tasks/config", {
       method: "POST",
@@ -243,7 +332,7 @@
     });
   }
 
-  //  TASK CONTROLS
+  // TASK CONTROLS
   function confirmPause() {
     const mins = parseInt(document.getElementById("pauseDuration").value, 10);
     fetch("/api/background_tasks/pause", {
@@ -256,7 +345,7 @@
         loadBackgroundTasksConfig();
         const pauseModal = document.getElementById("pauseModal");
         const modalInstance = bootstrap.Modal.getInstance(pauseModal);
-        modalInstance.hide();
+        if (modalInstance) modalInstance.hide();
       })
       .catch((err) => {
         console.error("Error pausing tasks:", err);

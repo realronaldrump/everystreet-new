@@ -3123,6 +3123,70 @@ async def regeocode_all_trips():
         return jsonify({"message": f"Error re-geocoding trips: {e}"}), 500
 
 
+@app.route("/api/matched_trips/delete", methods=["POST"])
+async def delete_matched_trips():
+    """
+    Deletes matched trips within a selected date range, optionally in intervals.
+    """
+    try:
+        data = await request.get_json()
+        start_date = datetime.fromisoformat(data.get("start_date")).replace(tzinfo=timezone.utc)
+        end_date = datetime.fromisoformat(data.get("end_date")).replace(tzinfo=timezone.utc)
+        interval_days = int(data.get("interval_days", 0))
+
+        if interval_days > 0:
+            current_start = start_date
+            while current_start < end_date:
+                current_end = min(current_start + timedelta(days=interval_days), end_date)
+                delete_count = matched_trips_collection.delete_many(
+                    {"startTime": {"$gte": current_start, "$lt": current_end}}
+                ).deleted_count
+                current_start = current_end
+        else:
+            delete_count = matched_trips_collection.delete_many(
+                {"startTime": {"$gte": start_date, "$lte": end_date}}
+            ).deleted_count
+
+        return jsonify({"status": "success", "deleted_count": delete_count})
+    
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/matched_trips/remap", methods=["POST"])
+async def remap_matched_trips():
+    """
+    Deletes existing matched trips and re-matches them within a date range or predefined interval.
+    """
+    try:
+        data = await request.get_json()
+        start_date_str = data.get("start_date")
+        end_date_str = data.get("end_date")
+        interval_days = int(data.get("interval_days", 0))
+
+        if interval_days > 0:
+            start_date = datetime.utcnow() - timedelta(days=interval_days)
+            end_date = datetime.utcnow()
+        else:
+            start_date = datetime.fromisoformat(start_date_str).replace(tzinfo=timezone.utc)
+            end_date = datetime.fromisoformat(end_date_str).replace(tzinfo=timezone.utc)
+
+        # Delete old matched trips
+        matched_trips_collection.delete_many(
+            {"startTime": {"$gte": start_date, "$lte": end_date}}
+        )
+
+        # Fetch original trips and re-match them
+        trips = trips_collection.find(
+            {"startTime": {"$gte": start_date, "$lte": end_date}}
+        )
+        for trip in trips:
+            await process_and_map_match_trip(trip)
+
+        return jsonify({"status": "success", "message": "Re-matching completed."})
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 def get_place_at_point(point):
     """
     Find a custom place that contains the given point.
