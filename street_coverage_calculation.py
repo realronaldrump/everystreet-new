@@ -261,7 +261,9 @@ async def update_coverage_for_all_locations():
     Periodically updates street coverage for all locations using the new raster‑based method.
     """
     try:
-        logger.info("Starting periodic street coverage update for all locations (raster-based)...")
+        logger.info(
+            "Starting periodic street coverage update for all locations (raster-based)..."
+        )
 
         cursor = coverage_metadata_collection.find({}, {"location": 1, "_id": 1})
         for doc in cursor:
