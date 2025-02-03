@@ -14,7 +14,7 @@ class Sidebar {
         };
 
         this.config = {
-            mobileBreakpoint: 992, // Bootstrap's lg breakpoint
+            mobileBreakpoint: 992,
             storageKeys: {
                 sidebarState: 'sidebarCollapsed',
                 startDate: 'startDate',

@@ -363,3 +363,101 @@ async def fetch_trips_in_intervals(main_session, access_token, imei, start_date,
         current_start = current_end
 
     return all_trips
+
+async def fetch_and_store_trips():
+    """
+    For all authorized devices, fetch last 4 years of trips from Bouncie,
+    store them in the 'trips' collection.
+    """
+    global progress_data
+    progress_data["fetch_and_store_trips"]["status"] = "running"
+    progress_data["fetch_and_store_trips"]["progress"] = 0
+    progress_data["fetch_and_store_trips"]["message"] = "Starting fetch"
+
+    try:
+        async with aiohttp.ClientSession() as client_session:
+            access_token = await get_access_token(client_session)
+            if not access_token:
+                logger.error(
+                    "Failed to obtain access token, aborting fetch_and_store_trips.")
+                progress_data["fetch_and_store_trips"]["status"] = "failed"
+                progress_data["fetch_and_store_trips"]["message"] = "Failed to obtain access token"
+                return
+
+            end_date = datetime.now(timezone.utc)
+            start_date = end_date - timedelta(days=365 * 4)
+
+            all_trips = []
+            total_devices = len(AUTHORIZED_DEVICES)
+            for device_count, imei in enumerate(AUTHORIZED_DEVICES, 1):
+                progress_data["fetch_and_store_trips"][
+                    "message"] = f"Fetching trips for device {device_count} of {total_devices}"
+                device_trips = await fetch_trips_in_intervals(
+                    client_session, access_token, imei, start_date, end_date
+                )
+                all_trips.extend(device_trips)
+                # Progress goes to 50% here
+                progress = int((device_count / total_devices) * 50)
+                progress_data["fetch_and_store_trips"]["progress"] = progress
+
+            # Insert or update each trip
+            progress_data["fetch_and_store_trips"]["message"] = "Storing trips in database"
+            total_trips = len(all_trips)
+            for index, trip in enumerate(all_trips):
+                try:
+                    existing = trips_collection.find_one(
+                        {"transactionId": trip["transactionId"]})
+                    if existing:
+                        continue  # skip
+
+                    # Validate
+                    ok, errmsg = validate_trip_data(trip)
+                    if not ok:
+                        logger.error(
+                            f"Skipping invalid trip {trip.get('transactionId')}: {errmsg}")
+                        continue
+
+                    # Make sure times are datetime
+                    if isinstance(trip["startTime"], str):
+                        trip["startTime"] = parser.isoparse(trip["startTime"])
+                    if isinstance(trip["endTime"], str):
+                        trip["endTime"] = parser.isoparse(trip["endTime"])
+
+                    # Convert gps to string
+                    if isinstance(trip["gps"], dict):
+                        trip["gps"] = geojson_dumps(trip["gps"])
+
+                    # Add reverse geocode for start/dest
+                    gps_data = geojson_loads(trip["gps"])
+                    start_pt = gps_data["coordinates"][0]
+                    end_pt = gps_data["coordinates"][-1]
+
+                    trip["startGeoPoint"] = start_pt
+                    trip["destinationGeoPoint"] = end_pt
+
+                    trip["destination"] = await reverse_geocode_nominatim(end_pt[1], end_pt[0])
+                    trip["startLocation"] = await reverse_geocode_nominatim(start_pt[1], start_pt[0])
+
+                    # Upsert
+                    trips_collection.update_one(
+                        {"transactionId": trip["transactionId"]}, {"$set": trip}, upsert=True
+                    )
+                    logger.debug(
+                        f"Trip {trip.get('transactionId')} processed and stored/updated.")
+
+                    # Update progress
+                    progress = int(50 + (index / total_trips)
+                                   * 50)  # Remaining 50%
+                    progress_data["fetch_and_store_trips"]["progress"] = progress
+                except Exception as e:
+                    logger.error(
+                        f"Error inserting/updating trip {trip.get('transactionId')}: {e}", exc_info=True)
+
+            progress_data["fetch_and_store_trips"]["status"] = "completed"
+            progress_data["fetch_and_store_trips"]["progress"] = 100
+            progress_data["fetch_and_store_trips"]["message"] = "Fetch and store completed"
+
+    except Exception as e:
+        logger.error(f"Error in fetch_and_store_trips: {e}", exc_info=True)
+        progress_data["fetch_and_store_trips"]["status"] = "failed"
+        progress_data["fetch_and_store_trips"]["message"] = f"Error: {e}"

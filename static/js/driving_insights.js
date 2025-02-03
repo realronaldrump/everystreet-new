@@ -21,31 +21,12 @@ const defaultChartOptions = {
 const loadingManager = new LoadingManager();
 
 document.addEventListener('DOMContentLoaded', () => {
-    initializeDatePickers();
     initializeEventListeners();
     initializeDataTable();
     initializeCharts();
     fetchDrivingInsights();
+    document.getElementById('apply-filters')?.addEventListener('click', fetchDrivingInsights);
 });
-
-function initializeDatePickers() {
-    const startDate = document.getElementById('start-date');
-    const endDate = document.getElementById('end-date');
-
-    if (startDate && endDate) {
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        startDate.value = localStorage.getItem('startDate') || todayStr;
-        endDate.value = localStorage.getItem('endDate') || todayStr;
-
-        [startDate, endDate].forEach((picker) => {
-            picker.addEventListener('change', (event) => {
-                localStorage.setItem(event.target.id, event.target.value);
-                fetchDrivingInsights();
-            });
-        });
-    }
-}
 
 function initializeCharts() {
     const tripCountsCtx = document.getElementById('tripCountsChart').getContext('2d');
@@ -440,8 +421,8 @@ function updateDataTable(data) {
 }
 
 function getFilterParams() {
-    const startDate = document.getElementById('start-date')?.value;
-    const endDate = document.getElementById('end-date')?.value;
+    const startDate = localStorage.getItem('startDate') || new Date().toISOString().split('T')[0];
+    const endDate = localStorage.getItem('endDate') || new Date().toISOString().split('T')[0];
     return new URLSearchParams({
         start_date: startDate,
         end_date: endDate,

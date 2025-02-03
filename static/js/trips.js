@@ -11,33 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchTrips(); // Initial load
 });
 
-function initializeDatePickers() {
-    const startDate = document.getElementById('start-date');
-    const endDate = document.getElementById('end-date');
-
-    if (startDate && endDate) {
-        const today = new Date();
-        const tomorrow = new Date(today);
-        tomorrow.setDate(today.getDate() + 1);
-
-        // Get dates from localStorage or use today
-        const storedStartDate = localStorage.getItem('startDate');
-        const storedEndDate = localStorage.getItem('endDate');
-
-        startDate.max = tomorrow.toISOString().split('T')[0];
-        endDate.max = tomorrow.toISOString().split('T')[0];
-
-        startDate.value = storedStartDate || today.toISOString().split('T')[0];
-        endDate.value = storedEndDate || today.toISOString().split('T')[0];
-
-        // Store dates if not already stored
-        if (!storedStartDate || !storedEndDate) {
-            localStorage.setItem('startDate', today.toISOString().split('T')[0]);
-            localStorage.setItem('endDate', today.toISOString().split('T')[0]);
-        }
-    }
-}
-
 function initializeEventListeners() {
     // Apply filters button
     const applyFiltersButton = document.getElementById('apply-filters');

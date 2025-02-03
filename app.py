@@ -3,9 +3,14 @@ from utils import validate_location_osm
 from map_matching import (
     process_and_map_match_trip,
 )
-from bouncie_trip_fetcher import fetch_bouncie_trips_in_range, get_access_token, fetch_trips_in_intervals, get_trips_from_api
+from bouncie_trip_fetcher import fetch_bouncie_trips_in_range, get_access_token, fetch_trips_in_intervals, get_trips_from_api, fetch_and_store_trips
 from preprocess_streets import preprocess_streets as async_preprocess_streets
 from utils import validate_trip_data, reverse_geocode_nominatim, validate_location_osm
+from tasks import cleanup_stale_trips, cleanup_invalid_trips, periodic_fetch_trips, start_background_tasks, scheduler
+from db import trips_collection, matched_trips_collection, historical_trips_collection, \
+    uploaded_trips_collection, live_trips_collection, archived_live_trips_collection, task_config_collection, osm_data_collection, streets_collection, coverage_metadata_collection, places_collection
+from trip_processing import format_idle_time, process_trip
+from export_helpers import create_geojson, create_gpx
 from shapely.geometry import (
     LineString,
     Point,
@@ -124,18 +129,6 @@ def get_mongo_client():
 
 mongo_client = get_mongo_client()
 db = mongo_client["every_street"]
-trips_collection = db["trips"]
-matched_trips_collection = db["matched_trips"]
-historical_trips_collection = db["historical_trips"]
-uploaded_trips_collection = db["uploaded_trips"]
-places_collection = db["places"]
-osm_data_collection = db["osm_data"]
-realtime_data_collection = db["realtime_data"]
-streets_collection = db["streets"]
-coverage_metadata_collection = db["coverage_metadata"]
-live_trips_collection = db["live_trips"]
-archived_live_trips_collection = db["archived_live_trips"]
-task_config_collection = db["task_config"]
 
 # Ensure some indexes
 uploaded_trips_collection.create_index("transactionId", unique=True)
@@ -550,109 +543,6 @@ def fetch_trips_for_geojson():
     return geojson_module.FeatureCollection(features)
 
 
-#############################
-# Main fetch/store logic
-#############################
-
-
-async def fetch_and_store_trips():
-    """
-    For all authorized devices, fetch last 4 years of trips from Bouncie,
-    store them in the 'trips' collection.
-    """
-    global progress_data
-    progress_data["fetch_and_store_trips"]["status"] = "running"
-    progress_data["fetch_and_store_trips"]["progress"] = 0
-    progress_data["fetch_and_store_trips"]["message"] = "Starting fetch"
-
-    try:
-        async with aiohttp.ClientSession() as client_session:
-            access_token = await get_access_token(client_session)
-            if not access_token:
-                logger.error(
-                    "Failed to obtain access token, aborting fetch_and_store_trips.")
-                progress_data["fetch_and_store_trips"]["status"] = "failed"
-                progress_data["fetch_and_store_trips"]["message"] = "Failed to obtain access token"
-                return
-
-            end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(days=365 * 4)
-
-            all_trips = []
-            total_devices = len(AUTHORIZED_DEVICES)
-            for device_count, imei in enumerate(AUTHORIZED_DEVICES, 1):
-                progress_data["fetch_and_store_trips"][
-                    "message"] = f"Fetching trips for device {device_count} of {total_devices}"
-                device_trips = await fetch_trips_in_intervals(
-                    client_session, access_token, imei, start_date, end_date
-                )
-                all_trips.extend(device_trips)
-                # Progress goes to 50% here
-                progress = int((device_count / total_devices) * 50)
-                progress_data["fetch_and_store_trips"]["progress"] = progress
-
-            # Insert or update each trip
-            progress_data["fetch_and_store_trips"]["message"] = "Storing trips in database"
-            total_trips = len(all_trips)
-            for index, trip in enumerate(all_trips):
-                try:
-                    existing = trips_collection.find_one(
-                        {"transactionId": trip["transactionId"]})
-                    if existing:
-                        continue  # skip
-
-                    # Validate
-                    ok, errmsg = validate_trip_data(trip)
-                    if not ok:
-                        logger.error(
-                            f"Skipping invalid trip {trip.get('transactionId')}: {errmsg}")
-                        continue
-
-                    # Make sure times are datetime
-                    if isinstance(trip["startTime"], str):
-                        trip["startTime"] = parser.isoparse(trip["startTime"])
-                    if isinstance(trip["endTime"], str):
-                        trip["endTime"] = parser.isoparse(trip["endTime"])
-
-                    # Convert gps to string
-                    if isinstance(trip["gps"], dict):
-                        trip["gps"] = geojson_dumps(trip["gps"])
-
-                    # Add reverse geocode for start/dest
-                    gps_data = geojson_loads(trip["gps"])
-                    start_pt = gps_data["coordinates"][0]
-                    end_pt = gps_data["coordinates"][-1]
-
-                    trip["startGeoPoint"] = start_pt
-                    trip["destinationGeoPoint"] = end_pt
-
-                    trip["destination"] = await reverse_geocode_nominatim(end_pt[1], end_pt[0])
-                    trip["startLocation"] = await reverse_geocode_nominatim(start_pt[1], start_pt[0])
-
-                    # Upsert
-                    trips_collection.update_one(
-                        {"transactionId": trip["transactionId"]}, {"$set": trip}, upsert=True
-                    )
-                    logger.debug(
-                        f"Trip {trip.get('transactionId')} processed and stored/updated.")
-
-                    # Update progress
-                    progress = int(50 + (index / total_trips)
-                                   * 50)  # Remaining 50%
-                    progress_data["fetch_and_store_trips"]["progress"] = progress
-                except Exception as e:
-                    logger.error(
-                        f"Error inserting/updating trip {trip.get('transactionId')}: {e}", exc_info=True)
-
-            progress_data["fetch_and_store_trips"]["status"] = "completed"
-            progress_data["fetch_and_store_trips"]["progress"] = 100
-            progress_data["fetch_and_store_trips"]["message"] = "Fetch and store completed"
-
-    except Exception as e:
-        logger.error(f"Error in fetch_and_store_trips: {e}", exc_info=True)
-        progress_data["fetch_and_store_trips"]["status"] = "failed"
-        progress_data["fetch_and_store_trips"]["message"] = f"Error: {e}"
-
 @app.route("/api/street_coverage", methods=["POST"])
 async def get_street_coverage():
     """
@@ -715,54 +605,6 @@ async def get_street_coverage():
         logger.error(f"Error in street coverage calculation: {e}\n{traceback.format_exc()}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-def process_trip(trip):
-    """
-    Simple function to parse times & gps.
-    Possibly used for internal ingestion or conversion.
-    """
-    try:
-        if isinstance(trip["startTime"], str):
-            parsed_start = parser.isoparse(trip["startTime"])
-            if parsed_start.tzinfo is None:
-                parsed_start = parsed_start.replace(tzinfo=timezone.utc)
-            trip["startTime"] = parsed_start
-        if isinstance(trip["endTime"], str):
-            parsed_end = parser.isoparse(trip["endTime"])
-            if parsed_end.tzinfo is None:
-                parsed_end = parsed_end.replace(tzinfo=timezone.utc)
-            trip["endTime"] = parsed_end
-
-        # gps check
-        if "gps" not in trip:
-            # Log missing GPS
-            logger.error(f"Trip {trip.get('transactionId')} missing gps data.")
-            return None
-        gps_data = trip["gps"]
-        if isinstance(gps_data, str):
-            gps_data = json.loads(gps_data)
-        trip["gps"] = json.dumps(gps_data)
-
-        if not gps_data.get("coordinates"):
-            logger.error(
-                f"Trip {trip.get('transactionId')} has invalid coordinates.")  # Log invalid coords
-            return None
-
-        trip["startGeoPoint"] = gps_data["coordinates"][0]
-        trip["destinationGeoPoint"] = gps_data["coordinates"][-1]
-        if "distance" in trip:
-            try:
-                trip["distance"] = float(trip["distance"])
-            except (ValueError, TypeError):
-                trip["distance"] = 0.0
-        else:
-            trip["distance"] = 0.0
-
-        return trip
-    except Exception as e:
-        # Log general trip processing errors
-        logger.error(
-            f"Error processing trip {trip.get('transactionId')}: {e}", exc_info=True)
-        return None
 
 #############################
 # Quart endpoints
@@ -882,24 +724,6 @@ async def get_trips():
     except Exception as e:
         logger.error(f"Error in /api/trips endpoint: {e}", exc_info=True)
         return jsonify({"error": "Failed to retrieve trips"}), 500
-
-def format_idle_time(seconds):
-    """
-    Convert float 'seconds' to hh:mm:ss string, handling potential floats.
-    """
-    if not seconds:
-        return "00:00:00"
-
-    try:
-        seconds = int(seconds)  # Convert to integer
-    except (TypeError, ValueError):
-        logger.error(f"Invalid input for format_idle_time: {seconds}")
-        return "Invalid Input"
-
-    h = seconds // 3600
-    m = (seconds % 3600) // 60
-    s = seconds % 60
-    return f"{h:02d}:{m:02d}:{s:02d}"
 
 #############################
 # Driving Insights
@@ -1246,102 +1070,6 @@ async def export_gpx():
     except Exception as e:
         logger.error(f"Error exporting gpx: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
-
-#############################
-# Background tasks
-#############################
-async def periodic_fetch_trips():
-    """Periodically fetch trips from Bouncie API and store them."""
-    try:
-        last_trip = trips_collection.find_one(sort=[("endTime", -1)])
-        start_date = (
-            last_trip["endTime"]
-            if last_trip
-            else datetime.now(timezone.utc) - timedelta(days=7)  # Default: last 7 days
-        )
-        end_date = datetime.now(timezone.utc)
-
-        logger.info(f"Periodic trip fetch started from {start_date} to {end_date}")
-
-        # Call the unified function to fetch and store trips
-        await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=False)
-
-        logger.info("Periodic trip fetch completed successfully.")
-    except Exception as e:
-        logger.error(f"Error during periodic trip fetch: {e}", exc_info=True)
-
-
-async def hourly_fetch_trips():
-    """Fetches and stores trips from the last hour."""
-    try:
-        end_date = datetime.now(timezone.utc)
-        start_date = end_date - timedelta(hours=1)
-        logger.info(f"Hourly trip fetch started for range: {start_date} to {end_date}")
-        await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=True)
-        logger.info("Hourly trip fetch completed successfully.")
-
-        # Map match the newly fetched trips
-        logger.info("Starting map matching for hourly fetched trips...")
-        current_hour_end = datetime.now(timezone.utc)
-        current_hour_start = current_hour_end - timedelta(hours=1)
-        new_trips_to_match = trips_collection.find({
-            "startTime": {"$gte": current_hour_start, "$lte": current_hour_end}
-        })
-
-        map_matched_count = 0
-        for trip in new_trips_to_match:
-            await process_and_map_match_trip(trip)
-            map_matched_count += 1
-        logger.info(f"Map matching completed for {map_matched_count} hourly fetched trips.")
-
-    except Exception as e:
-        logger.error(f"Error during hourly trip fetch: {e}", exc_info=True)
-
-
-async def cleanup_stale_trips():
-    """Periodically archives trips that haven't been updated in 5 minutes."""
-    try:
-        now = datetime.now(timezone.utc)
-        stale_threshold = now - timedelta(minutes=5)
-        stale_trips = live_trips_collection.find({
-            "lastUpdate": {"$lt": stale_threshold},
-            "status": "active"
-        })
-        for trip in stale_trips:
-            trip["status"] = "stale"
-            trip["endTime"] = now
-            archived_live_trips_collection.insert_one(trip)
-            live_trips_collection.delete_one({"_id": trip["_id"]})
-    except Exception as e:
-        logger.error(f"Error cleaning up stale trips: {e}", exc_info=True)
-
-
-async def cleanup_invalid_trips():
-    """Optionally run to mark invalid trip docs."""
-    try:
-        all_trips = list(trips_collection.find({}))
-        for t in all_trips:
-            ok, msg = validate_trip_data(t)
-            if not ok:
-                logger.warning(f"Invalid trip {t.get('transactionId','?')}: {msg}")
-                trips_collection.update_one(
-                    {"_id": t["_id"]}, {"$set": {"invalid": True}}
-                )
-        logger.info("Trip cleanup done.")
-    except Exception as e:
-        logger.error(f"cleanup_invalid_trips: {e}", exc_info=True)
-
-
-def start_background_tasks():
-    """
-    Called once at app startup (see @app.before_serving).
-    We'll just call reinitialize_scheduler_tasks to handle everything.
-    """
-    # Make sure the scheduler is started once
-    if not scheduler.running:
-        scheduler.start()
-    reinitialize_scheduler_tasks()
-
 
 
 #############################
@@ -1838,37 +1566,6 @@ async def create_geojson(trips):
         features.append(feature)
 
     return json.dumps({"type": "FeatureCollection", "features": features})
-
-async def create_gpx(trips):
-    """
-    Converts a list of trips into a GPX file.
-    """
-    gpx = gpxpy.gpx.GPX()
-    for t in trips:
-        track = gpxpy.gpx.GPXTrack()
-        gpx.tracks.append(track)
-        segment = gpxpy.gpx.GPXTrackSegment()
-        track.segments.append(segment)
-
-        gps_data = t.get("gps")
-        if isinstance(gps_data, str):
-            gps_data = json.loads(gps_data)
-
-        if gps_data.get("type") == "LineString":
-            for coord in gps_data.get("coordinates", []):
-                if len(coord) >= 2:
-                    lon, lat = coord
-                    segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
-        elif gps_data.get("type") == "Point":
-            coords = gps_data.get("coordinates", [])
-            if len(coords) >= 2:
-                lon, lat = coords
-                segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
-
-        track.name = f"Trip {t.get('transactionId', 'UNKNOWN')}"
-    
-    return gpx.to_xml()
-
 
 @app.route("/api/export/matched_trips")
 async def export_matched_trips():
@@ -3215,9 +2912,6 @@ async def process_trip_data(trip):
     except Exception as e:
         logger.error(f"Error in process_trip_data for trip {transaction_id}: {e}", exc_info=True)
         return trip
-        return trip
-
-# add the update geo points route to the settings page
 
 
 @app.route("/update_geo_points", methods=["POST"])
@@ -3635,10 +3329,13 @@ async def debug_trip(trip_id):
 @app.before_serving
 async def init_background_tasks():
     """
-    This is CRUCIAL to ensure APScheduler uses the same event loop as Quart/Uvicorn.
+    Ensures APScheduler uses the same event loop as Quart/Uvicorn.
+    Starts the scheduler and initializes scheduled tasks.
     """
-    loop = asyncio.get_event_loop()
-    scheduler.configure(event_loop=loop)  # Tie the scheduler to Quart's loop
+    loop = asyncio.get_running_loop()  # Ensure we get the correct event loop
+    # Configure the scheduler to use the application's event loop
+    scheduler.configure(event_loop=loop)
+    # Start background tasks
     start_background_tasks()
 
 #############################
