@@ -70,6 +70,7 @@ def fetch_osm_data(location, streets_only=True):
         );
         out geom;
         """
+
     async def _fetch():
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
             async with session.get("http://overpass-api.de/api/interpreter", params={"data": query}) as response:
@@ -78,7 +79,8 @@ def fetch_osm_data(location, streets_only=True):
     try:
         return asyncio.run(_fetch())
     except Exception as e:
-        logger.error(f"Error fetching OSM data from Overpass for location {location['display_name']}: {e}", exc_info=True)
+        logger.error(
+            f"Error fetching OSM data from Overpass for location {location['display_name']}: {e}", exc_info=True)
         raise
 
 
@@ -190,7 +192,9 @@ def process_osm_data(osm_data, location):
                     features.append(feature)
                     total_length += segment_length  # Accumulate the total length
             except Exception as e:
-                logger.error(f"Error processing element {element['id']} (way): {e}", exc_info=True) # Include element ID in log
+                # Include element ID in log
+                logger.error(
+                    f"Error processing element {element['id']} (way): {e}", exc_info=True)
 
     if features:
         # Convert features to GeoJSON and insert into MongoDB
@@ -240,11 +244,14 @@ def main():
     location_query = args.location
     location_type = args.location_type
 
-    try: # Wrap main logic in try-except for top-level error handling
+    try:  # Wrap main logic in try-except for top-level error handling
         # Validate the location using Nominatim
-        validated_location = validate_location_osm(location_query, location_type)
+        validated_location = validate_location_osm(
+            location_query, location_type)
         if not validated_location:
-            logger.error(f"Location '{location_query}' of type '{location_type}' not found.") # Log invalid location
+            # Log invalid location
+            logger.error(
+                f"Location '{location_query}' of type '{location_type}' not found.")
             return
 
         # Fetch OSM data
@@ -253,9 +260,13 @@ def main():
         # Process OSM data and store in MongoDB
         process_osm_data(osm_data, validated_location)
 
-        logger.info(f"Street preprocessing completed for {validated_location['display_name']}.") # Log completion
-    except Exception as e: # Catch any exceptions in main function
-        logger.error(f"Error in main function during street preprocessing: {e}", exc_info=True) # Log top-level exceptions
+        # Log completion
+        logger.info(
+            f"Street preprocessing completed for {validated_location['display_name']}.")
+    except Exception as e:  # Catch any exceptions in main function
+        # Log top-level exceptions
+        logger.error(
+            f"Error in main function during street preprocessing: {e}", exc_info=True)
 
 
 if __name__ == "__main__":
