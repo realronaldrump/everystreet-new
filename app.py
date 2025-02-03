@@ -100,9 +100,9 @@ progress_data = {
     "preprocess_streets": {"status": "idle", "progress": 0, "message": ""},
 }
 
-#############################
+
 # MongoDB Initialization
-#############################
+
 
 
 def get_mongo_client():
@@ -434,9 +434,9 @@ def reinitialize_scheduler_tasks():
         )
 
     logger.info("Scheduler tasks reinitialized based on new config.")
-#############################
+
 # Model or helper class
-#############################
+
 
 class CustomPlace:
     """Represents a custom-defined place with a name, geometry, and creation time."""
@@ -464,9 +464,9 @@ class CustomPlace:
         )
 
 
-#############################
+
 # Quart endpoints
-#############################
+
 
 
 @app.route("/")
@@ -498,9 +498,9 @@ async def visits_page():
     """Custom places visits & stats page."""
     return await render_template("visits.html")
 
-#############################
+
 #  Fetch for geojson map
-#############################
+
 
 
 def fetch_trips_for_geojson():
@@ -598,9 +598,9 @@ async def get_street_coverage():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-#############################
+
 # Quart endpoints
-#############################
+
 
 
 @app.route("/api/trips")
@@ -717,9 +717,9 @@ async def get_trips():
         logger.error(f"Error in /api/trips endpoint: {e}", exc_info=True)
         return jsonify({"error": "Failed to retrieve trips"}), 500
 
-#############################
+
 # Driving Insights
-#############################
+
 
 
 @app.route("/api/driving-insights")
@@ -933,9 +933,9 @@ async def api_fetch_trips_last_hour():
     start_date = now_utc - timedelta(hours=1)
     await fetch_bouncie_trips_in_range(start_date, now_utc, do_map_match=True)
     return jsonify({"status": "success", "message": "Hourly trip fetch completed."})
-#############################
+
 # After request
-#############################
+
 
 
 @app.after_request
@@ -948,9 +948,9 @@ async def add_header(response):
     response.headers["Expires"] = "0"
     return response
 
-#############################
+
 # Exports
-#############################
+
 
 
 @app.route("/export/geojson")
@@ -1064,9 +1064,9 @@ async def export_gpx():
         return jsonify({"error": str(e)}), 500
 
 
-#############################
+
 # Location validation
-#############################
+
 
 
 @app.route("/api/validate_location", methods=["POST"])
@@ -1077,9 +1077,9 @@ async def validate_location():
     validated = await validate_location_osm(location, location_type)
     return jsonify(validated)
 
-#############################
+
 # Generate GeoJSON from Overpass
-#############################
+
 
 
 @app.route("/api/generate_geojson", methods=["POST"])
@@ -1221,9 +1221,9 @@ def process_elements(elements, streets_only):
 
     return features
 
-#############################
+
 # Map match endpoints
-#############################
+
 
 
 @app.route("/api/map_match_trips", methods=["POST"])
@@ -1678,9 +1678,9 @@ async def export_boundary():
         )
     return jsonify({"error": "Invalid export format"}), 400
 
-#############################
+
 # Preprocessing Route
-#############################
+
 
 @app.route("/api/preprocess_streets", methods=["POST"])
 async def preprocess_streets_route():
@@ -1710,9 +1710,9 @@ async def preprocess_streets_route():
         logger.error(f"Error in preprocess_streets_route: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-#############################
+
 # Street Segment Details Route
-#############################
+
 
 
 @app.route("/api/street_segment/<segment_id>", methods=["GET"])
@@ -1733,9 +1733,9 @@ async def get_street_segment_details(segment_id):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-#############################
+
 # Loading historical data
-#############################
+
 
 
 async def process_historical_trip(trip):
@@ -1806,9 +1806,9 @@ async def load_historical_data_endpoint():
     inserted_count = await load_historical_data(start_date, end_date)
     return jsonify({"message": f"Loaded historical data. Inserted {inserted_count} new trips."})
 
-#############################
+
 # Last trip point
-#############################
+
 
 
 @app.route("/api/last_trip_point")
@@ -1831,9 +1831,9 @@ async def get_last_trip_point():
         logger.error(f"Error get_last_trip_point: {e}", exc_info=True)
         return jsonify({"error": "Failed to retrieve last trip point"}), 500
 
-#############################
+
 # Upload
-#############################
+
 
 
 @app.route("/upload")
@@ -2011,9 +2011,9 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
     return R * c
 
-#############################
+
 # Manage uploaded trips
-#############################
+
 
 
 @app.route("/api/uploaded_trips")
@@ -2096,9 +2096,9 @@ async def bulk_delete_uploaded_trips():
             f"Error in bulk_delete_uploaded_trips: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-#############################
+
 # Places
-#############################
+
 
 
 @app.route("/api/places", methods=["GET", "POST"])
@@ -2470,9 +2470,9 @@ def organize_hourly_data(results):
         hourly_data[hour] += r["tripCount"]
     return [{"hour": h, "count": c} for h, c in sorted(hourly_data.items())]
 
-#############################
+
 # Bouncie webhook for real-time
-#############################
+
 
 
 @app.route("/stream")
@@ -2616,9 +2616,9 @@ async def get_active_trip():
         logger.error(f"Error retrieving active trip: {e}", exc_info=True)
         return jsonify({"error": "Internal Server Error"}), 500
 
-#############################
+
 # DB helpers
-#############################
+
 
 
 def get_trip_from_db(trip_id):
@@ -2929,9 +2929,9 @@ def get_place_at_point(point):
             return p
     return None
 
-#############################
+
 # Earliest trip date
-#############################
+
 
 
 @app.route("/api/first_trip_date")
@@ -2964,9 +2964,9 @@ async def get_first_trip_date():
         logger.error(f"get_first_trip_date err: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-#############################
+
 # Error handlers
-#############################
+
 
 
 @app.errorhandler(404)
@@ -2980,9 +2980,9 @@ async def internal_error(error):
 
 
 
-#############################
+
 # Bulk delete
-#############################
+
 
 
 @app.route("/api/trips/bulk_delete", methods=["DELETE"])
@@ -3010,9 +3010,9 @@ async def bulk_delete_trips():
         logger.error(f"bulk_delete_trips: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-#############################
+
 # GeoJSON trip from .geojson
-#############################
+
 
 
 def process_gpx(gpx):
@@ -3281,9 +3281,9 @@ async def debug_trip(trip_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
-#############################
+
 #   Hook APScheduler into Quart's event loop
-#############################
+
 @app.before_serving
 async def init_background_tasks():
     """
@@ -3294,9 +3294,7 @@ async def init_background_tasks():
     scheduler.configure(event_loop=loop)
     start_background_tasks()
 
-#############################
 # Run
-#############################
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8080"))
