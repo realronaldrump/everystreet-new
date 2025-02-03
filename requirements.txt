@@ -25,7 +25,6 @@ apscheduler
 uvicorn
 python-socketio
 gevent
-libexpat
 bison
 affine
 fiona
