@@ -228,13 +228,10 @@ async def update_background_tasks_config():
     data = await request.get_json()
     cfg = get_task_config()
 
-    # If client wants to set global disable
+
     if "globalDisable" in data:
         cfg["disabled"] = bool(data["globalDisable"])
-        # If disabled, we can pause all jobs. If re-enabled, we will restore them in start_background_tasks.
-        # We'll actually handle that logic in start_background_tasks().
 
-    # If client wants to set a pause for X minutes
     if "pauseDurationMinutes" in data:
         mins = data["pauseDurationMinutes"]
         if mins > 0:
@@ -297,7 +294,6 @@ async def stop_all_background_tasks():
     Immediately stop all tasks that might be 'in process' by removing them from the scheduler entirely.
     They will remain out of schedule unless reinitialized or re-enabled.
     """
-    # We remove all job definitions from APScheduler
     for t in AVAILABLE_TASKS:
         job_id = t["id"]
         try:
@@ -393,7 +389,6 @@ def reinitialize_scheduler_tasks():
         logger.info("Background tasks are globally disabled. No tasks scheduled.")
         return
 
-    # if pausedUntil is in future, that means we do not schedule them until it is unpaused
     paused_until = cfg.get("pausedUntil")
     is_currently_paused = False
     if paused_until:
@@ -411,13 +406,10 @@ def reinitialize_scheduler_tasks():
             continue  # skip if not individually enabled
         interval = task_settings.get("interval_minutes", t["default_interval_minutes"])
 
-        # We'll add the job with that interval, but if "paused" we set next_run_time in the future
         next_run_time = None
         if is_currently_paused:
-            # we schedule but set next_run_time to paused_until
             next_run_time = paused_until + timedelta(seconds=1)
 
-        # For the function mapping, we do:
         if task_id == "fetch_and_store_trips":
             job_func = fetch_and_store_trips
         elif task_id == "periodic_fetch_trips":
@@ -1225,7 +1217,7 @@ def process_elements(elements, streets_only):
                         })
         elif e["type"] == "relation" and not streets_only:
             # Attempt to unify outer ways into polygons
-            pass  # (We keep as-is for brevity, or handle more advanced logic)
+            pass
 
     return features
 
@@ -2011,7 +2003,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     """
     Calculate the distance between two points in miles using the Haversine formula.
     """
-    R = 3958.8  # Radius of Earth in miles
+    R = 3958.8
     dlat = radians(lat2 - lat1)
     dlon = radians(lon2 - lon1)
     a = sin(dlat / 2)**2 + cos(radians(lat1)) * \
@@ -2137,22 +2129,11 @@ async def get_place_statistics(place_id):
     """
     Calculate how many times the user ended a trip at that place,
     along with duration of stay and time since last visit.
-
-    **FIXED** so that "time spent" is only computed if the *next* trip also starts at the same place.
-    Otherwise we skip adding a giant idle gap.
     """
     try:
         p = places_collection.find_one({"_id": ObjectId(place_id)})
         if not p:
             return jsonify({"error": "Place not found"}), 404
-
-        # We'll gather all relevant trips from each collection (that ended at this place).
-        # Also exclude trips missing a valid endTime to avoid sort errors.
-        # The place geometry is in p["geometry"] or we can rely on a placeId.
-
-        # We can match by "destinationPlaceId == place_id"
-        # or by geospatial match on "destinationGeoPoint" if no placeId is recorded.
-        # For safety, we handle both conditions:
         query = {
             "$or": [
                 {"destinationPlaceId": place_id},
@@ -2180,7 +2161,7 @@ async def get_place_statistics(place_id):
         valid_trips.sort(key=lambda x: x["endTime"])
 
         visits = []
-        durations = []  # We'll store the computed "time spent" at place
+        durations = []
         time_since_last_visits = []
         first_visit = None
         last_visit = None
@@ -2198,8 +2179,6 @@ async def get_place_statistics(place_id):
                     first_visit = t_end
                 last_visit = t_end
 
-                # 1) Calculate "time spent at place" => (startTime_of_next_trip - endTime_of_this_trip)
-                # ONLY if the next trip *starts* at the SAME place (startPlaceId or geometry check).
                 if i < len(valid_trips) - 1:
                     next_trip = valid_trips[i + 1]
                     # Check if next_trip started at the same place:
@@ -2222,20 +2201,12 @@ async def get_place_statistics(place_id):
                             if next_start.tzinfo is None:
                                 next_start = next_start.replace(tzinfo=timezone.utc)
                             duration_minutes = (next_start - t_end).total_seconds() / 60.0
-                            # Only add if it's positive and sensible
                             if duration_minutes > 0:
                                 durations.append(duration_minutes)
-                        # else next_start is missing or invalid => skip
-                    # else next trip is not from this place => skip adding to durations
 
                 else:
-                    # If there's no next trip, we can measure from its endTime to 'now' or skip.
-                    # The old code used to do this, but it can also cause huge intervals if no new trip started.
-                    # Typically we skip it or measure zero. We'll do 0.0 for safety:
                     pass
 
-                # 2) Calculate "time since last visit"
-                # This is (endTime_of_this - endTime_of_previous) if the previous trip is also at same place
                 if i > 0:
                     prev_trip = valid_trips[i - 1]
                     prev_end = prev_trip.get("endTime")
@@ -3319,10 +3290,8 @@ async def init_background_tasks():
     Ensures APScheduler uses the same event loop as Quart/Uvicorn.
     Starts the scheduler and initializes scheduled tasks.
     """
-    loop = asyncio.get_running_loop()  # Ensure we get the correct event loop
-    # Configure the scheduler to use the application's event loop
+    loop = asyncio.get_running_loop()
     scheduler.configure(event_loop=loop)
-    # Start background tasks
     start_background_tasks()
 
 #############################
@@ -3331,5 +3300,4 @@ async def init_background_tasks():
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8080"))
-    # If you run "python app.py" this block will fire.  Use uvicorn to serve.
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info", use_colors=True)
