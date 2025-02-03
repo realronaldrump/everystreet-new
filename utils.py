@@ -9,6 +9,7 @@ import requests
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
+
 async def validate_location_osm(location, location_type):
     """
     Asynchronously validate a location using the OSM Nominatim search API.
@@ -26,13 +27,16 @@ async def validate_location_osm(location, location_type):
             async with session.get("https://nominatim.openstreetmap.org/search", params=params, headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
-                    logger.debug(f"validate_location_osm: received {len(data)} results for location '{location}'")
+                    logger.debug(
+                        f"validate_location_osm: received {len(data)} results for location '{location}'")
                     return data[0] if data else None
                 else:
-                    logger.error(f"validate_location_osm: HTTP {response.status} error for location '{location}'")
+                    logger.error(
+                        f"validate_location_osm: HTTP {response.status} error for location '{location}'")
                     return None
     except Exception as e:
-        logger.error(f"validate_location_osm: Exception {e} for location '{location}'", exc_info=True)
+        logger.error(
+            f"validate_location_osm: Exception {e} for location '{location}'", exc_info=True)
         return None
 
 #############################
@@ -133,7 +137,7 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
                 async with session.get(url, params=params, headers=headers) as response:
                     response.raise_for_status()
                     data = await response.json()
-                    
+
                     # Return the ENTIRE JSON dict from Nominatim
                     logger.debug(
                         f"Reverse geocoded ({lat}, {lon}): got top-level keys {list(data.keys())} (attempt {attempt})"
