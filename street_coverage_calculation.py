@@ -262,12 +262,20 @@ async def update_coverage_for_all_locations():
     """
     try:
         logger.info("Starting periodic street coverage update for all locations (raster-based)...")
-        # Get all documents that have a stored location dictionary.
-        cursor = coverage_metadata_collection.find({}, {"location": 1, "_id": 0})
+
+        cursor = coverage_metadata_collection.find({}, {"location": 1, "_id": 1})
         for doc in cursor:
             loc = doc.get("location")
             if not loc:
                 continue
+            if isinstance(loc, str):
+                # If it's a string, skip or remove the doc
+                logger.warning(
+                    f"Skipping coverage doc {doc['_id']} because location is a string: {loc}"
+                )
+                continue
+
+            # Now safe to do loc.get("display_name", "Unknown")
             result = compute_coverage_for_location(loc)
             if result:
                 display_name = loc.get("display_name", "Unknown")
@@ -283,7 +291,11 @@ async def update_coverage_for_all_locations():
                     },
                     upsert=True,
                 )
-                logger.info(f"Updated coverage for {display_name}: {result['coverage_percentage']:.2f}%")
+                logger.info(
+                    f"Updated coverage for {display_name}: {result['coverage_percentage']:.2f}%"
+                )
+
         logger.info("Finished periodic street coverage update (raster-based).")
+
     except Exception as e:
         logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)
