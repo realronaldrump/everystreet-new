@@ -28,6 +28,7 @@ logging.basicConfig(
 )  # Simple format for console
 logger = logging.getLogger(__name__)
 
+
 def compute_coverage_for_location(location):
     """
     Compute street coverage for a given validated location using a raster‐based method.
@@ -62,24 +63,29 @@ def compute_coverage_for_location(location):
                 return None
             boundary_polygon = {
                 "type": "Polygon",
-                "coordinates": [[
-                    [west, south],
-                    [east, south],
-                    [east, north],
-                    [west, north],
-                    [west, south]
-                ]]
+                "coordinates": [
+                    [
+                        [west, south],
+                        [east, south],
+                        [east, north],
+                        [west, north],
+                        [west, south],
+                    ]
+                ],
             }
         elif "geojson" in location:
             # If a GeoJSON boundary is already provided, use it.
             boundary_polygon = location["geojson"]
         else:
             # Fallback: use the location’s display name to query road segments.
-            logger.warning("No bounding box or geojson provided in location data; falling back to string matching using display_name.")
-            road_segments = list(streets_collection.find(
-                {"properties.location": location.get("display_name")},
-                {"_id": 0}
-            ))
+            logger.warning(
+                "No bounding box or geojson provided in location data; falling back to string matching using display_name."
+            )
+            road_segments = list(
+                streets_collection.find(
+                    {"properties.location": location.get("display_name")}, {"_id": 0}
+                )
+            )
             if not road_segments:
                 return None
             # Compute the union bounding box of these segments.
@@ -101,23 +107,24 @@ def compute_coverage_for_location(location):
                 return None
             boundary_polygon = {
                 "type": "Polygon",
-                "coordinates": [[
-                    [bounds[0], bounds[1]],
-                    [bounds[2], bounds[1]],
-                    [bounds[2], bounds[3]],
-                    [bounds[0], bounds[3]],
-                    [bounds[0], bounds[1]]
-                ]]
+                "coordinates": [
+                    [
+                        [bounds[0], bounds[1]],
+                        [bounds[2], bounds[1]],
+                        [bounds[2], bounds[3]],
+                        [bounds[0], bounds[3]],
+                        [bounds[0], bounds[1]],
+                    ]
+                ],
             }
 
         # --- STEP 2: Query road segments by spatial intersection ---
-        road_segments = list(streets_collection.find({
-            "geometry": {
-                "$geoIntersects": {
-                    "$geometry": boundary_polygon
-                }
-            }
-        }, {"_id": 0}))
+        road_segments = list(
+            streets_collection.find(
+                {"geometry": {"$geoIntersects": {"$geometry": boundary_polygon}}},
+                {"_id": 0},
+            )
+        )
         if not road_segments:
             logger.warning("No road segments found for the given area.")
             return None
@@ -145,13 +152,16 @@ def compute_coverage_for_location(location):
         from affine import Affine
         import pyproj
         import numpy as np
+
         bounds_box = box(*bounds)
         centroid = bounds_box.centroid
 
         # Determine UTM zone (assumes northern hemisphere)
         utm_zone = int((centroid.x + 180) / 6) + 1
         epsg_code = 32600 + utm_zone
-        proj_to_utm = pyproj.Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_code}", always_xy=True).transform
+        proj_to_utm = pyproj.Transformer.from_crs(
+            "EPSG:4326", f"EPSG:{epsg_code}", always_xy=True
+        ).transform
 
         minx_utm, miny_utm = proj_to_utm(bounds[0], bounds[1])
         maxx_utm, maxy_utm = proj_to_utm(bounds[2], bounds[3])
@@ -161,12 +171,15 @@ def compute_coverage_for_location(location):
         resolution_m = 5  # 5-meter cells
         ncols = int(np.ceil(width_m / resolution_m))
         nrows = int(np.ceil(height_m / resolution_m))
-        transform_affine = Affine.translation(minx_utm, maxy_utm) * Affine.scale(resolution_m, -resolution_m)
+        transform_affine = Affine.translation(minx_utm, maxy_utm) * Affine.scale(
+            resolution_m, -resolution_m
+        )
 
         # --- STEP 4: Rasterize the road segments ---
         import rasterio
         from rasterio.features import rasterize
         import shapely.ops
+
         road_shapes = []
         for seg in road_segments:
             try:
@@ -182,20 +195,19 @@ def compute_coverage_for_location(location):
             transform=transform_affine,
             fill=0,
             all_touched=True,
-            dtype='uint8'
+            dtype="uint8",
         )
         total_road_pixels = int(np.sum(road_raster == 1))
         logger.info(f"Total road pixels: {total_road_pixels}")
 
         # --- STEP 5: Rasterize the driven (map‐matched) trips ---
         import json
-        matched_trips = list(matched_trips_collection.find({
-            "matchedGps": {
-                "$geoIntersects": {
-                    "$geometry": boundary_polygon
-                }
-            }
-        }))
+
+        matched_trips = list(
+            matched_trips_collection.find(
+                {"matchedGps": {"$geoIntersects": {"$geometry": boundary_polygon}}}
+            )
+        )
         if matched_trips:
             driven_shapes = []
             for trip in matched_trips:
@@ -207,20 +219,28 @@ def compute_coverage_for_location(location):
                     projected_geom = shapely.ops.transform(proj_to_utm, geom)
                     driven_shapes.append((projected_geom, 1))
                 except Exception as e:
-                    logger.warning("Skipping a trip during driven rasterization: " + str(e))
+                    logger.warning(
+                        "Skipping a trip during driven rasterization: " + str(e)
+                    )
             driven_raster = rasterize(
                 shapes=driven_shapes,
                 out_shape=(nrows, ncols),
                 transform=transform_affine,
                 fill=0,
                 all_touched=True,
-                dtype='uint8'
+                dtype="uint8",
             )
         else:
-            driven_raster = np.zeros((nrows, ncols), dtype='uint8')
+            driven_raster = np.zeros((nrows, ncols), dtype="uint8")
         driven_road_pixels = int(np.sum((road_raster == 1) & (driven_raster == 1)))
-        coverage_percentage = (driven_road_pixels / total_road_pixels * 100) if total_road_pixels > 0 else 0.0
-        logger.info(f"Driven road pixels: {driven_road_pixels}, Coverage: {coverage_percentage:.2f}%")
+        coverage_percentage = (
+            (driven_road_pixels / total_road_pixels * 100)
+            if total_road_pixels > 0
+            else 0.0
+        )
+        logger.info(
+            f"Driven road pixels: {driven_road_pixels}, Coverage: {coverage_percentage:.2f}%"
+        )
 
         # --- STEP 6: Compute approximate lengths (each pixel represents resolution_m meters) ---
         total_length = int(total_road_pixels * resolution_m)
@@ -230,33 +250,40 @@ def compute_coverage_for_location(location):
             "total_length": total_length,
             "driven_length": driven_length,
             "coverage_percentage": coverage_percentage,
-            "raster_dimensions": {"nrows": int(nrows), "ncols": int(ncols)}
+            "raster_dimensions": {"nrows": int(nrows), "ncols": int(ncols)},
         }
     except Exception as e:
         logger.error(f"Error computing coverage for location: {e}", exc_info=True)
         return None
+
 
 async def update_coverage_for_all_locations():
     """
     Periodically updates street coverage for all locations using the new raster‑based method.
     """
     try:
-        logger.info("Starting periodic street coverage update for all locations (raster-based)...")
+        logger.info(
+            "Starting periodic street coverage update for all locations (raster-based)..."
+        )
         locations = coverage_metadata_collection.distinct("location")
         for location in locations:
             result = compute_coverage_for_location(location)
             if result:
                 coverage_metadata_collection.update_one(
                     {"location": location},
-                    {"$set": {
-                        "total_length": result["total_length"],
-                        "driven_length": result["driven_length"],
-                        "coverage_percentage": result["coverage_percentage"],
-                        "last_updated": datetime.now(timezone.utc)
-                    }},
-                    upsert=True
+                    {
+                        "$set": {
+                            "total_length": result["total_length"],
+                            "driven_length": result["driven_length"],
+                            "coverage_percentage": result["coverage_percentage"],
+                            "last_updated": datetime.now(timezone.utc),
+                        }
+                    },
+                    upsert=True,
                 )
-                logger.info(f"Updated coverage for {location}: {result['coverage_percentage']:.2f}%")
+                logger.info(
+                    f"Updated coverage for {location}: {result['coverage_percentage']:.2f}%"
+                )
         logger.info("Finished periodic street coverage update (raster-based).")
     except Exception as e:
         logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)

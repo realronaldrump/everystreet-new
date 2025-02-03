@@ -16,25 +16,33 @@ async def validate_location_osm(location, location_type):
     Asynchronously validate a location using OSM Nominatim search.
     Returns the first matching location dict or None.
     """
-    params = {
-        "q": location,
-        "format": "json",
-        "limit": 1,
-        "featuretype": location_type
-    }
+    params = {"q": location, "format": "json", "limit": 1, "featuretype": location_type}
     headers = {"User-Agent": "EveryStreet-Validator/1.0"}
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
-            async with session.get("https://nominatim.openstreetmap.org/search", params=params, headers=headers) as response:
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=10)
+        ) as session:
+            async with session.get(
+                "https://nominatim.openstreetmap.org/search",
+                params=params,
+                headers=headers,
+            ) as response:
                 if response.status == 200:
                     data = await response.json()
-                    logger.debug(f"Received {len(data)} results for location '{location}'.")
+                    logger.debug(
+                        f"Received {len(data)} results for location '{location}'."
+                    )
                     return data[0] if data else None
                 else:
-                    logger.error(f"HTTP {response.status} error for location '{location}'.")
+                    logger.error(
+                        f"HTTP {response.status} error for location '{location}'."
+                    )
                     return None
     except Exception as e:
-        logger.error(f"Exception during validate_location_osm for '{location}': {e}", exc_info=True)
+        logger.error(
+            f"Exception during validate_location_osm for '{location}': {e}",
+            exc_info=True,
+        )
         return None
 
 
@@ -68,11 +76,16 @@ def validate_trip_data(trip):
         logger.debug(f"GPS structure valid for trip {transaction_id}.")
     except json.JSONDecodeError as e:
         error_message = f"Invalid gps data format: {e}"
-        logger.warning(f"Trip {transaction_id} validation failed: {error_message}", exc_info=True)
+        logger.warning(
+            f"Trip {transaction_id} validation failed: {error_message}", exc_info=True
+        )
         return False, error_message
     except Exception as e:
         error_message = f"Error validating gps data: {e}"
-        logger.error(f"Error during gps validation for trip {transaction_id}: {error_message}", exc_info=True)
+        logger.error(
+            f"Error during gps validation for trip {transaction_id}: {error_message}",
+            exc_info=True,
+        )
         return False, error_message
 
     logger.info(f"Trip data validation successful for {transaction_id}.")
@@ -96,19 +109,28 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
 
     for attempt in range(1, retries + 1):
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as session:
                 async with session.get(url, params=params, headers=headers) as response:
                     response.raise_for_status()
                     data = await response.json()
-                    logger.debug(f"Reverse geocoded ({lat}, {lon}): keys={list(data.keys())} (attempt {attempt})")
+                    logger.debug(
+                        f"Reverse geocoded ({lat}, {lon}): keys={list(data.keys())} (attempt {attempt})"
+                    )
                     return data
         except (ClientResponseError, ClientConnectorError, asyncio.TimeoutError) as e:
             level = logging.WARNING if attempt < retries else logging.ERROR
-            logger.log(level, f"Reverse geocode error (attempt {attempt}) for ({lat}, {lon}): {e}", exc_info=True)
+            logger.log(
+                level,
+                f"Reverse geocode error (attempt {attempt}) for ({lat}, {lon}): {e}",
+                exc_info=True,
+            )
             if attempt < retries:
                 await asyncio.sleep(backoff_factor * (2 ** (attempt - 1)))
     logger.error(f"Failed to reverse geocode ({lat}, {lon}) after {retries} attempts.")
     return None
+
 
 def get_trip_timezone(trip):
     """

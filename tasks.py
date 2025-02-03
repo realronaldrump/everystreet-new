@@ -31,8 +31,7 @@ from db import (
 # Set up logging.
 logger = logging.getLogger(__name__)
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
 
 # Create the APScheduler instance.
@@ -68,6 +67,7 @@ AVAILABLE_TASKS = [
     },
 ]
 
+
 def get_task_config():
     """
     Retrieves the background task config doc from MongoDB.
@@ -79,7 +79,7 @@ def get_task_config():
             "_id": "global_background_task_config",
             "pausedUntil": None,
             "disabled": False,
-            "tasks": {}
+            "tasks": {},
         }
         for t in AVAILABLE_TASKS:
             cfg["tasks"][t["id"]] = {
@@ -89,13 +89,18 @@ def get_task_config():
         task_config_collection.insert_one(cfg)
     return cfg
 
+
 def save_task_config(cfg):
     """
     Saves the given config doc to the DB.
     """
-    task_config_collection.replace_one({"_id": "global_background_task_config"}, cfg, upsert=True)
+    task_config_collection.replace_one(
+        {"_id": "global_background_task_config"}, cfg, upsert=True
+    )
+
 
 # ----- Background Task Functions -----
+
 
 async def periodic_fetch_trips():
     """Periodically fetch trips from the Bouncie API and store them."""
@@ -112,6 +117,7 @@ async def periodic_fetch_trips():
     except Exception as e:
         logger.error(f"Error during periodic trip fetch: {e}", exc_info=True)
 
+
 async def hourly_fetch_trips():
     """Fetch trips from the last hour and then map-match them."""
     try:
@@ -125,26 +131,28 @@ async def hourly_fetch_trips():
         logger.info("Starting map matching for hourly fetched trips...")
         current_hour_end = datetime.now(timezone.utc)
         current_hour_start = current_hour_end - timedelta(hours=1)
-        new_trips_to_match = trips_collection.find({
-            "startTime": {"$gte": current_hour_start, "$lte": current_hour_end}
-        })
+        new_trips_to_match = trips_collection.find(
+            {"startTime": {"$gte": current_hour_start, "$lte": current_hour_end}}
+        )
         map_matched_count = 0
         for trip in new_trips_to_match:
             await process_and_map_match_trip(trip)
             map_matched_count += 1
-        logger.info(f"Map matching completed for {map_matched_count} hourly fetched trips.")
+        logger.info(
+            f"Map matching completed for {map_matched_count} hourly fetched trips."
+        )
     except Exception as e:
         logger.error(f"Error during hourly trip fetch: {e}", exc_info=True)
+
 
 async def cleanup_stale_trips():
     """Archive trips that haven't been updated in the last 5 minutes."""
     try:
         now = datetime.now(timezone.utc)
         stale_threshold = now - timedelta(minutes=5)
-        stale_trips = live_trips_collection.find({
-            "lastUpdate": {"$lt": stale_threshold},
-            "status": "active"
-        })
+        stale_trips = live_trips_collection.find(
+            {"lastUpdate": {"$lt": stale_threshold}, "status": "active"}
+        )
         for trip in stale_trips:
             trip["status"] = "stale"
             trip["endTime"] = now
@@ -152,6 +160,7 @@ async def cleanup_stale_trips():
             live_trips_collection.delete_one({"_id": trip["_id"]})
     except Exception as e:
         logger.error(f"Error cleaning up stale trips: {e}", exc_info=True)
+
 
 async def cleanup_invalid_trips():
     """Mark invalid trip documents based on validation failure."""
@@ -161,12 +170,16 @@ async def cleanup_invalid_trips():
             ok, msg = validate_trip_data(t)
             if not ok:
                 logger.warning(f"Invalid trip {t.get('transactionId', '?')}: {msg}")
-                trips_collection.update_one({"_id": t["_id"]}, {"$set": {"invalid": True}})
+                trips_collection.update_one(
+                    {"_id": t["_id"]}, {"$set": {"invalid": True}}
+                )
         logger.info("Trip cleanup done.")
     except Exception as e:
         logger.error(f"cleanup_invalid_trips: {e}", exc_info=True)
 
+
 # ----- Scheduler Management Functions -----
+
 
 def reinitialize_scheduler_tasks():
     """
@@ -198,7 +211,9 @@ def reinitialize_scheduler_tasks():
         if not task_settings or not task_settings.get("enabled", True):
             continue
         interval = task_settings.get("interval_minutes", t["default_interval_minutes"])
-        next_run_time = paused_until + timedelta(seconds=1) if is_currently_paused else None
+        next_run_time = (
+            paused_until + timedelta(seconds=1) if is_currently_paused else None
+        )
 
         # IMPORTANT: Instead of mapping "fetch_and_store_trips" to fetch_bouncie_trips_in_range (which needs arguments),
         # we map both "fetch_and_store_trips" and "periodic_fetch_trips" to periodic_fetch_trips.
@@ -223,6 +238,7 @@ def reinitialize_scheduler_tasks():
         )
     logger.info("Scheduler tasks reinitialized based on new config.")
 
+
 def start_background_tasks():
     """
     Called at application startup to start the scheduler and initialize tasks.
@@ -230,6 +246,7 @@ def start_background_tasks():
     if not scheduler.running:
         scheduler.start()
     reinitialize_scheduler_tasks()
+
 
 # ----- Optional: Standalone Execution for Testing -----
 if __name__ == "__main__":

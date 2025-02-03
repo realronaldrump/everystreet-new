@@ -27,8 +27,7 @@ from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
 # Logging Configuration
 # -----------------------------------------------------------------------------
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -76,23 +75,24 @@ async def get_access_token(client_session):
                 # Log if token is missing
                 logger.error(f"Access token not found in response: {data}")
                 return None
-            logger.info(
-                "Successfully retrieved access token from Bouncie API.")
+            logger.info("Successfully retrieved access token from Bouncie API.")
             return access_token
     except ClientResponseError as e:
         # Log ClientResponseError with details
         logger.error(
-            f"ClientResponseError retrieving access token: {e.status} - {e.message}", exc_info=True)
+            f"ClientResponseError retrieving access token: {e.status} - {e.message}",
+            exc_info=True,
+        )
         return None
     except ClientConnectorError as e:
         # Log ClientConnectorError
         logger.error(
-            f"ClientConnectorError retrieving access token: {e}", exc_info=True)
+            f"ClientConnectorError retrieving access token: {e}", exc_info=True
+        )
         return None
     except Exception as e:
         # Log any other exceptions
-        logger.error(
-            f"Unexpected error retrieving access token: {e}", exc_info=True)
+        logger.error(f"Unexpected error retrieving access token: {e}", exc_info=True)
         return None
 
 
@@ -101,7 +101,7 @@ async def fetch_trips_for_device(
     token: str,
     imei: str,
     start_dt: datetime,
-    end_dt: datetime
+    end_dt: datetime,
 ) -> list:
     """
     Fetch trips for a single device (identified by IMEI) between start_dt and end_dt.
@@ -121,11 +121,20 @@ async def fetch_trips_for_device(
             trips = await response.json()
             for trip in trips:
                 try:
-                    trip["startTime"] = date_parser.isoparse(trip["startTime"]).replace(tzinfo=timezone.utc)
-                    trip["endTime"] = date_parser.isoparse(trip["endTime"]).replace(tzinfo=timezone.utc)
+                    trip["startTime"] = date_parser.isoparse(trip["startTime"]).replace(
+                        tzinfo=timezone.utc
+                    )
+                    trip["endTime"] = date_parser.isoparse(trip["endTime"]).replace(
+                        tzinfo=timezone.utc
+                    )
                 except Exception as te:
-                    logger.error(f"Timestamp parsing error for trip {trip.get('transactionId', '?')}: {te}", exc_info=True)
-            logger.info(f"Fetched {len(trips)} trips for device {imei} from {start_dt.isoformat()} to {end_dt.isoformat()}.")
+                    logger.error(
+                        f"Timestamp parsing error for trip {trip.get('transactionId', '?')}: {te}",
+                        exc_info=True,
+                    )
+            logger.info(
+                f"Fetched {len(trips)} trips for device {imei} from {start_dt.isoformat()} to {end_dt.isoformat()}."
+            )
             return trips
     except Exception as e:
         logger.error(f"Error fetching trips for device {imei}: {e}", exc_info=True)
@@ -158,7 +167,9 @@ async def store_trip(trip: dict) -> bool:
         if coordinates and len(coordinates) >= 2:
             start_coords, end_coords = coordinates[0], coordinates[-1]
             if not trip.get("startLocation"):
-                geo_data = await reverse_geocode_nominatim(start_coords[1], start_coords[0])
+                geo_data = await reverse_geocode_nominatim(
+                    start_coords[1], start_coords[0]
+                )
                 trip["startLocation"] = geo_data.get("display_name", "")
             if not trip.get("destination"):
                 geo_data = await reverse_geocode_nominatim(end_coords[1], end_coords[0])
@@ -166,7 +177,10 @@ async def store_trip(trip: dict) -> bool:
         else:
             logger.warning(f"Trip {transaction_id} has insufficient coordinate data.")
     except Exception as e:
-        logger.error(f"Error during reverse geocoding for trip {transaction_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error during reverse geocoding for trip {transaction_id}: {e}",
+            exc_info=True,
+        )
 
     try:
         trips_collection.insert_one(trip)
@@ -181,7 +195,7 @@ async def fetch_bouncie_trips_in_range(
     start_dt: datetime,
     end_dt: datetime,
     do_map_match: bool = False,
-    progress_data: dict = None
+    progress_data: dict = None,
 ) -> list:
     """
     For each authorized device, fetch trips in 7‑day intervals between start_dt and end_dt.
@@ -204,7 +218,9 @@ async def fetch_bouncie_trips_in_range(
             current_start = start_dt
             while current_start < end_dt:
                 current_end = min(current_start + timedelta(days=7), end_dt)
-                trips = await fetch_trips_for_device(session, token, imei, current_start, current_end)
+                trips = await fetch_trips_for_device(
+                    session, token, imei, current_start, current_end
+                )
                 for trip in trips:
                     if await store_trip(trip):
                         device_new_trips.append(trip)
@@ -217,7 +233,9 @@ async def fetch_bouncie_trips_in_range(
         if do_map_match and all_new_trips:
             logger.info("Starting map matching for new trips...")
             try:
-                await asyncio.gather(*(process_and_map_match_trip(trip) for trip in all_new_trips))
+                await asyncio.gather(
+                    *(process_and_map_match_trip(trip) for trip in all_new_trips)
+                )
                 logger.info("Map matching completed for all new trips.")
             except Exception as e:
                 logger.error(f"Error during map matching: {e}", exc_info=True)
@@ -227,13 +245,13 @@ async def fetch_bouncie_trips_in_range(
             progress_data["status"] = "completed"
 
         return all_new_trips
-    
+
+
 async def get_trips_from_api(client_session, access_token, imei, start_date, end_date):
     """
     Pulls trips from Bouncie's /trips endpoint, for a device IMEI and date range.
     """
-    headers = {"Authorization": access_token,
-               "Content-Type": "application/json"}
+    headers = {"Authorization": access_token, "Content-Type": "application/json"}
     params = {
         "imei": imei,
         "gps-format": "geojson",
@@ -267,26 +285,38 @@ async def get_trips_from_api(client_session, access_token, imei, start_date, end
                     trip["endTime"] = local_time
 
             logger.info(
-                f"Successfully fetched {len(trips)} trips from Bouncie API for IMEI: {imei}, date range: {start_date} to {end_date}")
+                f"Successfully fetched {len(trips)} trips from Bouncie API for IMEI: {imei}, date range: {start_date} to {end_date}"
+            )
             return trips
     except ClientResponseError as e:
         logger.error(
-            f"ClientResponseError fetching trips from Bouncie API: {e.status} - {e.message}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
+            f"ClientResponseError fetching trips from Bouncie API: {e.status} - {e.message}, IMEI: {imei}, date range: {start_date} to {end_date}",
+            exc_info=True,
+        )
         return []
     except ClientConnectorError as e:
         logger.error(
-            f"ClientConnectorError fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
+            f"ClientConnectorError fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}",
+            exc_info=True,
+        )
         return []
     except Exception as e:
         logger.error(
-            f"Unexpected error fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}", exc_info=True)
+            f"Unexpected error fetching trips from Bouncie API: {e}, IMEI: {imei}, date range: {start_date} to {end_date}",
+            exc_info=True,
+        )
         return []
-    
+
     #############################
+
+
 # API calls to Bouncie
 #############################
 
-async def fetch_trips_in_intervals(main_session, access_token, imei, start_date, end_date):
+
+async def fetch_trips_in_intervals(
+    main_session, access_token, imei, start_date, end_date
+):
     """
     Breaks the date range into 7-day intervals to avoid hitting any Bouncie restrictions.
     """
@@ -297,15 +327,20 @@ async def fetch_trips_in_intervals(main_session, access_token, imei, start_date,
     while current_start < end_date:
         current_end = min(current_start + timedelta(days=7), end_date)
         try:
-            trips = await get_trips_from_api(main_session, access_token, imei, current_start, current_end)
+            trips = await get_trips_from_api(
+                main_session, access_token, imei, current_start, current_end
+            )
             all_trips.extend(trips)
         except Exception as e:
             # Log interval specific errors
             logger.error(
-                f"Error fetching trips for interval {current_start} to {current_end}: {e}", exc_info=True)
+                f"Error fetching trips for interval {current_start} to {current_end}: {e}",
+                exc_info=True,
+            )
         current_start = current_end
 
     return all_trips
+
 
 async def fetch_and_store_trips():
     """
@@ -322,9 +357,12 @@ async def fetch_and_store_trips():
             access_token = await get_access_token(client_session)
             if not access_token:
                 logger.error(
-                    "Failed to obtain access token, aborting fetch_and_store_trips.")
+                    "Failed to obtain access token, aborting fetch_and_store_trips."
+                )
                 progress_data["fetch_and_store_trips"]["status"] = "failed"
-                progress_data["fetch_and_store_trips"]["message"] = "Failed to obtain access token"
+                progress_data["fetch_and_store_trips"][
+                    "message"
+                ] = "Failed to obtain access token"
                 return
 
             end_date = datetime.now(timezone.utc)
@@ -334,7 +372,8 @@ async def fetch_and_store_trips():
             total_devices = len(AUTHORIZED_DEVICES)
             for device_count, imei in enumerate(AUTHORIZED_DEVICES, 1):
                 progress_data["fetch_and_store_trips"][
-                    "message"] = f"Fetching trips for device {device_count} of {total_devices}"
+                    "message"
+                ] = f"Fetching trips for device {device_count} of {total_devices}"
                 device_trips = await fetch_trips_in_intervals(
                     client_session, access_token, imei, start_date, end_date
                 )
@@ -344,12 +383,15 @@ async def fetch_and_store_trips():
                 progress_data["fetch_and_store_trips"]["progress"] = progress
 
             # Insert or update each trip
-            progress_data["fetch_and_store_trips"]["message"] = "Storing trips in database"
+            progress_data["fetch_and_store_trips"][
+                "message"
+            ] = "Storing trips in database"
             total_trips = len(all_trips)
             for index, trip in enumerate(all_trips):
                 try:
                     existing = trips_collection.find_one(
-                        {"transactionId": trip["transactionId"]})
+                        {"transactionId": trip["transactionId"]}
+                    )
                     if existing:
                         continue  # skip
 
@@ -357,7 +399,8 @@ async def fetch_and_store_trips():
                     ok, errmsg = validate_trip_data(trip)
                     if not ok:
                         logger.error(
-                            f"Skipping invalid trip {trip.get('transactionId')}: {errmsg}")
+                            f"Skipping invalid trip {trip.get('transactionId')}: {errmsg}"
+                        )
                         continue
 
                     # Make sure times are datetime
@@ -378,27 +421,37 @@ async def fetch_and_store_trips():
                     trip["startGeoPoint"] = start_pt
                     trip["destinationGeoPoint"] = end_pt
 
-                    trip["destination"] = await reverse_geocode_nominatim(end_pt[1], end_pt[0])
-                    trip["startLocation"] = await reverse_geocode_nominatim(start_pt[1], start_pt[0])
+                    trip["destination"] = await reverse_geocode_nominatim(
+                        end_pt[1], end_pt[0]
+                    )
+                    trip["startLocation"] = await reverse_geocode_nominatim(
+                        start_pt[1], start_pt[0]
+                    )
 
                     # Upsert
                     trips_collection.update_one(
-                        {"transactionId": trip["transactionId"]}, {"$set": trip}, upsert=True
+                        {"transactionId": trip["transactionId"]},
+                        {"$set": trip},
+                        upsert=True,
                     )
                     logger.debug(
-                        f"Trip {trip.get('transactionId')} processed and stored/updated.")
+                        f"Trip {trip.get('transactionId')} processed and stored/updated."
+                    )
 
                     # Update progress
-                    progress = int(50 + (index / total_trips)
-                                   * 50)  # Remaining 50%
+                    progress = int(50 + (index / total_trips) * 50)  # Remaining 50%
                     progress_data["fetch_and_store_trips"]["progress"] = progress
                 except Exception as e:
                     logger.error(
-                        f"Error inserting/updating trip {trip.get('transactionId')}: {e}", exc_info=True)
+                        f"Error inserting/updating trip {trip.get('transactionId')}: {e}",
+                        exc_info=True,
+                    )
 
             progress_data["fetch_and_store_trips"]["status"] = "completed"
             progress_data["fetch_and_store_trips"]["progress"] = 100
-            progress_data["fetch_and_store_trips"]["message"] = "Fetch and store completed"
+            progress_data["fetch_and_store_trips"][
+                "message"
+            ] = "Fetch and store completed"
 
     except Exception as e:
         logger.error(f"Error in fetch_and_store_trips: {e}", exc_info=True)

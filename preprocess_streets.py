@@ -13,8 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -32,8 +31,12 @@ OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 wgs84 = pyproj.CRS("EPSG:4326")
 # For segmentation purposes, we define a default UTM projection.
 default_utm = pyproj.CRS("EPSG:32610")  # Adjust the UTM zone as needed.
-project_to_utm = pyproj.Transformer.from_crs(wgs84, default_utm, always_xy=True).transform
-project_to_wgs84 = pyproj.Transformer.from_crs(default_utm, wgs84, always_xy=True).transform
+project_to_utm = pyproj.Transformer.from_crs(
+    wgs84, default_utm, always_xy=True
+).transform
+project_to_wgs84 = pyproj.Transformer.from_crs(
+    default_utm, wgs84, always_xy=True
+).transform
 
 
 async def fetch_osm_data(location, streets_only=True):
@@ -64,7 +67,9 @@ async def fetch_osm_data(location, streets_only=True):
         );
         out geom;
         """
-    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+    async with aiohttp.ClientSession(
+        timeout=aiohttp.ClientTimeout(total=30)
+    ) as session:
         async with session.get(OVERPASS_URL, params={"data": query}) as response:
             response.raise_for_status()
             osm_data = await response.json()
@@ -91,7 +96,11 @@ def cut(line, start_distance, end_distance):
     Cut a LineString between start_distance and end_distance.
     Returns a new LineString for the cut segment or None if invalid.
     """
-    if start_distance < 0 or end_distance > line.length or start_distance >= end_distance:
+    if (
+        start_distance < 0
+        or end_distance > line.length
+        or start_distance >= end_distance
+    ):
         return None
     coords = list(line.coords)
     if start_distance == 0 and end_distance == line.length:
@@ -145,18 +154,22 @@ def process_osm_data(osm_data, location):
                     "properties": {
                         "street_id": element["id"],
                         "segment_id": f"{element['id']}-{i}",
-                        "street_name": element.get("tags", {}).get("name", "Unnamed Street"),
+                        "street_name": element.get("tags", {}).get(
+                            "name", "Unnamed Street"
+                        ),
                         "location": location["display_name"],
                         "length": segment_length,
                         "driven": False,
                         "last_updated": None,
-                        "matched_trips": []
+                        "matched_trips": [],
                     },
                 }
                 features.append(feature)
                 total_length += segment_length
         except Exception as e:
-            logger.error(f"Error processing element {element.get('id')}: {e}", exc_info=True)
+            logger.error(
+                f"Error processing element {element.get('id')}: {e}", exc_info=True
+            )
 
     if features:
         geojson_data = {"type": "FeatureCollection", "features": features}
@@ -167,19 +180,23 @@ def process_osm_data(osm_data, location):
         try:
             coverage_metadata_collection.update_one(
                 {"location": location["display_name"]},
-                {"$set": {
-                    "total_segments": len(features),
-                    "driven_segments": 0,
-                    "total_length": total_length,
-                    "driven_length": 0,
-                    "coverage_percentage": 0.0,
-                    "last_updated": datetime.now(timezone.utc),
-                }},
+                {
+                    "$set": {
+                        "total_segments": len(features),
+                        "driven_segments": 0,
+                        "total_length": total_length,
+                        "driven_length": 0,
+                        "coverage_percentage": 0.0,
+                        "last_updated": datetime.now(timezone.utc),
+                    }
+                },
                 upsert=True,
             )
         except Exception as e:
             logger.error(f"Error updating coverage metadata: {e}", exc_info=True)
-        logger.info(f"Stored {len(features)} street segments for {location['display_name']}.")
+        logger.info(
+            f"Stored {len(features)} street segments for {location['display_name']}."
+        )
     else:
         logger.info(f"No valid street segments found for {location['display_name']}.")
 
@@ -188,7 +205,7 @@ async def preprocess_streets(validated_location):
     """
     Asynchronously preprocess street data for a given validated location.
     This function is designed to be invoked by the application.
-    
+
     It performs the following steps:
       1. Asynchronously fetches OSM data for the location.
       2. Processes the OSM data (segments the streets) and inserts the segments into MongoDB.
@@ -199,11 +216,15 @@ async def preprocess_streets(validated_location):
         # Run the synchronous process_osm_data in a thread so as not to block the event loop.
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, process_osm_data, osm_data, validated_location)
-        logger.info(f"Street preprocessing completed for {validated_location['display_name']}.")
+        logger.info(
+            f"Street preprocessing completed for {validated_location['display_name']}."
+        )
     except Exception as e:
         logger.error(f"Error during street preprocessing: {e}", exc_info=True)
 
 
 # This module is intended for import within the application.
 if __name__ == "__main__":
-    logger.info("This module is not meant to be run independently. Use it via your application.")
+    logger.info(
+        "This module is not meant to be run independently. Use it via your application."
+    )

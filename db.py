@@ -6,10 +6,10 @@ from datetime import timezone
 
 # Configure logging for this module.
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
 
 def get_mongo_client():
     """
@@ -30,6 +30,7 @@ def get_mongo_client():
     except Exception as e:
         logger.error(f"Failed to initialize MongoDB client: {e}", exc_info=True)
         raise
+
 
 # Initialize the client and the database.
 mongo_client = get_mongo_client()

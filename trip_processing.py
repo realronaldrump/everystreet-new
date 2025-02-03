@@ -15,6 +15,7 @@ from datetime import timezone
 
 logger = logging.getLogger(__name__)
 
+
 def process_trip(trip):
     """
     Processes a trip dictionary by:
@@ -52,7 +53,9 @@ def process_trip(trip):
             gps_data = json.loads(gps_data)
         # Validate that there are coordinates.
         if not gps_data.get("coordinates"):
-            logger.error(f"Trip {trip.get('transactionId', '?')} has invalid coordinates.")
+            logger.error(
+                f"Trip {trip.get('transactionId', '?')} has invalid coordinates."
+            )
             return None
 
         # Store the gps data as a JSON string.
@@ -74,8 +77,12 @@ def process_trip(trip):
         return trip
 
     except Exception as e:
-        logger.error(f"Error processing trip {trip.get('transactionId', '?')}: {e}", exc_info=True)
+        logger.error(
+            f"Error processing trip {trip.get('transactionId', '?')}: {e}",
+            exc_info=True,
+        )
         return None
+
 
 def format_idle_time(seconds):
     """
