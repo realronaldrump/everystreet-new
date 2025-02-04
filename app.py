@@ -1073,7 +1073,7 @@ async def generate_geojson_osm(location, streets_only=False):
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
-        # Await process_elements because it is defined as an async function.
+        # Await process_elements because it is an async function.
         features = await process_elements(data["elements"], streets_only)
         if features:
             gdf = gpd.GeoDataFrame.from_features(features)
@@ -1081,11 +1081,13 @@ async def generate_geojson_osm(location, streets_only=False):
             geojson_data = json.loads(gdf.to_json())
             bson_size_estimate = len(json.dumps(geojson_data).encode("utf-8"))
             if bson_size_estimate <= 16793598:
-                existing_data = osm_data_collection.find_one(
+                # Await the find_one call so that existing_data is a dict.
+                existing_data = await osm_data_collection.find_one(
                     {"location": location, "type": osm_type}
                 )
                 if existing_data:
-                    osm_data_collection.update_one(
+                    # Await update_one since it is async.
+                    await osm_data_collection.update_one(
                         {"_id": existing_data["_id"]},
                         {
                             "$set": {
@@ -1098,7 +1100,8 @@ async def generate_geojson_osm(location, streets_only=False):
                         f"Updated OSM data for {location.get('display_name', 'Unknown')}, type: {osm_type}"
                     )
                 else:
-                    osm_data_collection.insert_one(
+                    # Await insert_one as well.
+                    await osm_data_collection.insert_one(
                         {
                             "location": location,
                             "type": osm_type,
