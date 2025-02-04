@@ -12,6 +12,7 @@ new_functionality.py
 new_functionality/
 clearmapmatchdatabase.py
 fastapi.py
+draft_fastapi.py
 fix_bouncie_trip_times.py
 undo_bouncie_trip_times.py
 fix_mapmatched_times.py

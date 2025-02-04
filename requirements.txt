@@ -16,3 +16,4 @@ affine
 rasterio
 pyproj
 timezonefinder
+python-multipart
