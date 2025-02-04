@@ -138,7 +138,8 @@ async def process_osm_data(osm_data, location):
         if element.get("type") != "way":
             continue
         try:
-            nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
+            nodes = [(node["lon"], node["lat"])
+                     for node in element["geometry"]]
             line = LineString(nodes)
             # Project to UTM for segmentation.
             projected_line = transform(project_to_utm, line)
@@ -175,7 +176,8 @@ async def process_osm_data(osm_data, location):
         try:
             await streets_collection.insert_many(geojson_data["features"])
         except Exception as e:
-            logger.error(f"Error inserting street segments: {e}", exc_info=True)
+            logger.error(
+                f"Error inserting street segments: {e}", exc_info=True)
         try:
             await coverage_metadata_collection.update_one(
                 {"location.display_name": location.get("display_name")},
@@ -192,12 +194,14 @@ async def process_osm_data(osm_data, location):
                 upsert=True,
             )
         except Exception as e:
-            logger.error(f"Error updating coverage metadata: {e}", exc_info=True)
+            logger.error(
+                f"Error updating coverage metadata: {e}", exc_info=True)
         logger.info(
             f"Stored {len(features)} street segments for {location['display_name']}."
         )
     else:
-        logger.info(f"No valid street segments found for {location['display_name']}.")
+        logger.info(
+            f"No valid street segments found for {location['display_name']}.")
 
 
 async def preprocess_streets(validated_location):
