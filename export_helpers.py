@@ -13,7 +13,18 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Any
 
+from bson import ObjectId  # Ensure ObjectIds are handled
+
 logger = logging.getLogger(__name__)
+
+
+def default_serializer(o):
+    """Custom serializer for JSON to handle datetime and ObjectId types."""
+    if isinstance(o, datetime):
+        return o.isoformat()
+    if isinstance(o, ObjectId):
+        return str(o)
+    return str(o)
 
 
 async def create_geojson(trips: List[Dict[str, Any]]) -> str:
@@ -29,7 +40,7 @@ async def create_geojson(trips: List[Dict[str, Any]]) -> str:
     """
     features = []
     for t in trips:
-        # Parse the gps data.
+        # Parse the GPS data.
         gps_data = t.get("gps")
         if isinstance(gps_data, str):
             try:
@@ -40,13 +51,14 @@ async def create_geojson(trips: List[Dict[str, Any]]) -> str:
                 )
                 continue
 
-        # Convert non-serializable fields in properties.
+        # Build a properties dictionary.
+        # For each key/value, if the value is a datetime or an ObjectId, convert it.
         properties_dict = {}
         for key, value in t.items():
-            if key == "_id":
-                properties_dict[key] = str(value)
-            elif isinstance(value, datetime):
+            if isinstance(value, datetime):
                 properties_dict[key] = value.isoformat()
+            elif isinstance(value, ObjectId):
+                properties_dict[key] = str(value)
             else:
                 properties_dict[key] = value
 
@@ -57,7 +69,9 @@ async def create_geojson(trips: List[Dict[str, Any]]) -> str:
         }
         features.append(feature)
     feature_collection = {"type": "FeatureCollection", "features": features}
-    return json.dumps(feature_collection)
+
+    # Use our custom default serializer to handle non-serializable types.
+    return json.dumps(feature_collection, default=default_serializer)
 
 
 async def create_gpx(trips: List[Dict[str, Any]]) -> str:
@@ -88,15 +102,23 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
                     f"Error parsing gps data for trip {t.get('transactionId', '?')}: {e}"
                 )
                 continue
+
+        if not gps_data:
+            logger.warning(f"No gps data for trip {t.get('transactionId', '?')}")
+            continue
+
+        # Process a LineString.
         if gps_data.get("type") == "LineString":
             for coord in gps_data.get("coordinates", []):
-                if len(coord) >= 2:
+                if isinstance(coord, list) and len(coord) >= 2:
                     lon, lat = coord[0], coord[1]
                     segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+        # Process a Point.
         elif gps_data.get("type") == "Point":
             coords = gps_data.get("coordinates", [])
-            if len(coords) >= 2:
+            if isinstance(coords, list) and len(coords) >= 2:
                 lon, lat = coords[0], coords[1]
                 segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
-        track.name = f"Trip {t.get('transactionId', 'UNKNOWN')}"
+        # Set the track name, ensuring transactionId is a string.
+        track.name = f"Trip {str(t.get('transactionId', 'UNKNOWN'))}"
     return gpx.to_xml()

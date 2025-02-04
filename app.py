@@ -291,11 +291,13 @@ class CustomPlace:
 
     @staticmethod
     def from_dict(data: dict):
-        created = (
-            datetime.fromisoformat(data["created_at"])
-            if data.get("created_at")
-            else datetime.now(timezone.utc)
-        )
+        created_raw = data.get("created_at")
+        if isinstance(created_raw, str):
+            created = datetime.fromisoformat(created_raw)
+        elif isinstance(created_raw, datetime):
+            created = created_raw
+        else:
+            created = datetime.now(timezone.utc)
         return CustomPlace(
             name=data["name"], geometry=data["geometry"], created_at=created
         )
@@ -382,9 +384,24 @@ async def update_trip(trip_id: str, request: Request):
             else trips_collection
         )
 
-        # Wrap find_one in a thread.
-        trip = await asyncio.to_thread(
-            lambda: collection.find_one(
+        # Use Motor’s async API directly.
+        trip = await collection.find_one(
+            {
+                "$or": [
+                    {"transactionId": trip_id},
+                    {"transactionId": str(trip_id)},
+                ]
+            }
+        )
+
+        # If not found, try the other collection.
+        if not trip:
+            other_collection = (
+                matched_trips_collection
+                if trip_type != "matched_trips"
+                else trips_collection
+            )
+            trip = await other_collection.find_one(
                 {
                     "$or": [
                         {"transactionId": trip_id},
@@ -392,30 +409,13 @@ async def update_trip(trip_id: str, request: Request):
                     ]
                 }
             )
-        )
-
-        if not trip:
-            other_collection = (
-                matched_trips_collection
-                if trip_type != "matched_trips"
-                else trips_collection
-            )
-            trip = await asyncio.to_thread(
-                lambda: other_collection.find_one(
-                    {
-                        "$or": [
-                            {"transactionId": trip_id},
-                            {"transactionId": str(trip_id)},
-                        ]
-                    }
-                )
-            )
             if trip:
                 collection = other_collection
 
         if not trip:
             raise HTTPException(status_code=404, detail=f"No trip found for {trip_id}")
 
+        # Build the update fields.
         update_fields = {"updatedAt": datetime.now(timezone.utc)}
         if geometry and isinstance(geometry, dict):
             gps_data = {"type": "LineString", "coordinates": geometry["coordinates"]}
@@ -441,9 +441,9 @@ async def update_trip(trip_id: str, request: Request):
             else:
                 update_fields.update(props)
 
-        # Wrap update_one in asyncio.to_thread.
-        result = await asyncio.to_thread(
-            lambda: collection.update_one({"_id": trip["_id"]}, {"$set": update_fields})
+        # Update the document using Motor’s async update_one.
+        result = await collection.update_one(
+            {"_id": trip["_id"]}, {"$set": update_fields}
         )
         if not result.modified_count:
             raise HTTPException(status_code=400, detail="No changes made")
@@ -658,57 +658,47 @@ async def get_driving_insights(request: Request):
         if imei:
             query["imei"] = imei
 
-        def pipeline_agg(coll):
-            return coll.aggregate(
-                [
-                    {"$match": query},
-                    {
-                        "$group": {
-                            "_id": None,
-                            "total_trips": {"$sum": 1},
-                            "total_distance": {"$sum": {"$ifNull": ["$distance", 0]}},
-                            "total_fuel_consumed": {
-                                "$sum": {"$ifNull": ["$fuelConsumed", 0]}
-                            },
-                            "max_speed": {"$max": {"$ifNull": ["$maxSpeed", 0]}},
-                            "total_idle_duration": {
-                                "$sum": {"$ifNull": ["$totalIdleDuration", 0]}
-                            },
-                            "longest_trip_distance": {
-                                "$max": {"$ifNull": ["$distance", 0]}
-                            },
-                        }
+        # Define a pipeline for summary aggregation.
+        pipeline = [
+            {"$match": query},
+            {
+                "$group": {
+                    "_id": None,
+                    "total_trips": {"$sum": 1},
+                    "total_distance": {"$sum": {"$ifNull": ["$distance", 0]}},
+                    "total_fuel_consumed": {"$sum": {"$ifNull": ["$fuelConsumed", 0]}},
+                    "max_speed": {"$max": {"$ifNull": ["$maxSpeed", 0]}},
+                    "total_idle_duration": {
+                        "$sum": {"$ifNull": ["$totalIdleDuration", 0]}
                     },
-                ]
-            )
-
-        result_trips = await asyncio.to_thread(
-            lambda: list(pipeline_agg(trips_collection))
+                    "longest_trip_distance": {"$max": {"$ifNull": ["$distance", 0]}},
+                }
+            },
+        ]
+        result_trips = await trips_collection.aggregate(pipeline).to_list(length=None)
+        result_uploaded = await uploaded_trips_collection.aggregate(pipeline).to_list(
+            length=None
         )
-        result_uploaded = await asyncio.to_thread(
-            lambda: list(pipeline_agg(uploaded_trips_collection))
-        )
 
-        def pipeline_most_visited(coll):
-            return coll.aggregate(
-                [
-                    {"$match": query},
-                    {
-                        "$group": {
-                            "_id": "$destination",
-                            "count": {"$sum": 1},
-                            "isCustomPlace": {"$first": "$isCustomPlace"},
-                        }
-                    },
-                    {"$sort": {"count": -1}},
-                    {"$limit": 1},
-                ]
-            )
-
-        result_most_visited_trips = list(pipeline_most_visited(trips_collection))
-        result_most_visited_uploaded = list(
-            pipeline_most_visited(uploaded_trips_collection)
-        )
+        # Define a pipeline for the “most visited” destination.
+        pipeline_most_visited = [
+            {"$match": query},
+            {
+                "$group": {
+                    "_id": "$destination",
+                    "count": {"$sum": 1},
+                    "isCustomPlace": {"$first": "$isCustomPlace"},
+                }
+            },
+            {"$sort": {"count": -1}},
+            {"$limit": 1},
+        ]
+        result_most_visited_trips = await trips_collection.aggregate(
+            pipeline_most_visited
+        ).to_list(length=None)
+        result_most_visited_uploaded = await uploaded_trips_collection.aggregate(
+            pipeline_most_visited
+        ).to_list(length=None)
 
         combined = {
             "total_trips": 0,
@@ -1083,7 +1073,8 @@ async def generate_geojson_osm(location, streets_only=False):
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
-        features = process_elements(data["elements"], streets_only)
+        # Await process_elements because it is defined as an async function.
+        features = await process_elements(data["elements"], streets_only)
         if features:
             gdf = gpd.GeoDataFrame.from_features(features)
             gdf = gdf.set_geometry("geometry")
@@ -1125,7 +1116,7 @@ async def generate_geojson_osm(location, streets_only=False):
             return geojson_data, None
         return None, "No features found"
     except aiohttp.ClientError as e:
-        logger.error(f"Error generating geojson from Overpass: {e}", exc_info=True)
+        logger.error("Error generating geojson from Overpass: %s", e, exc_info=True)
         return None, "Error communicating with Overpass API"
     except Exception as e:
         logger.error(f"Error generating geojson: {e}", exc_info=True)
@@ -1364,7 +1355,7 @@ async def remap_matched_trips(request: Request):
 @app.get("/api/export/trip/{trip_id}")
 async def export_single_trip(trip_id: str, request: Request):
     fmt = request.query_params.get("format", "geojson")
-    t = trips_collection.find_one({"transactionId": trip_id})
+    t = await trips_collection.find_one({"transactionId": trip_id})
     if not t:
         raise HTTPException(status_code=404, detail="Trip not found")
     if fmt == "geojson":
@@ -1379,7 +1370,7 @@ async def export_single_trip(trip_id: str, request: Request):
                 "startTime": t["startTime"].isoformat(),
                 "endTime": t["endTime"].isoformat(),
                 "distance": t.get("distance", 0),
-                "imei": t.get("imei", ""),
+                "imei": t["imei"],
             },
         }
         fc = {"type": "FeatureCollection", "features": [feature]}
@@ -1420,7 +1411,7 @@ async def export_single_trip(trip_id: str, request: Request):
 @app.delete("/api/matched_trips/{trip_id}")
 async def delete_matched_trip(trip_id: str):
     try:
-        result = matched_trips_collection.delete_one(
+        result = await matched_trips_collection.delete_one(
             {"$or": [{"transactionId": trip_id}, {"transactionId": str(trip_id)}]}
         )
         if result.deleted_count:
@@ -1437,11 +1428,9 @@ async def export_page(request: Request):
 
 
 async def fetch_all_trips_no_filter():
-    trips = await asyncio.to_thread(lambda: list(trips_collection.find()))
-    uploaded = await asyncio.to_thread(lambda: list(uploaded_trips_collection.find()))
-    historical = await asyncio.to_thread(
-        lambda: list(historical_trips_collection.find())
-    )
+    trips = await trips_collection.find().to_list(length=None)
+    uploaded = await uploaded_trips_collection.find().to_list(length=None)
+    historical = await historical_trips_collection.find().to_list(length=None)
     return trips + uploaded + historical
 
 
@@ -1497,13 +1486,9 @@ async def fetch_all_trips(start_date_str, end_date_str):
     sd = parser.parse(start_date_str)
     ed = parser.parse(end_date_str)
     query = {"startTime": {"$gte": sd, "$lte": ed}}
-    trips = await asyncio.to_thread(lambda: list(trips_collection.find(query)))
-    uploaded = await asyncio.to_thread(
-        lambda: list(uploaded_trips_collection.find(query))
-    )
-    historical = await asyncio.to_thread(
-        lambda: list(historical_trips_collection.find(query))
-    )
+    trips = await trips_collection.find(query).to_list(length=None)
+    uploaded = await uploaded_trips_collection.find(query).to_list(length=None)
+    historical = await historical_trips_collection.find(query).to_list(length=None)
     return trips + uploaded + historical
 
 
@@ -1537,7 +1522,7 @@ async def fetch_matched_trips(start_date_str, end_date_str):
     sd = parser.parse(start_date_str)
     ed = parser.parse(end_date_str)
     query = {"startTime": {"$gte": sd, "$lte": ed}}
-    return await asyncio.to_thread(lambda: list(matched_trips_collection.find(query)))
+    return await matched_trips_collection.find(query).to_list(length=None)
 
 
 @app.get("/api/export/streets")
@@ -1551,8 +1536,9 @@ async def export_streets(request: Request):
     if not data:
         raise HTTPException(status_code=500, detail="No data returned")
     if fmt == "geojson":
+        # Use default=str to convert any non-serializable objects (like ObjectId) to strings.
         return StreamingResponse(
-            io.BytesIO(json.dumps(data).encode()),
+            io.BytesIO(json.dumps(data, default=str).encode()),
             media_type="application/geo+json",
             headers={"Content-Disposition": 'attachment; filename="streets.geojson"'},
         )
@@ -1590,8 +1576,9 @@ async def export_boundary(request: Request):
     if not data:
         raise HTTPException(status_code=500, detail="No boundary data")
     if fmt == "geojson":
+        # Again, include default=str to handle non-serializable objects.
         return StreamingResponse(
-            io.BytesIO(json.dumps(data).encode()),
+            io.BytesIO(json.dumps(data, default=str).encode()),
             media_type="application/geo+json",
             headers={"Content-Disposition": 'attachment; filename="boundary.geojson"'},
         )
@@ -1645,7 +1632,7 @@ async def preprocess_streets_route(request: Request):
 @app.get("/api/street_segment/{segment_id}")
 async def get_street_segment_details(segment_id: str):
     try:
-        segment = streets_collection.find_one(
+        segment = await streets_collection.find_one(
             {"properties.segment_id": segment_id}, {"_id": 0}
         )
         if not segment:
@@ -1712,11 +1699,11 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
     inserted_count = 0
     for trip in processed:
         try:
-            exists = historical_trips_collection.find_one(
+            exists = await historical_trips_collection.find_one(
                 {"transactionId": trip["transactionId"]}
             )
             if not exists:
-                historical_trips_collection.insert_one(trip)
+                await historical_trips_collection.insert_one(trip)
                 inserted_count += 1
         except Exception as e:
             logger.error(f"Error inserting historical trip: {e}")
@@ -2087,7 +2074,7 @@ def haversine(lon1, lat1, lon2, lat2):
 @app.get("/api/uploaded_trips")
 async def get_uploaded_trips():
     try:
-        ups = list(uploaded_trips_collection.find())
+        ups = await uploaded_trips_collection.find().to_list(length=None)
         for u in ups:
             u["_id"] = str(u["_id"])
             if isinstance(u.get("startTime"), datetime):
@@ -2273,26 +2260,29 @@ async def bulk_delete_trips(request: Request):
 @app.api_route("/api/places", methods=["GET", "POST"])
 async def handle_places(request: Request):
     if request.method == "GET":
-        pls = list(places_collection.find())
+        # Await conversion of the async cursor to a list
+        pls = await places_collection.find().to_list(length=None)
         return [
             {"_id": str(p["_id"]), **CustomPlace.from_dict(p).to_dict()} for p in pls
         ]
+
     data = await request.json()
     place = CustomPlace(data["name"], data["geometry"])
-    r = places_collection.insert_one(place.to_dict())
+    # Await the asynchronous insert operation
+    r = await places_collection.insert_one(place.to_dict())
     return {"_id": str(r.inserted_id), **place.to_dict()}
 
 
 @app.delete("/api/places/{place_id}")
 async def delete_place(place_id: str):
-    places_collection.delete_one({"_id": ObjectId(place_id)})
+    await places_collection.delete_one({"_id": ObjectId(place_id)})
     return ""
 
 
 @app.get("/api/places/{place_id}/statistics")
 async def get_place_statistics(place_id: str):
     try:
-        p = places_collection.find_one({"_id": ObjectId(place_id)})
+        p = await places_collection.find_one({"_id": ObjectId(place_id)})
         if not p:
             raise HTTPException(status_code=404, detail="Place not found")
         query = {
@@ -2303,15 +2293,14 @@ async def get_place_statistics(place_id: str):
             "endTime": {"$ne": None},
         }
         valid_trips = []
+        # For each collection, await the async cursor conversion to a list.
         for coll in [
             trips_collection,
             historical_trips_collection,
             uploaded_trips_collection,
         ]:
-            for trip in coll.find(query):
-                end_t = trip.get("endTime")
-                if end_t and isinstance(end_t, datetime):
-                    valid_trips.append(trip)
+            trips_list = await coll.find(query).to_list(length=None)
+            valid_trips.extend(trips_list)
         valid_trips.sort(key=lambda x: x["endTime"])
         visits = []
         durations = []
@@ -2397,7 +2386,7 @@ async def get_place_statistics(place_id: str):
 @app.get("/api/places/{place_id}/trips")
 async def get_trips_for_place(place_id: str):
     try:
-        p = places_collection.find_one({"_id": ObjectId(place_id)})
+        p = await places_collection.find_one({"_id": ObjectId(place_id)})
         if not p:
             raise HTTPException(status_code=404, detail="Place not found")
         query = {
@@ -2413,10 +2402,8 @@ async def get_trips_for_place(place_id: str):
             historical_trips_collection,
             uploaded_trips_collection,
         ]:
-            for trip in coll.find(query):
-                end_t = trip.get("endTime")
-                if end_t and isinstance(end_t, datetime):
-                    valid_trips.append(trip)
+            trips_list = await coll.find(query).to_list(length=None)
+            valid_trips.extend(trips_list)
         valid_trips.sort(key=lambda x: x["endTime"])
         trips_data = []
         for i, trip in enumerate(valid_trips):
@@ -2500,11 +2487,14 @@ async def get_non_custom_places_visits():
             {"$match": {"totalVisits": {"$gte": 5}}},
             {"$sort": {"totalVisits": -1}},
         ]
-        results = (
-            list(trips_collection.aggregate(pipeline))
-            + list(historical_trips_collection.aggregate(pipeline))
-            + list(uploaded_trips_collection.aggregate(pipeline))
+        trips_results = await trips_collection.aggregate(pipeline).to_list(length=None)
+        historical_results = await historical_trips_collection.aggregate(
+            pipeline
+        ).to_list(length=None)
+        uploaded_results = await uploaded_trips_collection.aggregate(pipeline).to_list(
+            length=None
         )
+        results = trips_results + historical_results + uploaded_results
         visits_data = []
         for doc in results:
             visits_data.append(
@@ -2557,7 +2547,8 @@ async def get_trip_analytics(request: Request):
                 }
             },
         ]
-        results = list(trips_collection.aggregate(pipeline))
+        # Await the asynchronous aggregation and convert the cursor to a list.
+        results = await trips_collection.aggregate(pipeline).to_list(length=None)
 
         def organize_daily_data(results):
             daily_data = {}
@@ -2584,7 +2575,10 @@ async def get_trip_analytics(request: Request):
         daily_list = organize_daily_data(results)
         hourly_list = organize_hourly_data(results)
         return JSONResponse(
-            content={"daily_distances": daily_list, "time_distribution": hourly_list}
+            content={
+                "daily_distances": daily_list,
+                "time_distribution": hourly_list,
+            }
         )
     except Exception as e:
         logger.error(f"Error trip analytics: {e}", exc_info=True)
