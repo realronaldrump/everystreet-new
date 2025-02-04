@@ -1142,7 +1142,7 @@ async def generate_geojson(request: Request):
 
 
 async def to_async_iterator(cursor):
-    items = await asyncio.to_thread(lambda: list(cursor))
+    items = await cursor.to_list(length=None)
     for item in items:
         yield item
 

@@ -20,6 +20,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# -----------------------------------------------------------------------------
+# UPDATED: to_async_iterator
+# -----------------------------------------------------------------------------
+async def to_async_iterator(cursor):
+    # Instead of trying to convert the async cursor in a thread,
+    # use Motor’s built-in async method to convert the cursor to a list.
+    items = await cursor.to_list(length=None)
+    for item in items:
+        yield item
+
+
+# -----------------------------------------------------------------------------
+# Map Matching Functions
+# -----------------------------------------------------------------------------
 async def map_match_coordinates(coordinates):
     """
     Given a list of [lon, lat] coordinate pairs, call Mapbox’s map matching API
