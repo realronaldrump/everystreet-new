@@ -142,23 +142,30 @@ async def fetch_trips_for_device(
 async def store_trip(trip: dict) -> bool:
     """
     Validate and store a single trip document in MongoDB.
-    Returns True if the trip was inserted, otherwise False.
+    Updates an existing trip if found, otherwise inserts a new one.
+    Returns True if the trip was stored (inserted or updated), otherwise False.
     """
-    transaction_id = trip.get("transactionId")
-    if trips_collection.find_one({"transactionId": transaction_id}):
-        logger.info(f"Trip {transaction_id} already exists. Skipping insertion.")
-        return False
+    transaction_id = trip.get("transactionId", "?")
+    logger.info(f"Storing trip {transaction_id} in trips_collection...")
 
     is_valid, error_msg = validate_trip_data(trip)
     if not is_valid:
         logger.error(f"Trip {transaction_id} failed validation: {error_msg}")
         return False
+    logger.debug(f"Trip data validation passed for trip {transaction_id}.")
 
     # Ensure GPS data is stored as a JSON string
     if isinstance(trip.get("gps"), dict):
+        logger.debug(f"Converting gps data to JSON string for trip {transaction_id}.")
         trip["gps"] = geojson_dumps(trip["gps"])
 
-    # Attempt reverse geocoding for start and destination if not provided
+    # Parse startTime and endTime if they are strings
+    for field in ["startTime", "endTime"]:
+        if field in trip and isinstance(trip[field], str):
+            logger.debug(f"Parsing {field} from string for trip {transaction_id}.")
+            trip[field] = parser.isoparse(trip[field])
+
+    # Perform reverse geocoding if needed (or move this to a separate function)
     try:
         gps = geojson_loads(trip["gps"])
         coordinates = gps.get("coordinates", [])
@@ -180,12 +187,23 @@ async def store_trip(trip: dict) -> bool:
             exc_info=True,
         )
 
+    update_data = {
+        "$set": {
+            **trip,
+            "startPlaceId": trip.get("startPlaceId"),
+            "destinationPlaceId": trip.get("destinationPlaceId"),
+        }
+    }
     try:
-        trips_collection.insert_one(trip)
-        logger.info(f"Inserted trip {transaction_id} into the database.")
+        result = await trips_collection.update_one(
+            {"transactionId": transaction_id}, update_data, upsert=True
+        )
+        logger.info(
+            f"Stored trip {transaction_id} successfully. Modified count: {result.modified_count}, Upserted: {result.upserted_id is not None}"
+        )
         return True
     except Exception as e:
-        logger.error(f"Error inserting trip {transaction_id}: {e}", exc_info=True)
+        logger.error(f"Error storing trip {transaction_id}: {e}", exc_info=True)
         return False
 
 

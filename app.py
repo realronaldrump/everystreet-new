@@ -13,8 +13,14 @@ from tasks import (
     periodic_fetch_trips,
     start_background_tasks,
     scheduler,
+    get_task_config,
+    save_task_config,
+    reinitialize_scheduler_tasks,
+    AVAILABLE_TASKS,
+    get_trip_from_db,
 )
 from db import (
+    get_mongo_client,
     trips_collection,
     matched_trips_collection,
     historical_trips_collection,
@@ -112,27 +118,6 @@ progress_data = {
 # MongoDB Initialization
 
 
-def get_mongo_client():
-    """
-    Creates and returns a MongoClient, with TLS and CA checks.
-    """
-    try:
-        client = MongoClient(
-            os.getenv("MONGO_URI"),
-            tls=True,
-            tlsAllowInvalidCertificates=True,
-            tlsCAFile=certifi.where(),
-            tz_aware=True,
-            tzinfo=timezone.utc,
-        )
-        logger.info("MongoDB client initialized successfully.")
-        return client
-    except Exception as e:
-        # Log exception details
-        logger.error(f"Failed to initialize MongoDB client: {e}", exc_info=True)
-        raise
-
-
 mongo_client = get_mongo_client()
 db = mongo_client["every_street"]
 
@@ -143,71 +128,6 @@ osm_data_collection.create_index([("location", 1), ("type", 1)], unique=True)
 streets_collection.create_index([("geometry", "2dsphere")])
 streets_collection.create_index([("properties.location", 1)])
 coverage_metadata_collection.create_index([("location", 1)], unique=True)
-
-# tasks
-
-AVAILABLE_TASKS = [
-    {
-        "id": "fetch_and_store_trips",
-        "display_name": "Fetch & Store Trips",
-        "default_interval_minutes": 30,
-    },
-    {
-        "id": "periodic_fetch_trips",
-        "display_name": "Periodic Trip Fetch",
-        "default_interval_minutes": 30,
-    },
-    {
-        "id": "update_coverage_for_all_locations",
-        "display_name": "Update Coverage (All Locations)",
-        "default_interval_minutes": 60,
-    },
-    {
-        "id": "cleanup_stale_trips",
-        "display_name": "Cleanup Stale Trips",
-        "default_interval_minutes": 60,
-    },
-    {
-        "id": "cleanup_invalid_trips",
-        "display_name": "Cleanup Invalid Trips",
-        "default_interval_minutes": 1440,  # once per day
-    },
-]
-
-
-def get_task_config():
-    """
-    Retrieves the background task config doc from MongoDB.
-    If none exists, we create a default one.
-    """
-    cfg = task_config_collection.find_one({"_id": "global_background_task_config"})
-    if not cfg:
-        # create a default
-        cfg = {
-            "_id": "global_background_task_config",
-            "pausedUntil": None,  # if globally paused
-            "disabled": False,  # if globally disabled
-            "tasks": {
-                # each task: { "interval_minutes": X, "enabled": True/False }
-            },
-        }
-        # Prepopulate with defaults
-        for t in AVAILABLE_TASKS:
-            cfg["tasks"][t["id"]] = {
-                "interval_minutes": t["default_interval_minutes"],
-                "enabled": True,
-            }
-        task_config_collection.insert_one(cfg)
-    return cfg
-
-
-def save_task_config(cfg):
-    """
-    Saves the given config doc to the DB, overwriting the old one.
-    """
-    task_config_collection.replace_one(
-        {"_id": "global_background_task_config"}, cfg, upsert=True
-    )
 
 
 @app.route("/api/background_tasks/config", methods=["GET"])
@@ -385,75 +305,7 @@ async def manually_run_tasks():
 
     return jsonify({"status": "success", "results": results})
 
-
-def reinitialize_scheduler_tasks():
-    """
-    Re-read the config from DB, remove existing jobs, re-add them with correct intervals if enabled,
-    unless globally disabled or paused.
-    """
-
-    for t in AVAILABLE_TASKS:
-        job_id = t["id"]
-        try:
-            scheduler.remove_job(job_id)
-        except JobLookupError:
-            pass
-
-    cfg = get_task_config()
-    # if globally disabled, do not schedule anything
-    if cfg.get("disabled"):
-        logger.info("Background tasks are globally disabled. No tasks scheduled.")
-        return
-
-    paused_until = cfg.get("pausedUntil")
-    is_currently_paused = False
-    if paused_until:
-        now_utc = datetime.now(timezone.utc)
-        if paused_until > now_utc:
-            is_currently_paused = True
-
-    for t in AVAILABLE_TASKS:
-        task_id = t["id"]
-        task_settings = cfg["tasks"].get(task_id, {})
-        if not task_settings:
-            # if not found in config, skip
-            continue
-        if not task_settings.get("enabled", True):
-            continue  # skip if not individually enabled
-        interval = task_settings.get("interval_minutes", t["default_interval_minutes"])
-
-        next_run_time = None
-        if is_currently_paused:
-            next_run_time = paused_until + timedelta(seconds=1)
-
-        if task_id == "fetch_and_store_trips":
-            job_func = fetch_and_store_trips
-        elif task_id == "periodic_fetch_trips":
-            job_func = periodic_fetch_trips
-        elif task_id == "update_coverage_for_all_locations":
-            job_func = update_coverage_for_all_locations
-        elif task_id == "cleanup_stale_trips":
-            job_func = cleanup_stale_trips
-        elif task_id == "cleanup_invalid_trips":
-            job_func = cleanup_invalid_trips
-        else:
-            continue
-
-        # Now schedule it
-        scheduler.add_job(
-            job_func,
-            "interval",
-            minutes=interval,
-            id=task_id,
-            next_run_time=next_run_time,
-            max_instances=1,
-        )
-
-    logger.info("Scheduler tasks reinitialized based on new config.")
-
-
 # Model or helper class
-
 
 class CustomPlace:
     """Represents a custom-defined place with a name, geometry, and creation time."""
@@ -2812,76 +2664,6 @@ async def get_active_trip():
 
 # DB helpers
 
-
-def get_trip_from_db(trip_id):
-    try:
-        t = trips_collection.find_one({"transactionId": trip_id})
-        if not t:
-            logger.warning(f"Trip {trip_id} not found in DB")
-            return None
-        if "gps" not in t:
-            logger.error(f"Trip {trip_id} missing GPS")
-            return None
-        if isinstance(t["gps"], str):
-            try:
-                t["gps"] = json.loads(t["gps"])
-            except:
-                logger.error(f"Failed to parse gps for {trip_id}")
-                return None
-        return t
-    except Exception as e:
-        logger.error(f"Error retrieving trip {trip_id}: {e}", exc_info=True)
-        return None
-
-
-def store_trip(trip):
-    """
-    Stores a trip in the trips_collection, with enhanced logging.
-    """
-    transaction_id = trip.get("transactionId", "?")  # Get transaction ID safely
-    # Log function entry
-    logger.info(f"Storing trip {transaction_id} in trips_collection...")
-
-    ok, msg = validate_trip_data(trip)
-    if not ok:
-        # Log validation failure
-        logger.error(f"Trip data validation failed for trip {transaction_id}: {msg}")
-        return False
-    # Log validation success
-    logger.debug(f"Trip data validation passed for trip {transaction_id}.")
-
-    if isinstance(trip["gps"], dict):
-        # Log GPS conversion
-        logger.debug(f"Converting gps data to JSON string for trip {transaction_id}.")
-        trip["gps"] = json.dumps(trip["gps"])
-
-    for field in ["startTime", "endTime"]:
-        if isinstance(trip[field], str):
-            # Log time parsing
-            logger.debug(f"Parsing {field} from string for trip {transaction_id}.")
-            trip[field] = parser.isoparse(trip[field])
-
-    update_data = {
-        "$set": {
-            **trip,
-            "startPlaceId": trip.get("startPlaceId"),
-            "destinationPlaceId": trip.get("destinationPlaceId"),
-        }
-    }
-
-    try:
-        result = trips_collection.update_one(
-            {"transactionId": trip["transactionId"]}, update_data, upsert=True
-        )
-        # Log successful storage with details
-        logger.info(
-            f"Stored trip {trip['transactionId']} successfully. Modified count: {result.modified_count}, Upserted: {result.upserted_id is not None}"
-        )
-        return True
-    except Exception as e:
-        # Log trip storage errors
-        logger.error(f"Error storing trip {trip['transactionId']}: {e}", exc_info=True)
-        return False
 
 
 async def assemble_trip_from_realtime_data(realtime_trip_data):

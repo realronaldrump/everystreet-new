@@ -3,6 +3,7 @@ import certifi
 import logging
 from pymongo import MongoClient
 from datetime import timezone
+import json
 
 # Configure logging for this module.
 logging.basicConfig(
@@ -49,3 +50,23 @@ coverage_metadata_collection = db["coverage_metadata"]
 live_trips_collection = db["live_trips"]
 archived_live_trips_collection = db["archived_live_trips"]
 task_config_collection = db["task_config"]
+
+def get_trip_from_db(trip_id):
+    try:
+        t = trips_collection.find_one({"transactionId": trip_id})
+        if not t:
+            logger.warning(f"Trip {trip_id} not found in DB")
+            return None
+        if "gps" not in t:
+            logger.error(f"Trip {trip_id} missing GPS")
+            return None
+        if isinstance(t["gps"], str):
+            try:
+                t["gps"] = json.loads(t["gps"])
+            except:
+                logger.error(f"Failed to parse gps for {trip_id}")
+                return None
+        return t
+    except Exception as e:
+        logger.error(f"Error retrieving trip {trip_id}: {e}", exc_info=True)
+        return None

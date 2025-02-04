@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import asyncio
 import logging
 from pymongo import MongoClient
 
@@ -17,10 +18,9 @@ trips_collection = db["trips"]
 historical_trips_collection = db["historical_trips"]
 uploaded_trips_collection = db["uploaded_trips"]
 
-
-def update_geo_points(collection):
+async def update_geo_points(collection):
     """
-    Update documents in the given collection to add startGeoPoint and destinationGeoPoint.
+    Asynchronously update documents in the given collection to add startGeoPoint and destinationGeoPoint.
     """
     logger.info(f"Starting GeoPoint update for collection: {collection.name}")
     updated_count = 0
@@ -34,7 +34,8 @@ def update_geo_points(collection):
             },
             no_cursor_timeout=True,
         )
-        for doc in cursor:
+
+        async for doc in cursor:
             try:
                 gps_data = doc["gps"]
                 if isinstance(gps_data, str):
@@ -56,7 +57,7 @@ def update_geo_points(collection):
                         "coordinates": end_coord,
                     }
                 if update_fields:
-                    collection.update_one({"_id": doc["_id"]}, {"$set": update_fields})
+                    await collection.update_one({"_id": doc["_id"]}, {"$set": update_fields})
                     updated_count += 1
                     logger.debug(
                         f"Updated GeoPoints for document _id: {doc.get('_id', '?')}"
