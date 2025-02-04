@@ -17,3 +17,4 @@ rasterio
 pyproj
 timezonefinder
 python-multipart
+fastapi
