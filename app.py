@@ -298,7 +298,9 @@ class ConnectionManager:
                 # Optionally log or handle errors for this connection
                 pass
 
+
 manager = ConnectionManager()
+
 
 class CustomPlace:
     """Represents a custom-defined place."""
@@ -2743,7 +2745,6 @@ async def bulk_delete_trips(request: Request):
 # Real-Time & Webhook Endpoints
 
 
-
 @app.post("/webhook/bouncie")
 async def bouncie_webhook(request: Request):
     try:
@@ -2835,21 +2836,29 @@ async def bouncie_webhook(request: Request):
         # After processing, try to retrieve the current active trip.
         active_trip = await live_trips_collection.find_one({"status": "active"})
         if active_trip:
-            # Convert datetime fields to ISO strings.
+            # Convert top-level datetimes
             for key in ("startTime", "lastUpdate", "endTime"):
                 if key in active_trip and isinstance(active_trip[key], datetime):
                     active_trip[key] = active_trip[key].isoformat()
-            # Convert the Mongo _id to a string.
-            if active_trip.get("_id"):
+
+            # Convert _id
+            if "_id" in active_trip:
                 active_trip["_id"] = str(active_trip["_id"])
+
+            # ALSO convert timestamps in coordinates
+            if "coordinates" in active_trip:
+                for coord in active_trip["coordinates"]:
+                    if "timestamp" in coord and isinstance(
+                        coord["timestamp"], datetime
+                    ):
+                        coord["timestamp"] = coord["timestamp"].isoformat()
+
             message = {"type": "trip_update", "data": active_trip}
         else:
-            # If no active trip exists, send a heartbeat message.
             message = {"type": "heartbeat"}
 
-        # Broadcast the message to all connected WebSocket clients.
+        # Broadcast with everything stringified
         await manager.broadcast(json.dumps(message))
-
         return {"status": "success"}
 
     except Exception as e:
@@ -3084,13 +3093,16 @@ def get_place_at_point(point):
             return p
     return None
 
+
 # ---------------------------------------------------------------------------
 # Helper: Process a Bouncie event and update live trip
 # ---------------------------------------------------------------------------
 async def process_bouncie_event(data: dict):
     event_type = data.get("eventType")
     transaction_id = data.get("transactionId")
-    if not event_type or (event_type in ("tripStart", "tripData", "tripEnd") and not transaction_id):
+    if not event_type or (
+        event_type in ("tripStart", "tripData", "tripEnd") and not transaction_id
+    ):
         raise HTTPException(status_code=400, detail="Invalid event payload")
 
     # Assume get_trip_timestamps and sort_and_filter_trip_coordinates are already defined.
@@ -3130,7 +3142,9 @@ async def process_bouncie_event(data: dict):
             new_coords = sort_and_filter_trip_coordinates(data["data"])
             all_coords = trip_doc.get("coordinates", []) + new_coords
             all_coords.sort(key=lambda c: c["timestamp"])
-            new_last_update = all_coords[-1]["timestamp"] if all_coords else trip_doc.get("startTime")
+            new_last_update = (
+                all_coords[-1]["timestamp"] if all_coords else trip_doc.get("startTime")
+            )
             await live_trips_collection.update_one(
                 {"transactionId": transaction_id, "status": "active"},
                 {"$set": {"coordinates": all_coords, "lastUpdate": new_last_update}},
@@ -3148,6 +3162,7 @@ async def process_bouncie_event(data: dict):
 
     # After processing, return the current active trip (if any) for broadcasting.
     return await live_trips_collection.find_one({"status": "active"})
+
 
 @app.websocket("/ws/live_trip")
 async def ws_live_trip(websocket: WebSocket):
