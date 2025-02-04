@@ -4,7 +4,6 @@ certifi
 geopandas
 geojson
 gpxpy
-pymongo
 pytz
 python-dateutil
 python-dotenv
@@ -18,3 +17,4 @@ pyproj
 timezonefinder
 python-multipart
 fastapi
+motor

@@ -1,9 +1,11 @@
 import os
+import json
 import certifi
 import logging
-from pymongo import MongoClient
 from datetime import timezone
-import json
+from typing import Optional, Any, Dict
+
+from motor.motor_asyncio import AsyncIOMotorClient
 
 # Configure logging for this module.
 logging.basicConfig(
@@ -12,13 +14,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_mongo_client():
+def get_mongo_client() -> AsyncIOMotorClient:
     """
-    Creates and returns a MongoClient using TLS and CA checks.
+    Creates and returns an asynchronous MongoDB client using TLS and CA checks.
     The MONGO_URI environment variable must be set.
     """
     try:
-        client = MongoClient(
+        client = AsyncIOMotorClient(
             os.getenv("MONGO_URI"),
             tls=True,
             tlsAllowInvalidCertificates=True,
@@ -30,11 +32,11 @@ def get_mongo_client():
         return client
     except Exception as e:
         logger.error(f"Failed to initialize MongoDB client: {e}", exc_info=True)
-        raise
+        raise e
 
 
 # Initialize the client and the database.
-mongo_client = get_mongo_client()
+mongo_client: AsyncIOMotorClient = get_mongo_client()
 db = mongo_client["every_street"]
 
 # Export collections for use elsewhere in your application.
@@ -51,9 +53,22 @@ live_trips_collection = db["live_trips"]
 archived_live_trips_collection = db["archived_live_trips"]
 task_config_collection = db["task_config"]
 
-def get_trip_from_db(trip_id):
+
+async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Asynchronously retrieves a trip document by its transactionId from the trips_collection.
+
+    Ensures that the trip contains a 'gps' field and, if stored as a JSON string,
+    converts it to a dictionary.
+
+    Parameters:
+        trip_id (str): The transaction ID of the trip.
+
+    Returns:
+        dict or None: The trip document if found and valid; otherwise, None.
+    """
     try:
-        t = trips_collection.find_one({"transactionId": trip_id})
+        t = await trips_collection.find_one({"transactionId": trip_id})
         if not t:
             logger.warning(f"Trip {trip_id} not found in DB")
             return None
@@ -63,8 +78,8 @@ def get_trip_from_db(trip_id):
         if isinstance(t["gps"], str):
             try:
                 t["gps"] = json.loads(t["gps"])
-            except:
-                logger.error(f"Failed to parse gps for {trip_id}")
+            except Exception as e:
+                logger.error(f"Failed to parse gps for {trip_id}: {e}", exc_info=True)
                 return None
         return t
     except Exception as e:

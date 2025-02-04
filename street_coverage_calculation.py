@@ -1,54 +1,64 @@
 import logging
 from datetime import datetime, timezone
-
 import json
 import numpy as np
 import pyproj
 from affine import Affine
 from rasterio.features import rasterize
 from shapely.geometry import shape, box
-from pymongo import MongoClient
-from dotenv import load_dotenv
 import os
 
-# Database setup (Ensure these environment variables are set)
+from dotenv import load_dotenv
+from typing import Optional, Dict, Any
+
+# Load environment variables
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Database setup using Motor (asynchronous)
+from motor.motor_asyncio import AsyncIOMotorClient
+
 MONGO_URI = os.getenv("MONGO_URI")
-mongo_client = MongoClient(MONGO_URI)
-db = mongo_client["every_street"]
+client = AsyncIOMotorClient(MONGO_URI, tz_aware=True)
+db = client["every_street"]
 streets_collection = db["streets"]
 matched_trips_collection = db["matched_trips"]
 coverage_metadata_collection = db["coverage_metadata"]
 
-# Logging Configuration (Structured Logging - JSON)
-logging.basicConfig(
-    level=logging.INFO,  # Set default level to INFO
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-)  # Simple format for console
-logger = logging.getLogger(__name__)
+# Coordinate reference systems and transformers
+wgs84 = pyproj.CRS("EPSG:4326")
+# Define a default UTM projection (adjust the EPSG code as needed)
+default_utm = pyproj.CRS("EPSG:32610")
+project_to_utm = pyproj.Transformer.from_crs(
+    wgs84, default_utm, always_xy=True
+).transform
+project_to_wgs84 = pyproj.Transformer.from_crs(
+    default_utm, wgs84, always_xy=True
+).transform
 
 
-def compute_coverage_for_location(location):
+def compute_coverage_for_location(location: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
     Compute street coverage for a given validated location using a raster‐based method.
 
-    This version expects the incoming JSON to include the full validated location object.
-    It uses the location’s “boundingbox” (if available) or its provided GeoJSON boundary.
-    If neither is provided, it falls back to using the location’s “display_name” for a string
-    query to determine the spatial extent (by unioning road segment bounds).
-
-    The function then:
-      - Queries road segments (from streets_collection) that spatially intersect the boundary.
+    The function attempts to determine the boundary polygon for the area based on the location’s
+    bounding box (or provided GeoJSON boundary) or, if missing, by querying road segments using
+    the location’s display name. It then:
+      - Queries road segments (from streets_collection) that intersect the boundary.
       - Rasterizes those segments and also rasterizes map‐matched trips (from matched_trips_collection)
         whose “matchedGps” field intersects the boundary.
-      - Computes the total length (meters) of road pixels,
-        the driven length (meters) where map‐matched trips overlap road segments,
-        and the coverage percentage.
-      - Returns a dictionary with the computed total_length, driven_length,
-        coverage_percentage, and raster_dimensions (nrows and ncols), or None on failure.
+      - Computes the total length (in meters) of road pixels, the driven length (meters)
+        where map‐matched trips overlap road segments, and the coverage percentage.
+      - Returns a dictionary with keys: total_length, driven_length, coverage_percentage, and
+        raster_dimensions (nrows and ncols), or None on failure.
     """
     try:
-        #  STEP 1: Determine the boundary polygon for the area
+        # STEP 1: Determine the boundary polygon for the area.
         if "boundingbox" in location:
             # Nominatim typically returns boundingbox as [south, north, west, east]
             bbox = location["boundingbox"]
@@ -73,10 +83,8 @@ def compute_coverage_for_location(location):
                 ],
             }
         elif "geojson" in location:
-            # If a GeoJSON boundary is already provided, use it.
             boundary_polygon = location["geojson"]
         else:
-            # Fallback: use the location’s display name to query road segments.
             logger.warning(
                 "No bounding box or geojson provided in location data; falling back to string matching using display_name."
             )
@@ -87,7 +95,6 @@ def compute_coverage_for_location(location):
             )
             if not road_segments:
                 return None
-            # Compute the union bounding box of these segments.
             bounds = None
             for seg in road_segments:
                 try:
@@ -117,7 +124,7 @@ def compute_coverage_for_location(location):
                 ],
             }
 
-        #  STEP 2: Query road segments by spatial intersection
+        # STEP 2: Query road segments by spatial intersection.
         road_segments = list(
             streets_collection.find(
                 {"geometry": {"$geoIntersects": {"$geometry": boundary_polygon}}},
@@ -146,11 +153,9 @@ def compute_coverage_for_location(location):
         if bounds is None:
             return None
 
-        #  STEP 3: Set up raster parameters
+        # STEP 3: Set up raster parameters.
         from shapely.geometry import box
         from affine import Affine
-        import pyproj
-        import numpy as np
 
         bounds_box = box(*bounds)
         centroid = bounds_box.centroid
@@ -174,7 +179,7 @@ def compute_coverage_for_location(location):
             resolution_m, -resolution_m
         )
 
-        #  STEP 4: Rasterize the road segments
+        # STEP 4: Rasterize the road segments.
         import rasterio
         from rasterio.features import rasterize
         import shapely.ops
@@ -199,7 +204,7 @@ def compute_coverage_for_location(location):
         total_road_pixels = int(np.sum(road_raster == 1))
         logger.info(f"Total road pixels: {total_road_pixels}")
 
-        #  STEP 5: Rasterize the driven (map‐matched) trips
+        # STEP 5: Rasterize the driven (map‐matched) trips.
         import json
 
         matched_trips = list(
@@ -241,7 +246,7 @@ def compute_coverage_for_location(location):
             f"Driven road pixels: {driven_road_pixels}, Coverage: {coverage_percentage:.2f}%"
         )
 
-        #  STEP 6: Compute approximate lengths (each pixel represents resolution_m meters)
+        # STEP 6: Compute approximate lengths (each pixel represents resolution_m meters).
         total_length = int(total_road_pixels * resolution_m)
         driven_length = int(driven_road_pixels * resolution_m)
 
@@ -256,22 +261,22 @@ def compute_coverage_for_location(location):
         return None
 
 
-async def update_coverage_for_all_locations():
+async def update_coverage_for_all_locations() -> None:
     """
     Periodically updates street coverage for all locations using the new raster‑based method.
+    Iterates through each document in the coverage_metadata_collection, computes the coverage,
+    and updates the document with the new data.
     """
     try:
         logger.info(
             "Starting periodic street coverage update for all locations (raster-based)..."
         )
-
         cursor = coverage_metadata_collection.find({}, {"location": 1, "_id": 1})
-        for doc in cursor:
+        async for doc in cursor:
             loc = doc.get("location")
             if not loc:
                 continue
             if isinstance(loc, str):
-                # If it's a string, skip it (or handle it by re-validating the location)
                 logger.warning(
                     f"Skipping coverage doc {doc['_id']} because location is a string: {loc}"
                 )
@@ -280,7 +285,7 @@ async def update_coverage_for_all_locations():
             result = compute_coverage_for_location(loc)
             if result:
                 display_name = loc.get("display_name", "Unknown")
-                coverage_metadata_collection.update_one(
+                await coverage_metadata_collection.update_one(
                     {"location.display_name": display_name},
                     {
                         "$set": {
@@ -296,8 +301,6 @@ async def update_coverage_for_all_locations():
                 logger.info(
                     f"Updated coverage for {display_name}: {result['coverage_percentage']:.2f}%"
                 )
-
         logger.info("Finished periodic street coverage update (raster-based).")
-
     except Exception as e:
         logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)

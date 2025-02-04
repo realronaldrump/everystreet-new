@@ -3,7 +3,7 @@ import sys
 import json
 import asyncio
 import logging
-from pymongo import MongoClient
+from motor.motor_asyncio import AsyncIOMotorClient
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
@@ -12,11 +12,13 @@ logger = logging.getLogger(__name__)
 
 MONGO_URI = os.environ.get("MONGO_URI")
 DB_NAME = "every_street"
-client = MongoClient(MONGO_URI)
+
+client = AsyncIOMotorClient(MONGO_URI, tz_aware=True)
 db = client[DB_NAME]
 trips_collection = db["trips"]
 historical_trips_collection = db["historical_trips"]
 uploaded_trips_collection = db["uploaded_trips"]
+
 
 async def update_geo_points(collection):
     """
@@ -34,10 +36,9 @@ async def update_geo_points(collection):
             },
             no_cursor_timeout=True,
         )
-
         async for doc in cursor:
             try:
-                gps_data = doc["gps"]
+                gps_data = doc.get("gps")
                 if isinstance(gps_data, str):
                     gps_data = json.loads(gps_data)
                 coords = gps_data.get("coordinates", [])
@@ -57,7 +58,9 @@ async def update_geo_points(collection):
                         "coordinates": end_coord,
                     }
                 if update_fields:
-                    await collection.update_one({"_id": doc["_id"]}, {"$set": update_fields})
+                    await collection.update_one(
+                        {"_id": doc["_id"]}, {"$set": update_fields}
+                    )
                     updated_count += 1
                     logger.debug(
                         f"Updated GeoPoints for document _id: {doc.get('_id', '?')}"
@@ -97,6 +100,7 @@ if __name__ == "__main__":
         else:
             print("Invalid collection name")
             sys.exit(1)
-        update_geo_points(coll)
+        # Run the async update_geo_points function using asyncio.run.
+        asyncio.run(update_geo_points(coll))
     else:
         print("No collection name provided")

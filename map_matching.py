@@ -7,6 +7,7 @@ from aiohttp import ClientResponseError, ClientConnectorError
 from geojson import loads as geojson_loads, dumps as geojson_dumps
 from dotenv import load_dotenv
 import os
+from dateutil import parser
 from datetime import datetime, timedelta
 
 load_dotenv()
@@ -30,15 +31,13 @@ async def map_match_coordinates(coordinates):
             "code": "Error",
             "message": "At least two coordinates are required for map matching.",
         }
-
     base_url = "https://api.mapbox.com/matching/v5/mapbox/driving/"
-    # Break coordinates into chunks
+    # Break coordinates into chunks.
     chunks = [
         coordinates[i : i + MAX_MAPBOX_COORDINATES]
         for i in range(0, len(coordinates), MAX_MAPBOX_COORDINATES)
     ]
     matched_geometries = []
-
     async with aiohttp.ClientSession() as session:
         for index, chunk in enumerate(chunks):
             coords_str = ";".join(f"{lon},{lat}" for lon, lat in chunk)
@@ -94,7 +93,6 @@ async def map_match_coordinates(coordinates):
             except Exception as e:
                 logger.error(f"Chunk {index+1}: Unexpected error: {e}", exc_info=True)
                 return {"code": "Error", "message": str(e)}
-
     return {
         "code": "Ok",
         "matchings": [
@@ -198,17 +196,22 @@ async def process_and_map_match_trip(trip):
             )
             return
 
-        if matched_trips_collection.find_one({"transactionId": trip["transactionId"]}):
+        # Check if already matched.
+        existing = await matched_trips_collection.find_one(
+            {"transactionId": trip["transactionId"]}
+        )
+        if existing:
             logger.info(f"Trip {trip['transactionId']} already matched. Skipping.")
             return
 
+        # Determine source collection (for clarity only).
         source_collection = (
             historical_trips_collection
             if trip.get("imei") == "HISTORICAL"
             else trips_collection
         )
 
-        # Extract GPS data
+        # Extract GPS data.
         if isinstance(trip["gps"], dict):
             gps_data = trip["gps"]
         else:
@@ -220,16 +223,12 @@ async def process_and_map_match_trip(trip):
             )
             return
 
-        # Distribute timestamps linearly if possible
+        # Distribute timestamps linearly if possible.
         start_dt = trip.get("startTime")
         end_dt = trip.get("endTime")
         if isinstance(start_dt, str):
-            from dateutil import parser
-
             start_dt = parser.isoparse(start_dt)
         if isinstance(end_dt, str):
-            from dateutil import parser
-
             end_dt = parser.isoparse(end_dt)
         if start_dt and end_dt and len(coords) > 1:
             total_secs = (end_dt - start_dt).total_seconds()
@@ -270,7 +269,6 @@ async def process_and_map_match_trip(trip):
                 if not matched_coords_combined:
                     matched_coords_combined.extend(part)
                 else:
-                    # Avoid duplicate boundary point
                     if matched_coords_combined[-1] == part[0]:
                         matched_coords_combined.extend(part[1:])
                     else:
@@ -288,6 +286,7 @@ async def process_and_map_match_trip(trip):
             return
 
         matched_trip = trip.copy()
+        # Ensure original gps is stored as a JSON string.
         matched_trip["gps"] = (
             json.dumps(trip["gps"]) if isinstance(trip["gps"], dict) else trip["gps"]
         )
@@ -296,7 +295,7 @@ async def process_and_map_match_trip(trip):
             "coordinates": matched_coords_combined,
         }
 
-        # Optionally update location via reverse geocode
+        # Optionally update location via reverse geocode.
         try:
             if matched_coords_combined:
                 first_lon, first_lat = matched_coords_combined[0]
@@ -308,7 +307,7 @@ async def process_and_map_match_trip(trip):
                 f"Reverse geocode error for trip {trip.get('transactionId', '?')}: {geocode_err}"
             )
 
-        matched_trips_collection.insert_one(matched_trip)
+        await matched_trips_collection.insert_one(matched_trip)
         logger.info(
             f"Stored map–matched trip {trip['transactionId']} with {len(matched_coords_combined)} coordinates."
         )

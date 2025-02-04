@@ -22,7 +22,7 @@ from map_matching import process_and_map_match_trip
 from utils import validate_trip_data
 from street_coverage_calculation import update_coverage_for_all_locations
 
-# Import your database collections from a centralized module (db.py)
+# Import your database collections from your asynchronous db module.
 from db import (
     trips_collection,
     live_trips_collection,
@@ -30,7 +30,6 @@ from db import (
     task_config_collection,
 )
 
-# Set up logging.
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
@@ -68,13 +67,17 @@ AVAILABLE_TASKS = [
     },
 ]
 
+# --- Task Configuration Functions ---
 
-def get_task_config():
+
+async def get_task_config():
     """
     Retrieves the background task configuration document from MongoDB.
     If none exists, creates a default configuration.
     """
-    cfg = task_config_collection.find_one({"_id": "global_background_task_config"})
+    cfg = await task_config_collection.find_one(
+        {"_id": "global_background_task_config"}
+    )
     if not cfg:
         cfg = {
             "_id": "global_background_task_config",
@@ -87,26 +90,26 @@ def get_task_config():
                 "interval_minutes": t["default_interval_minutes"],
                 "enabled": True,
             }
-        task_config_collection.insert_one(cfg)
+        await task_config_collection.insert_one(cfg)
     return cfg
 
 
-def save_task_config(cfg):
+async def save_task_config(cfg):
     """
     Saves the given configuration document to the database.
     """
-    task_config_collection.replace_one(
+    await task_config_collection.replace_one(
         {"_id": "global_background_task_config"}, cfg, upsert=True
     )
 
 
-# Background Task Functions
+# --- Background Task Functions ---
 
 
 async def periodic_fetch_trips():
     """Periodically fetch trips from the Bouncie API and store them."""
     try:
-        last_trip = trips_collection.find_one(sort=[("endTime", -1)])
+        last_trip = await trips_collection.find_one(sort=[("endTime", -1)])
         if last_trip and last_trip.get("endTime"):
             start_date = last_trip["endTime"]
         else:
@@ -132,16 +135,14 @@ async def hourly_fetch_trips():
         logger.info("Starting map matching for hourly fetched trips...")
         current_hour_end = datetime.now(timezone.utc)
         current_hour_start = current_hour_end - timedelta(hours=1)
-        new_trips_to_match = trips_collection.find(
+        cursor = trips_collection.find(
             {"startTime": {"$gte": current_hour_start, "$lte": current_hour_end}}
         )
-        map_matched_count = 0
-        for trip in new_trips_to_match:
+        let_count = 0
+        async for trip in cursor:
             await process_and_map_match_trip(trip)
-            map_matched_count += 1
-        logger.info(
-            f"Map matching completed for {map_matched_count} hourly fetched trips."
-        )
+            let_count += 1
+        logger.info(f"Map matching completed for {let_count} hourly fetched trips.")
     except Exception as e:
         logger.error(f"Error during hourly trip fetch: {e}", exc_info=True)
 
@@ -151,14 +152,14 @@ async def cleanup_stale_trips():
     try:
         now = datetime.now(timezone.utc)
         stale_threshold = now - timedelta(minutes=5)
-        stale_trips = live_trips_collection.find(
+        cursor = live_trips_collection.find(
             {"lastUpdate": {"$lt": stale_threshold}, "status": "active"}
         )
-        for trip in stale_trips:
+        async for trip in cursor:
             trip["status"] = "stale"
             trip["endTime"] = now
-            archived_live_trips_collection.insert_one(trip)
-            live_trips_collection.delete_one({"_id": trip["_id"]})
+            await archived_live_trips_collection.insert_one(trip)
+            await live_trips_collection.delete_one({"_id": trip["_id"]})
     except Exception as e:
         logger.error(f"Error cleaning up stale trips: {e}", exc_info=True)
 
@@ -166,12 +167,12 @@ async def cleanup_stale_trips():
 async def cleanup_invalid_trips():
     """Mark invalid trip documents based on validation failure."""
     try:
-        all_trips = list(trips_collection.find({}))
+        all_trips = await trips_collection.find({}).to_list(length=None)
         for t in all_trips:
             ok, msg = validate_trip_data(t)
             if not ok:
                 logger.warning(f"Invalid trip {t.get('transactionId', '?')}: {msg}")
-                trips_collection.update_one(
+                await trips_collection.update_one(
                     {"_id": t["_id"]}, {"$set": {"invalid": True}}
                 )
         logger.info("Trip cleanup done.")
@@ -179,10 +180,10 @@ async def cleanup_invalid_trips():
         logger.error(f"cleanup_invalid_trips: {e}", exc_info=True)
 
 
-# Scheduler Management Functions
+# --- Scheduler Management Functions ---
 
 
-def reinitialize_scheduler_tasks():
+async def reinitialize_scheduler_tasks():
     """
     Re-read the configuration from the database, remove existing jobs,
     and re-add them with the correct intervals unless globally disabled or paused.
@@ -194,7 +195,7 @@ def reinitialize_scheduler_tasks():
         except JobLookupError:
             pass
 
-    cfg = get_task_config()
+    cfg = await get_task_config()
     if cfg.get("disabled"):
         logger.info("Background tasks are globally disabled. No tasks scheduled.")
         return
@@ -239,11 +240,11 @@ def reinitialize_scheduler_tasks():
     logger.info("Scheduler tasks reinitialized based on new config.")
 
 
-def start_background_tasks():
+async def start_background_tasks():
     """
     Start the scheduler if it's not running and initialize tasks.
     This should be called once at application startup.
     """
     if not scheduler.running:
         scheduler.start()
-    reinitialize_scheduler_tasks()
+    await reinitialize_scheduler_tasks()

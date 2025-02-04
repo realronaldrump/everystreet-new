@@ -11,12 +11,11 @@ import pytz
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
-
+from motor.motor_asyncio import AsyncIOMotorClient
 from dateutil import parser as date_parser
 import aiohttp
 from dateutil import parser
 from geojson import dumps as geojson_dumps, loads as geojson_loads
-from pymongo import MongoClient
 
 # Import shared utilities and map matching function
 from utils import validate_trip_data, reverse_geocode_nominatim, get_trip_timezone
@@ -46,7 +45,8 @@ AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 
 MONGO_URI = os.getenv("MONGO_URI")
 mongo_client = MongoClient(MONGO_URI)
-db = mongo_client["every_street"]
+client = AsyncIOMotorClient(os.getenv("MONGO_URI"), tz_aware=True)
+db = client["every_street"]
 trips_collection = db["trips"]
 
 

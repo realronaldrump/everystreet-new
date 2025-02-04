@@ -16,9 +16,12 @@ def parse_bouncie_timestamp(ts: str) -> Optional[datetime]:
         return None
     try:
         parsed_time = dateutil.parser.isoparse(ts)
-        if parsed_time.tzinfo is None:
-            parsed_time = parsed_time.replace(tzinfo=timezone.utc)
-        return parsed_time
+        # Ensure the parsed time is timezone-aware (default to UTC if missing)
+        return (
+            parsed_time
+            if parsed_time.tzinfo
+            else parsed_time.replace(tzinfo=timezone.utc)
+        )
     except Exception as e:
         logger.warning(f"Failed to parse timestamp '{ts}': {e}")
         return None

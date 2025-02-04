@@ -1,20 +1,33 @@
 import json
 import asyncio
 import logging
+from typing import Optional, Tuple, List, Dict, Any
+
 import aiohttp
 from aiohttp import ClientConnectorError, ClientResponseError
 from geojson import loads as geojson_loads
 from timezonefinder import TimezoneFinder
 
+# Initialize the TimezoneFinder instance.
 tf = TimezoneFinder()
+
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-async def validate_location_osm(location, location_type):
+async def validate_location_osm(
+    location: str, location_type: str
+) -> Optional[Dict[str, Any]]:
     """
-    Asynchronously validate a location using OSM Nominatim search.
-    Returns the first matching location dict or None.
+    Asynchronously validate a location using the OSM Nominatim search API.
+    Returns the first matching location as a dict or None if no match is found.
+
+    Parameters:
+        location (str): The search query for the location.
+        location_type (str): The feature type (e.g., "city", "county", etc.).
+
+    Returns:
+        dict or None: The first matching location object or None.
     """
     params = {"q": location, "format": "json", "limit": 1, "featuretype": location_type}
     headers = {"User-Agent": "EveryStreet-Validator/1.0"}
@@ -43,10 +56,19 @@ async def validate_location_osm(location, location_type):
         return None
 
 
-def validate_trip_data(trip):
+def validate_trip_data(trip: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """
-    Validate that a trip dict contains required fields.
-    Returns a tuple (True, None) if valid or (False, error_message) if not.
+    Validate that a trip dictionary contains the required fields.
+
+    Required fields: "transactionId", "startTime", "endTime", and "gps".
+    Also verifies that the gps data (after JSON-parsing if needed) contains the keys "type" and "coordinates",
+    and that "coordinates" is a list.
+
+    Parameters:
+        trip (dict): The trip data to validate.
+
+    Returns:
+        (bool, Optional[str]): A tuple (is_valid, error_message). If valid, error_message is None.
     """
     transaction_id = trip.get("transactionId", "?")
     logger.info(f"Validating trip data for {transaction_id}...")
@@ -89,10 +111,20 @@ def validate_trip_data(trip):
     return True, None
 
 
-async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
+async def reverse_geocode_nominatim(
+    lat: float, lon: float, retries: int = 3, backoff_factor: int = 1
+) -> Optional[Dict[str, Any]]:
     """
     Reverse geocode a latitude and longitude using OSM Nominatim.
-    Returns the full JSON response as a dict, or None on failure.
+
+    Parameters:
+        lat (float): The latitude.
+        lon (float): The longitude.
+        retries (int): Number of retries in case of failure (default is 3).
+        backoff_factor (int): Backoff factor for retry delays (default is 1).
+
+    Returns:
+        dict or None: The JSON response as a dict if successful; otherwise, None.
     """
     url = "https://nominatim.openstreetmap.org/reverse"
     params = {
@@ -117,9 +149,9 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
                     )
                     return data
         except (ClientResponseError, ClientConnectorError, asyncio.TimeoutError) as e:
-            level = logging.WARNING if attempt < retries else logging.ERROR
+            log_level = logging.WARNING if attempt < retries else logging.ERROR
             logger.log(
-                level,
+                log_level,
                 f"Reverse geocode error (attempt {attempt}) for ({lat}, {lon}): {e}",
                 exc_info=True,
             )
@@ -129,29 +161,30 @@ async def reverse_geocode_nominatim(lat, lon, retries=3, backoff_factor=1):
     return None
 
 
-def get_trip_timezone(trip):
+def get_trip_timezone(trip: Dict[str, Any]) -> str:
     """
-    Simple function that attempts to figure out the timezone for a trip
-    by looking at the first coordinate if available, or default 'UTC'.
+    Attempts to determine the timezone for a trip by examining its gps data.
+
+    If the gps field is a JSON string, it is parsed into a dict. Then the function looks at the
+    "coordinates" property. For a Point geometry, the coordinate is used directly; for other types,
+    the first coordinate is used.
+
+    Returns the timezone as a string (or 'UTC' if not found or in case of an error).
     """
     try:
-        if isinstance(trip["gps"], str):
-            gps_data = geojson_loads(trip["gps"])
-        else:
-            gps_data = trip["gps"]
+        gps_data = trip.get("gps")
+        if isinstance(gps_data, str):
+            gps_data = geojson_loads(gps_data)
         coords = gps_data.get("coordinates", [])
         if not coords:
             return "UTC"
-
-        # if it's a Point, just coords
-        if gps_data["type"] == "Point":
+        # For a Point geometry, use the single coordinate; otherwise, use the first coordinate.
+        if gps_data.get("type") == "Point":
             lon, lat = coords
         else:
             lon, lat = coords[0]
-
         tz = tf.timezone_at(lng=lon, lat=lat)
         return tz or "UTC"
     except Exception as e:
-        # Log timezone retrieval errors
         logger.error(f"Error getting trip timezone: {e}", exc_info=True)
         return "UTC"

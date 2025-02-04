@@ -2,8 +2,8 @@
 export_helpers.py
 
 This module provides functions to export trip data into various formats:
-  - create_geojson: converts a list of trip dicts into a GeoJSON FeatureCollection.
-  - create_gpx: converts a list of trip dicts into a GPX file.
+  - create_geojson: converts a list of trip dictionaries into a GeoJSON FeatureCollection.
+  - create_gpx: converts a list of trip dictionaries into a GPX file.
 These functions take care of serializing special types (e.g. ObjectIds, datetime objects)
 and converting stored gps JSON strings into the appropriate structures.
 """
@@ -11,19 +11,21 @@ and converting stored gps JSON strings into the appropriate structures.
 import json
 import logging
 from datetime import datetime
+from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
 
-async def create_geojson(trips):
+async def create_geojson(trips: List[Dict[str, Any]]) -> str:
     """
     Converts a list of trip dictionaries into a GeoJSON FeatureCollection.
 
     Each trip’s "gps" field is expected to be stored as a JSON string; this function
-    parses that string and attaches it as the geometry. In addition, any datetime or ObjectId
-    in the trip properties are converted into serializable forms.
+    parses that string and attaches it as the geometry. In addition, any datetime (or other
+    non-serializable) fields in the trip properties are converted into serializable forms.
 
-    Returns the GeoJSON as a JSON-formatted string.
+    Returns:
+        A JSON-formatted string representing the GeoJSON FeatureCollection.
     """
     features = []
     for t in trips:
@@ -58,7 +60,7 @@ async def create_geojson(trips):
     return json.dumps(feature_collection)
 
 
-async def create_gpx(trips):
+async def create_gpx(trips: List[Dict[str, Any]]) -> str:
     """
     Converts a list of trip dictionaries into a GPX file.
 
@@ -66,7 +68,8 @@ async def create_gpx(trips):
     a LineString. This function builds a GPX file (using the gpxpy library) that contains
     a track for each trip.
 
-    Returns the GPX XML as a string.
+    Returns:
+        The GPX XML as a string.
     """
     import gpxpy
 

@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timezone
 
 import aiohttp
-from pymongo import MongoClient
+from motor.motor_asyncio import AsyncIOMotorClient
 from shapely.geometry import LineString, mapping, Point
 from shapely.ops import transform
 import pyproj
@@ -17,10 +17,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# MongoDB setup
+# MongoDB setup using Motor (asynchronous)
 MONGO_URI = os.getenv("MONGO_URI")
-mongo_client = MongoClient(MONGO_URI)
-db = mongo_client["every_street"]
+client = AsyncIOMotorClient(MONGO_URI, tz_aware=True)
+db = client["every_street"]
 streets_collection = db["streets"]
 coverage_metadata_collection = db["coverage_metadata"]
 
@@ -42,8 +42,6 @@ project_to_wgs84 = pyproj.Transformer.from_crs(
 async def fetch_osm_data(location, streets_only=True):
     """
     Asynchronously fetch OSM data for the given location using the Overpass API.
-    This version is fully async (do not use asyncio.run here) so that it works
-    within the application's event loop.
     """
     area_id = int(location["osm_id"])
     if location["osm_type"] == "relation":
@@ -120,10 +118,11 @@ def cut(line, start_distance, end_distance):
     return LineString(segment_coords) if len(segment_coords) >= 2 else None
 
 
-def process_osm_data(osm_data, location):
+async def process_osm_data(osm_data, location):
     """
     Process OSM elements: segment each street (way) and store them in MongoDB.
     Also update coverage metadata for the location.
+
     This function:
       1. Iterates over all elements of type "way" in the OSM data.
       2. Creates a LineString from the node coordinates.
@@ -147,7 +146,7 @@ def process_osm_data(osm_data, location):
             for i, segment in enumerate(segments):
                 # Reproject each segment back to WGS84.
                 segment_wgs84 = transform(project_to_wgs84, segment)
-                segment_length = segment.length  # length in meters (in UTM units)
+                segment_length = segment.length  # Length in meters (UTM units)
                 feature = {
                     "type": "Feature",
                     "geometry": mapping(segment_wgs84),
@@ -174,12 +173,11 @@ def process_osm_data(osm_data, location):
     if features:
         geojson_data = {"type": "FeatureCollection", "features": features}
         try:
-            streets_collection.insert_many(geojson_data["features"])
+            await streets_collection.insert_many(geojson_data["features"])
         except Exception as e:
             logger.error(f"Error inserting street segments: {e}", exc_info=True)
         try:
-            # Use location.get("display_name") to get the display name from the location dict.
-            coverage_metadata_collection.update_one(
+            await coverage_metadata_collection.update_one(
                 {"location.display_name": location.get("display_name")},
                 {
                     "$set": {
@@ -205,18 +203,14 @@ def process_osm_data(osm_data, location):
 async def preprocess_streets(validated_location):
     """
     Asynchronously preprocess street data for a given validated location.
-    This function is designed to be invoked by the application.
-
-    It performs the following steps:
-      1. Asynchronously fetches OSM data for the location.
-      2. Processes the OSM data (segments the streets) and inserts the segments into MongoDB.
-      3. Updates coverage metadata for the location.
+    This function performs:
+      1. Asynchronously fetching OSM data for the location.
+      2. Processing the OSM data (segmenting streets) and inserting the segments into MongoDB.
+      3. Updating the coverage metadata for the location.
     """
     try:
         osm_data = await fetch_osm_data(validated_location)
-        # Run the synchronous process_osm_data in a thread so as not to block the event loop.
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, process_osm_data, osm_data, validated_location)
+        await process_osm_data(osm_data, validated_location)
         logger.info(
             f"Street preprocessing completed for {validated_location['display_name']}."
         )
@@ -224,7 +218,6 @@ async def preprocess_streets(validated_location):
         logger.error(f"Error during street preprocessing: {e}", exc_info=True)
 
 
-# This module is intended for import within the application.
 if __name__ == "__main__":
     logger.info(
         "This module is not meant to be run independently. Use it via your application."
