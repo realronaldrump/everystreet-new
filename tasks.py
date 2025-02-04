@@ -21,6 +21,7 @@ from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from map_matching import process_and_map_match_trip
 from utils import validate_trip_data
 from street_coverage_calculation import update_coverage_for_all_locations
+from pymongo.errors import DuplicateKeyError
 
 # Import your database collections from your asynchronous db module.
 from db import (
@@ -213,9 +214,9 @@ async def reinitialize_scheduler_tasks():
         if not task_settings or not task_settings.get("enabled", True):
             continue
         interval = task_settings.get("interval_minutes", t["default_interval_minutes"])
-        next_run_time = (
-            paused_until + timedelta(seconds=1) if is_currently_paused else None
-        )
+        # next_run_time = ( # REMOVED this line
+        #     paused_until + timedelta(seconds=1) if is_currently_paused else None
+        # )
 
         # Map task IDs to background functions.
         if task_id in ("fetch_and_store_trips", "periodic_fetch_trips"):
@@ -234,7 +235,7 @@ async def reinitialize_scheduler_tasks():
             "interval",
             minutes=interval,
             id=task_id,
-            next_run_time=next_run_time,
+            # next_run_time=next_run_time, # REMOVED this line
             max_instances=1,
         )
     logger.info("Scheduler tasks reinitialized based on new config.")

@@ -44,7 +44,6 @@ AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 # MongoDB configuration
 
 MONGO_URI = os.getenv("MONGO_URI")
-mongo_client = MongoClient(MONGO_URI)
 client = AsyncIOMotorClient(os.getenv("MONGO_URI"), tz_aware=True)
 db = client["every_street"]
 trips_collection = db["trips"]
