@@ -14,7 +14,8 @@ from math import radians, cos, sin, sqrt, atan2
 from typing import List, Dict, Any
 from fastapi.staticfiles import StaticFiles
 from motor.motor_asyncio import AsyncIOMotorClient
-
+from pymongo.errors import DuplicateKeyError
+from starlette.websockets import WebSocketDisconnect
 #
 # Third-Party Imports
 #
@@ -564,7 +565,7 @@ async def get_trips(request: Request):
             query["imei"] = imei
 
         async def fetch_trips(coll, q):
-            return await asyncio.to_thread(lambda: list(coll.find(q)))
+            return await coll.find(q).to_list(length=None)
 
         regular, uploaded, historical = await asyncio.gather(
             fetch_trips(trips_collection, query),
@@ -779,17 +780,8 @@ async def get_metrics(request: Request):
         total_trips = len(all_trips)
 
         if not total_trips:
-            return JSONResponse(
-                content={
-                    "total_trips": 0,
-                    "total_distance": "0.00",
-                    "avg_distance": "0.00",
-                    "avg_start_time": "00:00 AM",
-                    "avg_driving_time": "00:00",
-                    "avg_speed": "0.00",
-                    "max_speed": "0.00",
-                }
-            )
+            fc = geojson_module.FeatureCollection([])  # An empty feature collection
+            return JSONResponse(content=geojson_module.dumps(fc))
 
         total_distance = sum(t.get("distance", 0) for t in all_trips)
         avg_distance = total_distance / total_trips if total_trips > 0 else 0.0
@@ -2729,7 +2721,7 @@ async def stream():
             yield b'data: {"type": "connected"}\n\n'
             while True:
                 try:
-                    active_trip = live_trips_collection.find_one({"status": "active"})
+                    active_trip = await live_trips_collection.find_one({"status": "active"})
                     if active_trip:
                         for c in active_trip.get("coordinates", []):
                             ts = c.get("timestamp")
@@ -2849,7 +2841,7 @@ async def bouncie_webhook(request: Request):
 @app.get("/api/active_trip")
 async def get_active_trip():
     try:
-        active_trip = live_trips_collection.find_one({"status": "active"})
+        active_trip = await live_trips_collection.find_one({"status": "active"})
         if active_trip:
             active_trip["_id"] = str(active_trip["_id"])
             if isinstance(active_trip.get("startTime"), datetime):
@@ -3075,34 +3067,39 @@ def get_place_at_point(point):
     return None
 
 
+
 @app.websocket("/ws/live_trip")
 async def ws_live_trip(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
-            active_trip = live_trips_collection.find_one({"status": "active"})
+            active_trip = await live_trips_collection.find_one({"status": "active"})
             if active_trip:
-                if active_trip.get("startTime") and isinstance(
-                    active_trip["startTime"], datetime
-                ):
+                if active_trip.get("startTime") and isinstance(active_trip["startTime"], datetime):
                     active_trip["startTime"] = active_trip["startTime"].isoformat()
-                if active_trip.get("lastUpdate") and isinstance(
-                    active_trip["lastUpdate"], datetime
-                ):
+                if active_trip.get("lastUpdate") and isinstance(active_trip["lastUpdate"], datetime):
                     active_trip["lastUpdate"] = active_trip["lastUpdate"].isoformat()
                 if active_trip.get("_id"):
                     active_trip["_id"] = str(active_trip["_id"])
                 if "coordinates" in active_trip:
                     for coord in active_trip["coordinates"]:
-                        if "timestamp" in coord and isinstance(
-                            coord["timestamp"], datetime
-                        ):
+                        if "timestamp" in coord and isinstance(coord["timestamp"], datetime):
                             coord["timestamp"] = coord["timestamp"].isoformat()
                 message = {"type": "trip_update", "data": active_trip}
             else:
                 message = {"type": "heartbeat"}
-            await websocket.send_text(json.dumps(message))
+
+            # Try sending the message; if the client has disconnected,
+            # a WebSocketDisconnect will be raised.
+            try:
+                await websocket.send_text(json.dumps(message))
+            except WebSocketDisconnect:
+                logger.info("WebSocket client disconnected; ending ws_live_trip loop.")
+                break
+
             await asyncio.sleep(1)
+    except WebSocketDisconnect:
+        logger.info("WebSocket client disconnected from the outer try block.")
     except Exception as e:
         logger.error(f"Error in WebSocket endpoint /ws/live_trip: {e}", exc_info=True)
 
