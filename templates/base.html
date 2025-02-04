@@ -9,19 +9,21 @@
     />
     <meta name="theme-color" content="#121212" />
     <title>{% block title %}Every Street{% endblock %}</title>
+    
+    <!-- Preload and Favicon using HTTPS -->
     <link
       rel="preload"
-      href="{{ url_for('static', path='css/style.css') }}"
+      href="{{ url_for('static', path='css/style.css', _external=True, _scheme='https') }}"
       as="style"
     />
     <link
       rel="icon"
-      href="{{ url_for('static', path='favicon.ico') }}"
+      href="{{ url_for('static', path='favicon.ico', _external=True, _scheme='https') }}"
       type="image/x-icon"
     />
     <link
       rel="apple-touch-icon"
-      href="{{ url_for('static', path='apple-touch-icon.png') }}"
+      href="{{ url_for('static', path='apple-touch-icon.png', _external=True, _scheme='https') }}"
     />
 
     <!-- Bootstrap & FontAwesome -->
@@ -53,10 +55,10 @@
       href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css"
     />
 
-    <!-- Custom CSS -->
+    <!-- Custom CSS using HTTPS -->
     <link
       rel="stylesheet"
-      href="{{ url_for('static', path='css/style.css') }}"
+      href="{{ url_for('static', path='css/style.css', _external=True, _scheme='https') }}"
     />
 
     {% block extra_css %}{% endblock %}
@@ -110,12 +112,22 @@
     <script
       src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"
     ></script>
-    <script src="{{ url_for('static', path='js/live_tracking.js') }}"></script>
-    <script src="{{ url_for('static', path='js/loading_manager.js') }}"></script>
-    <script src="{{ url_for('static', path='js/app.js') }}"></script>
-    <script src="{{ url_for('static', path='js/sidebar.js') }}" defer></script>
+    <script
+      src="{{ url_for('static', path='js/live_tracking.js', _external=True, _scheme='https') }}"
+    ></script>
+    <script
+      src="{{ url_for('static', path='js/loading_manager.js', _external=True, _scheme='https') }}"
+    ></script>
+    <script
+      src="{{ url_for('static', path='js/app.js', _external=True, _scheme='https') }}"
+    ></script>
+    <script
+      src="{{ url_for('static', path='js/sidebar.js', _external=True, _scheme='https') }}"
+      defer
+    ></script>
 
     {% block extra_js %}{% endblock %}
+
     <script>
       document.addEventListener('DOMContentLoaded', function () {
         // Enable tooltips
