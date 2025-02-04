@@ -31,7 +31,8 @@ def get_mongo_client() -> AsyncIOMotorClient:
         logger.info("MongoDB client initialized successfully.")
         return client
     except Exception as e:
-        logger.error(f"Failed to initialize MongoDB client: {e}", exc_info=True)
+        logger.error(
+            f"Failed to initialize MongoDB client: {e}", exc_info=True)
         raise e
 
 
@@ -79,7 +80,8 @@ async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
             try:
                 t["gps"] = json.loads(t["gps"])
             except Exception as e:
-                logger.error(f"Failed to parse gps for {trip_id}: {e}", exc_info=True)
+                logger.error(
+                    f"Failed to parse gps for {trip_id}: {e}", exc_info=True)
                 return None
         return t
     except Exception as e:
