@@ -275,6 +275,31 @@ async def manually_run_tasks(request: Request):
 # Model and HTML Endpoints
 
 
+# ---------------------------------------------------------------------------
+# Connection Manager for WebSocket Clients
+# ---------------------------------------------------------------------------
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections = []  # type: List[WebSocket]
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(message)
+            except Exception:
+                # Optionally log or handle errors for this connection
+                pass
+
+manager = ConnectionManager()
+
 class CustomPlace:
     """Represents a custom-defined place."""
 
@@ -2718,57 +2743,6 @@ async def bulk_delete_trips(request: Request):
 # Real-Time & Webhook Endpoints
 
 
-@app.get("/stream")
-async def stream():
-    async def event_stream():
-        try:
-            yield b'data: {"type": "connected"}\n\n'
-            while True:
-                try:
-                    active_trip = await live_trips_collection.find_one(
-                        {"status": "active"}
-                    )
-                    if active_trip:
-                        for c in active_trip.get("coordinates", []):
-                            ts = c.get("timestamp")
-                            if isinstance(ts, datetime):
-                                c["timestamp"] = ts.isoformat()
-                        data = {
-                            "type": "trip_update",
-                            "data": {
-                                "transactionId": active_trip["transactionId"],
-                                "coordinates": active_trip.get("coordinates", []),
-                            },
-                        }
-                        yield f"data: {json.dumps(data)}\n\n".encode("utf-8")
-                    else:
-                        yield b'data: {"type": "heartbeat"}\n\n'
-                    await asyncio.sleep(1)
-                except asyncio.CancelledError:
-                    logger.info("Stream cancelled (client disconnected).")
-                    break
-                except Exception as loop_err:
-                    logger.error(
-                        f"Error in event stream loop: {loop_err}", exc_info=True
-                    )
-                    yield b'data: {"type": "error", "message": "Internal error"}\n\n'
-                    await asyncio.sleep(1)
-        except asyncio.CancelledError:
-            logger.info("Stream cancelled (client disconnected).")
-        except Exception as e:
-            logger.error(f"Error in event stream: {e}", exc_info=True)
-            yield b'data: {"type": "error", "message": "Stream error"}\n\n'
-
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
-
 
 @app.post("/webhook/bouncie")
 async def bouncie_webhook(request: Request):
@@ -2784,6 +2758,7 @@ async def bouncie_webhook(request: Request):
                 status_code=400, detail="Missing transactionId for trip event"
             )
 
+        # Process the event based on its type.
         if event_type == "tripStart":
             # Get the starting timestamp from the event data.
             start_time, _ = get_trip_timestamps(data)
@@ -2857,6 +2832,24 @@ async def bouncie_webhook(request: Request):
                 # Delete the active trip document.
                 await live_trips_collection.delete_one({"_id": trip["_id"]})
 
+        # After processing, try to retrieve the current active trip.
+        active_trip = await live_trips_collection.find_one({"status": "active"})
+        if active_trip:
+            # Convert datetime fields to ISO strings.
+            for key in ("startTime", "lastUpdate", "endTime"):
+                if key in active_trip and isinstance(active_trip[key], datetime):
+                    active_trip[key] = active_trip[key].isoformat()
+            # Convert the Mongo _id to a string.
+            if active_trip.get("_id"):
+                active_trip["_id"] = str(active_trip["_id"])
+            message = {"type": "trip_update", "data": active_trip}
+        else:
+            # If no active trip exists, send a heartbeat message.
+            message = {"type": "heartbeat"}
+
+        # Broadcast the message to all connected WebSocket clients.
+        await manager.broadcast(json.dumps(message))
+
         return {"status": "success"}
 
     except Exception as e:
@@ -2869,16 +2862,15 @@ async def get_active_trip():
     try:
         active_trip = await live_trips_collection.find_one({"status": "active"})
         if active_trip:
+            for key in ("startTime", "lastUpdate", "endTime"):
+                if key in active_trip and isinstance(active_trip[key], datetime):
+                    active_trip[key] = active_trip[key].isoformat()
             active_trip["_id"] = str(active_trip["_id"])
-            if isinstance(active_trip.get("startTime"), datetime):
-                active_trip["startTime"] = active_trip["startTime"].isoformat()
-            if isinstance(active_trip.get("lastUpdate"), datetime):
-                active_trip["lastUpdate"] = active_trip["lastUpdate"].isoformat()
             return active_trip
-        raise HTTPException(status_code=404, detail="No active trip")
+        else:
+            raise HTTPException(status_code=404, detail="No active trip")
     except Exception as e:
-        logger.error(f"Error retrieving active trip: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 async def assemble_trip_from_realtime_data(realtime_trip_data):
@@ -3092,47 +3084,80 @@ def get_place_at_point(point):
             return p
     return None
 
+# ---------------------------------------------------------------------------
+# Helper: Process a Bouncie event and update live trip
+# ---------------------------------------------------------------------------
+async def process_bouncie_event(data: dict):
+    event_type = data.get("eventType")
+    transaction_id = data.get("transactionId")
+    if not event_type or (event_type in ("tripStart", "tripData", "tripEnd") and not transaction_id):
+        raise HTTPException(status_code=400, detail="Invalid event payload")
+
+    # Assume get_trip_timestamps and sort_and_filter_trip_coordinates are already defined.
+    if event_type == "tripStart":
+        start_time, _ = get_trip_timestamps(data)
+        live_trip = {
+            "transactionId": transaction_id,
+            "status": "active",
+            "startTime": start_time,
+            "coordinates": [],
+            "lastUpdate": start_time,
+        }
+        await live_trips_collection.update_one(
+            {"transactionId": transaction_id, "status": "active"},
+            {"$set": live_trip},
+            upsert=True,
+        )
+
+    elif event_type == "tripData":
+        # Fetch existing active trip
+        trip_doc = await live_trips_collection.find_one(
+            {"transactionId": transaction_id, "status": "active"}
+        )
+        if not trip_doc:
+            now = datetime.now(timezone.utc)
+            live_trip = {
+                "transactionId": transaction_id,
+                "status": "active",
+                "startTime": now,
+                "coordinates": [],
+                "lastUpdate": now,
+            }
+            await live_trips_collection.insert_one(live_trip)
+            trip_doc = live_trip
+
+        if "data" in data:
+            new_coords = sort_and_filter_trip_coordinates(data["data"])
+            all_coords = trip_doc.get("coordinates", []) + new_coords
+            all_coords.sort(key=lambda c: c["timestamp"])
+            new_last_update = all_coords[-1]["timestamp"] if all_coords else trip_doc.get("startTime")
+            await live_trips_collection.update_one(
+                {"transactionId": transaction_id, "status": "active"},
+                {"$set": {"coordinates": all_coords, "lastUpdate": new_last_update}},
+            )
+
+    elif event_type == "tripEnd":
+        start_time, end_time = get_trip_timestamps(data)
+        trip = await live_trips_collection.find_one({"transactionId": transaction_id})
+        if trip:
+            trip["endTime"] = end_time
+            trip["status"] = "completed"
+            await archived_live_trips_collection.insert_one(trip)
+            await live_trips_collection.delete_one({"transactionId": transaction_id})
+    # End if
+
+    # After processing, return the current active trip (if any) for broadcasting.
+    return await live_trips_collection.find_one({"status": "active"})
 
 @app.websocket("/ws/live_trip")
 async def ws_live_trip(websocket: WebSocket):
-    await websocket.accept()
+    await manager.connect(websocket)
     try:
+        # Simply keep the connection open.
         while True:
-            active_trip = await live_trips_collection.find_one({"status": "active"})
-            if active_trip:
-                if active_trip.get("startTime") and isinstance(
-                    active_trip["startTime"], datetime
-                ):
-                    active_trip["startTime"] = active_trip["startTime"].isoformat()
-                if active_trip.get("lastUpdate") and isinstance(
-                    active_trip["lastUpdate"], datetime
-                ):
-                    active_trip["lastUpdate"] = active_trip["lastUpdate"].isoformat()
-                if active_trip.get("_id"):
-                    active_trip["_id"] = str(active_trip["_id"])
-                if "coordinates" in active_trip:
-                    for coord in active_trip["coordinates"]:
-                        if "timestamp" in coord and isinstance(
-                            coord["timestamp"], datetime
-                        ):
-                            coord["timestamp"] = coord["timestamp"].isoformat()
-                message = {"type": "trip_update", "data": active_trip}
-            else:
-                message = {"type": "heartbeat"}
-
-            # Try sending the message; if the client has disconnected,
-            # a WebSocketDisconnect will be raised.
-            try:
-                await websocket.send_text(json.dumps(message))
-            except WebSocketDisconnect:
-                logger.info("WebSocket client disconnected; ending ws_live_trip loop.")
-                break
-
-            await asyncio.sleep(1)
+            await asyncio.sleep(10)
     except WebSocketDisconnect:
-        logger.info("WebSocket client disconnected from the outer try block.")
-    except Exception as e:
-        logger.error(f"Error in WebSocket endpoint /ws/live_trip: {e}", exc_info=True)
+        manager.disconnect(websocket)
 
 
 # Error Handlers & Startup
