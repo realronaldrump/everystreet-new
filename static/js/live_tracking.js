@@ -2,86 +2,93 @@
 
 class LiveTripTracker {
   constructor(map) {
+    // The Leaflet map instance
     this.map = map;
-    // This will hold the active trip document (if any)
+
+    // We store the entire active trip object returned by /api/active_trip,
+    // e.g. { transactionId, status, startTime, endTime?, coordinates: [...], ... }
     this.activeTrip = null;
-    // Leaflet layers for drawing the trip path and current position
-    this.polyline = null;
-    this.marker = null;
-    // WebSocket connection
-    this.websocket = null;
-    // Reconnection settings
-    this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
 
-    // UI elements
-    this.statusIndicator = document.querySelector(".status-indicator");
-    this.statusText = document.querySelector(".status-text");
-    this.activeTripsCountElem = document.querySelector("#active-trips-count");
-
-    // Initialize map layers (polyline and marker)
-    this.initMapLayers();
-    // Begin live tracking
-    this.initialize();
-  }
-
-  initMapLayers() {
-    // Create a polyline with your preferred styling
+    // Create our polyline & marker in Leaflet
     this.polyline = L.polyline([], { color: "#00FF00", weight: 3, opacity: 0.8 }).addTo(this.map);
-    // Create a marker with a custom divIcon (adjust size and style as needed)
     this.marker = L.marker([0, 0], {
       icon: L.divIcon({
         className: "vehicle-marker",
         iconSize: [12, 12],
-        iconAnchor: [6, 6]
-      })
+        iconAnchor: [6, 6],
+      }),
     }).addTo(this.map);
-    // Hide the marker until we have a valid coordinate
+    // Hide the marker until we have valid coordinates
     this.marker.setOpacity(0);
+
+    // WebSocket & reconnection logic
+    this.websocket = null;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
+
+    // UI elements: status indicator, status text, and active trips count
+    this.statusIndicator = document.querySelector(".status-indicator");
+    this.statusText = document.querySelector(".status-text");
+    this.activeTripsCountElem = document.querySelector("#active-trips-count");
+
+    // Kick off initialization
+    this.initialize();
   }
 
   async initialize() {
-    // First, load any active trip from the server
+    // Step 1: Fetch any currently active trip from the server
     await this.loadInitialTripData();
-    // Then, connect to the WebSocket for live updates
+    // Step 2: Open a WebSocket to receive live trip updates
     this.connectWebSocket();
   }
 
+  /**
+   * Hit /api/active_trip to see if there's an active trip on the server
+   */
   async loadInitialTripData() {
     try {
       const response = await fetch("/api/active_trip");
       if (response.ok) {
         const trip = await response.json();
-        console.log("Loaded active trip:", trip.transactionId);
+        console.log("Initial active trip loaded:", trip.transactionId);
+        // Set the trip (this draws the polyline + marker)
         this.setActiveTrip(trip);
         this.updateActiveTripsCount(1);
       } else {
-        console.log("No active trip found on server.");
+        console.log("No active trip found (server returned 404 or similar).");
         this.updateActiveTripsCount(0);
       }
     } catch (error) {
-      console.error("Error loading active trip:", error);
+      console.error("Error loading initial active trip:", error);
       this.updateActiveTripsCount(0);
     }
   }
 
+  /**
+   * Store the active trip object in memory and render it
+   */
   setActiveTrip(trip) {
     this.activeTrip = trip;
-    if (trip && Array.isArray(trip.coordinates) && trip.coordinates.length > 0) {
-      // Ensure coordinates are sorted by timestamp
-      trip.coordinates.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      // Build an array of Leaflet LatLng pairs
-      const latLngs = trip.coordinates.map(coord => [coord.lat, coord.lon]);
-      this.polyline.setLatLngs(latLngs);
-      // Move the marker to the last coordinate
-      const lastPoint = latLngs[latLngs.length - 1];
-      this.marker.setLatLng(lastPoint);
-      this.marker.setOpacity(1);
-    } else {
-      // No coordinates: clear the polyline and hide the marker
+
+    // For safety, check if 'coordinates' is an array
+    if (!Array.isArray(trip.coordinates) || trip.coordinates.length === 0) {
+      // No coords => clear existing display
       this.polyline.setLatLngs([]);
       this.marker.setOpacity(0);
+      return;
     }
+
+    // Sort coordinates by timestamp (ISO date strings)
+    trip.coordinates.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    // Convert them to Leaflet lat/lon pairs
+    const latLngs = trip.coordinates.map(coord => [coord.lat, coord.lon]);
+    this.polyline.setLatLngs(latLngs);
+
+    // Move the marker to the last coordinate
+    const lastPoint = latLngs[latLngs.length - 1];
+    this.marker.setLatLng(lastPoint);
+    this.marker.setOpacity(1);
   }
 
   updateActiveTripsCount(count) {
@@ -91,13 +98,15 @@ class LiveTripTracker {
   }
 
   connectWebSocket() {
+    // Decide between ws:// or wss:// based on the current page
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const wsUrl = `${protocol}://${window.location.host}/ws/live_trip`;
     console.log("Connecting to WebSocket at", wsUrl);
+
     this.websocket = new WebSocket(wsUrl);
 
     this.websocket.onopen = () => {
-      console.log("WebSocket connection established");
+      console.log("WebSocket connected");
       this.updateStatus(true);
       this.reconnectAttempts = 0;
     };
@@ -105,7 +114,7 @@ class LiveTripTracker {
     this.websocket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        this.handleMessage(message);
+        this.handleWebSocketMessage(message);
       } catch (err) {
         console.error("Error parsing WebSocket message:", err);
       }
@@ -117,52 +126,61 @@ class LiveTripTracker {
     };
 
     this.websocket.onclose = () => {
-      console.warn("WebSocket connection closed");
+      console.warn("WebSocket closed");
       this.updateStatus(false);
+      // Attempt reconnect up to a certain limit
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++;
         setTimeout(() => this.connectWebSocket(), 5000);
       } else {
-        console.error("Maximum WebSocket reconnection attempts reached");
+        console.error("Maximum WS reconnect attempts reached.");
       }
     };
   }
 
   updateStatus(connected) {
-    if (this.statusIndicator && this.statusText) {
+    if (this.statusIndicator) {
       this.statusIndicator.classList.toggle("connected", connected);
+    }
+    if (this.statusText) {
       this.statusText.textContent = connected ? "Connected" : "Disconnected";
     }
   }
 
-  handleMessage(message) {
-    // Your Python backend sends messages with a "type" field.
-    // Expected messages:
-    //   { "type": "trip_update", "data": { ...active trip object... } }
-    //   { "type": "heartbeat" }
+  /**
+   * Respond to messages from the server – we expect the server to send:
+   *  { "type": "trip_update", "data": {...} }
+   *    or
+   *  { "type": "heartbeat" }
+   *    or
+   *  { "type": "error", "message": "..."}
+   */
+  handleWebSocketMessage(message) {
     if (!message || !message.type) return;
+    const { type } = message;
 
-    if (message.type === "trip_update") {
-      // An active trip exists. Update the displayed trip.
+    if (type === "trip_update") {
+      // There's an active trip => re-render it
       if (message.data) {
-        console.log("Received trip_update for transaction", message.data.transactionId);
+        console.log("Received trip_update for transactionId:", message.data.transactionId);
         this.setActiveTrip(message.data);
         this.updateActiveTripsCount(1);
       }
-    } else if (message.type === "heartbeat") {
-      // No active trip is in progress.
-      console.log("Received heartbeat – no active trip");
+    } else if (type === "heartbeat") {
+      // Means no trip is currently active => clear the map
+      console.log("Received heartbeat – no active trip in progress");
       this.activeTrip = null;
       this.polyline.setLatLngs([]);
       this.marker.setOpacity(0);
       this.updateActiveTripsCount(0);
-    } else if (message.type === "error") {
-      console.error("Error from server:", message.message);
+    } else if (type === "error") {
+      console.error("WebSocket error from server:", message.message);
     } else {
-      console.warn("Unhandled message type:", message.type);
+      console.warn("Unhandled WebSocket message type:", type);
     }
   }
 }
 
-// Expose the LiveTripTracker class globally so that your app.js can instantiate it.
+// Make it available globally so your main script (app.js) can do:
+//   window.liveTracker = new LiveTripTracker(map);
 window.LiveTripTracker = LiveTripTracker;
