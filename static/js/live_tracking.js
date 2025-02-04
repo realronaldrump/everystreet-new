@@ -9,17 +9,22 @@ class LiveTripTracker {
     // e.g. { transactionId, status, startTime, endTime?, coordinates: [...], ... }
     this.activeTrip = null;
 
-    // Create our polyline & marker in Leaflet
-    this.polyline = L.polyline([], { color: "#00FF00", weight: 3, opacity: 0.8 }).addTo(this.map);
+    // Create our polyline in Leaflet
+    this.polyline = L.polyline([], {
+      color: "#00FF00",
+      weight: 3,
+      opacity: 0.8
+    }).addTo(this.map);
+
+    // Create the marker but *do not* add it to the map here
     this.marker = L.marker([0, 0], {
       icon: L.divIcon({
         className: "vehicle-marker",
         iconSize: [12, 12],
         iconAnchor: [6, 6],
       }),
-    }).addTo(this.map);
-    // Hide the marker until we have valid coordinates
-    this.marker.setOpacity(0);
+    });
+    // Note: we skip .addTo(this.map) in the constructor
 
     // WebSocket & reconnection logic
     this.websocket = null;
@@ -36,7 +41,7 @@ class LiveTripTracker {
   }
 
   async initialize() {
-    // Step 1: Fetch any currently active trip from the server
+    // Step 1: Fetch any currently active trip from /api/active_trip
     await this.loadInitialTripData();
     // Step 2: Open a WebSocket to receive live trip updates
     this.connectWebSocket();
@@ -51,7 +56,7 @@ class LiveTripTracker {
       if (response.ok) {
         const trip = await response.json();
         console.log("Initial active trip loaded:", trip.transactionId);
-        // Set the trip (this draws the polyline + marker)
+        // Set the trip (this draws the polyline & marker)
         this.setActiveTrip(trip);
         this.updateActiveTripsCount(1);
       } else {
@@ -70,11 +75,13 @@ class LiveTripTracker {
   setActiveTrip(trip) {
     this.activeTrip = trip;
 
-    // For safety, check if 'coordinates' is an array
+    // If 'trip.coordinates' doesn't exist or is empty => clear
     if (!Array.isArray(trip.coordinates) || trip.coordinates.length === 0) {
-      // No coords => clear existing display
       this.polyline.setLatLngs([]);
-      this.marker.setOpacity(0);
+      // Remove marker if it's on the map
+      if (this.map.hasLayer(this.marker)) {
+        this.map.removeLayer(this.marker);
+      }
       return;
     }
 
@@ -87,8 +94,13 @@ class LiveTripTracker {
 
     // Move the marker to the last coordinate
     const lastPoint = latLngs[latLngs.length - 1];
+
+    // If the marker isn't already on the map, add it
+    if (!this.map.hasLayer(this.marker)) {
+      this.marker.addTo(this.map);
+    }
     this.marker.setLatLng(lastPoint);
-    this.marker.setOpacity(1);
+    this.marker.setOpacity(1);  // Make sure it's visible
   }
 
   updateActiveTripsCount(count) {
@@ -171,7 +183,10 @@ class LiveTripTracker {
       console.log("Received heartbeat – no active trip in progress");
       this.activeTrip = null;
       this.polyline.setLatLngs([]);
-      this.marker.setOpacity(0);
+      // Remove marker from map if present
+      if (this.map.hasLayer(this.marker)) {
+        this.map.removeLayer(this.marker);
+      }
       this.updateActiveTripsCount(0);
     } else if (type === "error") {
       console.error("WebSocket error from server:", message.message);
@@ -181,6 +196,5 @@ class LiveTripTracker {
   }
 }
 
-// Make it available globally so your main script (app.js) can do:
-//   window.liveTracker = new LiveTripTracker(map);
+// Expose for global usage (e.g. window.liveTracker = new LiveTripTracker(map))
 window.LiveTripTracker = LiveTripTracker;
