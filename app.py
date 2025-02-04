@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import DuplicateKeyError
 from starlette.websockets import WebSocketDisconnect
+import shutil
 
 #
 # Third-Party Imports
@@ -1539,7 +1540,6 @@ async def export_streets(request: Request):
     if not data:
         raise HTTPException(status_code=500, detail="No data returned")
     if fmt == "geojson":
-        # Use default=str to convert any non-serializable objects (like ObjectId) to strings.
         return StreamingResponse(
             io.BytesIO(json.dumps(data, default=str).encode()),
             media_type="application/geo+json",
@@ -1548,16 +1548,17 @@ async def export_streets(request: Request):
     elif fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
         buf = io.BytesIO()
+        tmp_dir = "inmem_shp"
+        if not os.path.exists(tmp_dir):
+            os.mkdir(tmp_dir)
+        out_path = os.path.join(tmp_dir, "streets.shp")
+        gdf.to_file(out_path, driver="ESRI Shapefile")
         with zipfile.ZipFile(buf, "w") as zf:
-            tmp_dir = "inmem_shp"
-            if not os.path.exists(tmp_dir):
-                os.mkdir(tmp_dir)
-            out_path = os.path.join(tmp_dir, "streets.shp")
-            gdf.to_file(out_path, driver="ESRI Shapefile")
             for f in os.listdir(tmp_dir):
                 with open(os.path.join(tmp_dir, f), "rb") as fh:
                     zf.writestr(f"streets/{f}", fh.read())
-            os.rmdir(tmp_dir)
+        # Instead of os.rmdir, remove the directory recursively:
+        shutil.rmtree(tmp_dir)
         buf.seek(0)
         return StreamingResponse(
             buf,
@@ -1579,7 +1580,6 @@ async def export_boundary(request: Request):
     if not data:
         raise HTTPException(status_code=500, detail="No boundary data")
     if fmt == "geojson":
-        # Again, include default=str to handle non-serializable objects.
         return StreamingResponse(
             io.BytesIO(json.dumps(data, default=str).encode()),
             media_type="application/geo+json",
@@ -1588,16 +1588,17 @@ async def export_boundary(request: Request):
     elif fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
         buf = io.BytesIO()
+        tmp_dir = "inmem_shp"
+        if not os.path.exists(tmp_dir):
+            os.mkdir(tmp_dir)
+        out_path = os.path.join(tmp_dir, "boundary.shp")
+        gdf.to_file(out_path, driver="ESRI Shapefile")
         with zipfile.ZipFile(buf, "w") as zf:
-            tmp_dir = "inmem_shp"
-            if not os.path.exists(tmp_dir):
-                os.mkdir(tmp_dir)
-            out_path = os.path.join(tmp_dir, "boundary.shp")
-            gdf.to_file(out_path, driver="ESRI Shapefile")
             for f in os.listdir(tmp_dir):
                 with open(os.path.join(tmp_dir, f), "rb") as fh:
                     zf.writestr(f"boundary/{f}", fh.read())
-            os.rmdir(tmp_dir)
+        # Remove the temporary directory recursively.
+        shutil.rmtree(tmp_dir)
         buf.seek(0)
         return StreamingResponse(
             buf,

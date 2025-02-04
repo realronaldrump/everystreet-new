@@ -16,6 +16,7 @@ draft_fastapi.py
 fix_bouncie_trip_times.py
 undo_bouncie_trip_times.py
 fix_mapmatched_times.py
+inmem_shp
 undo_mapmatched_times.py
 app.log
 app.log.*
