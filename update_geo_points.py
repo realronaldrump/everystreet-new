@@ -18,6 +18,7 @@ trips_collection = db["trips"]
 historical_trips_collection = db["historical_trips"]
 uploaded_trips_collection = db["uploaded_trips"]
 
+
 async def update_geo_points(collection):
     """
     Asynchronously update documents in the given collection to add startGeoPoint and destinationGeoPoint.

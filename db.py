@@ -29,7 +29,8 @@ def get_mongo_client():
         logger.info("MongoDB client initialized successfully.")
         return client
     except Exception as e:
-        logger.error(f"Failed to initialize MongoDB client: {e}", exc_info=True)
+        logger.error(
+            f"Failed to initialize MongoDB client: {e}", exc_info=True)
         raise
 
 
@@ -50,6 +51,7 @@ coverage_metadata_collection = db["coverage_metadata"]
 live_trips_collection = db["live_trips"]
 archived_live_trips_collection = db["archived_live_trips"]
 task_config_collection = db["task_config"]
+
 
 def get_trip_from_db(trip_id):
     try:
