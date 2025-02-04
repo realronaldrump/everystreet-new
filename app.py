@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import DuplicateKeyError
 from starlette.websockets import WebSocketDisconnect
+
 #
 # Third-Party Imports
 #
@@ -627,7 +628,7 @@ async def get_trips(request: Request):
                 )
                 continue
         fc = geojson_module.FeatureCollection(features)
-        return JSONResponse(content=geojson_module.dumps(fc))
+        return JSONResponse(content=fc)
     except Exception as e:
         logger.error(f"Error in /api/trips endpoint: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve trips")
@@ -781,7 +782,7 @@ async def get_metrics(request: Request):
 
         if not total_trips:
             fc = geojson_module.FeatureCollection([])  # An empty feature collection
-            return JSONResponse(content=geojson_module.dumps(fc))
+            return JSONResponse(content=fc)
 
         total_distance = sum(t.get("distance", 0) for t in all_trips)
         avg_distance = total_distance / total_trips if total_trips > 0 else 0.0
@@ -1271,7 +1272,7 @@ async def get_matched_trips(request: Request):
             )
             continue
     fc = geojson_module.FeatureCollection(features)
-    return JSONResponse(content=geojson_module.dumps(fc))
+    return JSONResponse(content=fc)
 
 
 @app.post("/api/matched_trips/delete")
@@ -1989,7 +1990,9 @@ async def process_and_store_trip(trip):
         end_pt = coords[-1]
 
         if not trip.get("startLocation"):
-            trip["startLocation"] = await reverse_geocode_nominatim(start_pt[1], start_pt[0])
+            trip["startLocation"] = await reverse_geocode_nominatim(
+                start_pt[1], start_pt[0]
+            )
         if not trip.get("destination"):
             trip["destination"] = await reverse_geocode_nominatim(end_pt[1], end_pt[0])
 
@@ -1998,7 +2001,9 @@ async def process_and_store_trip(trip):
             trip["gps"] = json.dumps(trip["gps"])
 
         # Use await for asynchronous Motor calls.
-        existing = await uploaded_trips_collection.find_one({"transactionId": trip["transactionId"]})
+        existing = await uploaded_trips_collection.find_one(
+            {"transactionId": trip["transactionId"]}
+        )
         if existing:
             updates = {}
             if not existing.get("startLocation") and trip.get("startLocation"):
@@ -2007,8 +2012,7 @@ async def process_and_store_trip(trip):
                 updates["destination"] = trip["destination"]
             if updates:
                 await uploaded_trips_collection.update_one(
-                    {"transactionId": trip["transactionId"]},
-                    {"$set": updates}
+                    {"transactionId": trip["transactionId"]}, {"$set": updates}
                 )
         else:
             await uploaded_trips_collection.insert_one(trip)
@@ -2721,7 +2725,9 @@ async def stream():
             yield b'data: {"type": "connected"}\n\n'
             while True:
                 try:
-                    active_trip = await live_trips_collection.find_one({"status": "active"})
+                    active_trip = await live_trips_collection.find_one(
+                        {"status": "active"}
+                    )
                     if active_trip:
                         for c in active_trip.get("coordinates", []):
                             ts = c.get("timestamp")
@@ -3067,7 +3073,6 @@ def get_place_at_point(point):
     return None
 
 
-
 @app.websocket("/ws/live_trip")
 async def ws_live_trip(websocket: WebSocket):
     await websocket.accept()
@@ -3075,15 +3080,21 @@ async def ws_live_trip(websocket: WebSocket):
         while True:
             active_trip = await live_trips_collection.find_one({"status": "active"})
             if active_trip:
-                if active_trip.get("startTime") and isinstance(active_trip["startTime"], datetime):
+                if active_trip.get("startTime") and isinstance(
+                    active_trip["startTime"], datetime
+                ):
                     active_trip["startTime"] = active_trip["startTime"].isoformat()
-                if active_trip.get("lastUpdate") and isinstance(active_trip["lastUpdate"], datetime):
+                if active_trip.get("lastUpdate") and isinstance(
+                    active_trip["lastUpdate"], datetime
+                ):
                     active_trip["lastUpdate"] = active_trip["lastUpdate"].isoformat()
                 if active_trip.get("_id"):
                     active_trip["_id"] = str(active_trip["_id"])
                 if "coordinates" in active_trip:
                     for coord in active_trip["coordinates"]:
-                        if "timestamp" in coord and isinstance(coord["timestamp"], datetime):
+                        if "timestamp" in coord and isinstance(
+                            coord["timestamp"], datetime
+                        ):
                             coord["timestamp"] = coord["timestamp"].isoformat()
                 message = {"type": "trip_update", "data": active_trip}
             else:
