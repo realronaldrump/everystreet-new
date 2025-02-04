@@ -1239,7 +1239,9 @@ async def get_matched_trips(request: Request):
         query["startTime"] = {"$gte": start_date, "$lte": end_date}
     if imei:
         query["imei"] = imei
-    matched = list(matched_trips_collection.find(query))
+
+    matched = await matched_trips_collection.find(query).to_list(length=None)
+
     features = []
     for trip in matched:
         try:
