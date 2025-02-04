@@ -15,6 +15,7 @@ fastapi.py
 draft_fastapi.py
 fix_bouncie_trip_times.py
 undo_bouncie_trip_times.py
+docs/test_live_tracking_new.py
 fix_mapmatched_times.py
 inmem_shp
 undo_mapmatched_times.py

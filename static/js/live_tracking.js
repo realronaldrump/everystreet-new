@@ -33,9 +33,7 @@ class LiveTripTracker {
 
   initialize() {
     this.polyline = L.polyline([], this.config.polyline).addTo(this.map);
-    this.marker = L.marker([0, 0], { icon: this.config.marker.icon }).addTo(
-      this.map,
-    );
+    this.marker = L.marker([0, 0], { icon: this.config.marker.icon }).addTo(this.map);
     this.marker.setOpacity(0);
     this.localCoords = [];
     this.loadInitialTripData();
@@ -46,17 +44,16 @@ class LiveTripTracker {
     try {
       const response = await fetch("/api/active_trip");
       if (!response.ok) {
-        console.error(
-          "Failed to fetch initial trip data:",
-          response.statusText,
-        );
+        console.error("Failed to fetch initial trip data:", response.statusText);
         return;
       }
       const data = await response.json();
       if (data && data.transactionId && data.coordinates) {
+        this.updateActiveTripsCount(1);  // Active trip exists
         this.handleTripUpdate(data);
       } else {
         console.log("No active trip data found on server.");
+        this.updateActiveTripsCount(0);
       }
     } catch (error) {
       console.error("Error fetching initial trip data:", error);
@@ -77,7 +74,6 @@ class LiveTripTracker {
   }
 
   connectWebSocket() {
-    // Use the same host and protocol (ws or wss) as the current page.
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const wsUrl = `${protocol}://${window.location.host}/ws/live_trip`;
     if (this.websocket) {
@@ -121,10 +117,11 @@ class LiveTripTracker {
     if (!data || !data.type) return;
     switch (data.type) {
       case "trip_update":
+        this.updateActiveTripsCount(1);  // An active trip exists
         this.handleTripUpdate(data.data);
         break;
       case "heartbeat":
-        // Optionally process heartbeat messages.
+        this.updateActiveTripsCount(0);  // No active trip
         break;
       case "error":
         console.error("WebSocket server error:", data.message);
@@ -138,18 +135,15 @@ class LiveTripTracker {
   }
 
   handleTripUpdate(tripData) {
-    if (!tripData || !tripData.coordinates || !tripData.coordinates.length)
-      return;
+    if (!tripData || !tripData.coordinates || !tripData.coordinates.length) return;
     this.currentTrip = tripData.transactionId;
-    // If localCoords is not yet defined, initialize it.
     if (!this.localCoords) {
       this.localCoords = [];
     }
-    // Use a Set to deduplicate based on a key (timestamp and coordinate values).
     const existingKeys = new Set(
       this.localCoords.map(
-        (c) => `${c.timestamp}-${c.lat.toFixed(6)}-${c.lon.toFixed(6)}`,
-      ),
+        (c) => `${c.timestamp}-${c.lat.toFixed(6)}-${c.lon.toFixed(6)}`
+      )
     );
     const newPoints = [];
     for (const c of tripData.coordinates) {
@@ -162,9 +156,7 @@ class LiveTripTracker {
     }
     if (newPoints.length) {
       this.localCoords = this.localCoords.concat(newPoints);
-      this.localCoords.sort(
-        (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
-      );
+      this.localCoords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     }
     const latLngs = this.localCoords.map((coord) => [coord.lat, coord.lon]);
     this.polyline.setLatLngs(latLngs);
