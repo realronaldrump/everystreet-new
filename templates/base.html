@@ -11,17 +11,17 @@
     <title>{% block title %}Every Street{% endblock %}</title>
     <link
       rel="preload"
-      href="{{ url_for('static', filename='css/style.css') }}"
+      href="{{ url_for('static', path='css/style.css') }}"
       as="style"
     />
     <link
       rel="icon"
-      href="{{ url_for('static', filename='favicon.ico') }}"
+      href="{{ url_for('static', path='favicon.ico') }}"
       type="image/x-icon"
     />
     <link
       rel="apple-touch-icon"
-      href="{{ url_for('static', filename='apple-touch-icon.png') }}"
+      href="{{ url_for('static', path='apple-touch-icon.png') }}"
     />
 
     <!-- Bootstrap & FontAwesome -->
@@ -56,7 +56,7 @@
     <!-- Custom CSS -->
     <link
       rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
+      href="{{ url_for('static', path='css/style.css') }}"
     />
 
     {% block extra_css %}{% endblock %}
@@ -110,9 +110,9 @@
     <script
       src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"
     ></script>
-    <script src="{{ url_for('static', filename='js/loading_manager.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/sidebar.js') }}" defer></script>
+    <script src="{{ url_for('static', path='js/loading_manager.js') }}"></script>
+    <script src="{{ url_for('static', path='js/app.js') }}"></script>
+    <script src="{{ url_for('static', path='js/sidebar.js') }}" defer></script>
 
     {% block extra_js %}{% endblock %}
     <script>
