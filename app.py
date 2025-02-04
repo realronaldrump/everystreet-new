@@ -152,14 +152,14 @@ async def add_header(request: Request, call_next):
 
 @app.get("/api/background_tasks/config")
 async def get_background_tasks_config():
-    cfg = get_task_config()
+    cfg = await get_task_config()
     return cfg
 
 
 @app.post("/api/background_tasks/config")
 async def update_background_tasks_config(request: Request):
     data = await request.json()
-    cfg = get_task_config()
+    cfg = await get_task_config()
     if "globalDisable" in data:
         cfg["disabled"] = bool(data["globalDisable"])
     if "pauseDurationMinutes" in data:
@@ -177,8 +177,8 @@ async def update_background_tasks_config(request: Request):
                     ]
                 if "enabled" in task_data:
                     cfg["tasks"][task_id]["enabled"] = bool(task_data["enabled"])
-    save_task_config(cfg)
-    reinitialize_scheduler_tasks()
+    await save_task_config(cfg)
+    await reinitialize_scheduler_tasks()
     return {"status": "success", "message": "Background task config updated"}
 
 
@@ -186,13 +186,13 @@ async def update_background_tasks_config(request: Request):
 async def pause_background_tasks(request: Request):
     data = await request.json()
     mins = data.get("minutes", 0)
-    cfg = get_task_config()
+    cfg = await get_task_config()
     if mins > 0:
         cfg["pausedUntil"] = datetime.now(timezone.utc) + timedelta(minutes=mins)
     else:
         cfg["pausedUntil"] = None
-    save_task_config(cfg)
-    reinitialize_scheduler_tasks()
+    await save_task_config(cfg)
+    await reinitialize_scheduler_tasks()
     return {
         "status": "success",
         "message": f"Paused for {mins} minutes" if mins > 0 else "Unpaused",
@@ -201,10 +201,10 @@ async def pause_background_tasks(request: Request):
 
 @app.post("/api/background_tasks/resume")
 async def resume_background_tasks():
-    cfg = get_task_config()
+    cfg = await get_task_config()
     cfg["pausedUntil"] = None
-    save_task_config(cfg)
-    reinitialize_scheduler_tasks()
+    await save_task_config(cfg)
+    await reinitialize_scheduler_tasks()
     return {"status": "success", "message": "Tasks resumed"}
 
 
@@ -224,19 +224,19 @@ async def stop_all_background_tasks():
 
 @app.post("/api/background_tasks/enable")
 async def enable_all_background_tasks():
-    cfg = get_task_config()
+    cfg = await get_task_config()
     cfg["disabled"] = False
-    save_task_config(cfg)
-    reinitialize_scheduler_tasks()
+    await save_task_config(cfg)
+    await reinitialize_scheduler_tasks()
     return {"status": "success", "message": "All tasks globally enabled"}
 
 
 @app.post("/api/background_tasks/disable")
 async def disable_all_background_tasks():
-    cfg = get_task_config()
+    cfg = await get_task_config()
     cfg["disabled"] = True
-    save_task_config(cfg)
-    reinitialize_scheduler_tasks()
+    await save_task_config(cfg)
+    await reinitialize_scheduler_tasks()
     return {"status": "success", "message": "All tasks globally disabled"}
 
 
@@ -2777,17 +2777,22 @@ async def bouncie_webhook(request: Request):
         event_type = data.get("eventType")
         if not event_type:
             raise HTTPException(status_code=400, detail="Missing eventType")
+
         transaction_id = data.get("transactionId")
         if event_type in ("tripStart", "tripData", "tripEnd") and not transaction_id:
             raise HTTPException(
                 status_code=400, detail="Missing transactionId for trip event"
             )
+
         if event_type == "tripStart":
+            # Get the starting timestamp from the event data.
             start_time, _ = get_trip_timestamps(data)
-            live_trips_collection.delete_many(
+            # Remove any existing active trip with the same transactionId.
+            await live_trips_collection.delete_many(
                 {"transactionId": transaction_id, "status": "active"}
             )
-            live_trips_collection.insert_one(
+            # Insert the new active trip.
+            await live_trips_collection.insert_one(
                 {
                     "transactionId": transaction_id,
                     "status": "active",
@@ -2796,28 +2801,33 @@ async def bouncie_webhook(request: Request):
                     "lastUpdate": start_time,
                 }
             )
+
         elif event_type == "tripData":
-            trip_doc = live_trips_collection.find_one(
+            # Find the active trip for this transaction.
+            trip_doc = await live_trips_collection.find_one(
                 {"transactionId": transaction_id, "status": "active"}
             )
             if not trip_doc:
-                live_trips_collection.insert_one(
+                # If not found, create a new active trip.
+                now = datetime.now(timezone.utc)
+                await live_trips_collection.insert_one(
                     {
                         "transactionId": transaction_id,
                         "status": "active",
-                        "startTime": datetime.now(timezone.utc),
+                        "startTime": now,
                         "coordinates": [],
-                        "lastUpdate": datetime.now(timezone.utc),
+                        "lastUpdate": now,
                     }
                 )
-                trip_doc = live_trips_collection.find_one(
+                trip_doc = await live_trips_collection.find_one(
                     {"transactionId": transaction_id, "status": "active"}
                 )
+            # If the event contains trip data, update the coordinates.
             if "data" in data:
                 new_coords = sort_and_filter_trip_coordinates(data["data"])
                 all_coords = trip_doc.get("coordinates", []) + new_coords
                 all_coords.sort(key=lambda c: c["timestamp"])
-                live_trips_collection.update_one(
+                await live_trips_collection.update_one(
                     {"_id": trip_doc["_id"]},
                     {
                         "$set": {
@@ -2830,17 +2840,27 @@ async def bouncie_webhook(request: Request):
                         }
                     },
                 )
+
         elif event_type == "tripEnd":
+            # Extract the start and end times.
             start_time, end_time = get_trip_timestamps(data)
-            trip = live_trips_collection.find_one({"transactionId": transaction_id})
+            # Find the active trip.
+            trip = await live_trips_collection.find_one(
+                {"transactionId": transaction_id}
+            )
             if trip:
+                # Update the trip with the end time and mark it completed.
                 trip["endTime"] = end_time
                 trip["status"] = "completed"
-                archived_live_trips_collection.insert_one(trip)
-                live_trips_collection.delete_one({"_id": trip["_id"]})
+                # Archive the trip.
+                await archived_live_trips_collection.insert_one(trip)
+                # Delete the active trip document.
+                await live_trips_collection.delete_one({"_id": trip["_id"]})
+
         return {"status": "success"}
+
     except Exception as e:
-        logger.error(f"Error in bouncie_webhook: {e}")
+        logger.error(f"Error in bouncie_webhook: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

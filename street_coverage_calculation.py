@@ -42,7 +42,9 @@ project_to_wgs84 = pyproj.Transformer.from_crs(
 ).transform
 
 
-def compute_coverage_for_location(location: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+async def compute_coverage_for_location(
+    location: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
     """
     Compute street coverage for a given validated location using a raster‐based method.
 
@@ -88,11 +90,9 @@ def compute_coverage_for_location(location: Dict[str, Any]) -> Optional[Dict[str
             logger.warning(
                 "No bounding box or geojson provided in location data; falling back to string matching using display_name."
             )
-            road_segments = list(
-                streets_collection.find(
-                    {"properties.location": location.get("display_name")}, {"_id": 0}
-                )
-            )
+            road_segments = await streets_collection.find(
+                {"properties.location": location.get("display_name")}, {"_id": 0}
+            ).to_list(length=None)
             if not road_segments:
                 return None
             bounds = None
@@ -125,12 +125,10 @@ def compute_coverage_for_location(location: Dict[str, Any]) -> Optional[Dict[str
             }
 
         # STEP 2: Query road segments by spatial intersection.
-        road_segments = list(
-            streets_collection.find(
-                {"geometry": {"$geoIntersects": {"$geometry": boundary_polygon}}},
-                {"_id": 0},
-            )
-        )
+        road_segments = await streets_collection.find(
+            {"geometry": {"$geoIntersects": {"$geometry": boundary_polygon}}},
+            {"_id": 0},
+        ).to_list(length=None)
         if not road_segments:
             logger.warning("No road segments found for the given area.")
             return None
@@ -205,13 +203,9 @@ def compute_coverage_for_location(location: Dict[str, Any]) -> Optional[Dict[str
         logger.info(f"Total road pixels: {total_road_pixels}")
 
         # STEP 5: Rasterize the driven (map‐matched) trips.
-        import json
-
-        matched_trips = list(
-            matched_trips_collection.find(
-                {"matchedGps": {"$geoIntersects": {"$geometry": boundary_polygon}}}
-            )
-        )
+        matched_trips = await matched_trips_collection.find(
+            {"matchedGps": {"$geoIntersects": {"$geometry": boundary_polygon}}}
+        ).to_list(length=None)
         if matched_trips:
             driven_shapes = []
             for trip in matched_trips:
@@ -263,7 +257,7 @@ def compute_coverage_for_location(location: Dict[str, Any]) -> Optional[Dict[str
 
 async def update_coverage_for_all_locations() -> None:
     """
-    Periodically updates street coverage for all locations using the new raster‑based method.
+    Periodically updates street coverage for all locations using the new raster‐based method.
     Iterates through each document in the coverage_metadata_collection, computes the coverage,
     and updates the document with the new data.
     """
@@ -282,7 +276,7 @@ async def update_coverage_for_all_locations() -> None:
                 )
                 continue
 
-            result = compute_coverage_for_location(loc)
+            result = await compute_coverage_for_location(loc)
             if result:
                 display_name = loc.get("display_name", "Unknown")
                 await coverage_metadata_collection.update_one(
