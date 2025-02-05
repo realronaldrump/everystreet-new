@@ -243,7 +243,14 @@
     const checkMapReady = setInterval(() => {
       if (document.getElementById("map")) {
         clearInterval(checkMapReady);
-        window.customPlaces = new CustomPlacesManager(L.map("map"));
+        // Use the existing global map if available.
+        if (window.map) {
+          window.customPlaces = new CustomPlacesManager(window.map);
+        } else {
+          // Fallback: create a new map and then save it globally.
+          window.customPlaces = new CustomPlacesManager(L.map("map"));
+          window.map = window.customPlaces.map;
+        }
       }
     }, 100);
     setTimeout(() => clearInterval(checkMapReady), 10000);

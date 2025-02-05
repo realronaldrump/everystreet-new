@@ -157,6 +157,7 @@
           [90, 180],
         ],
       });
+      window.map = map;
       L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         {
