@@ -22,7 +22,6 @@ import shutil
 # Third-Party Imports
 #
 import aiohttp
-import certifi
 import geopandas as gpd
 import geojson as geojson_module
 import gpxpy
@@ -658,7 +657,7 @@ async def get_trips(request: Request):
         fc = geojson_module.FeatureCollection(features)
         return JSONResponse(content=fc)
     except Exception as e:
-        logger.error(f"Error in /api/trips endpoint: {e}", exc_info=True)
+        logger.error("Error in /api/trips endpoint: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve trips")
 
 
@@ -2750,24 +2749,21 @@ async def bouncie_webhook(request: Request):
     try:
         data = await request.json()
         event_type = data.get("eventType")
+        transaction_id = data.get("transactionId")
+
         if not event_type:
             raise HTTPException(status_code=400, detail="Missing eventType")
 
-        transaction_id = data.get("transactionId")
         if event_type in ("tripStart", "tripData", "tripEnd") and not transaction_id:
             raise HTTPException(
                 status_code=400, detail="Missing transactionId for trip event"
             )
 
-        # Process the event based on its type.
         if event_type == "tripStart":
-            # Get the starting timestamp from the event data.
             start_time, _ = get_trip_timestamps(data)
-            # Remove any existing active trip with the same transactionId.
             await live_trips_collection.delete_many(
                 {"transactionId": transaction_id, "status": "active"}
             )
-            # Insert the new active trip.
             await live_trips_collection.insert_one(
                 {
                     "transactionId": transaction_id,
@@ -2779,12 +2775,10 @@ async def bouncie_webhook(request: Request):
             )
 
         elif event_type == "tripData":
-            # Find the active trip for this transaction.
             trip_doc = await live_trips_collection.find_one(
                 {"transactionId": transaction_id, "status": "active"}
             )
             if not trip_doc:
-                # If not found, create a new active trip.
                 now = datetime.now(timezone.utc)
                 await live_trips_collection.insert_one(
                     {
@@ -2798,7 +2792,6 @@ async def bouncie_webhook(request: Request):
                 trip_doc = await live_trips_collection.find_one(
                     {"transactionId": transaction_id, "status": "active"}
                 )
-            # If the event contains trip data, update the coordinates.
             if "data" in data:
                 new_coords = sort_and_filter_trip_coordinates(data["data"])
                 all_coords = trip_doc.get("coordinates", []) + new_coords
@@ -2818,46 +2811,38 @@ async def bouncie_webhook(request: Request):
                 )
 
         elif event_type == "tripEnd":
-            # Extract the start and end times.
-            start_time, end_time = get_trip_timestamps(data)
-            # Find the active trip.
-            trip = await live_trips_collection.find_one(
-                {"transactionId": transaction_id}
-            )
-            if trip:
-                # Update the trip with the end time and mark it completed.
-                trip["endTime"] = end_time
-                trip["status"] = "completed"
-                # Archive the trip.
-                await archived_live_trips_collection.insert_one(trip)
-                # Delete the active trip document.
-                await live_trips_collection.delete_one({"_id": trip["_id"]})
+            # Fetch *all* events related to this transaction.
+            all_events = [data]  # Start with the current 'tripEnd' event
+            async for event in live_trips_collection.find({"transactionId": transaction_id}):
+              all_events.append(event)
 
-        # After processing, try to retrieve the current active trip.
+            # Assemble the complete trip.
+            trip = await assemble_trip_from_realtime_data(all_events)
+
+            if trip:
+                # Insert the completed trip into the main trips_collection.
+                await trips_collection.insert_one(trip)
+
+            # Delete the active trip document (and any other related documents)
+            await live_trips_collection.delete_many({"transactionId": transaction_id})
+
+
+        # --- Broadcasting logic remains the same ---
         active_trip = await live_trips_collection.find_one({"status": "active"})
         if active_trip:
-            # Convert top-level datetimes
             for key in ("startTime", "lastUpdate", "endTime"):
                 if key in active_trip and isinstance(active_trip[key], datetime):
                     active_trip[key] = active_trip[key].isoformat()
-
-            # Convert _id
             if "_id" in active_trip:
                 active_trip["_id"] = str(active_trip["_id"])
-
-            # ALSO convert timestamps in coordinates
             if "coordinates" in active_trip:
                 for coord in active_trip["coordinates"]:
-                    if "timestamp" in coord and isinstance(
-                        coord["timestamp"], datetime
-                    ):
+                    if "timestamp" in coord and isinstance(coord["timestamp"], datetime):
                         coord["timestamp"] = coord["timestamp"].isoformat()
-
             message = {"type": "trip_update", "data": active_trip}
         else:
             message = {"type": "heartbeat"}
 
-        # Broadcast with everything stringified
         await manager.broadcast(json.dumps(message))
         return {"status": "success"}
 
@@ -2884,100 +2869,66 @@ async def get_active_trip():
 
 async def assemble_trip_from_realtime_data(realtime_trip_data):
     """
-    Assembles a complete trip object from a list of realtime data events, with enhanced logging.
+    Assembles a complete trip object from a list of realtime data events.
     """
-    logger.info("Assembling trip from realtime data...")  # Log function entry
+    logger.info("Assembling trip from realtime data...")
     if not realtime_trip_data:
-        # Log empty data
         logger.warning("Realtime trip data list is empty, cannot assemble trip.")
         return None
 
-    # Log number of events
     logger.debug(f"Realtime data contains {len(realtime_trip_data)} events.")
 
-    trip_start_event = next(
-        (event for event in realtime_trip_data if event["event_type"] == "tripStart"),
-        None,
-    )
-    trip_end_event = next(
-        (event for event in realtime_trip_data if event["event_type"] == "tripEnd"),
-        None,
-    )
-    trip_data_events = [
-        event["data"]["data"]
-        for event in realtime_trip_data
-        if event["event_type"] == "tripData"
-        and "data" in event["data"]
-        and event["data"]["data"]
-    ]
+    # Find the start and end events.  Use a dictionary for easy access.
+    events = {event["eventType"]: event for event in realtime_trip_data}
+    trip_start_event = events.get("tripStart")
+    trip_end_event = events.get("tripEnd")
 
     if not trip_start_event:
-        # Log missing start event
-        logger.error("Missing tripStart event in realtime data, cannot assemble trip.")
+        logger.error("Missing tripStart event, cannot assemble trip.")
         return None
     if not trip_end_event:
-        # Log missing end event
-        logger.error("Missing tripEnd event in realtime data, cannot assemble trip.")
+        logger.error("Missing tripEnd event, cannot assemble trip.")
         return None
 
-    start_time = parser.isoparse(trip_start_event["data"]["start"]["timestamp"])
-    end_time = parser.isoparse(trip_end_event["data"]["end"]["timestamp"])
+    # Extract basic trip information.  No need to re-parse datetimes.
+    start_time = trip_start_event["data"]["start"]["timestamp"]
+    end_time = trip_end_event["data"]["end"]["timestamp"]
     imei = trip_start_event["imei"]
     transaction_id = trip_start_event["transactionId"]
+    logger.debug(f"Parsed startTime: {start_time}, endTime: {end_time}, transactionId: {transaction_id}, imei: {imei}")
 
-    # Log parsed basic trip info
-    logger.debug(
-        f"Parsed startTime: {start_time}, endTime: {end_time}, transactionId: {transaction_id}, imei: {imei}"
-    )
-
+    # Extract coordinates from tripData events.  Corrected logic.
     all_coords = []
-    for data_chunk in trip_data_events:  # Iterate over chunks of tripData
-        for point in data_chunk:  # Iterate over points within each chunk
-            # Robust GPS data check
-            if (
-                point.get("gps")
-                and point["gps"].get("lat") is not None
-                and point["gps"].get("lon") is not None
-            ):
-                # Ensure lon, lat order
-                all_coords.append([point["gps"]["lon"], point["gps"]["lat"]])
+    for event in realtime_trip_data:
+        if event["eventType"] == "tripData" and "data" in event:
+            for point in event["data"]:  # Directly access the points
+                gps = point.get("gps")
+                if gps and gps.get("lat") is not None and gps.get("lon") is not None:
+                    all_coords.append([gps["lon"], gps["lat"]])  # lon, lat order
 
     if not all_coords:
-        # Log no coords warning
-        logger.warning(
-            f"No valid GPS coordinates found in realtime data for trip {transaction_id}."
-        )
+        logger.warning(f"No valid GPS coordinates found for trip {transaction_id}.")
         return None
-    # Log coord count
-    logger.debug(f"Extracted {len(all_coords)} coordinates from tripData events.")
+    logger.debug(f"Extracted {len(all_coords)} coordinates.")
 
     trip_gps = {"type": "LineString", "coordinates": all_coords}
 
     trip = {
         "transactionId": transaction_id,
         "imei": imei,
-        "startTime": start_time,
-        "endTime": end_time,
+        "startTime": parser.isoparse(start_time),  # Convert to datetime objects
+        "endTime": parser.isoparse(end_time),    # Convert to datetime objects
         "gps": trip_gps,
-        "source": "webhook",  # Mark source as webhook
+        "source": "webhook",
         "startOdometer": trip_start_event["data"]["start"]["odometer"],
         "endOdometer": trip_end_event["data"]["end"]["odometer"],
         "fuelConsumed": trip_end_event["data"]["end"]["fuelConsumed"],
         "timeZone": trip_start_event["data"]["start"]["timeZone"],
-        "maxSpeed": 0,  # Initialize, can be calculated later if needed
-        "averageSpeed": 0,  # Initialize, can be calculated later
-        "totalIdleDuration": 0,  # Initialize, can be calculated later
-        "hardBrakingCount": 0,  # Initialize, can be updated from metrics if available later
-        "hardAccelerationCount": 0,
+        #  Remove the unnessacary keys
     }
 
-    # Log trip object assembled
     logger.debug(f"Assembled trip object with transactionId: {transaction_id}")
-
-    # Use existing processing for geocoding etc.
     processed_trip = await process_trip_data(trip)
-
-    # Log function completion
     logger.info(f"Trip assembly completed for transactionId: {transaction_id}.")
     return processed_trip
 
@@ -3092,76 +3043,6 @@ def get_place_at_point(point):
         if place_shape.contains(point):
             return p
     return None
-
-
-# ---------------------------------------------------------------------------
-# Helper: Process a Bouncie event and update live trip
-# ---------------------------------------------------------------------------
-async def process_bouncie_event(data: dict):
-    event_type = data.get("eventType")
-    transaction_id = data.get("transactionId")
-    if not event_type or (
-        event_type in ("tripStart", "tripData", "tripEnd") and not transaction_id
-    ):
-        raise HTTPException(status_code=400, detail="Invalid event payload")
-
-    # Assume get_trip_timestamps and sort_and_filter_trip_coordinates are already defined.
-    if event_type == "tripStart":
-        start_time, _ = get_trip_timestamps(data)
-        live_trip = {
-            "transactionId": transaction_id,
-            "status": "active",
-            "startTime": start_time,
-            "coordinates": [],
-            "lastUpdate": start_time,
-        }
-        await live_trips_collection.update_one(
-            {"transactionId": transaction_id, "status": "active"},
-            {"$set": live_trip},
-            upsert=True,
-        )
-
-    elif event_type == "tripData":
-        # Fetch existing active trip
-        trip_doc = await live_trips_collection.find_one(
-            {"transactionId": transaction_id, "status": "active"}
-        )
-        if not trip_doc:
-            now = datetime.now(timezone.utc)
-            live_trip = {
-                "transactionId": transaction_id,
-                "status": "active",
-                "startTime": now,
-                "coordinates": [],
-                "lastUpdate": now,
-            }
-            await live_trips_collection.insert_one(live_trip)
-            trip_doc = live_trip
-
-        if "data" in data:
-            new_coords = sort_and_filter_trip_coordinates(data["data"])
-            all_coords = trip_doc.get("coordinates", []) + new_coords
-            all_coords.sort(key=lambda c: c["timestamp"])
-            new_last_update = (
-                all_coords[-1]["timestamp"] if all_coords else trip_doc.get("startTime")
-            )
-            await live_trips_collection.update_one(
-                {"transactionId": transaction_id, "status": "active"},
-                {"$set": {"coordinates": all_coords, "lastUpdate": new_last_update}},
-            )
-
-    elif event_type == "tripEnd":
-        start_time, end_time = get_trip_timestamps(data)
-        trip = await live_trips_collection.find_one({"transactionId": transaction_id})
-        if trip:
-            trip["endTime"] = end_time
-            trip["status"] = "completed"
-            await archived_live_trips_collection.insert_one(trip)
-            await live_trips_collection.delete_one({"transactionId": transaction_id})
-    # End if
-
-    # After processing, return the current active trip (if any) for broadcasting.
-    return await live_trips_collection.find_one({"status": "active"})
 
 
 @app.websocket("/ws/live_trip")
