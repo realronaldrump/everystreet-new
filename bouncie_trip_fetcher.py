@@ -34,7 +34,8 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
-AUTHORIZED_DEVICES = [d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d]
+AUTHORIZED_DEVICES = [d for d in os.getenv(
+    "AUTHORIZED_DEVICES", "").split(",") if d]
 AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 
 # MongoDB configuration
@@ -63,7 +64,8 @@ async def get_access_token(client_session: aiohttp.ClientSession) -> str:
             if not access_token:
                 logger.error("Access token not found in response: %s", data)
                 return None
-            logger.info("Successfully retrieved access token from Bouncie API.")
+            logger.info(
+                "Successfully retrieved access token from Bouncie API.")
             return access_token
     except ClientResponseError as e:
         logger.error(
@@ -79,7 +81,8 @@ async def get_access_token(client_session: aiohttp.ClientSession) -> str:
         )
         return None
     except Exception as e:
-        logger.error("Unexpected error retrieving access token: %s", e, exc_info=True)
+        logger.error(
+            "Unexpected error retrieving access token: %s", e, exc_info=True)
         return None
 
 
@@ -130,7 +133,8 @@ async def fetch_trips_for_device(
             )
             return trips
     except Exception as e:
-        logger.error("Error fetching trips for device %s: %s", imei, e, exc_info=True)
+        logger.error("Error fetching trips for device %s: %s",
+                     imei, e, exc_info=True)
         return []
 
 
@@ -150,7 +154,8 @@ async def store_trip(trip: dict) -> bool:
 
     is_valid, error_msg = validate_trip_data(trip)  # Keep validation
     if not is_valid:
-        logger.error("Trip %s failed validation: %s", transaction_id, error_msg)
+        logger.error("Trip %s failed validation: %s",
+                     transaction_id, error_msg)
         return False
 
     # Ensure GPS data is stored as a JSON string
@@ -182,8 +187,10 @@ async def store_trip(trip: dict) -> bool:
         )
         return True
     except Exception as e:
-        logger.error("Error storing trip %s: %s", transaction_id, e, exc_info=True)
+        logger.error("Error storing trip %s: %s",
+                     transaction_id, e, exc_info=True)
         return False
+
 
 async def fetch_bouncie_trips_in_range(
     start_dt: datetime,
@@ -232,7 +239,8 @@ async def fetch_bouncie_trips_in_range(
                 )
                 for trip in trips:
                     # *** KEY CHANGE: Process the trip data HERE ***
-                    processed_trip = await process_trip(trip) # Corrected function name
+                    # Corrected function name
+                    processed_trip = await process_trip(trip)
                     if processed_trip:  # Only store if processing succeeds
                         if await store_trip(processed_trip):  # Pass collection
                             device_new_trips.append(processed_trip)
@@ -244,7 +252,8 @@ async def fetch_bouncie_trips_in_range(
                 current_start = current_end
             all_new_trips.extend(device_new_trips)
             logger.info(
-                "Device %s: %s new trips inserted.", imei, len(device_new_trips)
+                "Device %s: %s new trips inserted.", imei, len(
+                    device_new_trips)
             )
 
         if do_map_match and all_new_trips:
@@ -275,7 +284,8 @@ async def get_trips_from_api(
     Pulls trips from Bouncie's /trips endpoint for a given device IMEI and date range.
     Also converts times to local timezones based on the trip.
     """
-    headers = {"Authorization": access_token, "Content-Type": "application/json"}
+    headers = {"Authorization": access_token,
+               "Content-Type": "application/json"}
     params = {
         "imei": imei,
         "gps-format": "geojson",
@@ -293,13 +303,15 @@ async def get_trips_from_api(
                 tz_str = get_trip_timezone(trip)
                 timezone_obj = pytz.timezone(tz_str)
                 if "startTime" in trip and isinstance(trip["startTime"], str):
-                    parsed = date_parser.isoparse(trip["startTime"]) # Use date_parser
+                    parsed = date_parser.isoparse(
+                        trip["startTime"])  # Use date_parser
                     if parsed.tzinfo is None:
                         parsed = parsed.replace(tzinfo=pytz.UTC)
                     trip["startTime"] = parsed.astimezone(timezone_obj)
                     trip["timeZone"] = tz_str
                 if "endTime" in trip and isinstance(trip["endTime"], str):
-                    parsed = date_parser.isoparse(trip["endTime"]) # Use date_parser
+                    parsed = date_parser.isoparse(
+                        trip["endTime"])  # Use date_parser
                     if parsed.tzinfo is None:
                         parsed = parsed.replace(tzinfo=pytz.UTC)
                     trip["endTime"] = parsed.astimezone(timezone_obj)
@@ -441,9 +453,11 @@ async def fetch_and_store_trips():
 
                     # Ensure startTime and endTime are datetime objects
                     if isinstance(trip["startTime"], str):
-                        trip["startTime"] = date_parser.isoparse(trip["startTime"]) # Use date_parser
+                        trip["startTime"] = date_parser.isoparse(
+                            trip["startTime"])  # Use date_parser
                     if isinstance(trip["endTime"], str):
-                        trip["endTime"] = date_parser.isoparse(trip["endTime"]) # Use date_parser
+                        trip["endTime"] = date_parser.isoparse(
+                            trip["endTime"])  # Use date_parser
 
                     # Convert gps to JSON string if needed
                     if isinstance(trip["gps"], dict):
@@ -492,7 +506,8 @@ async def fetch_and_store_trips():
             logger.info("Completed fetching and storing trips.")
 
     except Exception as e:
-        logger.error("An error occurred in fetch_and_store_trips: %s", e, exc_info=True)
+        logger.error(
+            "An error occurred in fetch_and_store_trips: %s", e, exc_info=True)
         progress_data["fetch_and_store_trips"]["status"] = "failed"
         progress_data["fetch_and_store_trips"]["message"] = str(e)
 
