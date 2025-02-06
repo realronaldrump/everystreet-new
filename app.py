@@ -2935,7 +2935,7 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
     }
 
     logger.debug(f"Assembled trip object with transactionId: {transaction_id}")
-    processed_trip = await process_trip_data(trip)
+    processed_trip = process_trip(trip)
     logger.info(f"Trip assembly completed for transactionId: {transaction_id}.")
     return processed_trip
 
