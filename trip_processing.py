@@ -11,7 +11,7 @@ This module contains helper functions for processing a trip object:
 import json
 import logging
 from dateutil import parser
-from datetime import datetime, timezone
+from datetime import timezone
 from typing import Optional, Any, Dict
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 def process_trip(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
     Processes a trip dictionary by:
-      - Parsing startTime and endTime (if they are strings) into timezone‑aware datetime objects.
+      - Parsing startTime and endTime (if they are strings) into timezone‑aware datetime
+      objects.
       - Converting the 'gps' field into a JSON string.
       - Validating that the gps data contains a "coordinates" array.
       - Setting additional keys 'startGeoPoint' and 'destinationGeoPoint'
@@ -49,7 +50,7 @@ def process_trip(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
         # Validate gps data exists.
         if "gps" not in trip:
-            logger.error(f"Trip {trip.get('transactionId', '?')} missing gps data.")
+            logger.error("Trip %s missing gps data.", trip.get('transactionId', '?'))
             return None
 
         # Ensure gps data is a dictionary.
@@ -58,7 +59,7 @@ def process_trip(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             gps_data = json.loads(gps_data)
         if not gps_data.get("coordinates"):
             logger.error(
-                f"Trip {trip.get('transactionId', '?')} has invalid coordinates."
+                "Trip %s has invalid coordinates.", trip.get('transactionId', '?')
             )
             return None
 
@@ -79,7 +80,9 @@ def process_trip(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
     except Exception as e:
         logger.error(
-            f"Error processing trip {trip.get('transactionId', '?')}: {e}",
+            "Error processing trip %s: %s",
+            trip.get('transactionId', '?'),
+            e,
             exc_info=True,
         )
         return None
@@ -87,7 +90,8 @@ def process_trip(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def format_idle_time(seconds: Any) -> str:
     """
-    Converts a number of seconds (as a float or int) into a string formatted as HH:MM:SS.
+    Converts a number of seconds (as a float or int) into a string formatted as
+    HH:MM:SS.
     Returns "00:00:00" if seconds is falsy.
     """
     if not seconds:
@@ -95,9 +99,10 @@ def format_idle_time(seconds: Any) -> str:
     try:
         total_seconds = int(seconds)
     except (TypeError, ValueError) as e:
-        logger.error(f"Invalid input for format_idle_time: {seconds} - {e}")
+        logger.error("Invalid input for format_idle_time: %s - %s", seconds, e)
         return "Invalid Input"
     hours = total_seconds // 3600
     minutes = (total_seconds % 3600) // 60
     secs = total_seconds % 60
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+    

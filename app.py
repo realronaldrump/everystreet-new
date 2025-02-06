@@ -13,7 +13,6 @@ from datetime import datetime, timedelta, timezone
 from math import radians, cos, sin, sqrt, atan2
 from typing import List, Dict, Any
 from fastapi.staticfiles import StaticFiles
-from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import DuplicateKeyError
 from starlette.websockets import WebSocketDisconnect
 import shutil
@@ -101,7 +100,6 @@ from fastapi.responses import (
     JSONResponse,
     HTMLResponse,
     StreamingResponse,
-    FileResponse,
 )
 from fastapi.templating import Jinja2Templates
 
@@ -2813,8 +2811,10 @@ async def bouncie_webhook(request: Request):
         elif event_type == "tripEnd":
             # Fetch *all* events related to this transaction.
             all_events = [data]  # Start with the current 'tripEnd' event
-            async for event in live_trips_collection.find({"transactionId": transaction_id}):
-              all_events.append(event)
+            async for event in live_trips_collection.find(
+                {"transactionId": transaction_id}
+            ):
+                all_events.append(event)
 
             # Assemble the complete trip.
             trip = await assemble_trip_from_realtime_data(all_events)
@@ -2826,7 +2826,6 @@ async def bouncie_webhook(request: Request):
             # Delete the active trip document (and any other related documents)
             await live_trips_collection.delete_many({"transactionId": transaction_id})
 
-
         # --- Broadcasting logic remains the same ---
         active_trip = await live_trips_collection.find_one({"status": "active"})
         if active_trip:
@@ -2837,7 +2836,9 @@ async def bouncie_webhook(request: Request):
                 active_trip["_id"] = str(active_trip["_id"])
             if "coordinates" in active_trip:
                 for coord in active_trip["coordinates"]:
-                    if "timestamp" in coord and isinstance(coord["timestamp"], datetime):
+                    if "timestamp" in coord and isinstance(
+                        coord["timestamp"], datetime
+                    ):
                         coord["timestamp"] = coord["timestamp"].isoformat()
             message = {"type": "trip_update", "data": active_trip}
         else:
@@ -2895,7 +2896,9 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
     end_time = trip_end_event["data"]["end"]["timestamp"]
     imei = trip_start_event["imei"]
     transaction_id = trip_start_event["transactionId"]
-    logger.debug(f"Parsed startTime: {start_time}, endTime: {end_time}, transactionId: {transaction_id}, imei: {imei}")
+    logger.debug(
+        f"Parsed startTime: {start_time}, endTime: {end_time}, transactionId: {transaction_id}, imei: {imei}"
+    )
 
     # Extract coordinates from tripData events.  Corrected logic.
     all_coords = []
@@ -2917,7 +2920,7 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
         "transactionId": transaction_id,
         "imei": imei,
         "startTime": parser.isoparse(start_time),  # Convert to datetime objects
-        "endTime": parser.isoparse(end_time),    # Convert to datetime objects
+        "endTime": parser.isoparse(end_time),  # Convert to datetime objects
         "gps": trip_gps,
         "source": "webhook",
         "startOdometer": trip_start_event["data"]["start"]["odometer"],
