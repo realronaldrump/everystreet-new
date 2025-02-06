@@ -21,6 +21,7 @@ from geojson import dumps as geojson_dumps, loads as geojson_loads
 from utils import validate_trip_data, reverse_geocode_nominatim, get_trip_timezone
 from map_matching import process_and_map_match_trip
 from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
+from db import trips_collection, archived_live_trips_collection
 
 # Logging Configuration
 logging.basicConfig(
@@ -143,69 +144,47 @@ async def fetch_trips_for_device(
 
 async def store_trip(trip: dict) -> bool:
     """
-    Validate and store a single trip document in MongoDB.
-    If a trip with the same transactionId exists, it is updated; otherwise, a new
-    document is inserted.
-    Returns True if the trip was stored successfully.
+    Validate and store a single trip document in MongoDB.  Determines the
+    correct collection based on the 'source' field.
+
+    Args:
+        trip: The trip dictionary to store.
+
+    Returns:
+        True if the trip was stored successfully, False otherwise.
     """
     transaction_id = trip.get("transactionId", "?")
-    logger.info("Storing trip %s in trips_collection...", transaction_id)
+    logger.info("Storing trip %s ...", transaction_id)
 
-    is_valid, error_msg = validate_trip_data(trip)
+    is_valid, error_msg = validate_trip_data(trip)  # Keep validation
     if not is_valid:
         logger.error("Trip %s failed validation: %s", transaction_id, error_msg)
         return False
-    logger.debug("Trip data validation passed for trip %s.", transaction_id)
 
     # Ensure GPS data is stored as a JSON string
     if isinstance(trip.get("gps"), dict):
-        logger.debug("Converting gps data to JSON string for trip %s.", transaction_id)
         trip["gps"] = geojson_dumps(trip["gps"])
 
-    # Parse startTime and endTime if they are strings
+    # Parse startTime and endTime if they are strings (should be handled by process_trip_data, but keep for safety)
     for field in ["startTime", "endTime"]:
         if field in trip and isinstance(trip[field], str):
-            logger.debug("Parsing %s from string for trip %s.", field, transaction_id)
-            trip[field] = parser.isoparse(trip[field])
+            trip[field] = date_parser.isoparse(trip[field])
 
-    # Perform reverse geocoding if needed
-    try:
-        gps = geojson_loads(trip["gps"])
-        coordinates = gps.get("coordinates", [])
-        if coordinates and len(coordinates) >= 2:
-            start_coords, end_coords = coordinates[0], coordinates[-1]
-            if not trip.get("startLocation"):
-                geo_data = await reverse_geocode_nominatim(
-                    start_coords[1], start_coords[0]
-                )
-                trip["startLocation"] = geo_data.get("display_name", "")
-            if not trip.get("destination"):
-                geo_data = await reverse_geocode_nominatim(end_coords[1], end_coords[0])
-                trip["destination"] = geo_data.get("display_name", "")
-        else:
-            logger.warning("Trip %s has insufficient coordinate data.", transaction_id)
-    except Exception as e:
-        logger.error(
-            "Error during reverse geocoding for trip %s: %s",
-            transaction_id,
-            e,
-            exc_info=True,
-        )
+    # Determine the correct collection based on 'source'
+    if trip.get("source") == "webhook":
+        collection = archived_live_trips_collection
+    else:
+        collection = trips_collection  # Default to trips_collection
 
-    update_data = {
-        "$set": {
-            **trip,
-            "startPlaceId": trip.get("startPlaceId"),
-            "destinationPlaceId": trip.get("destinationPlaceId"),
-        }
-    }
+    update_data = {"$set": trip}  # Simplified update
     try:
-        result = await trips_collection.update_one(
+        result = await collection.update_one(
             {"transactionId": transaction_id}, update_data, upsert=True
         )
         logger.info(
-            "Stored trip %s successfully. Modified count: %s, Upserted: %s",
+            "Stored trip %s successfully in %s. Modified count: %s, Upserted: %s",
             transaction_id,
+            collection.name,  # Log the collection name
             result.modified_count,
             result.upserted_id is not None,
         )
@@ -214,7 +193,6 @@ async def store_trip(trip: dict) -> bool:
         logger.error("Error storing trip %s: %s", transaction_id, e, exc_info=True)
         return False
 
-
 async def fetch_bouncie_trips_in_range(
     start_dt: datetime,
     end_dt: datetime,
@@ -222,11 +200,19 @@ async def fetch_bouncie_trips_in_range(
     progress_data: dict = None,
 ) -> list:
     """
-    For each authorized device, fetch trips in 7‑day intervals
-    between start_dt and end_dt.
-    Process and store each trip. Optionally, trigger map matching on new trips.
-    If a progress_data dict is provided, update its status and progress.
-    Returns a list of all newly inserted trips.
+    Fetches trips from the Bouncie API for all authorized devices within a given
+    date range. Processes each trip using process_trip_data to handle custom
+    places and geocoding, and then stores the trip in the appropriate MongoDB
+    collection.
+
+    Args:
+        start_dt: The start datetime for the trip range.
+        end_dt: The end datetime for the trip range.
+        do_map_match: Whether to perform map matching on the fetched trips.
+        progress_data:  An optional dictionary to update with progress information.
+
+    Returns:
+        A list of all newly inserted/updated trips.
     """
     async with aiohttp.ClientSession() as session:
         token = await get_access_token(session)
@@ -241,7 +227,6 @@ async def fetch_bouncie_trips_in_range(
         all_new_trips = []
         total_devices = len(AUTHORIZED_DEVICES)
         for device_index, imei in enumerate(AUTHORIZED_DEVICES, start=1):
-            # Update progress status for this device
             if progress_data is not None:
                 progress_data["fetch_and_store_trips"][
                     "message"
@@ -254,15 +239,21 @@ async def fetch_bouncie_trips_in_range(
                     session, token, imei, current_start, current_end
                 )
                 for trip in trips:
-                    if await store_trip(trip):
-                        device_new_trips.append(trip)
+                    # *** KEY CHANGE: Process the trip data HERE ***
+                    processed_trip = await process_trip_data(trip)
+                    if processed_trip:  # Only store if processing succeeds
+                        if await store_trip(processed_trip):  # Pass collection
+                            device_new_trips.append(processed_trip)
+
                 if progress_data is not None:
                     progress_data["fetch_and_store_trips"]["progress"] = int(
                         (device_index / total_devices) * 50
                     )
                 current_start = current_end
             all_new_trips.extend(device_new_trips)
-            logger.info("Device %s: %s new trips inserted.", imei, len(device_new_trips))
+            logger.info(
+                "Device %s: %s new trips inserted.", imei, len(device_new_trips)
+            )
 
         if do_map_match and all_new_trips:
             logger.info("Starting map matching for new trips...")

@@ -2820,13 +2820,17 @@ async def bouncie_webhook(request: Request):
             trip = await assemble_trip_from_realtime_data(all_events)
 
             if trip:
-                # Insert the completed trip into the main trips_collection.
-                await trips_collection.insert_one(trip)
+                # *** KEY CHANGE: Process the trip data HERE ***
+                processed_trip = await process_trip_data(trip)
+                if processed_trip:
+                    # Insert the completed trip into the archived_live_trips_collection.
+                    await archived_live_trips_collection.insert_one(processed_trip)
 
-            # Delete the active trip document (and any other related documents)
-            await live_trips_collection.delete_many({"transactionId": transaction_id})
+                # Delete the active trip document (and any other related documents)
+                await live_trips_collection.delete_many(
+                    {"transactionId": transaction_id}
+                )
 
-        # --- Broadcasting logic remains the same ---
         active_trip = await live_trips_collection.find_one({"status": "active"})
         if active_trip:
             for key in ("startTime", "lastUpdate", "endTime"):
@@ -2973,7 +2977,9 @@ async def process_trip_data(trip: Dict[str, Any]) -> Dict[str, Any]:
         en = gps_data["coordinates"][-1]
         start_point = Point(st[0], st[1])
         end_point = Point(en[0], en[1])
-        logger.debug(f"Extracted start point: {st}, end point: {en} for trip {transaction_id}")
+        logger.debug(
+            f"Extracted start point: {st}, end point: {en} for trip {transaction_id}"
+        )
 
         # Use the asynchronous get_place_at_point (await it) for the start location.
         start_place = await get_place_at_point(start_point)
@@ -3042,7 +3048,9 @@ async def get_place_at_point(point: Point) -> Optional[Dict[str, Any]]:
                 if place_shape.contains(point):
                     return p
             except Exception as e:
-                logger.error(f"Error processing place {p.get('_id')}: {e}", exc_info=True)
+                logger.error(
+                    f"Error processing place {p.get('_id')}: {e}", exc_info=True
+                )
                 continue
     except Exception as e:
         logger.error(f"Error querying places: {e}", exc_info=True)
