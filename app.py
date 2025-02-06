@@ -2939,15 +2939,12 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
 # WebSocket Endpoint
 
 
-async def process_trip_data(trip):
+async def process_trip_data(trip: Dict[str, Any]) -> Dict[str, Any]:
     """
     Processes a trip’s geocoding data. For both the start and destination points:
       - If the point falls within a defined custom place, assign the custom place’s name.
-      - Otherwise, call reverse_geocode_nominatim and extract its "display_name".
-    Also sets the geo point fields for geospatial queries.
-
-    This fixes the error where, if not in a custom place, the full geocoding response
-    (an object) was being assigned rather than its "display_name".
+      - Otherwise, perform reverse geocoding to retrieve the "display_name".
+    Also sets the geo‑point fields for geospatial queries.
     """
     transaction_id = trip.get("transactionId", "?")
     logger.info(f"Processing trip data for trip {transaction_id}...")
@@ -2956,8 +2953,6 @@ async def process_trip_data(trip):
         if not gps_data:
             logger.warning(f"Trip {transaction_id} has no GPS data to process.")
             return trip
-
-        # If GPS data is a string, parse it into a dict.
         if isinstance(gps_data, str):
             try:
                 gps_data = json.loads(gps_data)
@@ -2967,25 +2962,21 @@ async def process_trip_data(trip):
                     exc_info=True,
                 )
                 return trip
-        # Update the trip's GPS data
+        # Update the trip’s gps field to the parsed dict.
         trip["gps"] = gps_data
-
         if not gps_data.get("coordinates"):
             logger.warning(f"Trip {transaction_id} has no coordinates in GPS data.")
             return trip
 
-        # Extract the first (start) and last (end) coordinates
+        # Extract start and end coordinates.
         st = gps_data["coordinates"][0]
         en = gps_data["coordinates"][-1]
-
         start_point = Point(st[0], st[1])
         end_point = Point(en[0], en[1])
-        logger.debug(
-            f"Extracted start point: {st}, end point: {en} for trip {transaction_id}"
-        )
+        logger.debug(f"Extracted start point: {st}, end point: {en} for trip {transaction_id}")
 
-        # Check if the start point falls within a custom place.
-        start_place = get_place_at_point(start_point)
+        # Use the asynchronous get_place_at_point (await it) for the start location.
+        start_place = await get_place_at_point(start_point)
         if start_place:
             trip["startLocation"] = start_place["name"]
             trip["startPlaceId"] = str(start_place.get("_id", ""))
@@ -2993,7 +2984,7 @@ async def process_trip_data(trip):
                 f"Start point of trip {transaction_id} is within custom place: {start_place['name']}"
             )
         else:
-            # Otherwise, use reverse geocoding and extract "display_name"
+            # Fall back to reverse geocoding.
             geocode_data = await reverse_geocode_nominatim(st[1], st[0])
             start_location = ""
             if geocode_data and isinstance(geocode_data, dict):
@@ -3003,8 +2994,8 @@ async def process_trip_data(trip):
                 f"Start point of trip {transaction_id} reverse geocoded to: {start_location}"
             )
 
-        # Check if the end point falls within a custom place.
-        end_place = get_place_at_point(end_point)
+        # And similarly for the destination.
+        end_place = await get_place_at_point(end_point)
         if end_place:
             trip["destination"] = end_place["name"]
             trip["destinationPlaceId"] = str(end_place.get("_id", ""))
@@ -3036,15 +3027,25 @@ async def process_trip_data(trip):
         return trip
 
 
-def get_place_at_point(point):
+async def get_place_at_point(point: Point) -> Optional[Dict[str, Any]]:
     """
-    Find a custom place that contains the given point.
+    Asynchronously searches for a custom place (from the places_collection)
+    that contains the given Shapely Point.
     """
-    places = list(places_collection.find({}))
-    for p in places:
-        place_shape = shape(p["geometry"])
-        if place_shape.contains(point):
-            return p
+    try:
+        # Use the asynchronous API to get all place documents as a list.
+        places = await places_collection.find({}).to_list(length=None)
+        for p in places:
+            try:
+                # Convert the stored GeoJSON geometry to a Shapely shape.
+                place_shape = shape(p["geometry"])
+                if place_shape.contains(point):
+                    return p
+            except Exception as e:
+                logger.error(f"Error processing place {p.get('_id')}: {e}", exc_info=True)
+                continue
+    except Exception as e:
+        logger.error(f"Error querying places: {e}", exc_info=True)
     return None
 
 
