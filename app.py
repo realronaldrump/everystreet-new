@@ -2884,7 +2884,12 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
     logger.debug(f"Realtime data contains {len(realtime_trip_data)} events.")
 
     # Find the start and end events.  Use a dictionary for easy access.
-    events = {event["eventType"]: event for event in realtime_trip_data}
+    events = {}
+    for event in realtime_trip_data:
+        event_type = event.get("eventType")  # Use .get() to safely access
+        if event_type:  # Only add to the dictionary if eventType exists
+            events[event_type] = event
+
     trip_start_event = events.get("tripStart")
     trip_end_event = events.get("tripEnd")
 
@@ -2907,7 +2912,7 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
     # Extract coordinates from tripData events.  Corrected logic.
     all_coords = []
     for event in realtime_trip_data:
-        if event["eventType"] == "tripData" and "data" in event:
+        if event.get("eventType") == "tripData" and "data" in event:  # Use .get() here too
             for point in event["data"]:  # Directly access the points
                 gps = point.get("gps")
                 if gps and gps.get("lat") is not None and gps.get("lon") is not None:
@@ -2931,7 +2936,6 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
         "endOdometer": trip_end_event["data"]["end"]["odometer"],
         "fuelConsumed": trip_end_event["data"]["end"]["fuelConsumed"],
         "timeZone": trip_start_event["data"]["start"]["timeZone"],
-        #  Remove the unnessacary keys
     }
 
     logger.debug(f"Assembled trip object with transactionId: {transaction_id}")
