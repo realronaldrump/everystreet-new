@@ -11,7 +11,7 @@ import glob
 import io
 from datetime import datetime, timedelta, timezone
 from math import radians, cos, sin, sqrt, atan2
-from typing import List, Dict, Any
+from typing import Optional, List, Dict, Any
 from fastapi.staticfiles import StaticFiles
 from pymongo.errors import DuplicateKeyError
 from starlette.websockets import WebSocketDisconnect
