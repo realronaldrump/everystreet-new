@@ -232,7 +232,7 @@ async def fetch_bouncie_trips_in_range(
                 )
                 for trip in trips:
                     # *** KEY CHANGE: Process the trip data HERE ***
-                    processed_trip = await process_trip(trip) # Corrected function name
+                    processed_trip = process_trip(trip) # Corrected function name
                     if processed_trip:  # Only store if processing succeeds
                         if await store_trip(processed_trip):  # Pass collection
                             device_new_trips.append(processed_trip)
