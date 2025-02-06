@@ -1,12 +1,3 @@
-"""
-bouncie_trip_fetcher.py
-
-This module fetches trip data from the Bouncie API for all authorized devices,
-processes and validates each trip (including reverse geocoding), stores new trips in
-MongoDB,
-and (optionally) triggers map matching on the newly inserted trips.
-"""
-
 import os
 import pytz
 import asyncio
@@ -22,6 +13,7 @@ from utils import validate_trip_data, reverse_geocode_nominatim, get_trip_timezo
 from map_matching import process_and_map_match_trip
 from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
 from db import trips_collection, archived_live_trips_collection
+from trip_processing import process_trip
 
 # Logging Configuration
 logging.basicConfig(
@@ -240,7 +232,7 @@ async def fetch_bouncie_trips_in_range(
                 )
                 for trip in trips:
                     # *** KEY CHANGE: Process the trip data HERE ***
-                    processed_trip = await process_trip_data(trip)
+                    processed_trip = await process_trip(trip) # Corrected function name
                     if processed_trip:  # Only store if processing succeeds
                         if await store_trip(processed_trip):  # Pass collection
                             device_new_trips.append(processed_trip)
@@ -301,13 +293,13 @@ async def get_trips_from_api(
                 tz_str = get_trip_timezone(trip)
                 timezone_obj = pytz.timezone(tz_str)
                 if "startTime" in trip and isinstance(trip["startTime"], str):
-                    parsed = parser.isoparse(trip["startTime"])
+                    parsed = date_parser.isoparse(trip["startTime"]) # Use date_parser
                     if parsed.tzinfo is None:
                         parsed = parsed.replace(tzinfo=pytz.UTC)
                     trip["startTime"] = parsed.astimezone(timezone_obj)
                     trip["timeZone"] = tz_str
                 if "endTime" in trip and isinstance(trip["endTime"], str):
-                    parsed = parser.isoparse(trip["endTime"])
+                    parsed = date_parser.isoparse(trip["endTime"]) # Use date_parser
                     if parsed.tzinfo is None:
                         parsed = parsed.replace(tzinfo=pytz.UTC)
                     trip["endTime"] = parsed.astimezone(timezone_obj)
@@ -449,9 +441,9 @@ async def fetch_and_store_trips():
 
                     # Ensure startTime and endTime are datetime objects
                     if isinstance(trip["startTime"], str):
-                        trip["startTime"] = parser.isoparse(trip["startTime"])
+                        trip["startTime"] = date_parser.isoparse(trip["startTime"]) # Use date_parser
                     if isinstance(trip["endTime"], str):
-                        trip["endTime"] = parser.isoparse(trip["endTime"])
+                        trip["endTime"] = date_parser.isoparse(trip["endTime"]) # Use date_parser
 
                     # Convert gps to JSON string if needed
                     if isinstance(trip["gps"], dict):
@@ -483,23 +475,61 @@ async def fetch_and_store_trips():
                     )
 
                     # Update progress (final 50% for storing)
-                    progress = int(50 + (index / total_trips) * 50)
+                    progress = 50 + int((index + 1) / total_trips * 50)
                     progress_data["fetch_and_store_trips"]["progress"] = progress
+
                 except Exception as e:
                     logger.error(
-                        "Error inserting/updating trip %s: %s",
-                        trip.get("transactionId"),
+                        "Error processing or storing trip %s: %s",
+                        trip.get("transactionId", "?"),
                         e,
                         exc_info=True,
                     )
+                    continue  # Continue to the next trip even if one fails
 
             progress_data["fetch_and_store_trips"]["status"] = "completed"
-            progress_data["fetch_and_store_trips"]["progress"] = 100
-            progress_data["fetch_and_store_trips"][
-                "message"
-            ] = "Fetch and store completed"
+            progress_data["fetch_and_store_trips"]["message"] = "Fetch completed"
+            logger.info("Completed fetching and storing trips.")
 
     except Exception as e:
-        logger.error("Error in fetch_and_store_trips: %s", e, exc_info=True)
+        logger.error("An error occurred in fetch_and_store_trips: %s", e, exc_info=True)
         progress_data["fetch_and_store_trips"]["status"] = "failed"
-        progress_data["fetch_and_store_trips"]["message"] = f"Error: {e}"
+        progress_data["fetch_and_store_trips"]["message"] = str(e)
+
+
+async def periodic_fetch_trips(progress_data: dict):
+    """
+    Fetches recent trips from Bouncie API and stores them.  This is intended
+    to be run periodically, and fetches trips since the last successful run.
+    """
+    progress_data["periodic_fetch_trips"]["status"] = "running"
+    progress_data["periodic_fetch_trips"]["progress"] = 0
+    progress_data["periodic_fetch_trips"]["message"] = "Starting periodic fetch"
+
+    try:
+        # Determine the last successful fetch time.
+        last_fetch = await trips_collection.find_one(
+            {}, sort=[("endTime", -1)]
+        )  # Most recent trip
+        if last_fetch and last_fetch.get("endTime"):
+            start_dt = last_fetch["endTime"]
+        else:
+            start_dt = datetime.now(timezone.utc) - timedelta(
+                days=7
+            )  # Default: 7 days ago
+        end_dt = datetime.now(timezone.utc)
+
+        new_trips = await fetch_bouncie_trips_in_range(
+            start_dt, end_dt, do_map_match=True, progress_data=progress_data
+        )  # Map match
+        progress_data["periodic_fetch_trips"]["progress"] = 100
+        progress_data["periodic_fetch_trips"]["status"] = "completed"
+        logger.info(
+            "Periodic fetch completed. %s new trips fetched and processed.",
+            len(new_trips),
+        )
+
+    except Exception as e:
+        logger.error("Error during periodic fetch: %s", e, exc_info=True)
+        progress_data["periodic_fetch_trips"]["status"] = "failed"
+        progress_data["periodic_fetch_trips"]["message"] = str(e)
