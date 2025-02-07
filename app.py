@@ -2172,11 +2172,12 @@ def validate_trip_update(data: dict) -> tuple[bool, str]:
         return False, "Invalid data format"
 
 
-def fetch_trips(start_date_str: str, end_date_str: str) -> list:
+async def fetch_trips(start_date_str: str, end_date_str: str) -> list:
     sd = parser.parse(start_date_str)
     ed = parser.parse(end_date_str)
     query = {"startTime": {"$gte": sd, "$lte": ed}}
-    return list(trips_collection.find(query))
+    trips = await trips_collection.find(query).to_list(length=None)
+    return trips
 
 
 @app.post("/api/upload")
@@ -2982,12 +2983,9 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
 async def process_trip_data(trip):
     """
     Processes a trip’s geocoding data. For both the start and destination points:
-      - If the point falls within a defined custom place, assign the custom place’s name.
+      - If the point falls within a defined custom place (found asynchronously), assign the custom place’s name and its _id.
       - Otherwise, call reverse_geocode_nominatim and extract its "display_name".
-    Also sets the geo point fields for geospatial queries.
-
-    This fixes the error where, if not in a custom place, the full geocoding response
-    (an object) was being assigned rather than its "display_name".
+    Also sets the geo-point fields for geospatial queries.
     """
     transaction_id = trip.get("transactionId", "?")
     logger.info(f"Processing trip data for trip {transaction_id}...")
@@ -2997,7 +2995,7 @@ async def process_trip_data(trip):
             logger.warning(f"Trip {transaction_id} has no GPS data to process.")
             return trip
 
-        # If GPS data is a string, parse it into a dict.
+        # If GPS data is stored as a string, parse it into a dict.
         if isinstance(gps_data, str):
             try:
                 gps_data = json.loads(gps_data)
@@ -3007,25 +3005,26 @@ async def process_trip_data(trip):
                     exc_info=True,
                 )
                 return trip
-        # Update the trip's GPS data
+        # Update the trip's GPS field with the parsed data.
         trip["gps"] = gps_data
 
         if not gps_data.get("coordinates"):
             logger.warning(f"Trip {transaction_id} has no coordinates in GPS data.")
             return trip
 
-        # Extract the first (start) and last (end) coordinates
+        # Extract the first (start) and last (end) coordinates.
         st = gps_data["coordinates"][0]
         en = gps_data["coordinates"][-1]
-
-        start_point = Point(st[0], st[1])
-        end_point = Point(en[0], en[1])
         logger.debug(
             f"Extracted start point: {st}, end point: {en} for trip {transaction_id}"
         )
 
-        # Check if the start point falls within a custom place.
-        start_place = get_place_at_point(start_point)
+        # Create Point objects for start and end.
+        start_point = Point(st[0], st[1])
+        end_point = Point(en[0], en[1])
+
+        # Lookup custom places asynchronously.
+        start_place = await get_place_at_point(start_point)
         if start_place:
             trip["startLocation"] = start_place["name"]
             trip["startPlaceId"] = str(start_place.get("_id", ""))
@@ -3033,7 +3032,6 @@ async def process_trip_data(trip):
                 f"Start point of trip {transaction_id} is within custom place: {start_place['name']}"
             )
         else:
-            # Otherwise, use reverse geocoding and extract "display_name"
             geocode_data = await reverse_geocode_nominatim(st[1], st[0])
             start_location = ""
             if geocode_data and isinstance(geocode_data, dict):
@@ -3043,8 +3041,7 @@ async def process_trip_data(trip):
                 f"Start point of trip {transaction_id} reverse geocoded to: {start_location}"
             )
 
-        # Check if the end point falls within a custom place.
-        end_place = get_place_at_point(end_point)
+        end_place = await get_place_at_point(end_point)
         if end_place:
             trip["destination"] = end_place["name"]
             trip["destinationPlaceId"] = str(end_place.get("_id", ""))
@@ -3071,7 +3068,8 @@ async def process_trip_data(trip):
 
     except Exception as e:
         logger.error(
-            f"Error in process_trip_data for trip {transaction_id}: {e}", exc_info=True
+            f"Error in process_trip_data for trip {transaction_id}: {e}",
+            exc_info=True,
         )
         return trip
 
