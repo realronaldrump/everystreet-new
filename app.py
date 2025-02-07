@@ -1813,27 +1813,21 @@ async def get_single_trip(trip_id: str):
 @app.delete("/api/trips/{trip_id}")
 async def delete_trip(trip_id: str):
     """
-    Deletes a trip by its ID.
+    Deletes a trip by its transactionId.
     """
     try:
-        # Convert trip_id to ObjectId
-        try:
-            object_id = ObjectId(trip_id)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid trip ID format")
-
-        # Find the trip in both collections
-        trip = await trips_collection.find_one({"_id": object_id})
+        # Find the trip in both collections using transactionId
+        trip = await trips_collection.find_one({"transactionId": trip_id})
         if not trip:
-            trip = await matched_trips_collection.find_one({"_id": object_id})
+            trip = await matched_trips_collection.find_one({"transactionId": trip_id})
             if not trip:
                 raise HTTPException(status_code=404, detail="Trip not found")
             collection = matched_trips_collection
         else:
             collection = trips_collection
 
-        # Delete the trip (use await if delete_one is async)
-        result = await collection.delete_one({"_id": object_id})
+        # Delete the trip using transactionId
+        result = await collection.delete_one({"transactionId": trip_id})
 
         if result.deleted_count == 1:
             return {"status": "success", "message": "Trip deleted successfully"}
