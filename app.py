@@ -865,7 +865,9 @@ async def api_fetch_trips():
 async def api_fetch_trips_range(request: Request):
     data = await request.json()
     start_date = datetime.fromisoformat(data["start_date"]).replace(tzinfo=timezone.utc)
-    end_date = datetime.fromisoformat(data["end_date"]).replace(tzinfo=timezone.utc)
+    end_date = datetime.fromisoformat(data["end_date"]).replace(
+        hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
+    )
     await fetch_bouncie_trips_in_range(
         start_date, end_date, do_map_match=False, progress_data=progress_data
     )

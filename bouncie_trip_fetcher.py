@@ -135,40 +135,44 @@ async def fetch_trips_for_device(
 
 async def store_trip(trip: dict) -> bool:
     """
-    Validate and store a single trip document in MongoDB.
+    Validate, process (including custom place lookup), and store a single trip document in MongoDB.
     If a trip with the same transactionId exists, it is updated; otherwise, a new document is inserted.
     Returns True if the trip was stored successfully.
     """
     transaction_id = trip.get("transactionId", "?")
     logger.info(f"Storing trip {transaction_id} in trips_collection...")
 
+    # Validate the trip data.
     is_valid, error_msg = validate_trip_data(trip)
     if not is_valid:
         logger.error(f"Trip {transaction_id} failed validation: {error_msg}")
         return False
     logger.debug(f"Trip data validation passed for trip {transaction_id}.")
 
-    # Ensure GPS data is stored as a JSON string
+    # *** NEW: Process the trip to check for custom places.
+    # This function (defined in app.py) will check the start and end points.
+    from app import process_trip_data  # or import from your common module if you refactor it
+    trip = await process_trip_data(trip)
+
+    # Ensure the gps field is stored as a JSON string.
     if isinstance(trip.get("gps"), dict):
         logger.debug(f"Converting gps data to JSON string for trip {transaction_id}.")
         trip["gps"] = geojson_dumps(trip["gps"])
 
-    # Parse startTime and endTime if they are strings
+    # Parse startTime and endTime if provided as strings.
     for field in ["startTime", "endTime"]:
         if field in trip and isinstance(trip[field], str):
             logger.debug(f"Parsing {field} from string for trip {transaction_id}.")
             trip[field] = parser.isoparse(trip[field])
 
-    # Perform reverse geocoding if needed
+    # (Optional) Do a reverse geocode fallback if process_trip_data did not already set the location.
     try:
         gps = geojson_loads(trip["gps"])
         coordinates = gps.get("coordinates", [])
         if coordinates and len(coordinates) >= 2:
             start_coords, end_coords = coordinates[0], coordinates[-1]
             if not trip.get("startLocation"):
-                geo_data = await reverse_geocode_nominatim(
-                    start_coords[1], start_coords[0]
-                )
+                geo_data = await reverse_geocode_nominatim(start_coords[1], start_coords[0])
                 trip["startLocation"] = geo_data.get("display_name", "")
             if not trip.get("destination"):
                 geo_data = await reverse_geocode_nominatim(end_coords[1], end_coords[0])
@@ -176,10 +180,7 @@ async def store_trip(trip: dict) -> bool:
         else:
             logger.warning(f"Trip {transaction_id} has insufficient coordinate data.")
     except Exception as e:
-        logger.error(
-            f"Error during reverse geocoding for trip {transaction_id}: {e}",
-            exc_info=True,
-        )
+        logger.error(f"Error during reverse geocoding for trip {transaction_id}: {e}", exc_info=True)
 
     update_data = {
         "$set": {
