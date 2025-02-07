@@ -3076,11 +3076,11 @@ async def process_trip_data(trip):
         return trip
 
 
-def get_place_at_point(point):
+async def get_place_at_point(point):
     """
     Find a custom place that contains the given point.
     """
-    places = list(places_collection.find({}))
+    places = await places_collection.find({}).to_list(length=None)
     for p in places:
         place_shape = shape(p["geometry"])
         if place_shape.contains(point):
