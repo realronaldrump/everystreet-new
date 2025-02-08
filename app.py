@@ -12,6 +12,7 @@ import io
 from datetime import datetime, timedelta, timezone
 from math import radians, cos, sin, sqrt, atan2
 from typing import List, Dict, Any
+from fastapi.concurrency import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import DuplicateKeyError
@@ -66,6 +67,8 @@ from db import (
     streets_collection,
     coverage_metadata_collection,
     places_collection,
+    mongo_client,
+    db
 )
 from trip_processing import format_idle_time
 from export_helpers import create_geojson, create_gpx
@@ -97,7 +100,7 @@ coverage_metadata_collection.create_index([("location", 1)], unique=True)
 #
 # FastAPI and Jinja2 Setup
 #
-from fastapi import FastAPI, Request, WebSocket, HTTPException, UploadFile, File
+from fastapi import FastAPI, Request, WebSocket, HTTPException, UploadFile, File, Depends
 from fastapi.responses import (
     JSONResponse,
     HTMLResponse,
@@ -105,10 +108,28 @@ from fastapi.responses import (
     FileResponse,
 )
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Proper FastAPI lifespan management for startup/shutdown"""
+    # Startup
+    loop = asyncio.get_running_loop()
+    scheduler.configure(event_loop=loop)
+    if os.environ.get("RUN_SCHEDULER", "true").lower() == "true":
+        await start_background_tasks()
+    
+    yield  # Server is running
+    
+    # Shutdown
+    scheduler.shutdown()
+    await mongo_client.close()
+
+app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
 #
 # Application Configuration
 #
@@ -349,7 +370,10 @@ async def edit_trips_page(request: Request):
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
-    return templates.TemplateResponse("settings.html", {"request": request})
+    return templates.TemplateResponse(
+        "settings.html",
+        {"request": request}
+    )
 
 
 @app.get("/driving-insights", response_class=HTMLResponse)
@@ -519,6 +543,33 @@ async def fetch_trips_for_geojson():
 # API Endpoints for Trip Data
 
 
+@app.get("/api/street_coverage/{location_name}")
+async def get_street_coverage_cached(location_name: str):
+    """Get cached street coverage data for a location"""
+    try:
+        coverage_data = await coverage_metadata_collection.find_one(
+            {"location.display_name": location_name}
+        )
+        if not coverage_data:
+            raise HTTPException(status_code=404, detail="No coverage data found for this location")
+        
+        # Check if data is stale (older than 24 hours)
+        last_updated = coverage_data.get("last_updated")
+        is_stale = False
+        if last_updated:
+            age = datetime.now(timezone.utc) - last_updated
+            is_stale = age > timedelta(hours=24)
+        
+        # If data exists, return it along with metadata
+        return {
+            "coverage_data": serialize_mongo_doc(coverage_data),
+            "is_stale": is_stale,
+            "last_updated": last_updated.isoformat() if last_updated else None
+        }
+    except Exception as e:
+        logger.error(f"Error fetching cached coverage: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/street_coverage")
 async def get_street_coverage(request: Request):
     try:
@@ -526,16 +577,30 @@ async def get_street_coverage(request: Request):
         location = data.get("location")
         if not location or not isinstance(location, dict):
             raise HTTPException(status_code=400, detail="Invalid location data.")
-        logger.info(
-            f"Calculating coverage for location: {location.get('display_name', 'Unknown')}"
+        
+        # First try to get cached data
+        cached_data = await coverage_metadata_collection.find_one(
+            {"location.display_name": location.get("display_name")}
         )
-        result = await compute_coverage_for_location(location)  # Add await here
+        
+        # Always trigger a background update
+        asyncio.create_task(compute_coverage_for_location(location))
+        
+        if cached_data:
+            # Convert ObjectId to string before returning
+            cached_data["_id"] = str(cached_data["_id"])
+            # Return cached data if it exists
+            return cached_data
+            
+        # If no cached data, compute it synchronously for the first time
+        logger.info(f"No cached data found for {location.get('display_name')}, computing...")
+        result = await compute_coverage_for_location(location)
         if result is None:
-            raise HTTPException(
-                status_code=404, detail="No street data found or error in computation."
-            )
+            raise HTTPException(status_code=404, detail="No street data found or error in computation.")
+        
+        # Store the result
         display_name = location.get("display_name", "Unknown")
-        await coverage_metadata_collection.update_one(  # Add await here
+        store_result = await coverage_metadata_collection.update_one(
             {"location.display_name": display_name},
             {
                 "$set": {
@@ -543,16 +608,15 @@ async def get_street_coverage(request: Request):
                     "total_length": result["total_length"],
                     "driven_length": result["driven_length"],
                     "coverage_percentage": result["coverage_percentage"],
+                    "streets_data": result["streets_data"],
                     "last_updated": datetime.now(timezone.utc),
                 }
             },
             upsert=True,
         )
-        return result  # Return the complete result object
+        return result
     except Exception as e:
-        logger.error(
-            f"Error in street coverage calculation: {e}\n{traceback.format_exc()}"
-        )
+        logger.error(f"Error in street coverage calculation: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2855,14 +2919,11 @@ async def get_active_trip():
     try:
         active_trip = await live_trips_collection.find_one({"status": "active"})
         if active_trip:
-            for key in ("startTime", "lastUpdate", "endTime"):
-                if key in active_trip and isinstance(active_trip[key], datetime):
-                    active_trip[key] = active_trip[key].isoformat()
-            active_trip["_id"] = str(active_trip["_id"])
-            return active_trip
+            return serialize_mongo_doc(active_trip)
         else:
             raise HTTPException(status_code=404, detail="No active trip")
     except Exception as e:
+        logger.error(f"Error in get_active_trip: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -3147,13 +3208,51 @@ async def process_bouncie_event(data: dict):
 
 @app.websocket("/ws/live_trip")
 async def ws_live_trip(websocket: WebSocket):
-    await manager.connect(websocket)
+    """WebSocket endpoint for live trip updates with proper error handling"""
     try:
-        # Simply keep the connection open.
-        while True:
-            await asyncio.sleep(10)
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        await manager.connect(websocket)
+        
+        # Send initial active trip data if any
+        active_trip = await live_trips_collection.find_one({"status": "active"})
+        if active_trip:
+            await websocket.send_text(
+                json.dumps({
+                    "type": "trip_update",
+                    "data": serialize_mongo_doc(active_trip)
+                })
+            )
+        
+        # Keep connection alive and handle disconnection
+        try:
+            while True:
+                # Check if client is still connected
+                try:
+                    # Use a short timeout to check connection
+                    await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
+                except asyncio.TimeoutError:
+                    # This is expected, just continue
+                    await asyncio.sleep(10)
+                except WebSocketDisconnect:
+                    raise
+                
+        except WebSocketDisconnect:
+            manager.disconnect(websocket)
+            logger.info("WebSocket client disconnected normally")
+            
+        except Exception as e:
+            logger.error(f"WebSocket error: {e}", exc_info=True)
+            manager.disconnect(websocket)
+            try:
+                await websocket.close(code=1011, reason="Internal server error")
+            except Exception:
+                pass
+            
+    except Exception as e:
+        logger.error(f"Error establishing WebSocket connection: {e}", exc_info=True)
+        try:
+            await websocket.close(code=1011, reason="Failed to establish connection")
+        except Exception:
+            pass
 
 
 # Error Handlers & Startup
@@ -3168,20 +3267,47 @@ async def not_found_handler(request: Request, exc):
 async def internal_error_handler(request: Request, exc):
     return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
+# Add dependency for MongoDB client
+async def get_db():
+    """Dependency to get MongoDB database instance"""
+    try:
+        yield db
+    finally:
+        # Connection cleanup is handled in lifespan
+        pass
 
-@app.on_event("startup")
-async def startup_event():
-    loop = asyncio.get_running_loop()
-    scheduler.configure(event_loop=loop)
-    if os.environ.get("RUN_SCHEDULER", "true").lower() == "true":
-        await start_background_tasks()
+# Update some endpoints to use dependency injection
+@app.get("/api/coverage_metadata")
+async def get_coverage_metadata(db=Depends(get_db)):
+    """Get all coverage metadata for all locations"""
+    try:
+        metadata = await db.coverage_metadata.find({}).to_list(length=None)
+        return [serialize_mongo_doc(doc) for doc in metadata]
+    except Exception as e:
+        logger.error(f"Error fetching coverage metadata: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
-
-# Main
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    port = int(os.getenv("PORT", "8080"))
-    uvicorn.run("app:app", host="0.0.0.0", port=port, log_level="info", reload=True)
+def serialize_mongo_doc(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Recursively serialize a MongoDB document to make it JSON-serializable.
+    Handles ObjectId, datetime, and nested documents/arrays.
+    """
+    if doc is None:
+        return None
+        
+    serialized = {}
+    for key, value in doc.items():
+        if isinstance(value, ObjectId):
+            serialized[key] = str(value)
+        elif isinstance(value, datetime):
+            serialized[key] = value.isoformat()
+        elif isinstance(value, dict):
+            serialized[key] = serialize_mongo_doc(value)
+        elif isinstance(value, list):
+            serialized[key] = [
+                serialize_mongo_doc(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+        else:
+            serialized[key] = value
+    return serialized

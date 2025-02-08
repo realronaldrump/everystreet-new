@@ -900,25 +900,49 @@
     coverageBtn.disabled = true;
     coverageBtn.innerHTML =
       '<span class="spinner-border spinner-border-sm"></span> Loading...';
+    
     try {
-      const response = await fetch("/api/street_coverage", {
+      // First try to get cached data
+      const displayName = window.validatedLocation.display_name;
+      const cachedResponse = await fetch(`/api/street_coverage/${encodeURIComponent(displayName)}`);
+      
+      if (cachedResponse.ok) {
+        const cachedData = await cachedResponse.json();
+        visualizeStreetCoverage(cachedData.coverage_data);
+        
+        // Show staleness warning if data is stale
+        if (cachedData.is_stale) {
+          const lastUpdated = new Date(cachedData.last_updated);
+          const warning = document.createElement('div');
+          warning.className = 'alert alert-warning mt-2';
+          warning.innerHTML = `
+            <small>This data was last updated on ${lastUpdated.toLocaleString()}. 
+            A background update has been triggered.</small>
+          `;
+          document.getElementById('coverage-stats')?.appendChild(warning);
+        }
+      }
+      
+      // Always trigger a background update
+      const updateResponse = await fetch("/api/street_coverage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ location: window.validatedLocation }),
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Failed to generate street coverage",
-        );
+      
+      if (!updateResponse.ok && !cachedResponse.ok) {
+        const errorData = await updateResponse.json();
+        throw new Error(errorData.message || "Failed to generate street coverage");
       }
-      const coverageData = await response.json();
-      visualizeStreetCoverage(coverageData);
+      
+      // If we had no cached data, use the fresh data
+      if (!cachedResponse.ok) {
+        const freshData = await updateResponse.json();
+        visualizeStreetCoverage(freshData);
+      }
     } catch (error) {
       console.error("Error generating street coverage:", error);
-      alert(
-        error.message || "An error occurred while generating street coverage.",
-      );
+      alert(error.message || "An error occurred while generating street coverage.");
     } finally {
       coverageBtn.disabled = false;
       coverageBtn.innerHTML = originalText;

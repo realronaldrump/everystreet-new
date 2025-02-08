@@ -20,7 +20,7 @@ from apscheduler.jobstores.base import JobLookupError
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from map_matching import process_and_map_match_trip
 from utils import validate_trip_data
-from street_coverage_calculation import update_coverage_for_all_locations
+from street_coverage_calculation import update_coverage_for_all_locations, compute_coverage_for_location
 from pymongo.errors import DuplicateKeyError
 
 # Import your database collections from your asynchronous db module.
@@ -29,6 +29,7 @@ from db import (
     live_trips_collection,
     archived_live_trips_collection,
     task_config_collection,
+    coverage_metadata_collection
 )
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,11 @@ AVAILABLE_TASKS = [
         "display_name": "Cleanup Invalid Trips",
         "default_interval_minutes": 1440,  # once per day
     },
+    {
+        "id": "update_street_coverage",
+        "display_name": "Update Street Coverage",
+        "default_interval_minutes": 120,  # every 2 hours
+    }
 ]
 
 # --- Task Configuration Functions ---
@@ -181,6 +187,53 @@ async def cleanup_invalid_trips():
         logger.error(f"cleanup_invalid_trips: {e}", exc_info=True)
 
 
+async def update_street_coverage():
+    """Update street coverage for all locations that have stale data (>24h old)"""
+    try:
+        logger.info("Starting street coverage update for stale locations...")
+        now = datetime.now(timezone.utc)
+        stale_threshold = now - timedelta(hours=24)
+        
+        # Find locations with stale coverage data
+        cursor = coverage_metadata_collection.find({
+            "$or": [
+                {"last_updated": {"$lt": stale_threshold}},
+                {"last_updated": {"$exists": False}}
+            ]
+        })
+        
+        async for doc in cursor:
+            location = doc.get("location")
+            if not location or not isinstance(location, dict):
+                logger.warning(f"Skipping coverage update for document with invalid location data: {doc.get('_id')}")
+                continue
+                
+            display_name = location.get("display_name", "Unknown")
+            logger.info(f"Updating stale coverage data for {display_name}")
+            result = await compute_coverage_for_location(location)
+            
+            if result:
+                await coverage_metadata_collection.update_one(
+                    {"location.display_name": display_name},
+                    {
+                        "$set": {
+                            "location": location,
+                            "total_length": result["total_length"],
+                            "driven_length": result["driven_length"],
+                            "coverage_percentage": result["coverage_percentage"],
+                            "streets_data": result["streets_data"],
+                            "last_updated": now,
+                        }
+                    },
+                    upsert=True
+                )
+                logger.info(f"Updated coverage for {display_name}")
+                
+        logger.info("Completed street coverage update for stale locations")
+    except Exception as e:
+        logger.error(f"Error updating street coverage: {e}", exc_info=True)
+
+
 # --- Scheduler Management Functions ---
 
 
@@ -227,6 +280,8 @@ async def reinitialize_scheduler_tasks():
             job_func = cleanup_stale_trips
         elif task_id == "cleanup_invalid_trips":
             job_func = cleanup_invalid_trips
+        elif task_id == "update_street_coverage":
+            job_func = update_street_coverage
         else:
             continue
 
@@ -241,11 +296,25 @@ async def reinitialize_scheduler_tasks():
     logger.info("Scheduler tasks reinitialized based on new config.")
 
 
+async def create_required_indexes():
+    """Create necessary indexes for optimal query performance."""
+    try:
+        logger.info("Creating indexes for coverage metadata collection...")
+        await coverage_metadata_collection.create_index(
+            [("location.display_name", 1)],
+            background=True
+        )
+        logger.info("Successfully created indexes for coverage metadata collection")
+    except Exception as e:
+        logger.error(f"Error creating indexes: {e}", exc_info=True)
+
+
 async def start_background_tasks():
     """
     Start the scheduler if it's not running and initialize tasks.
     This should be called once at application startup.
     """
+    await create_required_indexes()  # Create required indexes first
     if not scheduler.running:
         scheduler.start()
     await reinitialize_scheduler_tasks()

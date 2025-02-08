@@ -12,6 +12,7 @@
     setupRegeocode();
     setupDeleteMatchedTrips();
     setupRemapMatchedTrips();
+    setupCoverageManagement();
   });
 
   // HISTORICAL DATA MANAGEMENT
@@ -238,6 +239,7 @@
       },
       { id: "cleanup_stale_trips", name: "Cleanup Stale Trips" },
       { id: "cleanup_invalid_trips", name: "Cleanup Invalid Trips" },
+      { id: "update_street_coverage", name: "Update Street Coverage" },
     ];
 
     knownTasks.forEach((task) => {
@@ -429,5 +431,122 @@
         console.error("Error triggering tasks manually:", err);
         alert("Error triggering tasks. Check console.");
       });
+  }
+
+  // STREET COVERAGE MANAGEMENT
+  function setupCoverageManagement() {
+    loadCoverageStatus();
+    setupCoverageControls();
+  }
+
+  function loadCoverageStatus() {
+    // Get all coverage metadata from the database
+    fetch("/api/coverage_metadata")
+      .then(response => response.json())
+      .then(data => {
+        const tbody = document.getElementById("coverage-status-body");
+        if (!tbody) return;
+        
+        tbody.innerHTML = "";
+        data.forEach(location => {
+          const row = document.createElement("tr");
+          const lastUpdated = new Date(location.last_updated);
+          const isStale = (Date.now() - lastUpdated.getTime()) > (24 * 60 * 60 * 1000);
+          
+          row.innerHTML = `
+            <td>${location.location.display_name}</td>
+            <td>${location.coverage_percentage?.toFixed(1)}%</td>
+            <td class="${isStale ? 'text-warning' : ''}">${lastUpdated.toLocaleString()}</td>
+            <td>
+              <button class="btn btn-sm btn-info update-coverage" data-location='${JSON.stringify(location.location)}'>
+                <i class="fas fa-sync"></i>
+              </button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+        
+        // Add click handlers for update buttons
+        document.querySelectorAll('.update-coverage').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const location = JSON.parse(btn.dataset.location);
+            updateCoverageForLocation(location);
+          });
+        });
+      })
+      .catch(error => console.error("Error loading coverage status:", error));
+  }
+
+  function setupCoverageControls() {
+    // Handle interval change
+    const intervalSelect = document.getElementById("coverage-update-interval");
+    if (intervalSelect) {
+      intervalSelect.addEventListener("change", function() {
+        const config = {
+          tasks: {
+            "update_street_coverage": {
+              interval_minutes: parseInt(this.value, 10),
+              enabled: document.getElementById("coverage-task-enabled").checked
+            }
+          }
+        };
+        submitTaskConfigUpdate(config);
+      });
+    }
+
+    // Handle enable/disable toggle
+    const enableToggle = document.getElementById("coverage-task-enabled");
+    if (enableToggle) {
+      enableToggle.addEventListener("change", function() {
+        const config = {
+          tasks: {
+            "update_street_coverage": {
+              interval_minutes: parseInt(document.getElementById("coverage-update-interval").value, 10),
+              enabled: this.checked
+            }
+          }
+        };
+        submitTaskConfigUpdate(config);
+      });
+    }
+
+    // Handle update all button
+    const updateAllBtn = document.getElementById("update-all-coverage-now");
+    if (updateAllBtn) {
+      updateAllBtn.addEventListener("click", () => {
+        updateAllBtn.disabled = true;
+        updateAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Updating...';
+        
+        fetch("/api/background_tasks/manual_run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tasks: ["update_street_coverage"] })
+        })
+        .then(response => response.json())
+        .then(data => {
+          alert("Coverage update started for all locations");
+          setTimeout(loadCoverageStatus, 2000); // Reload status after a delay
+        })
+        .catch(error => console.error("Error triggering coverage update:", error))
+        .finally(() => {
+          updateAllBtn.disabled = false;
+          updateAllBtn.innerHTML = '<i class="fas fa-sync me-1"></i>Update All Coverage Now';
+        });
+      });
+    }
+  }
+
+  function updateCoverageForLocation(location) {
+    fetch("/api/street_coverage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ location })
+    })
+    .then(response => response.json())
+    .then(() => {
+      alert(`Coverage update triggered for ${location.display_name}`);
+      setTimeout(loadCoverageStatus, 2000); // Reload status after a delay
+    })
+    .catch(error => console.error("Error updating coverage:", error));
   }
 })();
