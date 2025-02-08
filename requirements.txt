@@ -18,3 +18,4 @@ timezonefinder
 python-multipart
 fastapi
 motor
+dnspython>=2.6.1 # not directly required, pinned by Snyk to avoid a vulnerability
