@@ -1,3 +1,4 @@
+from motor.motor_asyncio import AsyncIOMotorClient
 import logging
 from datetime import datetime, timezone
 import json
@@ -21,7 +22,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Database setup using Motor (asynchronous)
-from motor.motor_asyncio import AsyncIOMotorClient
 
 MONGO_URI = os.getenv("MONGO_URI")
 client = AsyncIOMotorClient(MONGO_URI, tz_aware=True)
@@ -32,6 +32,7 @@ coverage_metadata_collection = db["coverage_metadata"]
 
 # Coordinate reference systems and transformers
 wgs84 = pyproj.CRS("EPSG:4326")
+
 
 class CoverageCalculator:
     def __init__(self, location: Dict[str, Any]):
@@ -59,13 +60,16 @@ class CoverageCalculator:
         # Calculate UTM zone
         utm_zone = int((center_lon + 180) / 6) + 1
         hemisphere = 'north' if center_lat >= 0 else 'south'
-        
+
         # Create UTM projection
-        self.utm_proj = pyproj.CRS(f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84")
-        
+        self.utm_proj = pyproj.CRS(
+            f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84")
+
         # Create transformers
-        self.project_to_utm = pyproj.Transformer.from_crs(wgs84, self.utm_proj, always_xy=True).transform
-        self.project_to_wgs84 = pyproj.Transformer.from_crs(self.utm_proj, wgs84, always_xy=True).transform
+        self.project_to_utm = pyproj.Transformer.from_crs(
+            wgs84, self.utm_proj, always_xy=True).transform
+        self.project_to_wgs84 = pyproj.Transformer.from_crs(
+            self.utm_proj, wgs84, always_xy=True).transform
 
     def build_spatial_index(self, streets: List[Dict[str, Any]]):
         """Build R-tree spatial index for streets"""
@@ -85,7 +89,7 @@ class CoverageCalculator:
             matched_gps = trip.get("matchedGps")
             if isinstance(matched_gps, str):
                 matched_gps = json.loads(matched_gps)
-            
+
             if not matched_gps or "coordinates" not in matched_gps:
                 return []
 
@@ -93,30 +97,31 @@ class CoverageCalculator:
             coords = matched_gps["coordinates"]
             trip_line = LineString(coords)
             trip_line_utm = transform(self.project_to_utm, trip_line)
-            
+
             # Buffer the trip line for matching
             trip_buffer = trip_line_utm.buffer(self.match_buffer)
-            
+
             # Convert buffer back to WGS84 for spatial query
             trip_buffer_wgs84 = transform(self.project_to_wgs84, trip_buffer)
-            
+
             covered_segments = []
-            
+
             # Query potentially intersecting streets using R-tree
             for idx in self.streets_index.intersection(trip_buffer_wgs84.bounds):
                 street = self.streets_lookup[idx]
                 street_geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, street_geom)
-                
+
                 # Check for significant intersection
                 intersection = trip_buffer.intersection(street_utm)
                 if not intersection.is_empty:
                     intersection_length = intersection.length
                     if intersection_length >= self.min_match_length:
-                        covered_segments.append(street["properties"]["segment_id"])
-                        
+                        covered_segments.append(
+                            street["properties"]["segment_id"])
+
             return covered_segments
-            
+
         except Exception as e:
             logger.error(f"Error processing matched trip: {e}", exc_info=True)
             return []
@@ -141,8 +146,9 @@ class CoverageCalculator:
             # Initialize coverage tracking
             total_length = 0
             covered_length = 0
-            segment_coverage = defaultdict(int)  # Track coverage count per segment
-            
+            # Track coverage count per segment
+            segment_coverage = defaultdict(int)
+
             # Calculate total length in UTM coordinates for accuracy
             for street in streets:
                 geom = shape(street["geometry"])
@@ -155,7 +161,7 @@ class CoverageCalculator:
                 {"matchedGps": {"$exists": True}}
             ):
                 covered_segments = self.process_matched_trip(trip)
-                
+
                 # Update segment coverage counts
                 for segment_id in covered_segments:
                     segment_coverage[segment_id] += 1
@@ -167,7 +173,7 @@ class CoverageCalculator:
                 geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, geom)
                 is_covered = segment_coverage[segment_id] > 0
-                
+
                 if is_covered:
                     covered_length += street_utm.length
 
@@ -185,7 +191,8 @@ class CoverageCalculator:
                 features.append(feature)
 
             # Calculate coverage percentage
-            coverage_percentage = (covered_length / total_length * 100) if total_length > 0 else 0
+            coverage_percentage = (
+                covered_length / total_length * 100) if total_length > 0 else 0
 
             return {
                 "total_length": total_length,
@@ -206,6 +213,7 @@ class CoverageCalculator:
             logger.error(f"Error computing coverage: {e}", exc_info=True)
             return None
 
+
 async def compute_coverage_for_location(
     location: Dict[str, Any],
 ) -> Optional[Dict[str, Any]]:
@@ -215,20 +223,23 @@ async def compute_coverage_for_location(
     calculator = CoverageCalculator(location)
     return await calculator.compute_coverage()
 
+
 async def update_coverage_for_all_locations() -> None:
     """
     Update street coverage for all locations.
     """
     try:
         logger.info("Starting coverage update for all locations...")
-        cursor = coverage_metadata_collection.find({}, {"location": 1, "_id": 1})
-        
+        cursor = coverage_metadata_collection.find(
+            {}, {"location": 1, "_id": 1})
+
         async for doc in cursor:
             loc = doc.get("location")
             if not loc:
                 continue
             if isinstance(loc, str):
-                logger.warning(f"Skipping coverage doc {doc['_id']} - invalid location format")
+                logger.warning(
+                    f"Skipping coverage doc {doc['_id']} - invalid location format")
                 continue
 
             result = await compute_coverage_for_location(loc)
@@ -252,4 +263,5 @@ async def update_coverage_for_all_locations() -> None:
                 )
         logger.info("Finished coverage update for all locations.")
     except Exception as e:
-        logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)
+        logger.error(
+            f"Error updating coverage for all locations: {e}", exc_info=True)
