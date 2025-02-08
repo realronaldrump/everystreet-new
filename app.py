@@ -412,7 +412,7 @@ async def update_trip(trip_id: str, request: Request):
             else trips_collection
         )
 
-        # Use Motor’s async API directly.
+        # Use Motor's async API directly.
         trip = await collection.find_one(
             {
                 "$or": [
@@ -469,7 +469,7 @@ async def update_trip(trip_id: str, request: Request):
             else:
                 update_fields.update(props)
 
-        # Update the document using Motor’s async update_one.
+        # Update the document using Motor's async update_one.
         result = await collection.update_one(
             {"_id": trip["_id"]}, {"$set": update_fields}
         )
@@ -529,13 +529,13 @@ async def get_street_coverage(request: Request):
         logger.info(
             f"Calculating coverage for location: {location.get('display_name', 'Unknown')}"
         )
-        result = compute_coverage_for_location(location)
+        result = await compute_coverage_for_location(location)  # Add await here
         if result is None:
             raise HTTPException(
                 status_code=404, detail="No street data found or error in computation."
             )
         display_name = location.get("display_name", "Unknown")
-        coverage_metadata_collection.update_one(
+        await coverage_metadata_collection.update_one(  # Add await here
             {"location.display_name": display_name},
             {
                 "$set": {
@@ -548,20 +548,7 @@ async def get_street_coverage(request: Request):
             },
             upsert=True,
         )
-        response_obj = {
-            "total_length": result["total_length"],
-            "driven_length": result["driven_length"],
-            "coverage_percentage": result["coverage_percentage"],
-            "raster_dimensions": result["raster_dimensions"],
-            "streets_data": {
-                "metadata": {
-                    "total_length_miles": float(result["total_length"]) * 0.000621371,
-                    "driven_length_miles": float(result["driven_length"]) * 0.000621371,
-                },
-                "features": [],
-            },
-        }
-        return response_obj
+        return result  # Return the complete result object
     except Exception as e:
         logger.error(
             f"Error in street coverage calculation: {e}\n{traceback.format_exc()}"
@@ -708,7 +695,7 @@ async def get_driving_insights(request: Request):
             length=None
         )
 
-        # Define a pipeline for the “most visited” destination.
+        # Define a pipeline for the "most visited" destination.
         pipeline_most_visited = [
             {"$match": query},
             {
@@ -2984,8 +2971,8 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
 
 async def process_trip_data(trip):
     """
-    Processes a trip’s geocoding data. For both the start and destination points:
-      - If the point falls within a defined custom place (found asynchronously), assign the custom place’s name and its _id.
+    Processes a trip's geocoding data. For both the start and destination points:
+      - If the point falls within a defined custom place (found asynchronously), assign the custom place's name and its _id.
       - Otherwise, call reverse_geocode_nominatim and extract its "display_name".
     Also sets the geo-point fields for geospatial queries.
     """

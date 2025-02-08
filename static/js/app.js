@@ -931,71 +931,87 @@
       layerGroup.removeLayer(mapLayers.streetCoverage.layer);
       mapLayers.streetCoverage.layer = null;
     }
-    // Use the GeoJSON FeatureCollection returned by the backend
+
+    if (!coverageData || !coverageData.streets_data) {
+      console.error('Invalid coverage data received');
+      return;
+    }
+
+    // Create the GeoJSON layer with styling
     mapLayers.streetCoverage.layer = L.geoJSON(coverageData.streets_data, {
-      style: (feature) => ({
-        color: feature.properties.driven ? "#00FF00" : "#FF4444",
-        weight: 3,
-        opacity: feature.properties.driven ? 0.8 : 0.4,
-      }),
-      onEachFeature: (feature, layer) => {
-        layer.on("click", () =>
-          fetchSegmentDetails(feature.properties.segment_id),
-        );
+      style: function(feature) {
+        const driven = feature.properties.driven;
+        const count = feature.properties.coverage_count || 0;
+        
+        // Color scale based on coverage count
+        let color = '#FF4444';  // Default red for undriven
+        let opacity = 0.4;
+        let weight = 3;
+        
+        if (driven) {
+          // Use a gradient of green based on coverage count
+          if (count >= 10) color = '#004400';
+          else if (count >= 5) color = '#006600';
+          else if (count >= 3) color = '#008800';
+          else color = '#00AA00';
+          opacity = 0.8;
+          weight = 4;
+        }
+        
+        return {
+          color: color,
+          weight: weight,
+          opacity: opacity
+        };
       },
+      onEachFeature: function(feature, layer) {
+        // Add popup with segment information
+        const props = feature.properties;
+        const lengthMiles = (props.length * 0.000621371).toFixed(2);
+        const popupContent = `
+          <strong>${props.street_name || 'Unnamed Street'}</strong><br>
+          Status: ${props.driven ? 'Driven' : 'Not driven'}<br>
+          Times driven: ${props.coverage_count || 0}<br>
+          Length: ${lengthMiles} miles<br>
+          Segment ID: ${props.segment_id}
+        `;
+        layer.bindPopup(popupContent);
+        
+        // Add hover effect
+        layer.on({
+          mouseover: function(e) {
+            const layer = e.target;
+            layer.setStyle({
+              weight: 5,
+              opacity: 1
+            });
+          },
+          mouseout: function(e) {
+            mapLayers.streetCoverage.layer.resetStyle(e.target);
+          }
+        });
+      }
     });
+
+    // Add the layer to the map
     mapLayers.streetCoverage.layer.addTo(layerGroup);
     mapLayers.streetCoverage.visible = true;
+    
+    // Update UI elements
     updateLayerOrderUI();
     updateMap();
     updateCoverageStats(coverageData);
   }
 
-  function fetchSegmentDetails(segmentId) {
-    fetch(`/api/street_segment/${segmentId}`)
-      .then((response) => {
-        if (!response.ok) throw new Error("Segment not found");
-        return response.json();
-      })
-      .then((segmentData) => {
-        const props = segmentData.properties || {},
-          popupContent = `
-            <strong>${props.street_name || "Unnamed Street"}</strong><br>
-            Segment ID: ${props.segment_id}<br>
-            Status: ${props.driven ? "Driven" : "Not driven"}<br>
-            Last Updated: ${
-              props.last_updated
-                ? new Date(props.last_updated).toLocaleString()
-                : "N/A"
-            }<br>
-            Length: ${props.length ? props.length.toFixed(2) : "??"} meters<br>
-          `;
-        mapLayers.streetCoverage.layer.eachLayer((lyr) => {
-          if (lyr.feature?.properties?.segment_id === segmentId) {
-            lyr.bindPopup(popupContent).openPopup();
-          }
-        });
-      })
-      .catch((error) => {
-        console.error("Error fetching segment details:", error);
-        alert("Error fetching segment details. Please try again.");
-      });
-  }
-
   function updateCoverageStats(coverageData) {
-    const statsDiv = document.getElementById("coverage-stats"),
-      progressBar = document.getElementById("coverage-progress"),
-      coveragePercentageSpan = document.getElementById("coverage-percentage"),
-      totalStreetLengthSpan = document.getElementById("total-street-length"),
-      milesDrivenSpan = document.getElementById("miles-driven");
+    const statsDiv = document.getElementById("coverage-stats");
+    const progressBar = document.getElementById("coverage-progress");
+    const coveragePercentageSpan = document.getElementById("coverage-percentage");
+    const totalStreetLengthSpan = document.getElementById("total-street-length");
+    const milesDrivenSpan = document.getElementById("miles-driven");
 
-    if (
-      !statsDiv ||
-      !progressBar ||
-      !coveragePercentageSpan ||
-      !totalStreetLengthSpan ||
-      !milesDrivenSpan
-    ) {
+    if (!statsDiv || !progressBar || !coveragePercentageSpan || 
+        !totalStreetLengthSpan || !milesDrivenSpan) {
       console.error("One or more coverage stats elements not found!");
       return;
     }
@@ -1003,11 +1019,12 @@
     // Unhide the stats panel
     statsDiv.classList.remove("d-none");
 
-    const percent = coverageData.coverage_percentage || 0;
-    // Convert meters to miles (0.000621371 conversion factor)
-    const totalMiles = (coverageData.total_length || 0) * 0.000621371;
-    const drivenMiles = (coverageData.driven_length || 0) * 0.000621371;
+    const metadata = coverageData.streets_data.metadata;
+    const percent = metadata.coverage_percentage || 0;
+    const totalMiles = metadata.total_length_miles || 0;
+    const drivenMiles = metadata.driven_length_miles || 0;
 
+    // Update UI elements
     progressBar.style.width = `${percent}%`;
     progressBar.setAttribute("aria-valuenow", percent.toFixed(1));
     coveragePercentageSpan.textContent = percent.toFixed(1);

@@ -18,3 +18,4 @@ timezonefinder
 python-multipart
 fastapi
 motor
+rtree
