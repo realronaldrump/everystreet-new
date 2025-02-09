@@ -12,6 +12,7 @@
     setupRegeocode();
     setupDeleteMatchedTrips();
     setupRemapMatchedTrips();
+    window.settingsManager = new SettingsManager();
   });
 
   // HISTORICAL DATA MANAGEMENT
@@ -431,3 +432,191 @@
       });
   }
 })();
+
+class SettingsManager {
+  constructor() {
+    this.initializeEventListeners();
+    this.initializeDatePickers();
+  }
+
+  initializeDatePickers() {
+    // Initialize flatpickr datepickers
+    const dateConfig = {
+      dateFormat: "Y-m-d",
+      maxDate: "today",
+      enableTime: false,
+      static: true
+    };
+    flatpickr(".datepicker", dateConfig);
+  }
+
+  initializeEventListeners() {
+    // Task Management Event Listeners
+    this.initializeTaskManagementListeners();
+    
+    // Data Management Event Listeners
+    this.initializeDataManagementListeners();
+    
+    // Remap Functionality Listeners
+    this.initializeRemapListeners();
+  }
+
+  initializeTaskManagementListeners() {
+    // These are already handled in the inline script
+    // They're working well with the new task manager
+  }
+
+  initializeDataManagementListeners() {
+    // Historical Data
+    document.getElementById('load-historical-data')?.addEventListener('click', async () => {
+      await this.loadHistoricalData();
+    });
+
+    // GeoPoint Update
+    document.getElementById('update-geo-points')?.addEventListener('click', async () => {
+      await this.updateGeoPoints();
+    });
+
+    // Re-geocode Trips
+    document.getElementById('re-geocode-all-trips')?.addEventListener('click', async () => {
+      await this.regecodeAllTrips();
+    });
+  }
+
+  initializeRemapListeners() {
+    // Remap type selector
+    const remapType = document.getElementById('remap-type');
+    const dateRangeDiv = document.getElementById('remap-date-range');
+    const intervalDiv = document.getElementById('remap-interval');
+
+    if (remapType) {
+      remapType.addEventListener('change', () => {
+        if (remapType.value === 'date') {
+          dateRangeDiv.style.display = 'block';
+          intervalDiv.style.display = 'none';
+        } else {
+          dateRangeDiv.style.display = 'none';
+          intervalDiv.style.display = 'block';
+        }
+      });
+    }
+
+    // Remap button
+    document.getElementById('remap-btn')?.addEventListener('click', async () => {
+      await this.remapTrips();
+    });
+  }
+
+  async loadHistoricalData() {
+    try {
+      const statusElement = document.getElementById('historical-data-status');
+      statusElement.textContent = 'Loading historical data...';
+
+      const response = await fetch('/load_historical_data', {
+        method: 'POST'
+      });
+      const data = await response.json();
+      
+      statusElement.textContent = data.message;
+      alert(data.message);
+    } catch (error) {
+      console.error('Error loading historical data:', error);
+      alert('Error loading historical data. Check console for details.');
+    }
+  }
+
+  async updateGeoPoints() {
+    try {
+      const collection = document.getElementById('collection-select').value;
+      const statusElement = document.getElementById('update-geo-points-status');
+      statusElement.textContent = 'Updating GeoPoints...';
+
+      const response = await fetch('/update_geo_points', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ collection })
+      });
+      const data = await response.json();
+      
+      statusElement.textContent = data.message;
+    } catch (error) {
+      console.error('Error updating GeoPoints:', error);
+      alert('Error updating GeoPoints. Check console for details.');
+    }
+  }
+
+  async regecodeAllTrips() {
+    try {
+      const statusElement = document.getElementById('re-geocode-all-trips-status');
+      statusElement.textContent = 'Re-geocoding all trips...';
+
+      const response = await fetch('/api/regeocode_all_trips', {
+        method: 'POST'
+      });
+      const data = await response.json();
+      
+      statusElement.textContent = 'All trips have been re-geocoded.';
+      alert(data.message);
+    } catch (error) {
+      console.error('Error re-geocoding trips:', error);
+      statusElement.textContent = 'Error re-geocoding trips. See console.';
+    }
+  }
+
+  async remapTrips() {
+    try {
+      const statusElement = document.getElementById('remap-status');
+      statusElement.textContent = 'Processing...';
+
+      const method = document.getElementById('remap-type').value;
+      let start_date, end_date, interval_days = 0;
+
+      if (method === 'date') {
+        start_date = document.getElementById('remap-start').value;
+        end_date = document.getElementById('remap-end').value;
+        if (!start_date || !end_date) {
+          alert('Please select both start and end dates.');
+          return;
+        }
+      } else {
+        interval_days = parseInt(document.getElementById('remap-interval-select').value, 10);
+        const now = new Date();
+        start_date = new Date(now);
+        start_date.setDate(start_date.getDate() - interval_days);
+        start_date = start_date.toISOString().split('T')[0];
+        end_date = now.toISOString().split('T')[0];
+      }
+
+      // First, delete existing matched trips in the range
+      const deleteResponse = await fetch('/api/matched_trips/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_date, end_date })
+      });
+      const deleteResult = await deleteResponse.json();
+      
+      if (deleteResult.status !== 'success') {
+        throw new Error(deleteResult.message || 'Failed to delete existing matched trips');
+      }
+
+      // Then, remap the trips
+      const remapResponse = await fetch('/api/matched_trips/remap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_date, end_date, interval_days })
+      });
+      const remapResult = await remapResponse.json();
+
+      statusElement.textContent = remapResult.message;
+      if (remapResult.status === 'success') {
+        alert('Remap process completed successfully.');
+      } else {
+        throw new Error(remapResult.message || 'Failed to remap trips');
+      }
+    } catch (error) {
+      console.error('Error during remap process:', error);
+      document.getElementById('remap-status').textContent = 'Error: ' + error.message;
+      alert('Error during remap process. Check console for details.');
+    }
+  }
+}

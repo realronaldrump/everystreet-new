@@ -87,6 +87,102 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Data Management Section -->
+            <h2>Data Management</h2>
+            
+            <!-- Historical Data Section -->
+            <div class="card bg-dark text-white mb-4">
+                <div class="card-body">
+                    <h3 class="h5">Historical Data</h3>
+                    <p>Load historical trip data from older GeoJSON files.</p>
+                    <button id="load-historical-data" class="btn btn-primary">
+                        <i class="fas fa-history"></i> Load Historical Data
+                    </button>
+                    <div id="historical-data-status" class="mt-2"></div>
+                </div>
+            </div>
+
+            <!-- GeoPoint Update Section -->
+            <div class="card bg-dark text-white mb-4">
+                <div class="card-body">
+                    <h3 class="h5">GeoPoint Update</h3>
+                    <p>Ensure trips contain start and destination GeoPoints.</p>
+                    <div class="mb-3">
+                        <label for="collection-select" class="form-label">Select Collection:</label>
+                        <select id="collection-select" class="form-select">
+                            <option value="trips">Trips</option>
+                            <option value="historical_trips">Historical Trips</option>
+                            <option value="uploaded_trips">Uploaded Trips</option>
+                        </select>
+                    </div>
+                    <button id="update-geo-points" class="btn btn-secondary">
+                        <i class="fas fa-map-marker-alt"></i> Update GeoPoints
+                    </button>
+                    <div id="update-geo-points-status" class="mt-2"></div>
+                </div>
+            </div>
+
+            <!-- Re-geocode Trips Section -->
+            <div class="card bg-dark text-white mb-4">
+                <div class="card-body">
+                    <h3 class="h5">Re-geocode All Trips</h3>
+                    <p>Re-run geocoding for all trips to check against custom places.</p>
+                    <button id="re-geocode-all-trips" class="btn btn-warning">
+                        <i class="fas fa-sync-alt"></i> Re-geocode All Trips
+                    </button>
+                    <div id="re-geocode-all-trips-status" class="mt-2"></div>
+                </div>
+            </div>
+
+            <!-- Remap Matched Trips Section -->
+            <div class="card bg-dark text-white mb-4">
+                <div class="card-body">
+                    <h3 class="h5">Remap Matched Trips</h3>
+                    <p>Re-match trips to the street network within a specific date range.</p>
+                    
+                    <div class="mb-3">
+                        <label for="remap-type" class="form-label">Select Method:</label>
+                        <select id="remap-type" class="form-select">
+                            <option value="date">Pick a Date Range</option>
+                            <option value="interval">Use a Predefined Interval</option>
+                        </select>
+                    </div>
+
+                    <div id="remap-date-range">
+                        <div class="mb-3">
+                            <label for="remap-start" class="form-label">Start Date:</label>
+                            <input type="text" id="remap-start" class="form-control datepicker">
+                        </div>
+                        <div class="mb-3">
+                            <label for="remap-end" class="form-label">End Date:</label>
+                            <input type="text" id="remap-end" class="form-control datepicker">
+                        </div>
+                    </div>
+
+                    <div id="remap-interval" style="display: none;">
+                        <div class="mb-3">
+                            <label for="remap-interval-select" class="form-label">Select Interval:</label>
+                            <select id="remap-interval-select" class="form-select">
+                                <option value="1">Last Day</option>
+                                <option value="3">Last 3 Days</option>
+                                <option value="7">Last Week</option>
+                                <option value="30">Last Month</option>
+                                <option value="90">Last 3 Months</option>
+                                <option value="180">Last 6 Months</option>
+                                <option value="365">Last Year</option>
+                                <option value="730">Last 2 Years</option>
+                                <option value="0">All Time</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button id="remap-btn" class="btn btn-warning">
+                        <i class="fas fa-route"></i> Re-Match Trips
+                    </button>
+                    <div id="remap-status" class="mt-2"></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
