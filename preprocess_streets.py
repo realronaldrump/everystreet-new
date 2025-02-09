@@ -139,7 +139,8 @@ async def process_osm_data(osm_data, location):
             if element.get("type") != "way":
                 continue
             try:
-                nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
+                nodes = [(node["lon"], node["lat"])
+                         for node in element["geometry"]]
                 line = LineString(nodes)
                 # Project to UTM for segmentation.
                 projected_line = transform(project_to_utm, line)
@@ -147,7 +148,8 @@ async def process_osm_data(osm_data, location):
                 for i, segment in enumerate(segments):
                     # Reproject each segment back to WGS84.
                     segment_wgs84 = transform(project_to_wgs84, segment)
-                    segment_length = segment.length  # Length in meters (UTM units)
+                    # Length in meters (UTM units)
+                    segment_length = segment.length
                     feature = {
                         "type": "Feature",
                         "geometry": mapping(segment_wgs84),
@@ -174,7 +176,7 @@ async def process_osm_data(osm_data, location):
         if features:
             geojson_data = {"type": "FeatureCollection", "features": features}
             await streets_collection.insert_many(geojson_data["features"])
-            
+
             # Create initial coverage metadata entry
             await coverage_metadata_collection.update_one(
                 {"location.display_name": location.get("display_name")},
@@ -184,7 +186,8 @@ async def process_osm_data(osm_data, location):
                         "total_length": total_length,
                         "driven_length": 0,
                         "coverage_percentage": 0.0,
-                        "last_updated": datetime.min.replace(tzinfo=timezone.utc),  # Set to minimum date to ensure it's picked up as stale
+                        # Set to minimum date to ensure it's picked up as stale
+                        "last_updated": datetime.min.replace(tzinfo=timezone.utc),
                         "streets_data": {
                             "type": "FeatureCollection",
                             "features": features,
@@ -198,13 +201,14 @@ async def process_osm_data(osm_data, location):
                 },
                 upsert=True
             )
-            
+
             logger.info(
                 f"Stored {len(features)} street segments and initialized coverage metadata for {location['display_name']}."
             )
         else:
-            logger.info(f"No valid street segments found for {location['display_name']}.")
-            
+            logger.info(
+                f"No valid street segments found for {location['display_name']}.")
+
     except Exception as e:
         logger.error(f"Error processing OSM data: {e}", exc_info=True)
 
