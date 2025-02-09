@@ -118,18 +118,18 @@ async def add_header(request: Request, call_next):
 async def get_background_tasks_config():
     """Get current task configuration and status."""
     config = await task_manager._get_config()
-    
+
     # Enrich the response with task definitions and current status
     for task_id, task_def in task_manager.tasks.items():
         if task_id not in config["tasks"]:
             config["tasks"][task_id] = {}
-        
+
         task_config = config["tasks"][task_id]
         task_config["display_name"] = task_def.display_name
         task_config["description"] = task_def.description
         task_config["priority"] = task_def.priority.name
         task_config["status"] = task_config.get("status", "IDLE")
-        
+
         # Format timestamps for display
         for ts_field in ["last_run", "next_run", "start_time", "end_time"]:
             if ts_field in task_config and task_config[ts_field]:
@@ -137,8 +137,9 @@ async def get_background_tasks_config():
                     task_config[ts_field] = task_config[ts_field]
                 else:
                     task_config[ts_field] = task_config[ts_field].isoformat()
-    
+
     return config
+
 
 @app.post("/api/background_tasks/config")
 async def update_background_tasks_config(request: Request):
@@ -153,12 +154,11 @@ async def update_background_tasks_config(request: Request):
                     config["tasks"][task_id] = {}
                 config["tasks"][task_id].update(task_config)
     await task_config_collection.replace_one(
-        {"_id": "global_background_task_config"},
-        config,
-        upsert=True
+        {"_id": "global_background_task_config"}, config, upsert=True
     )
     await task_manager.reinitialize_tasks()
     return {"status": "success", "message": "Configuration updated"}
+
 
 @app.post("/api/background_tasks/pause")
 async def pause_background_tasks(request: Request):
@@ -168,34 +168,33 @@ async def pause_background_tasks(request: Request):
     config = await task_manager._get_config()
     config["disabled"] = True
     await task_config_collection.replace_one(
-        {"_id": "global_background_task_config"},
-        config,
-        upsert=True
+        {"_id": "global_background_task_config"}, config, upsert=True
     )
 
     await task_manager.stop()
     return {
         "status": "success",
-        "message": f"Background tasks paused for {minutes} minutes"
+        "message": f"Background tasks paused for {minutes} minutes",
     }
+
 
 @app.post("/api/background_tasks/resume")
 async def resume_background_tasks():
     config = await task_manager._get_config()
     config["disabled"] = False
     await task_config_collection.replace_one(
-        {"_id": "global_background_task_config"},
-        config,
-        upsert=True
+        {"_id": "global_background_task_config"}, config, upsert=True
     )
 
     await task_manager.start()
     return {"status": "success", "message": "Background tasks resumed"}
 
+
 @app.post("/api/background_tasks/stop_all")
 async def stop_all_background_tasks():
     await task_manager.stop()
     return {"status": "success", "message": "All background tasks stopped"}
+
 
 @app.post("/api/background_tasks/enable")
 async def enable_all_background_tasks():
@@ -206,13 +205,12 @@ async def enable_all_background_tasks():
         config["tasks"][task_id]["enabled"] = True
 
     await task_config_collection.replace_one(
-        {"_id": "global_background_task_config"},
-        config,
-        upsert=True
+        {"_id": "global_background_task_config"}, config, upsert=True
     )
 
     await task_manager.reinitialize_tasks()
     return {"status": "success", "message": "All background tasks enabled"}
+
 
 @app.post("/api/background_tasks/disable")
 async def disable_all_background_tasks():
@@ -223,13 +221,12 @@ async def disable_all_background_tasks():
         config["tasks"][task_id]["enabled"] = False
 
     await task_config_collection.replace_one(
-        {"_id": "global_background_task_config"},
-        config,
-        upsert=True
+        {"_id": "global_background_task_config"}, config, upsert=True
     )
 
     await task_manager.stop()
     return {"status": "success", "message": "All background tasks disabled"}
+
 
 @app.post("/api/background_tasks/manual_run")
 async def manually_run_tasks(request: Request):
@@ -245,33 +242,49 @@ async def manually_run_tasks(request: Request):
                     task_func = task_manager._get_task_function(t_id)
                     if task_func:
                         try:
-                            await task_manager._update_task_status(t_id, TaskStatus.RUNNING)
+                            await task_manager._update_task_status(
+                                t_id, TaskStatus.RUNNING
+                            )
                             await task_func()
-                            await task_manager._update_task_status(t_id, TaskStatus.COMPLETED)
+                            await task_manager._update_task_status(
+                                t_id, TaskStatus.COMPLETED
+                            )
                             results.append({"task": t_id, "success": True})
                         except Exception as e:
                             error_msg = str(e)
-                            await task_manager._update_task_status(t_id, TaskStatus.FAILED)
+                            await task_manager._update_task_status(
+                                t_id, TaskStatus.FAILED
+                            )
                             logger.error(f"Error running task {t_id}: {error_msg}")
-                            results.append({"task": t_id, "success": False, "error": error_msg})
+                            results.append(
+                                {"task": t_id, "success": False, "error": error_msg}
+                            )
             elif task_id in task_manager.tasks:
                 task_func = task_manager._get_task_function(task_id)
                 if task_func:
                     try:
-                        await task_manager._update_task_status(task_id, TaskStatus.RUNNING)
+                        await task_manager._update_task_status(
+                            task_id, TaskStatus.RUNNING
+                        )
                         await task_func()
-                        await task_manager._update_task_status(task_id, TaskStatus.COMPLETED)
+                        await task_manager._update_task_status(
+                            task_id, TaskStatus.COMPLETED
+                        )
                         results.append({"task": task_id, "success": True})
                     except Exception as e:
                         error_msg = str(e)
-                        await task_manager._update_task_status(task_id, TaskStatus.FAILED)
+                        await task_manager._update_task_status(
+                            task_id, TaskStatus.FAILED
+                        )
                         logger.error(f"Error running task {task_id}: {error_msg}")
-                        results.append({"task": task_id, "success": False, "error": error_msg})
+                        results.append(
+                            {"task": task_id, "success": False, "error": error_msg}
+                        )
 
         return {
             "status": "success",
             "message": f"Manually ran {len(results)} tasks",
-            "results": results
+            "results": results,
         }
     except Exception as e:
         logger.error(f"Error in manually_run_tasks: {e}", exc_info=True)
@@ -285,12 +298,14 @@ async def manually_run_tasks_old(request: Request):
     if not tasks_to_run:
         raise HTTPException(status_code=400, detail="No tasks provided")
     if "ALL" in tasks_to_run:
-        tasks_to_run = [t.id for t in AVAILABLE_TASKS] # Use the new AVAILABLE_TASKS
+        tasks_to_run = [t.id for t in AVAILABLE_TASKS]  # Use the new AVAILABLE_TASKS
 
     results = []
 
     async def run_task_by_id(task_id: str):
-        task_func = task_manager._get_task_function(task_id) # Corrected: use _get_task_function
+        task_func = task_manager._get_task_function(
+            task_id
+        )  # Corrected: use _get_task_function
         if task_func:
             await task_func()
             return True
@@ -301,7 +316,6 @@ async def manually_run_tasks_old(request: Request):
         ok = await run_task_by_id(t)
         results.append({"task": t, "success": ok})
     return {"status": "success", "results": results}
-
 
 
 class ConnectionManager:
@@ -3180,10 +3194,10 @@ async def startup_event():
     try:
         # Initialize task history collection
         await init_task_history_collection()
-        
+
         # Start background tasks
         await start_background_tasks()
-        
+
         logger.info("Application startup completed successfully")
     except Exception as e:
         logger.error(f"Error during application startup: {e}", exc_info=True)
@@ -3199,11 +3213,13 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8080"))
     uvicorn.run("app:app", host="0.0.0.0", port=port, log_level="info", reload=True)
 
+
 # Add task history and details endpoints
 @app.get("/api/background_tasks/history")
 async def get_task_history():
     """Get the task execution history."""
     return task_manager.task_history
+
 
 @app.get("/api/background_tasks/task/{task_id}")
 async def get_task_details(task_id: str):
@@ -3220,14 +3236,22 @@ async def get_task_details(task_id: str):
 
         # Get the task's history
         history = []
-        cursor = task_history_collection.find({"task_id": task_id}).sort("timestamp", -1).limit(5)
+        cursor = (
+            task_history_collection.find({"task_id": task_id})
+            .sort("timestamp", -1)
+            .limit(5)
+        )
         async for entry in cursor:
-            history.append({
-                "timestamp": entry["timestamp"].isoformat() if entry["timestamp"] else None,
-                "status": entry["status"],
-                "runtime": entry.get("runtime"),
-                "error": entry.get("error")
-            })
+            history.append(
+                {
+                    "timestamp": (
+                        entry["timestamp"].isoformat() if entry["timestamp"] else None
+                    ),
+                    "status": entry["status"],
+                    "runtime": entry.get("runtime"),
+                    "error": entry.get("error"),
+                }
+            )
 
         # Format timestamps
         for ts_field in ["last_run", "next_run", "start_time", "end_time"]:
@@ -3242,17 +3266,23 @@ async def get_task_details(task_id: str):
             "id": task_id,
             "display_name": task_def.display_name,
             "description": task_def.description,
-            "priority": task_def.priority.name if hasattr(task_def.priority, 'name') else str(task_def.priority),
+            "priority": (
+                task_def.priority.name
+                if hasattr(task_def.priority, "name")
+                else str(task_def.priority)
+            ),
             "dependencies": task_def.dependencies,
             "status": task_config.get("status", "IDLE"),
             "enabled": task_config.get("enabled", True),
-            "interval_minutes": task_config.get("interval_minutes", task_def.default_interval_minutes),
+            "interval_minutes": task_config.get(
+                "interval_minutes", task_def.default_interval_minutes
+            ),
             "last_run": task_config.get("last_run"),
             "next_run": task_config.get("next_run"),
             "start_time": task_config.get("start_time"),
             "end_time": task_config.get("end_time"),
             "last_error": task_config.get("last_error"),
-            "history": history
+            "history": history,
         }
 
         return task_details
@@ -3261,10 +3291,11 @@ async def get_task_details(task_id: str):
         logger.error(f"Error getting task details for {task_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+
 def calculate_task_success_rate(history: List[Dict]) -> float:
     """Calculate the success rate from task history."""
     if not history:
         return 0.0
-    
+
     successful = sum(1 for entry in history if entry["status"] == "COMPLETED")
     return (successful / len(history)) * 100

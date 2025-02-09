@@ -54,6 +54,7 @@ archived_live_trips_collection = db["archived_live_trips"]
 task_config_collection = db["task_config"]
 task_history_collection = db["task_history"]
 
+
 # Create indexes for task history collection
 async def init_task_history_collection():
     """Initialize indexes for task history collection."""

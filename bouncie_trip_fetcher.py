@@ -151,7 +151,10 @@ async def store_trip(trip: dict) -> bool:
 
     # *** NEW: Process the trip to check for custom places.
     # This function (defined in app.py) will check the start and end points.
-    from app import process_trip_data  # or import from your common module if you refactor it
+    from app import (
+        process_trip_data,
+    )  # or import from your common module if you refactor it
+
     trip = await process_trip_data(trip)
 
     # Ensure the gps field is stored as a JSON string.
@@ -172,7 +175,9 @@ async def store_trip(trip: dict) -> bool:
         if coordinates and len(coordinates) >= 2:
             start_coords, end_coords = coordinates[0], coordinates[-1]
             if not trip.get("startLocation"):
-                geo_data = await reverse_geocode_nominatim(start_coords[1], start_coords[0])
+                geo_data = await reverse_geocode_nominatim(
+                    start_coords[1], start_coords[0]
+                )
                 trip["startLocation"] = geo_data.get("display_name", "")
             if not trip.get("destination"):
                 geo_data = await reverse_geocode_nominatim(end_coords[1], end_coords[0])
@@ -180,7 +185,10 @@ async def store_trip(trip: dict) -> bool:
         else:
             logger.warning(f"Trip {transaction_id} has insufficient coordinate data.")
     except Exception as e:
-        logger.error(f"Error during reverse geocoding for trip {transaction_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error during reverse geocoding for trip {transaction_id}: {e}",
+            exc_info=True,
+        )
 
     update_data = {
         "$set": {
