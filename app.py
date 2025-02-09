@@ -1,6 +1,4 @@
-#
-# Standard Library Imports
-#
+# app.py (Corrected)
 import os
 import json
 import logging
@@ -18,9 +16,6 @@ from pymongo.errors import DuplicateKeyError
 from starlette.websockets import WebSocketDisconnect
 import shutil
 
-#
-# Third-Party Imports
-#
 import aiohttp
 import certifi
 import geopandas as gpd
@@ -34,26 +29,13 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.base import JobLookupError
 from shapely.geometry import LineString, Point, Polygon, shape
 
-#
-# Internal Module Imports
-#
 from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinates
 from update_geo_points import update_geo_points
 from utils import validate_location_osm, validate_trip_data, reverse_geocode_nominatim
 from map_matching import process_and_map_match_trip
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range, fetch_and_store_trips
 from preprocess_streets import preprocess_streets as async_preprocess_streets
-from tasks import (
-    cleanup_stale_trips,
-    cleanup_invalid_trips,
-    periodic_fetch_trips,
-    start_background_tasks,
-    scheduler,
-    get_task_config,
-    save_task_config,
-    reinitialize_scheduler_tasks,
-    AVAILABLE_TASKS,
-)
+from tasks import task_manager, AVAILABLE_TASKS  # Corrected import
 from db import (
     trips_collection,
     matched_trips_collection,
@@ -74,19 +56,13 @@ from street_coverage_calculation import (
     update_coverage_for_all_locations,
 )
 
-#
-# Environment and Logging Configuration
-#
-load_dotenv()  # Load environment variables from .env
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-#
-# MongoDB Indexes Setup
-#
 uploaded_trips_collection.create_index("transactionId", unique=True)
 matched_trips_collection.create_index("transactionId", unique=True)
 osm_data_collection.create_index([("location", 1), ("type", 1)], unique=True)
@@ -94,9 +70,6 @@ streets_collection.create_index([("geometry", "2dsphere")])
 streets_collection.create_index([("properties.location", 1)])
 coverage_metadata_collection.create_index([("location", 1)], unique=True)
 
-#
-# FastAPI and Jinja2 Setup
-#
 from fastapi import FastAPI, Request, WebSocket, HTTPException, UploadFile, File
 from fastapi.responses import (
     JSONResponse,
@@ -109,12 +82,8 @@ from fastapi.templating import Jinja2Templates
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-#
-# Application Configuration
-#
-SECRET_KEY = os.getenv("SECRET_KEY", "supersecretfallback")
 
-# Bouncie configuration
+SECRET_KEY = os.getenv("SECRET_KEY", "supersecretfallback")
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
@@ -126,16 +95,12 @@ AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
 OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
-# Global variables for active trips and progress tracking
 active_trips = {}
 progress_data = {
     "fetch_and_store_trips": {"status": "idle", "progress": 0, "message": ""},
     "fetch_bouncie_trips_in_range": {"status": "idle", "progress": 0, "message": ""},
     "preprocess_streets": {"status": "idle", "progress": 0, "message": ""},
 }
-
-
-# Middleware: Add no-cache headers
 
 
 @app.middleware("http")
@@ -147,124 +112,153 @@ async def add_header(request: Request, call_next):
     return response
 
 
-# Background Task Endpoints
-
-
 @app.get("/api/background_tasks/config")
 async def get_background_tasks_config():
-    cfg = await get_task_config()
-    return cfg
-
+    return await task_manager._get_config()
 
 @app.post("/api/background_tasks/config")
 async def update_background_tasks_config(request: Request):
     data = await request.json()
-    cfg = await get_task_config()
+    config = await task_manager._get_config()
     if "globalDisable" in data:
-        cfg["disabled"] = bool(data["globalDisable"])
-    if "pauseDurationMinutes" in data:
-        mins = data["pauseDurationMinutes"]
-        if mins > 0:
-            cfg["pausedUntil"] = datetime.now(timezone.utc) + timedelta(minutes=mins)
-        else:
-            cfg["pausedUntil"] = None
+        config["disabled"] = data["globalDisable"]
     if "tasks" in data:
-        for task_id, task_data in data["tasks"].items():
-            if task_id in cfg["tasks"]:
-                if "interval_minutes" in task_data:
-                    cfg["tasks"][task_id]["interval_minutes"] = task_data[
-                        "interval_minutes"
-                    ]
-                if "enabled" in task_data:
-                    cfg["tasks"][task_id]["enabled"] = bool(task_data["enabled"])
-    await save_task_config(cfg)
-    await reinitialize_scheduler_tasks()
-    return {"status": "success", "message": "Background task config updated"}
-
+        for task_id, task_config in data["tasks"].items():
+            if task_id in task_manager.tasks:
+                if task_id not in config["tasks"]:
+                    config["tasks"][task_id] = {}
+                config["tasks"][task_id].update(task_config)
+    await task_config_collection.replace_one(
+        {"_id": "global_background_task_config"},
+        config,
+        upsert=True
+    )
+    await task_manager.reinitialize_tasks()
+    return {"status": "success", "message": "Configuration updated"}
 
 @app.post("/api/background_tasks/pause")
 async def pause_background_tasks(request: Request):
     data = await request.json()
-    mins = data.get("minutes", 0)
-    cfg = await get_task_config()
-    if mins > 0:
-        cfg["pausedUntil"] = datetime.now(timezone.utc) + timedelta(minutes=mins)
-    else:
-        cfg["pausedUntil"] = None
-    await save_task_config(cfg)
-    await reinitialize_scheduler_tasks()
+    minutes = data.get("minutes", 30)
+
+    config = await task_manager._get_config()
+    config["disabled"] = True
+    await task_config_collection.replace_one(
+        {"_id": "global_background_task_config"},
+        config,
+        upsert=True
+    )
+
+    await task_manager.stop()
     return {
         "status": "success",
-        "message": f"Paused for {mins} minutes" if mins > 0 else "Unpaused",
+        "message": f"Background tasks paused for {minutes} minutes"
     }
-
 
 @app.post("/api/background_tasks/resume")
 async def resume_background_tasks():
-    cfg = await get_task_config()
-    cfg["pausedUntil"] = None
-    await save_task_config(cfg)
-    await reinitialize_scheduler_tasks()
-    return {"status": "success", "message": "Tasks resumed"}
+    config = await task_manager._get_config()
+    config["disabled"] = False
+    await task_config_collection.replace_one(
+        {"_id": "global_background_task_config"},
+        config,
+        upsert=True
+    )
 
+    await task_manager.start()
+    return {"status": "success", "message": "Background tasks resumed"}
 
 @app.post("/api/background_tasks/stop_all")
 async def stop_all_background_tasks():
-    for t in AVAILABLE_TASKS:
-        job_id = t["id"]
-        try:
-            scheduler.remove_job(job_id)
-        except JobLookupError:
-            pass
-    return {
-        "status": "success",
-        "message": "All background tasks removed from scheduler.",
-    }
-
+    await task_manager.stop()
+    return {"status": "success", "message": "All background tasks stopped"}
 
 @app.post("/api/background_tasks/enable")
 async def enable_all_background_tasks():
-    cfg = await get_task_config()
-    cfg["disabled"] = False
-    await save_task_config(cfg)
-    await reinitialize_scheduler_tasks()
-    return {"status": "success", "message": "All tasks globally enabled"}
+    config = await task_manager._get_config()
+    for task_id in task_manager.tasks:
+        if task_id not in config["tasks"]:
+            config["tasks"][task_id] = {}
+        config["tasks"][task_id]["enabled"] = True
 
+    await task_config_collection.replace_one(
+        {"_id": "global_background_task_config"},
+        config,
+        upsert=True
+    )
+
+    await task_manager.reinitialize_tasks()
+    return {"status": "success", "message": "All background tasks enabled"}
 
 @app.post("/api/background_tasks/disable")
 async def disable_all_background_tasks():
-    cfg = await get_task_config()
-    cfg["disabled"] = True
-    await save_task_config(cfg)
-    await reinitialize_scheduler_tasks()
-    return {"status": "success", "message": "All tasks globally disabled"}
+    config = await task_manager._get_config()
+    for task_id in task_manager.tasks:
+        if task_id not in config["tasks"]:
+            config["tasks"][task_id] = {}
+        config["tasks"][task_id]["enabled"] = False
 
+    await task_config_collection.replace_one(
+        {"_id": "global_background_task_config"},
+        config,
+        upsert=True
+    )
+
+    await task_manager.stop()
+    return {"status": "success", "message": "All background tasks disabled"}
 
 @app.post("/api/background_tasks/manual_run")
 async def manually_run_tasks(request: Request):
     data = await request.json()
     tasks_to_run = data.get("tasks", [])
+    results = []
+
+    for task_id in tasks_to_run:
+        if task_id == "ALL":
+            for t_id in task_manager.tasks:
+                task_func = task_manager._get_task_function(t_id)
+                if task_func:
+                    try:
+                        await task_func()
+                        results.append({"task": t_id, "success": True})
+                    except Exception as e:
+                        logger.error(f"Error running task {t_id}: {e}")
+                        results.append({"task": t_id, "success": False, "error": str(e)})
+        elif task_id in task_manager.tasks:
+            task_func = task_manager._get_task_function(task_id)
+            if task_func:
+                try:
+                    await task_func()
+                    results.append({"task": task_id, "success": True})
+                except Exception as e:
+                    logger.error(f"Error running task {task_id}: {e}")
+                    results.append({"task": task_id, "success": False, "error": str(e)})
+
+    return {
+        "status": "success",
+        "message": f"Manually ran {len(results)} tasks",
+        "results": results
+    }
+
+
+@app.post("/api/background_tasks/manual_run_old")  # Keep the old one, rename it
+async def manually_run_tasks_old(request: Request):
+    data = await request.json()
+    tasks_to_run = data.get("tasks", [])
     if not tasks_to_run:
         raise HTTPException(status_code=400, detail="No tasks provided")
     if "ALL" in tasks_to_run:
-        tasks_to_run = [t["id"] for t in AVAILABLE_TASKS]
+        tasks_to_run = [t.id for t in AVAILABLE_TASKS] # Use the new AVAILABLE_TASKS
 
     results = []
 
     async def run_task_by_id(task_id: str):
-        if task_id == "fetch_and_store_trips":
-            await fetch_and_store_trips()
-        elif task_id == "periodic_fetch_trips":
-            await periodic_fetch_trips()
-        elif task_id == "update_coverage_for_all_locations":
-            await update_coverage_for_all_locations()
-        elif task_id == "cleanup_stale_trips":
-            await cleanup_stale_trips()
-        elif task_id == "cleanup_invalid_trips":
-            await cleanup_invalid_trips()
+        task_func = task_manager._get_task_function(task_id) # Corrected: use _get_task_function
+        if task_func:
+            await task_func()
+            return True
         else:
             return False
-        return True
 
     for t in tasks_to_run:
         ok = await run_task_by_id(t)
@@ -272,12 +266,7 @@ async def manually_run_tasks(request: Request):
     return {"status": "success", "results": results}
 
 
-# Model and HTML Endpoints
 
-
-# ---------------------------------------------------------------------------
-# Connection Manager for WebSocket Clients
-# ---------------------------------------------------------------------------
 class ConnectionManager:
     def __init__(self):
         self.active_connections = []  # type: List[WebSocket]
@@ -295,7 +284,6 @@ class ConnectionManager:
             try:
                 await connection.send_text(message)
             except Exception:
-                # Optionally log or handle errors for this connection
                 pass
 
 
@@ -303,8 +291,6 @@ manager = ConnectionManager()
 
 
 class CustomPlace:
-    """Represents a custom-defined place."""
-
     def __init__(self, name: str, geometry: dict, created_at: datetime = None):
         self.name = name
         self.geometry = geometry
@@ -343,7 +329,6 @@ async def trips_page(request: Request):
 
 @app.get("/edit_trips", response_class=HTMLResponse)
 async def edit_trips_page(request: Request):
-    """Renders the edit trips page."""
     return templates.TemplateResponse("edit_trips.html", {"request": request})
 
 
@@ -364,9 +349,6 @@ async def visits_page(request: Request):
 
 @app.get("/api/edit_trips")
 async def get_edit_trips(request: Request):
-    """
-    Returns a list of trips for editing.
-    """
     try:
         start_date_str = request.query_params.get("start_date")
         end_date_str = request.query_params.get("end_date")
@@ -383,7 +365,6 @@ async def get_edit_trips(request: Request):
         end_date = datetime.fromisoformat(end_date_str)
         query = {"startTime": {"$gte": start_date, "$lte": end_date}}
 
-        # Fetch trips using an asynchronous cursor if available
         docs = []
         trips_cursor = collection.find(query)
         async for doc in to_async_iterator(trips_cursor):
@@ -405,14 +386,12 @@ async def update_trip(trip_id: str, request: Request):
         geometry = data.get("geometry")
         props = data.get("properties", {})
 
-        # Choose the appropriate collection.
         collection = (
             matched_trips_collection
             if trip_type == "matched_trips"
             else trips_collection
         )
 
-        # Use Motor's async API directly.
         trip = await collection.find_one(
             {
                 "$or": [
@@ -422,7 +401,6 @@ async def update_trip(trip_id: str, request: Request):
             }
         )
 
-        # If not found, try the other collection.
         if not trip:
             other_collection = (
                 matched_trips_collection
@@ -443,7 +421,6 @@ async def update_trip(trip_id: str, request: Request):
         if not trip:
             raise HTTPException(status_code=404, detail=f"No trip found for {trip_id}")
 
-        # Build the update fields.
         update_fields = {"updatedAt": datetime.now(timezone.utc)}
         if geometry and isinstance(geometry, dict):
             gps_data = {"type": "LineString", "coordinates": geometry["coordinates"]}
@@ -469,7 +446,6 @@ async def update_trip(trip_id: str, request: Request):
             else:
                 update_fields.update(props)
 
-        # Update the document using Motor's async update_one.
         result = await collection.update_one(
             {"_id": trip["_id"]}, {"$set": update_fields}
         )
@@ -481,9 +457,6 @@ async def update_trip(trip_id: str, request: Request):
     except Exception as e:
         logger.error(f"Error updating {trip_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# Utility: Fetch Trips as GeoJSON
 
 
 async def fetch_trips_for_geojson():
@@ -516,9 +489,6 @@ async def fetch_trips_for_geojson():
     return geojson_module.FeatureCollection(features)
 
 
-# API Endpoints for Trip Data
-
-
 @app.post("/api/street_coverage")
 async def get_street_coverage(request: Request):
     try:
@@ -529,13 +499,13 @@ async def get_street_coverage(request: Request):
         logger.info(
             f"Calculating coverage for location: {location.get('display_name', 'Unknown')}"
         )
-        result = await compute_coverage_for_location(location)  # Add await here
+        result = await compute_coverage_for_location(location)
         if result is None:
             raise HTTPException(
                 status_code=404, detail="No street data found or error in computation."
             )
         display_name = location.get("display_name", "Unknown")
-        await coverage_metadata_collection.update_one(  # Add await here
+        await coverage_metadata_collection.update_one(
             {"location.display_name": display_name},
             {
                 "$set": {
@@ -548,7 +518,7 @@ async def get_street_coverage(request: Request):
             },
             upsert=True,
         )
-        return result  # Return the complete result object
+        return result
     except Exception as e:
         logger.error(
             f"Error in street coverage calculation: {e}\n{traceback.format_exc()}"
@@ -673,7 +643,6 @@ async def get_driving_insights(request: Request):
         if imei:
             query["imei"] = imei
 
-        # Define a pipeline for summary aggregation.
         pipeline = [
             {"$match": query},
             {
@@ -695,7 +664,6 @@ async def get_driving_insights(request: Request):
             length=None
         )
 
-        # Define a pipeline for the "most visited" destination.
         pipeline_most_visited = [
             {"$match": query},
             {
@@ -3171,10 +3139,12 @@ async def internal_error_handler(request: Request, exc):
 
 @app.on_event("startup")
 async def startup_event():
-    loop = asyncio.get_running_loop()
-    scheduler.configure(event_loop=loop)
-    if os.environ.get("RUN_SCHEDULER", "true").lower() == "true":
-        await start_background_tasks()
+    """Initialize the application on startup."""
+    try:
+        await task_manager.start()
+        logger.info("Background task manager started successfully")
+    except Exception as e:
+        logger.error(f"Error starting background task manager: {e}", exc_info=True)
 
 
 # Main
@@ -3185,3 +3155,48 @@ if __name__ == "__main__":
 
     port = int(os.getenv("PORT", "8080"))
     uvicorn.run("app:app", host="0.0.0.0", port=port, log_level="info", reload=True)
+
+# Add task history and details endpoints
+@app.get("/api/background_tasks/history")
+async def get_task_history():
+    """Get the task execution history."""
+    return task_manager.task_history
+
+@app.get("/api/background_tasks/task/{task_id}")
+async def get_task_details(task_id: str):
+    """Get detailed information about a specific task."""
+    if task_id not in task_manager.tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    task_def = task_manager.tasks[task_id]
+    task_status = task_manager.task_status.get(task_id, "IDLE")
+    
+    # Get the next scheduled run time from the scheduler
+    next_run = None
+    job = task_manager.scheduler.get_job(task_id)
+    if job:
+        next_run = job.next_run_time
+    
+    # Find the last run from history
+    last_run = None
+    last_error = None
+    for entry in reversed(task_manager.task_history):
+        if entry["task_id"] == task_id:
+            if not last_run:
+                last_run = entry["timestamp"]
+            if entry.get("error") and not last_error:
+                last_error = entry["error"]
+            if last_run and last_error:
+                break
+    
+    return {
+        "id": task_id,
+        "display_name": task_def.display_name,
+        "description": task_def.description,
+        "priority": task_def.priority.name,
+        "dependencies": task_def.dependencies,
+        "status": task_status,
+        "last_run": last_run,
+        "next_run": next_run,
+        "last_error": last_error
+    }
