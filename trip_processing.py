@@ -49,7 +49,8 @@ def process_trip(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
         # Validate gps data exists.
         if "gps" not in trip:
-            logger.error(f"Trip {trip.get('transactionId', '?')} missing gps data.")
+            logger.error(
+                f"Trip {trip.get('transactionId', '?')} missing gps data.")
             return None
 
         # Ensure gps data is a dictionary.
