@@ -35,7 +35,7 @@ from utils import validate_location_osm, validate_trip_data, reverse_geocode_nom
 from map_matching import process_and_map_match_trip
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range, fetch_and_store_trips
 from preprocess_streets import preprocess_streets as async_preprocess_streets
-from tasks import task_manager, AVAILABLE_TASKS  # Corrected import
+from tasks import task_manager, AVAILABLE_TASKS, start_background_tasks
 from db import (
     trips_collection,
     matched_trips_collection,
@@ -48,6 +48,8 @@ from db import (
     streets_collection,
     coverage_metadata_collection,
     places_collection,
+    task_history_collection,
+    init_task_history_collection,
 )
 from trip_processing import format_idle_time
 from export_helpers import create_geojson, create_gpx
@@ -3141,10 +3143,16 @@ async def internal_error_handler(request: Request, exc):
 async def startup_event():
     """Initialize the application on startup."""
     try:
-        await task_manager.start()
-        logger.info("Background task manager started successfully")
+        # Initialize task history collection
+        await init_task_history_collection()
+        
+        # Start background tasks
+        await start_background_tasks()
+        
+        logger.info("Application startup completed successfully")
     except Exception as e:
-        logger.error(f"Error starting background task manager: {e}", exc_info=True)
+        logger.error(f"Error during application startup: {e}", exc_info=True)
+        raise e
 
 
 # Main
@@ -3164,39 +3172,55 @@ async def get_task_history():
 
 @app.get("/api/background_tasks/task/{task_id}")
 async def get_task_details(task_id: str):
-    """Get detailed information about a specific task."""
-    if task_id not in task_manager.tasks:
-        raise HTTPException(status_code=404, detail="Task not found")
+    """Get detailed information about a specific background task."""
+    try:
+        # Get the task definition from the task manager
+        task_def = task_manager.tasks.get(task_id)
+        if not task_def:
+            raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+        # Get the current task configuration
+        config = await task_config_collection.find_one({"_id": "global_background_task_config"})
+        task_config = config.get("tasks", {}).get(task_id, {})
+
+        # Get the task's history
+        history = []
+        cursor = task_history_collection.find({"task_id": task_id}).sort("timestamp", -1).limit(5)
+        async for entry in cursor:
+            history.append({
+                "timestamp": entry["timestamp"],
+                "status": entry["status"],
+                "runtime": entry.get("runtime"),
+                "error": entry.get("error")
+            })
+
+        # Compile the task details
+        task_details = {
+            "id": task_id,
+            "display_name": task_def.display_name,
+            "description": task_def.description,
+            "priority": task_def.priority.name if hasattr(task_def.priority, 'name') else str(task_def.priority),
+            "dependencies": task_def.dependencies,
+            "status": task_config.get("status", "IDLE"),
+            "enabled": task_config.get("enabled", True),
+            "interval_minutes": task_config.get("interval_minutes", task_def.default_interval_minutes),
+            "last_run": task_config.get("last_run"),
+            "next_run": task_config.get("next_run"),
+            "last_error": task_config.get("last_error"),
+            "history": history,
+            "success_rate": calculate_task_success_rate(history)
+        }
+
+        return task_details
+
+    except Exception as e:
+        logger.error(f"Error getting task details for {task_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+def calculate_task_success_rate(history: List[Dict]) -> float:
+    """Calculate the success rate from task history."""
+    if not history:
+        return 0.0
     
-    task_def = task_manager.tasks[task_id]
-    task_status = task_manager.task_status.get(task_id, "IDLE")
-    
-    # Get the next scheduled run time from the scheduler
-    next_run = None
-    job = task_manager.scheduler.get_job(task_id)
-    if job:
-        next_run = job.next_run_time
-    
-    # Find the last run from history
-    last_run = None
-    last_error = None
-    for entry in reversed(task_manager.task_history):
-        if entry["task_id"] == task_id:
-            if not last_run:
-                last_run = entry["timestamp"]
-            if entry.get("error") and not last_error:
-                last_error = entry["error"]
-            if last_run and last_error:
-                break
-    
-    return {
-        "id": task_id,
-        "display_name": task_def.display_name,
-        "description": task_def.description,
-        "priority": task_def.priority.name,
-        "dependencies": task_def.dependencies,
-        "status": task_status,
-        "last_run": last_run,
-        "next_run": next_run,
-        "last_error": last_error
-    }
+    successful = sum(1 for entry in history if entry["status"] == "COMPLETED")
+    return (successful / len(history)) * 100

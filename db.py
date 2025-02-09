@@ -52,6 +52,19 @@ coverage_metadata_collection = db["coverage_metadata"]
 live_trips_collection = db["live_trips"]
 archived_live_trips_collection = db["archived_live_trips"]
 task_config_collection = db["task_config"]
+task_history_collection = db["task_history"]
+
+# Create indexes for task history collection
+async def init_task_history_collection():
+    """Initialize indexes for task history collection."""
+    try:
+        await task_history_collection.create_index([("task_id", 1)])
+        await task_history_collection.create_index([("timestamp", -1)])
+        await task_history_collection.create_index([("task_id", 1), ("timestamp", -1)])
+        logger.info("Task history collection indexes created successfully")
+    except Exception as e:
+        logger.error(f"Error creating task history indexes: {e}", exc_info=True)
+        raise e
 
 
 async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:

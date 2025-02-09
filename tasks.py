@@ -29,6 +29,7 @@ from db import (
     archived_live_trips_collection,
     task_config_collection,
     matched_trips_collection,
+    task_history_collection,
 )
 
 logger = logging.getLogger(__name__)
@@ -157,24 +158,56 @@ class BackgroundTaskManager:
         self.scheduler.add_listener(self._handle_job_error, EVENT_JOB_ERROR)
 
     async def _handle_job_executed(self, event):
+        """Handle successful job execution."""
         task_id = event.job_id
         self.task_status[task_id] = TaskStatus.COMPLETED
-        self.task_history.append({
+        
+        # Record the execution in task history
+        history_entry = {
             "task_id": task_id,
-            "status": "completed",
+            "status": "COMPLETED",
             "timestamp": datetime.now(timezone.utc),
             "runtime": event.runtime
-        })
+        }
+        await task_history_collection.insert_one(history_entry)
+        
+        # Update task configuration
+        await task_config_collection.update_one(
+            {"_id": "global_background_task_config"},
+            {
+                "$set": {
+                    f"tasks.{task_id}.status": "COMPLETED",
+                    f"tasks.{task_id}.last_run": datetime.now(timezone.utc)
+                }
+            }
+        )
 
     async def _handle_job_error(self, event):
+        """Handle job execution error."""
         task_id = event.job_id
         self.task_status[task_id] = TaskStatus.FAILED
-        self.task_history.append({
+        
+        # Record the error in task history
+        history_entry = {
             "task_id": task_id,
-            "status": "failed",
+            "status": "FAILED",
             "timestamp": datetime.now(timezone.utc),
+            "runtime": event.runtime,
             "error": str(event.exception)
-        })
+        }
+        await task_history_collection.insert_one(history_entry)
+        
+        # Update task configuration
+        await task_config_collection.update_one(
+            {"_id": "global_background_task_config"},
+            {
+                "$set": {
+                    f"tasks.{task_id}.status": "FAILED",
+                    f"tasks.{task_id}.last_run": datetime.now(timezone.utc),
+                    f"tasks.{task_id}.last_error": str(event.exception)
+                }
+            }
+        )
         logger.error(f"Task {task_id} failed: {event.exception}")
 
     async def start(self):
@@ -216,6 +249,7 @@ class BackgroundTaskManager:
         task_def = self.tasks[task_id]
         task_func = self._get_task_function(task_id)
 
+        # Schedule the task
         self.scheduler.add_job(
             task_func,
             "interval",
@@ -225,6 +259,18 @@ class BackgroundTaskManager:
             coalesce=True,
             misfire_grace_time=interval_minutes * 60
         )
+
+        # Update task configuration with next run time
+        job = self.scheduler.get_job(task_id)
+        if job and job.next_run_time:
+            await task_config_collection.update_one(
+                {"_id": "global_background_task_config"},
+                {
+                    "$set": {
+                        f"tasks.{task_id}.next_run": job.next_run_time
+                    }
+                }
+            )
 
     def _get_task_function(self, task_id: str):
         """Map task IDs to their corresponding functions."""

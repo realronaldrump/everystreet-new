@@ -50,8 +50,9 @@
                                     <th>Interval</th>
                                     <th>Enabled</th>
                                     <th>Priority</th>
-                                    <th>Status</th>
+                                    <th style="width: 150px;">Status</th>
                                     <th>Last Run</th>
+                                    <th>Next Run</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -77,6 +78,7 @@
                                     <th>Status</th>
                                     <th>Start Time</th>
                                     <th>Duration</th>
+                                    <th>Result</th>
                                     <th>Details</th>
                                 </tr>
                             </thead>
@@ -209,7 +211,7 @@
     </div>
 </div>
 
-<!-- Task Details Modal -->
+<!-- Update the Task Details Modal -->
 <div class="modal fade" id="taskDetailsModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content bg-dark text-white">
@@ -224,10 +226,44 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary run-task-btn">
+                    <i class="fas fa-play"></i> Run Now
+                </button>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+    <!-- Toasts will be dynamically added here -->
+</div>
+
+<!-- Task Status Template (hidden) -->
+<template id="task-status-template">
+    <div class="task-status d-flex align-items-center">
+        <div class="spinner-border spinner-border-sm me-2" role="status">
+            <span class="visually-hidden">Running...</span>
+        </div>
+        <span class="status-text">Running...</span>
+        <div class="progress ms-2" style="width: 100px; height: 6px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+        </div>
+    </div>
+</template>
+
+<!-- Toast Template (hidden) -->
+<template id="toast-template">
+    <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <div class="rounded me-2 toast-icon"></div>
+            <strong class="me-auto toast-title"></strong>
+            <small class="toast-time">just now</small>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body"></div>
+    </div>
+</template>
 {% endblock %}
 
 {% block extra_js %}
@@ -324,6 +360,11 @@
             lastRunCell.textContent = task.last_run ? formatDateTime(task.last_run) : 'Never';
             row.appendChild(lastRunCell);
 
+            // Next run
+            const nextRunCell = document.createElement("td");
+            nextRunCell.textContent = task.next_run ? formatDateTime(task.next_run) : 'Not scheduled';
+            row.appendChild(nextRunCell);
+
             // Actions
             const actionsCell = document.createElement("td");
             actionsCell.innerHTML = `
@@ -358,6 +399,7 @@
                 </td>
                 <td>${formatDateTime(entry.timestamp)}</td>
                 <td>${entry.runtime ? formatDuration(entry.runtime) : '-'}</td>
+                <td>${entry.result ? 'Success' : 'Failed'}</td>
                 <td>
                     ${entry.error ? 
                         `<button class="btn btn-sm btn-danger view-error-btn" 
