@@ -228,4 +228,3 @@ The application uses APScheduler to schedule and run background tasks. These tas
 *   **Cleanup Invalid Trips:** Identifies and marks invalid trips in the database.
 
 These tasks can be paused, resumed, stopped, enabled/disabled, and manually run from the Settings page.
-```
