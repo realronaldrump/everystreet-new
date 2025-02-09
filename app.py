@@ -230,7 +230,7 @@ async def disable_all_background_tasks():
 
 @app.post("/api/background_tasks/manual_run")
 async def manually_run_tasks(request: Request):
-    """Manually run selected tasks with improved status tracking."""
+    """Manually run selected tasks using the scheduler."""
     try:
         data = await request.json()
         tasks_to_run = data.get("tasks", [])
@@ -238,84 +238,46 @@ async def manually_run_tasks(request: Request):
 
         for task_id in tasks_to_run:
             if task_id == "ALL":
-                for t_id in task_manager.tasks:
-                    task_func = task_manager._get_task_function(t_id)
-                    if task_func:
+                # Run all *enabled* tasks.  We need to check the config.
+                config = await task_manager._get_config()
+                for t_id, task_def in task_manager.tasks.items():
+                    if config["tasks"].get(t_id, {}).get("enabled", True):
+                        # Add the job to the scheduler, but don't *await* it here.
+                        # The scheduler will handle execution.
                         try:
-                            await task_manager._update_task_status(
-                                t_id, TaskStatus.RUNNING
+                            task_manager.scheduler.add_job(
+                                task_manager._get_task_function(t_id),
+                                id=t_id,
+                                max_instances=1,
+                                coalesce=True,
+                                # No trigger, run immediately
                             )
-                            await task_func()
-                            await task_manager._update_task_status(
-                                t_id, TaskStatus.COMPLETED
-                            )
-                            results.append({"task": t_id, "success": True})
+                            results.append({"task": t_id, "success": True})  # Assume success, scheduler handles errors
                         except Exception as e:
-                            error_msg = str(e)
-                            await task_manager._update_task_status(
-                                t_id, TaskStatus.FAILED
-                            )
-                            logger.error(f"Error running task {t_id}: {error_msg}")
-                            results.append(
-                                {"task": t_id, "success": False, "error": error_msg}
-                            )
+                            results.append({"task": t_id, "success": False, "error": str(e)})
             elif task_id in task_manager.tasks:
-                task_func = task_manager._get_task_function(task_id)
-                if task_func:
-                    try:
-                        await task_manager._update_task_status(
-                            task_id, TaskStatus.RUNNING
-                        )
-                        await task_func()
-                        await task_manager._update_task_status(
-                            task_id, TaskStatus.COMPLETED
-                        )
-                        results.append({"task": task_id, "success": True})
-                    except Exception as e:
-                        error_msg = str(e)
-                        await task_manager._update_task_status(
-                            task_id, TaskStatus.FAILED
-                        )
-                        logger.error(f"Error running task {task_id}: {error_msg}")
-                        results.append(
-                            {"task": task_id, "success": False, "error": error_msg}
-                        )
+                # Same as above, add to scheduler, don't await.
+                try:
+                    task_manager.scheduler.add_job(
+                        task_manager._get_task_function(task_id),
+                        id=task_id,
+                        max_instances=1,
+                        coalesce=True,
+                        # No trigger
+                    )
+                    results.append({"task": task_id, "success": True})
+                except Exception as e:
+                    results.append({"task": task_id, "success": False, "error": str(e)})
 
         return {
             "status": "success",
-            "message": f"Manually ran {len(results)} tasks",
+            "message": f"Triggered {len(results)} tasks",
             "results": results,
         }
     except Exception as e:
         logger.error(f"Error in manually_run_tasks: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/api/background_tasks/manual_run_old")  # Keep the old one, rename it
-async def manually_run_tasks_old(request: Request):
-    data = await request.json()
-    tasks_to_run = data.get("tasks", [])
-    if not tasks_to_run:
-        raise HTTPException(status_code=400, detail="No tasks provided")
-    if "ALL" in tasks_to_run:
-        tasks_to_run = [t.id for t in AVAILABLE_TASKS]  # Use the new AVAILABLE_TASKS
-
-    results = []
-
-    async def run_task_by_id(task_id: str):
-        task_func = task_manager._get_task_function(
-            task_id
-        )  # Corrected: use _get_task_function
-        if task_func:
-            await task_func()
-            return True
-        else:
-            return False
-
-    for t in tasks_to_run:
-        ok = await run_task_by_id(t)
-        results.append({"task": t, "success": ok})
-    return {"status": "success", "results": results}
 
 
 class ConnectionManager:
@@ -3217,8 +3179,15 @@ if __name__ == "__main__":
 # Add task history and details endpoints
 @app.get("/api/background_tasks/history")
 async def get_task_history():
-    """Get the task execution history."""
-    return task_manager.task_history
+    """Get the task execution history from the database."""
+    history = []
+    cursor = task_history_collection.find({}).sort("timestamp", -1)  # Sort by timestamp, newest first
+    async for entry in cursor:
+        # Convert ObjectId to string and format timestamp
+        entry["_id"] = str(entry["_id"])
+        entry["timestamp"] = entry["timestamp"].isoformat()
+        history.append(entry)
+    return history
 
 
 @app.get("/api/background_tasks/task/{task_id}")
@@ -3242,6 +3211,7 @@ async def get_task_details(task_id: str):
             .limit(5)
         )
         async for entry in cursor:
+            entry["_id"] = str(entry["_id"]) #Convert id
             history.append(
                 {
                     "timestamp": (
@@ -3252,14 +3222,6 @@ async def get_task_details(task_id: str):
                     "error": entry.get("error"),
                 }
             )
-
-        # Format timestamps
-        for ts_field in ["last_run", "next_run", "start_time", "end_time"]:
-            if ts_field in task_config and task_config[ts_field]:
-                if isinstance(task_config[ts_field], str):
-                    task_config[ts_field] = task_config[ts_field]
-                else:
-                    task_config[ts_field] = task_config[ts_field].isoformat()
 
         # Compile the task details
         task_details = {

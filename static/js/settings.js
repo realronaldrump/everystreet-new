@@ -8,19 +8,18 @@
     // Initialize managers first
     window.settingsManager = new SettingsManager();
     window.taskManager = new TaskManager();
-    
+
     // Then initialize the UI
-    loadBackgroundTasksConfig();
+    taskManager.loadTaskConfig(); // Use TaskManager to load
     setupTaskConfigEventListeners();
     setupHistoricalData();
     setupGeoPointsUpdate();
     setupRegeocode();
-    setupDeleteMatchedTrips();
     setupRemapMatchedTrips();
 
     // Add task details modal run button handler
     document.querySelector('.run-task-btn')?.addEventListener('click', async (e) => {
-        const taskId = e.target.dataset.taskId;
+        const taskId = document.querySelector('.view-details-btn').dataset.taskId;
         if (taskId) {
             await taskManager.runTask(taskId);
             bootstrap.Modal.getInstance(document.getElementById('taskDetailsModal')).hide();
@@ -36,7 +35,7 @@
                 if (!response.ok) {
                     throw new Error(`Failed to fetch task details for ${taskId}`);
                 }
-                
+
                 const taskDetails = await response.json();
                 const detailsContent = document.querySelector('.task-details-content');
                 if (!detailsContent) {
@@ -50,8 +49,8 @@
                     <p><strong>Description:</strong> ${taskDetails.description || 'No description available'}</p>
                     <p><strong>Priority:</strong> ${taskDetails.priority || 'Not set'}</p>
                     <p><strong>Dependencies:</strong> ${taskDetails.dependencies?.join(', ') || 'None'}</p>
-                    <p><strong>Last Run:</strong> ${taskDetails.last_run ? formatDateTime(taskDetails.last_run) : 'Never'}</p>
-                    <p><strong>Next Run:</strong> ${taskDetails.next_run ? formatDateTime(taskDetails.next_run) : 'Not scheduled'}</p>
+                    <p><strong>Last Run:</strong> ${taskDetails.last_run ? taskManager.formatDateTime(taskDetails.last_run) : 'Never'}</p>
+                    <p><strong>Next Run:</strong> ${taskDetails.next_run ? taskManager.formatDateTime(taskDetails.next_run) : 'Not scheduled'}</p>
                     <p><strong>Status:</strong> ${taskDetails.status || 'Unknown'}</p>
                     ${taskDetails.last_error ? `
                         <div class="alert alert-danger">
@@ -60,17 +59,33 @@
                         </div>
                     ` : ''}
                 `;
+                //Add the taskID to the modal's run button
+                document.querySelector('.run-task-btn').dataset.taskId = taskId;
 
                 // Show the modal
                 const modal = new bootstrap.Modal(document.getElementById('taskDetailsModal'));
                 modal.show();
             } catch (error) {
                 console.error(`Error fetching task details for ${taskId}:`, error);
-                taskManager.toastManager.show('Error', 
+                taskManager.toastManager.show('Error',
                     `Error fetching task details for ${taskId}. Please try again.`, 'danger');
             }
         }
     });
+
+        // View error details  -- MOVED FROM INLINE SCRIPT
+        document.addEventListener('click', async (e) => {
+            if (e.target.closest('.view-error-btn')) {
+                const error = e.target.closest('.view-error-btn').dataset.error;
+                const detailsContent = document.querySelector('.task-details-content');
+                detailsContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <pre>${error}</pre>
+                    </div>
+                `;
+                new bootstrap.Modal(document.getElementById('taskDetailsModal')).show();
+            }
+        });
   });
 
   // HISTORICAL DATA MANAGEMENT
@@ -141,30 +156,7 @@
     });
   }
 
-  // DELETE MATCHED TRIPS
-  function setupDeleteMatchedTrips() {
-    const btn = document.getElementById("delete-matched-trips");
-    if (!btn) return;
-    btn.addEventListener("click", () => {
-      if (!confirm("Are you sure you want to delete all matched trips?"))
-        return;
-      document.getElementById("delete-matched-trips-status").textContent =
-        "Deleting...";
-      fetch("/api/matched_trips/delete", { method: "POST" })
-        .then((r) => r.json())
-        .then((data) => {
-          document.getElementById("delete-matched-trips-status").textContent =
-            data.message;
-          settingsManager.toastManager.show('Success', data.message, 'success');
-        })
-        .catch((err) => {
-          console.error("Error deleting matched trips:", err);
-          document.getElementById("delete-matched-trips-status").textContent =
-            "Error deleting matched trips. See console.";
-          settingsManager.toastManager.show('Error', 'Error deleting matched trips. See console.', 'danger');
-        });
-    });
-  }
+
 
   // REMAP MATCHED TRIPS
   function setupRemapMatchedTrips() {
@@ -252,135 +244,26 @@
     if (enableAllBtn) enableAllBtn.addEventListener("click", enableAllTasks);
     if (disableAllBtn) disableAllBtn.addEventListener("click", disableAllTasks);
     if (manualRunAllBtn)
-      manualRunAllBtn.addEventListener("click", () => manualRunTasks(["ALL"]));
+      manualRunAllBtn.addEventListener("click", () => taskManager.runTask("ALL"));
 
     if (globalSwitch) {
       globalSwitch.addEventListener("change", function () {
-        const config = gatherTaskConfigFromUI();
+        const config = taskManager.gatherTaskConfigFromUI();
         config.globalDisable = this.checked;
-        submitTaskConfigUpdate(config)
+        taskManager.submitTaskConfigUpdate(config)
           .then(() => settingsManager.toastManager.show('Success', 'Global disable toggled.', 'success'))
           .catch((err) => settingsManager.toastManager.show('Error', 'Error toggling global disable: ' + err.message, 'danger'));
       });
     }
   }
 
-  // LOAD TASK CONFIGURATION
-  function loadBackgroundTasksConfig() {
-    fetch("/api/background_tasks/config")
-      .then((r) => r.json())
-      .then((cfg) => populateTaskConfigUI(cfg))
-      .catch((err) =>
-        console.error("Error loading background task config:", err),
-      );
-  }
-
-  // POPULATE TASK CONFIGURATION UI
-  function populateTaskConfigUI(cfg) {
-    const globalDisableSwitch = document.getElementById("globalDisableSwitch");
-    if (globalDisableSwitch)
-        globalDisableSwitch.checked = Boolean(cfg.disabled);
-    const tableBody = document.querySelector("#taskConfigTable tbody");
-    if (!tableBody || !cfg.tasks) return;
-    tableBody.innerHTML = "";
-
-    const intervalOptions = [
-        { value: 30, label: "Every 30 min" },
-        { value: 60, label: "Every 1 hour" },
-        { value: 180, label: "Every 3 hours" },
-        { value: 360, label: "Every 6 hours" },
-        { value: 720, label: "Every 12 hours" },
-        { value: 1440, label: "Every 24 hours" },
-    ];
-
-    const knownTasks = [
-        { id: "fetch_and_store_trips", name: "Fetch & Store Trips" },
-        { id: "periodic_fetch_trips", name: "Periodic Trip Fetch" },
-        {
-            id: "update_coverage_for_all_locations",
-            name: "Update Coverage (All)",
-        },
-        { id: "cleanup_stale_trips", name: "Cleanup Stale Trips" },
-        { id: "cleanup_invalid_trips", name: "Cleanup Invalid Trips" },
-    ];
-
-    knownTasks.forEach((task) => {
-        const row = document.createElement("tr");
-        row.dataset.taskId = task.id;
-
-        const tdName = document.createElement("td");
-        tdName.textContent = task.name;
-        row.appendChild(tdName);
-
-        const tdInterval = document.createElement("td");
-        const currentInterval = cfg.tasks[task.id]?.interval_minutes || 60;
-        const sel = document.createElement("select");
-        sel.className = "form-select form-select-sm w-auto";
-        intervalOptions.forEach((opt) => {
-            const optionEl = document.createElement("option");
-            optionEl.value = opt.value;
-            optionEl.textContent = opt.label;
-            if (opt.value == currentInterval) optionEl.selected = true;
-            sel.appendChild(optionEl);
-        });
-        sel.dataset.taskId = task.id;
-        tdInterval.appendChild(sel);
-        row.appendChild(tdInterval);
-
-        const tdEnable = document.createElement("td");
-        const enableCheck = document.createElement("input");
-        enableCheck.type = "checkbox";
-        enableCheck.classList.add("form-check-input");
-        enableCheck.checked = Boolean(cfg.tasks[task.id]?.enabled);
-        enableCheck.dataset.taskId = task.id;
-        tdEnable.appendChild(enableCheck);
-        row.appendChild(tdEnable);
-
-        const tdPriority = document.createElement("td");
-        tdPriority.textContent = cfg.tasks[task.id]?.priority || "MEDIUM";
-        row.appendChild(tdPriority);
-
-        const tdStatus = document.createElement("td");
-        tdStatus.className = 'task-status';
-        tdStatus.innerHTML = taskManager.getStatusHTML(cfg.tasks[task.id]?.status || 'IDLE');
-        row.appendChild(tdStatus);
-
-        const tdLastRun = document.createElement("td");
-        tdLastRun.className = 'task-last-run';
-        tdLastRun.textContent = cfg.tasks[task.id]?.last_run ? 
-            formatDateTime(cfg.tasks[task.id].last_run) : 'Never';
-        row.appendChild(tdLastRun);
-
-        const tdNextRun = document.createElement("td");
-        tdNextRun.className = 'task-next-run';
-        tdNextRun.textContent = cfg.tasks[task.id]?.next_run ? 
-            formatDateTime(cfg.tasks[task.id].next_run) : 'Not scheduled';
-        row.appendChild(tdNextRun);
-
-        const tdActions = document.createElement("td");
-        tdActions.innerHTML = `
-            <div class="btn-group btn-group-sm">
-                <button class="btn btn-info run-now-btn" data-task-id="${task.id}">
-                    <i class="fas fa-play"></i>
-                </button>
-                <button class="btn btn-primary view-details-btn" data-task-id="${task.id}">
-                    <i class="fas fa-info-circle"></i>
-                </button>
-            </div>
-        `;
-        row.appendChild(tdActions);
-
-        tableBody.appendChild(row);
-    });
-  }
-
-  // SAVE TASK CONFIGURATION
+  // SAVE TASK CONFIGURATION -- MOVED TO TASK MANAGER
   function saveBackgroundTasksConfig() {
-    const config = gatherTaskConfigFromUI();
-    submitTaskConfigUpdate(config)
+    const config = taskManager.gatherTaskConfigFromUI();
+    taskManager.submitTaskConfigUpdate(config)
       .then(() => {
         settingsManager.toastManager.show('Success', 'Background task config saved.', 'success');
-        loadBackgroundTasksConfig();
+        taskManager.loadTaskConfig(); // Reload config
       })
       .catch((err) => {
         console.error("Error saving config:", err);
@@ -388,42 +271,9 @@
       });
   }
 
-  // GATHER TASK CONFIGURATION FROM UI
-  function gatherTaskConfigFromUI() {
-    const tasks = {};
-    document.querySelectorAll("#taskConfigTable tbody tr").forEach((row) => {
-      const sel = row.querySelector("select");
-      const check = row.querySelector('input[type="checkbox"]');
-      if (!sel || !check) return;
-      const taskId = sel.dataset.taskId;
-      tasks[taskId] = {
-        interval_minutes: parseInt(sel.value, 10),
-        enabled: check.checked,
-      };
-    });
-    return {
-      globalDisable: document.getElementById("globalDisableSwitch")?.checked,
-      tasks: tasks,
-    };
-  }
 
-  // SUBMIT TASK CONFIGURATION UPDATE
-  function submitTaskConfigUpdate(config) {
-    return fetch("/api/background_tasks/config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(config),
-    }).then((res) => {
-      if (!res.ok) {
-        return res.json().then((errData) => {
-          throw new Error(errData.message || "Error updating config");
-        });
-      }
-      return res.json();
-    });
-  }
 
-  // TASK CONTROLS
+  // TASK CONTROLS -- Refactored to use TaskManager
   function confirmPause() {
     const mins = parseInt(document.getElementById("pauseDuration").value, 10);
     fetch("/api/background_tasks/pause", {
@@ -433,7 +283,7 @@
         .then((r) => r.json())
         .then((data) => {
             taskManager.toastManager.show('Success', data.message, 'success');
-            loadBackgroundTasksConfig();
+            taskManager.loadTaskConfig(); // Reload config
             const pauseModal = document.getElementById("pauseModal");
             const modalInstance = bootstrap.Modal.getInstance(pauseModal);
             if (modalInstance) modalInstance.hide();
@@ -449,7 +299,7 @@
         .then((r) => r.json())
         .then((data) => {
             taskManager.toastManager.show('Success', data.message, 'success');
-            loadBackgroundTasksConfig();
+            taskManager.loadTaskConfig(); // Reload config
         })
         .catch((err) => {
             console.error("Error resuming tasks:", err);
@@ -463,7 +313,7 @@
         .then((r) => r.json())
         .then((data) => {
             taskManager.toastManager.show('Success', data.message, 'success');
-            loadBackgroundTasksConfig();
+            taskManager.loadTaskConfig(); // Reload config
         })
         .catch((err) => {
             console.error("Error stopping tasks:", err);
@@ -476,7 +326,7 @@
         .then((r) => r.json())
         .then((data) => {
             taskManager.toastManager.show('Success', data.message, 'success');
-            loadBackgroundTasksConfig();
+            taskManager.loadTaskConfig(); // Reload config
         })
         .catch((err) => {
             console.error("Error enabling tasks:", err);
@@ -489,7 +339,7 @@
         .then((r) => r.json())
         .then((data) => {
             taskManager.toastManager.show('Success', data.message, 'success');
-            loadBackgroundTasksConfig();
+            taskManager.loadTaskConfig(); // Reload config
         })
         .catch((err) => {
             console.error("Error disabling tasks:", err);
@@ -497,36 +347,7 @@
         });
   }
 
-  function manualRunTasks(tasksArr) {
-    fetch("/api/background_tasks/manual_run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tasks: tasksArr }),
-    })
-        .then((r) => r.json())
-        .then((data) => {
-            if (data.status === "success") {
-                const msg = "Tasks triggered:\n" +
-                    data.results
-                        .map((r) => `${r.task}: ${r.success ? "OK" : "Unknown"}`)
-                        .join("\n");
-                taskManager.toastManager.show('Success', msg, 'success');
-                
-                // Add tasks to active tasks map for status tracking
-                tasksArr.forEach(taskId => {
-                    if (taskId !== 'ALL') {
-                        taskManager.activeTasksMap.set(taskId, 'RUNNING');
-                    }
-                });
-            } else {
-                taskManager.toastManager.show('Error', 'Error: ' + data.message, 'danger');
-            }
-        })
-        .catch((err) => {
-            console.error("Error triggering tasks manually:", err);
-            taskManager.toastManager.show('Error', 'Error triggering tasks. Check console.', 'danger');
-        });
-  }
+
 })();
 
 class SettingsManager {
@@ -548,20 +369,16 @@ class SettingsManager {
   }
 
   initializeEventListeners() {
-    // Task Management Event Listeners
-    this.initializeTaskManagementListeners();
-    
+    // Task Management Event Listeners are handled in setupTaskConfigEventListeners
+
     // Data Management Event Listeners
     this.initializeDataManagementListeners();
-    
+
     // Remap Functionality Listeners
     this.initializeRemapListeners();
   }
 
-  initializeTaskManagementListeners() {
-    // These are already handled in the inline script
-    // They're working well with the new task manager
-  }
+
 
   initializeDataManagementListeners() {
     // Historical Data
@@ -613,7 +430,7 @@ class SettingsManager {
         method: 'POST'
       });
       const data = await response.json();
-      
+
       statusElement.textContent = data.message;
       this.toastManager.show('Success', data.message, 'success');
     } catch (error) {
@@ -634,7 +451,7 @@ class SettingsManager {
         body: JSON.stringify({ collection })
       });
       const data = await response.json();
-      
+
       statusElement.textContent = data.message;
       this.toastManager.show('Success', data.message, 'success');
     } catch (error) {
@@ -652,7 +469,7 @@ class SettingsManager {
         method: 'POST'
       });
       const data = await response.json();
-      
+
       statusElement.textContent = 'All trips have been re-geocoded.';
       this.toastManager.show('Success', data.message, 'success');
     } catch (error) {
@@ -690,10 +507,10 @@ class SettingsManager {
       const deleteResponse = await fetch('/api/matched_trips/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ start_date, end_date })
+        body: JSON.stringify({ start_date, end_date }) // Pass start and end dates
       });
       const deleteResult = await deleteResponse.json();
-      
+
       if (deleteResult.status !== 'success') {
         throw new Error(deleteResult.message || 'Failed to delete existing matched trips');
       }
@@ -729,14 +546,14 @@ class ToastManager {
   show(title, message, type = 'info') {
     const toast = this.template.content.cloneNode(true).querySelector('.toast');
     const icon = toast.querySelector('.toast-icon');
-    icon.className = `rounded me-2 bg-${type}`;
+    icon.className = `rounded me-2 bg-${type}`;  // Corrected class assignment
     toast.querySelector('.toast-title').textContent = title;
     toast.querySelector('.toast-body').textContent = message;
-    
+
     this.container.appendChild(toast);
     const bsToast = new bootstrap.Toast(toast, { delay: 5000 });
     bsToast.show();
-    
+
     toast.addEventListener('hidden.bs.toast', () => {
       toast.remove();
     });
@@ -749,6 +566,17 @@ class TaskManager {
     this.activeTasksMap = new Map();
     this.pollingInterval = null;
     this.initializePolling();
+
+     // Task interval options -- Moved from inline script
+    this.intervalOptions = [
+        { value: 15, label: "Every 15 min" },
+        { value: 30, label: "Every 30 min" },
+        { value: 60, label: "Every hour" },
+        { value: 180, label: "Every 3 hours" },
+        { value: 360, label: "Every 6 hours" },
+        { value: 720, label: "Every 12 hours" },
+        { value: 1440, label: "Every 24 hours" }
+    ];
   }
 
   initializePolling() {
@@ -765,7 +593,7 @@ class TaskManager {
         throw new Error('Failed to fetch task status');
       }
       const config = await response.json();
-      
+
       for (const [taskId, status] of this.activeTasksMap) {
         const taskConfig = config.tasks[taskId];
         if (taskConfig) {
@@ -797,10 +625,10 @@ class TaskManager {
 
     // Update timestamps
     if (taskConfig.last_run) {
-      lastRunCell.textContent = formatDateTime(taskConfig.last_run);
+      lastRunCell.textContent = this.formatDateTime(taskConfig.last_run);
     }
     if (taskConfig.next_run) {
-      nextRunCell.textContent = formatDateTime(taskConfig.next_run);
+      nextRunCell.textContent = this.formatDateTime(taskConfig.next_run);
     }
 
     // Handle completion states
@@ -811,13 +639,13 @@ class TaskManager {
         `Task ${taskId} ${newStatus.toLowerCase()}`,
         newStatus === 'COMPLETED' ? 'success' : 'danger'
       );
-      
+
       // Re-enable the run button
       if (runButton) {
         runButton.disabled = false;
       }
 
-      // Update task history
+      // Update task history -- Now handled by TaskManager
       this.updateTaskHistory();
     }
   }
@@ -853,42 +681,73 @@ class TaskManager {
   }
 
   async runTask(taskId) {
-    try {
-      const response = await fetch('/api/background_tasks/manual_run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tasks: [taskId] })
-      });
+      // If taskId is 'ALL', run all enabled tasks
+    if (taskId === 'ALL') {
+        try {
+            const configResponse = await fetch('/api/background_tasks/config');
+            if (!configResponse.ok) {
+                throw new Error('Failed to fetch task configuration');
+            }
+            const config = await configResponse.json();
 
-      if (!response.ok) {
-        throw new Error('Failed to start task');
-      }
+            const enabledTasks = [];
+            for (const task in config.tasks) {
+                if (config.tasks[task].enabled) {
+                    enabledTasks.push(task);
+                }
+            }
+            //Now run each enabled task
+            for (const task of enabledTasks) {
+                await this.runSingleTask(task);
+            }
 
-      const result = await response.json();
-      if (result.status === 'success') {
-        this.activeTasksMap.set(taskId, 'RUNNING');
-        this.toastManager.show('Task Started', `Task ${taskId} has been started`, 'info');
-        
-        // Update UI immediately
-        const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
-        if (row) {
-          const statusCell = row.querySelector('.task-status');
-          if (statusCell) {
-            statusCell.innerHTML = this.getStatusHTML('RUNNING');
-          }
-          
-          // Disable the run button while task is running
-          const runButton = row.querySelector('.run-now-btn');
-          if (runButton) {
-            runButton.disabled = true;
-          }
+        } catch (error) {
+            console.error('Error fetching task config for manual run all:', error);
+            this.toastManager.show('Error', 'Error fetching task config for manual run all.', 'danger');
         }
-      } else {
-        throw new Error(result.message || 'Failed to start task');
-      }
+    } else {
+        //Run a single task.
+        await this.runSingleTask(taskId);
+    }
+  }
+
+  async runSingleTask(taskId) {
+      try {
+        const response = await fetch('/api/background_tasks/manual_run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tasks: [taskId] })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to start task');
+        }
+
+        const result = await response.json();
+        if (result.status === 'success') {
+            this.activeTasksMap.set(taskId, 'RUNNING');
+            this.toastManager.show('Task Started', `Task ${taskId} has been started`, 'info');
+
+            // Update UI immediately
+            const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
+            if (row) {
+                const statusCell = row.querySelector('.task-status');
+                if (statusCell) {
+                    statusCell.innerHTML = this.getStatusHTML('RUNNING');
+                }
+
+                // Disable the run button while task is running
+                const runButton = row.querySelector('.run-now-btn');
+                if (runButton) {
+                    runButton.disabled = true;
+                }
+            }
+        } else {
+            throw new Error(result.message || 'Failed to start task');
+        }
     } catch (error) {
-      console.error(`Error running task ${taskId}:`, error);
-      this.toastManager.show('Error', `Failed to start task ${taskId}: ${error.message}`, 'danger');
+        console.error(`Error running task ${taskId}:`, error);
+        this.toastManager.show('Error', `Failed to start task ${taskId}: ${error.message}`, 'danger');
     }
   }
 
@@ -899,9 +758,196 @@ class TaskManager {
         throw new Error('Failed to fetch task history');
       }
       const history = await response.json();
-      updateTaskHistoryTable(history);
+      this.updateTaskHistoryTable(history); // Use the new method
     } catch (error) {
       console.error('Error updating task history:', error);
     }
   }
+
+    // Update task history table -- Moved from inline script
+    updateTaskHistoryTable(history) {
+        const tbody = document.querySelector("#taskHistoryTable tbody");
+        tbody.innerHTML = "";
+
+        history.forEach(entry => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${entry.task_id}</td>
+                <td>
+                    <span class="badge bg-${this.getStatusColor(entry.status)}">
+                        ${entry.status}
+                    </span>
+                </td>
+                <td>${this.formatDateTime(entry.timestamp)}</td>
+                <td>${entry.runtime ? this.formatDuration(entry.runtime) : '-'}</td>
+                <td>${entry.result ? 'Success' : 'Failed'}</td>
+                <td>
+                    ${entry.error ?
+                        `<button class="btn btn-sm btn-danger view-error-btn"
+                            data-error="${entry.error}">
+                            <i class="fas fa-exclamation-circle"></i> View Error
+                        </button>` :
+                        '-'
+                    }
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+      // Format date/time -- Moved from inline script
+    formatDateTime(date) {
+        return new Date(date).toLocaleString();
+    }
+
+    // Format duration -- Moved from inline script
+    formatDuration(ms) {
+        const seconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        return hours > 0 ?
+            `${hours}h ${minutes % 60}m ${seconds % 60}s` :
+            minutes > 0 ?
+                `${minutes}m ${seconds % 60}s` :
+                `${seconds}s`;
+    }
+
+      // LOAD TASK CONFIGURATION -- Refactored
+    async loadTaskConfig() {
+        try {
+            const response = await fetch('/api/background_tasks/config');
+            if (!response.ok) {
+                throw new Error('Failed to load task configuration');
+            }
+            const config = await response.json();
+
+            // Update global disable switch -- Correctly set initial state
+            document.getElementById('globalDisableSwitch').checked = Boolean(config.disabled);
+
+            // Update task configuration table
+            this.updateTaskConfigTable(config);
+
+            // Load task history
+            await this.updateTaskHistory(); // Use TaskManager's method
+
+        } catch (error) {
+            console.error('Error loading task configuration:', error);
+            this.toastManager.show('Error', 'Error loading task configuration.', 'danger');
+        }
+    }
+
+    // Update task configuration table -- Refactored and moved from inline script
+    updateTaskConfigTable(config) {
+        const tbody = document.querySelector("#taskConfigTable tbody");
+        tbody.innerHTML = "";
+
+        Object.entries(config.tasks).forEach(([taskId, task]) => {
+            const row = document.createElement("tr");
+            row.dataset.taskId = taskId; // Add data-task-id to the row
+
+            // Task name
+            const nameCell = document.createElement("td");
+            nameCell.textContent = task.display_name || taskId;
+            row.appendChild(nameCell);
+
+            // Interval selector
+            const intervalCell = document.createElement("td");
+            const intervalSelect = document.createElement("select");
+            intervalSelect.className = "form-select form-select-sm";
+            intervalSelect.dataset.taskId = taskId;
+            this.intervalOptions.forEach(opt => {
+                const option = document.createElement("option");
+                option.value = opt.value;
+                option.textContent = opt.label;
+                option.selected = opt.value === task.interval_minutes;
+                intervalSelect.appendChild(option);
+            });
+            intervalCell.appendChild(intervalSelect);
+            row.appendChild(intervalCell);
+
+            // Enabled toggle
+            const enabledCell = document.createElement("td");
+            const enabledToggle = document.createElement("div");
+            enabledToggle.className = "form-check form-switch";
+            enabledToggle.innerHTML = `
+                <input class="form-check-input" type="checkbox"
+                    id="enable-${taskId}" ${task.enabled ? 'checked' : ''} data-task-id="${taskId}">
+            `;
+            enabledCell.appendChild(enabledToggle);
+            row.appendChild(enabledCell);
+
+            // Priority
+            const priorityCell = document.createElement("td");
+            priorityCell.textContent = task.priority || "MEDIUM";
+            row.appendChild(priorityCell);
+
+            // Status
+            const statusCell = document.createElement("td");
+            statusCell.innerHTML = this.getStatusHTML(task.status || 'IDLE');
+            row.appendChild(statusCell);
+
+            // Last run
+            const lastRunCell = document.createElement("td");
+            lastRunCell.className = 'task-last-run'; // Add class for updates
+            lastRunCell.textContent = task.last_run ? this.formatDateTime(task.last_run) : 'Never';
+            row.appendChild(lastRunCell);
+
+            // Next run
+            const nextRunCell = document.createElement("td");
+            nextRunCell.className = 'task-next-run';  //Add class for updates.
+            nextRunCell.textContent = task.next_run ? this.formatDateTime(task.next_run) : 'Not scheduled';
+            row.appendChild(nextRunCell);
+
+            // Actions
+            const actionsCell = document.createElement("td");
+            actionsCell.innerHTML = `
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-info run-now-btn" data-task-id="${taskId}">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="btn btn-primary view-details-btn" data-task-id="${taskId}">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                </div>
+            `;
+            row.appendChild(actionsCell);
+
+            tbody.appendChild(row);
+        });
+    }
+
+      // GATHER TASK CONFIGURATION FROM UI -- Moved from separate function
+    gatherTaskConfigFromUI() {
+        const tasks = {};
+        document.querySelectorAll("#taskConfigTable tbody tr").forEach((row) => {
+        const sel = row.querySelector("select");
+        const check = row.querySelector('input[type="checkbox"]');
+        if (!sel || !check) return;
+        const taskId = sel.dataset.taskId;
+        tasks[taskId] = {
+            interval_minutes: parseInt(sel.value, 10),
+            enabled: check.checked,
+        };
+        });
+        return {
+        globalDisable: document.getElementById("globalDisableSwitch")?.checked,
+        tasks: tasks,
+        };
+    }
+
+    // SUBMIT TASK CONFIGURATION UPDATE --  Moved from separate function
+    submitTaskConfigUpdate(config) {
+        return fetch("/api/background_tasks/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+        }).then((res) => {
+        if (!res.ok) {
+            return res.json().then((errData) => {
+            throw new Error(errData.message || "Error updating config");
+            });
+        }
+        return res.json();
+        });
+    }
 }
