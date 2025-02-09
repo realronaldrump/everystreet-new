@@ -54,6 +54,7 @@ from tasks import (
     save_task_config,
     reinitialize_scheduler_tasks,
     AVAILABLE_TASKS,
+    update_street_coverage
 )
 from db import (
     trips_collection,
@@ -256,36 +257,65 @@ async def disable_all_background_tasks():
     return {"status": "success", "message": "All tasks globally disabled"}
 
 
+# In app.py
+TASK_FUNCTIONS = {
+    "fetch_and_store_trips": periodic_fetch_trips,
+    "periodic_fetch_trips": periodic_fetch_trips,
+    "cleanup_stale_trips": cleanup_stale_trips,
+    "cleanup_invalid_trips": cleanup_invalid_trips,
+    "update_street_coverage": update_street_coverage,
+}
+
 @app.post("/api/background_tasks/manual_run")
 async def manually_run_tasks(request: Request):
-    data = await request.json()
-    tasks_to_run = data.get("tasks", [])
-    if not tasks_to_run:
-        raise HTTPException(status_code=400, detail="No tasks provided")
-    if "ALL" in tasks_to_run:
-        tasks_to_run = [t["id"] for t in AVAILABLE_TASKS]
+    """Manually run selected background tasks"""
+    try:
+        data = await request.json()
+        tasks_to_run = data.get("tasks", [])
+        if not tasks_to_run:
+            raise HTTPException(status_code=400, detail="No tasks provided")
+        if "ALL" in tasks_to_run:
+            tasks_to_run = [t["id"] for t in AVAILABLE_TASKS]
 
-    results = []
+        results = []
+        for task_id in tasks_to_run:
+            try:
+                task_func = TASK_FUNCTIONS.get(task_id)
+                if task_func:
+                    result = await task_func()
+                    if isinstance(result, dict):
+                        status = result.get("status", "success")
+                        message = result.get("message", "Task completed")
+                    else:
+                        status = "success"
+                        message = "Task completed"
+                    
+                    results.append({
+                        "task": task_id,
+                        "status": status,
+                        "message": message
+                    })
+                else:
+                    results.append({
+                        "task": task_id,
+                        "status": "error",
+                        "message": "Task not found"
+                    })
+            except Exception as e:
+                logger.error(f"Error running task {task_id}: {e}", exc_info=True)
+                results.append({
+                    "task": task_id,
+                    "status": "error",
+                    "message": str(e)
+                })
 
-    async def run_task_by_id(task_id: str):
-        if task_id == "fetch_and_store_trips":
-            await fetch_and_store_trips()
-        elif task_id == "periodic_fetch_trips":
-            await periodic_fetch_trips()
-        elif task_id == "update_coverage_for_all_locations":
-            await update_coverage_for_all_locations()
-        elif task_id == "cleanup_stale_trips":
-            await cleanup_stale_trips()
-        elif task_id == "cleanup_invalid_trips":
-            await cleanup_invalid_trips()
-        else:
-            return False
-        return True
-
-    for t in tasks_to_run:
-        ok = await run_task_by_id(t)
-        results.append({"task": t, "success": ok})
-    return {"status": "success", "results": results}
+        return {
+            "status": "success",
+            "results": results
+        }
+    except Exception as e:
+        logger.error(f"Error in manually_run_tasks: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Model and HTML Endpoints

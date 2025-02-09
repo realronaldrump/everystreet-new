@@ -141,6 +141,7 @@
                                     <th>Interval</th>
                                     <th>Enable</th>
                                     <th>Manual Run</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -243,6 +244,31 @@
                         <i class="fas fa-sync me-1"></i>Update All Coverage Now
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add toast container at the bottom of the page -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <!-- Toasts will be inserted here dynamically -->
+</div>
+
+<!-- Add a task status modal -->
+<div class="modal fade" id="taskStatusModal" tabindex="-1" aria-labelledby="taskStatusModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="taskStatusModalLabel">Task Status</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="taskStatusContent">
+                    <!-- Task status will be inserted here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>

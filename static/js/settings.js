@@ -234,14 +234,10 @@
     const knownTasks = [
       { id: "fetch_and_store_trips", name: "Fetch & Store Trips" },
       { id: "periodic_fetch_trips", name: "Periodic Trip Fetch" },
-      {
-        id: "update_coverage_for_all_locations",
-        name: "Update Coverage (All)",
-      },
       { id: "cleanup_stale_trips", name: "Cleanup Stale Trips" },
       { id: "cleanup_invalid_trips", name: "Cleanup Invalid Trips" },
-      { id: "update_street_coverage", name: "Update Street Coverage" },
-    ];
+      { id: "update_street_coverage", name: "Update Street Coverage" }
+  ];
 
     knownTasks.forEach((task) => {
       const row = document.createElement("tr");
@@ -291,17 +287,45 @@
   // SAVE TASK CONFIGURATION
   function saveBackgroundTasksConfig() {
     const config = gatherTaskConfigFromUI();
-    console.log('Saving config:', config); // Debug log
+    console.log('Saving config:', config);
     submitTaskConfigUpdate(config)
-      .then((response) => {
-        console.log('Config save response:', response); // Debug log
-        alert("Background task config saved.");
-        loadBackgroundTasksConfig();
-      })
-      .catch((err) => {
-        console.error("Error saving config:", err);
-        alert("Failed to save config. Check console.");
-      });
+        .then(response => {
+            console.log('Config save response:', response);
+            if (response.status === "success") {
+                showToast("Success", "Background task configuration saved");
+                loadBackgroundTasksConfig();
+            } else {
+                showToast("Error", "Failed to save configuration");
+            }
+        })
+        .catch(err => {
+            console.error("Error saving config:", err);
+            showToast("Error", "Failed to save configuration");
+        });
+  }
+
+  function showToast(title, message) {
+    const toastEl = document.createElement('div');
+    toastEl.className = 'toast';
+    toastEl.setAttribute('role', 'alert');
+    toastEl.setAttribute('aria-live', 'assertive');
+    toastEl.setAttribute('aria-atomic', 'true');
+    
+    toastEl.innerHTML = `
+        <div class="toast-header">
+            <strong class="me-auto">${title}</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">${message}</div>
+    `;
+    
+    document.body.appendChild(toastEl);
+    const toast = new bootstrap.Toast(toastEl);
+    toast.show();
+    
+    toastEl.addEventListener('hidden.bs.toast', () => {
+        toastEl.remove();
+    });
   }
 
   // GATHER TASK CONFIGURATION FROM UI
@@ -413,29 +437,29 @@
       });
   }
 
-  function manualRunTasks(tasksArr) {
+  function manualRunTasks(taskIds) {
     fetch("/api/background_tasks/manual_run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tasks: tasksArr }),
+      body: JSON.stringify({ tasks: taskIds })
     })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.status === "success") {
-          const msg =
-            "Tasks triggered:\n" +
-            data.results
-              .map((r) => `${r.task}: ${r.success ? "OK" : "Unknown"}`)
-              .join("\n");
-          alert(msg);
-        } else {
-          alert("Error: " + data.message);
-        }
-      })
-      .catch((err) => {
-        console.error("Error triggering tasks manually:", err);
-        alert("Error triggering tasks. Check console.");
-      });
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === "success") {
+        const messages = data.results.map(result => {
+          const statusIcon = result.status === "success" ? "✓" : "✗";
+          const statusClass = result.status === "success" ? "text-success" : "text-danger";
+          return `${result.task}: <span class="${statusClass}">${statusIcon} ${result.message || result.status}</span>`;
+        });
+        alert(messages.join("\n"));
+      } else {
+        alert("Error: " + data.message);
+      }
+    })
+    .catch(err => {
+      console.error("Error triggering tasks manually:", err);
+      alert("Error triggering tasks. Check console.");
+    });
   }
 
   // STREET COVERAGE MANAGEMENT

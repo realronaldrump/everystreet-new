@@ -54,11 +54,6 @@ AVAILABLE_TASKS = [
         "default_interval_minutes": 30,
     },
     {
-        "id": "update_coverage_for_all_locations",
-        "display_name": "Update Coverage (All Locations)",
-        "default_interval_minutes": 60,
-    },
-    {
         "id": "cleanup_stale_trips",
         "display_name": "Cleanup Stale Trips",
         "default_interval_minutes": 60,
@@ -234,15 +229,22 @@ async def update_street_coverage():
         # Use semaphore to limit concurrent updates
         semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent updates
         
+        processed_locations = 0
+        updated_locations = 0
+        failed_locations = 0
+        
         async def process_location(doc):
+            nonlocal processed_locations, updated_locations, failed_locations
             async with semaphore:
                 location = doc.get("location")
                 if not location or not isinstance(location, dict):
                     logger.warning(f"Skipping invalid location data: {doc.get('_id')}")
+                    failed_locations += 1
                     return
                     
                 display_name = location.get("display_name", "Unknown")
                 logger.info(f"Updating coverage for {display_name}")
+                processed_locations += 1
                 
                 try:
                     result = await compute_coverage_for_location(location)
@@ -262,8 +264,10 @@ async def update_street_coverage():
                             },
                             upsert=True
                         )
+                        updated_locations += 1
                         logger.info(f"Updated coverage for {display_name}")
                     else:
+                        failed_locations += 1
                         await coverage_metadata_collection.update_one(
                             {"location.display_name": display_name},
                             {
@@ -274,6 +278,7 @@ async def update_street_coverage():
                             }
                         )
                 except Exception as e:
+                    failed_locations += 1
                     logger.error(f"Error updating coverage for {display_name}: {e}")
                     await coverage_metadata_collection.update_one(
                         {"location.display_name": display_name},
@@ -290,10 +295,29 @@ async def update_street_coverage():
             tasks.append(asyncio.create_task(process_location(doc)))
             
         await asyncio.gather(*tasks)
-        logger.info("Completed street coverage update for stale locations")
+        
+        status_msg = (
+            f"Completed street coverage update: "
+            f"Processed {processed_locations} locations, "
+            f"Updated {updated_locations} successfully, "
+            f"Failed {failed_locations}"
+        )
+        logger.info(status_msg)
+        return {
+            "status": "success",
+            "processed": processed_locations,
+            "updated": updated_locations,
+            "failed": failed_locations,
+            "message": status_msg
+        }
         
     except Exception as e:
-        logger.error(f"Error updating street coverage: {e}", exc_info=True)
+        error_msg = f"Error updating street coverage: {e}"
+        logger.error(error_msg, exc_info=True)
+        return {
+            "status": "error",
+            "message": error_msg
+        }
 
 
 # --- Scheduler Management Functions ---
@@ -329,15 +353,10 @@ async def reinitialize_scheduler_tasks():
         if not task_settings or not task_settings.get("enabled", True):
             continue
         interval = task_settings.get("interval_minutes", t["default_interval_minutes"])
-        # next_run_time = ( # REMOVED this line
-        #     paused_until + timedelta(seconds=1) if is_currently_paused else None
-        # )
 
-        # Map task IDs to background functions.
+        # Map task IDs to background functions
         if task_id in ("fetch_and_store_trips", "periodic_fetch_trips"):
             job_func = periodic_fetch_trips
-        elif task_id == "update_coverage_for_all_locations":
-            job_func = update_coverage_for_all_locations
         elif task_id == "cleanup_stale_trips":
             job_func = cleanup_stale_trips
         elif task_id == "cleanup_invalid_trips":
@@ -352,7 +371,6 @@ async def reinitialize_scheduler_tasks():
             "interval",
             minutes=interval,
             id=task_id,
-            # next_run_time=next_run_time, # REMOVED this line
             max_instances=1,
         )
     logger.info("Scheduler tasks reinitialized based on new config.")

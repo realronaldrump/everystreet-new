@@ -131,73 +131,82 @@ async def process_osm_data(osm_data, location):
       5. Assembles a GeoJSON Feature for each segment with metadata and inserts them into the streets_collection.
       6. Updates the coverage_metadata_collection for the location.
     """
-    features = []
-    total_length = 0
+    try:
+        features = []
+        total_length = 0
 
-    for element in osm_data.get("elements", []):
-        if element.get("type") != "way":
-            continue
-        try:
-            nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
-            line = LineString(nodes)
-            # Project to UTM for segmentation.
-            projected_line = transform(project_to_utm, line)
-            segments = segment_street(projected_line)
-            for i, segment in enumerate(segments):
-                # Reproject each segment back to WGS84.
-                segment_wgs84 = transform(project_to_wgs84, segment)
-                segment_length = segment.length  # Length in meters (UTM units)
-                feature = {
-                    "type": "Feature",
-                    "geometry": mapping(segment_wgs84),
-                    "properties": {
-                        "street_id": element["id"],
-                        "segment_id": f"{element['id']}-{i}",
-                        "street_name": element.get("tags", {}).get(
-                            "name", "Unnamed Street"
-                        ),
-                        "location": location["display_name"],
-                        "length": segment_length,
-                        "driven": False,
-                        "last_updated": None,
-                        "matched_trips": [],
-                    },
-                }
-                features.append(feature)
-                total_length += segment_length
-        except Exception as e:
-            logger.error(
-                f"Error processing element {element.get('id')}: {e}", exc_info=True
-            )
+        for element in osm_data.get("elements", []):
+            if element.get("type") != "way":
+                continue
+            try:
+                nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
+                line = LineString(nodes)
+                # Project to UTM for segmentation.
+                projected_line = transform(project_to_utm, line)
+                segments = segment_street(projected_line)
+                for i, segment in enumerate(segments):
+                    # Reproject each segment back to WGS84.
+                    segment_wgs84 = transform(project_to_wgs84, segment)
+                    segment_length = segment.length  # Length in meters (UTM units)
+                    feature = {
+                        "type": "Feature",
+                        "geometry": mapping(segment_wgs84),
+                        "properties": {
+                            "street_id": element["id"],
+                            "segment_id": f"{element['id']}-{i}",
+                            "street_name": element.get("tags", {}).get(
+                                "name", "Unnamed Street"
+                            ),
+                            "location": location["display_name"],
+                            "length": segment_length,
+                            "driven": False,
+                            "last_updated": None,
+                            "matched_trips": [],
+                        },
+                    }
+                    features.append(feature)
+                    total_length += segment_length
+            except Exception as e:
+                logger.error(
+                    f"Error processing element {element.get('id')}: {e}", exc_info=True
+                )
 
-    if features:
-        geojson_data = {"type": "FeatureCollection", "features": features}
-        try:
+        if features:
+            geojson_data = {"type": "FeatureCollection", "features": features}
             await streets_collection.insert_many(geojson_data["features"])
-        except Exception as e:
-            logger.error(f"Error inserting street segments: {e}", exc_info=True)
-        try:
+            
+            # Create initial coverage metadata entry
             await coverage_metadata_collection.update_one(
                 {"location.display_name": location.get("display_name")},
                 {
                     "$set": {
-                        "location": location,  # store the full location dict
-                        "total_segments": len(features),
+                        "location": location,
                         "total_length": total_length,
                         "driven_length": 0,
                         "coverage_percentage": 0.0,
-                        "last_updated": datetime.now(timezone.utc),
+                        "last_updated": datetime.min.replace(tzinfo=timezone.utc),  # Set to minimum date to ensure it's picked up as stale
+                        "streets_data": {
+                            "type": "FeatureCollection",
+                            "features": features,
+                            "metadata": {
+                                "total_length_miles": total_length * 0.000621371,
+                                "driven_length_miles": 0,
+                                "coverage_percentage": 0
+                            }
+                        }
                     }
                 },
-                upsert=True,
+                upsert=True
             )
-        except Exception as e:
-            logger.error(f"Error updating coverage metadata: {e}", exc_info=True)
-        logger.info(
-            f"Stored {len(features)} street segments for {location['display_name']}."
-        )
-    else:
-        logger.info(f"No valid street segments found for {location['display_name']}.")
+            
+            logger.info(
+                f"Stored {len(features)} street segments and initialized coverage metadata for {location['display_name']}."
+            )
+        else:
+            logger.info(f"No valid street segments found for {location['display_name']}.")
+            
+    except Exception as e:
+        logger.error(f"Error processing OSM data: {e}", exc_info=True)
 
 
 async def preprocess_streets(validated_location):
