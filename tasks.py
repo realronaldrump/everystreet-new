@@ -123,7 +123,8 @@ async def periodic_fetch_trips():
         else:
             start_date = datetime.now(timezone.utc) - timedelta(days=7)
         end_date = datetime.now(timezone.utc)
-        logger.info(f"Periodic trip fetch started from {start_date} to {end_date}")
+        logger.info(
+            f"Periodic trip fetch started from {start_date} to {end_date}")
         await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=False)
         logger.info("Periodic trip fetch completed successfully.")
     except Exception as e:
@@ -135,7 +136,8 @@ async def hourly_fetch_trips():
     try:
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(hours=1)
-        logger.info(f"Hourly trip fetch started for range: {start_date} to {end_date}")
+        logger.info(
+            f"Hourly trip fetch started for range: {start_date} to {end_date}")
         await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=True)
         logger.info("Hourly trip fetch completed successfully.")
 
@@ -150,7 +152,8 @@ async def hourly_fetch_trips():
         async for trip in cursor:
             await process_and_map_match_trip(trip)
             let_count += 1
-        logger.info(f"Map matching completed for {let_count} hourly fetched trips.")
+        logger.info(
+            f"Map matching completed for {let_count} hourly fetched trips.")
     except Exception as e:
         logger.error(f"Error during hourly trip fetch: {e}", exc_info=True)
 
@@ -179,7 +182,8 @@ async def cleanup_invalid_trips():
         for t in all_trips:
             ok, msg = validate_trip_data(t)
             if not ok:
-                logger.warning(f"Invalid trip {t.get('transactionId', '?')}: {msg}")
+                logger.warning(
+                    f"Invalid trip {t.get('transactionId', '?')}: {msg}")
                 await trips_collection.update_one(
                     {"_id": t["_id"]}, {"$set": {"invalid": True}}
                 )
@@ -194,7 +198,7 @@ async def update_street_coverage():
         logger.info("Starting street coverage update for stale locations...")
         now = datetime.now(timezone.utc)
         stale_threshold = now - timedelta(hours=24)
-        
+
         # Find locations with stale coverage data
         cursor = coverage_metadata_collection.find({
             "$or": [
@@ -202,17 +206,18 @@ async def update_street_coverage():
                 {"last_updated": {"$exists": False}}
             ]
         })
-        
+
         async for doc in cursor:
             location = doc.get("location")
             if not location or not isinstance(location, dict):
-                logger.warning(f"Skipping coverage update for document with invalid location data: {doc.get('_id')}")
+                logger.warning(
+                    f"Skipping coverage update for document with invalid location data: {doc.get('_id')}")
                 continue
-                
+
             display_name = location.get("display_name", "Unknown")
             logger.info(f"Updating stale coverage data for {display_name}")
             result = await compute_coverage_for_location(location)
-            
+
             if result:
                 await coverage_metadata_collection.update_one(
                     {"location.display_name": display_name},
@@ -229,7 +234,7 @@ async def update_street_coverage():
                     upsert=True
                 )
                 logger.info(f"Updated coverage for {display_name}")
-                
+
         logger.info("Completed street coverage update for stale locations")
     except Exception as e:
         logger.error(f"Error updating street coverage: {e}", exc_info=True)
@@ -252,7 +257,8 @@ async def reinitialize_scheduler_tasks():
 
     cfg = await get_task_config()
     if cfg.get("disabled"):
-        logger.info("Background tasks are globally disabled. No tasks scheduled.")
+        logger.info(
+            "Background tasks are globally disabled. No tasks scheduled.")
         return
 
     paused_until = cfg.get("pausedUntil")
@@ -267,7 +273,8 @@ async def reinitialize_scheduler_tasks():
         task_settings = cfg["tasks"].get(task_id, {})
         if not task_settings or not task_settings.get("enabled", True):
             continue
-        interval = task_settings.get("interval_minutes", t["default_interval_minutes"])
+        interval = task_settings.get(
+            "interval_minutes", t["default_interval_minutes"])
         # next_run_time = ( # REMOVED this line
         #     paused_until + timedelta(seconds=1) if is_currently_paused else None
         # )
@@ -304,7 +311,8 @@ async def create_required_indexes():
         # Check if the unique index exists, and drop it if it does.
         async for index in coverage_metadata_collection.list_indexes():
             if index['name'] == 'location.display_name_1' and index.get('unique', False):
-                logger.warning("Dropping existing unique index 'location.display_name_1'")
+                logger.warning(
+                    "Dropping existing unique index 'location.display_name_1'")
                 await coverage_metadata_collection.drop_index('location.display_name_1')
                 break  # Important: Exit the loop after dropping
 
@@ -313,10 +321,10 @@ async def create_required_indexes():
             name="location_display_name_background",  # Use a unique name
             background=True
         )
-        logger.info("Successfully created indexes for coverage metadata collection")
+        logger.info(
+            "Successfully created indexes for coverage metadata collection")
     except Exception as e:
         logger.error(f"Error creating indexes: {e}", exc_info=True)
-
 
 
 async def start_background_tasks():
