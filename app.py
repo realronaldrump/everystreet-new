@@ -35,7 +35,7 @@ from utils import validate_location_osm, validate_trip_data, reverse_geocode_nom
 from map_matching import process_and_map_match_trip
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range, fetch_and_store_trips
 from preprocess_streets import preprocess_streets as async_preprocess_streets
-from tasks import task_manager, AVAILABLE_TASKS, start_background_tasks
+from tasks import task_manager, AVAILABLE_TASKS, start_background_tasks, TaskStatus
 from db import (
     trips_collection,
     matched_trips_collection,
@@ -116,7 +116,29 @@ async def add_header(request: Request, call_next):
 
 @app.get("/api/background_tasks/config")
 async def get_background_tasks_config():
-    return await task_manager._get_config()
+    """Get current task configuration and status."""
+    config = await task_manager._get_config()
+    
+    # Enrich the response with task definitions and current status
+    for task_id, task_def in task_manager.tasks.items():
+        if task_id not in config["tasks"]:
+            config["tasks"][task_id] = {}
+        
+        task_config = config["tasks"][task_id]
+        task_config["display_name"] = task_def.display_name
+        task_config["description"] = task_def.description
+        task_config["priority"] = task_def.priority.name
+        task_config["status"] = task_config.get("status", "IDLE")
+        
+        # Format timestamps for display
+        for ts_field in ["last_run", "next_run", "start_time", "end_time"]:
+            if ts_field in task_config and task_config[ts_field]:
+                if isinstance(task_config[ts_field], str):
+                    task_config[ts_field] = task_config[ts_field]
+                else:
+                    task_config[ts_field] = task_config[ts_field].isoformat()
+    
+    return config
 
 @app.post("/api/background_tasks/config")
 async def update_background_tasks_config(request: Request):
@@ -211,36 +233,49 @@ async def disable_all_background_tasks():
 
 @app.post("/api/background_tasks/manual_run")
 async def manually_run_tasks(request: Request):
-    data = await request.json()
-    tasks_to_run = data.get("tasks", [])
-    results = []
+    """Manually run selected tasks with improved status tracking."""
+    try:
+        data = await request.json()
+        tasks_to_run = data.get("tasks", [])
+        results = []
 
-    for task_id in tasks_to_run:
-        if task_id == "ALL":
-            for t_id in task_manager.tasks:
-                task_func = task_manager._get_task_function(t_id)
+        for task_id in tasks_to_run:
+            if task_id == "ALL":
+                for t_id in task_manager.tasks:
+                    task_func = task_manager._get_task_function(t_id)
+                    if task_func:
+                        try:
+                            await task_manager._update_task_status(t_id, TaskStatus.RUNNING)
+                            await task_func()
+                            await task_manager._update_task_status(t_id, TaskStatus.COMPLETED)
+                            results.append({"task": t_id, "success": True})
+                        except Exception as e:
+                            error_msg = str(e)
+                            await task_manager._update_task_status(t_id, TaskStatus.FAILED)
+                            logger.error(f"Error running task {t_id}: {error_msg}")
+                            results.append({"task": t_id, "success": False, "error": error_msg})
+            elif task_id in task_manager.tasks:
+                task_func = task_manager._get_task_function(task_id)
                 if task_func:
                     try:
+                        await task_manager._update_task_status(task_id, TaskStatus.RUNNING)
                         await task_func()
-                        results.append({"task": t_id, "success": True})
+                        await task_manager._update_task_status(task_id, TaskStatus.COMPLETED)
+                        results.append({"task": task_id, "success": True})
                     except Exception as e:
-                        logger.error(f"Error running task {t_id}: {e}")
-                        results.append({"task": t_id, "success": False, "error": str(e)})
-        elif task_id in task_manager.tasks:
-            task_func = task_manager._get_task_function(task_id)
-            if task_func:
-                try:
-                    await task_func()
-                    results.append({"task": task_id, "success": True})
-                except Exception as e:
-                    logger.error(f"Error running task {task_id}: {e}")
-                    results.append({"task": task_id, "success": False, "error": str(e)})
+                        error_msg = str(e)
+                        await task_manager._update_task_status(task_id, TaskStatus.FAILED)
+                        logger.error(f"Error running task {task_id}: {error_msg}")
+                        results.append({"task": task_id, "success": False, "error": error_msg})
 
-    return {
-        "status": "success",
-        "message": f"Manually ran {len(results)} tasks",
-        "results": results
-    }
+        return {
+            "status": "success",
+            "message": f"Manually ran {len(results)} tasks",
+            "results": results
+        }
+    except Exception as e:
+        logger.error(f"Error in manually_run_tasks: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/background_tasks/manual_run_old")  # Keep the old one, rename it
@@ -3180,7 +3215,7 @@ async def get_task_details(task_id: str):
             raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
 
         # Get the current task configuration
-        config = await task_config_collection.find_one({"_id": "global_background_task_config"})
+        config = await task_manager._get_config()
         task_config = config.get("tasks", {}).get(task_id, {})
 
         # Get the task's history
@@ -3188,11 +3223,19 @@ async def get_task_details(task_id: str):
         cursor = task_history_collection.find({"task_id": task_id}).sort("timestamp", -1).limit(5)
         async for entry in cursor:
             history.append({
-                "timestamp": entry["timestamp"],
+                "timestamp": entry["timestamp"].isoformat() if entry["timestamp"] else None,
                 "status": entry["status"],
                 "runtime": entry.get("runtime"),
                 "error": entry.get("error")
             })
+
+        # Format timestamps
+        for ts_field in ["last_run", "next_run", "start_time", "end_time"]:
+            if ts_field in task_config and task_config[ts_field]:
+                if isinstance(task_config[ts_field], str):
+                    task_config[ts_field] = task_config[ts_field]
+                else:
+                    task_config[ts_field] = task_config[ts_field].isoformat()
 
         # Compile the task details
         task_details = {
@@ -3206,9 +3249,10 @@ async def get_task_details(task_id: str):
             "interval_minutes": task_config.get("interval_minutes", task_def.default_interval_minutes),
             "last_run": task_config.get("last_run"),
             "next_run": task_config.get("next_run"),
+            "start_time": task_config.get("start_time"),
+            "end_time": task_config.get("end_time"),
             "last_error": task_config.get("last_error"),
-            "history": history,
-            "success_rate": calculate_task_success_rate(history)
+            "history": history
         }
 
         return task_details

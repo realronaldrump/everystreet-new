@@ -171,13 +171,17 @@ class BackgroundTaskManager:
         }
         await task_history_collection.insert_one(history_entry)
         
-        # Update task configuration
+        # Update task configuration with status and next run time
+        job = self.scheduler.get_job(task_id)
+        next_run = job.next_run_time if job else None
+        
         await task_config_collection.update_one(
             {"_id": "global_background_task_config"},
             {
                 "$set": {
                     f"tasks.{task_id}.status": "COMPLETED",
-                    f"tasks.{task_id}.last_run": datetime.now(timezone.utc)
+                    f"tasks.{task_id}.last_run": datetime.now(timezone.utc),
+                    f"tasks.{task_id}.next_run": next_run
                 }
             }
         )
@@ -186,6 +190,7 @@ class BackgroundTaskManager:
         """Handle job execution error."""
         task_id = event.job_id
         self.task_status[task_id] = TaskStatus.FAILED
+        error_msg = str(event.exception)
         
         # Record the error in task history
         history_entry = {
@@ -193,22 +198,26 @@ class BackgroundTaskManager:
             "status": "FAILED",
             "timestamp": datetime.now(timezone.utc),
             "runtime": event.runtime,
-            "error": str(event.exception)
+            "error": error_msg
         }
         await task_history_collection.insert_one(history_entry)
         
-        # Update task configuration
+        # Update task configuration with error status and next run time
+        job = self.scheduler.get_job(task_id)
+        next_run = job.next_run_time if job else None
+        
         await task_config_collection.update_one(
             {"_id": "global_background_task_config"},
             {
                 "$set": {
                     f"tasks.{task_id}.status": "FAILED",
                     f"tasks.{task_id}.last_run": datetime.now(timezone.utc),
-                    f"tasks.{task_id}.last_error": str(event.exception)
+                    f"tasks.{task_id}.last_error": error_msg,
+                    f"tasks.{task_id}.next_run": next_run
                 }
             }
         )
-        logger.error(f"Task {task_id} failed: {event.exception}")
+        logger.error(f"Task {task_id} failed: {error_msg}")
 
     async def start(self):
         """Start the task manager and initialize tasks from database config."""
@@ -248,6 +257,17 @@ class BackgroundTaskManager:
 
         task_def = self.tasks[task_id]
         task_func = self._get_task_function(task_id)
+
+        # Update task status to indicate it's being scheduled
+        await task_config_collection.update_one(
+            {"_id": "global_background_task_config"},
+            {
+                "$set": {
+                    f"tasks.{task_id}.status": "IDLE",
+                    f"tasks.{task_id}.interval_minutes": interval_minutes
+                }
+            }
+        )
 
         # Schedule the task
         self.scheduler.add_job(
@@ -309,10 +329,14 @@ class BackgroundTaskManager:
     async def _fetch_and_store_trips(self):
         """Fetch and store new trips."""
         try:
-            self.task_status["fetch_and_store_trips"] = TaskStatus.RUNNING
+            task_id = "fetch_and_store_trips"
+            await self._update_task_status(task_id, TaskStatus.RUNNING)
+            
             end_date = datetime.now(timezone.utc)
             start_date = end_date - timedelta(hours=1)
             await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=True)
+            
+            await self._update_task_status(task_id, TaskStatus.COMPLETED)
         except Exception as e:
             logger.error(f"Error in fetch_and_store_trips: {e}", exc_info=True)
             raise
@@ -320,7 +344,9 @@ class BackgroundTaskManager:
     async def _periodic_fetch_trips(self):
         """Periodically fetch trips to fill gaps."""
         try:
-            self.task_status["periodic_fetch_trips"] = TaskStatus.RUNNING
+            task_id = "periodic_fetch_trips"
+            await self._update_task_status(task_id, TaskStatus.RUNNING)
+            
             last_trip = await trips_collection.find_one(sort=[("endTime", -1)])
             if last_trip and last_trip.get("endTime"):
                 start_date = last_trip["endTime"]
@@ -328,6 +354,8 @@ class BackgroundTaskManager:
                 start_date = datetime.now(timezone.utc) - timedelta(days=7)
             end_date = datetime.now(timezone.utc)
             await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=False)
+            
+            await self._update_task_status(task_id, TaskStatus.COMPLETED)
         except Exception as e:
             logger.error(f"Error in periodic_fetch_trips: {e}", exc_info=True)
             raise
@@ -335,8 +363,12 @@ class BackgroundTaskManager:
     async def _update_coverage(self):
         """Update street coverage calculations."""
         try:
-            self.task_status["update_coverage_for_all_locations"] = TaskStatus.RUNNING
+            task_id = "update_coverage_for_all_locations"
+            await self._update_task_status(task_id, TaskStatus.RUNNING)
+            
             await update_coverage_for_all_locations()
+            
+            await self._update_task_status(task_id, TaskStatus.COMPLETED)
         except Exception as e:
             logger.error(f"Error in update_coverage: {e}", exc_info=True)
             raise
@@ -474,6 +506,42 @@ class BackgroundTaskManager:
         except Exception as e:
             logger.error(f"Error in validate_trip_data: {e}", exc_info=True)
             raise
+
+    async def _update_task_status(self, task_id: str, status: TaskStatus):
+        """Update task status in both memory and database."""
+        self.task_status[task_id] = status
+        
+        # Get task display name
+        task_def = self.tasks.get(task_id)
+        display_name = task_def.display_name if task_def else task_id
+        
+        # Update task configuration
+        update_data = {
+            f"tasks.{task_id}.status": status.value
+        }
+        
+        if status == TaskStatus.RUNNING:
+            update_data[f"tasks.{task_id}.start_time"] = datetime.now(timezone.utc)
+        elif status in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
+            update_data[f"tasks.{task_id}.end_time"] = datetime.now(timezone.utc)
+            
+            # Get the job's next run time
+            job = self.scheduler.get_job(task_id)
+            if job and job.next_run_time:
+                update_data[f"tasks.{task_id}.next_run"] = job.next_run_time
+        
+        await task_config_collection.update_one(
+            {"_id": "global_background_task_config"},
+            {"$set": update_data}
+        )
+        
+        # Add history entry
+        history_entry = {
+            "task_id": task_id,
+            "status": status.value,
+            "timestamp": datetime.now(timezone.utc)
+        }
+        await task_history_collection.insert_one(history_entry)
 
 # Create a global task manager instance
 task_manager = BackgroundTaskManager()
