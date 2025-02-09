@@ -34,10 +34,12 @@ from db import (
 
 logger = logging.getLogger(__name__)
 
+
 class TaskPriority(Enum):
     LOW = 1
     MEDIUM = 2
     HIGH = 3
+
 
 @dataclass
 class TaskDefinition:
@@ -48,12 +50,14 @@ class TaskDefinition:
     dependencies: List[str]
     description: str
 
+
 class TaskStatus(Enum):
     IDLE = "idle"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
     PAUSED = "paused"
+
 
 class BackgroundTaskManager:
     def __init__(self):
@@ -154,14 +158,15 @@ class BackgroundTaskManager:
         }
 
     def _setup_event_listeners(self):
-        self.scheduler.add_listener(self._handle_job_executed, EVENT_JOB_EXECUTED)
+        self.scheduler.add_listener(
+            self._handle_job_executed, EVENT_JOB_EXECUTED)
         self.scheduler.add_listener(self._handle_job_error, EVENT_JOB_ERROR)
 
     async def _handle_job_executed(self, event):
         """Handle successful job execution."""
         task_id = event.job_id
         self.task_status[task_id] = TaskStatus.COMPLETED
-        
+
         # Record the execution in task history
         history_entry = {
             "task_id": task_id,
@@ -170,7 +175,7 @@ class BackgroundTaskManager:
             "runtime": event.runtime
         }
         await task_history_collection.insert_one(history_entry)
-        
+
         # Update task configuration
         await task_config_collection.update_one(
             {"_id": "global_background_task_config"},
@@ -186,7 +191,7 @@ class BackgroundTaskManager:
         """Handle job execution error."""
         task_id = event.job_id
         self.task_status[task_id] = TaskStatus.FAILED
-        
+
         # Record the error in task history
         history_entry = {
             "task_id": task_id,
@@ -196,7 +201,7 @@ class BackgroundTaskManager:
             "error": str(event.exception)
         }
         await task_history_collection.insert_one(history_entry)
-        
+
         # Update task configuration
         await task_config_collection.update_one(
             {"_id": "global_background_task_config"},
@@ -401,14 +406,16 @@ class BackgroundTaskManager:
                                 start_coords[1], start_coords[0]
                             )
                             if start_location:
-                                updates["startLocation"] = start_location.get("display_name")
+                                updates["startLocation"] = start_location.get(
+                                    "display_name")
 
                         if not trip.get("destination"):
                             end_location = await reverse_geocode_nominatim(
                                 end_coords[1], end_coords[0]
                             )
                             if end_location:
-                                updates["destination"] = end_location.get("display_name")
+                                updates["destination"] = end_location.get(
+                                    "display_name")
 
                         if updates:
                             await trips_collection.update_one(
@@ -454,9 +461,11 @@ class BackgroundTaskManager:
                 updates = {}
                 # Validate and correct timestamps
                 if isinstance(trip.get("startTime"), str):
-                    updates["startTime"] = datetime.fromisoformat(trip["startTime"])
+                    updates["startTime"] = datetime.fromisoformat(
+                        trip["startTime"])
                 if isinstance(trip.get("endTime"), str):
-                    updates["endTime"] = datetime.fromisoformat(trip["endTime"])
+                    updates["endTime"] = datetime.fromisoformat(
+                        trip["endTime"])
 
                 # Validate GPS data
                 if isinstance(trip.get("gps"), str):
@@ -475,9 +484,11 @@ class BackgroundTaskManager:
             logger.error(f"Error in validate_trip_data: {e}", exc_info=True)
             raise
 
+
 # Create a global task manager instance
 task_manager = BackgroundTaskManager()
-AVAILABLE_TASKS = list(task_manager.tasks.values()) # Corrected: Define AVAILABLE_TASKS
+# Corrected: Define AVAILABLE_TASKS
+AVAILABLE_TASKS = list(task_manager.tasks.values())
 
 
 # Startup function to be called by the application
