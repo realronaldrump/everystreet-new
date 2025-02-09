@@ -152,7 +152,8 @@ class BackgroundTaskManager:
         }
 
     def _setup_event_listeners(self):
-        self.scheduler.add_listener(self._handle_job_executed, EVENT_JOB_EXECUTED)
+        self.scheduler.add_listener(
+            self._handle_job_executed, EVENT_JOB_EXECUTED)
         self.scheduler.add_listener(self._handle_job_error, EVENT_JOB_ERROR)
 
     async def _handle_job_executed(self, event):
@@ -489,9 +490,11 @@ class BackgroundTaskManager:
                 updates = {}
                 # Validate and correct timestamps
                 if isinstance(trip.get("startTime"), str):
-                    updates["startTime"] = datetime.fromisoformat(trip["startTime"])
+                    updates["startTime"] = datetime.fromisoformat(
+                        trip["startTime"])
                 if isinstance(trip.get("endTime"), str):
-                    updates["endTime"] = datetime.fromisoformat(trip["endTime"])
+                    updates["endTime"] = datetime.fromisoformat(
+                        trip["endTime"])
 
                 # Validate GPS data
                 if isinstance(trip.get("gps"), str):
@@ -521,9 +524,11 @@ class BackgroundTaskManager:
         update_data = {f"tasks.{task_id}.status": status.value}
 
         if status == TaskStatus.RUNNING:
-            update_data[f"tasks.{task_id}.start_time"] = datetime.now(timezone.utc)
+            update_data[f"tasks.{task_id}.start_time"] = datetime.now(
+                timezone.utc)
         elif status in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
-            update_data[f"tasks.{task_id}.end_time"] = datetime.now(timezone.utc)
+            update_data[f"tasks.{task_id}.end_time"] = datetime.now(
+                timezone.utc)
 
             # Get the job's next run time
             job = self.scheduler.get_job(task_id)
@@ -545,7 +550,8 @@ class BackgroundTaskManager:
 
 # Create a global task manager instance
 task_manager = BackgroundTaskManager()
-AVAILABLE_TASKS = list(task_manager.tasks.values())  # Corrected: Define AVAILABLE_TASKS
+# Corrected: Define AVAILABLE_TASKS
+AVAILABLE_TASKS = list(task_manager.tasks.values())
 
 
 # Startup function to be called by the application
