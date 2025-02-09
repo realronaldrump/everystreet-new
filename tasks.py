@@ -152,7 +152,8 @@ class BackgroundTaskManager:
         }
 
     def _setup_event_listeners(self):
-        self.scheduler.add_listener(self._handle_job_executed, EVENT_JOB_EXECUTED)
+        self.scheduler.add_listener(
+            self._handle_job_executed, EVENT_JOB_EXECUTED)
         self.scheduler.add_listener(self._handle_job_error, EVENT_JOB_ERROR)
 
     async def _handle_job_executed(self, event):
@@ -184,7 +185,8 @@ class BackgroundTaskManager:
                 }
             },
         )
-        self._update_in_memory_history(history_entry) # Keep in-memory history up-to-date
+        # Keep in-memory history up-to-date
+        self._update_in_memory_history(history_entry)
 
     async def _handle_job_error(self, event):
         """Handle job execution error."""
@@ -199,7 +201,7 @@ class BackgroundTaskManager:
             "timestamp": datetime.now(timezone.utc),
             "runtime": event.runtime,
             "error": error_msg,
-            "result": False, # Add result field
+            "result": False,  # Add result field
         }
         await task_history_collection.insert_one(history_entry)
 
@@ -219,13 +221,14 @@ class BackgroundTaskManager:
             },
         )
         logger.error(f"Task {task_id} failed: {error_msg}")
-        self._update_in_memory_history(history_entry)  # Keep in-memory history up-to-date
+        # Keep in-memory history up-to-date
+        self._update_in_memory_history(history_entry)
 
     def _update_in_memory_history(self, entry):
         """Updates the in-memory task history (for caching purposes)."""
         self.task_history.insert(0, entry)  # Prepend to keep newest first
-        self.task_history = self.task_history[:50]  # Keep only the last 50 entries
-
+        # Keep only the last 50 entries
+        self.task_history = self.task_history[:50]
 
     async def start(self):
         """Start the task manager and initialize tasks from database config."""
@@ -278,10 +281,14 @@ class BackgroundTaskManager:
                 "$set": {
                     f"tasks.{task_id}.status": "IDLE",
                     f"tasks.{task_id}.interval_minutes": interval_minutes,
-                    f"tasks.{task_id}.display_name": task_def.display_name, # Ensure display name is saved
-                    f"tasks.{task_id}.priority": task_def.priority.name, #Ensure priority is saved.
-                    f"tasks.{task_id}.dependencies": task_def.dependencies, #Ensure dependencies are saved
-                    f"tasks.{task_id}.description": task_def.description #Ensure description is saved.
+                    # Ensure display name is saved
+                    f"tasks.{task_id}.display_name": task_def.display_name,
+                    # Ensure priority is saved.
+                    f"tasks.{task_id}.priority": task_def.priority.name,
+                    # Ensure dependencies are saved
+                    f"tasks.{task_id}.dependencies": task_def.dependencies,
+                    # Ensure description is saved.
+                    f"tasks.{task_id}.description": task_def.description
                 }
             },
         )
@@ -337,7 +344,7 @@ class BackgroundTaskManager:
                         "priority": task_def.priority.name,
                         "dependencies": task_def.dependencies,
                         "description": task_def.description,
-                        "status": "IDLE" # Initialize status
+                        "status": "IDLE"  # Initialize status
                     }
                     for task_id, task_def in self.tasks.items()
                 },
@@ -522,9 +529,11 @@ class BackgroundTaskManager:
                 updates = {}
                 # Validate and correct timestamps
                 if isinstance(trip.get("startTime"), str):
-                    updates["startTime"] = datetime.fromisoformat(trip["startTime"])
+                    updates["startTime"] = datetime.fromisoformat(
+                        trip["startTime"])
                 if isinstance(trip.get("endTime"), str):
-                    updates["endTime"] = datetime.fromisoformat(trip["endTime"])
+                    updates["endTime"] = datetime.fromisoformat(
+                        trip["endTime"])
 
                 # Validate GPS data
                 if isinstance(trip.get("gps"), str):
@@ -555,11 +564,13 @@ class BackgroundTaskManager:
         update_data = {f"tasks.{task_id}.status": status.value}
 
         if status == TaskStatus.RUNNING:
-            update_data[f"tasks.{task_id}.start_time"] = datetime.now(timezone.utc)
-            update_data[f"tasks.{task_id}.last_run"] = datetime.now(timezone.utc)  # Update last_run when starting
+            update_data[f"tasks.{task_id}.start_time"] = datetime.now(
+                timezone.utc)
+            update_data[f"tasks.{task_id}.last_run"] = datetime.now(
+                timezone.utc)  # Update last_run when starting
         elif status in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
-            update_data[f"tasks.{task_id}.end_time"] = datetime.now(timezone.utc)
-
+            update_data[f"tasks.{task_id}.end_time"] = datetime.now(
+                timezone.utc)
 
         if error:
             update_data[f"tasks.{task_id}.last_error"] = error
@@ -578,22 +589,25 @@ class BackgroundTaskManager:
             "task_id": task_id,
             "status": status.value,
             "timestamp": datetime.now(timezone.utc),
-             "result": status == TaskStatus.COMPLETED, # Set result based on status
+            "result": status == TaskStatus.COMPLETED,  # Set result based on status
             "error": error,  # Include the error message
         }
 
-        #Check if runtime exists:
+        # Check if runtime exists:
         if (status == TaskStatus.COMPLETED or status == TaskStatus.FAILED):
             if 'start_time' in self.tasks[task_id].__dict__:
-                history_entry["runtime"] = (datetime.now(timezone.utc) - self.tasks[task_id].__dict__['start_time']).total_seconds() * 1000
+                history_entry["runtime"] = (datetime.now(
+                    timezone.utc) - self.tasks[task_id].__dict__['start_time']).total_seconds() * 1000
 
         await task_history_collection.insert_one(history_entry)
-        self._update_in_memory_history(history_entry) # Keep in-memory history up-to-date
+        # Keep in-memory history up-to-date
+        self._update_in_memory_history(history_entry)
 
 
 # Create a global task manager instance
 task_manager = BackgroundTaskManager()
-AVAILABLE_TASKS = list(task_manager.tasks.values())  # Corrected: Define AVAILABLE_TASKS
+# Corrected: Define AVAILABLE_TASKS
+AVAILABLE_TASKS = list(task_manager.tasks.values())
 
 
 # Startup function to be called by the application
