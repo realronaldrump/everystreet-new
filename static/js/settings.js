@@ -214,73 +214,107 @@
 
   // POPULATE TASK CONFIGURATION UI
   function populateTaskConfigUI(cfg) {
-    console.log('Populating UI with config:', cfg); // Debug log
+    console.log('Populating UI with config:', cfg);
     const globalDisableSwitch = document.getElementById("globalDisableSwitch");
     if (globalDisableSwitch)
-      globalDisableSwitch.checked = Boolean(cfg.disabled);
+        globalDisableSwitch.checked = Boolean(cfg.disabled);
     const tableBody = document.querySelector("#taskConfigTable tbody");
     if (!tableBody || !cfg.tasks) return;
     tableBody.innerHTML = "";
 
     const intervalOptions = [
-      { value: 30, label: "Every 30 min" },
-      { value: 60, label: "Every 1 hour" },
-      { value: 180, label: "Every 3 hours" },
-      { value: 360, label: "Every 6 hours" },
-      { value: 720, label: "Every 12 hours" },
-      { value: 1440, label: "Every 24 hours" },
+        { value: 30, label: "Every 30 min" },
+        { value: 60, label: "Every 1 hour" },
+        { value: 180, label: "Every 3 hours" },
+        { value: 360, label: "Every 6 hours" },
+        { value: 720, label: "Every 12 hours" },
+        { value: 1440, label: "Every 24 hours" },
     ];
 
     const knownTasks = [
-      { id: "fetch_and_store_trips", name: "Fetch & Store Trips" },
-      { id: "periodic_fetch_trips", name: "Periodic Trip Fetch" },
-      { id: "cleanup_stale_trips", name: "Cleanup Stale Trips" },
-      { id: "cleanup_invalid_trips", name: "Cleanup Invalid Trips" },
-      { id: "update_street_coverage", name: "Update Street Coverage" }
-  ];
+        { id: "fetch_and_store_trips", name: "Fetch & Store Trips" },
+        { id: "periodic_fetch_trips", name: "Periodic Trip Fetch" },
+        { id: "cleanup_stale_trips", name: "Cleanup Stale Trips" },
+        { id: "cleanup_invalid_trips", name: "Cleanup Invalid Trips" },
+        { id: "update_street_coverage", name: "Update Street Coverage" }
+    ];
 
     knownTasks.forEach((task) => {
-      const row = document.createElement("tr");
-      const taskConfig = cfg.tasks[task.id] || {};
-      console.log(`Task ${task.id} config:`, taskConfig); // Debug log
+        const row = document.createElement("tr");
+        const taskConfig = cfg.tasks[task.id] || {};
+        console.log(`Task ${task.id} config:`, taskConfig);
 
-      const tdName = document.createElement("td");
-      tdName.textContent = task.name;
-      row.appendChild(tdName);
+        // Name column
+        const tdName = document.createElement("td");
+        tdName.textContent = task.name;
+        row.appendChild(tdName);
 
-      const tdInterval = document.createElement("td");
-      const currentInterval = taskConfig.interval_minutes || 60;
-      const sel = document.createElement("select");
-      sel.className = "form-select form-select-sm w-auto";
-      intervalOptions.forEach((opt) => {
-        const optionEl = document.createElement("option");
-        optionEl.value = opt.value;
-        optionEl.textContent = opt.label;
-        if (opt.value == currentInterval) optionEl.selected = true;
-        sel.appendChild(optionEl);
-      });
-      sel.dataset.taskId = task.id;
-      tdInterval.appendChild(sel);
-      row.appendChild(tdInterval);
+        // Interval column
+        const tdInterval = document.createElement("td");
+        const currentInterval = taskConfig.interval_minutes || 60;
+        const sel = document.createElement("select");
+        sel.className = "form-select form-select-sm w-auto";
+        intervalOptions.forEach((opt) => {
+            const optionEl = document.createElement("option");
+            optionEl.value = opt.value;
+            optionEl.textContent = opt.label;
+            if (opt.value == currentInterval) optionEl.selected = true;
+            sel.appendChild(optionEl);
+        });
+        sel.dataset.taskId = task.id;
+        tdInterval.appendChild(sel);
+        row.appendChild(tdInterval);
 
-      const tdEnable = document.createElement("td");
-      const enableCheck = document.createElement("input");
-      enableCheck.type = "checkbox";
-      enableCheck.classList.add("form-check-input");
-      enableCheck.checked = Boolean(taskConfig.enabled);
-      enableCheck.dataset.taskId = task.id;
-      tdEnable.appendChild(enableCheck);
-      row.appendChild(tdEnable);
+        // Enable column
+        const tdEnable = document.createElement("td");
+        const enableCheck = document.createElement("input");
+        enableCheck.type = "checkbox";
+        enableCheck.classList.add("form-check-input");
+        enableCheck.checked = Boolean(taskConfig.enabled);
+        enableCheck.dataset.taskId = task.id;
+        tdEnable.appendChild(enableCheck);
+        row.appendChild(tdEnable);
 
-      const tdRun = document.createElement("td");
-      const btnRun = document.createElement("button");
-      btnRun.className = "btn btn-sm btn-info";
-      btnRun.textContent = "Run Now";
-      btnRun.addEventListener("click", () => manualRunTasks([task.id]));
-      tdRun.appendChild(btnRun);
-      row.appendChild(tdRun);
+        // Run Now column
+        const tdRun = document.createElement("td");
+        const btnRun = document.createElement("button");
+        btnRun.className = "btn btn-sm btn-info";
+        btnRun.innerHTML = '<i class="fas fa-play me-1"></i>Run Now';
+        btnRun.dataset.taskId = task.id;
+        btnRun.addEventListener("click", () => {
+            btnRun.disabled = true;
+            btnRun.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Running...';
+            manualRunTasks([task.id])
+                .then(response => {
+                    if (response.results && response.results[0]) {
+                        const result = response.results[0];
+                        const statusCell = row.querySelector('.task-status');
+                        if (statusCell) {
+                            const statusIcon = result.status === "success" ? "✓" : "✗";
+                            const statusClass = result.status === "success" ? "text-success" : "text-danger";
+                            statusCell.innerHTML = `<span class="${statusClass}">${statusIcon} ${result.message || result.status}</span>`;
+                        }
+                    }
+                })
+                .finally(() => {
+                    btnRun.disabled = false;
+                    btnRun.innerHTML = '<i class="fas fa-play me-1"></i>Run Now';
+                });
+        });
+        tdRun.appendChild(btnRun);
+        row.appendChild(tdRun);
 
-      tableBody.appendChild(row);
+        // Status column
+        const tdStatus = document.createElement("td");
+        tdStatus.className = "task-status small";
+        if (taskConfig.lastRun) {
+            const statusIcon = taskConfig.lastStatus === "success" ? "✓" : "✗";
+            const statusClass = taskConfig.lastStatus === "success" ? "text-success" : "text-danger";
+            tdStatus.innerHTML = `<span class="${statusClass}">${statusIcon} ${taskConfig.lastMessage || ''}</span>`;
+        }
+        row.appendChild(tdStatus);
+
+        tableBody.appendChild(row);
     });
   }
 
@@ -438,27 +472,29 @@
   }
 
   function manualRunTasks(taskIds) {
-    fetch("/api/background_tasks/manual_run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tasks: taskIds })
+    return fetch("/api/background_tasks/manual_run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks: taskIds })
     })
     .then(response => response.json())
     .then(data => {
-      if (data.status === "success") {
-        const messages = data.results.map(result => {
-          const statusIcon = result.status === "success" ? "✓" : "✗";
-          const statusClass = result.status === "success" ? "text-success" : "text-danger";
-          return `${result.task}: <span class="${statusClass}">${statusIcon} ${result.message || result.status}</span>`;
-        });
-        alert(messages.join("\n"));
-      } else {
-        alert("Error: " + data.message);
-      }
+        if (data.status === "success") {
+            const messages = data.results.map(result => {
+                const statusIcon = result.status === "success" ? "✓" : "✗";
+                const statusClass = result.status === "success" ? "text-success" : "text-danger";
+                return `${result.task}: <span class="${statusClass}">${statusIcon} ${result.message || result.status}</span>`;
+            });
+            showToast("Task Results", messages.join("<br>"));
+        } else {
+            showToast("Error", data.message || "Unknown error occurred");
+        }
+        return data;
     })
     .catch(err => {
-      console.error("Error triggering tasks manually:", err);
-      alert("Error triggering tasks. Check console.");
+        console.error("Error triggering tasks manually:", err);
+        showToast("Error", "Failed to run tasks. Check console for details.");
+        throw err;
     });
   }
 
