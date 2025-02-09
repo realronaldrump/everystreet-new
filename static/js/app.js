@@ -1024,6 +1024,9 @@
     // Update UI elements
     updateLayerOrderUI();
     updateMap();
+    
+    // Get metadata from the correct location in the response
+    const metadata = coverageData.streets_data.metadata;
     updateCoverageStats(coverageData);
   }
 
@@ -1043,7 +1046,13 @@
     // Unhide the stats panel
     statsDiv.classList.remove("d-none");
 
+    // Get metadata from the correct location
     const metadata = coverageData.streets_data.metadata;
+    if (!metadata) {
+      console.error("No metadata found in coverage data");
+      return;
+    }
+
     const percent = metadata.coverage_percentage || 0;
     const totalMiles = metadata.total_length_miles || 0;
     const drivenMiles = metadata.driven_length_miles || 0;
