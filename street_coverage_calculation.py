@@ -1,3 +1,4 @@
+from motor.motor_asyncio import AsyncIOMotorClient
 import logging
 from datetime import datetime, timezone
 import json
@@ -22,7 +23,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Database setup using Motor (asynchronous)
-from motor.motor_asyncio import AsyncIOMotorClient
 
 MONGO_URI = os.getenv("MONGO_URI")
 client = AsyncIOMotorClient(MONGO_URI, tz_aware=True)
@@ -158,7 +158,8 @@ class CoverageCalculator:
                 if not intersection.is_empty:
                     intersection_length = intersection.length
                     if intersection_length >= self.min_match_length:
-                        covered_segments.add(street["properties"]["segment_id"])
+                        covered_segments.add(
+                            street["properties"]["segment_id"])
 
             return covered_segments
 
@@ -187,7 +188,8 @@ class CoverageCalculator:
             # Initialize coverage tracking
             total_length = 0
             covered_length = 0
-            segment_coverage = defaultdict(int)  # Track coverage count per segment
+            # Track coverage count per segment
+            segment_coverage = defaultdict(int)
 
             # Calculate total length in UTM coordinates for accuracy
             for street in streets:
@@ -301,7 +303,8 @@ async def update_coverage_for_all_locations() -> None:
     """
     try:
         logger.info("Starting coverage update for all locations...")
-        cursor = coverage_metadata_collection.find({}, {"location": 1, "_id": 1})
+        cursor = coverage_metadata_collection.find(
+            {}, {"location": 1, "_id": 1})
 
         async for doc in cursor:
             loc = doc.get("location")
@@ -334,4 +337,5 @@ async def update_coverage_for_all_locations() -> None:
                 )
         logger.info("Finished coverage update for all locations.")
     except Exception as e:
-        logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)
+        logger.error(
+            f"Error updating coverage for all locations: {e}", exc_info=True)
