@@ -37,49 +37,69 @@ wgs84 = pyproj.CRS("EPSG:4326")
 class CoverageCalculator:
     def __init__(self, location: Dict[str, Any]):
         self.location = location
-        self.streets_index = rtree.index.Index()
+        self.streets_index = None
         self.streets_lookup = {}
         self.utm_proj = None
         self.project_to_utm = None
         self.project_to_wgs84 = None
         self.match_buffer = 15  # meters
         self.min_match_length = 5  # meters
-        self.batch_size = 100  # Process trips in batches
+        self.batch_size = self._calculate_optimal_batch_size()
+        self.coverage_cache = {}
         self.initialize_projections()
+        
+    def _calculate_optimal_batch_size(self) -> int:
+        """Calculate optimal batch size based on available memory and typical trip size"""
+        import psutil
+        available_memory = psutil.virtual_memory().available
+        typical_trip_size = 1024 * 100  # Assume 100KB per trip
+        optimal_size = max(50, min(500, int(available_memory / (typical_trip_size * 2))))
+        return optimal_size
 
     def initialize_projections(self):
-        """Initialize UTM projection based on location center"""
+        """Initialize UTM projection based on location center - with caching"""
         if "boundingbox" in self.location:
             bbox = self.location["boundingbox"]
             center_lat = (float(bbox[0]) + float(bbox[1])) / 2
             center_lon = (float(bbox[2]) + float(bbox[3])) / 2
         else:
-            # Default to a central point if no bounding box
             center_lat = 0
             center_lon = 0
 
-        # Calculate UTM zone
         utm_zone = int((center_lon + 180) / 6) + 1
         hemisphere = 'north' if center_lat >= 0 else 'south'
         
-        # Create UTM projection
-        self.utm_proj = pyproj.CRS(f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84")
-        
-        # Create transformers
-        self.project_to_utm = pyproj.Transformer.from_crs(wgs84, self.utm_proj, always_xy=True).transform
-        self.project_to_wgs84 = pyproj.Transformer.from_crs(self.utm_proj, wgs84, always_xy=True).transform
+        projection_key = f"UTM{utm_zone}{hemisphere}"
+        if not hasattr(CoverageCalculator, '_projection_cache'):
+            CoverageCalculator._projection_cache = {}
+            
+        if projection_key not in CoverageCalculator._projection_cache:
+            self.utm_proj = pyproj.CRS(f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84")
+            self.project_to_utm = pyproj.Transformer.from_crs(wgs84, self.utm_proj, always_xy=True).transform
+            self.project_to_wgs84 = pyproj.Transformer.from_crs(self.utm_proj, wgs84, always_xy=True).transform
+            CoverageCalculator._projection_cache[projection_key] = (self.utm_proj, self.project_to_utm, self.project_to_wgs84)
+        else:
+            self.utm_proj, self.project_to_utm, self.project_to_wgs84 = CoverageCalculator._projection_cache[projection_key]
 
-    def build_spatial_index(self, streets: List[Dict[str, Any]]):
-        """Build R-tree spatial index for streets"""
-        logger.info("Building spatial index for streets...")
-        for idx, street in enumerate(streets):
-            try:
-                geom = shape(street["geometry"])
-                bounds = geom.bounds
-                self.streets_index.insert(idx, bounds)
-                self.streets_lookup[idx] = street
-            except Exception as e:
-                logger.error(f"Error indexing street: {e}")
+    async def build_spatial_index(self, streets: List[Dict[str, Any]]):
+        """Build and cache R-tree spatial index for streets"""
+        location_key = self.location.get('display_name', '')
+        if not hasattr(CoverageCalculator, '_spatial_index_cache'):
+            CoverageCalculator._spatial_index_cache = {}
+            
+        if location_key not in CoverageCalculator._spatial_index_cache:
+            self.streets_index = rtree.index.Index()
+            for idx, street in enumerate(streets):
+                try:
+                    geom = shape(street["geometry"])
+                    bounds = geom.bounds
+                    self.streets_index.insert(idx, bounds)
+                    self.streets_lookup[idx] = street
+                except Exception as e:
+                    logger.error(f"Error indexing street: {e}")
+            CoverageCalculator._spatial_index_cache[location_key] = (self.streets_index, self.streets_lookup)
+        else:
+            self.streets_index, self.streets_lookup = CoverageCalculator._spatial_index_cache[location_key]
 
     async def process_matched_trips_batch(self, trips: List[Dict[str, Any]], boundary_box: box) -> Set[str]:
         """Process a batch of matched trips concurrently"""
@@ -172,7 +192,7 @@ class CoverageCalculator:
                 return None
 
             # Build spatial index and calculate boundary
-            self.build_spatial_index(streets)
+            await self.build_spatial_index(streets)
             boundary_box = self.calculate_boundary_box(streets)
 
             # Initialize coverage tracking
@@ -269,6 +289,7 @@ class CoverageCalculator:
 
 async def compute_coverage_for_location(
     location: Dict[str, Any],
+    task_id: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
     """
     Compute street coverage for a given validated location.

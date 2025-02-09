@@ -86,6 +86,8 @@ async def get_task_config():
     cfg = await task_config_collection.find_one(
         {"_id": "global_background_task_config"}
     )
+    
+    # Initialize default configuration
     if not cfg:
         cfg = {
             "_id": "global_background_task_config",
@@ -93,12 +95,32 @@ async def get_task_config():
             "disabled": False,
             "tasks": {},
         }
-        for t in AVAILABLE_TASKS:
+    
+    # Ensure all tasks have proper configuration
+    needs_update = False
+    for t in AVAILABLE_TASKS:
+        if t["id"] not in cfg["tasks"]:
             cfg["tasks"][t["id"]] = {
                 "interval_minutes": t["default_interval_minutes"],
                 "enabled": True,
             }
-        await task_config_collection.insert_one(cfg)
+            needs_update = True
+        else:
+            # Ensure all required fields exist
+            task_config = cfg["tasks"][t["id"]]
+            if "interval_minutes" not in task_config:
+                task_config["interval_minutes"] = t["default_interval_minutes"]
+                needs_update = True
+            if "enabled" not in task_config:
+                task_config["enabled"] = True
+                needs_update = True
+    
+    # Save if we had to add any missing configurations
+    if needs_update:
+        await task_config_collection.replace_one(
+            {"_id": "global_background_task_config"}, cfg, upsert=True
+        )
+    
     return cfg
 
 
@@ -106,9 +128,15 @@ async def save_task_config(cfg):
     """
     Saves the given configuration document to the database.
     """
-    await task_config_collection.replace_one(
-        {"_id": "global_background_task_config"}, cfg, upsert=True
-    )
+    logger.debug(f"Saving task config: {cfg}")  # Add debug logging
+    try:
+        await task_config_collection.replace_one(
+            {"_id": "global_background_task_config"}, cfg, upsert=True
+        )
+        logger.info("Task configuration saved successfully")
+    except Exception as e:
+        logger.error(f"Error saving task config: {e}", exc_info=True)
+        raise
 
 
 # --- Background Task Functions ---
@@ -201,36 +229,69 @@ async def update_street_coverage():
                 {"last_updated": {"$lt": stale_threshold}},
                 {"last_updated": {"$exists": False}}
             ]
-        })
+        }).sort("last_updated", 1)  # Process oldest first
         
-        async for doc in cursor:
-            location = doc.get("location")
-            if not location or not isinstance(location, dict):
-                logger.warning(f"Skipping coverage update for document with invalid location data: {doc.get('_id')}")
-                continue
+        # Use semaphore to limit concurrent updates
+        semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent updates
+        
+        async def process_location(doc):
+            async with semaphore:
+                location = doc.get("location")
+                if not location or not isinstance(location, dict):
+                    logger.warning(f"Skipping invalid location data: {doc.get('_id')}")
+                    return
+                    
+                display_name = location.get("display_name", "Unknown")
+                logger.info(f"Updating coverage for {display_name}")
                 
-            display_name = location.get("display_name", "Unknown")
-            logger.info(f"Updating stale coverage data for {display_name}")
-            result = await compute_coverage_for_location(location)
-            
-            if result:
-                await coverage_metadata_collection.update_one(
-                    {"location.display_name": display_name},
-                    {
-                        "$set": {
-                            "location": location,
-                            "total_length": result["total_length"],
-                            "driven_length": result["driven_length"],
-                            "coverage_percentage": result["coverage_percentage"],
-                            "streets_data": result["streets_data"],
-                            "last_updated": now,
+                try:
+                    result = await compute_coverage_for_location(location)
+                    if result:
+                        await coverage_metadata_collection.update_one(
+                            {"location.display_name": display_name},
+                            {
+                                "$set": {
+                                    "location": location,
+                                    "total_length": result["total_length"],
+                                    "driven_length": result["driven_length"],
+                                    "coverage_percentage": result["coverage_percentage"],
+                                    "streets_data": result["streets_data"],
+                                    "last_updated": now,
+                                    "last_error": None
+                                }
+                            },
+                            upsert=True
+                        )
+                        logger.info(f"Updated coverage for {display_name}")
+                    else:
+                        await coverage_metadata_collection.update_one(
+                            {"location.display_name": display_name},
+                            {
+                                "$set": {
+                                    "last_error": "Coverage computation failed",
+                                    "last_error_time": now
+                                }
+                            }
+                        )
+                except Exception as e:
+                    logger.error(f"Error updating coverage for {display_name}: {e}")
+                    await coverage_metadata_collection.update_one(
+                        {"location.display_name": display_name},
+                        {
+                            "$set": {
+                                "last_error": str(e),
+                                "last_error_time": now
+                            }
                         }
-                    },
-                    upsert=True
-                )
-                logger.info(f"Updated coverage for {display_name}")
-                
+                    )
+        
+        tasks = []
+        async for doc in cursor:
+            tasks.append(asyncio.create_task(process_location(doc)))
+            
+        await asyncio.gather(*tasks)
         logger.info("Completed street coverage update for stale locations")
+        
     except Exception as e:
         logger.error(f"Error updating street coverage: {e}", exc_info=True)
 

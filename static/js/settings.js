@@ -214,6 +214,7 @@
 
   // POPULATE TASK CONFIGURATION UI
   function populateTaskConfigUI(cfg) {
+    console.log('Populating UI with config:', cfg); // Debug log
     const globalDisableSwitch = document.getElementById("globalDisableSwitch");
     if (globalDisableSwitch)
       globalDisableSwitch.checked = Boolean(cfg.disabled);
@@ -244,13 +245,15 @@
 
     knownTasks.forEach((task) => {
       const row = document.createElement("tr");
+      const taskConfig = cfg.tasks[task.id] || {};
+      console.log(`Task ${task.id} config:`, taskConfig); // Debug log
 
       const tdName = document.createElement("td");
       tdName.textContent = task.name;
       row.appendChild(tdName);
 
       const tdInterval = document.createElement("td");
-      const currentInterval = cfg.tasks[task.id]?.interval_minutes || 60;
+      const currentInterval = taskConfig.interval_minutes || 60;
       const sel = document.createElement("select");
       sel.className = "form-select form-select-sm w-auto";
       intervalOptions.forEach((opt) => {
@@ -268,7 +271,7 @@
       const enableCheck = document.createElement("input");
       enableCheck.type = "checkbox";
       enableCheck.classList.add("form-check-input");
-      enableCheck.checked = Boolean(cfg.tasks[task.id]?.enabled);
+      enableCheck.checked = Boolean(taskConfig.enabled);
       enableCheck.dataset.taskId = task.id;
       tdEnable.appendChild(enableCheck);
       row.appendChild(tdEnable);
@@ -288,8 +291,10 @@
   // SAVE TASK CONFIGURATION
   function saveBackgroundTasksConfig() {
     const config = gatherTaskConfigFromUI();
+    console.log('Saving config:', config); // Debug log
     submitTaskConfigUpdate(config)
-      .then(() => {
+      .then((response) => {
+        console.log('Config save response:', response); // Debug log
         alert("Background task config saved.");
         loadBackgroundTasksConfig();
       })

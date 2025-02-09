@@ -19,3 +19,4 @@ python-multipart
 fastapi
 motor
 rtree
+psutil

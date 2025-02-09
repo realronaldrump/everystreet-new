@@ -100,7 +100,7 @@ coverage_metadata_collection.create_index([("location", 1)], unique=True)
 #
 # FastAPI and Jinja2 Setup
 #
-from fastapi import FastAPI, Request, WebSocket, HTTPException, UploadFile, File, Depends
+from fastapi import FastAPI, Request, WebSocket, HTTPException, UploadFile, File, Depends, BackgroundTasks
 from fastapi.responses import (
     JSONResponse,
     HTMLResponse,
@@ -180,27 +180,22 @@ async def get_background_tasks_config():
 @app.post("/api/background_tasks/config")
 async def update_background_tasks_config(request: Request):
     data = await request.json()
+    logger.debug(f"Received task config update: {data}")  # Add debug logging
     cfg = await get_task_config()
     if "globalDisable" in data:
         cfg["disabled"] = bool(data["globalDisable"])
-    if "pauseDurationMinutes" in data:
-        mins = data["pauseDurationMinutes"]
-        if mins > 0:
-            cfg["pausedUntil"] = datetime.now(timezone.utc) + timedelta(minutes=mins)
-        else:
-            cfg["pausedUntil"] = None
     if "tasks" in data:
         for task_id, task_data in data["tasks"].items():
             if task_id in cfg["tasks"]:
                 if "interval_minutes" in task_data:
-                    cfg["tasks"][task_id]["interval_minutes"] = task_data[
-                        "interval_minutes"
-                    ]
+                    cfg["tasks"][task_id]["interval_minutes"] = task_data["interval_minutes"]
                 if "enabled" in task_data:
                     cfg["tasks"][task_id]["enabled"] = bool(task_data["enabled"])
+    
+    logger.debug(f"Saving updated config: {cfg}")  # Add debug logging
     await save_task_config(cfg)
     await reinitialize_scheduler_tasks()
-    return {"status": "success", "message": "Background task config updated"}
+    return {"status": "success", "message": "Background task config updated", "config": cfg}
 
 
 @app.post("/api/background_tasks/pause")
@@ -571,50 +566,50 @@ async def get_street_coverage_cached(location_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/street_coverage")
-async def get_street_coverage(request: Request):
+async def get_street_coverage(request: Request, background_tasks: BackgroundTasks):
     try:
         data = await request.json()
         location = data.get("location")
         if not location or not isinstance(location, dict):
             raise HTTPException(status_code=400, detail="Invalid location data.")
         
-        # First try to get cached data
+        # Create a background task ID for progress tracking
+        task_id = f"coverage_{location.get('display_name', 'unknown')}_{datetime.now().timestamp()}"
+        
+        # First check cache
         cached_data = await coverage_metadata_collection.find_one(
             {"location.display_name": location.get("display_name")}
         )
         
-        # Always trigger a background update
-        asyncio.create_task(compute_coverage_for_location(location))
+        # Start background update if data is stale or missing
+        is_stale = False
+        if cached_data:
+            age = datetime.now(timezone.utc) - cached_data.get("last_updated", datetime.min.replace(tzinfo=timezone.utc))
+            is_stale = age > timedelta(hours=24)
+        
+        if is_stale or not cached_data:
+            # Add the background task using FastAPI's BackgroundTasks
+            background_tasks.add_task(
+                compute_coverage_for_location,
+                location,
+                task_id=task_id
+            )
         
         if cached_data:
-            # Convert ObjectId to string before returning
-            cached_data["_id"] = str(cached_data["_id"])
-            # Return cached data if it exists
-            return cached_data
+            return {
+                "coverage_data": serialize_mongo_doc(cached_data),
+                "is_stale": is_stale,
+                "task_id": task_id if is_stale else None,
+                "last_updated": cached_data.get("last_updated").isoformat()
+            }
             
-        # If no cached data, compute it synchronously for the first time
-        logger.info(f"No cached data found for {location.get('display_name')}, computing...")
-        result = await compute_coverage_for_location(location)
-        if result is None:
-            raise HTTPException(status_code=404, detail="No street data found or error in computation.")
-        
-        # Store the result
-        display_name = location.get("display_name", "Unknown")
-        store_result = await coverage_metadata_collection.update_one(
-            {"location.display_name": display_name},
-            {
-                "$set": {
-                    "location": location,
-                    "total_length": result["total_length"],
-                    "driven_length": result["driven_length"],
-                    "coverage_percentage": result["coverage_percentage"],
-                    "streets_data": result["streets_data"],
-                    "last_updated": datetime.now(timezone.utc),
-                }
-            },
-            upsert=True,
-        )
+        # If no cached data, compute synchronously for first time
+        result = await compute_coverage_for_location(location, task_id=task_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Coverage computation failed")
+            
         return result
+        
     except Exception as e:
         logger.error(f"Error in street coverage calculation: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
