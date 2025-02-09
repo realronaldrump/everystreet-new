@@ -22,6 +22,7 @@ from map_matching import process_and_map_match_trip
 from utils import validate_trip_data
 from street_coverage_calculation import update_coverage_for_all_locations, compute_coverage_for_location
 from pymongo.errors import DuplicateKeyError
+import pymongo  # Import pymongo for ASCENDING
 
 # Import your database collections from your asynchronous db module.
 from db import (
@@ -300,13 +301,22 @@ async def create_required_indexes():
     """Create necessary indexes for optimal query performance."""
     try:
         logger.info("Creating indexes for coverage metadata collection...")
+        # Check if the unique index exists, and drop it if it does.
+        async for index in coverage_metadata_collection.list_indexes():
+            if index['name'] == 'location.display_name_1' and index.get('unique', False):
+                logger.warning("Dropping existing unique index 'location.display_name_1'")
+                await coverage_metadata_collection.drop_index('location.display_name_1')
+                break  # Important: Exit the loop after dropping
+
         await coverage_metadata_collection.create_index(
-            [("location.display_name", 1)],
+            [("location.display_name", pymongo.ASCENDING)],
+            name="location_display_name_background",  # Use a unique name
             background=True
         )
         logger.info("Successfully created indexes for coverage metadata collection")
     except Exception as e:
         logger.error(f"Error creating indexes: {e}", exc_info=True)
+
 
 
 async def start_background_tasks():
