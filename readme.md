@@ -1,4 +1,3 @@
-```markdown
 # Every Street - A Single-User Trip Tracking and Street Coverage Visualization Application
 
 Every Street is a **personal, single-user** web application designed for tracking, visualizing, and, *most importantly*, analyzing driving data with a **core focus on calculating street coverage**.  It's built as a **monolithic application** intended for self-hosting and use by a **single developer/user** (the author).  The primary goal is to provide a tool for systematically tracking progress towards driving *every* street within a defined geographical area.  Think of it as a personal "gamification" of exploration and a way to quantify completeness in covering a road network.
@@ -108,7 +107,7 @@ The features are presented in order of importance and relevance to the *core* fu
 
 ## Directory Structure
 
-```
+```text
 static/
   css/
     style.css
@@ -181,7 +180,7 @@ utils.py
 
     Create a `.env` file in the root directory and add the following variables (replace with your actual values):
 
-    ```
+    ```env
     MONGO_URI=<your_mongodb_connection_string>
     CLIENT_ID=<your_bouncie_client_id>
     CLIENT_SECRET=<your_bouncie_client_secret>
