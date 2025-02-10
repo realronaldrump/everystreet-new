@@ -337,6 +337,50 @@
 
         return response.json();
     }
+
+    async showTaskDetails(taskId) {
+        try {
+            const response = await fetch(`/api/background_tasks/details/${taskId}`);
+            if (!response.ok) throw new Error('Failed to fetch task details');
+            const details = await response.json();
+
+            const modal = document.getElementById('taskDetailsModal');
+            const content = modal.querySelector('.task-details-content');
+            const runBtn = modal.querySelector('.run-task-btn');
+
+            content.innerHTML = `
+                <div class="mb-3">
+                    <h6>Task ID</h6>
+                    <p>${details.task_id}</p>
+                </div>
+                <div class="mb-3">
+                    <h6>Description</h6>
+                    <p>${details.description || 'No description available'}</p>
+                </div>
+                <div class="mb-3">
+                    <h6>Status</h6>
+                    <p>${this.getStatusHTML(details.status)}</p>
+                </div>
+                <div class="mb-3">
+                    <h6>Last Run</h6>
+                    <p>${details.last_run ? this.formatDateTime(details.last_run) : 'Never'}</p>
+                </div>
+                <div class="mb-3">
+                    <h6>Next Run</h6>
+                    <p>${details.next_run ? this.formatDateTime(details.next_run) : 'Not scheduled'}</p>
+                </div>
+            `;
+
+            runBtn.dataset.taskId = taskId;
+            runBtn.disabled = details.status === 'RUNNING';
+
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+        } catch (error) {
+            console.error('Error fetching task details:', error);
+            this.toastManager.show('Error', 'Failed to fetch task details', 'danger');
+        }
+    }
   }
 
   class ToastManager {
@@ -504,6 +548,27 @@
             taskManager.submitTaskConfigUpdate(config)
                 .then(() => settingsManager.show('Success', 'Global disable toggled', 'success'))
                 .catch(err => settingsManager.show('Error', 'Failed to toggle global disable', 'danger'));
+        });
+    }
+
+    // Add event delegation for task details buttons
+    document.querySelector("#taskConfigTable tbody").addEventListener("click", (e) => {
+        const detailsBtn = e.target.closest('.view-details-btn');
+        if (detailsBtn) {
+            const taskId = detailsBtn.dataset.taskId;
+            taskManager.showTaskDetails(taskId);
+        }
+    });
+
+    // Add this in setupTaskConfigEventListeners
+    const taskDetailsModal = document.getElementById('taskDetailsModal');
+    if (taskDetailsModal) {
+        taskDetailsModal.querySelector('.run-task-btn').addEventListener('click', async (e) => {
+            const taskId = e.target.dataset.taskId;
+            if (taskId) {
+                await taskManager.runTask(taskId);
+                bootstrap.Modal.getInstance(taskDetailsModal).hide();
+            }
         });
     }
   }
