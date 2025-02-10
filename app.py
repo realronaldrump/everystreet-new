@@ -1,4 +1,3 @@
-# app.py (Corrected)
 import os
 import json
 import logging
@@ -117,83 +116,129 @@ async def add_header(request: Request, call_next):
 @app.get("/api/background_tasks/config")
 async def get_background_tasks_config():
     """Get current task configuration and status."""
-    config = await task_manager._get_config()
+    try:
+        config = await task_manager._get_config()
 
-    # Enrich the response with task definitions and current status
-    for task_id, task_def in task_manager.tasks.items():
-        if task_id not in config["tasks"]:
-            config["tasks"][task_id] = {}
+        # Enrich the response with task definitions and current status
+        for task_id, task_def in task_manager.tasks.items():
+            if task_id not in config["tasks"]:
+                config["tasks"][task_id] = {}
 
-        task_config = config["tasks"][task_id]
-        task_config["display_name"] = task_def.display_name
-        task_config["description"] = task_def.description
-        task_config["priority"] = task_def.priority.name
-        task_config["status"] = task_config.get("status", "IDLE")
+            task_config = config["tasks"][task_id]
+            task_config["display_name"] = task_def.display_name
+            task_config["description"] = task_def.description
+            task_config["priority"] = task_def.priority.name
+            task_config["status"] = task_config.get("status", "IDLE")
+            task_config["interval_minutes"] = task_config.get(
+                "interval_minutes", task_def.default_interval_minutes
+            )
 
-        # Format timestamps for display
-        for ts_field in ["last_run", "next_run", "start_time", "end_time"]:
-            if ts_field in task_config and task_config[ts_field]:
-                if isinstance(task_config[ts_field], str):
-                    task_config[ts_field] = task_config[ts_field]
-                else:
-                    task_config[ts_field] = task_config[ts_field].isoformat()
+            # Format timestamps for display
+            for ts_field in [
+                "last_run",
+                "next_run",
+                "start_time",
+                "end_time",
+                "last_updated",
+            ]:
+                if ts_field in task_config and task_config[ts_field]:
+                    if isinstance(task_config[ts_field], str):
+                        task_config[ts_field] = task_config[ts_field]
+                    else:
+                        task_config[ts_field] = task_config[ts_field].isoformat()
 
-    return config
+        return config
+    except Exception as e:
+        logger.error(f"Error getting task configuration: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/background_tasks/config")
 async def update_background_tasks_config(request: Request):
-    data = await request.json()
-    config = await task_manager._get_config()
-    if "globalDisable" in data:
-        config["disabled"] = data["globalDisable"]
-    if "tasks" in data:
-        for task_id, task_config in data["tasks"].items():
-            if task_id in task_manager.tasks:
-                if task_id not in config["tasks"]:
-                    config["tasks"][task_id] = {}
-                config["tasks"][task_id].update(task_config)
-    await task_config_collection.replace_one(
-        {"_id": "global_background_task_config"}, config, upsert=True
-    )
-    await task_manager.reinitialize_tasks()
-    return {"status": "success", "message": "Configuration updated"}
+    """Update task configuration."""
+    try:
+        data = await request.json()
+        config = await task_manager._get_config()
+
+        if "globalDisable" in data:
+            config["disabled"] = data["globalDisable"]
+
+        if "tasks" in data:
+            for task_id, task_config in data["tasks"].items():
+                if task_id in task_manager.tasks:
+                    if task_id not in config["tasks"]:
+                        config["tasks"][task_id] = {}
+
+                    # Update specific fields
+                    if "enabled" in task_config:
+                        config["tasks"][task_id]["enabled"] = task_config["enabled"]
+                    if "interval_minutes" in task_config:
+                        config["tasks"][task_id]["interval_minutes"] = task_config[
+                            "interval_minutes"
+                        ]
+
+        await task_config_collection.replace_one(
+            {"_id": "global_background_task_config"}, config, upsert=True
+        )
+
+        # Reinitialize tasks with the new configuration
+        await task_manager.reinitialize_tasks()
+
+        return {"status": "success", "message": "Configuration updated"}
+    except Exception as e:
+        logger.error(f"Error updating task configuration: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/background_tasks/pause")
 async def pause_background_tasks(request: Request):
-    data = await request.json()
-    minutes = data.get("minutes", 30)
+    """Pause all background tasks."""
+    try:
+        data = await request.json()
+        minutes = data.get("minutes", 30)
 
-    config = await task_manager._get_config()
-    config["disabled"] = True
-    await task_config_collection.replace_one(
-        {"_id": "global_background_task_config"}, config, upsert=True
-    )
+        config = await task_manager._get_config()
+        config["disabled"] = True
+        await task_config_collection.replace_one(
+            {"_id": "global_background_task_config"}, config, upsert=True
+        )
 
-    await task_manager.stop()
-    return {
-        "status": "success",
-        "message": f"Background tasks paused for {minutes} minutes",
-    }
+        await task_manager.stop()
+        return {
+            "status": "success",
+            "message": f"Background tasks paused for {minutes} minutes",
+        }
+    except Exception as e:
+        logger.error(f"Error pausing tasks: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/background_tasks/resume")
 async def resume_background_tasks():
-    config = await task_manager._get_config()
-    config["disabled"] = False
-    await task_config_collection.replace_one(
-        {"_id": "global_background_task_config"}, config, upsert=True
-    )
+    """Resume all background tasks."""
+    try:
+        config = await task_manager._get_config()
+        config["disabled"] = False
+        await task_config_collection.replace_one(
+            {"_id": "global_background_task_config"}, config, upsert=True
+        )
 
-    await task_manager.start()
-    return {"status": "success", "message": "Background tasks resumed"}
+        await task_manager.start()
+        return {"status": "success", "message": "Background tasks resumed"}
+    except Exception as e:
+        logger.error(f"Error resuming tasks: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/background_tasks/stop_all")
 async def stop_all_background_tasks():
-    await task_manager.stop()
-    return {"status": "success", "message": "All background tasks stopped"}
+    """Stop all background tasks."""
+    try:
+        await task_manager.stop()
+        return {"status": "success", "message": "All background tasks stopped"}
+    except Exception as e:
+        logger.error(f"Error stopping all tasks: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/background_tasks/enable")
@@ -230,44 +275,59 @@ async def disable_all_background_tasks():
 
 @app.post("/api/background_tasks/manual_run")
 async def manually_run_tasks(request: Request):
-    """Manually run selected tasks using the scheduler."""
+    """Manually run specified tasks."""
     try:
         data = await request.json()
         tasks_to_run = data.get("tasks", [])
         results = []
 
+        # Get current configuration to check enabled status
+        config = await task_manager._get_config()
+
         for task_id in tasks_to_run:
             if task_id == "ALL":
-                # Run all *enabled* tasks.  We need to check the config.
-                config = await task_manager._get_config()
+                # Run all enabled tasks
                 for t_id, task_def in task_manager.tasks.items():
                     if config["tasks"].get(t_id, {}).get("enabled", True):
-                        # Add the job to the scheduler, but don't *await* it here.
-                        # The scheduler will handle execution.
                         try:
+                            # Add job with proper trigger for immediate execution
                             task_manager.scheduler.add_job(
                                 task_manager._get_task_function(t_id),
-                                id=t_id,
+                                id=f"{t_id}_manual_{datetime.now().timestamp()}",
+                                trigger="date",
+                                run_date=datetime.now(timezone.utc),
                                 max_instances=1,
                                 coalesce=True,
-                                # No trigger, run immediately
+                                misfire_grace_time=None,
                             )
-                            results.append({"task": t_id, "success": True})  # Assume success, scheduler handles errors
+                            results.append({"task": t_id, "success": True})
                         except Exception as e:
-                            results.append({"task": t_id, "success": False, "error": str(e)})
+                            logger.error(
+                                f"Error scheduling task {t_id}: {e}", exc_info=True
+                            )
+                            results.append(
+                                {"task": t_id, "success": False, "error": str(e)}
+                            )
             elif task_id in task_manager.tasks:
-                # Same as above, add to scheduler, don't await.
                 try:
+                    # Add individual job with proper trigger
                     task_manager.scheduler.add_job(
                         task_manager._get_task_function(task_id),
-                        id=task_id,
+                        id=f"{task_id}_manual_{datetime.now().timestamp()}",
+                        trigger="date",
+                        run_date=datetime.now(timezone.utc),
                         max_instances=1,
                         coalesce=True,
-                        # No trigger
+                        misfire_grace_time=None,
                     )
                     results.append({"task": task_id, "success": True})
                 except Exception as e:
+                    logger.error(f"Error scheduling task {task_id}: {e}", exc_info=True)
                     results.append({"task": task_id, "success": False, "error": str(e)})
+            else:
+                results.append(
+                    {"task": task_id, "success": False, "error": "Unknown task"}
+                )
 
         return {
             "status": "success",
@@ -277,7 +337,6 @@ async def manually_run_tasks(request: Request):
     except Exception as e:
         logger.error(f"Error in manually_run_tasks: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 class ConnectionManager:
@@ -3180,14 +3239,23 @@ if __name__ == "__main__":
 @app.get("/api/background_tasks/history")
 async def get_task_history():
     """Get the task execution history from the database."""
-    history = []
-    cursor = task_history_collection.find({}).sort("timestamp", -1)  # Sort by timestamp, newest first
-    async for entry in cursor:
-        # Convert ObjectId to string and format timestamp
-        entry["_id"] = str(entry["_id"])
-        entry["timestamp"] = entry["timestamp"].isoformat()
-        history.append(entry)
-    return history
+    try:
+        history = []
+        # Add proper pagination later if needed
+        cursor = (
+            task_history_collection.find({}).sort("timestamp", -1).limit(100)
+        )  # Limit to last 100 entries
+        async for entry in cursor:
+            # Convert ObjectId to string and format timestamp
+            entry["_id"] = str(entry["_id"])
+            entry["timestamp"] = entry["timestamp"].isoformat()
+            if "runtime" in entry:  # Ensure runtime is properly formatted
+                entry["runtime"] = float(entry["runtime"]) if entry["runtime"] else None
+            history.append(entry)
+        return history
+    except Exception as e:
+        logger.error(f"Error fetching task history: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/background_tasks/task/{task_id}")
@@ -3211,7 +3279,7 @@ async def get_task_details(task_id: str):
             .limit(5)
         )
         async for entry in cursor:
-            entry["_id"] = str(entry["_id"]) #Convert id
+            entry["_id"] = str(entry["_id"])  # Convert id
             history.append(
                 {
                     "timestamp": (
