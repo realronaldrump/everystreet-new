@@ -113,12 +113,19 @@ async def fetch_trips_for_device(
             trips = await response.json()
             for trip in trips:
                 try:
-                    trip["startTime"] = date_parser.isoparse(trip["startTime"]).replace(
-                        tzinfo=timezone.utc
-                    )
-                    trip["endTime"] = date_parser.isoparse(trip["endTime"]).replace(
-                        tzinfo=timezone.utc
-                    )
+                    # Parse startTime if present
+                    if "startTime" in trip:
+                        trip["startTime"] = date_parser.isoparse(trip["startTime"]).replace(
+                            tzinfo=timezone.utc
+                        )
+                    # Parse endTime only if present
+                    if "endTime" in trip:
+                        trip["endTime"] = date_parser.isoparse(trip["endTime"]).replace(
+                            tzinfo=timezone.utc
+                        )
+                    else:
+                        logger.debug(f"Trip {trip.get('transactionId', '?')} has no endTime - may be in progress")
+                        continue  # Skip this trip since it's incomplete
                 except Exception as te:
                     logger.error(
                         f"Timestamp parsing error for trip {trip.get('transactionId', '?')}: {te}",

@@ -4,7 +4,7 @@ import logging
 from typing import Optional, Tuple, List, Dict, Any
 
 import aiohttp
-from aiohttp import ClientConnectorError, ClientResponseError
+from aiohttp import ClientConnectorError, ClientResponseError, TCPConnector
 from geojson import loads as geojson_loads
 from timezonefinder import TimezoneFinder
 
@@ -14,6 +14,34 @@ tf = TimezoneFinder()
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+# Create a global connection pool with limits
+CONN_POOL = TCPConnector(limit=10, force_close=True, enable_cleanup_closed=True)
+SESSION_TIMEOUT = aiohttp.ClientTimeout(total=10, connect=5, sock_connect=5, sock_read=5)
+
+# Create a global session for reuse
+_session: Optional[aiohttp.ClientSession] = None
+
+async def get_session() -> aiohttp.ClientSession:
+    """Get or create a shared aiohttp ClientSession."""
+    global _session
+    if _session is None or _session.closed:
+        _session = aiohttp.ClientSession(
+            connector=CONN_POOL,
+            timeout=SESSION_TIMEOUT,
+            headers={
+                "User-Agent": "EveryStreet/1.0 (myapp@example.com)",
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip, deflate",
+            }
+        )
+    return _session
+
+async def cleanup_session():
+    """Cleanup the global session."""
+    global _session
+    if _session and not _session.closed:
+        await _session.close()
+    _session = None
 
 async def validate_location_osm(
     location: str, location_type: str
@@ -32,22 +60,20 @@ async def validate_location_osm(
     params = {"q": location, "format": "json", "limit": 1, "featuretype": location_type}
     headers = {"User-Agent": "EveryStreet-Validator/1.0"}
     try:
-        async with aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=10)
-        ) as session:
-            async with session.get(
-                "https://nominatim.openstreetmap.org/search",
-                params=params,
-                headers=headers,
-            ) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    logger.debug(
-                        f"Received {len(data)} results for location '{location}'."
-                    )
-                    return data[0] if data else None
-                logger.error(f"HTTP {response.status} error for location '{location}'.")
-                return None
+        session = await get_session()
+        async with session.get(
+            "https://nominatim.openstreetmap.org/search",
+            params=params,
+            headers=headers,
+        ) as response:
+            if response.status == 200:
+                data = await response.json()
+                logger.debug(
+                    f"Received {len(data)} results for location '{location}'."
+                )
+                return data[0] if data else None
+            logger.error(f"HTTP {response.status} error for location '{location}'.")
+            return None
     except Exception as e:
         logger.error(
             f"Exception during validate_location_osm for '{location}': {e}",
@@ -134,21 +160,29 @@ async def reverse_geocode_nominatim(
         "zoom": 18,
         "addressdetails": 1,
     }
-    headers = {"User-Agent": "EveryStreet/1.0 (myapp@example.com)"}
 
     for attempt in range(1, retries + 1):
         try:
-            async with aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=10)
-            ) as session:
-                async with session.get(url, params=params, headers=headers) as response:
-                    response.raise_for_status()
-                    data = await response.json()
-                    logger.debug(
-                        f"Reverse geocoded ({lat}, {lon}): keys={list(data.keys())} (attempt {attempt})"
-                    )
-                    return data
-        except (ClientResponseError, ClientConnectorError, asyncio.TimeoutError) as e:
+            session = await get_session()
+            async with session.get(url, params=params) as response:
+                if response.status == 200:
+                    try:
+                        data = await response.json()
+                        logger.debug(
+                            f"Reverse geocoded ({lat}, {lon}): keys={list(data.keys())} (attempt {attempt})"
+                        )
+                        return data
+                    except Exception as e:
+                        logger.warning(f"Error parsing JSON response: {e}")
+                        continue
+                elif response.status == 429:  # Too Many Requests
+                    retry_after = int(response.headers.get("Retry-After", backoff_factor * 5))
+                    await asyncio.sleep(retry_after)
+                    continue
+                else:
+                    logger.warning(f"Unexpected status code: {response.status}")
+                    
+        except (ClientResponseError, ClientConnectorError, asyncio.TimeoutError, OSError) as e:
             log_level = logging.WARNING if attempt < retries else logging.ERROR
             logger.log(
                 log_level,
@@ -157,6 +191,14 @@ async def reverse_geocode_nominatim(
             )
             if attempt < retries:
                 await asyncio.sleep(backoff_factor * (2 ** (attempt - 1)))
+                continue
+            
+        except Exception as e:
+            logger.error(f"Unexpected error during reverse geocoding: {e}", exc_info=True)
+            if attempt < retries:
+                await asyncio.sleep(backoff_factor * (2 ** (attempt - 1)))
+                continue
+            
     logger.error(f"Failed to reverse geocode ({lat}, {lon}) after {retries} attempts.")
     return None
 

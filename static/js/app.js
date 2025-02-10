@@ -370,17 +370,26 @@
                       ? "<br><strong>(Recent Trip)</strong>"
                       : ""
                   }
+                  <button class="btn btn-danger btn-sm mt-2 me-2 delete-trip" data-trip-id="${
+                    feature.properties.transactionId
+                  }">
+                    Delete Trip
+                  </button>
                   <button class="btn btn-danger btn-sm mt-2 delete-matched-trip" data-trip-id="${
                     feature.properties.transactionId
                   }">
                     Delete Matched Trip
                   </button>`;
               lyr.bindPopup(popupContent).on("popupopen", () => {
-                const deleteBtn = lyr
+                const deleteMatchedBtn = lyr
                   .getPopup()
                   .getElement()
                   .querySelector(".delete-matched-trip");
-                deleteBtn?.addEventListener("click", async (e) => {
+                const deleteTripBtn = lyr
+                  .getPopup()
+                  .getElement()
+                  .querySelector(".delete-trip");
+                deleteMatchedBtn?.addEventListener("click", async (e) => {
                   e.preventDefault();
                   const tid = e.target.dataset.tripId;
                   if (confirm("Delete this matched trip?")) {
@@ -392,6 +401,35 @@
                       lyr.closePopup();
                       fetchTrips();
                       alert("Trip deleted");
+                    } catch (error) {
+                      console.error("Error deleting:", error);
+                      alert("Error deleting. Try again.");
+                    }
+                  }
+                });
+                deleteTripBtn?.addEventListener("click", async (e) => {
+                  e.preventDefault();
+                  const tid = e.target.dataset.tripId;
+                  if (confirm("Delete this trip? This will also delete its corresponding matched trip.")) {
+                    try {
+                      // Delete the original trip
+                      const tripRes = await fetch(`/api/trips/${tid}`, {
+                        method: "DELETE",
+                      });
+                      if (!tripRes.ok) throw new Error("Failed to delete trip");
+
+                      // Also delete the matched trip
+                      const matchedRes = await fetch(`/api/matched_trips/${tid}`, {
+                        method: "DELETE",
+                      });
+                      // We don't throw on matched trip deletion failure since it might not exist
+                      if (!matchedRes.ok) {
+                        console.warn("No matched trip found or failed to delete matched trip");
+                      }
+
+                      lyr.closePopup();
+                      fetchTrips();
+                      alert("Trip and its matched trip deleted");
                     } catch (error) {
                       console.error("Error deleting:", error);
                       alert("Error deleting. Try again.");

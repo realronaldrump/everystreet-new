@@ -3225,7 +3225,11 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    await task_manager.stop()  # stop the global instance
+    """Cleanup resources on application shutdown."""
+    await task_manager.stop()
+    # Cleanup the aiohttp session
+    from utils import cleanup_session
+    await cleanup_session()
 
 
 # Add task history and details endpoints
