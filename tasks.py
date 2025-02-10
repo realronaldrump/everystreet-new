@@ -6,25 +6,21 @@ from enum import Enum
 from dataclasses import dataclass
 import json
 import functools
+import os  # Import os
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 from apscheduler.triggers.date import DateTrigger
+from motor.motor_asyncio import AsyncIOMotorClient  # Import AsyncIOMotorClient
+import certifi
 
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from map_matching import process_and_map_match_trip
 from utils import validate_trip_data, reverse_geocode_nominatim
 from street_coverage_calculation import update_coverage_for_all_locations
 from update_geo_points import update_geo_points
-from db import (
-    trips_collection,
-    live_trips_collection,
-    archived_live_trips_collection,
-    task_config_collection,
-    matched_trips_collection,
-    task_history_collection,
-)
+
 
 logger = logging.getLogger(__name__)
 
@@ -54,34 +50,19 @@ class TaskDefinition:
     description: str
 
 
-# Helper Functions
+# Helper Functions (Simplified Wrapper - or remove it entirely)
 def wrap_async_task(async_func: Callable) -> Callable:
     """Wrapper to make async functions compatible with APScheduler."""
+
     @functools.wraps(async_func)
-    def wrapper(*args, **kwargs):
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If we're in a running loop, create a new one for this task
-                new_loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(new_loop)
-                try:
-                    return new_loop.run_until_complete(async_func(*args, **kwargs))
-                finally:
-                    new_loop.close()
-                    asyncio.set_event_loop(loop)
-            else:
-                # If no loop is running, we can use the current one
-                return loop.run_until_complete(async_func(*args, **kwargs))
-        except RuntimeError:
-            # If we can't get a loop, create a new one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                return loop.run_until_complete(async_func(*args, **kwargs))
-            finally:
-                loop.close()
+    async def wrapper(*args, **kwargs):  # Make the wrapper async!
+        return await async_func(*args, **kwargs)
+
     return wrapper
+
+
+# OR, remove the wrapper entirely and just use async directly:
+# self.scheduler.add_job(self._periodic_fetch_trips, ...)
 
 
 class BackgroundTaskManager:
@@ -93,6 +74,16 @@ class BackgroundTaskManager:
         self.task_progress = {}
         self.task_history = []
         self._setup_event_listeners()
+        # Create the client HERE, inside the class instance:
+        self.db_client = AsyncIOMotorClient(
+            os.getenv("MONGO_URI"),
+            tls=True,
+            tlsAllowInvalidCertificates=True,
+            tlsCAFile=certifi.where(),
+            tz_aware=True,
+            tzinfo=timezone.utc,
+        )
+        self.db = self.db_client["every_street"]  # Use the instance client
 
     def _initialize_tasks(self) -> Dict[str, TaskDefinition]:
         """Initialize task definitions."""
@@ -173,11 +164,19 @@ class BackgroundTaskManager:
 
     def _setup_event_listeners(self):
         """Set up event listeners for job execution and errors."""
+        def job_executed_callback(event):
+            """Synchronous wrapper for the async _handle_job_executed."""
+            asyncio.create_task(self._handle_job_executed(event))
+
+        def job_error_callback(event):
+            """Synchronous wrapper for the async _handle_job_error."""
+            asyncio.create_task(self._handle_job_error(event))
+
         self.scheduler.add_listener(
-            wrap_async_task(self._handle_job_executed), EVENT_JOB_EXECUTED
+            job_executed_callback, EVENT_JOB_EXECUTED
         )
         self.scheduler.add_listener(
-            wrap_async_task(self._handle_job_error), EVENT_JOB_ERROR
+            job_error_callback, EVENT_JOB_ERROR
         )
 
     async def _handle_job_executed(self, event):
@@ -192,7 +191,7 @@ class BackgroundTaskManager:
             self.task_status[task_id] = TaskStatus.COMPLETED
 
             # Get the runtime if available, otherwise use None
-            runtime = getattr(event, 'runtime', None)
+            runtime = getattr(event, "runtime", None)
 
             history_entry = {
                 "task_id": task_id,
@@ -202,9 +201,9 @@ class BackgroundTaskManager:
                 "result": True,
             }
 
-            await task_history_collection.insert_one(history_entry)
+            await self.db["task_history"].insert_one(history_entry)  # Use self.db
 
-            job = self.scheduler.get_job(task_id)
+            job = self.scheduler.get_job(event.job_id)  # use original job_id
             next_run = job.next_run_time if job else None
 
             await self._update_task_config(
@@ -235,7 +234,7 @@ class BackgroundTaskManager:
             error_msg = str(event.exception)
 
             # Get the runtime if available, otherwise use None
-            runtime = getattr(event, 'runtime', None)
+            runtime = getattr(event, "runtime", None)
 
             history_entry = {
                 "task_id": task_id,
@@ -246,9 +245,9 @@ class BackgroundTaskManager:
                 "result": False,
             }
 
-            await task_history_collection.insert_one(history_entry)
+            await self.db["task_history"].insert_one(history_entry)  # Use self.db
 
-            job = self.scheduler.get_job(task_id)
+            job = self.scheduler.get_job(event.job_id)  # use original job_id
             next_run = job.next_run_time if job else None
 
             await self._update_task_config(
@@ -271,7 +270,7 @@ class BackgroundTaskManager:
     async def _update_task_config(self, task_id: str, updates: Dict[str, Any]):
         """Update task configuration in the database."""
         update_dict = {f"tasks.{task_id}.{k}": v for k, v in updates.items()}
-        await task_config_collection.update_one(
+        await self.db["task_config"].update_one(  # Use self.db
             {"_id": "global_background_task_config"}, {"$set": update_dict}
         )
 
@@ -283,13 +282,9 @@ class BackgroundTaskManager:
     async def start(self):
         """Start the task manager."""
         try:
-            # Clean up existing jobs
-            if self.scheduler.running:
-                self.scheduler.remove_all_jobs()
-                self.scheduler.shutdown()
-
             # Start fresh
-            self.scheduler.start()
+            if not self.scheduler.running:  # Only start if not already running
+                self.scheduler.start()
             await self.reinitialize_tasks()
 
             logger.info("Task manager started successfully")
@@ -395,22 +390,23 @@ class BackgroundTaskManager:
     def _get_task_function(self, task_id: str) -> Optional[Callable]:
         """Get the function for a given task ID."""
         task_map = {
-            "fetch_and_store_trips": wrap_async_task(self._fetch_and_store_trips),
-            "periodic_fetch_trips": wrap_async_task(self._periodic_fetch_trips),
-            "update_coverage_for_all_locations": wrap_async_task(self._update_coverage),
-            "cleanup_stale_trips": wrap_async_task(self._cleanup_stale_trips),
-            "cleanup_invalid_trips": wrap_async_task(self._cleanup_invalid_trips),
-            "update_geocoding": wrap_async_task(self._update_geocoding),
-            "optimize_database": wrap_async_task(self._optimize_database),
-            "remap_unmatched_trips": wrap_async_task(self._remap_unmatched_trips),
-            "validate_trip_data": wrap_async_task(self._validate_trip_data),
+            # Use the async functions directly, without the wrapper:
+            "fetch_and_store_trips": self._fetch_and_store_trips,
+            "periodic_fetch_trips": self._periodic_fetch_trips,
+            "update_coverage_for_all_locations": self._update_coverage,
+            "cleanup_stale_trips": self._cleanup_stale_trips,
+            "cleanup_invalid_trips": self._cleanup_invalid_trips,
+            "update_geocoding": self._update_geocoding,
+            "optimize_database": self._optimize_database,
+            "remap_unmatched_trips": self._remap_unmatched_trips,
+            "validate_trip_data": self._validate_trip_data,
         }
         return task_map.get(task_id)
 
     async def _get_config(self) -> Dict[str, Any]:
         """Get task configuration from database."""
         try:
-            cfg = await task_config_collection.find_one(
+            cfg = await self.db["task_config"].find_one(  # Use self.db
                 {"_id": "global_background_task_config"}
             )
 
@@ -427,7 +423,7 @@ class BackgroundTaskManager:
                         for task_id, task_def in self.tasks.items()
                     },
                 }
-                await task_config_collection.insert_one(cfg)
+                await self.db["task_config"].insert_one(cfg)  # Use self.db
 
             return cfg
 
@@ -462,7 +458,9 @@ class BackgroundTaskManager:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
 
             # Find the most recent trip
-            last_trip = await trips_collection.find_one(sort=[("endTime", -1)])
+            last_trip = await self.db["trips"].find_one(
+                sort=[("endTime", -1)]
+            )  # Use self.db
 
             start_date = (
                 last_trip["endTime"]
@@ -507,7 +505,7 @@ class BackgroundTaskManager:
             stale_threshold = now - timedelta(minutes=5)
 
             # Find and process stale trips
-            cursor = live_trips_collection.find(
+            cursor = self.db["live_trips"].find(  # Use self.db
                 {"lastUpdate": {"$lt": stale_threshold}, "status": "active"}
             )
 
@@ -515,8 +513,10 @@ class BackgroundTaskManager:
             async for trip in cursor:
                 trip["status"] = "stale"
                 trip["endTime"] = now
-                await archived_live_trips_collection.insert_one(trip)
-                await live_trips_collection.delete_one({"_id": trip["_id"]})
+                await self.db["archived_live_trips"].insert_one(trip)  # Use self.db
+                await self.db["live_trips"].delete_one(
+                    {"_id": trip["_id"]}
+                )  # Use self.db
                 cleanup_count += 1
 
             logger.info(f"Cleaned up {cleanup_count} stale trips")
@@ -534,10 +534,10 @@ class BackgroundTaskManager:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
 
             invalid_count = 0
-            async for trip in trips_collection.find({}):
+            async for trip in self.db["trips"].find({}):  # Use self.db
                 valid, message = validate_trip_data(trip)
                 if not valid:
-                    await trips_collection.update_one(
+                    await self.db["trips"].update_one(  # Use self.db
                         {"_id": trip["_id"]},
                         {
                             "$set": {
@@ -573,7 +573,7 @@ class BackgroundTaskManager:
                 ]
             }
 
-            async for trip in trips_collection.find(query):
+            async for trip in self.db["trips"].find(query):  # Use self.db
                 if not trip.get("gps"):
                     continue
 
@@ -607,7 +607,7 @@ class BackgroundTaskManager:
 
                 if updates:
                     updates["geocoded_at"] = datetime.now(timezone.utc)
-                    await trips_collection.update_one(
+                    await self.db["trips"].update_one(  # Use self.db
                         {"_id": trip["_id"]}, {"$set": updates}
                     )
                     update_count += 1
@@ -628,10 +628,10 @@ class BackgroundTaskManager:
 
             # Rebuild indexes
             collections = [
-                trips_collection,
-                live_trips_collection,
-                archived_live_trips_collection,
-                matched_trips_collection,
+                self.db["trips"],  # Use self.db
+                self.db["live_trips"],  # Use self.db
+                self.db["archived_live_trips"],  # Use self.db
+                self.db["matched_trips"],  # Use self.db
             ]
 
             for collection in collections:
@@ -654,7 +654,7 @@ class BackgroundTaskManager:
             remap_count = 0
             query = {"$or": [{"matchedGps": {"$exists": False}}, {"matchedGps": None}]}
 
-            async for trip in trips_collection.find(query):
+            async for trip in self.db["trips"].find(query):  # Use self.db
                 try:
                     await process_and_map_match_trip(trip)
                     remap_count += 1
@@ -677,7 +677,7 @@ class BackgroundTaskManager:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
 
             update_count = 0
-            async for trip in trips_collection.find({}):
+            async for trip in self.db["trips"].find({}):  # Use self.db
                 updates = {}
 
                 # Validate timestamps
@@ -699,7 +699,7 @@ class BackgroundTaskManager:
 
                 if updates:
                     updates["validated_at"] = datetime.now(timezone.utc)
-                    await trips_collection.update_one(
+                    await self.db["trips"].update_one(  # Use self.db
                         {"_id": trip["_id"]}, {"$set": updates}
                     )
                     update_count += 1

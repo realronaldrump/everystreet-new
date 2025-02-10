@@ -3217,18 +3217,16 @@ async def internal_error_handler(request: Request, exc):
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize the application on startup."""
-    try:
-        # Initialize task history collection
-        await init_task_history_collection()
+    # No need to create a new instance here; use the global one
+    await task_manager.start()  # Call start() on the imported instance
+    await init_task_history_collection()  # ensure indexes are created
+    print("Application startup completed successfully")
 
-        # Start background tasks
-        await start_background_tasks()
 
-        logger.info("Application startup completed successfully")
-    except Exception as e:
-        logger.error(f"Error during application startup: {e}", exc_info=True)
-        raise e
+@app.on_event("shutdown")
+async def shutdown_event():
+    await task_manager.stop()  # stop the global instance
+
 
 # Add task history and details endpoints
 @app.get("/api/background_tasks/history")

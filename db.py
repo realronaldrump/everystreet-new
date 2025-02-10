@@ -35,24 +35,23 @@ def get_mongo_client() -> AsyncIOMotorClient:
         raise e
 
 
-# Initialize the client and the database.
-mongo_client: AsyncIOMotorClient = get_mongo_client()
-db = mongo_client["every_street"]
-
-# Export collections for use elsewhere in your application.
-trips_collection = db["trips"]
-matched_trips_collection = db["matched_trips"]
-historical_trips_collection = db["historical_trips"]
-uploaded_trips_collection = db["uploaded_trips"]
-places_collection = db["places"]
-osm_data_collection = db["osm_data"]
-realtime_data_collection = db["realtime_data"]
-streets_collection = db["streets"]
-coverage_metadata_collection = db["coverage_metadata"]
-live_trips_collection = db["live_trips"]
-archived_live_trips_collection = db["archived_live_trips"]
-task_config_collection = db["task_config"]
-task_history_collection = db["task_history"]
+# Export collections for use elsewhere in your application.  STILL NEEDED
+# BUT, access them through task_manager.db in tasks.py
+trips_collection = get_mongo_client()["every_street"]["trips"]
+matched_trips_collection = get_mongo_client()["every_street"]["matched_trips"]
+historical_trips_collection = get_mongo_client()["every_street"]["historical_trips"]
+uploaded_trips_collection = get_mongo_client()["every_street"]["uploaded_trips"]
+places_collection = get_mongo_client()["every_street"]["places"]
+osm_data_collection = get_mongo_client()["every_street"]["osm_data"]
+realtime_data_collection = get_mongo_client()["every_street"]["realtime_data"]
+streets_collection = get_mongo_client()["every_street"]["streets"]
+coverage_metadata_collection = get_mongo_client()["every_street"]["coverage_metadata"]
+live_trips_collection = get_mongo_client()["every_street"]["live_trips"]
+archived_live_trips_collection = get_mongo_client()["every_street"][
+    "archived_live_trips"
+]
+task_config_collection = get_mongo_client()["every_street"]["task_config"]
+task_history_collection = get_mongo_client()["every_street"]["task_history"]
 
 
 # Create indexes for task history collection
