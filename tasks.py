@@ -198,7 +198,8 @@ class BackgroundTaskManager:
                 "result": True,
             }
 
-            await self.db["task_history"].insert_one(history_entry)  # Use self.db
+            # Use self.db
+            await self.db["task_history"].insert_one(history_entry)
 
             job = self.scheduler.get_job(event.job_id)  # use original job_id
             next_run = job.next_run_time if job else None
@@ -242,7 +243,8 @@ class BackgroundTaskManager:
                 "result": False,
             }
 
-            await self.db["task_history"].insert_one(history_entry)  # Use self.db
+            # Use self.db
+            await self.db["task_history"].insert_one(history_entry)
 
             job = self.scheduler.get_job(event.job_id)  # use original job_id
             next_run = job.next_run_time if job else None
@@ -347,7 +349,8 @@ class BackgroundTaskManager:
                 },
             )
 
-            logger.info(f"Added task {task_id} with {interval_minutes} minute interval")
+            logger.info(
+                f"Added task {task_id} with {interval_minutes} minute interval")
 
         except Exception as e:
             logger.error(f"Error adding task {task_id}: {e}", exc_info=True)
@@ -510,7 +513,8 @@ class BackgroundTaskManager:
             async for trip in cursor:
                 trip["status"] = "stale"
                 trip["endTime"] = now
-                await self.db["archived_live_trips"].insert_one(trip)  # Use self.db
+                # Use self.db
+                await self.db["archived_live_trips"].insert_one(trip)
                 await self.db["live_trips"].delete_one(
                     {"_id": trip["_id"]}
                 )  # Use self.db
@@ -593,14 +597,16 @@ class BackgroundTaskManager:
                         start_coords[1], start_coords[0]
                     )
                     if start_location:
-                        updates["startLocation"] = start_location.get("display_name")
+                        updates["startLocation"] = start_location.get(
+                            "display_name")
 
                 if not trip.get("destination"):
                     end_location = await reverse_geocode_nominatim(
                         end_coords[1], end_coords[0]
                     )
                     if end_location:
-                        updates["destination"] = end_location.get("display_name")
+                        updates["destination"] = end_location.get(
+                            "display_name")
 
                 if updates:
                     updates["geocoded_at"] = datetime.now(timezone.utc)
@@ -649,14 +655,16 @@ class BackgroundTaskManager:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
 
             remap_count = 0
-            query = {"$or": [{"matchedGps": {"$exists": False}}, {"matchedGps": None}]}
+            query = {
+                "$or": [{"matchedGps": {"$exists": False}}, {"matchedGps": None}]}
 
             async for trip in self.db["trips"].find(query):  # Use self.db
                 try:
                     await process_and_map_match_trip(trip)
                     remap_count += 1
                 except Exception as e:
-                    logger.warning(f"Failed to remap trip {trip.get('_id')}: {e}")
+                    logger.warning(
+                        f"Failed to remap trip {trip.get('_id')}: {e}")
                     continue
 
             logger.info(f"Remapped {remap_count} trips")
@@ -681,7 +689,8 @@ class BackgroundTaskManager:
                 for field in ["startTime", "endTime"]:
                     if isinstance(trip.get(field), str):
                         try:
-                            updates[field] = datetime.fromisoformat(trip[field])
+                            updates[field] = datetime.fromisoformat(
+                                trip[field])
                         except ValueError:
                             updates["invalid"] = True
                             updates["validation_message"] = f"Invalid {field} format"
@@ -722,9 +731,11 @@ class BackgroundTaskManager:
             }
 
             if status == TaskStatus.RUNNING:
-                update_data[f"tasks.{task_id}.start_time"] = datetime.now(timezone.utc)
+                update_data[f"tasks.{task_id}.start_time"] = datetime.now(
+                    timezone.utc)
             elif status in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
-                update_data[f"tasks.{task_id}.end_time"] = datetime.now(timezone.utc)
+                update_data[f"tasks.{task_id}.end_time"] = datetime.now(
+                    timezone.utc)
 
             if error:
                 update_data[f"tasks.{task_id}.last_error"] = error
