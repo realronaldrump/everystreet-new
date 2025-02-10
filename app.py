@@ -3258,7 +3258,7 @@ async def clear_task_history():
         result = await task_history_collection.delete_many({})
         return {
             "status": "success",
-            "message": f"Cleared {result.deleted_count} task history entries"
+            "message": f"Cleared {result.deleted_count} task history entries",
         }
     except Exception as e:
         logger.error(f"Error clearing task history: {e}", exc_info=True)

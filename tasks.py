@@ -164,6 +164,7 @@ class BackgroundTaskManager:
 
     def _setup_event_listeners(self):
         """Set up event listeners for job execution and errors."""
+
         def job_executed_callback(event):
             """Synchronous wrapper for the async _handle_job_executed."""
             asyncio.create_task(self._handle_job_executed(event))
@@ -172,12 +173,8 @@ class BackgroundTaskManager:
             """Synchronous wrapper for the async _handle_job_error."""
             asyncio.create_task(self._handle_job_error(event))
 
-        self.scheduler.add_listener(
-            job_executed_callback, EVENT_JOB_EXECUTED
-        )
-        self.scheduler.add_listener(
-            job_error_callback, EVENT_JOB_ERROR
-        )
+        self.scheduler.add_listener(job_executed_callback, EVENT_JOB_EXECUTED)
+        self.scheduler.add_listener(job_error_callback, EVENT_JOB_ERROR)
 
     async def _handle_job_executed(self, event):
         """Handle successful job execution."""
