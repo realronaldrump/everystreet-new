@@ -3189,10 +3189,16 @@ async def process_bouncie_event(data: dict):
 async def ws_live_trip(websocket: WebSocket):
     await manager.connect(websocket)
     try:
-        # Simply keep the connection open.
         while True:
-            await asyncio.sleep(10)
+            # Keep connection alive and handle task updates
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+            await asyncio.sleep(1)
     except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}", exc_info=True)
         manager.disconnect(websocket)
 
 
@@ -3223,17 +3229,6 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Error during application startup: {e}", exc_info=True)
         raise e
-
-
-# Main
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    port = int(os.getenv("PORT", "8080"))
-    uvicorn.run("app:app", host="0.0.0.0", port=port, log_level="info", reload=True)
-
 
 # Add task history and details endpoints
 @app.get("/api/background_tasks/history")
@@ -3329,3 +3324,10 @@ def calculate_task_success_rate(history: List[Dict]) -> float:
 
     successful = sum(1 for entry in history if entry["status"] == "COMPLETED")
     return (successful / len(history)) * 100
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    port = int(os.getenv("PORT", "8080"))
+    uvicorn.run("app:app", host="0.0.0.0", port=port, log_level="info", reload=True)
