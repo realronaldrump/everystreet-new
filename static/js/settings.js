@@ -569,9 +569,13 @@
     // Add event delegation for task details buttons
     document.querySelector("#taskConfigTable tbody").addEventListener("click", (e) => {
         const detailsBtn = e.target.closest('.view-details-btn');
+        const runBtn = e.target.closest('.run-now-btn');
         if (detailsBtn) {
             const taskId = detailsBtn.dataset.taskId;
             taskManager.showTaskDetails(taskId);
+        } else if (runBtn) {
+            const taskId = runBtn.dataset.taskId;
+            taskManager.runTask(taskId);
         }
     });
 

@@ -61,10 +61,26 @@ def wrap_async_task(async_func: Callable) -> Callable:
     def wrapper(*args, **kwargs):
         try:
             loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If we're in a running loop, create a new one for this task
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    return new_loop.run_until_complete(async_func(*args, **kwargs))
+                finally:
+                    new_loop.close()
+                    asyncio.set_event_loop(loop)
+            else:
+                # If no loop is running, we can use the current one
+                return loop.run_until_complete(async_func(*args, **kwargs))
         except RuntimeError:
+            # If we can't get a loop, create a new one
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        return loop.create_task(async_func(*args, **kwargs))
+            try:
+                return loop.run_until_complete(async_func(*args, **kwargs))
+            finally:
+                loop.close()
     return wrapper
 
 
