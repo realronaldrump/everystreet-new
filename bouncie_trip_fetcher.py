@@ -41,7 +41,8 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
-AUTHORIZED_DEVICES = [d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d]
+AUTHORIZED_DEVICES = [d for d in os.getenv(
+    "AUTHORIZED_DEVICES", "").split(",") if d]
 AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 
 # MongoDB configuration
@@ -70,7 +71,8 @@ async def get_access_token(client_session: aiohttp.ClientSession) -> str:
             if not access_token:
                 logger.error(f"Access token not found in response: {data}")
                 return None
-            logger.info("Successfully retrieved access token from Bouncie API.")
+            logger.info(
+                "Successfully retrieved access token from Bouncie API.")
             return access_token
     except ClientResponseError as e:
         logger.error(
@@ -84,7 +86,8 @@ async def get_access_token(client_session: aiohttp.ClientSession) -> str:
         )
         return None
     except Exception as e:
-        logger.error(f"Unexpected error retrieving access token: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error retrieving access token: {e}", exc_info=True)
         return None
 
 
@@ -124,7 +127,8 @@ async def fetch_trips_for_device(
                             tzinfo=timezone.utc
                         )
                     else:
-                        logger.debug(f"Trip {trip.get('transactionId', '?')} has no endTime - may be in progress")
+                        logger.debug(
+                            f"Trip {trip.get('transactionId', '?')} has no endTime - may be in progress")
                         continue  # Skip this trip since it's incomplete
                 except Exception as te:
                     logger.error(
@@ -136,7 +140,8 @@ async def fetch_trips_for_device(
             )
             return trips
     except Exception as e:
-        logger.error(f"Error fetching trips for device {imei}: {e}", exc_info=True)
+        logger.error(
+            f"Error fetching trips for device {imei}: {e}", exc_info=True)
         return []
 
 
@@ -166,13 +171,15 @@ async def store_trip(trip: dict) -> bool:
 
     # Ensure the gps field is stored as a JSON string.
     if isinstance(trip.get("gps"), dict):
-        logger.debug(f"Converting gps data to JSON string for trip {transaction_id}.")
+        logger.debug(
+            f"Converting gps data to JSON string for trip {transaction_id}.")
         trip["gps"] = geojson_dumps(trip["gps"])
 
     # Parse startTime and endTime if provided as strings.
     for field in ["startTime", "endTime"]:
         if field in trip and isinstance(trip[field], str):
-            logger.debug(f"Parsing {field} from string for trip {transaction_id}.")
+            logger.debug(
+                f"Parsing {field} from string for trip {transaction_id}.")
             trip[field] = parser.isoparse(trip[field])
 
     # (Optional) Do a reverse geocode fallback if process_trip_data did not already set the location.
@@ -190,7 +197,8 @@ async def store_trip(trip: dict) -> bool:
                 geo_data = await reverse_geocode_nominatim(end_coords[1], end_coords[0])
                 trip["destination"] = geo_data.get("display_name", "")
         else:
-            logger.warning(f"Trip {transaction_id} has insufficient coordinate data.")
+            logger.warning(
+                f"Trip {transaction_id} has insufficient coordinate data.")
     except Exception as e:
         logger.error(
             f"Error during reverse geocoding for trip {transaction_id}: {e}",
@@ -213,7 +221,8 @@ async def store_trip(trip: dict) -> bool:
         )
         return True
     except Exception as e:
-        logger.error(f"Error storing trip {transaction_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error storing trip {transaction_id}: {e}", exc_info=True)
         return False
 
 
@@ -263,7 +272,8 @@ async def fetch_bouncie_trips_in_range(
                     )
                 current_start = current_end
             all_new_trips.extend(device_new_trips)
-            logger.info(f"Device {imei}: {len(device_new_trips)} new trips inserted.")
+            logger.info(
+                f"Device {imei}: {len(device_new_trips)} new trips inserted.")
 
         if do_map_match and all_new_trips:
             logger.info("Starting map matching for new trips...")
@@ -293,7 +303,8 @@ async def get_trips_from_api(
     Pulls trips from Bouncie's /trips endpoint for a given device IMEI and date range.
     Also converts times to local timezones based on the trip.
     """
-    headers = {"Authorization": access_token, "Content-Type": "application/json"}
+    headers = {"Authorization": access_token,
+               "Content-Type": "application/json"}
     params = {
         "imei": imei,
         "gps-format": "geojson",
