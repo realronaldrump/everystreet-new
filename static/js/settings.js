@@ -340,9 +340,12 @@
 
     async showTaskDetails(taskId) {
         try {
-            const response = await fetch(`/api/background_tasks/details/${taskId}`);
-            if (!response.ok) throw new Error('Failed to fetch task details');
-            const details = await response.json();
+            const response = await fetch('/api/background_tasks/config');
+            if (!response.ok) throw new Error('Failed to fetch task configuration');
+            const config = await response.json();
+            
+            const taskDetails = config.tasks[taskId];
+            if (!taskDetails) throw new Error('Task not found');
 
             const modal = document.getElementById('taskDetailsModal');
             const content = modal.querySelector('.task-details-content');
@@ -351,34 +354,46 @@
             content.innerHTML = `
                 <div class="mb-3">
                     <h6>Task ID</h6>
-                    <p>${details.task_id}</p>
+                    <p>${taskId}</p>
                 </div>
                 <div class="mb-3">
-                    <h6>Description</h6>
-                    <p>${details.description || 'No description available'}</p>
+                    <h6>Display Name</h6>
+                    <p>${taskDetails.display_name || taskId}</p>
                 </div>
                 <div class="mb-3">
                     <h6>Status</h6>
-                    <p>${this.getStatusHTML(details.status)}</p>
+                    <p>${this.getStatusHTML(taskDetails.status || 'IDLE')}</p>
+                </div>
+                <div class="mb-3">
+                    <h6>Interval</h6>
+                    <p>${this.intervalOptions.find(opt => opt.value === taskDetails.interval_minutes)?.label || taskDetails.interval_minutes + ' minutes'}</p>
+                </div>
+                <div class="mb-3">
+                    <h6>Priority</h6>
+                    <p>${taskDetails.priority || 'MEDIUM'}</p>
                 </div>
                 <div class="mb-3">
                     <h6>Last Run</h6>
-                    <p>${details.last_run ? this.formatDateTime(details.last_run) : 'Never'}</p>
+                    <p>${taskDetails.last_run ? this.formatDateTime(taskDetails.last_run) : 'Never'}</p>
                 </div>
                 <div class="mb-3">
                     <h6>Next Run</h6>
-                    <p>${details.next_run ? this.formatDateTime(details.next_run) : 'Not scheduled'}</p>
+                    <p>${taskDetails.next_run ? this.formatDateTime(taskDetails.next_run) : 'Not scheduled'}</p>
+                </div>
+                <div class="mb-3">
+                    <h6>Enabled</h6>
+                    <p>${taskDetails.enabled ? 'Yes' : 'No'}</p>
                 </div>
             `;
 
             runBtn.dataset.taskId = taskId;
-            runBtn.disabled = details.status === 'RUNNING';
+            runBtn.disabled = taskDetails.status === 'RUNNING';
 
             const bsModal = new bootstrap.Modal(modal);
             bsModal.show();
         } catch (error) {
             console.error('Error fetching task details:', error);
-            this.toastManager.show('Error', 'Failed to fetch task details', 'danger');
+            this.toastManager.show('Error', 'Failed to fetch task details: ' + error.message, 'danger');
         }
     }
   }
