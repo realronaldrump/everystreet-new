@@ -396,6 +396,30 @@
             this.toastManager.show('Error', 'Failed to fetch task details: ' + error.message, 'danger');
         }
     }
+
+    async clearTaskHistory() {
+        try {
+            const response = await fetch('/api/background_tasks/history/clear', {
+                method: 'POST'
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to clear task history');
+            }
+            
+            // Clear the history table
+            const tbody = document.querySelector("#taskHistoryTable tbody");
+            if (tbody) {
+                tbody.innerHTML = "";
+            }
+            
+            this.task_history = [];
+            this.toastManager.show('Success', 'Task history cleared successfully', 'success');
+        } catch (error) {
+            console.error('Error clearing task history:', error);
+            this.toastManager.show('Error', 'Failed to clear task history: ' + error.message, 'danger');
+        }
+    }
   }
 
   class ToastManager {
@@ -456,6 +480,7 @@
     const disableAllBtn = document.getElementById("disableAllBtn");
     const manualRunAllBtn = document.getElementById("manualRunAllBtn");
     const globalSwitch = document.getElementById("globalDisableSwitch");
+    const clearHistoryBtn = document.getElementById("clearHistoryBtn");
 
     if (saveTaskConfigBtn) {
         saveTaskConfigBtn.addEventListener("click", () => {
@@ -563,6 +588,22 @@
             taskManager.submitTaskConfigUpdate(config)
                 .then(() => settingsManager.show('Success', 'Global disable toggled', 'success'))
                 .catch(err => settingsManager.show('Error', 'Failed to toggle global disable', 'danger'));
+        });
+    }
+
+    if (clearHistoryBtn) {
+        clearHistoryBtn.addEventListener("click", () => {
+            const modal = new bootstrap.Modal(document.getElementById('clearHistoryModal'));
+            modal.show();
+        });
+    }
+
+    const confirmClearHistory = document.getElementById('confirmClearHistory');
+    if (confirmClearHistory) {
+        confirmClearHistory.addEventListener("click", async () => {
+            await taskManager.clearTaskHistory();
+            const modal = bootstrap.Modal.getInstance(document.getElementById('clearHistoryModal'));
+            modal.hide();
         });
     }
 

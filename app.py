@@ -3251,6 +3251,20 @@ async def get_task_history():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/background_tasks/history/clear")
+async def clear_task_history():
+    """Clear all task history entries from the database."""
+    try:
+        result = await task_history_collection.delete_many({})
+        return {
+            "status": "success",
+            "message": f"Cleared {result.deleted_count} task history entries"
+        }
+    except Exception as e:
+        logger.error(f"Error clearing task history: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/background_tasks/task/{task_id}")
 async def get_task_details(task_id: str):
     """Get detailed information about a specific background task."""
