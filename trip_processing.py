@@ -49,7 +49,8 @@ def process_trip(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
         # Validate gps data exists.
         if "gps" not in trip:
-            logger.error("Trip %s missing gps data.", trip.get('transactionId', '?'))
+            logger.error("Trip %s missing gps data.",
+                         trip.get('transactionId', '?'))
             return None
 
         # Ensure gps data is a dictionary.
@@ -57,7 +58,8 @@ def process_trip(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if isinstance(gps_data, str):
             gps_data = json.loads(gps_data)
         if not gps_data.get("coordinates"):
-            logger.error("Trip %s has invalid coordinates.", trip.get('transactionId', '?'))
+            logger.error("Trip %s has invalid coordinates.",
+                         trip.get('transactionId', '?'))
             return None
 
         # Store the gps data as a JSON string.
@@ -76,7 +78,8 @@ def process_trip(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return trip
 
     except Exception as e:
-        logger.error("Error processing trip %s: %s", trip.get('transactionId', '?'), e, exc_info=True)
+        logger.error("Error processing trip %s: %s", trip.get(
+            'transactionId', '?'), e, exc_info=True)
         return None
 
 

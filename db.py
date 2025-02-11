@@ -31,7 +31,8 @@ def get_mongo_client() -> AsyncIOMotorClient:
         logger.info("MongoDB client initialized successfully.")
         return client
     except Exception as e:
-        logger.error("Failed to initialize MongoDB client: %s", e, exc_info=True)
+        logger.error("Failed to initialize MongoDB client: %s",
+                     e, exc_info=True)
         raise e
 
 
@@ -39,13 +40,16 @@ def get_mongo_client() -> AsyncIOMotorClient:
 # BUT, access them through task_manager.db in tasks.py
 trips_collection = get_mongo_client()["every_street"]["trips"]
 matched_trips_collection = get_mongo_client()["every_street"]["matched_trips"]
-historical_trips_collection = get_mongo_client()["every_street"]["historical_trips"]
-uploaded_trips_collection = get_mongo_client()["every_street"]["uploaded_trips"]
+historical_trips_collection = get_mongo_client(
+)["every_street"]["historical_trips"]
+uploaded_trips_collection = get_mongo_client(
+)["every_street"]["uploaded_trips"]
 places_collection = get_mongo_client()["every_street"]["places"]
 osm_data_collection = get_mongo_client()["every_street"]["osm_data"]
 realtime_data_collection = get_mongo_client()["every_street"]["realtime_data"]
 streets_collection = get_mongo_client()["every_street"]["streets"]
-coverage_metadata_collection = get_mongo_client()["every_street"]["coverage_metadata"]
+coverage_metadata_collection = get_mongo_client(
+)["every_street"]["coverage_metadata"]
 live_trips_collection = get_mongo_client()["every_street"]["live_trips"]
 archived_live_trips_collection = get_mongo_client()["every_street"][
     "archived_live_trips"
@@ -63,7 +67,8 @@ async def init_task_history_collection():
         await task_history_collection.create_index([("task_id", 1), ("timestamp", -1)])
         logger.info("Task history collection indexes created successfully")
     except Exception as e:
-        logger.error("Error creating task history indexes: %s", e, exc_info=True)
+        logger.error("Error creating task history indexes: %s",
+                     e, exc_info=True)
         raise e
 
 
@@ -92,7 +97,8 @@ async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
             try:
                 t["gps"] = json.loads(t["gps"])
             except Exception as e:
-                logger.error("Failed to parse gps for %s: %s", trip_id, e, exc_info=True)
+                logger.error("Failed to parse gps for %s: %s",
+                             trip_id, e, exc_info=True)
                 return None
         return t
     except Exception as e:

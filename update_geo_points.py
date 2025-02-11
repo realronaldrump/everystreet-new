@@ -62,7 +62,8 @@ async def update_geo_points(collection):
                         {"_id": doc["_id"]}, {"$set": update_fields}
                     )
                     updated_count += 1
-                    logger.debug("Updated GeoPoints for document _id: %s", doc.get('_id', '?'))
+                    logger.debug(
+                        "Updated GeoPoints for document _id: %s", doc.get('_id', '?'))
                     logger.debug(
                         f"Updated GeoPoints for document _id: {doc.get('_id', '?')}"
                     )
