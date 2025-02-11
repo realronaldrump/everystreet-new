@@ -1,4 +1,4 @@
-/* global showLoadingOverlay, hideLoadingOverlay, bootstrap, flatpickr */
+/* global showLoadingOverlay, hideLoadingOverlay, bootstrap, flatpickr, taskManager, settingsManager */
 
 (() => {
   "use strict";

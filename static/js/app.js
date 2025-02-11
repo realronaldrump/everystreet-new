@@ -1,4 +1,4 @@
-/* global L, flatpickr, notificationManager */
+/* global L, flatpickr, notificationManager, LiveTripTracker */
 (() => {
   "use strict";
 

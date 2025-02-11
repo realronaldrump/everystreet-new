@@ -1,3 +1,4 @@
+/* global bootstrap */
 class NotificationManager {
   constructor() {
     this.container = this.createContainer();

@@ -1,4 +1,4 @@
-/* global L, flatpickr, notificationManager, bootstrap, LoadingManager, EveryStreet $ */
+/* global L, flatpickr, notificationManager, bootstrap, LoadingManager, EveryStreet, confirmationDialog, createEditableCell, $ */
 
 (() => {
   "use strict";

@@ -1,4 +1,4 @@
-/* global L, flatpickr, notificationManager, bootstrap, LoadingManager */
+/* global L, flatpickr, notificationManager, bootstrap, LoadingManager, confirmationDialog */
 
 (() => {
   "use strict";
