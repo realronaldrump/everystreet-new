@@ -171,7 +171,7 @@
       if (!window.liveTracker) {
         try {
           window.liveTracker = new LiveTripTracker(map);
-          console.log("Live Tracker initialized");
+          
         } catch (error) {
           console.error("Error initializing live tracking:", error);
         }

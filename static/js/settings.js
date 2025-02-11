@@ -34,7 +34,7 @@
         };
 
         this.ws.onclose = () => {
-            console.log('WebSocket connection closed. Attempting to reconnect...');
+            
             setTimeout(() => this.initializeWebSocket(), 5000);
         };
     }

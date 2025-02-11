@@ -115,7 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
           ? `/api/matched_trips?start_date=${startDate}&end_date=${endDate}`
           : `/api/trips?start_date=${startDate}&end_date=${endDate}`;
 
-      console.log(`Fetching trips from: ${url}`);
+      
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch trips");
 

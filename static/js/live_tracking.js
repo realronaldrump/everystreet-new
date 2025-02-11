@@ -55,12 +55,12 @@ class LiveTripTracker {
       const response = await fetch("/api/active_trip");
       if (response.ok) {
         const trip = await response.json();
-        console.log("Initial active trip loaded:", trip.transactionId);
+        
         // Set the trip (this draws the polyline & marker)
         this.setActiveTrip(trip);
         this.updateActiveTripsCount(1);
       } else {
-        console.log("No active trip found (server returned 404 or similar).");
+        
         this.updateActiveTripsCount(0);
       }
     } catch (error) {
@@ -113,12 +113,12 @@ class LiveTripTracker {
     // Decide between ws:// or wss:// based on the current page
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const wsUrl = `${protocol}://${window.location.host}/ws/live_trip`;
-    console.log("Connecting to WebSocket at", wsUrl);
+    
 
     this.websocket = new WebSocket(wsUrl);
 
     this.websocket.onopen = () => {
-      console.log("WebSocket connected");
+      
       this.updateStatus(true);
       this.reconnectAttempts = 0;
     };
@@ -174,13 +174,13 @@ class LiveTripTracker {
     if (type === "trip_update") {
       // There's an active trip => re-render it
       if (message.data) {
-        console.log("Received trip_update for transactionId:", message.data.transactionId);
+        
         this.setActiveTrip(message.data);
         this.updateActiveTripsCount(1);
       }
     } else if (type === "heartbeat") {
       // Means no trip is currently active => clear the map
-      console.log("Received heartbeat – no active trip in progress");
+      
       this.activeTrip = null;
       this.polyline.setLatLngs([]);
       // Remove marker from map if present
