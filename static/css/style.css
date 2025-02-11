@@ -1272,3 +1272,122 @@ canvas {
 .toast-icon.bg-info {
   background-color: var(--info-color) !important;
 }
+
+
+/* Flatpickr Custom Styles */
+.flatpickr-calendar {
+  background: var(--surface-color);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  color: var(--on-surface);
+  font-family: inherit;
+  margin-top: 4px;
+  position: absolute !important;
+  z-index: 1100;
+}
+
+.flatpickr-calendar.arrowTop:before,
+.flatpickr-calendar.arrowTop:after {
+  border-bottom-color: var(--primary-color);
+}
+
+.flatpickr-months {
+  background: var(--surface-color);
+  border-radius: 8px 8px 0 0;
+  padding: 8px 0;
+}
+
+.flatpickr-months .flatpickr-month {
+  color: var(--on-surface);
+  fill: var(--on-surface);
+}
+
+.flatpickr-current-month {
+  font-size: 1rem;
+  padding: 0;
+}
+
+.flatpickr-monthDropdown-months {
+  background: var(--surface-color);
+  color: var(--on-surface);
+}
+
+.flatpickr-monthDropdown-month {
+  background: var(--surface-color);
+}
+
+.flatpickr-weekdays {
+  background: var(--surface-color);
+}
+
+span.flatpickr-weekday {
+  background: var(--surface-color);
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.flatpickr-day {
+  color: var(--on-surface);
+  border-radius: 4px;
+  margin: 2px;
+}
+
+.flatpickr-day:hover {
+  background: rgba(187, 134, 252, 0.1);
+  border-color: transparent;
+}
+
+.flatpickr-day.selected {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--on-primary);
+}
+
+.flatpickr-day.today {
+  border-color: var(--primary-color);
+}
+
+.flatpickr-day.today:hover {
+  background: rgba(187, 134, 252, 0.2);
+  color: var(--on-surface);
+}
+
+.flatpickr-day.disabled {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.numInputWrapper:hover {
+  background: rgba(187, 134, 252, 0.1);
+}
+
+.numInputWrapper span {
+  border: none;
+  padding: 0 4px;
+}
+
+.numInputWrapper span:hover {
+  background: rgba(187, 134, 252, 0.2);
+}
+
+.flatpickr-calendar.hasTime .flatpickr-time {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Update the month navigation arrows */
+.flatpickr-months .flatpickr-prev-month,
+.flatpickr-months .flatpickr-next-month {
+  fill: var(--on-surface) !important;
+  color: var(--on-surface) !important;
+  opacity: 0.7;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover,
+.flatpickr-months .flatpickr-next-month:hover {
+  opacity: 1;
+}
+
+.flatpickr-months .flatpickr-prev-month svg,
+.flatpickr-months .flatpickr-next-month svg {
+  fill: var(--on-surface) !important;
+}

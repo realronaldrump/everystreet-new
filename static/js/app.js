@@ -208,17 +208,38 @@
       localStorage.setItem("endDate", today);
   }
   function initializeDatePickers() {
-    const today = new Date(),
-      tomorrow = new Date(today);
+    const today = new Date();
+    const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
+    
     const config = {
       dateFormat: "Y-m-d",
       maxDate: tomorrow,
       enableTime: false,
-      static: true,
+      static: false, // Changed to false to allow calendar to overflow
+      appendTo: document.body, // This ensures the calendar can overflow the sidebar
+      theme: "dark",
+      position: "auto",
+      disableMobile: true, // Prevents native date picker on mobile
+      onChange: function(selectedDates, dateStr) {
+        // Store the date when changed
+        const input = this.input;
+        if (input) {
+          localStorage.setItem(
+            input.id === "start-date" ? "startDate" : "endDate",
+            dateStr
+          );
+        }
+      }
     };
-    if (document.getElementById("start-date")) flatpickr("#start-date", config);
-    if (document.getElementById("end-date")) flatpickr("#end-date", config);
+  
+    const dateInputs = ["start-date", "end-date"];
+    dateInputs.forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        flatpickr(element, config);
+      }
+    });
   }
 
   function getFilterParams() {
