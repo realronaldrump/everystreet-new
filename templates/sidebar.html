@@ -1,80 +1,100 @@
-<nav id="sidebar" class="sidebar bg-dark text-white">
-  <!-- Header -->
+{# Sidebar Navigation #}
+<nav id="sidebar" class="sidebar bg-dark text-white" aria-label="Main navigation">
+  {# Header #}
   <div class="sidebar-header p-3 bg-primary d-flex justify-content-between align-items-center">
-    <h3 class="m-0">Every Street</h3>
-    <button id="sidebar-collapse" class="btn btn-sm btn-primary d-lg-none" aria-label="Toggle Sidebar">
-      <i class="fas fa-bars"></i>
+    <h1 class="h3 m-0">Every Street</h1>
+    <button id="sidebar-collapse" class="btn btn-sm btn-primary d-lg-none" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="sidebar-content">
+      <i class="fas fa-bars" aria-hidden="true"></i>
     </button>
   </div>
-  <!-- Make this div scrollable -->
-  <div class="sidebar-body">
-    <!-- Navigation Menu -->
+
+  {# Scrollable Content #}
+  <div id="sidebar-content" class="sidebar-body">
+    {# Navigation Menu #}
     <div class="sidebar-nav p-2">
-      <ul class="nav flex-column list-unstyled">
-        <li class="nav-item mb-2">
-          <a href="/" class="nav-link text-white" aria-current="page" title="Map">
-            <i class="fas fa-map me-2"></i> <span class="nav-link-text">Map</span>
+      <ul class="nav flex-column list-unstyled" role="menu">
+        <li class="nav-item mb-2" role="none">
+          <a href="/" class="nav-link text-white d-flex align-items-center" role="menuitem" aria-current="{% if request.path == '/' %}page{% endif %}" title="View Map">
+            <i class="fas fa-map me-2" aria-hidden="true"></i>
+            <span class="nav-link-text">Map</span>
           </a>
         </li>
-        <li class="nav-item mb-2">
-          <a href="/trips" class="nav-link text-white" title="Trips">
-            <i class="fas fa-road me-2"></i> <span class="nav-link-text">Trips</span>
+        <li class="nav-item mb-2" role="none">
+          <a href="/trips" class="nav-link text-white d-flex align-items-center" role="menuitem" aria-current="{% if request.path == '/trips' %}page{% endif %}" title="View Trips">
+            <i class="fas fa-road me-2" aria-hidden="true"></i>
+            <span class="nav-link-text">Trips</span>
           </a>
         </li>
-        <li class="nav-item mb-2">
-          <a href="/edit_trips" class="nav-link text-white" title="Edit Trips">
-            <i class="fas fa-edit me-2"></i> <span class="nav-link-text">Edit Trips</span>
+        <li class="nav-item mb-2" role="none">
+          <a href="/edit_trips" class="nav-link text-white d-flex align-items-center" role="menuitem" aria-current="{% if request.path == '/edit_trips' %}page{% endif %}" title="Edit Trip Data">
+            <i class="fas fa-edit me-2" aria-hidden="true"></i>
+            <span class="nav-link-text">Edit Trips</span>
           </a>
         </li>
-        <li class="nav-item mb-2">
-          <a href="/driving-insights" class="nav-link text-white" title="Driving Insights">
-            <i class="fas fa-chart-line me-2"></i> <span class="nav-link-text">Driving Insights</span>
+        <li class="nav-item mb-2" role="none">
+          <a href="/driving-insights" class="nav-link text-white d-flex align-items-center" role="menuitem" aria-current="{% if request.path == '/driving-insights' %}page{% endif %}" title="View Driving Statistics">
+            <i class="fas fa-chart-line me-2" aria-hidden="true"></i>
+            <span class="nav-link-text">Driving Insights</span>
           </a>
         </li>
-        <li class="nav-item mb-2">
-          <a href="/export" class="nav-link text-white" title="Export Data">
-            <i class="fas fa-file-export me-2"></i> <span class="nav-link-text">Export Data</span>
+        <li class="nav-item mb-2" role="none">
+          <a href="/export" class="nav-link text-white d-flex align-items-center" role="menuitem" aria-current="{% if request.path == '/export' %}page{% endif %}" title="Export Your Data">
+            <i class="fas fa-file-export me-2" aria-hidden="true"></i>
+            <span class="nav-link-text">Export Data</span>
           </a>
         </li>
-        <li class="nav-item mb-2">
-          <a href="/upload" class="nav-link text-white" title="Upload GPX">
-            <i class="fas fa-upload me-2"></i> <span class="nav-link-text">Upload GPX</span>
+        <li class="nav-item mb-2" role="none">
+          <a href="/upload" class="nav-link text-white d-flex align-items-center" role="menuitem" aria-current="{% if request.path == '/upload' %}page{% endif %}" title="Upload GPX Files">
+            <i class="fas fa-upload me-2" aria-hidden="true"></i>
+            <span class="nav-link-text">Upload GPX</span>
           </a>
         </li>
-        <li class="nav-item mb-2">
-          <a class="nav-link text-white" href="{{ url_for('visits_page') }}" title="Visits">
-            <i class="fas fa-map-marker-alt me-2"></i> <span class="nav-link-text">Visits</span>
+        <li class="nav-item mb-2" role="none">
+          <a href="{{ url_for('visits_page') }}" class="nav-link text-white d-flex align-items-center" role="menuitem" aria-current="{% if request.path == url_for('visits_page') %}page{% endif %}" title="View Place Visits">
+            <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>
+            <span class="nav-link-text">Visits</span>
           </a>
         </li>
-        <li class="nav-item mb-2">
-          <a href="/settings" class="nav-link text-white" title="Settings">
-            <i class="fas fa-cog me-2"></i> <span class="nav-link-text">Settings</span>
+        <li class="nav-item mb-2" role="none">
+          <a href="/settings" class="nav-link text-white d-flex align-items-center" role="menuitem" aria-current="{% if request.path == '/settings' %}page{% endif %}" title="App Settings">
+            <i class="fas fa-cog me-2" aria-hidden="true"></i>
+            <span class="nav-link-text">Settings</span>
           </a>
         </li>
       </ul>
     </div>
-    <hr class="sidebar-divider">
-    <!-- Filters Section -->
+
+    <hr class="sidebar-divider my-3">
+
+    {# Filters Section #}
     <div class="sidebar-filters p-3">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0">Filters</h5>
-        <button class="btn btn-sm btn-link text-white" id="toggle-filters" type="button" data-bs-toggle="collapse" data-bs-target="#filters-content" aria-expanded="true" aria-controls="filters-content">
-          <i class="fas fa-chevron-up"></i>
+        <h2 class="h5 mb-0">Filters</h2>
+        <button class="btn btn-sm btn-link text-white p-1" id="toggle-filters" type="button" 
+                data-bs-toggle="collapse" data-bs-target="#filters-content" 
+                aria-expanded="true" aria-controls="filters-content"
+                title="Toggle filters visibility">
+          <i class="fas fa-chevron-up" aria-hidden="true"></i>
+          <span class="visually-hidden">Toggle Filters</span>
         </button>
       </div>
+
       <div id="filters-content" class="collapse show">
-        <form id="filters-form">
+        <form id="filters-form" aria-label="Trip filters">
           <div class="mb-3">
             <label for="start-date" class="form-label">Start Date</label>
-            <input type="text" id="start-date" class="form-control" placeholder="Select Start Date">
+            <input type="text" id="start-date" class="form-control" 
+                   placeholder="Select Start Date" aria-label="Start date filter">
           </div>
           <div class="mb-3">
             <label for="end-date" class="form-label">End Date</label>
-            <input type="text" id="end-date" class="form-control" placeholder="Select End Date">
+            <input type="text" id="end-date" class="form-control" 
+                   placeholder="Select End Date" aria-label="End date filter">
           </div>
+
           <div class="mb-3">
-            <label class="form-label">Preset Ranges</label>
-            <div class="date-presets-grid">
+            <label class="form-label d-block">Preset Ranges</label>
+            <div class="date-presets-grid" role="group" aria-label="Date range presets">
               <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="today">Today</button>
               <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="yesterday">Yesterday</button>
               <button type="button" class="btn btn-outline-secondary btn-sm date-preset" data-range="last-week">Last 7 Days</button>
@@ -85,24 +105,28 @@
             </div>
           </div>
         </form>
-        <!-- Action Buttons -->
+
+        {# Action Buttons #}
         <div class="d-grid gap-2">
           <button id="apply-filters" class="btn btn-primary" type="button">
-            <i class="fas fa-filter me-1"></i> Apply Filters
+            <i class="fas fa-filter me-1" aria-hidden="true"></i> Apply Filters
           </button>
           <button id="fetch-trips-range" class="btn btn-secondary" type="button">
-            <i class="fas fa-sync me-1"></i> Fetch Trips in Range
+            <i class="fas fa-sync me-1" aria-hidden="true"></i> Fetch Trips in Range
           </button>
           <div class="btn-group w-100" role="group" aria-label="Map Matching Options">
-            <button id="map-match-trips" class="btn btn-warning">Map Match Trips</button>
-            <button id="map-match-historical-trips" class="btn btn-warning">Historical Trips</button>
+            <button id="map-match-trips" class="btn btn-warning" type="button">Map Match Trips</button>
+            <button id="map-match-historical-trips" class="btn btn-warning" type="button">Historical Trips</button>
           </div>
         </div>
       </div>
     </div>
   </div>
 </nav>
-<!-- External Toggle Button -->
-<button id="sidebar-toggle" class="btn btn-primary position-fixed d-none d-lg-block" style="left: 10px; top: 10px; z-index: 1001;" aria-label="Toggle Sidebar">
-  <i class="fas fa-bars"></i>
+
+{# External Toggle Button #}
+<button id="sidebar-toggle" class="btn btn-primary position-fixed d-none d-lg-block" 
+        aria-label="Toggle sidebar menu" aria-expanded="true" aria-controls="sidebar"
+        title="Toggle sidebar">
+  <i class="fas fa-bars" aria-hidden="true"></i>
 </button>
