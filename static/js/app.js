@@ -404,8 +404,7 @@
                 const clickedId = feature.properties.transactionId;
                 const wasSelected = selectedTripId === clickedId;
                 selectedTripId = wasSelected ? null : clickedId;
-                
-                // Close any existing popups
+
                 layerGroup.eachLayer(layer => {
                   if (layer.closePopup) {
                     layer.closePopup();
@@ -413,7 +412,6 @@
                 });
 
                 if (!wasSelected) {
-                  // Only show popup for regular trips and when selecting (not deselecting)
                   if (name === 'trips') {
                     const popupContent = `
                       <div class="trip-popup">
@@ -442,8 +440,10 @@
                     }).openPopup();
                   }
                 }
-                
-                updateMap();
+
+                setTimeout(() => { // Defer updateMap()
+                  updateMap();
+                }, 0);
               });
 
               // Bind popup events

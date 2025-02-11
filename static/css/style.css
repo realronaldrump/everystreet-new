@@ -1447,3 +1447,23 @@ span.flatpickr-weekday {
 #toggle-filters.collapsed i {
   transform: rotate(180deg);
 }
+
+/* Ensure the popup is visible and has a high z-index */
+.leaflet-popup {
+  display: block !important; /* Ensure it's not hidden */
+  z-index: 10000 !important; /* Ensure it appears above other elements */
+  opacity: 1 !important; /* Ensure full visibility */
+  transition: none !important; /* Disable any transitions that might hide it */
+}
+
+/* Ensure the popup content is styled correctly */
+.leaflet-popup-content-wrapper {
+  background: rgba(54, 54, 54, 0.9);
+  color: #fff;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.leaflet-popup-tip {
+  background: rgba(54, 54, 54, 0.9);
+}
