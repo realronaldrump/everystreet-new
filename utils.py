@@ -73,13 +73,15 @@ async def validate_location_osm(
         ) as response:
             if response.status == 200:
                 data = await response.json()
-                logger.debug(f"Received {len(data)} results for location '{location}'.")
+                logger.debug("Received %s results for location '%s'.", len(data), location)
                 return data[0] if data else None
-            logger.error(f"HTTP {response.status} error for location '{location}'.")
+            logger.error("HTTP %s error for location '%s'.", response.status, location)
             return None
     except Exception as e:
         logger.error(
-            f"Exception during validate_location_osm for '{location}': {e}",
+            "Exception during validate_location_osm for '%s': %s",
+            location,
+            e,
             exc_info=True,
         )
         return None
@@ -100,43 +102,38 @@ def validate_trip_data(trip: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
         (bool, Optional[str]): A tuple (is_valid, error_message). If valid, error_message is None.
     """
     transaction_id = trip.get("transactionId", "?")
-    logger.info(f"Validating trip data for {transaction_id}...")
+    logger.info("Validating trip data for %s...", transaction_id)
     required = ["transactionId", "startTime", "endTime", "gps"]
     for field in required:
         if field not in trip:
             error_message = f"Missing required field: {field}"
-            logger.warning(f"Trip {transaction_id} validation failed: {error_message}")
+            logger.warning("Trip %s validation failed: %s", transaction_id, error_message)
             return False, error_message
 
-    logger.debug(f"All required fields present for trip {transaction_id}.")
+    logger.debug("All required fields present for trip %s.", transaction_id)
     try:
         gps_data = trip["gps"]
         if isinstance(gps_data, str):
             gps_data = json.loads(gps_data)
         if "type" not in gps_data or "coordinates" not in gps_data:
             error_message = "gps data missing 'type' or 'coordinates'"
-            logger.warning(f"Trip {transaction_id} validation failed: {error_message}")
+            logger.warning("Trip %s validation failed: %s", transaction_id, error_message)
             return False, error_message
         if not isinstance(gps_data["coordinates"], list):
             error_message = "gps['coordinates'] must be a list"
-            logger.warning(f"Trip {transaction_id} validation failed: {error_message}")
+            logger.warning("Trip %s validation failed: %s", transaction_id, error_message)
             return False, error_message
-        logger.debug(f"GPS structure valid for trip {transaction_id}.")
+        logger.debug("GPS structure valid for trip %s.", transaction_id)
     except json.JSONDecodeError as e:
         error_message = f"Invalid gps data format: {e}"
-        logger.warning(
-            f"Trip {transaction_id} validation failed: {error_message}", exc_info=True
-        )
+        logger.warning("Trip %s validation failed: %s", transaction_id, error_message, exc_info=True)
         return False, error_message
     except Exception as e:
         error_message = f"Error validating gps data: {e}"
-        logger.error(
-            f"Error during gps validation for trip {transaction_id}: {error_message}",
-            exc_info=True,
-        )
+        logger.error("Error during gps validation for trip %s: %s", transaction_id, error_message, exc_info=True)
         return False, error_message
 
-    logger.info(f"Trip data validation successful for {transaction_id}.")
+    logger.info("Trip data validation successful for %s.", transaction_id)
     return True, None
 
 
@@ -172,11 +169,15 @@ async def reverse_geocode_nominatim(
                     try:
                         data = await response.json()
                         logger.debug(
-                            f"Reverse geocoded ({lat}, {lon}): keys={list(data.keys())} (attempt {attempt})"
+                            "Reverse geocoded (%s, %s): keys=%s (attempt %s)",
+                            lat,
+                            lon,
+                            list(data.keys()),
+                            attempt,
                         )
                         return data
                     except Exception as e:
-                        logger.warning(f"Error parsing JSON response: {e}")
+                        logger.warning("Error parsing JSON response: %s", e)
                         continue
                 elif response.status == 429:  # Too Many Requests
                     retry_after = int(
@@ -185,7 +186,7 @@ async def reverse_geocode_nominatim(
                     await asyncio.sleep(retry_after)
                     continue
                 else:
-                    logger.warning(f"Unexpected status code: {response.status}")
+                    logger.warning("Unexpected status code: %s", response.status)
 
         except (
             ClientResponseError,
@@ -196,7 +197,11 @@ async def reverse_geocode_nominatim(
             log_level = logging.WARNING if attempt < retries else logging.ERROR
             logger.log(
                 log_level,
-                f"Reverse geocode error (attempt {attempt}) for ({lat}, {lon}): {e}",
+                "Reverse geocode error (attempt %s) for (%s, %s): %s",
+                attempt,
+                lat,
+                lon,
+                e,
                 exc_info=True,
             )
             if attempt < retries:
@@ -204,14 +209,12 @@ async def reverse_geocode_nominatim(
                 continue
 
         except Exception as e:
-            logger.error(
-                f"Unexpected error during reverse geocoding: {e}", exc_info=True
-            )
+            logger.error("Unexpected error during reverse geocoding: %s", e, exc_info=True)
             if attempt < retries:
                 await asyncio.sleep(backoff_factor * (2 ** (attempt - 1)))
                 continue
 
-    logger.error(f"Failed to reverse geocode ({lat}, {lon}) after {retries} attempts.")
+    logger.error("Failed to reverse geocode (%s, %s) after %s attempts.", lat, lon, retries)
     return None
 
 
@@ -240,5 +243,5 @@ def get_trip_timezone(trip: Dict[str, Any]) -> str:
         tz = tf.timezone_at(lng=lon, lat=lat)
         return tz or "UTC"
     except Exception as e:
-        logger.error(f"Error getting trip timezone: {e}", exc_info=True)
+        logger.error("Error getting trip timezone: %s", e, exc_info=True)
         return "UTC"

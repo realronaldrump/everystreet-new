@@ -24,7 +24,7 @@ async def update_geo_points(collection):
     """
     Asynchronously update documents in the given collection to add startGeoPoint and destinationGeoPoint.
     """
-    logger.info(f"Starting GeoPoint update for collection: {collection.name}")
+    logger.info("Starting GeoPoint update for collection: %s", collection.name)
     updated_count = 0
     try:
         cursor = collection.find(
@@ -62,6 +62,7 @@ async def update_geo_points(collection):
                         {"_id": doc["_id"]}, {"$set": update_fields}
                     )
                     updated_count += 1
+                    logger.debug("Updated GeoPoints for document _id: %s", doc.get('_id', '?'))
                     logger.debug(
                         f"Updated GeoPoints for document _id: {doc.get('_id', '?')}"
                     )

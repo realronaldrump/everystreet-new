@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 async def to_async_iterator(cursor):
     # Instead of trying to convert the async cursor in a thread,
-    # use Motor’s built-in async method to convert the cursor to a list.
+    # use Motor's built-in async method to convert the cursor to a list.
     items = await cursor.to_list(length=None)
     for item in items:
         yield item
@@ -36,7 +36,7 @@ async def to_async_iterator(cursor):
 # -----------------------------------------------------------------------------
 async def map_match_coordinates(coordinates):
     """
-    Given a list of [lon, lat] coordinate pairs, call Mapbox’s map matching API
+    Given a list of [lon, lat] coordinate pairs, call Mapbox's map matching API
     in chunks if needed and return a dict with a matched LineString geometry.
     """
     if len(coordinates) < 2:
@@ -69,19 +69,27 @@ async def map_match_coordinates(coordinates):
                         part = data["matchings"][0]["geometry"]["coordinates"]
                         matched_geometries.extend(part)
                         logger.debug(
-                            f"Chunk {index+1}/{len(chunks)}: Map matching succeeded with {len(chunk)} coords."
+                            "Chunk %s/%s: Map matching succeeded with %s coords.",
+                            index + 1,
+                            len(chunks),
+                            len(chunk)
                         )
                     else:
                         msg = data.get("message", "Mapbox API error")
-                        logger.error(f"Chunk {index+1}: Map Matching API error: {msg}")
+                        logger.error("Chunk %s: Map Matching API error: %s", index + 1, msg)
                         return {"code": "Error", "message": msg}
             except ClientResponseError as e:
                 error_data = None
                 if e.response and e.response.content_type == "application/json":
                     error_data = await e.response.json()
                 logger.error(
-                    f"Chunk {index+1}: ClientResponseError {e.status} - {e.message}, URL: {e.request_info.url}, Response: {error_data}",
-                    exc_info=True,
+                    "Chunk %s: ClientResponseError %s - %s, URL: %s, Response: %s",
+                    index + 1,
+                    e.status,
+                    e.message,
+                    e.request_info.url,
+                    error_data,
+                    exc_info=True
                 )
                 return {
                     "code": "Error",
@@ -92,20 +100,16 @@ async def map_match_coordinates(coordinates):
                     ),
                 }
             except ClientConnectorError as e:
-                logger.error(
-                    f"Chunk {index+1}: ClientConnectorError: {e}", exc_info=True
-                )
+                logger.error("Chunk %s: ClientConnectorError: %s", index + 1, e, exc_info=True)
                 return {
                     "code": "Error",
                     "message": f"Connection error to Mapbox: {str(e)}",
                 }
             except asyncio.TimeoutError:
-                logger.error(
-                    f"Chunk {index+1}: Mapbox API request timed out.", exc_info=True
-                )
+                logger.error("Chunk %s: Mapbox API request timed out.", index + 1, exc_info=True)
                 return {"code": "Error", "message": "Mapbox API request timed out."}
             except Exception as e:
-                logger.error(f"Chunk {index+1}: Unexpected error: {e}", exc_info=True)
+                logger.error("Chunk %s: Unexpected error: %s", index + 1, e, exc_info=True)
                 return {"code": "Error", "message": str(e)}
     return {
         "code": "Ok",
@@ -142,9 +146,7 @@ def filter_outliers_by_distance(coordinates, max_speed_m_s=60.0):
         if speed < max_speed_m_s:
             cleaned.append(curr)
         else:
-            logger.debug(
-                f"Discarding outlier: {speed:.2f} m/s exceeds {max_speed_m_s} m/s"
-            )
+            logger.debug("Discarding outlier: %s m/s exceeds %s m/s", speed, max_speed_m_s)
     return cleaned
 
 
@@ -205,9 +207,7 @@ async def process_and_map_match_trip(trip):
 
         is_valid, error_message = validate_trip_data(trip)
         if not is_valid:
-            logger.error(
-                f"Trip {trip.get('transactionId', '?')} failed validation: {error_message}"
-            )
+            logger.error("Trip %s failed validation: %s", trip.get('transactionId', '?'), error_message)
             return
 
         # Check if already matched.
@@ -215,7 +215,7 @@ async def process_and_map_match_trip(trip):
             {"transactionId": trip["transactionId"]}
         )
         if existing:
-            logger.info(f"Trip {trip['transactionId']} already matched. Skipping.")
+            logger.info("Trip %s already matched. Skipping.", trip['transactionId'])
             return
 
         # Determine source collection (for clarity only).
@@ -232,9 +232,7 @@ async def process_and_map_match_trip(trip):
             gps_data = geojson_loads(trip["gps"])
         coords = gps_data.get("coordinates", [])
         if not coords or len(coords) < 2:
-            logger.warning(
-                f"Trip {trip['transactionId']} has insufficient coordinates."
-            )
+            logger.warning("Trip %s has insufficient coordinates.", trip['transactionId'])
             return
 
         # Distribute timestamps linearly if possible.
@@ -272,9 +270,7 @@ async def process_and_map_match_trip(trip):
         matched_coords_combined = []
         for seg_index, segment in enumerate(segments):
             if len(segment) < 2:
-                logger.warning(
-                    f"Skipping segment {seg_index} (trip {trip['transactionId']}): fewer than 2 points."
-                )
+                logger.warning("Skipping segment %s (trip %s): fewer than 2 points.", seg_index, trip['transactionId'])
                 continue
             coords_lonlat = [(pt[0], pt[1]) for pt in segment]
             match_result = await map_match_coordinates(coords_lonlat)
@@ -288,15 +284,11 @@ async def process_and_map_match_trip(trip):
                     else:
                         matched_coords_combined.extend(part)
             else:
-                logger.error(
-                    f"Map matching failed on segment {seg_index} of trip {trip['transactionId']}"
-                )
+                logger.error("Map matching failed on segment %s of trip %s", seg_index, trip['transactionId'])
                 continue
 
         if len(matched_coords_combined) < 2:
-            logger.warning(
-                f"Trip {trip['transactionId']} resulted in fewer than 2 matched coordinates."
-            )
+            logger.warning("Trip %s resulted in fewer than 2 matched coordinates.", trip['transactionId'])
             return
 
         matched_trip = trip.copy()
@@ -317,20 +309,13 @@ async def process_and_map_match_trip(trip):
                 if city_info:
                     matched_trip["location"] = city_info.get("display_name", "Unknown")
         except Exception as geocode_err:
-            logger.warning(
-                f"Reverse geocode error for trip {trip.get('transactionId', '?')}: {geocode_err}"
-            )
+            logger.warning("Reverse geocode error for trip %s: %s", trip.get('transactionId', '?'), geocode_err)
 
         await matched_trips_collection.insert_one(matched_trip)
-        logger.info(
-            f"Stored map–matched trip {trip['transactionId']} with {len(matched_coords_combined)} coordinates."
-        )
+        logger.info("Stored map–matched trip %s with %s coordinates.", trip['transactionId'], len(matched_coords_combined))
 
     except Exception as e:
-        logger.error(
-            f"Error in process_and_map_match_trip for trip {trip.get('transactionId', 'Unknown')}: {e}",
-            exc_info=True,
-        )
+        logger.error("Error in process_and_map_match_trip for trip %s: %s", trip.get('transactionId', 'Unknown'), e, exc_info=True)
 
 
 def is_valid_coordinate(coord):

@@ -1,4 +1,4 @@
-/* global L, flatpickr, notificationManager, bootstrap, LoadingManager, Chart $ */
+/* global L, flatpickr, notificationManager, bootstrap, LoadingManager, Chart, $ */
 
 "use strict";
 
