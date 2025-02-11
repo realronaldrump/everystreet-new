@@ -46,7 +46,8 @@ async def create_geojson(trips: List[Dict[str, Any]]) -> str:
             try:
                 gps_data = json.loads(gps_data)
             except Exception as e:
-                logger.error("Error parsing gps data for trip %s: %s", t.get('transactionId', '?'), e)
+                logger.error("Error parsing gps data for trip %s: %s",
+                             t.get('transactionId', '?'), e)
                 continue
 
         # Build a properties dictionary.
@@ -96,11 +97,13 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
             try:
                 gps_data = json.loads(gps_data)
             except Exception as e:
-                logger.error("Error parsing gps data for trip %s: %s", t.get('transactionId', '?'), e)
+                logger.error("Error parsing gps data for trip %s: %s",
+                             t.get('transactionId', '?'), e)
                 continue
 
         if not gps_data:
-            logger.warning("No gps data for trip %s", t.get('transactionId', '?'))
+            logger.warning("No gps data for trip %s",
+                           t.get('transactionId', '?'))
             continue
 
         # Process a LineString.
