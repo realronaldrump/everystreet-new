@@ -1,10 +1,9 @@
 import logging
 from datetime import datetime, timezone
 import json
-import numpy as np
 import pyproj
-from shapely.geometry import shape, box, LineString, Point, mapping
-from shapely.ops import transform, nearest_points
+from shapely.geometry import shape, box, LineString, Point
+from shapely.ops import transform
 import rtree
 import os
 from collections import defaultdict

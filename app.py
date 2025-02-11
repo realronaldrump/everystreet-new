@@ -10,13 +10,11 @@ from datetime import datetime, timedelta, timezone
 from math import radians, cos, sin, sqrt, atan2
 from typing import List, Dict, Any
 from fastapi.staticfiles import StaticFiles
-from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import DuplicateKeyError
 from starlette.websockets import WebSocketDisconnect
 import shutil
 
 import aiohttp
-import certifi
 import geopandas as gpd
 import geojson as geojson_module
 import gpxpy
@@ -24,17 +22,15 @@ import pytz
 from bson import ObjectId
 from dateutil import parser
 from dotenv import load_dotenv
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.jobstores.base import JobLookupError
 from shapely.geometry import LineString, Point, Polygon, shape
 
 from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinates
 from update_geo_points import update_geo_points
-from utils import validate_location_osm, validate_trip_data, reverse_geocode_nominatim
+from utils import validate_location_osm, reverse_geocode_nominatim
 from map_matching import process_and_map_match_trip
-from bouncie_trip_fetcher import fetch_bouncie_trips_in_range, fetch_and_store_trips
+from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from preprocess_streets import preprocess_streets as async_preprocess_streets
-from tasks import task_manager, AVAILABLE_TASKS, start_background_tasks, TaskStatus
+from tasks import task_manager
 from db import (
     trips_collection,
     matched_trips_collection,
@@ -54,8 +50,7 @@ from trip_processing import format_idle_time
 from export_helpers import create_geojson, create_gpx
 from street_coverage_calculation import (
     compute_coverage_for_location,
-    update_coverage_for_all_locations,
-)
+    )
 
 load_dotenv()
 
@@ -76,8 +71,7 @@ from fastapi.responses import (
     JSONResponse,
     HTMLResponse,
     StreamingResponse,
-    FileResponse,
-)
+    )
 from fastapi.templating import Jinja2Templates
 
 app = FastAPI()
