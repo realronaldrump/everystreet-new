@@ -1,3 +1,4 @@
+from motor.motor_asyncio import AsyncIOMotorClient
 import logging
 from datetime import datetime, timezone
 import json
@@ -22,7 +23,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Database setup using Motor (asynchronous)
-from motor.motor_asyncio import AsyncIOMotorClient
 
 MONGO_URI = os.getenv("MONGO_URI")
 client = AsyncIOMotorClient(MONGO_URI, tz_aware=True)
