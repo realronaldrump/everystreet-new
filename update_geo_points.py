@@ -6,7 +6,8 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,10 @@ async def update_geo_points(collection):
                         {"_id": doc["_id"]}, {"$set": update_fields}
                     )
                     updated_count += 1
-                    logger.debug("Updated GeoPoints for document _id: %s", doc.get('_id', '?'))
+                    logger.debug(
+                        "Updated GeoPoints for document _id: %s",
+                        doc.get("_id", "?"),
+                    )
                     logger.debug(
                         f"Updated GeoPoints for document _id: {doc.get('_id', '?')}"
                     )
@@ -77,7 +81,8 @@ async def update_geo_points(collection):
                 )
             except Exception as e:
                 logger.error(
-                    f"Error updating document {doc.get('_id', '?')}: {e}", exc_info=True
+                    f"Error updating document {doc.get('_id', '?')}: {e}",
+                    exc_info=True,
                 )
     except Exception as e:
         logger.error(

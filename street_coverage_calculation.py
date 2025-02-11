@@ -16,7 +16,8 @@ load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,9 @@ class CoverageCalculator:
 
         return covered_segments
 
-    def is_trip_in_boundary(self, trip: Dict[str, Any], boundary_box: box) -> bool:
+    def is_trip_in_boundary(
+        self, trip: Dict[str, Any], boundary_box: box
+    ) -> bool:
         """Quick check if trip intersects boundary box"""
         try:
             matched_gps = trip.get("matchedGps")
@@ -147,7 +150,9 @@ class CoverageCalculator:
             covered_segments = set()
 
             # Query potentially intersecting streets using R-tree
-            for idx in self.streets_index.intersection(trip_buffer_wgs84.bounds):
+            for idx in self.streets_index.intersection(
+                trip_buffer_wgs84.bounds
+            ):
                 street = self.streets_lookup[idx]
                 street_geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, street_geom)
@@ -157,7 +162,9 @@ class CoverageCalculator:
                 if not intersection.is_empty:
                     intersection_length = intersection.length
                     if intersection_length >= self.min_match_length:
-                        covered_segments.add(street["properties"]["segment_id"])
+                        covered_segments.add(
+                            street["properties"]["segment_id"]
+                        )
 
             return covered_segments
 
@@ -186,7 +193,9 @@ class CoverageCalculator:
             # Initialize coverage tracking
             total_length = 0
             covered_length = 0
-            segment_coverage = defaultdict(int)  # Track coverage count per segment
+            segment_coverage = defaultdict(
+                int
+            )  # Track coverage count per segment
 
             # Calculate total length in UTM coordinates for accuracy
             for street in streets:
@@ -247,7 +256,9 @@ class CoverageCalculator:
 
             # Calculate coverage percentage
             coverage_percentage = (
-                (covered_length / total_length * 100) if total_length > 0 else 0
+                (covered_length / total_length * 100)
+                if total_length > 0
+                else 0
             )
 
             return {
@@ -300,7 +311,9 @@ async def update_coverage_for_all_locations() -> None:
     """
     try:
         logger.info("Starting coverage update for all locations...")
-        cursor = coverage_metadata_collection.find({}, {"location": 1, "_id": 1})
+        cursor = coverage_metadata_collection.find(
+            {}, {"location": 1, "_id": 1}
+        )
 
         async for doc in cursor:
             loc = doc.get("location")
@@ -322,7 +335,9 @@ async def update_coverage_for_all_locations() -> None:
                             "location": loc,
                             "total_length": result["total_length"],
                             "driven_length": result["driven_length"],
-                            "coverage_percentage": result["coverage_percentage"],
+                            "coverage_percentage": result[
+                                "coverage_percentage"
+                            ],
                             "last_updated": datetime.now(timezone.utc),
                         }
                     },
@@ -333,4 +348,6 @@ async def update_coverage_for_all_locations() -> None:
                 )
         logger.info("Finished coverage update for all locations.")
     except Exception as e:
-        logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)
+        logger.error(
+            f"Error updating coverage for all locations: {e}", exc_info=True
+        )
