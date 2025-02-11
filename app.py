@@ -1,3 +1,17 @@
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import (
+    JSONResponse,
+    HTMLResponse,
+    StreamingResponse,
+)
+from fastapi import (
+    FastAPI,
+    Request,
+    WebSocket,
+    HTTPException,
+    UploadFile,
+    File,
+)
 import os
 import json
 import logging
@@ -70,20 +84,6 @@ streets_collection.create_index([("geometry", "2dsphere")])
 streets_collection.create_index([("properties.location", 1)])
 coverage_metadata_collection.create_index([("location", 1)], unique=True)
 
-from fastapi import (
-    FastAPI,
-    Request,
-    WebSocket,
-    HTTPException,
-    UploadFile,
-    File,
-)
-from fastapi.responses import (
-    JSONResponse,
-    HTMLResponse,
-    StreamingResponse,
-)
-from fastapi.templating import Jinja2Templates
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -1597,7 +1597,7 @@ async def export_single_trip(trip_id: str, request: Request):
                 "Content-Disposition": f'attachment; filename="trip_{trip_id}.geojson"'
             },
         )
-    elif fmt == "gpx":
+    if fmt == "gpx":
         gpx = gpxpy.gpx.GPX()
         track = gpxpy.gpx.GPXTrack()
         gpx.tracks.append(track)
@@ -1619,8 +1619,7 @@ async def export_single_trip(trip_id: str, request: Request):
                 "Content-Disposition": f'attachment; filename="trip_{trip_id}.gpx"'
             },
         )
-    else:
-        raise HTTPException(status_code=400, detail="Unsupported format")
+    raise HTTPException(status_code=400, detail="Unsupported format")
 
 
 @app.delete("/api/matched_trips/{trip_id}")
@@ -1669,7 +1668,7 @@ async def export_all_trips(request: Request):
                 "Content-Disposition": 'attachment; filename="all_trips.geojson"'
             },
         )
-    elif fmt == "gpx":
+    if fmt == "gpx":
         gpx_data = await create_gpx(all_trips)
         return StreamingResponse(
             io.BytesIO(gpx_data.encode()),
@@ -1678,10 +1677,9 @@ async def export_all_trips(request: Request):
                 "Content-Disposition": 'attachment; filename="all_trips.gpx"'
             },
         )
-    elif fmt == "json":
+    if fmt == "json":
         return JSONResponse(content=all_trips)
-    else:
-        raise HTTPException(status_code=400, detail="Invalid export format")
+    raise HTTPException(status_code=400, detail="Invalid export format")
 
 
 @app.get("/api/export/trips")
@@ -1699,7 +1697,7 @@ async def export_trips(request: Request):
                 "Content-Disposition": 'attachment; filename="all_trips.geojson"'
             },
         )
-    elif fmt == "gpx":
+    if fmt == "gpx":
         gpx_data = await create_gpx(ts)
         return StreamingResponse(
             io.BytesIO(gpx_data.encode()),
@@ -1708,8 +1706,7 @@ async def export_trips(request: Request):
                 "Content-Disposition": 'attachment; filename="all_trips.gpx"'
             },
         )
-    else:
-        raise HTTPException(status_code=400, detail="Invalid export format")
+    raise HTTPException(status_code=400, detail="Invalid export format")
 
 
 async def fetch_all_trips(start_date_str, end_date_str):
@@ -1739,7 +1736,7 @@ async def export_matched_trips(request: Request):
                 "Content-Disposition": 'attachment; filename="matched_trips.geojson"'
             },
         )
-    elif fmt == "gpx":
+    if fmt == "gpx":
         data = await create_gpx(ms)
         return StreamingResponse(
             io.BytesIO(data.encode()),
@@ -1748,8 +1745,7 @@ async def export_matched_trips(request: Request):
                 "Content-Disposition": 'attachment; filename="matched_trips.gpx"'
             },
         )
-    else:
-        raise HTTPException(status_code=400, detail="Invalid export format")
+    raise HTTPException(status_code=400, detail="Invalid export format")
 
 
 async def fetch_matched_trips(start_date_str, end_date_str):
@@ -1777,7 +1773,7 @@ async def export_streets(request: Request):
                 "Content-Disposition": 'attachment; filename="streets.geojson"'
             },
         )
-    elif fmt == "shapefile":
+    if fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
         buf = io.BytesIO()
         tmp_dir = "inmem_shp"
@@ -1799,8 +1795,7 @@ async def export_streets(request: Request):
                 "Content-Disposition": 'attachment; filename="streets.zip"'
             },
         )
-    else:
-        raise HTTPException(status_code=400, detail="Invalid export format")
+    raise HTTPException(status_code=400, detail="Invalid export format")
 
 
 @app.get("/api/export/boundary")
@@ -1821,7 +1816,7 @@ async def export_boundary(request: Request):
                 "Content-Disposition": 'attachment; filename="boundary.geojson"'
             },
         )
-    elif fmt == "shapefile":
+    if fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
         buf = io.BytesIO()
         tmp_dir = "inmem_shp"
@@ -1843,8 +1838,7 @@ async def export_boundary(request: Request):
                 "Content-Disposition": 'attachment; filename="boundary.zip"'
             },
         )
-    else:
-        raise HTTPException(status_code=400, detail="Invalid export format")
+    raise HTTPException(status_code=400, detail="Invalid export format")
 
 
 # Preprocessing & Street Segment Details
@@ -3184,8 +3178,7 @@ async def get_active_trip():
                     active_trip[key] = active_trip[key].isoformat()
             active_trip["_id"] = str(active_trip["_id"])
             return active_trip
-        else:
-            raise HTTPException(status_code=404, detail="No active trip")
+        raise HTTPException(status_code=404, detail="No active trip")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
