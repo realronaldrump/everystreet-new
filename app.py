@@ -50,7 +50,7 @@ from trip_processing import format_idle_time
 from export_helpers import create_geojson, create_gpx
 from street_coverage_calculation import (
     compute_coverage_for_location,
-    )
+)
 
 load_dotenv()
 
@@ -71,7 +71,7 @@ from fastapi.responses import (
     JSONResponse,
     HTMLResponse,
     StreamingResponse,
-    )
+)
 from fastapi.templating import Jinja2Templates
 
 app = FastAPI()
@@ -3223,6 +3223,7 @@ async def shutdown_event():
     await task_manager.stop()
     # Cleanup the aiohttp session
     from utils import cleanup_session
+
     await cleanup_session()
 
 

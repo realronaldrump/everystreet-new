@@ -16,10 +16,13 @@ logger = logging.getLogger(__name__)
 
 # Create a global connection pool with limits
 CONN_POOL = TCPConnector(limit=10, force_close=True, enable_cleanup_closed=True)
-SESSION_TIMEOUT = aiohttp.ClientTimeout(total=10, connect=5, sock_connect=5, sock_read=5)
+SESSION_TIMEOUT = aiohttp.ClientTimeout(
+    total=10, connect=5, sock_connect=5, sock_read=5
+)
 
 # Create a global session for reuse
 _session: Optional[aiohttp.ClientSession] = None
+
 
 async def get_session() -> aiohttp.ClientSession:
     """Get or create a shared aiohttp ClientSession."""
@@ -32,9 +35,10 @@ async def get_session() -> aiohttp.ClientSession:
                 "User-Agent": "EveryStreet/1.0 (myapp@example.com)",
                 "Accept": "application/json",
                 "Accept-Encoding": "gzip, deflate",
-            }
+            },
         )
     return _session
+
 
 async def cleanup_session():
     """Cleanup the global session."""
@@ -42,6 +46,7 @@ async def cleanup_session():
     if _session and not _session.closed:
         await _session.close()
     _session = None
+
 
 async def validate_location_osm(
     location: str, location_type: str
@@ -68,9 +73,7 @@ async def validate_location_osm(
         ) as response:
             if response.status == 200:
                 data = await response.json()
-                logger.debug(
-                    f"Received {len(data)} results for location '{location}'."
-                )
+                logger.debug(f"Received {len(data)} results for location '{location}'.")
                 return data[0] if data else None
             logger.error(f"HTTP {response.status} error for location '{location}'.")
             return None
@@ -176,13 +179,20 @@ async def reverse_geocode_nominatim(
                         logger.warning(f"Error parsing JSON response: {e}")
                         continue
                 elif response.status == 429:  # Too Many Requests
-                    retry_after = int(response.headers.get("Retry-After", backoff_factor * 5))
+                    retry_after = int(
+                        response.headers.get("Retry-After", backoff_factor * 5)
+                    )
                     await asyncio.sleep(retry_after)
                     continue
                 else:
                     logger.warning(f"Unexpected status code: {response.status}")
-                    
-        except (ClientResponseError, ClientConnectorError, asyncio.TimeoutError, OSError) as e:
+
+        except (
+            ClientResponseError,
+            ClientConnectorError,
+            asyncio.TimeoutError,
+            OSError,
+        ) as e:
             log_level = logging.WARNING if attempt < retries else logging.ERROR
             logger.log(
                 log_level,
@@ -192,13 +202,15 @@ async def reverse_geocode_nominatim(
             if attempt < retries:
                 await asyncio.sleep(backoff_factor * (2 ** (attempt - 1)))
                 continue
-            
+
         except Exception as e:
-            logger.error(f"Unexpected error during reverse geocoding: {e}", exc_info=True)
+            logger.error(
+                f"Unexpected error during reverse geocoding: {e}", exc_info=True
+            )
             if attempt < retries:
                 await asyncio.sleep(backoff_factor * (2 ** (attempt - 1)))
                 continue
-            
+
     logger.error(f"Failed to reverse geocode ({lat}, {lon}) after {retries} attempts.")
     return None
 
