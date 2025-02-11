@@ -1,3 +1,17 @@
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import (
+    JSONResponse,
+    HTMLResponse,
+    StreamingResponse,
+)
+from fastapi import (
+    FastAPI,
+    Request,
+    WebSocket,
+    HTTPException,
+    UploadFile,
+    File,
+)
 import os
 import json
 import logging
@@ -70,20 +84,6 @@ streets_collection.create_index([("geometry", "2dsphere")])
 streets_collection.create_index([("properties.location", 1)])
 coverage_metadata_collection.create_index([("location", 1)], unique=True)
 
-from fastapi import (
-    FastAPI,
-    Request,
-    WebSocket,
-    HTTPException,
-    UploadFile,
-    File,
-)
-from fastapi.responses import (
-    JSONResponse,
-    HTMLResponse,
-    StreamingResponse,
-)
-from fastapi.templating import Jinja2Templates
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
