@@ -143,7 +143,7 @@ async def get_background_tasks_config():
 
         return config
     except Exception as e:
-        logger.error(f"Error getting task configuration: {e}", exc_info=True)
+        logger.error("Error getting task configuration: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -180,7 +180,7 @@ async def update_background_tasks_config(request: Request):
 
         return {"status": "success", "message": "Configuration updated"}
     except Exception as e:
-        logger.error(f"Error updating task configuration: {e}", exc_info=True)
+        logger.error("Error updating task configuration: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -203,7 +203,7 @@ async def pause_background_tasks(request: Request):
             "message": f"Background tasks paused for {minutes} minutes",
         }
     except Exception as e:
-        logger.error(f"Error pausing tasks: {e}", exc_info=True)
+        logger.error("Error pausing tasks: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -220,7 +220,7 @@ async def resume_background_tasks():
         await task_manager.start()
         return {"status": "success", "message": "Background tasks resumed"}
     except Exception as e:
-        logger.error(f"Error resuming tasks: {e}", exc_info=True)
+        logger.error("Error resuming tasks: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -231,7 +231,7 @@ async def stop_all_background_tasks():
         await task_manager.stop()
         return {"status": "success", "message": "All background tasks stopped"}
     except Exception as e:
-        logger.error(f"Error stopping all tasks: {e}", exc_info=True)
+        logger.error("Error stopping all tasks: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -297,7 +297,7 @@ async def manually_run_tasks(request: Request):
                             results.append({"task": t_id, "success": True})
                         except Exception as e:
                             logger.error(
-                                f"Error scheduling task {t_id}: {e}", exc_info=True
+                                "Error scheduling task %s: %s", t_id, e, exc_info=True
                             )
                             results.append(
                                 {"task": t_id, "success": False, "error": str(e)}
@@ -316,7 +316,9 @@ async def manually_run_tasks(request: Request):
                     )
                     results.append({"task": task_id, "success": True})
                 except Exception as e:
-                    logger.error(f"Error scheduling task {task_id}: {e}", exc_info=True)
+                    logger.error(
+                        "Error scheduling task %s: %s", task_id, e, exc_info=True
+                    )
                     results.append({"task": task_id, "success": False, "error": str(e)})
             else:
                 results.append(
@@ -329,7 +331,7 @@ async def manually_run_tasks(request: Request):
             "results": results,
         }
     except Exception as e:
-        logger.error(f"Error in manually_run_tasks: {e}", exc_info=True)
+        logger.error("Error in manually_run_tasks: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -440,7 +442,7 @@ async def get_edit_trips(request: Request):
         return {"status": "success", "trips": docs}
 
     except Exception as e:
-        logger.error(f"Error fetching trips for editing: {e}", exc_info=True)
+        logger.error("Error fetching trips for editing: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -521,7 +523,7 @@ async def update_trip(trip_id: str, request: Request):
         return {"message": "Trip updated"}
 
     except Exception as e:
-        logger.error(f"Error updating {trip_id}: {e}", exc_info=True)
+        logger.error("Error updating %s: %s", trip_id, e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -550,7 +552,10 @@ async def fetch_trips_for_geojson():
             features.append(feature)
         except Exception as e:
             logger.error(
-                f"Error processing trip {trip.get('transactionId')}: {e}", exc_info=True
+                "Error processing trip %s: %s",
+                trip.get("transactionId"),
+                e,
+                exc_info=True,
             )
     return geojson_module.FeatureCollection(features)
 
@@ -563,7 +568,8 @@ async def get_street_coverage(request: Request):
         if not location or not isinstance(location, dict):
             raise HTTPException(status_code=400, detail="Invalid location data.")
         logger.info(
-            f"Calculating coverage for location: {location.get('display_name', 'Unknown')}"
+            "Calculating coverage for location: %s",
+            location.get("display_name", "Unknown"),
         )
         result = await compute_coverage_for_location(location)
         if result is None:
@@ -587,7 +593,7 @@ async def get_street_coverage(request: Request):
         return result
     except Exception as e:
         logger.error(
-            f"Error in street coverage calculation: {e}\n{traceback.format_exc()}"
+            "Error in street coverage calculation: %s\n%s", e, traceback.format_exc()
         )
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -632,7 +638,8 @@ async def get_trips(request: Request):
                 et = trip.get("endTime")
                 if st is None or et is None:
                     logger.warning(
-                        f"Skipping trip {trip.get('transactionId', 'unknown')} due to missing times"
+                        "Skipping trip %s due to missing times",
+                        trip.get("transactionId", "unknown"),
                     )
                     continue
                 if isinstance(st, str):
@@ -674,14 +681,16 @@ async def get_trips(request: Request):
                 features.append(feature)
             except Exception as e:
                 logger.error(
-                    f"Error processing trip {trip.get('transactionId', 'unknown')}: {e}",
+                    "Error processing trip %s: %s",
+                    trip.get("transactionId", "unknown"),
+                    e,
                     exc_info=True,
                 )
                 continue
         fc = geojson_module.FeatureCollection(features)
         return JSONResponse(content=fc)
     except Exception as e:
-        logger.error(f"Error in /api/trips endpoint: {e}", exc_info=True)
+        logger.error("Error in /api/trips endpoint: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve trips")
 
 
@@ -780,7 +789,7 @@ async def get_driving_insights(request: Request):
             }
         return JSONResponse(content=combined)
     except Exception as e:
-        logger.error(f"Error in get_driving_insights: {e}", exc_info=True)
+        logger.error("Error in get_driving_insights: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -870,7 +879,7 @@ async def get_metrics(request: Request):
             }
         )
     except Exception as e:
-        logger.error(f"Error in get_metrics: {e}", exc_info=True)
+        logger.error("Error in get_metrics: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -966,7 +975,7 @@ async def export_geojson(request: Request):
             },
         )
     except Exception as e:
-        logger.error(f"Error exporting GeoJSON: {e}", exc_info=True)
+        logger.error("Error exporting GeoJSON: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1035,7 +1044,7 @@ async def export_gpx(request: Request):
             headers={"Content-Disposition": f'attachment; filename="trips.gpx"'},
         )
     except Exception as e:
-        logger.error(f"Error exporting gpx: {e}", exc_info=True)
+        logger.error("Error exporting gpx: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1148,7 +1157,9 @@ async def generate_geojson_osm(location, streets_only=False):
                         },
                     )
                     logger.info(
-                        f"Updated OSM data for {location.get('display_name', 'Unknown')}, type: {osm_type}"
+                        "Updated OSM data for %s, type: %s",
+                        location.get("display_name", "Unknown"),
+                        osm_type,
                     )
                 else:
                     # Await insert_one as well.
@@ -1161,11 +1172,14 @@ async def generate_geojson_osm(location, streets_only=False):
                         }
                     )
                     logger.info(
-                        f"Stored OSM data for {location.get('display_name', 'Unknown')}, type: {osm_type}"
+                        "Stored OSM data for %s, type: %s",
+                        location.get("display_name", "Unknown"),
+                        osm_type,
                     )
             else:
                 logger.warning(
-                    f"Data for {location.get('display_name', 'Unknown')} is too large for MongoDB."
+                    "Data for %s is too large for MongoDB.",
+                    location.get("display_name", "Unknown"),
                 )
             return geojson_data, None
         return None, "No features found"
@@ -1173,7 +1187,7 @@ async def generate_geojson_osm(location, streets_only=False):
         logger.error("Error generating geojson from Overpass: %s", e, exc_info=True)
         return None, "Error communicating with Overpass API"
     except Exception as e:
-        logger.error(f"Error generating geojson: {e}", exc_info=True)
+        logger.error("Error generating geojson: %s", e, exc_info=True)
         return None, str(e)
 
 
@@ -1223,7 +1237,7 @@ async def map_match_trips(request: Request):
             await process_and_map_match_trip(trip)
         return {"status": "success", "message": "Map matching started for trips."}
     except Exception as e:
-        logger.error(f"Error in map_match_trips endpoint: {e}", exc_info=True)
+        logger.error("Error in map_match_trips endpoint: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1257,7 +1271,7 @@ async def map_match_historical_trips(request: Request):
         }
     except Exception as e:
         logger.error(
-            f"Error in map_match_historical_trips endpoint: {e}", exc_info=True
+            "Error in map_match_historical_trips endpoint: %s", e, exc_info=True
         )
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1314,7 +1328,9 @@ async def get_matched_trips(request: Request):
             features.append(feature)
         except Exception as e:
             logger.error(
-                f"Error processing matched trip {trip.get('transactionId')}: {e}",
+                "Error processing matched trip %s: %s",
+                trip.get("transactionId"),
+                e,
                 exc_info=True,
             )
             continue
@@ -1361,7 +1377,7 @@ async def delete_matched_trips(request: Request):
         return {"status": "success", "deleted_count": total_deleted_count}
 
     except Exception as e:
-        logger.error(f"Error in delete_matched_trips: {e}", exc_info=True)
+        logger.error("Error in delete_matched_trips: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Error deleting matched trips: {e}"
         )
@@ -1402,7 +1418,7 @@ async def remap_matched_trips(request: Request):
         return {"status": "success", "message": "Re-matching completed."}
 
     except Exception as e:
-        logger.error(f"Error in remap_matched_trips: {e}", exc_info=True)
+        logger.error("Error in remap_matched_trips: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error re-matching trips: {e}")
 
 
@@ -1472,7 +1488,7 @@ async def delete_matched_trip(trip_id: str):
             return {"status": "success", "message": "Deleted matched trip"}
         raise HTTPException(status_code=404, detail="Trip not found")
     except Exception as e:
-        logger.error(f"Error deleting matched trip {trip_id}: {e}", exc_info=True)
+        logger.error("Error deleting matched trip %s: %s", trip_id, e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1679,7 +1695,7 @@ async def preprocess_streets_route(request: Request):
             "message": f"Street data preprocessing initiated for {validated_location.get('display_name', location_query)}. Check server logs for progress.",
         }
     except Exception as e:
-        logger.error(f"Error in preprocess_streets_route: {e}", exc_info=True)
+        logger.error("Error in preprocess_streets_route: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1693,7 +1709,7 @@ async def get_street_segment_details(segment_id: str):
             raise HTTPException(status_code=404, detail="Segment not found")
         return segment
     except Exception as e:
-        logger.error(f"Error fetching segment details: {e}", exc_info=True)
+        logger.error("Error fetching segment details: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1748,7 +1764,7 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
                             continue
                     all_trips.append(trip)
             except Exception as e:
-                logger.error(f"Error reading {filename}: {e}")
+                logger.error("Error reading %s: %s", filename, e)
     processed = await asyncio.gather(*(process_historical_trip(t) for t in all_trips))
     inserted_count = 0
     for trip in processed:
@@ -1760,7 +1776,7 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
                 await historical_trips_collection.insert_one(trip)
                 inserted_count += 1
         except Exception as e:
-            logger.error(f"Error inserting historical trip: {e}")
+            logger.error("Error inserting historical trip: %s", e)
     return inserted_count
 
 
@@ -1790,7 +1806,7 @@ async def get_last_trip_point():
             return {"lastPoint": None}
         return {"lastPoint": gps_data["coordinates"][-1]}
     except Exception as e:
-        logger.error(f"Error get_last_trip_point: {e}", exc_info=True)
+        logger.error("Error get_last_trip_point: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500, detail="Failed to retrieve last trip point"
         )
@@ -1829,7 +1845,7 @@ async def get_single_trip(trip_id: str):
     except HTTPException:
         raise  # Re-raise HTTPException to avoid catching it in the general exception handler
     except Exception as e:
-        logger.error(f"get_single_trip error: {e}", exc_info=True)
+        logger.error("get_single_trip error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -1861,7 +1877,7 @@ async def delete_trip(trip_id: str):
     except HTTPException:
         raise  # Re-raise HTTPExceptions
     except Exception as e:
-        logger.error(f"Error deleting trip: {e}", exc_info=True)
+        logger.error("Error deleting trip: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -1903,7 +1919,7 @@ async def debug_trip(trip_id: str):
         }
 
     except Exception as e:
-        logger.error(f"debug_trip error: {e}", exc_info=True)
+        logger.error("debug_trip error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1941,7 +1957,7 @@ async def get_first_trip_date():
         return {"first_trip_date": earliest_trip_date.isoformat()}
 
     except Exception as e:
-        logger.error(f"get_first_trip_date error: {e}", exc_info=True)
+        logger.error("get_first_trip_date error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1997,10 +2013,10 @@ async def upload_gpx(request: Request):
                         await process_and_store_trip(t)
                         success_count += 1
             else:
-                logger.warning(f"Skipping unhandled file extension: {filename}")
+                logger.warning("Skipping unhandled file extension: %s", filename)
         return {"status": "success", "message": f"{success_count} trips uploaded."}
     except Exception as e:
-        logger.error(f"Error upload_gpx: {e}", exc_info=True)
+        logger.error("Error upload_gpx: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2054,9 +2070,9 @@ async def process_and_store_trip(trip):
         else:
             await uploaded_trips_collection.insert_one(trip)
     except DuplicateKeyError:
-        logger.warning(f"Duplicate trip ID {trip['transactionId']}, skipping.")
+        logger.warning("Duplicate trip ID %s, skipping.", trip["transactionId"])
     except Exception as e:
-        logger.error(f"process_and_store_trip error: {e}", exc_info=True)
+        logger.error("process_and_store_trip error: %s", e, exc_info=True)
         raise
 
 
@@ -2089,7 +2105,7 @@ def process_geojson_trip(geojson_data):
             trips.append(trip)
         return trips
     except Exception as e:
-        logger.error(f"Error in process_geojson_trip: {e}", exc_info=True)
+        logger.error("Error in process_geojson_trip: %s", e, exc_info=True)
         return None
 
 
@@ -2131,7 +2147,7 @@ async def get_uploaded_trips():
                 u["endTime"] = u["endTime"].isoformat()
         return {"status": "success", "trips": ups}
     except Exception as e:
-        logger.error(f"Error get_uploaded_trips: {e}", exc_info=True)
+        logger.error("Error get_uploaded_trips: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2143,7 +2159,7 @@ async def delete_uploaded_trip(trip_id: str):
             return {"status": "success", "message": "Trip deleted"}
         raise HTTPException(status_code=404, detail="Not found")
     except Exception as e:
-        logger.error(f"Error deleting uploaded trip: {e}", exc_info=True)
+        logger.error("Error deleting uploaded trip: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2224,7 +2240,7 @@ async def upload_files(request: Request, files: List[UploadFile] = File(...)):
                 try:
                     data = json.loads(await file.read())
                 except json.JSONDecodeError:
-                    logger.warning(f"Invalid geojson: {filename}")
+                    logger.warning("Invalid geojson: %s", filename)
                     continue
                 trips = process_geojson_trip(data)
                 if trips:
@@ -2234,7 +2250,7 @@ async def upload_files(request: Request, files: List[UploadFile] = File(...)):
         return {"status": "success", "message": f"Processed {count} trips"}
 
     except Exception as e:
-        logger.error(f"Error uploading: {e}", exc_info=True)
+        logger.error("Error uploading: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2267,7 +2283,7 @@ async def bulk_delete_uploaded_trips(request: Request):
             "deleted_matched_trips": matched_del_res.deleted_count,
         }
     except Exception as e:
-        logger.error(f"Error in bulk_delete_uploaded_trips: {e}", exc_info=True)
+        logger.error("Error in bulk_delete_uploaded_trips: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2299,7 +2315,7 @@ async def bulk_delete_trips(request: Request):
         }
 
     except Exception as e:
-        logger.error(f"Error in bulk_delete_trips: {e}", exc_info=True)
+        logger.error("Error in bulk_delete_trips: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2402,7 +2418,10 @@ async def get_place_statistics(place_id: str):
                 visits.append(t_end)
             except Exception as ex:
                 logger.error(
-                    f"Issue processing a trip for place {place_id}: {ex}", exc_info=True
+                    "Issue processing a trip for place %s: %s",
+                    place_id,
+                    ex,
+                    exc_info=True,
                 )
                 continue
         total_visits = len(visits)
@@ -2428,7 +2447,7 @@ async def get_place_statistics(place_id: str):
             "name": p["name"],
         }
     except Exception as e:
-        logger.error(f"Error place stats {place_id}: {e}", exc_info=True)
+        logger.error("Error place stats %s: %s", place_id, e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2513,7 +2532,9 @@ async def get_trips_for_place(place_id: str):
             )
         return JSONResponse(content=trips_data)
     except Exception as e:
-        logger.error(f"Error fetching trips for place {place_id}: {e}", exc_info=True)
+        logger.error(
+            "Error fetching trips for place %s: %s", place_id, e, exc_info=True
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2560,7 +2581,7 @@ async def get_non_custom_places_visits():
             )
         return JSONResponse(content=visits_data)
     except Exception as e:
-        logger.error(f"Error fetching non-custom place visits: {e}", exc_info=True)
+        logger.error("Error fetching non-custom place visits: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2630,7 +2651,7 @@ async def get_trip_analytics(request: Request):
             }
         )
     except Exception as e:
-        logger.error(f"Error trip analytics: {e}", exc_info=True)
+        logger.error("Error trip analytics: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2660,7 +2681,7 @@ async def update_geo_points_route(request: Request):
         return {"message": f"GeoPoints updated for {collection_name}"}
     except Exception as e:
         # Log endpoint errors
-        logger.error(f"Error in update_geo_points_route: {e}", exc_info=True)
+        logger.error("Error in update_geo_points_route: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error updating GeoPoints: {e}")
 
 
@@ -2683,7 +2704,7 @@ async def regeocode_all_trips():
 
         return {"message": "All trips re-geocoded successfully."}
     except Exception as e:
-        logger.error(f"Error in regeocode_all_trips: {e}", exc_info=True)
+        logger.error("Error in regeocode_all_trips: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error re-geocoding trips: {e}")
 
 
@@ -2730,7 +2751,7 @@ async def bulk_delete_trips(request: Request):
             try:
                 object_ids.append(ObjectId(trip_id))
             except Exception:
-                logger.warning(f"Invalid ObjectId format: {trip_id}")
+                logger.warning("Invalid ObjectId format: %s", trip_id)
 
         if not object_ids:
             raise HTTPException(status_code=400, detail="No valid trip IDs provided")
@@ -2756,7 +2777,7 @@ async def bulk_delete_trips(request: Request):
         }
 
     except Exception as e:
-        logger.error(f"Error in bulk_delete_trips: {e}", exc_info=True)
+        logger.error("Error in bulk_delete_trips: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2880,7 +2901,7 @@ async def bouncie_webhook(request: Request):
         return {"status": "success"}
 
     except Exception as e:
-        logger.error(f"Error in bouncie_webhook: {e}", exc_info=True)
+        logger.error("Error in bouncie_webhook: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2945,7 +2966,11 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
 
     # Log parsed basic trip info
     logger.debug(
-        f"Parsed startTime: {start_time}, endTime: {end_time}, transactionId: {transaction_id}, imei: {imei}"
+        "Parsed startTime: %s, endTime: %s, transactionId: %s, imei: %s",
+        start_time,
+        end_time,
+        transaction_id,
+        imei,
     )
 
     all_coords = []
@@ -2963,7 +2988,8 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
     if not all_coords:
         # Log no coords warning
         logger.warning(
-            f"No valid GPS coordinates found in realtime data for trip {transaction_id}."
+            "No valid GPS coordinates found in realtime data for trip %s.",
+            transaction_id,
         )
         return None
     # Log coord count
@@ -3011,11 +3037,11 @@ async def process_trip_data(trip):
     Also sets the geo-point fields for geospatial queries.
     """
     transaction_id = trip.get("transactionId", "?")
-    logger.info(f"Processing trip data for trip {transaction_id}...")
+    logger.info("Processing trip data for trip %s...", transaction_id)
     try:
         gps_data = trip.get("gps")
         if not gps_data:
-            logger.warning(f"Trip {transaction_id} has no GPS data to process.")
+            logger.warning("Trip %s has no GPS data to process.", transaction_id)
             return trip
 
         # If GPS data is stored as a string, parse it into a dict.
@@ -3024,7 +3050,9 @@ async def process_trip_data(trip):
                 gps_data = json.loads(gps_data)
             except Exception as e:
                 logger.error(
-                    f"Error parsing GPS data for trip {transaction_id}: {e}",
+                    "Error parsing GPS data for trip %s: %s",
+                    transaction_id,
+                    e,
                     exc_info=True,
                 )
                 return trip
@@ -3039,7 +3067,10 @@ async def process_trip_data(trip):
         st = gps_data["coordinates"][0]
         en = gps_data["coordinates"][-1]
         logger.debug(
-            f"Extracted start point: {st}, end point: {en} for trip {transaction_id}"
+            "Extracted start point: %s, end point: %s for trip %s",
+            st,
+            en,
+            transaction_id,
         )
 
         # Create Point objects for start and end.
@@ -3052,7 +3083,9 @@ async def process_trip_data(trip):
             trip["startLocation"] = start_place["name"]
             trip["startPlaceId"] = str(start_place.get("_id", ""))
             logger.debug(
-                f"Start point of trip {transaction_id} is within custom place: {start_place['name']}"
+                "Start point of trip %s is within custom place: %s",
+                transaction_id,
+                start_place["name"],
             )
         else:
             geocode_data = await reverse_geocode_nominatim(st[1], st[0])
@@ -3061,7 +3094,9 @@ async def process_trip_data(trip):
                 start_location = geocode_data.get("display_name", "")
             trip["startLocation"] = start_location
             logger.debug(
-                f"Start point of trip {transaction_id} reverse geocoded to: {start_location}"
+                "Start point of trip %s reverse geocoded to: %s",
+                transaction_id,
+                start_location,
             )
 
         end_place = await get_place_at_point(end_point)
@@ -3069,7 +3104,9 @@ async def process_trip_data(trip):
             trip["destination"] = end_place["name"]
             trip["destinationPlaceId"] = str(end_place.get("_id", ""))
             logger.debug(
-                f"End point of trip {transaction_id} is within custom place: {end_place['name']}"
+                "End point of trip %s is within custom place: %s",
+                transaction_id,
+                end_place["name"],
             )
         else:
             geocode_data = await reverse_geocode_nominatim(en[1], en[0])
@@ -3078,7 +3115,9 @@ async def process_trip_data(trip):
                 destination_name = geocode_data.get("display_name", "")
             trip["destination"] = destination_name
             logger.debug(
-                f"End point of trip {transaction_id} reverse geocoded to: {destination_name}"
+                "End point of trip %s reverse geocoded to: %s",
+                transaction_id,
+                destination_name,
             )
 
         # Set GeoPoint fields for geospatial queries.
@@ -3091,7 +3130,9 @@ async def process_trip_data(trip):
 
     except Exception as e:
         logger.error(
-            f"Error in process_trip_data for trip {transaction_id}: {e}",
+            "Error in process_trip_data for trip %s: %s",
+            transaction_id,
+            e,
             exc_info=True,
         )
         return trip
@@ -3192,7 +3233,7 @@ async def ws_live_trip(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as e:
-        logger.error(f"WebSocket error: {e}", exc_info=True)
+        logger.error("WebSocket error: %s", e, exc_info=True)
         manager.disconnect(websocket)
 
 
@@ -3246,7 +3287,7 @@ async def get_task_history():
             history.append(entry)
         return history
     except Exception as e:
-        logger.error(f"Error fetching task history: {e}", exc_info=True)
+        logger.error("Error fetching task history: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -3260,7 +3301,7 @@ async def clear_task_history():
             "message": f"Cleared {result.deleted_count} task history entries",
         }
     except Exception as e:
-        logger.error(f"Error clearing task history: {e}", exc_info=True)
+        logger.error("Error clearing task history: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -3324,7 +3365,7 @@ async def get_task_details(task_id: str):
         return task_details
 
     except Exception as e:
-        logger.error(f"Error getting task details for {task_id}: {e}", exc_info=True)
+        logger.error("Error getting task details for %s: %s", task_id, e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
