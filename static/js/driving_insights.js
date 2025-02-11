@@ -1,4 +1,5 @@
-/* global Chart, LoadingManager, $ */
+/* global L, flatpickr, notificationManager, bootstrap, LoadingManager, $ */
+
 "use strict";
 
 (() => {

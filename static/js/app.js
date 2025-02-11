@@ -1,4 +1,4 @@
-/* global L, flatpickr */
+/* global L, flatpickr, notificationManager */
 (() => {
   "use strict";
 

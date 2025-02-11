@@ -1,3 +1,5 @@
+/* global L, flatpickr, notificationManager, bootstrap, LoadingManager, $ */
+
 document.addEventListener("DOMContentLoaded", () => {
   initializeExportForms();
   // Add a new init for the "Export All" form

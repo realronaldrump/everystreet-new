@@ -1,6 +1,7 @@
+/* global L, flatpickr, notificationManager, bootstrap, LoadingManager */
+
 (() => {
   "use strict";
-  /* global L, LoadingManager, bootstrap */
 
   class CustomPlacesManager {
     constructor(map) {

@@ -2,11 +2,6 @@
 {% block title %}Every Street - Map{% endblock %}
 {% block content %}
 <div class="d-flex flex-column h-100">
-    <!-- Notification Container -->
-    <div class="notification-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
-        <!-- Notifications will be dynamically inserted here -->
-    </div>
-
     <!-- Map Container -->
     <div id="map" class="flex-grow-1 position-relative">
         <!-- Live Tracking Status Panel -->
@@ -36,7 +31,7 @@
     </div>
 
     <!-- Controls Panel -->
-    <div id="map-controls" class="bg-dark text-white p-3" style="margin-top: auto;"> <!- **IMPORTANT CHANGE HERE** -->
+    <div id="map-controls" class="bg-dark text-white p-3" style="margin-top: auto;">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="h5 mb-0">Map Controls</h2>
             <button id="controls-toggle" class="btn btn-sm btn-secondary" aria-label="Toggle Controls">
@@ -167,25 +162,9 @@
 {% block extra_css %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 <style>
-    .notification-container {
-        max-width: 350px;
-    }
-    .notification-container .alert {
-        margin-bottom: 0.5rem;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        border-left: 4px solid;
-    }
-    .notification-container .alert-success {
-        border-left-color: #28a745;
-    }
-    .notification-container .alert-danger {
-        border-left-color: #dc3545;
-    }
-    .notification-container .alert-warning {
-        border-left-color: #ffc107;
-    }
-    .notification-container .alert-info {
-        border-left-color: #17a2b8;
+    /* Map Container */
+    .map-container {
+        height: 500px;
     }
 </style>
 {% endblock %}

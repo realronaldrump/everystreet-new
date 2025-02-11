@@ -1,4 +1,5 @@
-/* global EveryStreet, $ */
+/* global L, flatpickr, notificationManager, bootstrap, LoadingManager, EveryStreet $ */
+
 (() => {
   "use strict";
 

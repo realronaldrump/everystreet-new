@@ -1,4 +1,4 @@
-/* global L */
+/* global L, flatpickr, notificationManager, bootstrap, LoadingManager, $ */
 
 document.addEventListener("DOMContentLoaded", () => {
   let editMap, tripsLayerGroup, editableLayers;

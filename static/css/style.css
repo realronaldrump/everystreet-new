@@ -7,6 +7,9 @@
   --background-color: #121212;
   --surface-color: #1e1e1e;
   --error-color: #cf6679;
+  --success-color: #28a745;
+  --warning-color: #ffc107;
+  --info-color: #17a2b8;
   --on-primary: #000000;
   --on-secondary: #000000;
   --on-background: #ffffff;
@@ -1093,4 +1096,179 @@ canvas {
       transform: scale(1);
       opacity: 1;
   }
+}
+
+/* Notification System */
+.notification-container {
+  max-width: 400px;
+  min-width: 300px;
+  position: fixed;
+  right: 1rem;
+  top: 1rem;
+  z-index: 1100;
+}
+
+.notification-container .alert {
+  backdrop-filter: blur(10px);
+  border: none;
+  border-left: 4px solid;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 0.75rem;
+  opacity: 0;
+  padding: 1rem;
+  transform: translateX(100%);
+  transition: all 0.3s ease-in-out;
+}
+
+.notification-container .alert.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.notification-container .alert.fade {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.notification-container .alert-success {
+  background-color: rgba(40, 167, 69, 0.15);
+  border-left-color: var(--success-color);
+}
+
+.notification-container .alert-danger {
+  background-color: rgba(207, 102, 121, 0.15);
+  border-left-color: var(--error-color);
+}
+
+.notification-container .alert-warning {
+  background-color: rgba(255, 193, 7, 0.15);
+  border-left-color: var(--warning-color);
+}
+
+.notification-container .alert-info {
+  background-color: rgba(23, 162, 184, 0.15);
+  border-left-color: var(--info-color);
+}
+
+.notification-container .btn-close {
+  color: var(--on-surface);
+  opacity: 0.5;
+  padding: 0.5rem;
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: opacity 0.2s ease;
+}
+
+.notification-container .btn-close:hover {
+  opacity: 1;
+}
+
+/* Confirmation Dialog */
+.confirmation-modal .modal-content {
+  background-color: var(--surface-color);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.confirmation-modal .modal-header {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem;
+}
+
+.confirmation-modal .modal-title {
+  color: var(--on-surface);
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.confirmation-modal .modal-body {
+  color: var(--on-surface);
+  padding: 1.5rem;
+}
+
+.confirmation-modal .modal-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem;
+}
+
+.confirmation-modal .btn-close {
+  background-color: transparent;
+  border: none;
+  color: var(--on-surface);
+  opacity: 0.5;
+  padding: 0.5rem;
+  transition: opacity 0.2s ease;
+}
+
+.confirmation-modal .btn-close:hover {
+  opacity: 1;
+}
+
+.confirmation-modal .confirm-btn {
+  min-width: 100px;
+}
+
+.confirmation-modal .confirm-btn.btn-danger {
+  background-color: var(--error-color);
+  border-color: var(--error-color);
+}
+
+.confirmation-modal .confirm-btn.btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+/* Toast Notifications */
+.toast-container {
+  position: fixed;
+  right: 1rem;
+  top: 1rem;
+  z-index: 1100;
+}
+
+.toast {
+  background-color: var(--surface-color);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  max-width: 400px;
+  min-width: 300px;
+}
+
+.toast-header {
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--on-surface);
+  display: flex;
+  padding: 0.5rem 1rem;
+}
+
+.toast-body {
+  color: var(--on-surface);
+  padding: 1rem;
+}
+
+.toast-icon {
+  height: 20px;
+  width: 20px;
+}
+
+.toast-icon.bg-success {
+  background-color: var(--success-color) !important;
+}
+
+.toast-icon.bg-danger {
+  background-color: var(--error-color) !important;
+}
+
+.toast-icon.bg-warning {
+  background-color: var(--warning-color) !important;
+}
+
+.toast-icon.bg-info {
+  background-color: var(--info-color) !important;
 }

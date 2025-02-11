@@ -1,4 +1,4 @@
-/* global L, LoadingManager, uploadFiles, parseFiles */
+/* global L, LoadingManager, uploadFiles, parseFiles, notificationManager, bootstrap */
 (() => {
   "use strict";
 
