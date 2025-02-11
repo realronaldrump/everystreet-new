@@ -2016,9 +2016,9 @@ async def get_single_trip(trip_id: str):
 
         return {"status": "success", "trip": trip}
 
-    except HTTPException:
-        raise  # Re-raise HTTPException to avoid catching it in the general exception handler
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
         logger.error("get_single_trip error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
@@ -2053,9 +2053,9 @@ async def delete_trip(trip_id: str):
         # This should ideally not be reached if the trip was found
         raise HTTPException(status_code=500, detail="Failed to delete trip")
 
-    except HTTPException:
-        raise  # Re-raise HTTPExceptions
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
         logger.error("Error deleting trip: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
