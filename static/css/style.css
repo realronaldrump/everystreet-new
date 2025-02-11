@@ -1391,3 +1391,59 @@ span.flatpickr-weekday {
 .flatpickr-months .flatpickr-next-month svg {
   fill: var(--on-surface) !important;
 }
+
+/* New Sidebar Styles */
+.sidebar-divider {
+  border-color: rgba(255, 255, 255, 0.1);
+  margin: 1rem 0;
+}
+
+/* Scroll indicator */
+.sidebar-body {
+  position: relative;
+  max-height: calc(100vh - var(--header-height));
+  overflow-y: auto;
+}
+
+.sidebar-body::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(transparent, var(--surface-color));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.sidebar-body.is-scrollable::after {
+  opacity: 1;
+}
+
+/* Date presets grid layout */
+.date-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+/* Filters section toggle */
+#toggle-filters {
+  padding: 0.25rem 0.5rem;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+#toggle-filters:hover {
+  opacity: 1;
+}
+
+#toggle-filters i {
+  transition: transform 0.2s;
+}
+
+#toggle-filters.collapsed i {
+  transform: rotate(180deg);
+}
