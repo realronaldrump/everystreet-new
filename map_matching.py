@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import os
 from dateutil import parser
 from datetime import datetime, timedelta
+from utils import validate_trip_data, reverse_geocode_nominatim
 
 load_dotenv()
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
@@ -235,8 +236,6 @@ async def process_and_map_match_trip(trip):
             matched_trips_collection,
             historical_trips_collection,
             trips_collection,
-            validate_trip_data,
-            reverse_geocode_nominatim,
         )
 
         is_valid, error_message = validate_trip_data(trip)
