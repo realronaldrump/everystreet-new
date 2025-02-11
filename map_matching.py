@@ -4,7 +4,7 @@ import logging
 import asyncio
 import aiohttp
 from aiohttp import ClientResponseError, ClientConnectorError
-from geojson import loads as geojson_loads, dumps as geojson_dumps
+from geojson import loads as geojson_loads
 from dotenv import load_dotenv
 import os
 from dateutil import parser

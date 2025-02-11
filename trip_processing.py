@@ -11,7 +11,7 @@ This module contains helper functions for processing a trip object:
 import json
 import logging
 from dateutil import parser
-from datetime import datetime, timezone
+from datetime import timezone
 from typing import Optional, Any, Dict
 
 logger = logging.getLogger(__name__)
