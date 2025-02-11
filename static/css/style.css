@@ -321,7 +321,7 @@ body.sidebar-collapsed .sidebar-body {
 /* Map */
 #map {
   border-radius: 8px;
-  height: 600px;
+  height: 75vh;
   overflow: hidden;
 }
 

@@ -28,7 +28,7 @@ MONGO_URI = os.getenv("MONGO_URI")
 client = AsyncIOMotorClient(MONGO_URI, tz_aware=True)
 db = client["every_street"]
 streets_collection = db["streets"]
-matched_trips_collection = db["matched_trips"]
+trips_collection = db["trips"]
 coverage_metadata_collection = db["coverage_metadata"]
 
 # Coordinate reference systems and transformers
@@ -91,7 +91,7 @@ class CoverageCalculator:
     async def process_matched_trips_batch(
         self, trips: List[Dict[str, Any]], boundary_box: box
     ) -> Set[str]:
-        """Process a batch of matched trips concurrently"""
+        """Process a batch of trips concurrently"""
         covered_segments = set()
 
         # Create tasks for each trip in the batch
@@ -113,32 +113,63 @@ class CoverageCalculator:
     ) -> bool:
         """Quick check if trip intersects boundary box"""
         try:
-            matched_gps = trip.get("matchedGps")
-            if isinstance(matched_gps, str):
-                matched_gps = json.loads(matched_gps)
+            gps_data = trip.get("gps")
+            if isinstance(gps_data, str):
+                gps_data = json.loads(gps_data)
 
-            if not matched_gps or "coordinates" not in matched_gps:
+            if not gps_data or "coordinates" not in gps_data:
                 return False
 
-            coords = matched_gps["coordinates"]
+            coords = gps_data["coordinates"]
             # Check if any point is within the boundary box
             return any(boundary_box.contains(Point(coord)) for coord in coords)
         except Exception:
             return False
 
     async def process_matched_trip(self, trip: Dict[str, Any]) -> Set[str]:
-        """Process a single matched trip and return covered segment IDs"""
+        """Process a single trip and return covered segment IDs"""
         try:
-            matched_gps = trip.get("matchedGps")
-            if isinstance(matched_gps, str):
-                matched_gps = json.loads(matched_gps)
+            gps_data = trip.get("gps")
+            if isinstance(gps_data, str):
+                gps_data = json.loads(gps_data)
 
-            if not matched_gps or "coordinates" not in matched_gps:
+            if not gps_data or "coordinates" not in gps_data:
                 return set()
 
             # Convert to UTM for accurate distance calculations
-            coords = matched_gps["coordinates"]
-            trip_line = LineString(coords)
+            coords = gps_data["coordinates"]
+
+            # Validate coordinates
+            if not coords or len(coords) < 2:
+                logger.debug(
+                    f"Trip {trip.get('transactionId', 'unknown')} has insufficient coordinates: {len(coords) if coords else 0} points"
+                )
+                return set()
+
+            # Validate each coordinate is a valid [lon, lat] pair
+            valid_coords = []
+            for coord in coords:
+                if (
+                    isinstance(coord, (list, tuple))
+                    and len(coord) == 2
+                    and isinstance(coord[0], (int, float))
+                    and isinstance(coord[1], (int, float))
+                    and -180 <= coord[0] <= 180
+                    and -90 <= coord[1] <= 90
+                ):
+                    valid_coords.append(coord)
+                else:
+                    logger.debug(
+                        f"Trip {trip.get('transactionId', 'unknown')} has invalid coordinate: {coord}"
+                    )
+
+            if len(valid_coords) < 2:
+                logger.debug(
+                    f"Trip {trip.get('transactionId', 'unknown')} has insufficient valid coordinates: {len(valid_coords)} points"
+                )
+                return set()
+
+            trip_line = LineString(valid_coords)
             trip_line_utm = transform(self.project_to_utm, trip_line)
 
             # Buffer the trip line for matching
@@ -169,7 +200,7 @@ class CoverageCalculator:
             return covered_segments
 
         except Exception as e:
-            logger.error(f"Error processing matched trip: {e}", exc_info=True)
+            logger.error(f"Error processing trip: {e}", exc_info=True)
             return set()
 
     async def compute_coverage(self) -> Optional[Dict[str, Any]]:
@@ -203,13 +234,13 @@ class CoverageCalculator:
                 street_utm = transform(self.project_to_utm, geom)
                 total_length += street_utm.length
 
-            # Process matched trips in batches
-            logger.info("Processing matched trips...")
+            # Process trips in batches
+            logger.info("Processing trips...")
             batch = []
             covered_segments_set = set()
 
-            async for trip in matched_trips_collection.find(
-                {"matchedGps": {"$exists": True}}
+            async for trip in trips_collection.find(
+                {"gps": {"$exists": True}}
             ):
                 batch.append(trip)
                 if len(batch) >= self.batch_size:
