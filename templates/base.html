@@ -125,6 +125,7 @@
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
+    <script src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
     <script src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"></script>
     <script src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"></script>
     <script src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}"></script>

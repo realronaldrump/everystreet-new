@@ -602,7 +602,7 @@
     const locInput = document.getElementById("location-input"),
       locType = document.getElementById("location-type");
     if (!locInput || !locType || !locInput.value || !locType.value) {
-      alert("Please enter a location and select a location type.");
+      notificationManager.show("Please enter a location and select a location type.", "warning");
       return;
     }
     try {
@@ -617,14 +617,14 @@
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       if (!data) {
-        alert("Location not found. Please check your input.");
+        notificationManager.show("Location not found. Please check your input.", "warning");
         return;
       }
       handleLocationValidationSuccess(data, locInput);
-      alert("Location validated successfully!");
+      notificationManager.show("Location validated successfully!", "success");
     } catch (err) {
       console.error("Error validating location:", err);
-      alert("Error validating location. Please try again.");
+      notificationManager.show("Error validating location. Please try again.", "danger");
     }
   }
   function handleLocationValidationSuccess(data, locInput) {
@@ -644,7 +644,7 @@
   }
   function generateOSMData(streetsOnly) {
     if (!window.validatedLocation) {
-      alert("Please validate a location first.");
+      notificationManager.show("Please validate a location first.", "warning");
       return;
     }
     fetch("/api/generate_geojson", {
@@ -680,7 +680,7 @@
       })
       .catch((err) => {
         console.error("Error generating OSM data:", err);
-        alert(err.message);
+        notificationManager.show(err.message, "danger");
       });
   }
 
@@ -689,7 +689,7 @@
     const sd = document.getElementById("start-date")?.value,
       ed = document.getElementById("end-date")?.value;
     if (!sd || !ed) {
-      alert("Select start and end dates.");
+      notificationManager.show("Select start and end dates.", "warning");
       return;
     }
     showLoadingOverlay("Map matching all trips...");
@@ -720,12 +720,12 @@
       )
       .then((results) => {
         console.log("Map matching responses:", results);
-        alert("Map matching completed for selected trips.");
+        notificationManager.show("Map matching completed for selected trips.", "success");
         fetchTrips();
       })
       .catch((err) => {
         console.error("Error map matching trips:", err);
-        alert("Error map matching trips. Check console.");
+        notificationManager.show("Error map matching trips. Check console.", "danger");
       })
       .finally(hideLoadingOverlay);
   }
@@ -733,7 +733,7 @@
     const sd = document.getElementById("start-date")?.value,
       ed = document.getElementById("end-date")?.value;
     if (!sd || !ed) {
-      alert("Select start and end dates.");
+      notificationManager.show("Select start and end dates.", "warning");
       return;
     }
     showLoadingOverlay();
@@ -748,16 +748,16 @@
       })
       .then((data) => {
         if (data.status === "success") {
-          alert(data.message);
+          notificationManager.show(data.message, "success");
           fetchTrips();
         } else {
           console.error(`Error: ${data.message}`);
-          alert("Error fetching trips. Check console.");
+          notificationManager.show("Error fetching trips. Check console.", "danger");
         }
       })
       .catch((err) => {
         console.error("Error fetching trips in range:", err);
-        alert("Error fetching trips. Check console.");
+        notificationManager.show("Error fetching trips. Check console.", "danger");
       })
       .finally(hideLoadingOverlay);
   }

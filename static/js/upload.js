@@ -206,8 +206,14 @@
       const polyline = L.polyline(latlngs, { color: "red" }).addTo(
         previewLayer,
       );
-      polyline.on("click", () => {
-        if (confirm(`Remove ${entry.filename}?`)) {
+      polyline.on("click", async () => {
+        const confirmed = await confirmationDialog.show({
+          title: 'Remove File',
+          message: `Remove ${entry.filename}?`,
+          confirmText: 'Remove',
+          confirmButtonClass: 'btn-danger'
+        });
+        if (confirmed) {
           selectedFiles = selectedFiles.filter((e) => e !== entry);
           updateFileList();
           updatePreviewMap();
@@ -268,7 +274,7 @@
       .then((data) => {
         uploadButton.disabled = false;
         if (data.status === "success") {
-          alert(data.message);
+          notificationManager.show(data.message, "success");
           selectedFiles = [];
           updateFileList();
           updatePreviewMap();
@@ -392,76 +398,86 @@
   }
 
   // Delete selected trips in bulk
-  function bulkDeleteTrips() {
+  async function bulkDeleteTrips() {
     loadingManager.startOperation("Deleting Selected Trips");
     const selectedCheckboxes = document.querySelectorAll(
       ".trip-checkbox:checked",
     );
     const tripIds = Array.from(selectedCheckboxes).map((cb) => cb.value);
     if (tripIds.length === 0) {
-      alert("No trips selected for deletion.");
+      notificationManager.show("No trips selected for deletion.", "warning");
       loadingManager.finish();
       return;
     }
-    if (
-      !confirm(
-        `Are you sure you want to delete ${tripIds.length} selected trips?`,
-      )
-    ) {
-      loadingManager.finish();
-      return;
-    }
-    fetch("/api/uploaded_trips/bulk_delete", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ trip_ids: tripIds }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
+
+    const confirmed = await confirmationDialog.show({
+      title: 'Delete Trips',
+      message: `Are you sure you want to delete ${tripIds.length} selected trips?`,
+      confirmText: 'Delete',
+      confirmButtonClass: 'btn-danger'
+    });
+
+    if (confirmed) {
+      try {
+        const response = await fetch("/api/uploaded_trips/bulk_delete", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ trip_ids: tripIds }),
+        });
+        const data = await response.json();
         if (data.status === "success") {
-          alert(
+          notificationManager.show(
             `${data.deleted_uploaded_trips} uploaded trips and ${data.deleted_matched_trips} matched trips deleted successfully.`,
+            "success"
           );
           loadUploadedTrips();
         } else {
           throw new Error(data.message);
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error("Error deleting trips:", error);
         loadingManager.error("Error deleting trips: " + error.message);
-      })
-      .finally(() => loadingManager.finish());
+      } finally {
+        loadingManager.finish();
+      }
+    }
   }
 
   // Delete an individual uploaded trip
-  function deleteUploadedTrip(tripId) {
+  async function deleteUploadedTrip(tripId) {
     loadingManager.startOperation("Deleting Trip");
-    if (!confirm("Are you sure you want to delete this trip?")) {
-      loadingManager.finish();
-      return;
-    }
-    fetch("/api/uploaded_trips/bulk_delete", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ trip_ids: [tripId] }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
+    
+    const confirmed = await confirmationDialog.show({
+      title: 'Delete Trip',
+      message: 'Are you sure you want to delete this trip?',
+      confirmText: 'Delete',
+      confirmButtonClass: 'btn-danger'
+    });
+
+    if (confirmed) {
+      try {
+        const response = await fetch("/api/uploaded_trips/bulk_delete", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ trip_ids: [tripId] }),
+        });
+        const data = await response.json();
         if (data.status === "success") {
-          alert(
+          notificationManager.show(
             `Trip deleted successfully. Matched trips deleted: ${data.deleted_matched_trips}`,
+            "success"
           );
           loadUploadedTrips();
         } else {
           throw new Error(data.message);
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error("Error deleting trip:", error);
         loadingManager.error("Error deleting trip: " + error.message);
-      })
-      .finally(() => loadingManager.finish());
+      } finally {
+        loadingManager.finish();
+      }
+    }
   }
 
   document.addEventListener("DOMContentLoaded", () => {

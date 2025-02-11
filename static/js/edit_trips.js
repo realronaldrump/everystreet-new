@@ -253,7 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function saveTripChanges() {
     if (!currentTrip) {
-      alert("No trip selected to save.");
+      notificationManager.show("No trip selected to save.", "warning");
       return;
     }
 
@@ -270,7 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
           "Error: transactionId is undefined.",
           currentTrip.tripData,
         );
-        alert("Error: Could not find the trip ID to save changes.");
+        notificationManager.show("Error: Could not find the trip ID to save changes.", "danger");
         return;
       }
       const url = `${baseUrl}/${tripId}`;
@@ -284,10 +284,10 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       if (!res.ok)
         throw new Error(`Failed to save trip changes: ${res.status}`);
-      alert("Trip changes saved successfully.");
+      notificationManager.show("Trip changes saved successfully.", "success");
     } catch (error) {
       console.error("Error saving trip:", error);
-      alert(`Error saving trip: ${error.message}`);
+      notificationManager.show(`Error saving trip: ${error.message}`, "danger");
     }
   }
 

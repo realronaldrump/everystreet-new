@@ -54,10 +54,16 @@ function exportMatchedTrips() {
 function exportStreets() {
   const locationInput = document.getElementById("streets-location");
   const format = document.getElementById("streets-format").value;
-  if (!locationInput) return alert("Please enter a location.");
+  if (!locationInput) {
+    notificationManager.show("Please enter a location.", "warning");
+    return;
+  }
 
   const locationData = locationInput.getAttribute("data-location");
-  if (!locationData) return alert("Please validate the location first.");
+  if (!locationData) {
+    notificationManager.show("Please validate the location first.", "warning");
+    return;
+  }
 
   const url = `/api/export/streets?location=${encodeURIComponent(locationData)}&format=${format}`;
   downloadFile(url, `streets.${format}`);
@@ -66,10 +72,16 @@ function exportStreets() {
 function exportBoundary() {
   const locationInput = document.getElementById("boundary-location");
   const format = document.getElementById("boundary-format").value;
-  if (!locationInput) return alert("Please enter a location.");
+  if (!locationInput) {
+    notificationManager.show("Please enter a location.", "warning");
+    return;
+  }
 
   const locationData = locationInput.getAttribute("data-location");
-  if (!locationData) return alert("Please validate the location first.");
+  if (!locationData) {
+    notificationManager.show("Please validate the location first.", "warning");
+    return;
+  }
 
   const url = `/api/export/boundary?location=${encodeURIComponent(locationData)}&format=${format}`;
   downloadFile(url, `boundary.${format}`);
@@ -97,14 +109,14 @@ function downloadFile(url, filename) {
     })
     .catch((error) => {
       console.error("Error downloading file:", error);
-      alert("An error occurred while downloading the file. Please try again.");
+      notificationManager.show("An error occurred while downloading the file. Please try again.", "danger");
     });
 }
 
 function validateLocation(inputId) {
   const locationInput = document.getElementById(inputId);
   if (!locationInput || !locationInput.value.trim()) {
-    alert("Please enter a location.");
+    notificationManager.show("Please enter a location.", "warning");
     return;
   }
 
@@ -132,14 +144,14 @@ function validateLocation(inputId) {
             submitButton.disabled = false;
           }
         }
-        alert("Location validated successfully!");
+        notificationManager.show("Location validated successfully!", "success");
       } else {
-        alert("Location not found. Please try a different search term.");
+        notificationManager.show("Location not found. Please try a different search term.", "warning");
       }
     })
     .catch((error) => {
       console.error("Error validating location:", error);
-      alert("Error validating location. Please try again.");
+      notificationManager.show("Error validating location. Please try again.", "danger");
     });
 }
 

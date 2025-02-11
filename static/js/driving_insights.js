@@ -329,9 +329,6 @@
 
   //  ERROR HANDLING
   function showError(message) {
-    const errorDiv = document.createElement("div");
-    errorDiv.className = "alert alert-danger alert-dismissible fade show";
-    errorDiv.innerHTML = `${message} <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
-    document.querySelector(".container-fluid")?.prepend(errorDiv);
+    notificationManager.show(message, "danger");
   }
 })();

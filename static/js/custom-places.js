@@ -102,7 +102,7 @@
         }
       } catch (error) {
         console.error("Error saving place:", error);
-        alert(error.message || "An error occurred while saving the place.");
+        notificationManager.show(error.message || "An error occurred while saving the place.", "danger");
       }
     }
 
@@ -216,25 +216,34 @@
     }
 
     async deletePlace(placeId) {
-      try {
-        const response = await fetch(`/api/places/${placeId}`, {
-          method: "DELETE",
-        });
-        if (response.ok) {
-          this.places.delete(placeId);
-          this.customPlacesLayer.eachLayer((layer) => {
-            if (layer.feature && layer.feature.properties.placeId === placeId) {
-              this.customPlacesLayer.removeLayer(layer);
-            }
+      const confirmed = await confirmationDialog.show({
+        title: 'Delete Place',
+        message: 'Are you sure you want to delete this place?',
+        confirmText: 'Delete',
+        confirmButtonClass: 'btn-danger'
+      });
+
+      if (confirmed) {
+        try {
+          const response = await fetch(`/api/places/${placeId}`, {
+            method: "DELETE",
           });
-          this.showManagePlacesModal();
-        } else {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Failed to delete place");
+          if (response.ok) {
+            this.places.delete(placeId);
+            this.customPlacesLayer.eachLayer((layer) => {
+              if (layer.feature && layer.feature.properties.placeId === placeId) {
+                this.customPlacesLayer.removeLayer(layer);
+              }
+            });
+            this.showManagePlacesModal();
+          } else {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to delete place");
+          }
+        } catch (error) {
+          console.error("Error deleting place:", error);
+          notificationManager.show(error.message || "An error occurred while deleting the place.", "danger");
         }
-      } catch (error) {
-        console.error("Error deleting place:", error);
-        alert(error.message || "An error occurred while deleting the place.");
       }
     }
   }

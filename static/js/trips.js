@@ -152,10 +152,10 @@
         row.find(".edit-input").addClass("d-none");
         row.find(".btn-group").removeClass("d-none");
         row.find(".edit-actions").addClass("d-none");
-        showNotification("Trip updated successfully", "success");
+        notificationManager.show("Trip updated successfully", "success");
       } catch (error) {
         console.error("Error updating trip:", error);
-        showNotification(error.message || "Failed to update trip", "danger");
+        notificationManager.show(error.message || "Failed to update trip", "danger");
       }
     });
   }
@@ -297,49 +297,52 @@
     $("#bulk-delete-trips-btn").prop("disabled", checkedCount === 0);
   }
 
-  function bulkDeleteTrips() {
+  async function bulkDeleteTrips() {
     const selectedTrips = [];
     $(".trip-checkbox:checked").each(function () {
       const rowData = tripsTable.row($(this).closest("tr")).data();
       selectedTrips.push(rowData.transactionId);
     });
     if (selectedTrips.length === 0) {
-      showNotification("No trips selected for deletion.", "warning");
+      notificationManager.show("No trips selected for deletion.", "warning");
       return;
     }
-    if (
-      confirm(
-        `Are you sure you want to delete ${selectedTrips.length} trip(s)?`,
-      )
-    ) {
-      fetch("/api/trips/bulk_delete", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trip_ids: selectedTrips }),
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.status === "success") {
-            showNotification(
-              `Successfully deleted ${data.deleted_count} trip(s).`,
-              "success",
-            );
-            fetchTrips();
-          } else {
-            showNotification(
-              `Error deleting trip(s): ${data.message}`,
-              "danger",
-            );
-            console.error("Error deleting trip(s):", data.message);
-          }
-        })
-        .catch((error) => {
-          console.error("Error deleting trips:", error);
-          showNotification(
-            "Error deleting trip(s). Please try again.",
-            "danger",
-          );
+
+    const confirmed = await confirmationDialog.show({
+      title: 'Delete Trips',
+      message: `Are you sure you want to delete ${selectedTrips.length} trip(s)?`,
+      confirmText: 'Delete',
+      confirmButtonClass: 'btn-danger'
+    });
+
+    if (confirmed) {
+      try {
+        const response = await fetch("/api/trips/bulk_delete", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ trip_ids: selectedTrips }),
         });
+        const data = await response.json();
+        if (data.status === "success") {
+          notificationManager.show(
+            `Successfully deleted ${data.deleted_count} trip(s).`,
+            "success"
+          );
+          fetchTrips();
+        } else {
+          notificationManager.show(
+            `Error deleting trip(s): ${data.message}`,
+            "danger"
+          );
+          console.error("Error deleting trip(s):", data.message);
+        }
+      } catch (error) {
+        console.error("Error deleting trips:", error);
+        notificationManager.show(
+          "Error deleting trip(s). Please try again.",
+          "danger"
+        );
+      }
     }
   }
 
@@ -350,14 +353,18 @@
       selectedTrips.push(rowData.transactionId);
     });
     if (selectedTrips.length === 0) {
-      showNotification("No trips selected to refresh.", "warning");
+      notificationManager.show("No trips selected to refresh.", "warning");
       return;
     }
-    if (
-      confirm(
-        `Are you sure you want to refresh geocoding for ${selectedTrips.length} trip(s)?`,
-      )
-    ) {
+
+    const confirmed = await confirmationDialog.show({
+      title: 'Refresh Geocoding',
+      message: `Are you sure you want to refresh geocoding for ${selectedTrips.length} trip(s)?`,
+      confirmText: 'Refresh',
+      confirmButtonClass: 'btn-primary'
+    });
+
+    if (confirmed) {
       try {
         const response = await fetch("/api/trips/refresh_geocoding", {
           method: "POST",
@@ -369,16 +376,16 @@
           throw new Error(errorData.message || "Failed to refresh geocoding");
         }
         const data = await response.json();
-        showNotification(
+        notificationManager.show(
           `Successfully refreshed geocoding for ${data.updated_count} trip(s).`,
-          "success",
+          "success"
         );
         fetchTrips();
       } catch (error) {
         console.error("Error refreshing geocoding:", error);
-        showNotification(
+        notificationManager.show(
           error.message || "Error refreshing geocoding. Please try again.",
-          "danger",
+          "danger"
         );
       }
     }
@@ -452,66 +459,8 @@
       });
     } catch (error) {
       console.error("Error fetching trips:", error);
-      alert("Error loading trips. Please try again.");
+      notificationManager.show("Error loading trips. Please try again.", "danger");
     }
-  }
-
-  function showNotification(message, type = "info") {
-    const notificationDiv = document.createElement("div");
-    notificationDiv.className = `alert alert-${type} alert-dismissible fade show`;
-    notificationDiv.innerHTML = `
-          ${message}
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `;
-    let notificationContainer = document.querySelector(
-      ".notification-container",
-    );
-    if (!notificationContainer) {
-      notificationContainer = document.createElement("div");
-      notificationContainer.className =
-        "notification-container position-fixed top-0 end-0 p-3";
-      document.body.appendChild(notificationContainer);
-    }
-    notificationContainer.appendChild(notificationDiv);
-    setTimeout(() => notificationDiv.remove(), 5000);
-  }
-
-  function createEditableCell(data, type, field, inputType = "text") {
-    if (type === "display") {
-      let displayValue = data || "";
-      if ((field === "startTime" || field === "endTime") && data) {
-        const date = new Date(data);
-        const formatter = new Intl.DateTimeFormat("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        });
-        displayValue = formatter.format(date);
-      } else if (
-        (field === "distance" ||
-          field === "maxSpeed" ||
-          field === "fuelConsumed") &&
-        data
-      ) {
-        displayValue = parseFloat(data).toFixed(2);
-      } else if (field === "totalIdleDuration" && data) {
-        displayValue = parseFloat(data).toFixed(2);
-      }
-      const inputValue =
-        (field === "startTime" || field === "endTime") && data
-          ? new Date(data).toISOString().slice(0, 16)
-          : displayValue;
-      return `
-              <div class="editable-cell" data-field="${field}">
-                  <span class="display-value">${displayValue}</span>
-                  <input type="${inputType}" class="form-control edit-input d-none" value="${inputValue}" />
-              </div>
-          `;
-    }
-    return data;
   }
 
   // Expose global functions under EveryStreet.Trips
@@ -521,28 +470,32 @@
     updateDatesAndFetch,
     getFilterParams,
     createEditableCell,
-    deleteTrip: function (tripId) {
-      if (confirm("Are you sure you want to delete this trip?")) {
-        fetch(`/api/trips/${tripId}`, { method: "DELETE" })
-          .then((response) => {
-            if (!response.ok) throw new Error("Network response was not ok");
-            return response.json();
-          })
-          .then((data) => {
-            if (data.status === "success") {
-              showNotification("Trip deleted successfully", "success");
-              EveryStreet.Trips.fetchTrips();
-            } else {
-              showNotification(`Error: ${data.message}`, "danger");
-            }
-          })
-          .catch((error) => {
-            console.error("Error deleting trip:", error);
-            showNotification(
-              "Error deleting trip. Please try again.",
-              "danger",
-            );
-          });
+    deleteTrip: async function (tripId) {
+      const confirmed = await confirmationDialog.show({
+        title: 'Delete Trip',
+        message: 'Are you sure you want to delete this trip?',
+        confirmText: 'Delete',
+        confirmButtonClass: 'btn-danger'
+      });
+
+      if (confirmed) {
+        try {
+          const response = await fetch(`/api/trips/${tripId}`, { method: "DELETE" });
+          if (!response.ok) throw new Error("Network response was not ok");
+          const data = await response.json();
+          if (data.status === "success") {
+            notificationManager.show("Trip deleted successfully", "success");
+            EveryStreet.Trips.fetchTrips();
+          } else {
+            notificationManager.show(`Error: ${data.message}`, "danger");
+          }
+        } catch (error) {
+          console.error("Error deleting trip:", error);
+          notificationManager.show(
+            "Error deleting trip. Please try again.",
+            "danger"
+          );
+        }
       }
     },
   };
@@ -567,7 +520,7 @@
       })
       .catch((error) => {
         console.error("Error exporting trip:", error);
-        showNotification("Error exporting trip. Please try again.", "danger");
+        notificationManager.show("Error exporting trip. Please try again.", "danger");
       });
   }
 })();
