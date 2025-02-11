@@ -10,6 +10,7 @@
       opacity: 0.4,
       visible: true,
       layer: null,
+      highlightColor: "#FFD700", // Gold highlight for selected trips
     },
     historicalTrips: {
       order: 2,
@@ -17,6 +18,7 @@
       opacity: 0.4,
       visible: false,
       layer: null,
+      highlightColor: "#FFD700", // Gold highlight for selected historical trips
     },
     matchedTrips: {
       order: 3,
@@ -24,6 +26,7 @@
       opacity: 0.4,
       visible: false,
       layer: null,
+      highlightColor: "#40E0D0", // Teal highlight for selected matched trips
     },
     osmBoundary: {
       order: 4,
@@ -61,7 +64,8 @@
   let map,
     layerGroup,
     liveTracker,
-    mapInitialized = false;
+    mapInitialized = false,
+    selectedTripId = null;
 
   // Loading overlay elements
   const loadingOverlay = document.querySelector(".loading-overlay"),
@@ -353,7 +357,6 @@
           "Updating map visualization",
         );
         if (name === "streetCoverage" || name === "customPlaces") {
-          // For streetCoverage, the layer is already an L.geoJSON layer
           info.layer.addTo(layerGroup);
         } else if (
           ["trips", "historicalTrips", "matchedTrips"].includes(name)
@@ -363,10 +366,18 @@
               const start = new Date(feature.properties.startTime).getTime();
               const highlight =
                 mapSettings.highlightRecentTrips && start > sixHoursAgo;
+              const isSelected = feature.properties.transactionId === selectedTripId;
+              const isMatchedPair = feature.properties.transactionId === selectedTripId || 
+                                  (selectedTripId && feature.properties.transactionId && 
+                                   (selectedTripId.replace('MATCHED-', '') === feature.properties.transactionId ||
+                                    feature.properties.transactionId.replace('MATCHED-', '') === selectedTripId));
+              
               return {
-                color: highlight ? "#FF5722" : info.color,
-                weight: highlight ? 4 : 2,
-                opacity: highlight ? 0.8 : info.opacity,
+                color: isSelected ? info.highlightColor : 
+                       isMatchedPair ? (name === 'matchedTrips' ? mapLayers.matchedTrips.highlightColor : mapLayers.trips.highlightColor) :
+                       highlight ? "#FF5722" : info.color,
+                weight: isSelected || isMatchedPair ? 5 : highlight ? 4 : 2,
+                opacity: isSelected || isMatchedPair ? 0.9 : highlight ? 0.8 : info.opacity,
                 className: highlight ? "recent-trip" : "",
               };
             },
@@ -379,28 +390,36 @@
                   timeStyle: "short",
                   timeZone: timezone,
                   hour12: true,
-                }),
-                popupContent = `
-                  <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
-                  <strong>Start Time:</strong> ${formatter.format(startTime)}<br>
-                  <strong>End Time:</strong> ${formatter.format(endTime)}<br>
-                  <strong>Distance:</strong> ${Number(feature.properties.distance).toFixed(2)} miles<br>
-                  ${
-                    mapSettings.highlightRecentTrips &&
-                    startTime.getTime() > sixHoursAgo
-                      ? "<br><strong>(Recent Trip)</strong>"
-                      : ""
-                  }
-                  <button class="btn btn-danger btn-sm mt-2 me-2 delete-trip" data-trip-id="${
-                    feature.properties.transactionId
-                  }">
-                    Delete Trip
-                  </button>
-                  <button class="btn btn-danger btn-sm mt-2 delete-matched-trip" data-trip-id="${
-                    feature.properties.transactionId
-                  }">
-                    Delete Matched Trip
-                  </button>`;
+                });
+              
+              // Add click handler for highlighting
+              lyr.on('click', () => {
+                const clickedId = feature.properties.transactionId;
+                selectedTripId = selectedTripId === clickedId ? null : clickedId;
+                updateMap();
+              });
+
+              const popupContent = `
+                <strong>Trip ID:</strong> ${feature.properties.transactionId}<br>
+                <strong>Start Time:</strong> ${formatter.format(startTime)}<br>
+                <strong>End Time:</strong> ${formatter.format(endTime)}<br>
+                <strong>Distance:</strong> ${Number(feature.properties.distance).toFixed(2)} miles<br>
+                ${
+                  mapSettings.highlightRecentTrips &&
+                  startTime.getTime() > sixHoursAgo
+                    ? "<br><strong>(Recent Trip)</strong>"
+                    : ""
+                }
+                <button class="btn btn-danger btn-sm mt-2 me-2 delete-trip" data-trip-id="${
+                  feature.properties.transactionId
+                }">
+                  Delete Trip
+                </button>
+                <button class="btn btn-danger btn-sm mt-2 delete-matched-trip" data-trip-id="${
+                  feature.properties.transactionId
+                }">
+                  Delete Matched Trip
+                </button>`;
               lyr.bindPopup(popupContent).on("popupopen", () => {
                 const deleteMatchedBtn = lyr
                   .getPopup()
