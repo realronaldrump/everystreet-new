@@ -793,26 +793,25 @@
     const location = document.getElementById("location-input").value,
       locationType = document.getElementById("location-type").value;
     if (!location) {
-      alert("Please enter and validate a location first.");
+      notificationManager.show("Please enter and validate a location first.", "warning");
       return;
     }
-    fetch("/api/preprocess_streets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ location, location_type: locationType }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        alert(
-          data.status === "success" ? data.message : `Error: ${data.message}`,
-        );
-      })
-      .catch((error) => {
-        console.error("Error preprocessing streets:", error);
-        alert(
-          "Error preprocessing streets. Please check the console for details.",
-        );
+    try {
+      const response = await fetch("/api/preprocess_streets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location, location_type: locationType }),
       });
+      const data = await response.json();
+      if (data.status === "success") {
+        notificationManager.show(data.message, "success");
+      } else {
+        notificationManager.show(`Error: ${data.message}`, "danger");
+      }
+    } catch (error) {
+      console.error("Error preprocessing streets:", error);
+      notificationManager.show("Error preprocessing streets. Please check the console for details.", "danger");
+    }
   }
 
   // Event listeners and date presets
@@ -829,6 +828,7 @@
         fetchMetrics();
       });
     }
+
     const controlsToggle = document.getElementById("controls-toggle");
     if (controlsToggle) {
       controlsToggle.addEventListener("click", function () {
@@ -845,6 +845,7 @@
           : "block";
       });
     }
+
     document
       .getElementById("validate-location")
       ?.addEventListener("click", validateLocation);
@@ -880,6 +881,7 @@
       .getElementById("preprocess-streets")
       ?.addEventListener("click", preprocessStreets);
   }
+
   function handleDatePresetClick() {
     const range = this.dataset.range;
     const today = new Date();
@@ -893,7 +895,10 @@
         .then((d) =>
           updateDatePickersAndStore(new Date(d.first_trip_date), endDate),
         )
-        .catch((err) => console.error("Error fetching first trip date:", err))
+        .catch((err) => {
+          console.error("Error fetching first trip date:", err);
+          notificationManager.show("Error fetching first trip date. Please try again.", "danger");
+        })
         .finally(hideLoadingOverlay);
       return;
     }
@@ -916,6 +921,7 @@
     }
     updateDatePickersAndStore(startDate, endDate);
   }
+
   function updateDatePickersAndStore(startDate, endDate) {
     const startFP = document.getElementById("start-date")?._flatpickr,
       endFP = document.getElementById("end-date")?._flatpickr;
@@ -1082,6 +1088,7 @@
       initializeMap();
       if (!map || !layerGroup) {
         console.error("Failed to initialize map components");
+        notificationManager.show("Failed to initialize map components. Please refresh the page.", "danger");
         return;
       }
       initializeLayerControls();

@@ -61,6 +61,34 @@
       href="{{ url_for('static', path='css/style.css') | replace('http://', '//') }}"
     />
 
+    <style>
+      /* Global notification styles */
+      .notification-container {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 1100;
+        max-width: 350px;
+      }
+      .notification-container .alert {
+        margin-bottom: 0.5rem;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        border-left: 4px solid;
+      }
+      .notification-container .alert-success {
+        border-left-color: #28a745;
+      }
+      .notification-container .alert-danger {
+        border-left-color: #dc3545;
+      }
+      .notification-container .alert-warning {
+        border-left-color: #ffc107;
+      }
+      .notification-container .alert-info {
+        border-left-color: #17a2b8;
+      }
+    </style>
+
     {% block extra_css %}{% endblock %}
   </head>
   <body>
@@ -70,6 +98,12 @@
       <main id="main-content" class="flex-grow-1 d-flex flex-column" role="main">
         {% block content %}{% endblock %}
       </main>
+
+      <!-- Global Notification Container -->
+      <div class="notification-container">
+        <!-- Notifications will be dynamically inserted here -->
+      </div>
+
       <!-- Loading overlay for progress -->
       <div class="loading-overlay">
         <div class="loading-content">
