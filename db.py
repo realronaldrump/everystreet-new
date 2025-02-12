@@ -6,6 +6,7 @@ from datetime import timezone
 from typing import Optional, Any, Dict
 
 from motor.motor_asyncio import AsyncIOMotorClient
+import pymongo
 
 # Configure logging for this module.
 logging.basicConfig(
@@ -61,6 +62,7 @@ archived_live_trips_collection = get_mongo_client()["every_street"][
 ]
 task_config_collection = get_mongo_client()["every_street"]["task_config"]
 task_history_collection = get_mongo_client()["every_street"]["task_history"]
+progress_collection = get_mongo_client()["every_street"]["progress_status"]
 
 
 # Create indexes for task history collection
@@ -113,3 +115,17 @@ async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.error("Error retrieving trip %s: %s", trip_id, e, exc_info=True)
         return None
+
+
+async def ensure_street_coverage_indexes():
+    """Create indexes for street coverage collections."""
+    try:
+        await streets_collection.create_index([("properties.location", pymongo.ASCENDING)])
+        await streets_collection.create_index([("properties.segment_id", pymongo.ASCENDING)])
+        await trips_collection.create_index([("gps", pymongo.ASCENDING)])
+        await trips_collection.create_index([("startTime", pymongo.ASCENDING)])
+        await trips_collection.create_index([("endTime", pymongo.ASCENDING)])
+        logger.info("Street coverage indexes created successfully")
+    except Exception as e:
+        logger.error("Error creating street coverage indexes: %s", e, exc_info=True)
+        raise e

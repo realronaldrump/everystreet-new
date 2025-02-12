@@ -27,6 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from pymongo.errors import DuplicateKeyError
 from starlette.websockets import WebSocketDisconnect
 import shutil
+import uuid
 
 import aiohttp
 import geopandas as gpd
@@ -62,6 +63,8 @@ from db import (
     places_collection,
     task_history_collection,
     init_task_history_collection,
+    progress_collection,
+    ensure_street_coverage_indexes,
 )
 from trip_processing import format_idle_time
 from export_helpers import create_geojson, create_gpx
@@ -624,31 +627,15 @@ async def get_street_coverage(request: Request):
             raise HTTPException(
                 status_code=400, detail="Invalid location data."
             )
-        logger.info(
-            "Calculating coverage for location: %s",
-            location.get("display_name", "Unknown"),
-        )
-        result = await compute_coverage_for_location(location)
-        if result is None:
-            raise HTTPException(
-                status_code=404,
-                detail="No street data found or error in computation.",
-            )
-        display_name = location.get("display_name", "Unknown")
-        await coverage_metadata_collection.update_one(
-            {"location.display_name": display_name},
-            {
-                "$set": {
-                    "location": location,
-                    "total_length": result["total_length"],
-                    "driven_length": result["driven_length"],
-                    "coverage_percentage": result["coverage_percentage"],
-                    "last_updated": datetime.now(timezone.utc),
-                }
-            },
-            upsert=True,
-        )
-        return result
+        
+        # Generate a unique task ID
+        task_id = str(uuid.uuid4())
+        
+        # Start the coverage calculation in the background
+        asyncio.create_task(process_coverage_calculation(location, task_id))
+        
+        return {"task_id": task_id, "status": "processing"}
+        
     except Exception as e:
         logger.error(
             "Error in street coverage calculation: %s\n%s",
@@ -656,6 +643,69 @@ async def get_street_coverage(request: Request):
             traceback.format_exc(),
         )
         raise HTTPException(status_code=500, detail=str(e))
+
+async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
+    """Process the coverage calculation in the background"""
+    try:
+        result = await compute_coverage_for_location(location, task_id)
+        if result:
+            display_name = location.get("display_name", "Unknown")
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": display_name},
+                {
+                    "$set": {
+                        "location": location,
+                        "total_length": result["total_length"],
+                        "driven_length": result["driven_length"],
+                        "coverage_percentage": result["coverage_percentage"],
+                        "last_updated": datetime.now(timezone.utc),
+                    }
+                },
+                upsert=True,
+            )
+            # Store the final result in the progress collection
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "complete",
+                        "progress": 100,
+                        "result": result,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+    except Exception as e:
+        logger.error(f"Error in background coverage calculation: {e}", exc_info=True)
+        await progress_collection.update_one(
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "error",
+                    "error": str(e),
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+        )
+
+@app.get("/api/street_coverage/{task_id}")
+async def get_coverage_status(task_id: str):
+    """Get the status of a coverage calculation task"""
+    progress = await progress_collection.find_one({"_id": task_id})
+    if not progress:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    if progress.get("stage") == "error":
+        raise HTTPException(status_code=500, detail=progress.get("error", "Unknown error"))
+    
+    if progress.get("stage") == "complete":
+        return progress.get("result")
+    
+    return {
+        "stage": progress.get("stage", "unknown"),
+        "progress": progress.get("progress", 0),
+        "message": progress.get("message", ""),
+    }
 
 
 @app.get("/api/trips")
@@ -3563,6 +3613,7 @@ async def startup_event():
     # No need to create a new instance here; use the global one
     await task_manager.start()  # Call start() on the imported instance
     await init_task_history_collection()  # ensure indexes are created
+    await ensure_street_coverage_indexes()  # ensure street coverage indexes
     print("Application startup completed successfully")
 
 

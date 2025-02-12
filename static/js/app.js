@@ -1100,106 +1100,201 @@
   // Street coverage generation and visualization
   async function generateStreetCoverage() {
     if (!window.validatedLocation) {
-      alert("Validate a location first.");
-      return;
+        alert("Validate a location first.");
+        return;
     }
+
     const coverageBtn = document.getElementById("generate-coverage");
     const originalText = coverageBtn.innerHTML;
-     coverageBtn.disabled = true; //Disable here
-     coverageBtn.innerHTML =
-      '<span class="spinner-border spinner-border-sm"></span> Loading...';
+    const progressBar = document.getElementById("coverage-progress");
+    const progressText = document.getElementById("coverage-progress-text");
+    
     try {
-      const response = await fetch("/api/street_coverage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ location: window.validatedLocation }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Failed to generate street coverage",
-        );
-      }
-      const coverageData = await response.json();
-      visualizeStreetCoverage(coverageData);
+        // Start the coverage calculation
+        coverageBtn.disabled = true;
+        coverageBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Starting...';
+        
+        // Show progress elements
+        document.getElementById("coverage-stats").classList.remove("d-none");
+        progressBar.style.width = "0%";
+        progressBar.setAttribute("aria-valuenow", "0");
+        progressText.textContent = "Starting coverage calculation...";
+        
+        // Initiate the calculation
+        const response = await fetch("/api/street_coverage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ location: window.validatedLocation }),
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to start coverage calculation");
+        }
+        
+        const data = await response.json();
+        if (!data || !data.task_id) {
+            throw new Error("Invalid response from server: missing task ID");
+        }
+        const task_id = data.task_id;
+        
+        // Add a small delay before starting to poll to allow the task to initialize
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Poll for progress with retry logic
+        const maxRetries = 3;  // Maximum number of consecutive 404 retries
+        let retryCount = 0;
+        
+        while (true) {
+            try {
+                const statusResponse = await fetch(`/api/street_coverage/${task_id}`);
+                
+                if (statusResponse.status === 404) {
+                    // If we get a 404, increment retry count and wait longer
+                    retryCount++;
+                    if (retryCount > maxRetries) {
+                        throw new Error("Task not found after multiple retries");
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+                    continue;
+                }
+                
+                // Reset retry count on successful response
+                retryCount = 0;
+                
+                if (statusResponse.status === 500) {
+                    const errorData = await statusResponse.json();
+                    throw new Error(errorData.detail || "Error in coverage calculation");
+                }
+                
+                if (!statusResponse.ok) {
+                    throw new Error(`Server returned ${statusResponse.status}: ${statusResponse.statusText}`);
+                }
+                
+                const statusData = await statusResponse.json();
+                if (!statusData) {
+                    console.warn("Received empty status data");
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    continue;
+                }
+                
+                // Check if we have a direct result (final data)
+                if (statusData.streets_data) {
+                    visualizeStreetCoverage(statusData);
+                    break;
+                }
+                
+                // Otherwise, handle progress update
+                if (!statusData.stage) {
+                    console.warn("Invalid progress data received:", statusData);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    continue;
+                }
+                
+                if (statusData.stage === "complete" && statusData.result) {
+                    // Calculation complete, visualize the results
+                    visualizeStreetCoverage(statusData.result);
+                    break;
+                } else if (statusData.stage === "error") {
+                    throw new Error(statusData.message || "Error in coverage calculation");
+                }
+                
+                // Update progress
+                const progress = statusData.progress || 0;
+                progressBar.style.width = `${progress}%`;
+                progressBar.setAttribute("aria-valuenow", progress);
+                progressText.textContent = statusData.message || `Progress: ${progress}%`;
+                
+                // Wait before next poll
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (error) {
+                if (error.message === "Task not found after multiple retries") {
+                    throw error;
+                }
+                // For other errors, log and continue polling
+                console.warn("Error polling progress:", error);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+        
     } catch (error) {
-      console.error("Error generating street coverage:", error);
-      alert(
-        error.message || "An error occurred while generating street coverage.",
-      );
+        console.error("Error generating street coverage:", error);
+        notificationManager.show(error.message || "An error occurred while generating street coverage.", "danger");
+        progressBar.style.width = "0%";
+        progressBar.setAttribute("aria-valuenow", "0");
+        progressText.textContent = "Error calculating coverage";
     } finally {
-       coverageBtn.disabled = false; // Re-enable here
-      coverageBtn.innerHTML = originalText; // Restore text
+        coverageBtn.disabled = false;
+        coverageBtn.innerHTML = originalText;
     }
   }
-
 
   function visualizeStreetCoverage(coverageData) {
     // Remove any existing streetCoverage layer
     if (mapLayers.streetCoverage.layer) {
-      layerGroup.removeLayer(mapLayers.streetCoverage.layer);
-      mapLayers.streetCoverage.layer = null;
+        layerGroup.removeLayer(mapLayers.streetCoverage.layer);
+        mapLayers.streetCoverage.layer = null;
     }
 
     if (!coverageData || !coverageData.streets_data) {
-      console.error('Invalid coverage data received');
-      return;
+        console.error('Invalid coverage data received');
+        return;
     }
 
     // Create the GeoJSON layer with styling
     mapLayers.streetCoverage.layer = L.geoJSON(coverageData.streets_data, {
-      style: function(feature) {
-        const driven = feature.properties.driven;
-        const count = feature.properties.coverage_count || 0;
+        style: function(feature) {
+            const driven = feature.properties.driven;
+            const count = feature.properties.coverage_count || 0;
 
-        // Color scale based on coverage count
-        let color = '#FF4444';  // Default red for undriven
-        let opacity = 0.4;
-        let weight = 3;
+            // Color scale based on coverage count
+            let color = '#FF4444';  // Default red for undriven
+            let opacity = 0.4;
+            let weight = 3;
 
-        if (driven) {
-          // Use a gradient of green based on coverage count
-          if (count >= 10) color = '#004400';
-          else if (count >= 5) color = '#006600';
-          else if (count >= 3) color = '#008800';
-          else color = '#00AA00';
-          opacity = 0.8;
-          weight = 4;
-        }
+            if (driven) {
+                // Use a gradient of green based on coverage count
+                if (count >= 10) color = '#004400';
+                else if (count >= 5) color = '#006600';
+                else if (count >= 3) color = '#008800';
+                else color = '#00AA00';
+                opacity = 0.8;
+                weight = 4;
+            }
 
-        return {
-          color: color,
-          weight: weight,
-          opacity: opacity
-        };
-      },
-      onEachFeature: function(feature, layer) {
-        // Add popup with segment information
-        const props = feature.properties;
-        const lengthMiles = (props.length * 0.000621371).toFixed(2);
-        const popupContent = `
-          <strong>${props.street_name || 'Unnamed Street'}</strong><br>
-          Status: ${props.driven ? 'Driven' : 'Not driven'}<br>
-          Times driven: ${props.coverage_count || 0}<br>
-          Length: ${lengthMiles} miles<br>
-          Segment ID: ${props.segment_id}
-        `;
-        layer.bindPopup(popupContent);
+            return {
+                color: color,
+                weight: weight,
+                opacity: opacity
+            };
+        },
+        onEachFeature: function(feature, layer) {
+            // Add popup with segment information
+            const props = feature.properties;
+            const lengthMiles = (props.length * 0.000621371).toFixed(2);
+            const popupContent = `
+                <strong>${props.street_name || 'Unnamed Street'}</strong><br>
+                Status: ${props.driven ? 'Driven' : 'Not driven'}<br>
+                Times driven: ${props.coverage_count || 0}<br>
+                Length: ${lengthMiles} miles<br>
+                Segment ID: ${props.segment_id}
+            `;
+            layer.bindPopup(popupContent);
 
-        // Add hover effect
-        layer.on({
-          mouseover: function(e) {
-            const layer = e.target;
-            layer.setStyle({
-              weight: 5,
-              opacity: 1
+            // Add hover effect
+            layer.on({
+                mouseover: function(e) {
+                    const layer = e.target;
+                    layer.setStyle({
+                        weight: 5,
+                        opacity: 1
+                    });
+                },
+                mouseout: function(e) {
+                    mapLayers.streetCoverage.layer.resetStyle(e.target);
+                }
             });
-          },
-          mouseout: function(e) {
-            mapLayers.streetCoverage.layer.resetStyle(e.target);
-          }
-        });
-      }
+        }
     });
 
     // Add the layer to the map

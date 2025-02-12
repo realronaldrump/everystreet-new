@@ -23,28 +23,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Database setup using Motor (asynchronous)
-MONGO_URI = os.getenv("MONGO_URI")
-client = AsyncIOMotorClient(MONGO_URI, tz_aware=True)
-db = client["every_street"]
-streets_collection = db["streets"]
-trips_collection = db["trips"]
-coverage_metadata_collection = db["coverage_metadata"]
-
-# Ensure indexes for better query performance
-async def ensure_indexes():
-    await streets_collection.create_index([("properties.location", pymongo.ASCENDING)])
-    await streets_collection.create_index([("properties.segment_id", pymongo.ASCENDING)])
-    await trips_collection.create_index([("gps", pymongo.ASCENDING)])
-    await trips_collection.create_index([("startTime", pymongo.ASCENDING)])
-    await trips_collection.create_index([("endTime", pymongo.ASCENDING)])
+# Import database collections and functions from db.py
+from db import (
+    streets_collection,
+    trips_collection,
+    coverage_metadata_collection,
+    progress_collection,
+    ensure_street_coverage_indexes,
+)
 
 # Coordinate reference systems and transformers
 wgs84 = pyproj.CRS("EPSG:4326")
 
 class CoverageCalculator:
-    def __init__(self, location: Dict[str, Any]):
+    def __init__(self, location: Dict[str, Any], task_id: str):
         self.location = location
+        self.task_id = task_id
         self.streets_index = rtree.index.Index()
         self.streets_lookup = {}
         self.utm_proj = None
@@ -58,6 +52,24 @@ class CoverageCalculator:
         self.total_length = 0
         self.covered_segments = set()
         self.segment_coverage = defaultdict(int)
+        self.total_trips = 0
+        self.processed_trips = 0
+
+    async def update_progress(self, stage: str, progress: float, message: str = ""):
+        """Update progress in MongoDB"""
+        await progress_collection.update_one(
+            {"_id": self.task_id},
+            {
+                "$set": {
+                    "stage": stage,
+                    "progress": progress,
+                    "message": message,
+                    "updated_at": datetime.now(timezone.utc),
+                    "location": self.location.get("display_name", "Unknown"),
+                }
+            },
+            upsert=True
+        )
 
     def initialize_projections(self):
         """Initialize UTM projection based on location center"""
@@ -117,6 +129,10 @@ class CoverageCalculator:
                 self.covered_segments.update(segments)
                 for segment_id in segments:
                     self.segment_coverage[segment_id] += 1
+        
+        self.processed_trips += len(trips)
+        progress = (self.processed_trips / self.total_trips * 100) if self.total_trips > 0 else 0
+        await self.update_progress("processing_trips", progress, f"Processed {self.processed_trips} of {self.total_trips} trips")
 
     def is_trip_in_boundary(self, trip: Dict[str, Any]) -> bool:
         """Quick check if trip intersects boundary box"""
@@ -177,8 +193,11 @@ class CoverageCalculator:
     async def compute_coverage(self) -> Optional[Dict[str, Any]]:
         """Compute street coverage for the location using improved spatial matching."""
         try:
+            await self.update_progress("initializing", 0, "Starting coverage calculation...")
+            
             # Ensure indexes are created
-            await ensure_indexes()
+            await ensure_street_coverage_indexes()
+            await self.update_progress("loading_streets", 10, "Loading street data...")
 
             # Query all street segments for the location
             streets = await streets_collection.find(
@@ -187,15 +206,16 @@ class CoverageCalculator:
 
             if not streets:
                 logger.warning("No streets found for location")
+                await self.update_progress("error", 0, "No streets found for location")
                 return None
 
             # Build spatial index and calculate boundary
+            await self.update_progress("indexing", 20, "Building spatial index...")
             self.build_spatial_index(streets)
             self.boundary_box = self.calculate_boundary_box(streets)
 
             # Process trips in larger batches
-            logger.info("Processing trips...")
-            batch = []
+            await self.update_progress("counting_trips", 30, "Counting trips...")
             
             # Use MongoDB aggregation to get trips within the boundary box
             bbox = self.boundary_box.bounds
@@ -219,6 +239,11 @@ class CoverageCalculator:
                 }
             ]
 
+            # Count total trips first
+            self.total_trips = await trips_collection.count_documents(pipeline[0]["$match"])
+            await self.update_progress("processing_trips", 40, f"Processing {self.total_trips} trips...")
+
+            batch = []
             async for trip in trips_collection.aggregate(pipeline):
                 batch.append(trip)
                 if len(batch) >= self.batch_size:
@@ -229,6 +254,7 @@ class CoverageCalculator:
                 await self.process_trip_batch(batch)
 
             # Calculate covered length and prepare features
+            await self.update_progress("finalizing", 90, "Calculating final coverage...")
             covered_length = 0
             features = []
 
@@ -261,6 +287,8 @@ class CoverageCalculator:
                 else 0
             )
 
+            await self.update_progress("complete", 100, "Coverage calculation complete")
+
             return {
                 "total_length": self.total_length,
                 "driven_length": covered_length,
@@ -278,6 +306,7 @@ class CoverageCalculator:
 
         except Exception as e:
             logger.error(f"Error computing coverage: {e}", exc_info=True)
+            await self.update_progress("error", 0, f"Error: {str(e)}")
             return None
 
     @staticmethod
@@ -298,11 +327,12 @@ class CoverageCalculator:
 
 async def compute_coverage_for_location(
     location: Dict[str, Any],
+    task_id: str,
 ) -> Optional[Dict[str, Any]]:
     """
     Compute street coverage for a given validated location.
     """
-    calculator = CoverageCalculator(location)
+    calculator = CoverageCalculator(location, task_id)
     return await calculator.compute_coverage()
 
 
@@ -326,7 +356,8 @@ async def update_coverage_for_all_locations() -> None:
                 )
                 continue
 
-            result = await compute_coverage_for_location(loc)
+            task_id = f"bulk_update_{str(doc['_id'])}"
+            result = await compute_coverage_for_location(loc, task_id)
             if result:
                 display_name = loc.get("display_name", "Unknown")
                 await coverage_metadata_collection.update_one(
