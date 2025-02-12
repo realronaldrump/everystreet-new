@@ -369,20 +369,36 @@
               const start = new Date(feature.properties.startTime).getTime();
               const highlight =
                 mapSettings.highlightRecentTrips && start > sixHoursAgo;
-              const isSelected = feature.properties.transactionId === selectedTripId;
-              const isMatchedPair = feature.properties.transactionId === selectedTripId || 
-                                  (selectedTripId && feature.properties.transactionId && 
-                                   (selectedTripId.replace('MATCHED-', '') === feature.properties.transactionId ||
-                                    feature.properties.transactionId.replace('MATCHED-', '') === selectedTripId));
-              
+              const isSelected =
+                feature.properties.transactionId === selectedTripId;
+              const isMatchedPair =
+                feature.properties.transactionId === selectedTripId ||
+                (selectedTripId &&
+                  feature.properties.transactionId &&
+                  (selectedTripId.replace("MATCHED-", "") ===
+                    feature.properties.transactionId ||
+                    feature.properties.transactionId.replace("MATCHED-", "") ===
+                      selectedTripId));
+
               return {
-                color: isSelected ? info.highlightColor : 
-                       isMatchedPair ? (name === 'matchedTrips' ? mapLayers.matchedTrips.highlightColor : mapLayers.trips.highlightColor) :
-                       highlight ? "#FF5722" : info.color,
+                color: isSelected
+                  ? info.highlightColor
+                  : isMatchedPair
+                  ? name === "matchedTrips"
+                    ? mapLayers.matchedTrips.highlightColor
+                    : mapLayers.trips.highlightColor
+                  : highlight
+                  ? "#FF5722"
+                  : info.color,
                 weight: isSelected || isMatchedPair ? 5 : highlight ? 4 : 2,
-                opacity: isSelected || isMatchedPair ? 0.9 : highlight ? 0.8 : info.opacity,
+                opacity:
+                  isSelected || isMatchedPair
+                    ? 0.9
+                    : highlight
+                    ? 0.8
+                    : info.opacity,
                 className: highlight ? "recent-trip" : "",
-                zIndexOffset: isSelected || isMatchedPair ? 1000 : 0
+                zIndexOffset: isSelected || isMatchedPair ? 1000 : 0,
               };
             },
             onEachFeature: (feature, lyr) => {
@@ -395,53 +411,84 @@
                   timeZone: timezone,
                   hour12: true,
                 });
-              
+
               // Store layer reference
               tripLayers.set(feature.properties.transactionId, lyr);
-              
+
               // Add click handler for highlighting
-              lyr.on('click', () => {
+              lyr.on("click", () => {
                 const clickedId = feature.properties.transactionId;
                 const wasSelected = selectedTripId === clickedId;
                 selectedTripId = wasSelected ? null : clickedId;
 
-                layerGroup.eachLayer(layer => {
+                layerGroup.eachLayer((layer) => {
                   if (layer.closePopup) {
                     layer.closePopup();
                   }
                 });
 
                 if (!wasSelected) {
-                  if (name === 'trips') {
+                  if (name === "trips") {
                     const popupContent = `
-                      <div class="trip-popup">
-                        <h4>Trip Details</h4>
-                        <p><strong>Start:</strong> ${formatter.format(startTime)}</p>
-                        <p><strong>End:</strong> ${formatter.format(endTime)}</p>
-                        <p><strong>Distance:</strong> ${Number(feature.properties.distance).toFixed(2)} miles</p>
-                        <p><strong>From:</strong> ${feature.properties.startLocation || 'Unknown'}</p>
-                        <p><strong>To:</strong> ${feature.properties.destination || 'Unknown'}</p>
-                        ${feature.properties.maxSpeed ? `<p><strong>Max Speed:</strong> ${Number(feature.properties.maxSpeed).toFixed(1)} mph</p>` : ''}
-                        ${feature.properties.averageSpeed ? `<p><strong>Avg Speed:</strong> ${Number(feature.properties.averageSpeed).toFixed(1)} mph</p>` : ''}
-                        ${feature.properties.totalIdleDurationFormatted ? `<p><strong>Idle Time:</strong> ${feature.properties.totalIdleDurationFormatted}</p>` : ''}
-                        <div class="mt-2">
-                          <button class="btn btn-danger btn-sm me-2 delete-trip" data-trip-id="${feature.properties.transactionId}">
-                            Delete Trip
-                          </button>
-                          <button class="btn btn-danger btn-sm delete-matched-trip" data-trip-id="${feature.properties.transactionId}">
-                            Delete Matched Trip
-                          </button>
-                        </div>
-                      </div>`;
-                    lyr.bindPopup(popupContent, {
-                      className: 'trip-popup',
-                      maxWidth: 300,
-                      autoPan: true
-                    }).openPopup();
+                        <div class="trip-popup">
+                          <h4>Trip Details</h4>
+                          <p><strong>Start:</strong> ${formatter.format(
+                            startTime,
+                          )}</p>
+                          <p><strong>End:</strong> ${formatter.format(endTime)}</p>
+                          <p><strong>Distance:</strong> ${Number(
+                            feature.properties.distance,
+                          ).toFixed(2)} miles</p>
+                          <p><strong>From:</strong> ${
+                            feature.properties.startLocation || "Unknown"
+                          }</p>
+                          <p><strong>To:</strong> ${
+                            feature.properties.destination || "Unknown"
+                          }</p>
+                          ${
+                            feature.properties.maxSpeed
+                              ? `<p><strong>Max Speed:</strong> ${Number(
+                                  feature.properties.maxSpeed,
+                                ).toFixed(1)} mph</p>`
+                              : ""
+                          }
+                          ${
+                            feature.properties.averageSpeed
+                              ? `<p><strong>Avg Speed:</strong> ${Number(
+                                  feature.properties.averageSpeed,
+                                ).toFixed(1)} mph</p>`
+                              : ""
+                          }
+                          ${
+                            feature.properties.totalIdleDurationFormatted
+                              ? `<p><strong>Idle Time:</strong> ${feature.properties.totalIdleDurationFormatted}</p>`
+                              : ""
+                          }
+                          <div class="mt-2">
+                            <button class="btn btn-danger btn-sm me-2 delete-trip" data-trip-id="${
+                              feature.properties.transactionId
+                            }">
+                              Delete Trip
+                            </button>
+                            <button class="btn btn-danger btn-sm delete-matched-trip" data-trip-id="${
+                              feature.properties.transactionId
+                            }">
+                              Delete Matched Trip
+                            </button>
+                          </div>
+                        </div>`;
+                    lyr
+                      .bindPopup(popupContent, {
+                        className: "trip-popup",
+                        maxWidth: 300,
+                        autoPan: true,
+                      })
+                      .openPopup();
                   }
                 }
 
-                setTimeout(() => { // Defer updateMap()
+                setTimeout(() => {
+                  // Defer updateMap()
                   updateMap();
                 }, 0);
               });
@@ -456,7 +503,7 @@
                   .getPopup()
                   .getElement()
                   .querySelector(".delete-trip");
-                  
+
                 deleteMatchedBtn?.addEventListener("click", async (e) => {
                   e.preventDefault();
                   const tid = e.target.dataset.tripId;
@@ -467,7 +514,7 @@
                       });
                       if (!res.ok) throw new Error("Failed to delete");
                       lyr.closePopup();
-                      fetchTrips();
+                      await fetchTrips(); // Now awaited!
                       alert("Trip deleted");
                     } catch (error) {
                       console.error("Error deleting:", error);
@@ -475,11 +522,15 @@
                     }
                   }
                 });
-                
+
                 deleteTripBtn?.addEventListener("click", async (e) => {
                   e.preventDefault();
                   const tid = e.target.dataset.tripId;
-                  if (confirm("Delete this trip? This will also delete its corresponding matched trip.")) {
+                  if (
+                    confirm(
+                      "Delete this trip? This will also delete its corresponding matched trip.",
+                    )
+                  ) {
                     try {
                       const tripRes = await fetch(`/api/trips/${tid}`, {
                         method: "DELETE",
@@ -490,11 +541,13 @@
                         method: "DELETE",
                       });
                       if (!matchedRes.ok) {
-                        console.warn("No matched trip found or failed to delete matched trip");
+                        console.warn(
+                          "No matched trip found or failed to delete matched trip",
+                        );
                       }
 
                       lyr.closePopup();
-                      fetchTrips();
+                      await fetchTrips();  // Now awaited
                       alert("Trip and its matched trip deleted");
                     } catch (error) {
                       console.error("Error deleting:", error);
@@ -517,7 +570,7 @@
     // Bring selected trip to front
     if (selectedTripId && tripLayers.has(selectedTripId)) {
       const selectedLayer = tripLayers.get(selectedTripId);
-      selectedLayer.bringToFront();
+        selectedLayer?.bringToFront(); //added null check operator
     }
 
     if (fitBounds) {
