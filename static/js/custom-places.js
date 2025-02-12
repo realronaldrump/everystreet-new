@@ -10,13 +10,23 @@
       this.currentPolygon = null;
       this.places = new Map();
       this.drawingEnabled = false;
-      this.customPlacesLayer = L.layerGroup().addTo(this.map);
+      this.customPlacesLayer = L.layerGroup();
       this.loadingManager = new LoadingManager();
+
+      // Set the layer in the global mapLayers object
+      if (window.mapLayers && window.mapLayers.customPlaces) {
+        window.mapLayers.customPlaces.layer = this.customPlacesLayer;
+      }
 
       this.cacheDOMElements();
       this.initializeControls();
       this.loadPlaces();
       this.setupEventListeners();
+
+      // Add the layer to the map by default if it should be visible
+      if (window.mapLayers?.customPlaces?.visible) {
+        this.customPlacesLayer.addTo(this.map);
+      }
     }
 
     cacheDOMElements() {
@@ -110,7 +120,13 @@
     displayPlace(place) {
       const polygon = L.geoJSON(place.geometry, {
         style: { color: "#BB86FC", fillColor: "#BB86FC", fillOpacity: 0.2 },
-        onEachFeature: (feature) => (feature.properties.placeId = place._id),
+        onEachFeature: (feature, layer) => {
+          // Initialize properties object if it doesn't exist
+          if (!feature.properties) {
+            feature.properties = {};
+          }
+          feature.properties.placeId = place._id;
+        }
       });
       polygon.bindPopup(`
           <div class="custom-place-popup">
@@ -174,10 +190,18 @@
         const places = await response.json();
         this.loadingManager.updateSubOperation("fetch", 100);
         places.forEach((place) => {
-          // Convert geometry coordinates if necessary
-          place.geometry.coordinates = place.geometry.coordinates[0];
-          this.places.set(place._id, place);
-          this.displayPlace(place);
+          // Ensure the place has valid geometry and coordinates
+          if (place.geometry && Array.isArray(place.geometry.coordinates)) {
+            // If coordinates is an array of arrays (polygon), use it as is
+            // If it's a single array of coordinates, wrap it in an array
+            if (!Array.isArray(place.geometry.coordinates[0])) {
+              place.geometry.coordinates = [place.geometry.coordinates];
+            }
+            this.places.set(place._id, place);
+            this.displayPlace(place);
+          } else {
+            console.warn(`Invalid geometry for place: ${place._id}`);
+          }
         });
         this.loadingManager.updateSubOperation("display", 100);
         await this.updateVisitsData();
@@ -245,6 +269,15 @@
           console.error("Error deleting place:", error);
           notificationManager.show(error.message || "An error occurred while deleting the place.", "danger");
         }
+      }
+    }
+
+    // Add method to toggle visibility
+    toggleVisibility(visible) {
+      if (visible) {
+        this.customPlacesLayer.addTo(this.map);
+      } else {
+        this.map.removeLayer(this.customPlacesLayer);
       }
     }
   }

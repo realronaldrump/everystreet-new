@@ -655,9 +655,18 @@
   function toggleLayer(name, visible) {
     if (mapLayers[name]) {
       mapLayers[name].visible = visible;
-      updateMap();
+      
+      // Handle custom places layer specially
+      if (name === 'customPlaces' && window.customPlaces) {
+        window.customPlaces.toggleVisibility(visible);
+      } else {
+        updateMap();
+      }
+      
       updateLayerOrderUI();
-    } else console.warn(`Layer "${name}" not found.`);
+    } else {
+      console.warn(`Layer "${name}" not found.`);
+    }
   }
   function changeLayerColor(name, color) {
     if (mapLayers[name]) {
