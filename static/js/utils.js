@@ -6,7 +6,8 @@ class NotificationManager {
 
   createContainer() {
     let container = document.querySelector('.notification-container');
-    if (!container) {
+    // Check if it's an HTMLElement, not just truthy.
+    if (!(container instanceof HTMLElement)) {
       container = document.createElement('div');
       container.className = 'notification-container position-fixed top-0 end-0 p-3';
       document.body.appendChild(container);
@@ -53,9 +54,10 @@ class ConfirmationDialog {
 
     let modalElement = document.getElementById(this.modalId);
     if (!modalElement) {
-      const div = document.createElement('div');
-      div.innerHTML = modalHtml;
-      document.body.appendChild(div.firstChild);
+      // Create the modal element directly from the HTML string.
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(modalHtml, 'text/html');
+      document.body.appendChild(doc.body.firstChild);
     }
   }
 
@@ -68,19 +70,20 @@ class ConfirmationDialog {
       confirmButtonClass = 'btn-primary'
     } = options;
 
-    return new Promise((resolve) => {
+    // Return the result of awaiting the promise.  This is the cleanest approach.
+    return await new Promise((resolve) => {
       const modalElement = document.getElementById(this.modalId);
       const modal = new bootstrap.Modal(modalElement);
-      
+
       modalElement.querySelector('.modal-title').textContent = title;
       modalElement.querySelector('.modal-body').textContent = message;
-      
+
       const confirmBtn = modalElement.querySelector('.confirm-btn');
       const cancelBtn = modalElement.querySelector('.btn-secondary');
-      
+
       confirmBtn.textContent = confirmText;
       cancelBtn.textContent = cancelText;
-      
+
       // Reset button classes and add the specified class
       confirmBtn.className = `btn confirm-btn ${confirmButtonClass}`;
 
@@ -110,4 +113,4 @@ class ConfirmationDialog {
 
 // Create global instances
 window.notificationManager = new NotificationManager();
-window.confirmationDialog = new ConfirmationDialog(); 
+window.confirmationDialog = new ConfirmationDialog();

@@ -147,8 +147,8 @@
       setTimeout(() => (loadingOverlay.style.display = "none"), 500);
   }
 
-  // Map initialization (note: ensure this code runs only once)
-  function initializeMap() {
+// Map initialization (note: ensure this code runs only once)
+  async function initializeMap() { // <--- Make the function async
     if (mapInitialized || !document.getElementById("map")) return;
     try {
       map = L.map("map", {
@@ -175,33 +175,36 @@
       if (!window.liveTracker) {
         try {
           window.liveTracker = new LiveTripTracker(map);
-          
         } catch (error) {
           console.error("Error initializing live tracking:", error);
         }
       }
 
-      fetch("/api/last_trip_point")
-        .then((response) => response.json())
-        .then((data) => {
-          const lastPoint = data.lastPoint;
-          if (lastPoint)
-            map.flyTo([lastPoint[1], lastPoint[0]], 11, {
-              duration: 2,
-              easeLinearity: 0.25,
-            });
-          else map.setView([31.55002, -97.123354], 14);
+      // Use async/await here
+      try {
+        const response = await fetch("/api/last_trip_point");
+        const data = await response.json();
+        const lastPoint = data.lastPoint;
+        if (lastPoint) {
+          map.flyTo([lastPoint[1], lastPoint[0]], 11, {
+            duration: 2,
+            easeLinearity: 0.25,
+          });
+        } else {
+          map.setView([31.55002, -97.123354], 14);
+        }
+      } catch (error) {
+        console.error("Error fetching last point:", error);
+        map.setView([37.0902, -95.7129], 4);
+      } finally {  // <--- Good practice: ensure this always runs
           mapInitialized = true;
-        })
-        .catch((error) => {
-          console.error("Error fetching last point:", error);
-          map.setView([37.0902, -95.7129], 4);
-          mapInitialized = true;
-        });
+      }
+
     } catch (error) {
       console.error("Error initializing map:", error);
     }
   }
+
 
   // Date pickers and initial dates
   function setInitialDates() {
@@ -215,7 +218,7 @@
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
-    
+
     const config = {
       dateFormat: "Y-m-d",
       maxDate: tomorrow,
@@ -236,7 +239,7 @@
         }
       }
     };
-  
+
     const dateInputs = ["start-date", "end-date"];
     dateInputs.forEach(id => {
       const element = document.getElementById(id);
@@ -341,7 +344,7 @@
     }
   }
 
-  // Update map visualization
+ // Update map visualization
   async function updateMap(fitBounds = false) {
     if (!layerGroup) return;
     layerGroup.clearLayers();
@@ -597,6 +600,7 @@
     updateLoadingProgress(100, "Map update complete");
   }
 
+
   // Layer control and order UI
   function initializeLayerControls() {
     const toggles = document.getElementById("layer-toggles");
@@ -767,28 +771,31 @@
     );
     document.dispatchEvent(new Event("locationValidated"));
   }
-  function generateOSMData(streetsOnly) {
+ async function generateOSMData(streetsOnly) {
     if (!window.validatedLocation) {
       notificationManager.show("Please validate a location first.", "warning");
       return;
     }
-    fetch("/api/generate_geojson", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ location: window.validatedLocation, streetsOnly }),
-    })
-      .then((res) => {
-        if (!res.ok)
-          return res.json().then((errData) => {
+
+    try {
+        const res = await fetch("/api/generate_geojson", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ location: window.validatedLocation, streetsOnly }),
+        });
+
+        if (!res.ok) {
+            const errData = await res.json();
             throw new Error(
-              errData.error || "Unknown error generating OSM data",
+                errData.error || "Unknown error generating OSM data",
             );
-          });
-        return res.json();
-      })
-      .then((geojson) => {
-        if (!geojson || geojson.type !== "FeatureCollection")
+        }
+        const geojson = await res.json();
+
+        if (!geojson || geojson.type !== "FeatureCollection") {
           throw new Error("Invalid GeoJSON data from Overpass");
+        }
+
         const layer = L.geoJSON(geojson, {
           style: {
             color: streetsOnly
@@ -802,22 +809,26 @@
         else mapLayers.osmBoundary.layer = layer;
         updateMap();
         updateLayerOrderUI();
-      })
-      .catch((err) => {
-        console.error("Error generating OSM data:", err);
-        notificationManager.show(err.message, "danger");
-      });
+    }
+    catch(err) {
+      console.error("Error generating OSM data:", err);
+      notificationManager.show(err.message, "danger");
+    }
   }
 
+
   // Map matching and fetching trips in range
-  function mapMatchTrips(isHistorical = false) {
-    const sd = document.getElementById("start-date")?.value,
-      ed = document.getElementById("end-date")?.value;
+  async function mapMatchTrips(isHistorical = false) {
+    const sd = document.getElementById("start-date")?.value;
+    const ed = document.getElementById("end-date")?.value;
+
     if (!sd || !ed) {
       notificationManager.show("Select start and end dates.", "warning");
       return;
     }
+
     showLoadingOverlay("Map matching all trips...");
+
     const tasks = [
       fetch("/api/map_match_trips", {
         method: "POST",
@@ -825,6 +836,7 @@
         body: JSON.stringify({ start_date: sd, end_date: ed }),
       }),
     ];
+
     if (isHistorical) {
       tasks.push(
         fetch("/api/map_match_historical_trips", {
@@ -834,68 +846,77 @@
         }),
       );
     }
-    Promise.all(tasks)
-      .then((responses) =>
-        Promise.all(
-          responses.map((r) => {
-            if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
-            return r.json();
-          }),
-        ),
-      )
-      .then((results) => {
-        console.log("Map matching responses:", results);
-        notificationManager.show("Map matching completed for selected trips.", "success");
-        fetchTrips();
-      })
-      .catch((err) => {
-        console.error("Error map matching trips:", err);
-        notificationManager.show("Error map matching trips. Check console.", "danger");
-      })
-      .finally(hideLoadingOverlay);
-  }
-  function fetchTripsInRange() {
-    const sd = document.getElementById("start-date")?.value,
-      ed = document.getElementById("end-date")?.value;
-    if (!sd || !ed) {
-      notificationManager.show("Select start and end dates.", "warning");
-      return;
+
+    try {
+      const responses = await Promise.all(tasks);
+      //Check for bad responses
+      for(const response of responses){
+          if(!response.ok){
+              const errorData = await response.json();
+              throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+          }
+      }
+      const results = await Promise.all(responses.map((r) => r.json()));
+      console.log("Map matching responses:", results);
+      notificationManager.show(
+        "Map matching completed for selected trips.",
+        "success",
+      );
+      fetchTrips(); // No await needed, fetchTrips is async.
+    } catch (err) {
+      console.error("Error map matching trips:", err);
+      notificationManager.show(
+        "Error map matching trips. Check console.",
+        "danger",
+      );
+    } finally {
+      hideLoadingOverlay();
     }
-    showLoadingOverlay();
-    fetch("/api/fetch_trips_range", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ start_date: sd, end_date: ed }),
-    })
-      .then((r) => {
+  }
+
+  async function fetchTripsInRange() {
+      const sd = document.getElementById("start-date")?.value,
+        ed = document.getElementById("end-date")?.value;
+      if (!sd || !ed) {
+        notificationManager.show("Select start and end dates.", "warning");
+        return;
+      }
+      showLoadingOverlay();
+      try {
+        const r = await fetch("/api/fetch_trips_range", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ start_date: sd, end_date: ed }),
+        });
         if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
-        return r.json();
-      })
-      .then((data) => {
+        const data = await r.json();
         if (data.status === "success") {
           notificationManager.show(data.message, "success");
-          fetchTrips();
+          fetchTrips(); // Correct, fetchTrips is async
         } else {
           console.error(`Error: ${data.message}`);
           notificationManager.show("Error fetching trips. Check console.", "danger");
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("Error fetching trips in range:", err);
         notificationManager.show("Error fetching trips. Check console.", "danger");
-      })
-      .finally(hideLoadingOverlay);
-  }
+      } finally {
+        hideLoadingOverlay();
+      }
+    }
 
   // Fetch metrics
-  function fetchMetrics() {
-    const sd = document.getElementById("start-date")?.value,
-      ed = document.getElementById("end-date")?.value,
-      imei = document.getElementById("imei")?.value || "";
+ async function fetchMetrics() {
+    const sd = document.getElementById("start-date")?.value;
+    const ed = document.getElementById("end-date")?.value;
+    const imei = document.getElementById("imei")?.value || "";
+
     if (!sd || !ed) return;
-    fetch(`/api/metrics?start_date=${sd}&end_date=${ed}&imei=${imei}`)
-      .then((r) => r.json())
-      .then((metrics) => {
+
+    try {
+        const r = await fetch(`/api/metrics?start_date=${sd}&end_date=${ed}&imei=${imei}`);
+        const metrics = await r.json();
+
         const mapping = {
           "total-trips": metrics.total_trips,
           "total-distance": metrics.total_distance,
@@ -905,12 +926,15 @@
           "avg-speed": `${metrics.avg_speed} mph`,
           "max-speed": `${metrics.max_speed} mph`,
         };
+
         Object.keys(mapping).forEach((id) => {
           const el = document.getElementById(id);
           if (el) el.textContent = mapping[id];
         });
-      })
-      .catch((err) => console.error("Error fetching metrics:", err));
+    }
+    catch(err) {
+      console.error("Error fetching metrics:", err)
+    };
   }
 
   // Preprocess streets
@@ -1007,26 +1031,32 @@
       ?.addEventListener("click", preprocessStreets);
   }
 
-  function handleDatePresetClick() {
+ async function handleDatePresetClick() { // Make async
     const range = this.dataset.range;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     let startDate = new Date(today),
       endDate = new Date(today);
+
     if (range === "all-time") {
       showLoadingOverlay();
-      fetch("/api/first_trip_date")
-        .then((r) => r.json())
-        .then((d) =>
-          updateDatePickersAndStore(new Date(d.first_trip_date), endDate),
-        )
-        .catch((err) => {
-          console.error("Error fetching first trip date:", err);
-          notificationManager.show("Error fetching first trip date. Please try again.", "danger");
-        })
-        .finally(hideLoadingOverlay);
+      try { // Use try...catch...finally
+        const r = await fetch("/api/first_trip_date");
+        const d = await r.json();
+        updateDatePickersAndStore(new Date(d.first_trip_date), endDate);
+      } catch (err) {
+        console.error("Error fetching first trip date:", err);
+        notificationManager.show(
+          "Error fetching first trip date. Please try again.",
+          "danger",
+        );
+      } finally {
+        hideLoadingOverlay();
+      }
       return;
     }
+
+    // Rest of the switch statement remains the same...
     switch (range) {
       case "yesterday":
         startDate.setDate(startDate.getDate() - 1);
@@ -1064,10 +1094,10 @@
       alert("Validate a location first.");
       return;
     }
-    const coverageBtn = document.getElementById("generate-coverage"),
-      originalText = coverageBtn.innerHTML;
-    coverageBtn.disabled = true;
-    coverageBtn.innerHTML =
+    const coverageBtn = document.getElementById("generate-coverage");
+    const originalText = coverageBtn.innerHTML;
+     coverageBtn.disabled = true; //Disable here
+     coverageBtn.innerHTML =
       '<span class="spinner-border spinner-border-sm"></span> Loading...';
     try {
       const response = await fetch("/api/street_coverage", {
@@ -1089,10 +1119,11 @@
         error.message || "An error occurred while generating street coverage.",
       );
     } finally {
-      coverageBtn.disabled = false;
-      coverageBtn.innerHTML = originalText;
+       coverageBtn.disabled = false; // Re-enable here
+      coverageBtn.innerHTML = originalText; // Restore text
     }
   }
+
 
   function visualizeStreetCoverage(coverageData) {
     // Remove any existing streetCoverage layer
@@ -1111,12 +1142,12 @@
       style: function(feature) {
         const driven = feature.properties.driven;
         const count = feature.properties.coverage_count || 0;
-        
+
         // Color scale based on coverage count
         let color = '#FF4444';  // Default red for undriven
         let opacity = 0.4;
         let weight = 3;
-        
+
         if (driven) {
           // Use a gradient of green based on coverage count
           if (count >= 10) color = '#004400';
@@ -1126,7 +1157,7 @@
           opacity = 0.8;
           weight = 4;
         }
-        
+
         return {
           color: color,
           weight: weight,
@@ -1145,7 +1176,7 @@
           Segment ID: ${props.segment_id}
         `;
         layer.bindPopup(popupContent);
-        
+
         // Add hover effect
         layer.on({
           mouseover: function(e) {
@@ -1165,7 +1196,7 @@
     // Add the layer to the map
     mapLayers.streetCoverage.layer.addTo(layerGroup);
     mapLayers.streetCoverage.visible = true;
-    
+
     // Update UI elements
     updateLayerOrderUI();
     updateMap();
@@ -1179,7 +1210,7 @@
     const totalStreetLengthSpan = document.getElementById("total-street-length");
     const milesDrivenSpan = document.getElementById("miles-driven");
 
-    if (!statsDiv || !progressBar || !coveragePercentageSpan || 
+    if (!statsDiv || !progressBar || !coveragePercentageSpan ||
         !totalStreetLengthSpan || !milesDrivenSpan) {
       console.error("One or more coverage stats elements not found!");
       return;
