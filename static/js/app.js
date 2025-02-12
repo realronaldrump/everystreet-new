@@ -249,7 +249,7 @@
       }
     } catch (error) {
       console.error("Error fetching trips:", error);
-      alert("Error fetching trips. Check console for details.");
+      notificationManager.show("Error fetching trips. Check console for details.", "danger");
     } finally {
       loadingManager.finish("Fetching and Displaying Trips");
     }
@@ -398,10 +398,10 @@
                       if (!res.ok) throw new Error("Failed to delete");
                       lyr.closePopup();
                       await fetchTrips();
-                      alert("Trip deleted");
+                      notificationManager.show("Trip deleted", "success");
                     } catch (error) {
                       console.error("Error deleting:", error);
-                      alert("Error deleting. Try again.");
+                      notificationManager.show("Error deleting. Try again.", "danger");
                     }
                   }
                 });
@@ -421,10 +421,10 @@
 
                       lyr.closePopup();
                       await fetchTrips();
-                      alert("Trip and its matched trip deleted");
+                      notificationManager.show("Trip and its matched trip deleted", "success");
                     } catch (error) {
                       console.error("Error deleting:", error);
-                      alert("Error deleting. Try again.");
+                      notificationManager.show("Error deleting. Try again.", "danger");
                     }
                   }
                 });
@@ -900,7 +900,7 @@
 
   async function generateStreetCoverage() {
     if (!window.validatedLocation) {
-      alert("Validate a location first.");
+      notificationManager.show("Validate a location first.", "warning");
       return;
     }
 
