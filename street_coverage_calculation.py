@@ -1,3 +1,10 @@
+from db import (
+    streets_collection,
+    trips_collection,
+    coverage_metadata_collection,
+    progress_collection,
+    ensure_street_coverage_indexes,
+)
 from motor.motor_asyncio import AsyncIOMotorClient
 import logging
 from datetime import datetime, timezone
@@ -24,16 +31,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import database collections and functions from db.py
-from db import (
-    streets_collection,
-    trips_collection,
-    coverage_metadata_collection,
-    progress_collection,
-    ensure_street_coverage_indexes,
-)
 
 # Coordinate reference systems and transformers
 wgs84 = pyproj.CRS("EPSG:4326")
+
 
 class CoverageCalculator:
     def __init__(self, location: Dict[str, Any], task_id: str):
@@ -108,7 +109,7 @@ class CoverageCalculator:
                 bounds = geom.bounds
                 self.streets_index.insert(idx, bounds)
                 self.streets_lookup[idx] = street
-                
+
                 # Calculate length in UTM coordinates
                 street_utm = transform(self.project_to_utm, geom)
                 self.total_length += street_utm.length
@@ -129,9 +130,10 @@ class CoverageCalculator:
                 self.covered_segments.update(segments)
                 for segment_id in segments:
                     self.segment_coverage[segment_id] += 1
-        
+
         self.processed_trips += len(trips)
-        progress = (self.processed_trips / self.total_trips * 100) if self.total_trips > 0 else 0
+        progress = (self.processed_trips / self.total_trips *
+                    100) if self.total_trips > 0 else 0
         await self.update_progress("processing_trips", progress, f"Processed {self.processed_trips} of {self.total_trips} trips")
 
     def is_trip_in_boundary(self, trip: Dict[str, Any]) -> bool:
@@ -146,7 +148,7 @@ class CoverageCalculator:
 
             coords = gps_data["coordinates"]
             # Quick check using first and last points
-            return (self.boundary_box.contains(Point(coords[0])) or 
+            return (self.boundary_box.contains(Point(coords[0])) or
                     self.boundary_box.contains(Point(coords[-1])))
         except Exception:
             return False
@@ -194,7 +196,7 @@ class CoverageCalculator:
         """Compute street coverage for the location using improved spatial matching."""
         try:
             await self.update_progress("initializing", 0, "Starting coverage calculation...")
-            
+
             # Ensure indexes are created
             await ensure_street_coverage_indexes()
             await self.update_progress("loading_streets", 10, "Loading street data...")
@@ -216,7 +218,7 @@ class CoverageCalculator:
 
             # Process trips in larger batches
             await self.update_progress("counting_trips", 30, "Counting trips...")
-            
+
             # Use MongoDB aggregation to get trips within the boundary box
             bbox = self.boundary_box.bounds
             pipeline = [
