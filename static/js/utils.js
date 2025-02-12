@@ -1,12 +1,12 @@
 /* global bootstrap */
+
 class NotificationManager {
   constructor() {
-    this.container = this.createContainer();
+    this.container = this._getOrCreateContainer();
   }
 
-  createContainer() {
+  _getOrCreateContainer() {
     let container = document.querySelector('.notification-container');
-    // Check if it's an HTMLElement, not just truthy.
     if (!(container instanceof HTMLElement)) {
       container = document.createElement('div');
       container.className = 'notification-container position-fixed top-0 end-0 p-3';
@@ -30,10 +30,10 @@ class NotificationManager {
 class ConfirmationDialog {
   constructor() {
     this.modalId = 'confirmationModal';
-    this.createModal();
+    this._createModal();
   }
 
-  createModal() {
+  _createModal() {
     const modalHtml = `
       <div class="modal fade" id="${this.modalId}" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
@@ -52,9 +52,7 @@ class ConfirmationDialog {
       </div>
     `;
 
-    let modalElement = document.getElementById(this.modalId);
-    if (!modalElement) {
-      // Create the modal element directly from the HTML string.
+    if (!document.getElementById(this.modalId)) {
       const parser = new DOMParser();
       const doc = parser.parseFromString(modalHtml, 'text/html');
       document.body.appendChild(doc.body.firstChild);
@@ -70,8 +68,7 @@ class ConfirmationDialog {
       confirmButtonClass = 'btn-primary'
     } = options;
 
-    // Return the result of awaiting the promise.  This is the cleanest approach.
-    return await new Promise((resolve) => {
+    return new Promise((resolve) => {
       const modalElement = document.getElementById(this.modalId);
       const modal = new bootstrap.Modal(modalElement);
 
@@ -83,8 +80,6 @@ class ConfirmationDialog {
 
       confirmBtn.textContent = confirmText;
       cancelBtn.textContent = cancelText;
-
-      // Reset button classes and add the specified class
       confirmBtn.className = `btn confirm-btn ${confirmButtonClass}`;
 
       const cleanup = () => {
