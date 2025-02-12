@@ -83,7 +83,8 @@ class BackgroundTaskManager:
         )
         self.db = self.db_client["every_street"]  # Use the instance client
 
-    def _initialize_tasks(self) -> Dict[str, TaskDefinition]:
+    @staticmethod
+    def _initialize_tasks() -> Dict[str, TaskDefinition]:
         """Initialize task definitions."""
         return {
             "fetch_and_store_trips": TaskDefinition(

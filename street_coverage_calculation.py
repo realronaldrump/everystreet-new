@@ -108,8 +108,9 @@ class CoverageCalculator:
 
         return covered_segments
 
+    @staticmethod
     def is_trip_in_boundary(
-        self, trip: Dict[str, Any], boundary_box: box
+        trip: Dict[str, Any], boundary_box: box
     ) -> bool:
         """Quick check if trip intersects boundary box"""
         try:
@@ -311,7 +312,8 @@ class CoverageCalculator:
             logger.error(f"Error computing coverage: {e}", exc_info=True)
             return None
 
-    def calculate_boundary_box(self, streets: List[Dict[str, Any]]) -> box:
+    @staticmethod
+    def calculate_boundary_box(streets: List[Dict[str, Any]]) -> box:
         """Calculate the boundary box containing all streets"""
         bounds = None
         for street in streets:
