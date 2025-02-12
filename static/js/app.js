@@ -618,7 +618,7 @@
     window.validatedLocation = data;
     locInput.setAttribute("data-location", JSON.stringify(data));
     locInput.setAttribute("data-display-name", data.display_name || data.name || locInput.value);
-    ["generate-boundary", "generate-streets", "generate-coverage"].forEach((id) => {
+    ["generate-boundary", "generate-streets", "generate-coverage", "preprocess-streets"].forEach((id) => {
       const btn = document.getElementById(id);
       if (btn) btn.disabled = false;
     });
@@ -659,6 +659,7 @@
       else mapLayers.osmBoundary.layer = layer;
       updateMap();
       updateLayerOrderUI();
+      notificationManager.show("OSM data generated successfully!", "success");
     } catch (err) {
       console.error("Error generating OSM data:", err);
       notificationManager.show(err.message, "danger");
@@ -1127,5 +1128,10 @@
     } else {
       fetchMetrics();
     }
+    // Disable buttons initially
+    ["generate-boundary", "generate-streets", "generate-coverage", "preprocess-streets"].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.disabled = true;
+    });
   });
 })();
