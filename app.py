@@ -627,15 +627,15 @@ async def get_street_coverage(request: Request):
             raise HTTPException(
                 status_code=400, detail="Invalid location data."
             )
-        
+
         # Generate a unique task ID
         task_id = str(uuid.uuid4())
-        
+
         # Start the coverage calculation in the background
         asyncio.create_task(process_coverage_calculation(location, task_id))
-        
+
         return {"task_id": task_id, "status": "processing"}
-        
+
     except Exception as e:
         logger.error(
             "Error in street coverage calculation: %s\n%s",
@@ -643,6 +643,7 @@ async def get_street_coverage(request: Request):
             traceback.format_exc(),
         )
         raise HTTPException(status_code=500, detail=str(e))
+
 
 async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
     """Process the coverage calculation in the background"""
@@ -676,7 +677,8 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                 },
             )
     except Exception as e:
-        logger.error(f"Error in background coverage calculation: {e}", exc_info=True)
+        logger.error(
+            f"Error in background coverage calculation: {e}", exc_info=True)
         await progress_collection.update_one(
             {"_id": task_id},
             {
@@ -688,19 +690,21 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
             },
         )
 
+
 @app.get("/api/street_coverage/{task_id}")
 async def get_coverage_status(task_id: str):
     """Get the status of a coverage calculation task"""
     progress = await progress_collection.find_one({"_id": task_id})
     if not progress:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     if progress.get("stage") == "error":
-        raise HTTPException(status_code=500, detail=progress.get("error", "Unknown error"))
-    
+        raise HTTPException(
+            status_code=500, detail=progress.get("error", "Unknown error"))
+
     if progress.get("stage") == "complete":
         return progress.get("result")
-    
+
     return {
         "stage": progress.get("stage", "unknown"),
         "progress": progress.get("progress", 0),

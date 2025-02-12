@@ -127,5 +127,6 @@ async def ensure_street_coverage_indexes():
         await trips_collection.create_index([("endTime", pymongo.ASCENDING)])
         logger.info("Street coverage indexes created successfully")
     except Exception as e:
-        logger.error("Error creating street coverage indexes: %s", e, exc_info=True)
+        logger.error("Error creating street coverage indexes: %s",
+                     e, exc_info=True)
         raise e
