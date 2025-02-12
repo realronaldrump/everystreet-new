@@ -32,6 +32,8 @@ trips_collection = db["trips"]
 coverage_metadata_collection = db["coverage_metadata"]
 
 # Ensure indexes for better query performance
+
+
 async def ensure_indexes():
     await streets_collection.create_index([("properties.location", pymongo.ASCENDING)])
     await streets_collection.create_index([("properties.segment_id", pymongo.ASCENDING)])
@@ -41,6 +43,7 @@ async def ensure_indexes():
 
 # Coordinate reference systems and transformers
 wgs84 = pyproj.CRS("EPSG:4326")
+
 
 class CoverageCalculator:
     def __init__(self, location: Dict[str, Any]):
@@ -96,7 +99,7 @@ class CoverageCalculator:
                 bounds = geom.bounds
                 self.streets_index.insert(idx, bounds)
                 self.streets_lookup[idx] = street
-                
+
                 # Calculate length in UTM coordinates
                 street_utm = transform(self.project_to_utm, geom)
                 self.total_length += street_utm.length
@@ -130,7 +133,7 @@ class CoverageCalculator:
 
             coords = gps_data["coordinates"]
             # Quick check using first and last points
-            return (self.boundary_box.contains(Point(coords[0])) or 
+            return (self.boundary_box.contains(Point(coords[0])) or
                     self.boundary_box.contains(Point(coords[-1])))
         except Exception:
             return False
@@ -196,7 +199,7 @@ class CoverageCalculator:
             # Process trips in larger batches
             logger.info("Processing trips...")
             batch = []
-            
+
             # Use MongoDB aggregation to get trips within the boundary box
             bbox = self.boundary_box.bounds
             pipeline = [
