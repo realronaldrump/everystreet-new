@@ -262,8 +262,8 @@
                   Actions
                 </button>
                 <ul class="dropdown-menu dropdown-menu-dark">
-                  <li><a class="dropdown-item" href="#" onclick="exportTrip('${row.transactionId}', 'geojson')">Export GeoJSON</a></li>
-                  <li><a class="dropdown-item" href="#" onclick="exportTrip('${row.transactionId}', 'gpx')">Export GPX</a></li>
+                  <li><a class="dropdown-item" href="#" onclick="EveryStreet.Trips.exportTrip('${row.transactionId}', 'geojson')">Export GeoJSON</a></li>
+                  <li><a class="dropdown-item" href="#" onclick="EveryStreet.Trips.exportTrip('${row.transactionId}', 'gpx')">Export GPX</a></li>
                   <li><a class="dropdown-item edit-trip-btn" href="#" data-trip-id="${row.transactionId}">Edit</a></li>
                   <li><hr class="dropdown-divider"></li>
                   <li><a class="dropdown-item text-danger" href="#" onclick="EveryStreet.Trips.deleteTrip('${row.transactionId}')">Delete</a></li>
@@ -517,29 +517,28 @@
         }
       }
     },
+    exportTrip: function(tripId, format) {
+      const url = `/api/export/trip/${tripId}?format=${format}`;
+      fetch(url)
+        .then((response) => {
+          if (!response.ok)
+            throw new Error(`HTTP error! status: ${response.status}`);
+          return response.blob();
+        })
+        .then((blob) => {
+          const blobUrl = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.style.display = "none";
+          a.href = blobUrl;
+          a.download = `trip_${tripId}.${format}`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(blobUrl);
+        })
+        .catch((error) => {
+          console.error("Error exporting trip:", error);
+          notificationManager.show("Error exporting trip. Please try again.", "danger");
+        });
+    }
   };
-
-  function exportTrip(tripId, format) {
-    const url = `/api/export/trip/${tripId}?format=${format}`;
-    fetch(url)
-      .then((response) => {
-        if (!response.ok)
-          throw new Error(`HTTP error! status: ${response.status}`);
-        return response.blob();
-      })
-      .then((blob) => {
-        const blobUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.style.display = "none";
-        a.href = blobUrl;
-        a.download = `trip_${tripId}.${format}`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(blobUrl);
-      })
-      .catch((error) => {
-        console.error("Error exporting trip:", error);
-        notificationManager.show("Error exporting trip. Please try again.", "danger");
-      });
-  }
 })();
