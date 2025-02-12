@@ -11,6 +11,7 @@ from collections import defaultdict
 import asyncio
 from typing import Optional, Dict, Any, List, Tuple, Set
 from dotenv import load_dotenv
+import pymongo
 
 # Load environment variables
 load_dotenv()
@@ -23,7 +24,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Database setup using Motor (asynchronous)
-
 MONGO_URI = os.getenv("MONGO_URI")
 client = AsyncIOMotorClient(MONGO_URI, tz_aware=True)
 db = client["every_street"]
@@ -31,9 +31,16 @@ streets_collection = db["streets"]
 trips_collection = db["trips"]
 coverage_metadata_collection = db["coverage_metadata"]
 
+# Ensure indexes for better query performance
+async def ensure_indexes():
+    await streets_collection.create_index([("properties.location", pymongo.ASCENDING)])
+    await streets_collection.create_index([("properties.segment_id", pymongo.ASCENDING)])
+    await trips_collection.create_index([("gps", pymongo.ASCENDING)])
+    await trips_collection.create_index([("startTime", pymongo.ASCENDING)])
+    await trips_collection.create_index([("endTime", pymongo.ASCENDING)])
+
 # Coordinate reference systems and transformers
 wgs84 = pyproj.CRS("EPSG:4326")
-
 
 class CoverageCalculator:
     def __init__(self, location: Dict[str, Any]):
@@ -45,8 +52,12 @@ class CoverageCalculator:
         self.project_to_wgs84 = None
         self.match_buffer = 15  # meters
         self.min_match_length = 5  # meters
-        self.batch_size = 100  # Process trips in batches
+        self.batch_size = 1000  # Increased batch size for better performance
         self.initialize_projections()
+        self.boundary_box = None
+        self.total_length = 0
+        self.covered_segments = set()
+        self.segment_coverage = defaultdict(int)
 
     def initialize_projections(self):
         """Initialize UTM projection based on location center"""
@@ -77,7 +88,7 @@ class CoverageCalculator:
         ).transform
 
     def build_spatial_index(self, streets: List[Dict[str, Any]]):
-        """Build R-tree spatial index for streets"""
+        """Build R-tree spatial index for streets and calculate total length"""
         logger.info("Building spatial index for streets...")
         for idx, street in enumerate(streets):
             try:
@@ -85,33 +96,29 @@ class CoverageCalculator:
                 bounds = geom.bounds
                 self.streets_index.insert(idx, bounds)
                 self.streets_lookup[idx] = street
+                
+                # Calculate length in UTM coordinates
+                street_utm = transform(self.project_to_utm, geom)
+                self.total_length += street_utm.length
             except Exception as e:
                 logger.error(f"Error indexing street: {e}")
 
-    async def process_matched_trips_batch(
-        self, trips: List[Dict[str, Any]], boundary_box: box
-    ) -> Set[str]:
-        """Process a batch of trips concurrently"""
-        covered_segments = set()
-
-        # Create tasks for each trip in the batch
+    async def process_trip_batch(self, trips: List[Dict[str, Any]]) -> None:
+        """Process a batch of trips efficiently"""
         tasks = []
         for trip in trips:
-            if self.is_trip_in_boundary(trip, boundary_box):
-                tasks.append(self.process_matched_trip(trip))
+            if not self.is_trip_in_boundary(trip):
+                continue
+            tasks.append(self.process_single_trip(trip))
 
-        # Execute all tasks concurrently
         if tasks:
             results = await asyncio.gather(*tasks)
             for segments in results:
-                covered_segments.update(segments)
+                self.covered_segments.update(segments)
+                for segment_id in segments:
+                    self.segment_coverage[segment_id] += 1
 
-        return covered_segments
-
-    @staticmethod
-    def is_trip_in_boundary(
-        trip: Dict[str, Any], boundary_box: box
-    ) -> bool:
+    def is_trip_in_boundary(self, trip: Dict[str, Any]) -> bool:
         """Quick check if trip intersects boundary box"""
         try:
             gps_data = trip.get("gps")
@@ -122,12 +129,13 @@ class CoverageCalculator:
                 return False
 
             coords = gps_data["coordinates"]
-            # Check if any point is within the boundary box
-            return any(boundary_box.contains(Point(coord)) for coord in coords)
+            # Quick check using first and last points
+            return (self.boundary_box.contains(Point(coords[0])) or 
+                    self.boundary_box.contains(Point(coords[-1])))
         except Exception:
             return False
 
-    async def process_matched_trip(self, trip: Dict[str, Any]) -> Set[str]:
+    async def process_single_trip(self, trip: Dict[str, Any]) -> Set[str]:
         """Process a single trip and return covered segment IDs"""
         try:
             gps_data = trip.get("gps")
@@ -137,78 +145,41 @@ class CoverageCalculator:
             if not gps_data or "coordinates" not in gps_data:
                 return set()
 
-            # Convert to UTM for accurate distance calculations
             coords = gps_data["coordinates"]
-
-            # Validate coordinates
             if not coords or len(coords) < 2:
-                logger.debug(
-                    f"Trip {trip.get('transactionId', 'unknown')} has insufficient coordinates: {len(coords) if coords else 0} points"
-                )
                 return set()
 
-            # Validate each coordinate is a valid [lon, lat] pair
-            valid_coords = []
-            for coord in coords:
-                if (
-                    isinstance(coord, (list, tuple))
-                    and len(coord) == 2
-                    and isinstance(coord[0], (int, float))
-                    and isinstance(coord[1], (int, float))
-                    and -180 <= coord[0] <= 180
-                    and -90 <= coord[1] <= 90
-                ):
-                    valid_coords.append(coord)
-                else:
-                    logger.debug(
-                        f"Trip {trip.get('transactionId', 'unknown')} has invalid coordinate: {coord}"
-                    )
-
-            if len(valid_coords) < 2:
-                logger.debug(
-                    f"Trip {trip.get('transactionId', 'unknown')} has insufficient valid coordinates: {len(valid_coords)} points"
-                )
-                return set()
-
-            trip_line = LineString(valid_coords)
+            # Create trip line and buffer in UTM coordinates
+            trip_line = LineString(coords)
             trip_line_utm = transform(self.project_to_utm, trip_line)
-
-            # Buffer the trip line for matching
             trip_buffer = trip_line_utm.buffer(self.match_buffer)
 
             # Convert buffer back to WGS84 for spatial query
             trip_buffer_wgs84 = transform(self.project_to_wgs84, trip_buffer)
-
-            covered_segments = set()
+            covered = set()
 
             # Query potentially intersecting streets using R-tree
-            for idx in list(
-                self.streets_index.intersection(trip_buffer_wgs84.bounds)
-            ):
+            for idx in self.streets_index.intersection(trip_buffer_wgs84.bounds):
                 street = self.streets_lookup[idx]
                 street_geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, street_geom)
 
-                # Check for significant intersection
                 intersection = trip_buffer.intersection(street_utm)
-                if not intersection.is_empty:
-                    intersection_length = intersection.length
-                    if intersection_length >= self.min_match_length:
-                        covered_segments.add(
-                            street["properties"]["segment_id"]
-                        )
+                if not intersection.is_empty and intersection.length >= self.min_match_length:
+                    covered.add(street["properties"]["segment_id"])
 
-            return covered_segments
+            return covered
 
         except Exception as e:
             logger.error(f"Error processing trip: {e}", exc_info=True)
             return set()
 
     async def compute_coverage(self) -> Optional[Dict[str, Any]]:
-        """
-        Compute street coverage for the location using improved spatial matching.
-        """
+        """Compute street coverage for the location using improved spatial matching."""
         try:
+            # Ensure indexes are created
+            await ensure_indexes()
+
             # Query all street segments for the location
             streets = await streets_collection.find(
                 {"properties.location": self.location.get("display_name")}
@@ -220,57 +191,54 @@ class CoverageCalculator:
 
             # Build spatial index and calculate boundary
             self.build_spatial_index(streets)
-            boundary_box = self.calculate_boundary_box(streets)
+            self.boundary_box = self.calculate_boundary_box(streets)
 
-            # Initialize coverage tracking
-            total_length = 0
-            covered_length = 0
-            segment_coverage = defaultdict(
-                int
-            )  # Track coverage count per segment
-
-            # Calculate total length in UTM coordinates for accuracy
-            for street in streets:
-                geom = shape(street["geometry"])
-                street_utm = transform(self.project_to_utm, geom)
-                total_length += street_utm.length
-
-            # Process trips in batches
+            # Process trips in larger batches
             logger.info("Processing trips...")
             batch = []
-            covered_segments_set = set()
+            
+            # Use MongoDB aggregation to get trips within the boundary box
+            bbox = self.boundary_box.bounds
+            pipeline = [
+                {
+                    "$match": {
+                        "gps": {"$exists": True},
+                        "$or": [
+                            {"startGeoPoint": {
+                                "$geoWithin": {
+                                    "$box": [[bbox[0], bbox[1]], [bbox[2], bbox[3]]]
+                                }
+                            }},
+                            {"destinationGeoPoint": {
+                                "$geoWithin": {
+                                    "$box": [[bbox[0], bbox[1]], [bbox[2], bbox[3]]]
+                                }
+                            }}
+                        ]
+                    }
+                }
+            ]
 
-            async for trip in trips_collection.find(
-                {"gps": {"$exists": True}}
-            ):
+            async for trip in trips_collection.aggregate(pipeline):
                 batch.append(trip)
                 if len(batch) >= self.batch_size:
-                    new_segments = await self.process_matched_trips_batch(
-                        batch, boundary_box
-                    )
-                    covered_segments_set.update(new_segments)
+                    await self.process_trip_batch(batch)
                     batch = []
 
-            # Process remaining trips
             if batch:
-                new_segments = await self.process_matched_trips_batch(
-                    batch, boundary_box
-                )
-                covered_segments_set.update(new_segments)
-
-            # Update coverage counts
-            for segment_id in covered_segments_set:
-                segment_coverage[segment_id] += 1
+                await self.process_trip_batch(batch)
 
             # Calculate covered length and prepare features
+            covered_length = 0
             features = []
+
             for street in streets:
                 segment_id = street["properties"]["segment_id"]
-                geom = shape(street["geometry"])
-                street_utm = transform(self.project_to_utm, geom)
-                is_covered = segment_coverage[segment_id] > 0
+                is_covered = segment_id in self.covered_segments
 
                 if is_covered:
+                    geom = shape(street["geometry"])
+                    street_utm = transform(self.project_to_utm, geom)
                     covered_length += street_utm.length
 
                 feature = {
@@ -279,8 +247,8 @@ class CoverageCalculator:
                     "properties": {
                         **street["properties"],
                         "driven": is_covered,
-                        "coverage_count": segment_coverage[segment_id],
-                        "length": street_utm.length,
+                        "coverage_count": self.segment_coverage[segment_id],
+                        "length": street_utm.length if is_covered else 0,
                         "segment_id": segment_id,
                     },
                 }
@@ -288,20 +256,20 @@ class CoverageCalculator:
 
             # Calculate coverage percentage
             coverage_percentage = (
-                (covered_length / total_length * 100)
-                if total_length > 0
+                (covered_length / self.total_length * 100)
+                if self.total_length > 0
                 else 0
             )
 
             return {
-                "total_length": total_length,
+                "total_length": self.total_length,
                 "driven_length": covered_length,
                 "coverage_percentage": coverage_percentage,
                 "streets_data": {
                     "type": "FeatureCollection",
                     "features": features,
                     "metadata": {
-                        "total_length_miles": total_length * 0.000621371,
+                        "total_length_miles": self.total_length * 0.000621371,
                         "driven_length_miles": covered_length * 0.000621371,
                         "coverage_percentage": coverage_percentage,
                     },
