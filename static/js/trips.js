@@ -464,6 +464,24 @@
     }
   }
 
+  function createEditableCell(data, type, field, inputType = "text") {
+    if (type !== "display") return data;
+    
+    const value = data != null ? data : "";
+    let inputValue = value;
+    
+    if (field === "startTime" || field === "endTime") {
+      inputValue = value ? new Date(value).toISOString().slice(0, 16) : "";
+    }
+
+    return `
+      <div class="editable-cell" data-field="${field}">
+        <span class="display-value">${value}</span>
+        <input type="${inputType}" class="form-control form-control-sm edit-input d-none" value="${inputValue}">
+      </div>
+    `;
+  }
+
   // Expose global functions under EveryStreet.Trips
   window.EveryStreet = window.EveryStreet || {};
   window.EveryStreet.Trips = {
