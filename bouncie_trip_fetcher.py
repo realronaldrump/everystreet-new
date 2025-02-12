@@ -14,7 +14,6 @@ from datetime import datetime, timedelta, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 from dateutil import parser as date_parser
 import aiohttp
-from dateutil import parser
 from geojson import dumps as geojson_dumps, loads as geojson_loads
 
 # Import shared utilities and map matching function
