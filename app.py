@@ -2601,7 +2601,6 @@ async def get_place_statistics(place_id: str):
                             and isinstance(start_pt, dict)
                             and "coordinates" in start_pt
                         ):
-                            from shapely.geometry import shape
 
                             if shape(p["geometry"]).contains(shape(start_pt)):
                                 same_place = True
@@ -2709,7 +2708,6 @@ async def get_trips_for_place(place_id: str):
                         and isinstance(start_pt, dict)
                         and "coordinates" in start_pt
                     ):
-                        from shapely.geometry import shape
 
                         if shape(p["geometry"]).contains(shape(start_pt)):
                             same_place = True
