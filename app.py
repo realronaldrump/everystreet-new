@@ -20,6 +20,7 @@ import traceback
 import zipfile
 import glob
 import io
+import bson
 from datetime import datetime, timedelta, timezone
 from math import radians, cos, sin, sqrt, atan2
 from typing import List, Dict, Any
@@ -690,7 +691,7 @@ async def process_coverage_calculation(
             )
     except Exception as e:
         logger.error(
-            f"Error in background coverage calculation: {e}", exc_info=True
+            "Error in background coverage calculation: %s", e, exc_info=True
         )
         await progress_collection.update_one(
             {"_id": task_id},
@@ -756,13 +757,13 @@ async def get_trips(request: Request):
         if imei:
             query["imei"] = imei
 
-        async def fetch_trips(coll, q):
+        async def fetch_trips_from_collection(coll, q):
             return await coll.find(q).to_list(length=None)
 
         regular, uploaded, historical = await asyncio.gather(
-            fetch_trips(trips_collection, query),
-            fetch_trips(uploaded_trips_collection, query),
-            fetch_trips(historical_trips_collection, query),
+            fetch_trips_from_collection(trips_collection, query),
+            fetch_trips_from_collection(uploaded_trips_collection, query),
+            fetch_trips_from_collection(historical_trips_collection, query),
         )
         all_trips = regular + uploaded + historical
         features = []
@@ -1233,7 +1234,10 @@ async def export_gpx(request: Request):
                     seg.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
 
             track.name = t.get("transactionId", "Unnamed Trip")
-            track.description = f"Trip from {t.get('startLocation', 'Unknown')} to {t.get('destination', 'Unknown')}"
+            track.description = (
+                f"Trip from {t.get('startLocation', 'Unknown')} "
+                f"to {t.get('destination', 'Unknown')}"
+            )
 
         gpx_xml = gpx.to_xml()
         return StreamingResponse(
@@ -1327,12 +1331,11 @@ async def generate_geojson_osm(location, streets_only=False):
             );
             out geom;
             """
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                OVERPASS_URL, params={"data": query}, timeout=30
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
+        async with aiohttp.ClientSession() as session, session.get(
+            OVERPASS_URL, params={"data": query}, timeout=30
+        ) as response:
+            response.raise_for_status()
+            data = await response.json()
         # Await process_elements because it is an async function.
         features = await process_elements(data["elements"], streets_only)
         if features:
@@ -1615,7 +1618,8 @@ async def delete_matched_trips(request: Request):
 @app.post("/api/matched_trips/remap")
 async def remap_matched_trips(request: Request):
     """
-    Deletes existing matched trips and re-matches them within a date range or predefined interval.
+    Deletes existing matched trips and re-matches them within a date range or predefined
+    interval.
     """
     try:
         data = await request.json()
@@ -1952,7 +1956,11 @@ async def preprocess_streets_route(request: Request):
         asyncio.create_task(async_preprocess_streets(validated_location))
         return {
             "status": "success",
-            "message": f"Street data preprocessing initiated for {validated_location.get('display_name', location_query)}. Check server logs for progress.",
+            "message": (
+                f"Street data preprocessing initiated for "
+                f"{validated_location.get('display_name', location_query)}. "
+                "Check server logs for progress."
+            ),
         }
     except Exception as e:
         logger.error(
@@ -2243,7 +2251,6 @@ async def upload_gpx(request: Request):
     try:
         form = await request.form()
         files = form.getlist("files[]")
-        map_match = form.get("map_match", "false") == "true"
         if not files:
             raise HTTPException(status_code=400, detail="No files found")
         success_count = 0
@@ -2271,7 +2278,9 @@ async def upload_gpx(request: Request):
                         dist_meters = calculate_gpx_distance(coords)
                         dist_miles = meters_to_miles(dist_meters)
                         trip = {
-                            "transactionId": f"GPX-{start_t.strftime('%Y%m%d%H%M%S')}-{filename}",
+                            "transactionId": (
+                                f"GPX-{start_t.strftime('%Y%m%d%H%M%S')}-{filename}"
+                            ),
                             "startTime": start_t,
                             "endTime": end_t,
                             "gps": json.dumps(geo),
@@ -2310,7 +2319,7 @@ def calculate_gpx_distance(coords):
     for i in range(len(coords) - 1):
         lon1, lat1 = coords[i]
         lon2, lat2 = coords[i + 1]
-        dist += gpxpy.geo.haversine_distance(lat1, lon1, lat2, lon2)
+        dist += gpxpy.geo.haversine_distance(lat1, lon1, lat2, lat2)
     return dist
 
 
@@ -2503,7 +2512,7 @@ def validate_trip_update(data: dict) -> tuple[bool, str]:
         for p in data["points"]:
             lat = p.get("lat")
             lon = p.get("lon")
-            if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+            if not -90 <= lat <= 90 or not -180 <= lon <= 180:
                 return False, "Out of range lat/lon"
         return True, ""
     except Exception:
@@ -2564,8 +2573,8 @@ async def bulk_delete_uploaded_trips(request: Request):
         for tid in trip_ids:
             try:
                 valid_ids.append(ObjectId(tid))
-            except:
-                pass
+            except bson.errors.InvalidId:
+                logger.warning("Invalid ObjectId format: %s", tid)
         if not valid_ids:
             raise HTTPException(status_code=400, detail="No valid IDs")
         ups_to_delete = list(
@@ -2615,7 +2624,10 @@ async def bulk_delete_trips(request: Request):
 
         return {
             "status": "success",
-            "message": f"Deleted {trips_result.deleted_count} trips and {matched_trips_result.deleted_count} matched trips",
+            "message": (
+                f"Deleted {trips_result.deleted_count} trips and "
+                f"{matched_trips_result.deleted_count} matched trips"
+            ),
             "deleted_trips_count": trips_result.deleted_count,
             "deleted_matched_trips_count": matched_trips_result.deleted_count,
         }
@@ -3102,7 +3114,7 @@ async def bulk_delete_trips(request: Request):
         for trip_id in trip_ids:
             try:
                 object_ids.append(ObjectId(trip_id))
-            except Exception:
+            except bson.errors.InvalidId:
                 logger.warning("Invalid ObjectId format: %s", trip_id)
 
         if not object_ids:
@@ -3129,7 +3141,10 @@ async def bulk_delete_trips(request: Request):
 
         return {
             "status": "success",
-            "message": f"Deleted {trips_delete_result.deleted_count} trips and {matched_trips_delete_result.deleted_count} matched trips",
+            "message": (
+                f"Deleted {trips_delete_result.deleted_count} trips and "
+                f"{matched_trips_delete_result.deleted_count} matched trips"
+            ),
             "deleted_trips_count": trips_delete_result.deleted_count,
             "deleted_matched_trips_count": matched_trips_delete_result.deleted_count,
         }
@@ -3291,7 +3306,8 @@ async def get_active_trip():
 
 async def assemble_trip_from_realtime_data(realtime_trip_data):
     """
-    Assembles a complete trip object from a list of realtime data events, with enhanced logging.
+    Assembles a complete trip object from a list of realtime data events, with enhanced
+    logging.
     """
     logger.info("Assembling trip from realtime data...")  # Log function entry
     if not realtime_trip_data:
@@ -3378,7 +3394,7 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
         return None
     # Log coord count
     logger.debug(
-        f"Extracted {len(all_coords)} coordinates from tripData events."
+        "Extracted %d coordinates from tripData events.", len(all_coords)
     )
 
     trip_gps = {"type": "LineString", "coordinates": all_coords}
@@ -3397,13 +3413,13 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
         "maxSpeed": 0,  # Initialize, can be calculated later if needed
         "averageSpeed": 0,  # Initialize, can be calculated later
         "totalIdleDuration": 0,  # Initialize, can be calculated later
-        "hardBrakingCount": 0,  # Initialize, can be updated from metrics if available later
+        "hardBrakingCount": 0,
         "hardAccelerationCount": 0,
     }
 
     # Log trip object assembled
     logger.debug(
-        f"Assembled trip object with transactionId: {transaction_id}"
+        "Assembled trip object with transactionId: %s", transaction_id
     )
 
     # Use existing processing for geocoding etc.
@@ -3411,7 +3427,7 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
 
     # Log function completion
     logger.info(
-        f"Trip assembly completed for transactionId: {transaction_id}."
+        "Trip assembly completed for transactionId: %s", transaction_id
     )
     return processed_trip
 
@@ -3527,7 +3543,7 @@ async def process_trip_data(trip):
 
         logger.debug("GeoPoints set for trip %s.", transaction_id)
         logger.info(
-            f"Trip data processing completed for trip {transaction_id}."
+            "Trip data processing completed for trip %s", transaction_id
         )
         return trip
 
