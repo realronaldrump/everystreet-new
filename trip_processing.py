@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 def process_trip(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
     Processes a trip dictionary by:
-      - Parsing startTime and endTime (if they are strings) into timezone‑aware datetime objects.
+      - Parsing startTime and endTime (if they are strings) into timezone‑aware
+      datetime objects.
       - Converting the 'gps' field into a JSON string.
       - Validating that the gps data contains a "coordinates" array.
       - Setting additional keys 'startGeoPoint' and 'destinationGeoPoint'
@@ -92,7 +93,8 @@ def process_trip(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def format_idle_time(seconds: Any) -> str:
     """
-    Converts a number of seconds (as a float or int) into a string formatted as HH:MM:SS.
+    Converts a number of seconds (as a float or int) into a string formatted as
+    HH:MM:SS.
     Returns "00:00:00" if seconds is falsy.
     """
     if not seconds:

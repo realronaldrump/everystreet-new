@@ -1,6 +1,7 @@
 import os
 import logging
 from datetime import datetime, timezone
+from typing import Dict, List, Optional, Any
 
 import aiohttp
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -39,9 +40,21 @@ project_to_wgs84 = pyproj.Transformer.from_crs(
 ).transform
 
 
-async def fetch_osm_data(location, streets_only=True):
+async def fetch_osm_data(
+    location: Dict[str, Any], streets_only: bool = True
+) -> Dict[str, Any]:
     """
     Asynchronously fetch OSM data for the given location using the Overpass API.
+
+    Args:
+        location: Dictionary containing location data with osm_id and osm_type.
+        streets_only: If True, only fetch street data. If False, fetch all data.
+
+    Returns:
+        Dictionary containing the OSM data response.
+
+    Raises:
+        aiohttp.ClientError: If there's an error fetching the data.
     """
     area_id = int(location["osm_id"])
     if location["osm_type"] == "relation":
@@ -65,20 +78,29 @@ async def fetch_osm_data(location, streets_only=True):
         );
         out geom;
         """
-    async with aiohttp.ClientSession(
-        timeout=aiohttp.ClientTimeout(total=30)
-    ) as session:
-        async with session.get(
-            OVERPASS_URL, params={"data": query}
-        ) as response:
-            response.raise_for_status()
-            osm_data = await response.json()
-            return osm_data
+    async with (
+        aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=30)
+        ) as session,
+        session.get(OVERPASS_URL, params={"data": query}) as response,
+    ):
+        response.raise_for_status()
+        osm_data = await response.json()
+        return osm_data
 
 
-def segment_street(line, segment_length_meters=100):
+def segment_street(
+    line: LineString, segment_length_meters: float = 100
+) -> List[LineString]:
     """
     Split a LineString into segments each roughly segment_length_meters long.
+
+    Args:
+        line: The LineString to segment.
+        segment_length_meters: Target length for each segment in meters.
+
+    Returns:
+        List of LineString segments.
     """
     segments = []
     length = line.length
@@ -91,10 +113,19 @@ def segment_street(line, segment_length_meters=100):
     return segments
 
 
-def cut(line, start_distance, end_distance):
+def cut(
+    line: LineString, start_distance: float, end_distance: float
+) -> Optional[LineString]:
     """
     Cut a LineString between start_distance and end_distance.
-    Returns a new LineString for the cut segment or None if invalid.
+
+    Args:
+        line: The LineString to cut.
+        start_distance: Starting distance along the line.
+        end_distance: Ending distance along the line.
+
+    Returns:
+        A new LineString for the cut segment or None if invalid.
     """
     if (
         start_distance < 0
@@ -120,21 +151,19 @@ def cut(line, start_distance, end_distance):
     return LineString(segment_coords) if len(segment_coords) >= 2 else None
 
 
-async def process_osm_data(osm_data, location):
+async def process_osm_data(
+    osm_data: Dict[str, Any], location: Dict[str, Any]
+) -> None:
     """
     Process OSM elements: segment each street (way) and store them in MongoDB.
     Also update coverage metadata for the location.
 
-    This function:
-      1. Iterates over all elements of type "way" in the OSM data.
-      2. Creates a LineString from the node coordinates.
-      3. Projects the line using the default transformer (project_to_utm) and segments it.
-      4. Reprojects each segment back to WGS84.
-      5. Assembles a GeoJSON Feature for each segment with metadata and inserts them into the streets_collection.
-      6. Updates the coverage_metadata_collection for the location.
+    Args:
+        osm_data: Dictionary containing OSM data response.
+        location: Dictionary containing location information.
     """
     features = []
-    total_length = 0
+    total_length = 0.0  # Explicitly declare as float
 
     for element in osm_data.get("elements", []):
         if element.get("type") != "way":
@@ -144,15 +173,17 @@ async def process_osm_data(osm_data, location):
                 (node["lon"], node["lat"]) for node in element["geometry"]
             ]
             line = LineString(nodes)
-            # Project to UTM for segmentation.
+            # Project to UTM for segmentation
             projected_line = transform(project_to_utm, line)
             segments = segment_street(projected_line)
+
             for i, segment in enumerate(segments):
-                # Reproject each segment back to WGS84.
+                # Reproject each segment back to WGS84
                 segment_wgs84 = transform(project_to_wgs84, segment)
                 segment_length = (
                     segment.length
                 )  # Length in meters (UTM units)
+
                 feature = {
                     "type": "Feature",
                     "geometry": mapping(segment_wgs84),
@@ -178,19 +209,13 @@ async def process_osm_data(osm_data, location):
             )
 
     if features:
-        geojson_data = {"type": "FeatureCollection", "features": features}
         try:
-            await streets_collection.insert_many(geojson_data["features"])
-        except Exception as e:
-            logger.error(
-                f"Error inserting street segments: {e}", exc_info=True
-            )
-        try:
+            await streets_collection.insert_many(features)
             await coverage_metadata_collection.update_one(
                 {"location.display_name": location.get("display_name")},
                 {
                     "$set": {
-                        "location": location,  # store the full location dict
+                        "location": location,
                         "total_segments": len(features),
                         "total_length": total_length,
                         "driven_length": 0,
@@ -200,27 +225,28 @@ async def process_osm_data(osm_data, location):
                 },
                 upsert=True,
             )
-        except Exception as e:
-            logger.error(
-                f"Error updating coverage metadata: {e}", exc_info=True
+            logger.info(
+                f"Stored {len(features)} street segments for {location['display_name']}."
             )
-        logger.info(
-            f"Stored {len(features)} street segments for {location['display_name']}."
-        )
+        except Exception as e:
+            logger.error(f"Error storing data: {e}", exc_info=True)
     else:
         logger.info(
             f"No valid street segments found for {location['display_name']}."
         )
 
 
-async def preprocess_streets(validated_location):
+async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
     """
     Asynchronously preprocess street data for a given validated location.
+
+    Args:
+        validated_location: Dictionary containing validated location data.
+
     This function performs:
-      1. Asynchronously fetching OSM data for the location.
-      2. Processing the OSM data (segmenting streets) and inserting the segments into
-      MongoDB.
-      3. Updating the coverage metadata for the location.
+        1. Asynchronously fetching OSM data for the location.
+        2. Processing the OSM data (segmenting streets) and inserting the segments into MongoDB.
+        3. Updating the coverage metadata for the location.
     """
     try:
         osm_data = await fetch_osm_data(validated_location)
