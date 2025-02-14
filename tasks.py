@@ -89,28 +89,28 @@ class BackgroundTaskManager:
     def _initialize_tasks() -> Dict[str, TaskDefinition]:
         """Initialize task definitions."""
         return {
-            "fetch_and_store_trips": TaskDefinition(
-                id="fetch_and_store_trips",
-                display_name="Fetch & Store Trips",
-                default_interval_minutes=30,
-                priority=TaskPriority.HIGH,
-                dependencies=[],
-                description="Fetches new trips from Bouncie API and stores them",
-            ),
             "periodic_fetch_trips": TaskDefinition(
                 id="periodic_fetch_trips",
                 display_name="Periodic Trip Fetch",
-                default_interval_minutes=30,
+                default_interval_minutes=60,
                 priority=TaskPriority.HIGH,
                 dependencies=[],
-                description="Periodically fetches trips to ensure no data gaps",
+                description="Fetches trips from the Bouncie API periodically",
+            ),
+            "preprocess_streets": TaskDefinition(
+                id="preprocess_streets",
+                display_name="Preprocess Streets",
+                default_interval_minutes=1440,  # Once per day
+                priority=TaskPriority.LOW,
+                dependencies=[],
+                description="Preprocesses street data for coverage calculation",
             ),
             "update_coverage_for_all_locations": TaskDefinition(
                 id="update_coverage_for_all_locations",
                 display_name="Update Coverage (All Locations)",
                 default_interval_minutes=60,
                 priority=TaskPriority.MEDIUM,
-                dependencies=["fetch_and_store_trips"],
+                dependencies=["periodic_fetch_trips"],
                 description="Updates street coverage calculations for all locations",
             ),
             "cleanup_stale_trips": TaskDefinition(
@@ -150,7 +150,7 @@ class BackgroundTaskManager:
                 display_name="Remap Unmatched Trips",
                 default_interval_minutes=360,
                 priority=TaskPriority.MEDIUM,
-                dependencies=["fetch_and_store_trips"],
+                dependencies=["periodic_fetch_trips"],
                 description="Attempts to map-match trips that previously failed",
             ),
             "validate_trip_data": TaskDefinition(
@@ -375,7 +375,7 @@ class BackgroundTaskManager:
     async def reinitialize_tasks(self):
         """Reinitialize all tasks based on current configuration."""
         try:
-            config = await self._get_config()
+            config = await self.get_config()
 
             if config.get("disabled"):
                 logger.info("Background tasks are globally disabled")
@@ -407,8 +407,8 @@ class BackgroundTaskManager:
     def get_task_function(self, task_id: str) -> Callable:
         """Return the task function for a given task ID."""
         task_function_map = {
-            "fetch_and_store_trips": self._fetch_and_store_trips,
             "periodic_fetch_trips": self._periodic_fetch_trips,
+            "preprocess_streets": self._preprocess_streets,
             "update_coverage_for_all_locations": self._update_coverage,
             "cleanup_stale_trips": self._cleanup_stale_trips,
             "cleanup_invalid_trips": self._cleanup_invalid_trips,
@@ -451,31 +451,6 @@ class BackgroundTaskManager:
             raise
 
     # Task Implementation Functions
-    async def _fetch_and_store_trips(self):
-        """Fetch and store new trips from the Bouncie API."""
-        task_id = "fetch_and_store_trips"
-        try:
-            await self._update_task_status(task_id, TaskStatus.RUNNING)
-
-            end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(hours=1)
-
-            logger.info("Fetching trips from %s to %s", start_date, end_date)
-            await fetch_bouncie_trips_in_range(
-                start_date, end_date, do_map_match=True
-            )
-
-            await self._update_task_status(task_id, TaskStatus.COMPLETED)
-
-        except Exception as e:
-            await self._update_task_status(
-                task_id, TaskStatus.FAILED, error=str(e)
-            )
-            logger.error(
-                "Error in fetch_and_store_trips: %s", e, exc_info=True
-            )
-            raise
-
     async def _periodic_fetch_trips(self):
         """Periodically fetch trips to ensure no gaps in data."""
         task_id = "periodic_fetch_trips"

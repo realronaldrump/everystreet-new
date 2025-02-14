@@ -108,13 +108,16 @@ OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
 active_trips = {}
 progress_data = {
-    "fetch_and_store_trips": {"status": "idle", "progress": 0, "message": ""},
-    "fetch_bouncie_trips_in_range": {
+    "periodic_fetch_trips": {
         "status": "idle",
         "progress": 0,
         "message": "",
     },
-    "preprocess_streets": {"status": "idle", "progress": 0, "message": ""},
+    "preprocess_streets": {
+        "status": "idle",
+        "progress": 0,
+        "message": "",
+    },
 }
 
 
@@ -2600,13 +2603,14 @@ async def bulk_delete_trips(request: Request):
                 status_code=400, detail="No trip IDs provided"
             )
 
-        # Use await if delete_many is async
+        # Delete trips from both collections using transactionId
         trips_result = await trips_collection.delete_many(
             {"transactionId": {"$in": trip_ids}}
         )
-        # Use await if delete_many is async
+
+        # Delete corresponding matched trips
         matched_trips_result = await matched_trips_collection.delete_many(
-            {"original_trip_id": {"$in": trip_ids}}
+            {"transactionId": {"$in": trip_ids}}
         )
 
         return {

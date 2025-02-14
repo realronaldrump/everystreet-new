@@ -1,7 +1,7 @@
 import json
 import asyncio
 import logging
-from typing import Optional, Tuple, List, Dict, Any
+from typing import Optional, Tuple, Dict, Any
 
 import aiohttp
 from aiohttp import ClientConnectorError, ClientResponseError, TCPConnector
