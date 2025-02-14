@@ -413,7 +413,7 @@
           this.toastManager.show("Success", "Task history cleared successfully", "success");
         } catch (error) {
           console.error("Error clearing task history:", error);
-          this.toastManager.show("Error", "Failed to clear task history: " + error.message, "danger");
+          this.toastManager.show("Error", `Failed to clear task history: ${error.message}`, "danger");
         }
       }
     }

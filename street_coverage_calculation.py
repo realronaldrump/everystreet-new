@@ -114,7 +114,7 @@ class CoverageCalculator:
                 street_utm = transform(self.project_to_utm, geom)
                 self.total_length += street_utm.length
             except Exception as e:
-                logger.error(f"Error indexing street: {e}")
+                logger.error("Error indexing street: %s", e)
 
     async def process_trip_batch(self, trips: List[Dict[str, Any]]) -> None:
         """Process a batch of trips efficiently"""

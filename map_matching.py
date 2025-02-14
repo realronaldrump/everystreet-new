@@ -22,20 +22,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# -----------------------------------------------------------------------------
-# UPDATED: to_async_iterator
-# -----------------------------------------------------------------------------
 async def to_async_iterator(cursor):
-    # Instead of trying to convert the async cursor in a thread,
-    # use Motor's built-in async method to convert the cursor to a list.
     items = await cursor.to_list(length=None)
     for item in items:
         yield item
 
 
-# -----------------------------------------------------------------------------
 # Map Matching Functions
-# -----------------------------------------------------------------------------
+
+
 async def map_match_coordinates(coordinates):
     """
     Given a list of [lon, lat] coordinate pairs, call Mapbox's map matching API
@@ -187,7 +182,8 @@ def filter_outliers_by_distance(coordinates, max_speed_m_s=60.0):
 
 def split_trip_on_time_gaps(coords_with_time, max_gap_minutes=15):
     """
-    Split a list of [lon, lat, datetime] points into segments where time gaps exceed max_gap_minutes.
+    Split a list of [lon, lat, datetime] points into segments where time gaps exceed
+    max_gap_minutes.
     """
     if len(coords_with_time) < 2:
         return [coords_with_time]
@@ -227,8 +223,10 @@ def haversine_distance_meters(coord1, coord2):
 
 async def process_and_map_match_trip(trip):
     """
-    Process a single trip document: validate, extract (and if needed, generate) timestamped coordinates,
-    filter out outliers, split the trip on large time gaps, map–match each segment via Mapbox,
+    Process a single trip document: validate, extract (and if needed, generate)
+    timestamped coordinates,
+    filter out outliers, split the trip on large time gaps, map–match each segment via
+    Mapbox,
     and store the combined matched geometry in matched_trips_collection.
     """
     try:
@@ -256,13 +254,6 @@ async def process_and_map_match_trip(trip):
                 "Trip %s already matched. Skipping.", trip["transactionId"]
             )
             return
-
-        # Determine source collection (for clarity only).
-        source_collection = (
-            historical_trips_collection
-            if trip.get("imei") == "HISTORICAL"
-            else trips_collection
-        )
 
         # Extract GPS data.
         if isinstance(trip["gps"], dict):

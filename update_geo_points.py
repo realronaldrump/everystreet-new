@@ -23,7 +23,8 @@ uploaded_trips_collection = db["uploaded_trips"]
 
 async def update_geo_points(collection):
     """
-    Asynchronously update documents in the given collection to add startGeoPoint and destinationGeoPoint.
+    Asynchronously update documents in the given collection to add startGeoPoint and
+    destinationGeoPoint.
     """
     logger.info(
         "Starting GeoPoint update for collection: %s", collection.name

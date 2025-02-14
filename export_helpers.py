@@ -2,9 +2,11 @@
 export_helpers.py
 
 This module provides functions to export trip data into various formats:
-  - create_geojson: converts a list of trip dictionaries into a GeoJSON FeatureCollection.
+  - create_geojson: converts a list of trip dictionaries into a GeoJSON
+  FeatureCollection.
   - create_gpx: converts a list of trip dictionaries into a GPX file.
-These functions take care of serializing special types (e.g. ObjectIds, datetime objects)
+These functions take care of serializing special types (e.g. ObjectIds,
+datetime objects)
 and converting stored gps JSON strings into the appropriate structures.
 """
 
@@ -32,8 +34,10 @@ async def create_geojson(trips: List[Dict[str, Any]]) -> str:
     Converts a list of trip dictionaries into a GeoJSON FeatureCollection.
 
     Each trip's "gps" field is expected to be stored as a JSON string; this function
-    parses that string and attaches it as the geometry. In addition, any datetime (or other
-    non-serializable) fields in the trip properties are converted into serializable forms.
+    parses that string and attaches it as the geometry. In addition, any datetime
+    (or other
+    non-serializable) fields in the trip properties are converted into serializable
+    forms.
 
     Returns:
         A JSON-formatted string representing the GeoJSON FeatureCollection.
@@ -80,9 +84,10 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
     """
     Converts a list of trip dictionaries into a GPX file.
 
-    Each trip's "gps" field is expected to be a JSON string representing either a Point or
-    a LineString. This function builds a GPX file (using the gpxpy library) that contains
-    a track for each trip.
+    Each trip's "gps" field is expected to be a JSON string representing either a Point
+    or
+    a LineString. This function builds a GPX file (using the gpxpy library) that
+    contains a track for each trip.
 
     Returns:
         The GPX XML as a string.
