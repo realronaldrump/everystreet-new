@@ -150,7 +150,9 @@ async def process_osm_data(osm_data, location):
             for i, segment in enumerate(segments):
                 # Reproject each segment back to WGS84.
                 segment_wgs84 = transform(project_to_wgs84, segment)
-                segment_length = segment.length  # Length in meters (UTM units)
+                segment_length = (
+                    segment.length
+                )  # Length in meters (UTM units)
                 feature = {
                     "type": "Feature",
                     "geometry": mapping(segment_wgs84),
@@ -216,7 +218,8 @@ async def preprocess_streets(validated_location):
     Asynchronously preprocess street data for a given validated location.
     This function performs:
       1. Asynchronously fetching OSM data for the location.
-      2. Processing the OSM data (segmenting streets) and inserting the segments into MongoDB.
+      2. Processing the OSM data (segmenting streets) and inserting the segments into
+      MongoDB.
       3. Updating the coverage metadata for the location.
     """
     try:

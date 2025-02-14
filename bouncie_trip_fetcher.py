@@ -2,7 +2,8 @@
 bouncie_trip_fetcher.py
 
 This module fetches trip data from the Bouncie API for all authorized devices,
-processes and validates each trip (including reverse geocoding), stores new trips in MongoDB,
+processes and validates each trip (including reverse geocoding), stores new trips in
+MongoDB,
 and (optionally) triggers map matching on the newly inserted trips.
 """
 
@@ -23,7 +24,10 @@ from utils import (
     get_trip_timezone,
 )
 from map_matching import process_and_map_match_trip
-from aiohttp.client_exceptions import ClientConnectorError, ClientResponseError
+from aiohttp.client_exceptions import (
+    ClientConnectorError,
+    ClientResponseError,
+)
 
 # Logging Configuration
 logging.basicConfig(
@@ -34,9 +38,21 @@ logger = logging.getLogger(__name__)
 
 # Global progress data for tracking task status
 progress_data = {
-    "fetch_and_store_trips": {"status": "idle", "progress": 0, "message": ""},
-    "periodic_fetch_trips": {"status": "idle", "progress": 0, "message": ""},
-    "preprocess_streets": {"status": "idle", "progress": 0, "message": ""},
+    "fetch_and_store_trips": {
+        "status": "idle",
+        "progress": 0,
+        "message": "",
+    },
+    "periodic_fetch_trips": {
+        "status": "idle",
+        "progress": 0,
+        "message": "",
+    },
+    "preprocess_streets": {
+        "status": "idle",
+        "progress": 0,
+        "message": "",
+    },
 }
 
 # Bouncie API & Environment configuration
@@ -76,7 +92,7 @@ async def get_access_token(client_session: aiohttp.ClientSession) -> str:
             data = await auth_response.json()
             access_token = data.get("access_token")
             if not access_token:
-                logger.error(f"Access token not found in response: {data}")
+                logger.error("Access token not found in response: %s", data)
                 return None
             logger.info(
                 "Successfully retrieved access token from Bouncie API."
@@ -84,18 +100,22 @@ async def get_access_token(client_session: aiohttp.ClientSession) -> str:
             return access_token
     except ClientResponseError as e:
         logger.error(
-            f"ClientResponseError retrieving access token: {e.status} - {e.message}",
+            "ClientResponseError retrieving access token: %d - %s",
+            e.status,
+            e.message,
             exc_info=True,
         )
         return None
     except ClientConnectorError as e:
         logger.error(
-            f"ClientConnectorError retrieving access token: {e}", exc_info=True
+            "ClientConnectorError retrieving access token: %s",
+            e,
+            exc_info=True,
         )
         return None
     except Exception as e:
         logger.error(
-            f"Unexpected error retrieving access token: {e}", exc_info=True
+            "Unexpected error retrieving access token: %s", e, exc_info=True
         )
         return None
 
@@ -139,40 +159,51 @@ async def fetch_trips_for_device(
                         ).replace(tzinfo=timezone.utc)
                     else:
                         logger.debug(
-                            f"Trip {trip.get('transactionId', '?')} has no endTime - may be in progress"
+                            "Trip %s has no endTime - may be in progress",
+                            trip.get("transactionId", "?"),
                         )
                         continue  # Skip this trip since it's incomplete
                 except Exception as te:
                     logger.error(
-                        f"Timestamp parsing error for trip {trip.get('transactionId', '?')}: {te}",
+                        "Timestamp parsing error for trip %s: %s",
+                        trip.get("transactionId", "?"),
+                        te,
                         exc_info=True,
                     )
             logger.info(
-                f"Fetched {len(trips)} trips for device {imei} from {start_dt.isoformat()} to {end_dt.isoformat()}."
+                "Fetched %d trips for device %s from %s to %s.",
+                len(trips),
+                imei,
+                start_dt.isoformat(),
+                end_dt.isoformat(),
             )
             return trips
     except Exception as e:
         logger.error(
-            f"Error fetching trips for device {imei}: {e}", exc_info=True
+            "Error fetching trips for device %s: %s", imei, e, exc_info=True
         )
         return []
 
 
 async def store_trip(trip: dict) -> bool:
     """
-    Validate, process (including custom place lookup), and store a single trip document in MongoDB.
-    If a trip with the same transactionId exists, it is updated; otherwise, a new document is inserted.
+    Validate, process (including custom place lookup), and store a single trip document
+    in MongoDB.
+    If a trip with the same transactionId exists, it is updated; otherwise, a new
+    document is inserted.
     Returns True if the trip was stored successfully.
     """
     transaction_id = trip.get("transactionId", "?")
-    logger.info(f"Storing trip {transaction_id} in trips_collection...")
+    logger.info("Storing trip %s in trips_collection...", transaction_id)
 
     # Validate the trip data.
     is_valid, error_msg = validate_trip_data(trip)
     if not is_valid:
-        logger.error(f"Trip {transaction_id} failed validation: {error_msg}")
+        logger.error(
+            "Trip %s failed validation: %s", transaction_id, error_msg
+        )
         return False
-    logger.debug(f"Trip data validation passed for trip {transaction_id}.")
+    logger.debug("Trip data validation passed for trip %s.", transaction_id)
 
     # *** NEW: Process the trip to check for custom places.
     # This function (defined in app.py) will check the start and end points.
@@ -185,7 +216,7 @@ async def store_trip(trip: dict) -> bool:
     # Ensure the gps field is stored as a JSON string.
     if isinstance(trip.get("gps"), dict):
         logger.debug(
-            f"Converting gps data to JSON string for trip {transaction_id}."
+            "Converting gps data to JSON string for trip %s.", transaction_id
         )
         trip["gps"] = geojson_dumps(trip["gps"])
 
@@ -193,11 +224,12 @@ async def store_trip(trip: dict) -> bool:
     for field in ["startTime", "endTime"]:
         if field in trip and isinstance(trip[field], str):
             logger.debug(
-                f"Parsing {field} from string for trip {transaction_id}."
+                "Parsing %s from string for trip %s.", field, transaction_id
             )
-            trip[field] = parser.isoparse(trip[field])
+            trip[field] = date_parser.isoparse(trip[field])
 
-    # (Optional) Do a reverse geocode fallback if process_trip_data did not already set the location.
+    # (Optional) Do a reverse geocode fallback if process_trip_data did not already
+    # set the location.
     try:
         gps = geojson_loads(trip["gps"])
         coordinates = gps.get("coordinates", [])
@@ -215,11 +247,13 @@ async def store_trip(trip: dict) -> bool:
                 trip["destination"] = geo_data.get("display_name", "")
         else:
             logger.warning(
-                f"Trip {transaction_id} has insufficient coordinate data."
+                "Trip %s has insufficient coordinate data.", transaction_id
             )
     except Exception as e:
         logger.error(
-            f"Error during reverse geocoding for trip {transaction_id}: {e}",
+            "Error during reverse geocoding for trip %s: %s",
+            transaction_id,
+            e,
             exc_info=True,
         )
 
@@ -235,12 +269,15 @@ async def store_trip(trip: dict) -> bool:
             {"transactionId": transaction_id}, update_data, upsert=True
         )
         logger.info(
-            f"Stored trip {transaction_id} successfully. Modified count: {result.modified_count}, Upserted: {result.upserted_id is not None}"
+            "Stored trip %s successfully. Modified count: %d, Upserted: %s",
+            transaction_id,
+            result.modified_count,
+            result.upserted_id is not None,
         )
         return True
     except Exception as e:
         logger.error(
-            f"Error storing trip {transaction_id}: {e}", exc_info=True
+            "Error storing trip %s: %s", transaction_id, e, exc_info=True
         )
         return False
 
@@ -252,7 +289,8 @@ async def fetch_bouncie_trips_in_range(
     progress_data: dict = None,
 ) -> list:
     """
-    For each authorized device, fetch trips in 7‑day intervals between start_dt and end_dt.
+    For each authorized device, fetch trips in 7‑day intervals between start_dt and
+    end_dt.
     Process and store each trip. Optionally, trigger map matching on new trips.
     If a progress_data dict is provided, update its status and progress.
     Returns a list of all newly inserted trips.
@@ -272,9 +310,10 @@ async def fetch_bouncie_trips_in_range(
         for device_index, imei in enumerate(AUTHORIZED_DEVICES, start=1):
             # Update progress status for this device
             if progress_data is not None:
-                progress_data["fetch_and_store_trips"][
-                    "message"
-                ] = f"Fetching trips for device {device_index} of {total_devices}"
+                progress_data["fetch_and_store_trips"]["message"] = (
+                    "Fetching trips for device %d of %d"
+                    % (device_index, total_devices)
+                )
             device_new_trips = []
             current_start = start_dt
             while current_start < end_dt:
@@ -292,7 +331,9 @@ async def fetch_bouncie_trips_in_range(
                 current_start = current_end
             all_new_trips.extend(device_new_trips)
             logger.info(
-                f"Device {imei}: {len(device_new_trips)} new trips inserted."
+                "Device %s: %d new trips inserted.",
+                imei,
+                len(device_new_trips),
             )
 
         if do_map_match and all_new_trips:
@@ -306,7 +347,9 @@ async def fetch_bouncie_trips_in_range(
                 )
                 logger.info("Map matching completed for all new trips.")
             except Exception as e:
-                logger.error(f"Error during map matching: {e}", exc_info=True)
+                logger.error(
+                    "Error during map matching: %s", e, exc_info=True
+                )
 
         if progress_data is not None:
             progress_data["fetch_and_store_trips"]["progress"] = 100
@@ -347,35 +390,52 @@ async def get_trips_from_api(
                 tz_str = get_trip_timezone(trip)
                 timezone_obj = pytz.timezone(tz_str)
                 if "startTime" in trip and isinstance(trip["startTime"], str):
-                    parsed = parser.isoparse(trip["startTime"])
+                    parsed = date_parser.isoparse(trip["startTime"])
                     if parsed.tzinfo is None:
                         parsed = parsed.replace(tzinfo=pytz.UTC)
                     trip["startTime"] = parsed.astimezone(timezone_obj)
                     trip["timeZone"] = tz_str
                 if "endTime" in trip and isinstance(trip["endTime"], str):
-                    parsed = parser.isoparse(trip["endTime"])
+                    parsed = date_parser.isoparse(trip["endTime"])
                     if parsed.tzinfo is None:
                         parsed = parsed.replace(tzinfo=pytz.UTC)
                     trip["endTime"] = parsed.astimezone(timezone_obj)
             logger.info(
-                f"Successfully fetched {len(trips)} trips from Bouncie API for IMEI: {imei}, date range: {start_date} to {end_date}"
+                "Successfully fetched %d trips from Bouncie API for IMEI: %s, date range: %s to %s",
+                len(trips),
+                imei,
+                start_date,
+                end_date,
             )
             return trips
     except ClientResponseError as e:
         logger.error(
-            f"ClientResponseError fetching trips: {e.status} - {e.message}, IMEI: {imei}, date range: {start_date} to {end_date}",
+            "ClientResponseError fetching trips: %d - %s, IMEI: %s, date range: %s to %s",
+            e.status,
+            e.message,
+            imei,
+            start_date,
+            end_date,
             exc_info=True,
         )
         return []
     except ClientConnectorError as e:
         logger.error(
-            f"ClientConnectorError fetching trips: {e}, IMEI: {imei}, date range: {start_date} to {end_date}",
+            "ClientConnectorError fetching trips: %s, IMEI: %s, date range: %s to %s",
+            e,
+            imei,
+            start_date,
+            end_date,
             exc_info=True,
         )
         return []
     except Exception as e:
         logger.error(
-            f"Unexpected error fetching trips: {e}, IMEI: {imei}, date range: {start_date} to {end_date}",
+            "Unexpected error fetching trips: %s, IMEI: %s, date range: %s to %s",
+            e,
+            imei,
+            start_date,
+            end_date,
             exc_info=True,
         )
         return []
@@ -403,7 +463,10 @@ async def fetch_trips_in_intervals(
             all_trips.extend(trips)
         except Exception as e:
             logger.error(
-                f"Error fetching trips for interval {current_start} to {current_end}: {e}",
+                "Error fetching trips for interval %s to %s: %s",
+                current_start,
+                current_end,
+                e,
                 exc_info=True,
             )
         current_start = current_end
@@ -416,7 +479,6 @@ async def fetch_and_store_trips():
     and store them in the 'trips' collection.
     Updates the global progress_data accordingly.
     """
-    global progress_data
     progress_data["fetch_and_store_trips"]["status"] = "running"
     progress_data["fetch_and_store_trips"]["progress"] = 0
     progress_data["fetch_and_store_trips"]["message"] = "Starting fetch"
@@ -440,9 +502,10 @@ async def fetch_and_store_trips():
             all_trips = []
             total_devices = len(AUTHORIZED_DEVICES)
             for device_count, imei in enumerate(AUTHORIZED_DEVICES, start=1):
-                progress_data["fetch_and_store_trips"][
-                    "message"
-                ] = f"Fetching trips for device {device_count} of {total_devices}"
+                progress_data["fetch_and_store_trips"]["message"] = (
+                    "Fetching trips for device %d of %d"
+                    % (device_count, total_devices)
+                )
                 device_trips = await fetch_trips_in_intervals(
                     client_session, access_token, imei, start_date, end_date
                 )
@@ -467,15 +530,21 @@ async def fetch_and_store_trips():
                     ok, errmsg = validate_trip_data(trip)
                     if not ok:
                         logger.error(
-                            f"Skipping invalid trip {trip.get('transactionId')}: {errmsg}"
+                            "Skipping invalid trip %s: %s",
+                            trip.get("transactionId"),
+                            errmsg,
                         )
                         continue
 
                     # Ensure startTime and endTime are datetime objects
                     if isinstance(trip["startTime"], str):
-                        trip["startTime"] = parser.isoparse(trip["startTime"])
+                        trip["startTime"] = date_parser.isoparse(
+                            trip["startTime"]
+                        )
                     if isinstance(trip["endTime"], str):
-                        trip["endTime"] = parser.isoparse(trip["endTime"])
+                        trip["endTime"] = date_parser.isoparse(
+                            trip["endTime"]
+                        )
 
                     # Convert gps to JSON string if needed
                     if isinstance(trip["gps"], dict):
@@ -502,7 +571,8 @@ async def fetch_and_store_trips():
                         upsert=True,
                     )
                     logger.debug(
-                        f"Trip {trip.get('transactionId')} processed and stored/updated."
+                        "Trip %s processed and stored/updated.",
+                        trip.get("transactionId"),
                     )
 
                     # Update progress (final 50% for storing)
@@ -512,7 +582,9 @@ async def fetch_and_store_trips():
                     ] = progress
                 except Exception as e:
                     logger.error(
-                        f"Error inserting/updating trip {trip.get('transactionId')}: {e}",
+                        "Error inserting/updating trip %s: %s",
+                        trip.get("transactionId"),
+                        e,
                         exc_info=True,
                     )
 
@@ -523,6 +595,6 @@ async def fetch_and_store_trips():
             ] = "Fetch and store completed"
 
     except Exception as e:
-        logger.error(f"Error in fetch_and_store_trips: {e}", exc_info=True)
+        logger.error("Error in fetch_and_store_trips: %s", e, exc_info=True)
         progress_data["fetch_and_store_trips"]["status"] = "failed"
-        progress_data["fetch_and_store_trips"]["message"] = f"Error: {e}"
+        progress_data["fetch_and_store_trips"]["message"] = "Error: %s" % e

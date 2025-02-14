@@ -35,6 +35,7 @@ from db import (
 # Coordinate reference systems and transformers
 wgs84 = pyproj.CRS("EPSG:4326")
 
+
 class CoverageCalculator:
     def __init__(self, location: Dict[str, Any], task_id: str):
         self.location = location
@@ -55,7 +56,9 @@ class CoverageCalculator:
         self.total_trips = 0
         self.processed_trips = 0
 
-    async def update_progress(self, stage: str, progress: float, message: str = ""):
+    async def update_progress(
+        self, stage: str, progress: float, message: str = ""
+    ):
         """Update progress in MongoDB"""
         await progress_collection.update_one(
             {"_id": self.task_id},
@@ -68,7 +71,7 @@ class CoverageCalculator:
                     "location": self.location.get("display_name", "Unknown"),
                 }
             },
-            upsert=True
+            upsert=True,
         )
 
     def initialize_projections(self):
@@ -108,7 +111,7 @@ class CoverageCalculator:
                 bounds = geom.bounds
                 self.streets_index.insert(idx, bounds)
                 self.streets_lookup[idx] = street
-                
+
                 # Calculate length in UTM coordinates
                 street_utm = transform(self.project_to_utm, geom)
                 self.total_length += street_utm.length
@@ -129,10 +132,18 @@ class CoverageCalculator:
                 self.covered_segments.update(segments)
                 for segment_id in segments:
                     self.segment_coverage[segment_id] += 1
-        
+
         self.processed_trips += len(trips)
-        progress = (self.processed_trips / self.total_trips * 100) if self.total_trips > 0 else 0
-        await self.update_progress("processing_trips", progress, f"Processed {self.processed_trips} of {self.total_trips} trips")
+        progress = (
+            (self.processed_trips / self.total_trips * 100)
+            if self.total_trips > 0
+            else 0
+        )
+        await self.update_progress(
+            "processing_trips",
+            progress,
+            f"Processed {self.processed_trips} of {self.total_trips} trips",
+        )
 
     def is_trip_in_boundary(self, trip: Dict[str, Any]) -> bool:
         """Quick check if trip intersects boundary box"""
@@ -146,8 +157,9 @@ class CoverageCalculator:
 
             coords = gps_data["coordinates"]
             # Quick check using first and last points
-            return (self.boundary_box.contains(Point(coords[0])) or 
-                    self.boundary_box.contains(Point(coords[-1])))
+            return self.boundary_box.contains(
+                Point(coords[0])
+            ) or self.boundary_box.contains(Point(coords[-1]))
         except Exception:
             return False
 
@@ -175,13 +187,18 @@ class CoverageCalculator:
             covered = set()
 
             # Query potentially intersecting streets using R-tree
-            for idx in self.streets_index.intersection(trip_buffer_wgs84.bounds):
+            for idx in self.streets_index.intersection(
+                trip_buffer_wgs84.bounds
+            ):
                 street = self.streets_lookup[idx]
                 street_geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, street_geom)
 
                 intersection = trip_buffer.intersection(street_utm)
-                if not intersection.is_empty and intersection.length >= self.min_match_length:
+                if (
+                    not intersection.is_empty
+                    and intersection.length >= self.min_match_length
+                ):
                     covered.add(street["properties"]["segment_id"])
 
             return covered
@@ -193,11 +210,15 @@ class CoverageCalculator:
     async def compute_coverage(self) -> Optional[Dict[str, Any]]:
         """Compute street coverage for the location using improved spatial matching."""
         try:
-            await self.update_progress("initializing", 0, "Starting coverage calculation...")
-            
+            await self.update_progress(
+                "initializing", 0, "Starting coverage calculation..."
+            )
+
             # Ensure indexes are created
             await ensure_street_coverage_indexes()
-            await self.update_progress("loading_streets", 10, "Loading street data...")
+            await self.update_progress(
+                "loading_streets", 10, "Loading street data..."
+            )
 
             # Query all street segments for the location
             streets = await streets_collection.find(
@@ -206,17 +227,23 @@ class CoverageCalculator:
 
             if not streets:
                 logger.warning("No streets found for location")
-                await self.update_progress("error", 0, "No streets found for location")
+                await self.update_progress(
+                    "error", 0, "No streets found for location"
+                )
                 return None
 
             # Build spatial index and calculate boundary
-            await self.update_progress("indexing", 20, "Building spatial index...")
+            await self.update_progress(
+                "indexing", 20, "Building spatial index..."
+            )
             self.build_spatial_index(streets)
             self.boundary_box = self.calculate_boundary_box(streets)
 
             # Process trips in larger batches
-            await self.update_progress("counting_trips", 30, "Counting trips...")
-            
+            await self.update_progress(
+                "counting_trips", 30, "Counting trips..."
+            )
+
             # Use MongoDB aggregation to get trips within the boundary box
             bbox = self.boundary_box.bounds
             pipeline = [
@@ -224,24 +251,40 @@ class CoverageCalculator:
                     "$match": {
                         "gps": {"$exists": True},
                         "$or": [
-                            {"startGeoPoint": {
-                                "$geoWithin": {
-                                    "$box": [[bbox[0], bbox[1]], [bbox[2], bbox[3]]]
+                            {
+                                "startGeoPoint": {
+                                    "$geoWithin": {
+                                        "$box": [
+                                            [bbox[0], bbox[1]],
+                                            [bbox[2], bbox[3]],
+                                        ]
+                                    }
                                 }
-                            }},
-                            {"destinationGeoPoint": {
-                                "$geoWithin": {
-                                    "$box": [[bbox[0], bbox[1]], [bbox[2], bbox[3]]]
+                            },
+                            {
+                                "destinationGeoPoint": {
+                                    "$geoWithin": {
+                                        "$box": [
+                                            [bbox[0], bbox[1]],
+                                            [bbox[2], bbox[3]],
+                                        ]
+                                    }
                                 }
-                            }}
-                        ]
+                            },
+                        ],
                     }
                 }
             ]
 
             # Count total trips first
-            self.total_trips = await trips_collection.count_documents(pipeline[0]["$match"])
-            await self.update_progress("processing_trips", 40, f"Processing {self.total_trips} trips...")
+            self.total_trips = await trips_collection.count_documents(
+                pipeline[0]["$match"]
+            )
+            await self.update_progress(
+                "processing_trips",
+                40,
+                f"Processing {self.total_trips} trips...",
+            )
 
             batch = []
             async for trip in trips_collection.aggregate(pipeline):
@@ -254,7 +297,9 @@ class CoverageCalculator:
                 await self.process_trip_batch(batch)
 
             # Calculate covered length and prepare features
-            await self.update_progress("finalizing", 90, "Calculating final coverage...")
+            await self.update_progress(
+                "finalizing", 90, "Calculating final coverage..."
+            )
             covered_length = 0
             features = []
 
@@ -287,7 +332,9 @@ class CoverageCalculator:
                 else 0
             )
 
-            await self.update_progress("complete", 100, "Coverage calculation complete")
+            await self.update_progress(
+                "complete", 100, "Coverage calculation complete"
+            )
 
             return {
                 "total_length": self.total_length,

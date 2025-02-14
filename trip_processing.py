@@ -100,7 +100,9 @@ def format_idle_time(seconds: Any) -> str:
     try:
         total_seconds = int(seconds)
     except (TypeError, ValueError) as e:
-        logger.error("Invalid input for format_idle_time: %s - %s", seconds, e)
+        logger.error(
+            "Invalid input for format_idle_time: %s - %s", seconds, e
+        )
         return "Invalid Input"
     hours = total_seconds // 3600
     minutes = (total_seconds % 3600) // 60

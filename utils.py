@@ -210,7 +210,9 @@ async def reverse_geocode_nominatim(
                         continue
                 elif response.status == 429:  # Too Many Requests
                     retry_after = int(
-                        response.headers.get("Retry-After", backoff_factor * 5)
+                        response.headers.get(
+                            "Retry-After", backoff_factor * 5
+                        )
                     )
                     await asyncio.sleep(retry_after)
                     continue
@@ -225,7 +227,9 @@ async def reverse_geocode_nominatim(
             asyncio.TimeoutError,
             OSError,
         ) as e:
-            log_level = logging.WARNING if attempt < retries else logging.ERROR
+            log_level = (
+                logging.WARNING if attempt < retries else logging.ERROR
+            )
             logger.log(
                 log_level,
                 "Reverse geocode error (attempt %s) for (%s, %s): %s",

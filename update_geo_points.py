@@ -25,7 +25,9 @@ async def update_geo_points(collection):
     """
     Asynchronously update documents in the given collection to add startGeoPoint and destinationGeoPoint.
     """
-    logger.info("Starting GeoPoint update for collection: %s", collection.name)
+    logger.info(
+        "Starting GeoPoint update for collection: %s", collection.name
+    )
     updated_count = 0
     try:
         cursor = collection.find(
@@ -86,7 +88,8 @@ async def update_geo_points(collection):
                 )
     except Exception as e:
         logger.error(
-            f"Error iterating collection {collection.name}: {e}", exc_info=True
+            f"Error iterating collection {collection.name}: {e}",
+            exc_info=True,
         )
     finally:
         logger.info(
