@@ -2813,48 +2813,46 @@ async def get_trips_for_place(place_id: str):
 
                         if shape(p["geometry"]).contains(shape(start_pt)):
                             same_place = True
-                if same_place:
-                    next_start = next_trip.get("startTime")
-                    if next_start and isinstance(next_start, datetime):
-                        if next_start.tzinfo is None:
-                            next_start = next_start.replace(
-                                tzinfo=timezone.utc
-                            )
-                        duration_minutes = (
-                            next_start - end_time
-                        ).total_seconds() / 60.0
-                        hh = int(duration_minutes // 60)
-                        mm = int(duration_minutes % 60)
-                        duration_str = f"{hh}h {mm:02d}m"
+                    if same_place:
+                        next_start = next_trip.get("startTime")
+                        if next_start and isinstance(next_start, datetime):
+                            if next_start.tzinfo is None:
+                                next_start = next_start.replace(
+                                    tzinfo=timezone.utc
+                                )
+                            duration_minutes = (
+                                next_start - end_time
+                            ).total_seconds() / 60.0
+                            hh = int(duration_minutes // 60)
+                            mm = int(duration_minutes % 60)
+                            duration_str = f"{hh}h {mm:02d}m"
+                        else:
+                            duration_str = "0h 00m"
                     else:
                         duration_str = "0h 00m"
-                else:
-                    duration_str = "0h 00m"
-            else:
-                duration_str = "0h 00m"
-            if i > 0:
-                prev_trip_end = valid_trips[i - 1].get("endTime")
-                if prev_trip_end and isinstance(prev_trip_end, datetime):
-                    if prev_trip_end.tzinfo is None:
-                        prev_trip_end = prev_trip_end.replace(
-                            tzinfo=timezone.utc
-                        )
-                    hrs_since_last = (
-                        end_time - prev_trip_end
-                    ).total_seconds() / 3600.0
-                    time_since_last_str = f"{hrs_since_last:.2f} hours"
+                if i > 0:
+                    prev_trip_end = valid_trips[i - 1].get("endTime")
+                    if prev_trip_end and isinstance(prev_trip_end, datetime):
+                        if prev_trip_end.tzinfo is None:
+                            prev_trip_end = prev_trip_end.replace(
+                                tzinfo=timezone.utc
+                            )
+                        hrs_since_last = (
+                            end_time - prev_trip_end
+                        ).total_seconds() / 3600.0
+                        time_since_last_str = f"{hrs_since_last:.2f} hours"
+                    else:
+                        time_since_last_str = "N/A"
                 else:
                     time_since_last_str = "N/A"
-            else:
-                time_since_last_str = "N/A"
-            trips_data.append(
-                {
-                    "transactionId": trip["transactionId"],
-                    "endTime": end_time.isoformat(),
-                    "duration": duration_str,
-                    "timeSinceLastVisit": time_since_last_str,
-                }
-            )
+                trips_data.append(
+                    {
+                        "transactionId": trip["transactionId"],
+                        "endTime": end_time.isoformat(),
+                        "duration": duration_str,
+                        "timeSinceLastVisit": time_since_last_str,
+                    }
+                )
         return JSONResponse(content=trips_data)
     except Exception as e:
         logger.error(
@@ -3304,7 +3302,7 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
         return None
 
     # Log number of events
-    logger.debug(f"Realtime data contains {len(realtime_trip_data)} events.")
+    logger.debug("Realtime data contains %d events.", len(realtime_trip_data))
 
     trip_start_event = next(
         (
@@ -3456,7 +3454,7 @@ async def process_trip_data(trip):
 
         if not gps_data.get("coordinates"):
             logger.warning(
-                f"Trip {transaction_id} has no coordinates in GPS data."
+                "Trip %s has no coordinates in GPS data.", transaction_id
             )
             return trip
 
@@ -3555,9 +3553,9 @@ async def get_place_at_point(point):
     return None
 
 
-# ---------------------------------------------------------------------------
 # Helper: Process a Bouncie event and update live trip
-# ---------------------------------------------------------------------------
+
+
 async def process_bouncie_event(data: dict):
     event_type = data.get("eventType")
     transaction_id = data.get("transactionId")
@@ -3567,7 +3565,6 @@ async def process_bouncie_event(data: dict):
     ):
         raise HTTPException(status_code=400, detail="Invalid event payload")
 
-    # Assume get_trip_timestamps and sort_and_filter_trip_coordinates are already defined.
     if event_type == "tripStart":
         start_time, _ = get_trip_timestamps(data)
         live_trip = {

@@ -248,7 +248,7 @@
         },
       );
 
-      // Toggle view button listener (assumed to be in the visits-table container)
+      // Toggle view button listener
       $("#visits-table-container").on("click", "#toggle-view-btn", () =>
         this.toggleView(),
       );
