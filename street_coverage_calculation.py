@@ -1,3 +1,10 @@
+from db import (
+    streets_collection,
+    trips_collection,
+    coverage_metadata_collection,
+    progress_collection,
+    ensure_street_coverage_indexes,
+)
 from motor.motor_asyncio import AsyncIOMotorClient
 import logging
 from datetime import datetime, timezone
@@ -24,13 +31,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import database collections and functions from db.py
-from db import (
-    streets_collection,
-    trips_collection,
-    coverage_metadata_collection,
-    progress_collection,
-    ensure_street_coverage_indexes,
-)
 
 # Coordinate reference systems and transformers
 wgs84 = pyproj.CRS("EPSG:4326")
