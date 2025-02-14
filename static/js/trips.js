@@ -197,18 +197,38 @@
         {
           data: "startTime",
           title: "Start Time",
-          render: (data, type) =>
-            type === "display"
-              ? createEditableCell(data, type, "startTime", "datetime-local")
-              : data,
+          render: (data, type, row) => {
+            if (type === "display") {
+              const date = new Date(data);
+              const timezone = row.timeZone || "America/Chicago";
+              const formatter = new Intl.DateTimeFormat("en-US", {
+                dateStyle: "medium",
+                timeStyle: "short",
+                timeZone: timezone,
+                hour12: true,
+              });
+              return createEditableCell(formatter.format(date), type, "startTime", "datetime-local");
+            }
+            return data;
+          }
         },
         {
           data: "endTime",
           title: "End Time",
-          render: (data, type) =>
-            type === "display"
-              ? createEditableCell(data, type, "endTime", "datetime-local")
-              : data,
+          render: (data, type, row) => {
+            if (type === "display") {
+              const date = new Date(data);
+              const timezone = row.timeZone || "America/Chicago";
+              const formatter = new Intl.DateTimeFormat("en-US", {
+                dateStyle: "medium",
+                timeStyle: "short",
+                timeZone: timezone,
+                hour12: true,
+              });
+              return createEditableCell(formatter.format(date), type, "endTime", "datetime-local");
+            }
+            return data;
+          }
         },
         {
           data: "distance",
