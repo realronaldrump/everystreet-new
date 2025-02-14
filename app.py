@@ -315,7 +315,7 @@ async def manually_run_tasks(request: Request):
         for task_id in tasks_to_run:
             if task_id == "ALL":
                 # Run all enabled tasks
-                for t_id in task_manager.tasks.keys():
+                for t_id in task_manager.tasks:
                     if config["tasks"].get(t_id, {}).get("enabled", True):
                         try:
                             # Add job with proper trigger for immediate execution
