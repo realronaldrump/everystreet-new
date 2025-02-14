@@ -1163,7 +1163,7 @@ async def export_geojson(request: Request):
             io.BytesIO(content.encode()),
             media_type="application/geo+json",
             headers={
-                "Content-Disposition": f'attachment; filename="all_trips.geojson"'
+                "Content-Disposition": 'attachment; filename="all_trips.geojson"'
             },
         )
     except Exception as e:
@@ -1240,7 +1240,7 @@ async def export_gpx(request: Request):
             io.BytesIO(gpx_xml.encode()),
             media_type="application/gpx+xml",
             headers={
-                "Content-Disposition": f'attachment; filename="trips.gpx"'
+                "Content-Disposition": 'attachment; filename="trips.gpx"'
             },
         )
     except Exception as e:
