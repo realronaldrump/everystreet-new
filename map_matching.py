@@ -45,7 +45,7 @@ async def map_match_coordinates(coordinates):
     base_url = "https://api.mapbox.com/matching/v5/mapbox/driving/"
     # Break coordinates into chunks.
     chunks = [
-        coordinates[i : i + MAX_MAPBOX_COORDINATES]
+        coordinates[i: i + MAX_MAPBOX_COORDINATES]
         for i in range(0, len(coordinates), MAX_MAPBOX_COORDINATES)
     ]
     matched_geometries = []
