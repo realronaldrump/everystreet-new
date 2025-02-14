@@ -197,9 +197,7 @@ class BackgroundTaskManager:
                 "result": True,
             }
 
-            await self.db["task_history"].insert_one(
-                history_entry
-            )  # Use self.db
+            await self.db["task_history"].insert_one(history_entry)  # Use self.db
 
             job = self.scheduler.get_job(event.job_id)  # use original job_id
             next_run = job.next_run_time if job else None
@@ -243,9 +241,7 @@ class BackgroundTaskManager:
                 "result": False,
             }
 
-            await self.db["task_history"].insert_one(
-                history_entry
-            )  # Use self.db
+            await self.db["task_history"].insert_one(history_entry)  # Use self.db
 
             job = self.scheduler.get_job(event.job_id)  # use original job_id
             next_run = job.next_run_time if job else None
@@ -329,7 +325,7 @@ class BackgroundTaskManager:
 
             # Schedule the new job
             self.scheduler.add_job(
-                self._get_task_function(task_id),
+                self.get_task_function(task_id),
                 "interval",
                 minutes=interval_minutes,
                 id=task_id,
@@ -350,9 +346,7 @@ class BackgroundTaskManager:
                 },
             )
 
-            logger.info(
-                f"Added task {task_id} with {interval_minutes} minute interval"
-            )
+            logger.info("Added task %s with %d minute interval", task_id, interval_minutes)
 
         except Exception as e:
             logger.error(f"Error adding task {task_id}: {e}", exc_info=True)
@@ -390,10 +384,9 @@ class BackgroundTaskManager:
             logger.error(f"Error reinitializing tasks: {e}", exc_info=True)
             raise
 
-    def _get_task_function(self, task_id: str) -> Optional[Callable]:
-        """Get the function for a given task ID."""
-        task_map = {
-            # Use the async functions directly, without the wrapper:
+    def get_task_function(self, task_id: str) -> Callable:
+        """Return the task function for a given task ID."""
+        task_function_map = {
             "fetch_and_store_trips": self._fetch_and_store_trips,
             "periodic_fetch_trips": self._periodic_fetch_trips,
             "update_coverage_for_all_locations": self._update_coverage,
@@ -404,9 +397,12 @@ class BackgroundTaskManager:
             "remap_unmatched_trips": self._remap_unmatched_trips,
             "validate_trip_data": self._validate_trip_data,
         }
-        return task_map.get(task_id)
+        task_func = task_function_map.get(task_id)
+        if not task_func:
+            raise ValueError(f"No function found for task ID: {task_id}")
+        return task_func
 
-    async def _get_config(self) -> Dict[str, Any]:
+    async def get_config(self) -> Dict[str, Any]:
         """Get task configuration from database."""
         try:
             cfg = await self.db["task_config"].find_one(  # Use self.db
@@ -445,16 +441,12 @@ class BackgroundTaskManager:
             start_date = end_date - timedelta(hours=1)
 
             logger.info(f"Fetching trips from {start_date} to {end_date}")
-            await fetch_bouncie_trips_in_range(
-                start_date, end_date, do_map_match=True
-            )
+            await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=True)
 
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
 
         except Exception as e:
-            await self._update_task_status(
-                task_id, TaskStatus.FAILED, error=str(e)
-            )
+            await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
             logger.error(f"Error in fetch_and_store_trips: {e}", exc_info=True)
             raise
 
@@ -477,16 +469,12 @@ class BackgroundTaskManager:
             end_date = datetime.now(timezone.utc)
 
             logger.info(f"Periodic fetch from {start_date} to {end_date}")
-            await fetch_bouncie_trips_in_range(
-                start_date, end_date, do_map_match=False
-            )
+            await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=False)
 
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
 
         except Exception as e:
-            await self._update_task_status(
-                task_id, TaskStatus.FAILED, error=str(e)
-            )
+            await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
             logger.error(f"Error in periodic_fetch_trips: {e}", exc_info=True)
             raise
 
@@ -502,9 +490,7 @@ class BackgroundTaskManager:
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
 
         except Exception as e:
-            await self._update_task_status(
-                task_id, TaskStatus.FAILED, error=str(e)
-            )
+            await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
             logger.error(f"Error in update_coverage: {e}", exc_info=True)
             raise
 
@@ -526,9 +512,7 @@ class BackgroundTaskManager:
             async for trip in cursor:
                 trip["status"] = "stale"
                 trip["endTime"] = now
-                await self.db["archived_live_trips"].insert_one(
-                    trip
-                )  # Use self.db
+                await self.db["archived_live_trips"].insert_one(trip)  # Use self.db
                 await self.db["live_trips"].delete_one(
                     {"_id": trip["_id"]}
                 )  # Use self.db
@@ -538,9 +522,7 @@ class BackgroundTaskManager:
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
 
         except Exception as e:
-            await self._update_task_status(
-                task_id, TaskStatus.FAILED, error=str(e)
-            )
+            await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
             logger.error(f"Error in cleanup_stale_trips: {e}", exc_info=True)
             raise
 
@@ -570,9 +552,7 @@ class BackgroundTaskManager:
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
 
         except Exception as e:
-            await self._update_task_status(
-                task_id, TaskStatus.FAILED, error=str(e)
-            )
+            await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
             logger.error(f"Error in cleanup_invalid_trips: {e}", exc_info=True)
             raise
 
@@ -615,18 +595,14 @@ class BackgroundTaskManager:
                         start_coords[1], start_coords[0]
                     )
                     if start_location:
-                        updates["startLocation"] = start_location.get(
-                            "display_name"
-                        )
+                        updates["startLocation"] = start_location.get("display_name")
 
                 if not trip.get("destination"):
                     end_location = await reverse_geocode_nominatim(
                         end_coords[1], end_coords[0]
                     )
                     if end_location:
-                        updates["destination"] = end_location.get(
-                            "display_name"
-                        )
+                        updates["destination"] = end_location.get("display_name")
 
                 if updates:
                     updates["geocoded_at"] = datetime.now(timezone.utc)
@@ -639,9 +615,7 @@ class BackgroundTaskManager:
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
 
         except Exception as e:
-            await self._update_task_status(
-                task_id, TaskStatus.FAILED, error=str(e)
-            )
+            await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
             logger.error(f"Error in update_geocoding: {e}", exc_info=True)
             raise
 
@@ -666,9 +640,7 @@ class BackgroundTaskManager:
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
 
         except Exception as e:
-            await self._update_task_status(
-                task_id, TaskStatus.FAILED, error=str(e)
-            )
+            await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
             logger.error(f"Error in optimize_database: {e}", exc_info=True)
             raise
 
@@ -691,18 +663,14 @@ class BackgroundTaskManager:
                     await process_and_map_match_trip(trip)
                     remap_count += 1
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to remap trip {trip.get('_id')}: {e}"
-                    )
+                    logger.warning(f"Failed to remap trip {trip.get('_id')}: {e}")
                     continue
 
             logger.info(f"Remapped {remap_count} trips")
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
 
         except Exception as e:
-            await self._update_task_status(
-                task_id, TaskStatus.FAILED, error=str(e)
-            )
+            await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
             logger.error(f"Error in remap_unmatched_trips: {e}", exc_info=True)
             raise
 
@@ -720,14 +688,10 @@ class BackgroundTaskManager:
                 for field in ["startTime", "endTime"]:
                     if isinstance(trip.get(field), str):
                         try:
-                            updates[field] = datetime.fromisoformat(
-                                trip[field]
-                            )
+                            updates[field] = datetime.fromisoformat(trip[field])
                         except ValueError:
                             updates["invalid"] = True
-                            updates["validation_message"] = (
-                                f"Invalid {field} format"
-                            )
+                            updates["validation_message"] = f"Invalid {field} format"
 
                 # Validate GPS data
                 if isinstance(trip.get("gps"), str):
@@ -748,9 +712,7 @@ class BackgroundTaskManager:
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
 
         except Exception as e:
-            await self._update_task_status(
-                task_id, TaskStatus.FAILED, error=str(e)
-            )
+            await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
             logger.error(f"Error in validate_trip_data: {e}", exc_info=True)
             raise
 
@@ -767,13 +729,9 @@ class BackgroundTaskManager:
             }
 
             if status == TaskStatus.RUNNING:
-                update_data[f"tasks.{task_id}.start_time"] = datetime.now(
-                    timezone.utc
-                )
+                update_data[f"tasks.{task_id}.start_time"] = datetime.now(timezone.utc)
             elif status in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
-                update_data[f"tasks.{task_id}.end_time"] = datetime.now(
-                    timezone.utc
-                )
+                update_data[f"tasks.{task_id}.end_time"] = datetime.now(timezone.utc)
 
             if error:
                 update_data[f"tasks.{task_id}.last_error"] = error

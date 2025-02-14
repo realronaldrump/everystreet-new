@@ -133,7 +133,7 @@ async def add_header(request: Request, call_next):
 async def get_background_tasks_config():
     """Get current task configuration and status."""
     try:
-        config = await task_manager._get_config()
+        config = await task_manager.get_config()
 
         # Enrich the response with task definitions and current status
         for task_id, task_def in task_manager.tasks.items():
@@ -176,7 +176,7 @@ async def update_background_tasks_config(request: Request):
     """Update task configuration."""
     try:
         data = await request.json()
-        config = await task_manager._get_config()
+        config = await task_manager.get_config()
 
         if "globalDisable" in data:
             config["disabled"] = data["globalDisable"]
@@ -217,7 +217,7 @@ async def pause_background_tasks(request: Request):
         data = await request.json()
         minutes = data.get("minutes", 30)
 
-        config = await task_manager._get_config()
+        config = await task_manager.get_config()
         config["disabled"] = True
         await task_config_collection.replace_one(
             {"_id": "global_background_task_config"}, config, upsert=True
@@ -237,7 +237,7 @@ async def pause_background_tasks(request: Request):
 async def resume_background_tasks():
     """Resume all background tasks."""
     try:
-        config = await task_manager._get_config()
+        config = await task_manager.get_config()
         config["disabled"] = False
         await task_config_collection.replace_one(
             {"_id": "global_background_task_config"}, config, upsert=True
@@ -263,7 +263,7 @@ async def stop_all_background_tasks():
 
 @app.post("/api/background_tasks/enable")
 async def enable_all_background_tasks():
-    config = await task_manager._get_config()
+    config = await task_manager.get_config()
     for task_id in task_manager.tasks:
         if task_id not in config["tasks"]:
             config["tasks"][task_id] = {}
@@ -279,7 +279,7 @@ async def enable_all_background_tasks():
 
 @app.post("/api/background_tasks/disable")
 async def disable_all_background_tasks():
-    config = await task_manager._get_config()
+    config = await task_manager.get_config()
     for task_id in task_manager.tasks:
         if task_id not in config["tasks"]:
             config["tasks"][task_id] = {}
@@ -302,17 +302,17 @@ async def manually_run_tasks(request: Request):
         results = []
 
         # Get current configuration to check enabled status
-        config = await task_manager._get_config()
+        config = await task_manager.get_config()
 
         for task_id in tasks_to_run:
             if task_id == "ALL":
                 # Run all enabled tasks
-                for t_id, task_def in task_manager.tasks.items():
+                for t_id in task_manager.tasks.keys():
                     if config["tasks"].get(t_id, {}).get("enabled", True):
                         try:
                             # Add job with proper trigger for immediate execution
                             task_manager.scheduler.add_job(
-                                task_manager._get_task_function(t_id),
+                                task_manager.get_task_function(t_id),
                                 id=f"{t_id}_manual_{datetime.now().timestamp()}",
                                 trigger="date",
                                 run_date=datetime.now(timezone.utc),
@@ -339,7 +339,7 @@ async def manually_run_tasks(request: Request):
                 try:
                     # Add individual job with proper trigger
                     task_manager.scheduler.add_job(
-                        task_manager._get_task_function(task_id),
+                        task_manager.get_task_function(task_id),
                         id=f"{task_id}_manual_{datetime.now().timestamp()}",
                         trigger="date",
                         run_date=datetime.now(timezone.utc),
@@ -3362,7 +3362,8 @@ async def assemble_trip_from_realtime_data(realtime_trip_data):
 async def process_trip_data(trip):
     """
     Processes a trip's geocoding data. For both the start and destination points:
-      - If the point falls within a defined custom place (found asynchronously), assign the custom place's name and its _id.
+      - If the point falls within a defined custom place (found asynchronously), assign
+    the custom place's name and its _id.
       - Otherwise, call reverse_geocode_nominatim and extract its "display_name".
     Also sets the geo-point fields for geospatial queries.
     """
@@ -3464,7 +3465,7 @@ async def process_trip_data(trip):
             "coordinates": [en[0], en[1]],
         }
 
-        logger.debug(f"GeoPoints set for trip {transaction_id}.")
+        logger.debug("GeoPoints set for trip %s.", transaction_id)
         logger.info(
             f"Trip data processing completed for trip {transaction_id}."
         )
@@ -3678,7 +3679,7 @@ async def get_task_details(task_id: str):
             )
 
         # Get the current task configuration
-        config = await task_manager._get_config()
+        config = await task_manager.get_config()
         task_config = config.get("tasks", {}).get(task_id, {})
 
         # Get the task's history
