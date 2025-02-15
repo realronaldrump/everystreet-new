@@ -9,6 +9,8 @@
       this.taskProgressModal = new bootstrap.Modal(document.getElementById("taskProgressModal"));
       this.setupEventListeners();
       this.loadCoverageAreas();
+      // Set up auto-refresh for processing areas
+      this.setupAutoRefresh();
     }
 
     setupEventListeners() {
@@ -64,8 +66,8 @@
       }
 
       try {
-        // First preprocess streets
-        this.showProgressModal("Preprocessing streets...");
+        // Start preprocessing streets in the background
+        this.showProgressModal("Starting background processing...");
         const preprocessResponse = await fetch("/api/preprocess_streets", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -75,27 +77,17 @@
           }),
         });
 
-        if (!preprocessResponse.ok) throw new Error("Failed to preprocess streets");
+        if (!preprocessResponse.ok) throw new Error("Failed to start preprocessing");
+        const preprocessData = await preprocessResponse.json();
 
-        // Then calculate coverage
-        this.updateProgressModal("Calculating coverage...", 50);
-        const coverageResponse = await fetch("/api/street_coverage", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ location: this.validatedLocation }),
-        });
-
-        if (!coverageResponse.ok) throw new Error("Failed to start coverage calculation");
-        const coverageData = await coverageResponse.json();
-
-        if (!coverageData.task_id) throw new Error("No task ID received");
-
-        // Poll for coverage calculation completion
-        await this.pollCoverageProgress(coverageData.task_id);
-
-        // Reload the coverage areas table
+        // Add the area to the table with "Processing" status
         await this.loadCoverageAreas();
-        this.toastManager.show("Success", "Coverage area added successfully!", "success");
+        this.toastManager.show("Success", "Coverage area processing started. You can check the status in the table.", "success");
+        
+        // Clear the form
+        document.getElementById("location-input").value = "";
+        document.getElementById("add-coverage-area").disabled = true;
+        this.validatedLocation = null;
       } catch (error) {
         console.error("Error adding coverage area:", error);
         this.toastManager.show("Error", "Failed to add coverage area. Please try again.", "danger");
@@ -177,48 +169,64 @@
       tbody.innerHTML = "";
       areas.forEach(area => {
         const row = document.createElement("tr");
+        const isProcessing = !area.last_updated;
+        
         row.innerHTML = `
           <td>${area.location.display_name || "Unknown"}</td>
           <td>${(area.total_length * 0.000621371).toFixed(2)} miles</td>
           <td>${(area.driven_length * 0.000621371).toFixed(2)} miles</td>
           <td>
-            <div class="progress" style="height: 20px;">
-              <div class="progress-bar bg-success" role="progressbar" 
-                   style="width: ${area.coverage_percentage}%;" 
-                   aria-valuenow="${area.coverage_percentage}" 
-                   aria-valuemin="0" 
-                   aria-valuemax="100">
-                ${area.coverage_percentage.toFixed(1)}%
-              </div>
-            </div>
+            ${isProcessing ? 
+              `<div class="d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm me-2"></div>
+                <span>Processing...</span>
+              </div>` :
+              `<div class="progress" style="height: 20px;">
+                <div class="progress-bar bg-success" role="progressbar" 
+                     style="width: ${area.coverage_percentage}%;" 
+                     aria-valuenow="${area.coverage_percentage}" 
+                     aria-valuemin="0" 
+                     aria-valuemax="100">
+                  ${area.coverage_percentage.toFixed(1)}%
+                </div>
+              </div>`
+            }
           </td>
           <td>${area.total_segments}</td>
-          <td>${area.last_updated ? new Date(area.last_updated).toLocaleString() : "Never"}</td>
+          <td>${area.last_updated ? new Date(area.last_updated).toLocaleString() : "Processing..."}</td>
           <td>
             <div class="btn-group btn-group-sm">
-              <button class="btn btn-primary update-coverage" data-location='${JSON.stringify(area.location)}'>
-                <i class="fas fa-sync-alt"></i>
-              </button>
-              <button class="btn btn-info view-on-map" data-location='${JSON.stringify(area.location)}'>
-                <i class="fas fa-map-marked-alt"></i>
-              </button>
+              ${!isProcessing ? `
+                <button class="btn btn-primary update-coverage" data-location='${JSON.stringify(area.location)}'>
+                  <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="btn btn-info view-on-map" data-location='${JSON.stringify(area.location)}'>
+                  <i class="fas fa-map-marked-alt"></i>
+                </button>
+              ` : `
+                <button class="btn btn-secondary" disabled>
+                  <i class="fas fa-spinner fa-spin"></i>
+                </button>
+              `}
             </div>
           </td>
         `;
 
-        // Add event listeners for the action buttons
-        const updateBtn = row.querySelector(".update-coverage");
-        const viewBtn = row.querySelector(".view-on-map");
+        if (!isProcessing) {
+          // Add event listeners for the action buttons
+          const updateBtn = row.querySelector(".update-coverage");
+          const viewBtn = row.querySelector(".view-on-map");
 
-        updateBtn?.addEventListener("click", (e) => {
-          const location = JSON.parse(e.currentTarget.dataset.location);
-          this.updateCoverageForArea(location);
-        });
+          updateBtn?.addEventListener("click", (e) => {
+            const location = JSON.parse(e.currentTarget.dataset.location);
+            this.updateCoverageForArea(location);
+          });
 
-        viewBtn?.addEventListener("click", (e) => {
-          const location = JSON.parse(e.currentTarget.dataset.location);
-          this.viewAreaOnMap(location);
-        });
+          viewBtn?.addEventListener("click", (e) => {
+            const location = JSON.parse(e.currentTarget.dataset.location);
+            this.viewAreaOnMap(location);
+          });
+        }
 
         tbody.appendChild(row);
       });
@@ -251,6 +259,16 @@
       // Store the location in localStorage and redirect to the map page
       localStorage.setItem("selectedLocation", JSON.stringify(location));
       window.location.href = "/";
+    }
+
+    setupAutoRefresh() {
+      // Refresh the table every 10 seconds if there are processing areas
+      setInterval(async () => {
+        const tbody = document.querySelector("#coverage-areas-table tbody");
+        if (tbody && tbody.querySelector(".spinner-border")) {
+          await this.loadCoverageAreas();
+        }
+      }, 10000);
     }
   }
 

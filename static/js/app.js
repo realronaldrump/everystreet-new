@@ -1132,7 +1132,7 @@
         try {
           const location = JSON.parse(selectedLocation);
           window.validatedLocation = location;
-          generateStreetCoverage().then(() => {
+          showCoverageForLocation(location).then(() => {
             localStorage.removeItem("selectedLocation");
           });
         } catch (error) {
@@ -1148,4 +1148,24 @@
       if (btn) btn.disabled = true;
     });
   });
+
+  async function showCoverageForLocation(location) {
+    try {
+      const response = await fetch(`/api/street_coverage/${location.display_name}`);
+      if (!response.ok) throw new Error("Failed to fetch coverage data");
+      
+      const data = await response.json();
+      if (data && data.streets_data) {
+        visualizeStreetCoverage(data);
+        // Enable the street coverage layer
+        mapLayers.streetCoverage.visible = true;
+        updateLayerOrderUI();
+        // Fit map to the coverage area
+        updateMap(true);
+      }
+    } catch (error) {
+      console.error("Error showing coverage:", error);
+      notificationManager.show("Error loading coverage data", "danger");
+    }
+  }
 })();

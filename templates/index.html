@@ -82,44 +82,27 @@
                         </ul>
                     </div>
                 </div>
-                <!-- OSM Controls Section -->
+                <!-- Coverage Stats Section -->
                 <div class="col-12 col-md-4">
                     <div class="card bg-dark border-secondary">
                         <div class="card-header border-secondary">
-                            <h3 class="h6 mb-0">OSM Data</h3>
+                            <h3 class="h6 mb-0">Coverage Statistics</h3>
                         </div>
                         <div class="card-body">
-                            <div class="mb-3">
-                                <input type="text" id="location-input" class="form-control location-input" placeholder="Enter location" />
-                                <input type="hidden" id="location-data" data-location="{}" data-display-name="" />
-                            </div>
-                            <div class="mb-3">
-                                <select id="location-type" class="form-select">
-                                    <option value="city">City</option>
-                                    <option value="county">County</option>
-                                    <option value="state">State</option>
-                                    <option value="country">Country</option>
-                                </select>
-                            </div>
-                            <div class="d-grid gap-2">
-                                <button id="validate-location" class="btn btn-primary"> Validate Location </button>
-                                <div class="btn-group">
-                                    <button id="generate-boundary" class="btn btn-success"> Generate Boundary </button>
-                                    <button id="generate-streets" class="btn btn-success"> Generate Streets </button>
-                                </div>
-                                <button id="generate-coverage" class="btn btn-info"> Show Street Coverage </button>
-                                <button id="preprocess-streets" class="btn btn-secondary" type="button"> Preprocess Streets </button>
-                            </div>
-                            <div id="coverage-stats" class="mt-3 d-none">
+                            <div id="coverage-stats" class="d-none">
                                 <div class="progress mb-2">
                                     <div id="coverage-progress" class="progress-bar" role="progressbar"></div>
                                 </div>
-                                <div id="coverage-progress-text" class="small text-muted mb-2"></div>
                                 <div class="small text-muted">
                                     Coverage: <span id="coverage-percentage"></span>%<br>
                                     Total Street Length: <span id="total-street-length"></span> miles<br>
                                     Miles Driven: <span id="miles-driven"></span>
                                 </div>
+                            </div>
+                            <div class="text-center mt-3">
+                                <a href="/coverage-management" class="btn btn-primary">
+                                    <i class="fas fa-map-marked-alt"></i> Manage Coverage Areas
+                                </a>
                             </div>
                         </div>
                     </div>
