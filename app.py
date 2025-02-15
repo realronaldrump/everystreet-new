@@ -3859,11 +3859,13 @@ async def delete_coverage_area(request: Request):
         data = await request.json()
         location = data.get("location")
         if not location or not isinstance(location, dict):
-            raise HTTPException(status_code=400, detail="Invalid location data")
+            raise HTTPException(
+                status_code=400, detail="Invalid location data")
 
         display_name = location.get("display_name")
         if not display_name:
-            raise HTTPException(status_code=400, detail="Invalid location display name")
+            raise HTTPException(
+                status_code=400, detail="Invalid location display name")
 
         # Delete from coverage metadata
         delete_result = await coverage_metadata_collection.delete_one(
@@ -3876,7 +3878,8 @@ async def delete_coverage_area(request: Request):
         )
 
         if delete_result.deleted_count == 0:
-            raise HTTPException(status_code=404, detail="Coverage area not found")
+            raise HTTPException(
+                status_code=404, detail="Coverage area not found")
 
         return {"status": "success", "message": "Coverage area deleted successfully"}
     except HTTPException:
