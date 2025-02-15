@@ -3852,6 +3852,40 @@ async def get_coverage_areas():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/coverage_areas/delete")
+async def delete_coverage_area(request: Request):
+    """Delete a coverage area and its associated data."""
+    try:
+        data = await request.json()
+        location = data.get("location")
+        if not location or not isinstance(location, dict):
+            raise HTTPException(status_code=400, detail="Invalid location data")
+
+        display_name = location.get("display_name")
+        if not display_name:
+            raise HTTPException(status_code=400, detail="Invalid location display name")
+
+        # Delete from coverage metadata
+        delete_result = await coverage_metadata_collection.delete_one(
+            {"location.display_name": display_name}
+        )
+
+        # Delete associated street segments
+        await streets_collection.delete_many(
+            {"properties.location": display_name}
+        )
+
+        if delete_result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Coverage area not found")
+
+        return {"status": "success", "message": "Coverage area deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error deleting coverage area: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
 
