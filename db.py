@@ -15,6 +15,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 class DatabaseManager:
     _instance = None
     _client = None
@@ -58,6 +59,7 @@ class DatabaseManager:
         """Get the client instance."""
         return self._client
 
+
 # Create a single instance of the database manager
 db_manager = DatabaseManager()
 
@@ -77,6 +79,7 @@ task_config_collection = db_manager.db["task_config"]
 task_history_collection = db_manager.db["task_history"]
 progress_collection = db_manager.db["progress_status"]
 
+
 async def init_task_history_collection():
     """Initialize indexes for task history collection."""
     try:
@@ -91,6 +94,7 @@ async def init_task_history_collection():
             "Error creating task history indexes: %s", e, exc_info=True
         )
         raise e
+
 
 async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
     """
@@ -132,6 +136,7 @@ async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
         )
         return None
 
+
 async def ensure_street_coverage_indexes():
     """Create indexes for street coverage collections."""
     try:
@@ -139,11 +144,11 @@ async def ensure_street_coverage_indexes():
         await coverage_metadata_collection.create_index(
             [
                 ("location.display_name", pymongo.ASCENDING),
-                ("status", pymongo.ASCENDING)
+                ("status", pymongo.ASCENDING),
             ],
-            unique=True
+            unique=True,
         )
-        
+
         await streets_collection.create_index(
             [("properties.location", pymongo.ASCENDING)]
         )

@@ -1,9 +1,3 @@
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import (
-    JSONResponse,
-    HTMLResponse,
-    StreamingResponse,
-)
 from fastapi import (
     FastAPI,
     Request,
@@ -12,6 +6,13 @@ from fastapi import (
     UploadFile,
     File,
 )
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import (
+    JSONResponse,
+    HTMLResponse,
+    StreamingResponse,
+)
+from fastapi.staticfiles import StaticFiles
 import os
 import json
 import logging
@@ -24,7 +25,6 @@ import bson
 from datetime import datetime, timedelta, timezone
 from math import radians, cos, sin, sqrt, atan2
 from typing import List, Dict, Any
-from fastapi.staticfiles import StaticFiles
 from pymongo.errors import DuplicateKeyError
 from starlette.websockets import WebSocketDisconnect
 import shutil
@@ -1945,12 +1945,16 @@ async def preprocess_streets_route(request: Request):
         data = await request.json()
         location = data.get("location")
         location_type = data.get("location_type")
-        
+
         if not location or not location_type:
-            raise HTTPException(status_code=400, detail="Missing location data")
+            raise HTTPException(
+                status_code=400, detail="Missing location data"
+            )
 
         # Validate location with OSM
-        validated_location = await validate_location_osm(location, location_type)
+        validated_location = await validate_location_osm(
+            location, location_type
+        )
         if not validated_location:
             raise HTTPException(status_code=400, detail="Invalid location")
 
@@ -1968,7 +1972,7 @@ async def preprocess_streets_route(request: Request):
                         "total_segments": 0,
                     }
                 },
-                upsert=True
+                upsert=True,
             )
         except DuplicateKeyError:
             # If the area is already being processed, return error
@@ -1978,14 +1982,14 @@ async def preprocess_streets_route(request: Request):
             if existing and existing.get("status") == "processing":
                 raise HTTPException(
                     status_code=400,
-                    detail="This area is already being processed"
+                    detail="This area is already being processed",
                 )
             raise
 
         # Start the preprocessing task
         task_id = str(uuid.uuid4())
         asyncio.create_task(process_area(validated_location, task_id))
-        
+
         return {"status": "success", "task_id": task_id}
 
     except HTTPException:
@@ -1998,15 +2002,16 @@ async def preprocess_streets_route(request: Request):
         )
         raise HTTPException(status_code=500, detail=str(e))
 
+
 async def process_area(location: Dict[str, Any], task_id: str):
     """Process the area in the background"""
     try:
         # Preprocess streets
         await async_preprocess_streets(location)
-        
+
         # Calculate coverage
         result = await compute_coverage_for_location(location, task_id)
-        
+
         if result:
             # Update metadata with completed status
             await coverage_metadata_collection.update_one(
@@ -2019,7 +2024,7 @@ async def process_area(location: Dict[str, Any], task_id: str):
                         "coverage_percentage": result["coverage_percentage"],
                         "last_updated": datetime.now(timezone.utc),
                     }
-                }
+                },
             )
         else:
             # Update metadata with error status
@@ -2031,7 +2036,7 @@ async def process_area(location: Dict[str, Any], task_id: str):
                         "last_error": "Failed to calculate coverage",
                         "last_updated": datetime.now(timezone.utc),
                     }
-                }
+                },
             )
     except Exception as e:
         logger.error("Error processing area: %s", e, exc_info=True)
@@ -2044,7 +2049,7 @@ async def process_area(location: Dict[str, Any], task_id: str):
                     "last_error": str(e),
                     "last_updated": datetime.now(timezone.utc),
                 }
-            }
+            },
         )
 
 
@@ -3922,6 +3927,12 @@ async def get_coverage_areas():
                     "coverage_percentage": area.get("coverage_percentage", 0),
                     "last_updated": area.get("last_updated"),
                     "total_segments": area.get("total_segments", 0),
+                    "status": area.get(
+                        "status", "completed"
+                    ),  # Default to completed for backward compatibility
+                    "last_error": area.get(
+                        "last_error"
+                    ),  # Include error message if any
                 }
                 for area in areas
             ]
@@ -3938,11 +3949,15 @@ async def delete_coverage_area(request: Request):
         data = await request.json()
         location = data.get("location")
         if not location or not isinstance(location, dict):
-            raise HTTPException(status_code=400, detail="Invalid location data")
+            raise HTTPException(
+                status_code=400, detail="Invalid location data"
+            )
 
         display_name = location.get("display_name")
         if not display_name:
-            raise HTTPException(status_code=400, detail="Invalid location display name")
+            raise HTTPException(
+                status_code=400, detail="Invalid location display name"
+            )
 
         # Delete from coverage metadata
         delete_result = await coverage_metadata_collection.delete_one(
@@ -3955,9 +3970,14 @@ async def delete_coverage_area(request: Request):
         )
 
         if delete_result.deleted_count == 0:
-            raise HTTPException(status_code=404, detail="Coverage area not found")
+            raise HTTPException(
+                status_code=404, detail="Coverage area not found"
+            )
 
-        return {"status": "success", "message": "Coverage area deleted successfully"}
+        return {
+            "status": "success",
+            "message": "Coverage area deleted successfully",
+        }
     except HTTPException:
         raise
     except Exception as e:

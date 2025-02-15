@@ -377,9 +377,7 @@ class BackgroundTaskManager:
         """Return the task function for a given task ID."""
         task_function_map = {
             "periodic_fetch_trips": self._periodic_fetch_trips,
-            "preprocess_streets": lambda: async_preprocess_streets(
-                validated_location=None
-            ),  # Pass validated_location=None
+            "preprocess_streets": self._preprocess_streets,  # Use our own wrapper
             "update_coverage_for_all_locations": self._update_coverage,
             "cleanup_stale_trips": self._cleanup_stale_trips,
             "cleanup_invalid_trips": self._cleanup_invalid_trips,
@@ -461,6 +459,49 @@ class BackgroundTaskManager:
                 task_id, TaskStatus.FAILED, error=str(e)
             )
             logger.error("Error in update_coverage: %s", e, exc_info=True)
+            raise
+
+    async def _preprocess_streets(self):
+        """Wrapper for preprocess_streets to ensure proper async execution."""
+        task_id = "preprocess_streets"
+        try:
+            await self._update_task_status(task_id, TaskStatus.RUNNING)
+            # Get all areas in processing status
+            processing_areas = (
+                await self.db["coverage_metadata"]
+                .find({"status": "processing"})
+                .to_list(length=None)
+            )
+
+            for area in processing_areas:
+                try:
+                    await async_preprocess_streets(area["location"])
+                except Exception as e:
+                    logger.error(
+                        f"Error preprocessing streets for {area['location'].get('display_name')}: {e}",
+                        exc_info=True,
+                    )
+                    # Update area status to error
+                    await self.db["coverage_metadata"].update_one(
+                        {"_id": area["_id"]},
+                        {
+                            "$set": {
+                                "status": "error",
+                                "last_error": str(e),
+                                "last_updated": datetime.now(timezone.utc),
+                            }
+                        },
+                    )
+                    continue
+
+            await self._update_task_status(task_id, TaskStatus.COMPLETED)
+        except Exception as e:
+            await self._update_task_status(
+                task_id, TaskStatus.FAILED, error=str(e)
+            )
+            logger.error(
+                "Error in preprocess_streets task: %s", e, exc_info=True
+            )
             raise
 
     async def _cleanup_stale_trips(self):

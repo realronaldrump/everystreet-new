@@ -249,13 +249,41 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
         3. Updating the coverage metadata for the location.
     """
     try:
+        logger.info(
+            f"Starting street preprocessing for {validated_location['display_name']}"
+        )
+
+        # Update status to indicate processing has started
+        await coverage_metadata_collection.update_one(
+            {"location.display_name": validated_location["display_name"]},
+            {
+                "$set": {
+                    "status": "processing",
+                    "last_updated": datetime.now(timezone.utc),
+                }
+            },
+        )
+
         osm_data = await fetch_osm_data(validated_location)
         await process_osm_data(osm_data, validated_location)
+
         logger.info(
             f"Street preprocessing completed for {validated_location['display_name']}."
         )
     except Exception as e:
         logger.error(f"Error during street preprocessing: {e}", exc_info=True)
+        # Update status to indicate error
+        await coverage_metadata_collection.update_one(
+            {"location.display_name": validated_location["display_name"]},
+            {
+                "$set": {
+                    "status": "error",
+                    "last_error": str(e),
+                    "last_updated": datetime.now(timezone.utc),
+                }
+            },
+        )
+        raise
 
 
 if __name__ == "__main__":
