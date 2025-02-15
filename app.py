@@ -1940,33 +1940,112 @@ async def export_boundary(request: Request):
 
 @app.post("/api/preprocess_streets")
 async def preprocess_streets_route(request: Request):
+    """Process the coverage calculation in the background"""
     try:
         data = await request.json()
-        location_query = data.get("location")
-        location_type = data.get("location_type", "city")
-        if not location_query:
-            raise HTTPException(
-                status_code=400, detail="Location is required"
-            )
-        validated_location = await validate_location_osm(
-            location_query, location_type
-        )
+        location = data.get("location")
+        location_type = data.get("location_type")
+        
+        if not location or not location_type:
+            raise HTTPException(status_code=400, detail="Missing location data")
+
+        # Validate location with OSM
+        validated_location = await validate_location_osm(location, location_type)
         if not validated_location:
             raise HTTPException(status_code=400, detail="Invalid location")
-        asyncio.create_task(async_preprocess_streets(validated_location))
-        return {
-            "status": "success",
-            "message": (
-                f"Street data preprocessing initiated for "
-                f"{validated_location.get('display_name', location_query)}. "
-                "Check server logs for progress."
-            ),
-        }
+
+        # Create initial metadata entry with processing status
+        try:
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": validated_location["display_name"]},
+                {
+                    "$set": {
+                        "location": validated_location,
+                        "status": "processing",
+                        "total_length": 0,
+                        "driven_length": 0,
+                        "coverage_percentage": 0,
+                        "total_segments": 0,
+                    }
+                },
+                upsert=True
+            )
+        except DuplicateKeyError:
+            # If the area is already being processed, return error
+            existing = await coverage_metadata_collection.find_one(
+                {"location.display_name": validated_location["display_name"]}
+            )
+            if existing and existing.get("status") == "processing":
+                raise HTTPException(
+                    status_code=400,
+                    detail="This area is already being processed"
+                )
+            raise
+
+        # Start the preprocessing task
+        task_id = str(uuid.uuid4())
+        asyncio.create_task(process_area(validated_location, task_id))
+        
+        return {"status": "success", "task_id": task_id}
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(
-            "Error in preprocess_streets_route: %s", e, exc_info=True
+            "Error in preprocess_streets: %s\n%s",
+            e,
+            traceback.format_exc(),
         )
         raise HTTPException(status_code=500, detail=str(e))
+
+async def process_area(location: Dict[str, Any], task_id: str):
+    """Process the area in the background"""
+    try:
+        # Preprocess streets
+        await async_preprocess_streets(location)
+        
+        # Calculate coverage
+        result = await compute_coverage_for_location(location, task_id)
+        
+        if result:
+            # Update metadata with completed status
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": location["display_name"]},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "total_length": result["total_length"],
+                        "driven_length": result["driven_length"],
+                        "coverage_percentage": result["coverage_percentage"],
+                        "last_updated": datetime.now(timezone.utc),
+                    }
+                }
+            )
+        else:
+            # Update metadata with error status
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": location["display_name"]},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": "Failed to calculate coverage",
+                        "last_updated": datetime.now(timezone.utc),
+                    }
+                }
+            )
+    except Exception as e:
+        logger.error("Error processing area: %s", e, exc_info=True)
+        # Update metadata with error status
+        await coverage_metadata_collection.update_one(
+            {"location.display_name": location["display_name"]},
+            {
+                "$set": {
+                    "status": "error",
+                    "last_error": str(e),
+                    "last_updated": datetime.now(timezone.utc),
+                }
+            }
+        )
 
 
 @app.get("/api/street_segment/{segment_id}")

@@ -204,7 +204,8 @@
       tbody.innerHTML = "";
       areas.forEach(area => {
         const row = document.createElement("tr");
-        const isProcessing = !area.last_updated;
+        const isProcessing = area.status === "processing";
+        const hasError = area.status === "error";
         
         row.innerHTML = `
           <td>${area.location.display_name || "Unknown"}</td>
@@ -215,6 +216,11 @@
               `<div class="d-flex align-items-center">
                 <div class="spinner-border spinner-border-sm me-2"></div>
                 <span>Processing...</span>
+              </div>` :
+              hasError ?
+              `<div class="text-danger">
+                <i class="fas fa-exclamation-circle me-1"></i>
+                Error: ${area.last_error || "Unknown error"}
               </div>` :
               `<div class="progress" style="height: 20px;">
                 <div class="progress-bar bg-success" role="progressbar" 
@@ -228,10 +234,14 @@
             }
           </td>
           <td>${area.total_segments}</td>
-          <td>${area.last_updated ? new Date(area.last_updated).toLocaleString() : "Processing..."}</td>
+          <td>${area.last_updated ? new Date(area.last_updated).toLocaleString() : "Never"}</td>
           <td>
             <div class="btn-group btn-group-sm">
-              ${!isProcessing ? `
+              ${isProcessing ? `
+                <button class="btn btn-secondary" disabled>
+                  <i class="fas fa-spinner fa-spin"></i>
+                </button>
+              ` : `
                 <button class="btn btn-primary update-coverage" data-location='${JSON.stringify(area.location)}' title="Update Coverage">
                   <i class="fas fa-sync-alt"></i>
                 </button>
@@ -240,10 +250,6 @@
                 </button>
                 <button class="btn btn-danger delete-area" data-location='${JSON.stringify(area.location)}' title="Delete Area">
                   <i class="fas fa-trash"></i>
-                </button>
-              ` : `
-                <button class="btn btn-secondary" disabled>
-                  <i class="fas fa-spinner fa-spin"></i>
                 </button>
               `}
             </div>
@@ -332,44 +338,15 @@
     }
 
     setupAutoRefresh() {
-      this.activeTaskIds = new Set();
-      
-      // Refresh the table every 5 seconds if there are processing areas or active tasks
+      // Refresh the table every 5 seconds if there are processing areas
       setInterval(async () => {
         const tbody = document.querySelector("#coverage-areas-table tbody");
         const hasProcessingAreas = tbody && tbody.querySelector(".spinner-border");
         
-        if (hasProcessingAreas || this.activeTaskIds.size > 0) {
-          // Check task status for any active tasks
-          for (const taskId of this.activeTaskIds) {
-            try {
-              const response = await fetch(`/api/street_coverage/${taskId}`);
-              if (response.ok) {
-                const data = await response.json();
-                if (data.stage === "complete" || data.stage === "error") {
-                  this.activeTaskIds.delete(taskId);
-                  // Refresh the table to show the completed status
-                  await this.loadCoverageAreas();
-                  
-                  if (data.stage === "complete") {
-                    this.toastManager.show("Success", "Area processing completed!", "success");
-                  } else {
-                    this.toastManager.show("Error", "Area processing failed. Please try again.", "danger");
-                  }
-                }
-              }
-            } catch (error) {
-              console.error("Error checking task status:", error);
-              this.activeTaskIds.delete(taskId);
-            }
-          }
-          
-          // Always refresh the table if there are processing areas
-          if (hasProcessingAreas) {
-            await this.loadCoverageAreas();
-          }
+        if (hasProcessingAreas) {
+          await this.loadCoverageAreas();
         }
-      }, 5000); // Check every 5 seconds
+      }, 5000);
     }
   }
 
