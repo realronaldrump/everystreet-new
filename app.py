@@ -1945,9 +1945,10 @@ async def preprocess_streets_route(request: Request):
         data = await request.json()
         location = data.get("location")
         location_type = data.get("location_type")
-        
+
         if not location or not location_type:
-            raise HTTPException(status_code=400, detail="Missing location data")
+            raise HTTPException(
+                status_code=400, detail="Missing location data")
 
         # Validate location with OSM
         validated_location = await validate_location_osm(location, location_type)
@@ -1985,7 +1986,7 @@ async def preprocess_streets_route(request: Request):
         # Start the preprocessing task
         task_id = str(uuid.uuid4())
         asyncio.create_task(process_area(validated_location, task_id))
-        
+
         return {"status": "success", "task_id": task_id}
 
     except HTTPException:
@@ -1998,15 +1999,16 @@ async def preprocess_streets_route(request: Request):
         )
         raise HTTPException(status_code=500, detail=str(e))
 
+
 async def process_area(location: Dict[str, Any], task_id: str):
     """Process the area in the background"""
     try:
         # Preprocess streets
         await async_preprocess_streets(location)
-        
+
         # Calculate coverage
         result = await compute_coverage_for_location(location, task_id)
-        
+
         if result:
             # Update metadata with completed status
             await coverage_metadata_collection.update_one(
@@ -3938,11 +3940,13 @@ async def delete_coverage_area(request: Request):
         data = await request.json()
         location = data.get("location")
         if not location or not isinstance(location, dict):
-            raise HTTPException(status_code=400, detail="Invalid location data")
+            raise HTTPException(
+                status_code=400, detail="Invalid location data")
 
         display_name = location.get("display_name")
         if not display_name:
-            raise HTTPException(status_code=400, detail="Invalid location display name")
+            raise HTTPException(
+                status_code=400, detail="Invalid location display name")
 
         # Delete from coverage metadata
         delete_result = await coverage_metadata_collection.delete_one(
@@ -3955,7 +3959,8 @@ async def delete_coverage_area(request: Request):
         )
 
         if delete_result.deleted_count == 0:
-            raise HTTPException(status_code=404, detail="Coverage area not found")
+            raise HTTPException(
+                status_code=404, detail="Coverage area not found")
 
         return {"status": "success", "message": "Coverage area deleted successfully"}
     except HTTPException:
