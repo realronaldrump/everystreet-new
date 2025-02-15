@@ -3821,6 +3821,37 @@ def calculate_task_success_rate(history: List[Dict]) -> float:
     return (successful / len(history)) * 100
 
 
+@app.get("/coverage-management", response_class=HTMLResponse)
+async def coverage_management_page(request: Request):
+    """Coverage management page."""
+    return templates.TemplateResponse(
+        "coverage_management.html", {"request": request}
+    )
+
+
+@app.get("/api/coverage_areas")
+async def get_coverage_areas():
+    """Get all coverage areas with their metadata."""
+    try:
+        areas = await coverage_metadata_collection.find().to_list(length=None)
+        return {
+            "areas": [
+                {
+                    "location": area["location"],
+                    "total_length": area.get("total_length", 0),
+                    "driven_length": area.get("driven_length", 0),
+                    "coverage_percentage": area.get("coverage_percentage", 0),
+                    "last_updated": area.get("last_updated"),
+                    "total_segments": area.get("total_segments", 0),
+                }
+                for area in areas
+            ]
+        }
+    except Exception as e:
+        logger.error("Error fetching coverage areas: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
 

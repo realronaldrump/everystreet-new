@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Coverage Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">Coverage Areas Management</h2>
+            
+            <!-- Add New Area Card -->
+            <div class="card bg-dark text-white mb-4">
+                <div class="card-body">
+                    <h3 class="h5 mb-3">Add New Coverage Area</h3>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <input type="text" id="location-input" class="form-control location-input" placeholder="Enter location" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <select id="location-type" class="form-select">
+                                    <option value="city">City</option>
+                                    <option value="county">County</option>
+                                    <option value="state">State</option>
+                                    <option value="country">Country</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="d-flex gap-2">
+                                <button id="validate-location" class="btn btn-primary">
+                                    <i class="fas fa-check"></i> Validate Location
+                                </button>
+                                <button id="add-coverage-area" class="btn btn-success" disabled>
+                                    <i class="fas fa-plus"></i> Add Area
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coverage Areas Table Card -->
+            <div class="card bg-dark text-white">
+                <div class="card-body">
+                    <h3 class="h5 mb-3">Coverage Areas</h3>
+                    <div class="table-responsive">
+                        <table class="table table-dark" id="coverage-areas-table">
+                            <thead>
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Total Length</th>
+                                    <th>Driven Length</th>
+                                    <th>Coverage</th>
+                                    <th>Segments</th>
+                                    <th>Last Updated</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Areas will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Task Progress Modal -->
+<div class="modal fade" id="taskProgressModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white">
+            <div class="modal-header">
+                <h5 class="modal-title">Processing Area</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="progress mb-3">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                </div>
+                <p class="progress-message text-center">Starting...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+    <!-- Toasts will be dynamically added here -->
+</div>
+
+<!-- Toast Template -->
+<template id="toast-template">
+    <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <div class="rounded me-2 toast-icon"></div>
+            <strong class="me-auto toast-title"></strong>
+            <small class="text-muted">just now</small>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body"></div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', path='js/coverage-management.js') }}"></script>
+{% endblock %} 

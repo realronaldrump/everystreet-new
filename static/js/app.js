@@ -1125,6 +1125,20 @@
       }
       initializeLayerControls();
       fetchTrips().then(fetchMetrics);
+
+      // Check for selected location from coverage management
+      const selectedLocation = localStorage.getItem("selectedLocation");
+      if (selectedLocation) {
+        try {
+          const location = JSON.parse(selectedLocation);
+          window.validatedLocation = location;
+          generateStreetCoverage().then(() => {
+            localStorage.removeItem("selectedLocation");
+          });
+        } catch (error) {
+          console.error("Error loading selected location:", error);
+        }
+      }
     } else {
       fetchMetrics();
     }
