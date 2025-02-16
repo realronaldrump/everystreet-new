@@ -1992,14 +1992,14 @@ async def preprocess_streets_route(request: Request):
 
         return {"status": "success", "task_id": task_id}
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(
             "Error in preprocess_streets: %s\n%s",
             e,
             traceback.format_exc(),
         )
+        if isinstance(e, HTTPException):
+            raise
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2403,7 +2403,7 @@ def calculate_gpx_distance(coords):
     for i in range(len(coords) - 1):
         lon1, lat1 = coords[i]
         lon2, lat2 = coords[i + 1]
-        dist += gpxpy.geo.haversine_distance(lat1, lon1, lat2, lat2)
+        dist += gpxpy.geo.haversine_distance(lat1, lon1, lat2, lon2)
     return dist
 
 
@@ -3180,64 +3180,6 @@ async def refresh_geocoding_for_trips(request: Request):
     }
 
 
-@app.delete("/api/trips/bulk_delete")
-async def bulk_delete_trips(request: Request):
-    """
-    Deletes multiple trip documents by their transaction IDs.
-    """
-    try:
-        data = await request.json()
-        trip_ids = data.get("trip_ids", [])
-        if not trip_ids:
-            raise HTTPException(
-                status_code=400, detail="No trip IDs provided"
-            )
-
-        # Convert transaction IDs to ObjectIds if necessary and validate them
-        object_ids = []
-        for trip_id in trip_ids:
-            try:
-                object_ids.append(ObjectId(trip_id))
-            except bson.errors.InvalidId:
-                logger.warning("Invalid ObjectId format: %s", trip_id)
-
-        if not object_ids:
-            raise HTTPException(
-                status_code=400, detail="No valid trip IDs provided"
-            )
-
-        # Delete trips from the 'trips_collection'
-        trips_delete_result = await trips_collection.delete_many(
-            {
-                "_id": {"$in": object_ids}
-            }  # Find by _id which should be ObjectIds
-        )
-
-        # Delete corresponding matched trips from 'matched_trips_collection'
-        # Here we delete by 'transactionId'
-        matched_trips_delete_result = (
-            await matched_trips_collection.delete_many(
-                {
-                    "transactionId": {"$in": trip_ids}
-                }  # Find by transactionId which should be string
-            )
-        )
-
-        return {
-            "status": "success",
-            "message": (
-                f"Deleted {trips_delete_result.deleted_count} trips and "
-                f"{matched_trips_delete_result.deleted_count} matched trips"
-            ),
-            "deleted_trips_count": trips_delete_result.deleted_count,
-            "deleted_matched_trips_count": matched_trips_delete_result.deleted_count,
-        }
-
-    except Exception as e:
-        logger.error("Error in bulk_delete_trips: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 # Real-Time & Webhook Endpoints
 
 
@@ -3978,10 +3920,10 @@ async def delete_coverage_area(request: Request):
             "status": "success",
             "message": "Coverage area deleted successfully",
         }
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error("Error deleting coverage area: %s", e)
+        if isinstance(e, HTTPException):
+            raise
         raise HTTPException(status_code=500, detail=str(e))
 
 
