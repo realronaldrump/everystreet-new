@@ -14,7 +14,7 @@
       this.loadingManager = new LoadingManager();
 
       // Set the layer in the global mapLayers object
-      if (window.mapLayers && window.mapLayers.customPlaces) {
+      if (window.mapLayers?.customPlaces) {
         window.mapLayers.customPlaces.layer = this.customPlacesLayer;
       }
 

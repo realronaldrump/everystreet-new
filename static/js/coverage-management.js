@@ -111,7 +111,7 @@
         const taskData = await preprocessResponse.json();
         
         // Store the task ID for tracking
-        if (taskData && taskData.task_id) {
+        if (taskData?.task_id) {
           this.activeTaskIds = this.activeTaskIds || new Set();
           this.activeTaskIds.add(taskData.task_id);
         }
@@ -341,7 +341,7 @@
       // Refresh the table every 5 seconds if there are processing areas
       setInterval(async () => {
         const tbody = document.querySelector("#coverage-areas-table tbody");
-        const hasProcessingAreas = tbody && tbody.querySelector(".spinner-border");
+        const hasProcessingAreas = tbody?.querySelector(".spinner-border");
         
         if (hasProcessingAreas) {
           await this.loadCoverageAreas();

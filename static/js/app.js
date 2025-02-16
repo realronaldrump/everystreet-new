@@ -1155,7 +1155,7 @@
       if (!response.ok) throw new Error("Failed to fetch coverage data");
       
       const data = await response.json();
-      if (data && data.streets_data) {
+      if (data?.streets_data) {
         visualizeStreetCoverage(data);
         // Enable the street coverage layer
         mapLayers.streetCoverage.visible = true;
