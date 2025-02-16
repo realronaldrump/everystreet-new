@@ -1084,7 +1084,7 @@ async def api_fetch_trips_range(request: Request):
         hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
     )
     await fetch_bouncie_trips_in_range(
-        start_date, end_date, do_map_match=False, progress_data=progress_data
+        start_date, end_date, do_map_match=False
     )
     return {"status": "success", "message": "Trips fetched & stored."}
 
