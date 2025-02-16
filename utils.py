@@ -240,12 +240,7 @@ async def reverse_geocode_nominatim(
                         "Unexpected status code: %s", response.status
                     )
 
-        except (
-            ClientResponseError,
-            ClientConnectorError,
-            asyncio.TimeoutError,
-            OSError,
-        ) as e:
+        except (ClientResponseError, ClientConnectorError, OSError) as e:
             log_level = (
                 logging.WARNING if attempt < retries else logging.ERROR
             )
@@ -285,9 +280,9 @@ def get_trip_timezone(trip: Dict[str, Any]) -> str:
     """
     Attempts to determine the timezone for a trip by examining its gps data.
 
-    If the gps field is a JSON string, it is parsed into a dict. Then the function looks at the
-    "coordinates" property. For a Point geometry, the coordinate is used directly; for other types,
-    the first coordinate is used.
+    If the gps field is a JSON string, it is parsed into a dict. Then the function looks
+    at the "coordinates" property. For a Point geometry, the coordinate is
+    used directly; for other types, the first coordinate is used.
 
     Returns the timezone as a string (or 'UTC' if not found or in case of an error).
     """
@@ -298,7 +293,8 @@ def get_trip_timezone(trip: Dict[str, Any]) -> str:
         coords = gps_data.get("coordinates", [])
         if not coords:
             return "UTC"
-        # For a Point geometry, use the single coordinate; otherwise, use the first coordinate.
+        # For a Point geometry, use the single coordinate; otherwise, use the first
+        # coordinate.
         if gps_data.get("type") == "Point":
             lon, lat = coords
         else:

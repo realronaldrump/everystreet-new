@@ -204,7 +204,9 @@ async def process_osm_data(
                 total_length += segment_length
         except Exception as e:
             logger.error(
-                f"Error processing element {element.get('id')}: {e}",
+                "Error processing element %s: %s",
+                element.get("id"),
+                e,
                 exc_info=True,
             )
 
@@ -226,13 +228,15 @@ async def process_osm_data(
                 upsert=True,
             )
             logger.info(
-                f"Stored {len(features)} street segments for {location['display_name']}."
+                "Stored %d street segments for %s.",
+                len(features),
+                location["display_name"],
             )
         except Exception as e:
-            logger.error(f"Error storing data: {e}", exc_info=True)
+            logger.error("Error storing data: %s", e, exc_info=True)
     else:
         logger.info(
-            f"No valid street segments found for {location['display_name']}."
+            "No valid street segments found for %s.", location["display_name"]
         )
 
 
@@ -245,12 +249,14 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
 
     This function performs:
         1. Asynchronously fetching OSM data for the location.
-        2. Processing the OSM data (segmenting streets) and inserting the segments into MongoDB.
+        2. Processing the OSM data (segmenting streets) and inserting the segments into
+        MongoDB.
         3. Updating the coverage metadata for the location.
     """
     try:
         logger.info(
-            f"Starting street preprocessing for {validated_location['display_name']}"
+            "Starting street preprocessing for %s",
+            validated_location["display_name"],
         )
 
         # Update status to indicate processing has started
@@ -268,10 +274,13 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
         await process_osm_data(osm_data, validated_location)
 
         logger.info(
-            f"Street preprocessing completed for {validated_location['display_name']}."
+            "Street preprocessing completed for %s.",
+            validated_location["display_name"],
         )
     except Exception as e:
-        logger.error(f"Error during street preprocessing: {e}", exc_info=True)
+        logger.error(
+            "Error during street preprocessing: %s", e, exc_info=True
+        )
         # Update status to indicate error
         await coverage_metadata_collection.update_one(
             {"location.display_name": validated_location["display_name"]},

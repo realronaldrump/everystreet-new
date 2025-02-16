@@ -281,13 +281,13 @@ async def fetch_bouncie_trips_in_range(
     start_dt: datetime,
     end_dt: datetime,
     do_map_match: bool = False,
-    progress_data: dict = None,
+    task_progress: dict = None,
 ) -> list:
     """
     For each authorized device, fetch trips in 7‑day intervals between start_dt and
     end_dt.
     Process and store each trip. Optionally, trigger map matching on new trips.
-    If a progress_data dict is provided, update its status and progress.
+    If a task_progress dict is provided, update its status and progress.
     Returns a list of all newly inserted trips.
     """
     async with aiohttp.ClientSession() as session:
@@ -296,19 +296,18 @@ async def fetch_bouncie_trips_in_range(
             logger.error(
                 "Failed to obtain access token; aborting fetch_and_store_trips."
             )
-            if progress_data is not None:
-                progress_data["fetch_and_store_trips"]["status"] = "failed"
+            if task_progress is not None:
+                task_progress["fetch_and_store_trips"]["status"] = "failed"
             return []
 
         all_new_trips = []
         total_devices = len(AUTHORIZED_DEVICES)
         for device_index, imei in enumerate(AUTHORIZED_DEVICES, start=1):
             # Update progress status for this device
-            if progress_data is not None:
-                progress_data["fetch_and_store_trips"]["message"] = (
-                    "Fetching trips for device %d of %d"
-                    % (device_index, total_devices)
-                )
+            if task_progress is not None:
+                task_progress["fetch_and_store_trips"][
+                    "message"
+                ] = f"Fetching trips for device {device_index} of {total_devices}"
             device_new_trips = []
             current_start = start_dt
             while current_start < end_dt:
@@ -319,8 +318,8 @@ async def fetch_bouncie_trips_in_range(
                 for trip in trips:
                     if await store_trip(trip):
                         device_new_trips.append(trip)
-                if progress_data is not None:
-                    progress_data["fetch_and_store_trips"]["progress"] = int(
+                if task_progress is not None:
+                    task_progress["fetch_and_store_trips"]["progress"] = int(
                         (device_index / total_devices) * 50
                     )
                 current_start = current_end
@@ -346,9 +345,9 @@ async def fetch_bouncie_trips_in_range(
                     "Error during map matching: %s", e, exc_info=True
                 )
 
-        if progress_data is not None:
-            progress_data["fetch_and_store_trips"]["progress"] = 100
-            progress_data["fetch_and_store_trips"]["status"] = "completed"
+        if task_progress is not None:
+            task_progress["fetch_and_store_trips"]["progress"] = 100
+            task_progress["fetch_and_store_trips"]["status"] = "completed"
 
         return all_new_trips
 
@@ -396,7 +395,8 @@ async def get_trips_from_api(
                         parsed = parsed.replace(tzinfo=pytz.UTC)
                     trip["endTime"] = parsed.astimezone(timezone_obj)
             logger.info(
-                "Successfully fetched %d trips from Bouncie API for IMEI: %s, date range: %s to %s",
+                "Successfully fetched %d trips from Bouncie API for IMEI: %s, "
+                "date range: %s to %s",
                 len(trips),
                 imei,
                 start_date,
@@ -405,7 +405,8 @@ async def get_trips_from_api(
             return trips
     except ClientResponseError as e:
         logger.error(
-            "ClientResponseError fetching trips: %d - %s, IMEI: %s, date range: %s to %s",
+            "ClientResponseError fetching trips: %d - %s, "
+            "IMEI: %s, date range: %s to %s",
             e.status,
             e.message,
             imei,

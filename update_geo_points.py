@@ -70,31 +70,38 @@ async def update_geo_points(collection):
                         "Updated GeoPoints for document _id: %s",
                         doc.get("_id", "?"),
                     )
-                    logger.debug(
-                        f"Updated GeoPoints for document _id: {doc.get('_id', '?')}"
-                    )
             except (KeyError, IndexError) as e:
                 logger.warning(
-                    f"Skipping document {doc.get('_id', '?')}: Incomplete GPS data - {e}"
+                    "Skipping document %s: Incomplete GPS data - %s",
+                    doc.get("_id", "?"),
+                    e,
                 )
             except json.JSONDecodeError as e:
                 logger.error(
-                    f"Invalid JSON in 'gps' for document {doc.get('_id', '?')}: {e}",
+                    "Invalid JSON in 'gps' for document %s: %s",
+                    doc.get("_id", "?"),
+                    e,
                     exc_info=True,
                 )
             except Exception as e:
                 logger.error(
-                    f"Error updating document {doc.get('_id', '?')}: {e}",
+                    "Error updating document %s: %s",
+                    doc.get("_id", "?"),
+                    e,
                     exc_info=True,
                 )
     except Exception as e:
         logger.error(
-            f"Error iterating collection {collection.name}: {e}",
+            "Error iterating collection %s: %s",
+            collection.name,
+            e,
             exc_info=True,
         )
     finally:
         logger.info(
-            f"GeoPoint update for collection {collection.name} completed. Updated {updated_count} documents."
+            "GeoPoint update for collection %s completed. Updated %d documents.",
+            collection.name,
+            updated_count,
         )
 
 

@@ -202,7 +202,7 @@ class CoverageCalculator:
             return covered
 
         except Exception as e:
-            logger.error(f"Error processing trip: {e}", exc_info=True)
+            logger.error("Error processing trip: %s", e, exc_info=True)
             return set()
 
     async def compute_coverage(self) -> Optional[Dict[str, Any]]:
@@ -350,8 +350,8 @@ class CoverageCalculator:
             }
 
         except Exception as e:
-            logger.error(f"Error computing coverage: {e}", exc_info=True)
-            await self.update_progress("error", 0, f"Error: {str(e)}")
+            logger.error("Error computing coverage: %s", e, exc_info=True)
+            await self.update_progress("error", 0, "Error: %s" % str(e))
             return None
 
     @staticmethod
@@ -397,7 +397,8 @@ async def update_coverage_for_all_locations() -> None:
                 continue
             if isinstance(loc, str):
                 logger.warning(
-                    f"Skipping coverage doc {doc['_id']} - invalid location format"
+                    "Skipping coverage doc %s - invalid location format",
+                    doc["_id"],
                 )
                 continue
 
@@ -421,10 +422,12 @@ async def update_coverage_for_all_locations() -> None:
                     upsert=True,
                 )
                 logger.info(
-                    f"Updated coverage for {display_name}: {result['coverage_percentage']:.2f}%"
+                    "Updated coverage for %s: %.2f%%",
+                    display_name,
+                    result["coverage_percentage"],
                 )
         logger.info("Finished coverage update for all locations.")
     except Exception as e:
         logger.error(
-            f"Error updating coverage for all locations: {e}", exc_info=True
+            "Error updating coverage for all locations: %s", e, exc_info=True
         )

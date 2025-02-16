@@ -308,7 +308,7 @@ class BackgroundTaskManager:
                 return
             task_def = self.tasks.get(task_id)
             if not task_def:
-                raise ValueError("Unknown task ID: %s", task_id)
+                raise ValueError(f"Unknown task ID: {task_id}")
             # Remove existing job if any
             try:
                 self.scheduler.remove_job(task_id)
@@ -388,7 +388,7 @@ class BackgroundTaskManager:
         }
         task_func = task_function_map.get(task_id)
         if not task_func:
-            raise ValueError("No function found for task ID: %s", task_id)
+            raise ValueError(f"No function found for task ID: {task_id}")
         return task_func
 
     async def get_config(self) -> Dict[str, Any]:
@@ -478,7 +478,9 @@ class BackgroundTaskManager:
                     await async_preprocess_streets(area["location"])
                 except Exception as e:
                     logger.error(
-                        f"Error preprocessing streets for {area['location'].get('display_name')}: {e}",
+                        "Error preprocessing streets for %s: %s",
+                        area["location"].get("display_name"),
+                        e,
                         exc_info=True,
                     )
                     # Update area status to error
@@ -698,7 +700,7 @@ class BackgroundTaskManager:
                         except ValueError:
                             updates["invalid"] = True
                             updates["validation_message"] = (
-                                "Invalid %s format" % field
+                                f"Invalid {field} format"
                             )
                 # Validate GPS data
                 if isinstance(trip.get("gps"), str):
