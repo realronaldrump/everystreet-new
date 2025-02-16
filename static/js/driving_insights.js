@@ -309,7 +309,7 @@
       `${(data.longest_trip_distance || 0).toFixed(2)} miles`;
 
     const mostVisitedElement = document.getElementById("most-visited");
-    if (data.most_visited && data.most_visited._id) {
+    if (data.most_visited?._id) {
       const { _id, count, isCustomPlace } = data.most_visited;
       mostVisitedElement.innerHTML = `${_id} ${isCustomPlace ? '<span class="badge bg-primary">Custom</span>' : ""} (${count} visits)`;
     } else {
