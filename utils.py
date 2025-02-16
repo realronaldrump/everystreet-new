@@ -240,7 +240,7 @@ async def reverse_geocode_nominatim(
                         "Unexpected status code: %s", response.status
                     )
 
-        except (ClientResponseError, ClientConnectorError, OSError) as e:
+        except (ClientResponseError, ClientConnectorError) as e:
             log_level = (
                 logging.WARNING if attempt < retries else logging.ERROR
             )
