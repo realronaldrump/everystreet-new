@@ -185,9 +185,10 @@ class CoverageCalculator:
             covered = set()
 
             # Query potentially intersecting streets using R-tree
-            for idx in self.streets_index.intersection(
-                trip_buffer_wgs84.bounds
-            ):
+            intersecting_indices = list(
+                self.streets_index.intersection(trip_buffer_wgs84.bounds)
+            )
+            for idx in intersecting_indices:
                 street = self.streets_lookup[idx]
                 street_geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, street_geom)
