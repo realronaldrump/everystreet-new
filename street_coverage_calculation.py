@@ -352,7 +352,7 @@ class CoverageCalculator:
 
         except Exception as e:
             logger.error("Error computing coverage: %s", e, exc_info=True)
-            await self.update_progress("error", 0, "Error: %s" % str(e))
+            await self.update_progress("error", 0, f"Error: {str(e)}")
             return None
 
     @staticmethod

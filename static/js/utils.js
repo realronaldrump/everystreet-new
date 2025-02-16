@@ -5,7 +5,7 @@ class NotificationManager {
     this.container = this._getOrCreateContainer();
   }
 
-  _getOrCreateContainer() {
+  static _getOrCreateContainer() {
     let container = document.querySelector('.notification-container');
     if (!(container instanceof HTMLElement)) {
       container = document.createElement('div');
@@ -59,7 +59,7 @@ class ConfirmationDialog {
     }
   }
 
-  async show(options = {}) {
+  show(options = {}) {
     const {
       title = 'Confirm',
       message = 'Are you sure?',
@@ -82,11 +82,6 @@ class ConfirmationDialog {
       cancelBtn.textContent = cancelText;
       confirmBtn.className = `btn confirm-btn ${confirmButtonClass}`;
 
-      const cleanup = () => {
-        confirmBtn.removeEventListener('click', handleConfirm);
-        modalElement.removeEventListener('hidden.bs.modal', handleDismiss);
-      };
-
       const handleConfirm = () => {
         cleanup();
         modal.hide();
@@ -96,6 +91,11 @@ class ConfirmationDialog {
       const handleDismiss = () => {
         cleanup();
         resolve(false);
+      };
+
+      const cleanup = () => {
+        confirmBtn.removeEventListener('click', handleConfirm);
+        modalElement.removeEventListener('hidden.bs.modal', handleDismiss);
       };
 
       confirmBtn.addEventListener('click', handleConfirm);
