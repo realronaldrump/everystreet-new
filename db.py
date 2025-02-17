@@ -20,6 +20,7 @@ class DatabaseManager:
     _instance = None
     _client = None
     _db = None
+    _quota_exceeded = False
 
     def __new__(cls):
         if cls._instance is None:
@@ -59,9 +60,51 @@ class DatabaseManager:
         """Get the client instance."""
         return self._client
 
+    @property
+    def quota_exceeded(self) -> bool:
+        """Check if the database quota is exceeded."""
+        return self._quota_exceeded
+
+    async def check_quota(self):
+        """Check if the database quota is exceeded."""
+        try:
+            stats = await self._db.command("dbStats")
+            used_mb = stats["dataSize"] / (1024 * 1024)
+            limit_mb = 512  # Atlas free tier limit
+            self._quota_exceeded = used_mb > limit_mb
+            if self._quota_exceeded:
+                logger.warning(
+                    "MongoDB quota exceeded: using %.2f MB of %d MB",
+                    used_mb,
+                    limit_mb
+                )
+            return used_mb, limit_mb
+        except Exception as e:
+            if "you are over your space quota" in str(e):
+                self._quota_exceeded = True
+                logger.error("MongoDB quota exceeded error: %s", e)
+            else:
+                logger.error("Error checking database quota: %s", e)
+            return None, None
+
+    async def safe_create_index(self, collection, keys, **kwargs):
+        """Create an index only if quota is not exceeded."""
+        if not self._quota_exceeded:
+            try:
+                await self._db[collection].create_index(keys, **kwargs)
+            except Exception as e:
+                if "you are over your space quota" in str(e):
+                    self._quota_exceeded = True
+                    logger.warning("Cannot create index due to quota exceeded")
+                else:
+                    logger.error("Error creating index: %s", e)
+
 
 # Create a single instance of the database manager
 db_manager = DatabaseManager()
+
+# Export the database instance
+db = db_manager.db
 
 # Export collections using the singleton database manager
 trips_collection = db_manager.db["trips"]

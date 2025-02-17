@@ -66,6 +66,8 @@ from db import (
     init_task_history_collection,
     progress_collection,
     ensure_street_coverage_indexes,
+    db_manager,  # Add db_manager to imports
+    db,  # Add db to imports
 )
 from trip_processing import format_idle_time
 from export_helpers import create_geojson, create_gpx
@@ -81,12 +83,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-uploaded_trips_collection.create_index("transactionId", unique=True)
-matched_trips_collection.create_index("transactionId", unique=True)
-osm_data_collection.create_index([("location", 1), ("type", 1)], unique=True)
-streets_collection.create_index([("geometry", "2dsphere")])
-streets_collection.create_index([("properties.location", 1)])
-coverage_metadata_collection.create_index([("location", 1)], unique=True)
+# uploaded_trips_collection.create_index("transactionId", unique=True)
+# matched_trips_collection.create_index("transactionId", unique=True)
+# osm_data_collection.create_index([("location", 1), ("type", 1)], unique=True)
+# streets_collection.create_index([("geometry", "2dsphere")])
+# streets_collection.create_index([("properties.location", 1)])
+# coverage_metadata_collection.create_index([("location", 1)], unique=True)
 
 
 app = FastAPI()
@@ -3712,11 +3714,35 @@ async def internal_error_handler(request: Request, exc):
 
 @app.on_event("startup")
 async def startup_event():
-    # No need to create a new instance here; use the global one
-    await task_manager.start()  # Call start() on the imported instance
-    await init_task_history_collection()  # ensure indexes are created
-    await ensure_street_coverage_indexes()  # ensure street coverage indexes
-    print("Application startup completed successfully")
+    """Initialize application on startup."""
+    try:
+        # Check database quota first
+        used_mb, limit_mb = await db_manager.check_quota()
+        
+        if not db_manager.quota_exceeded:
+            # Only create indexes if quota is not exceeded
+            await db_manager.safe_create_index("uploaded_trips", "transactionId", unique=True)
+            await db_manager.safe_create_index("matched_trips", "transactionId", unique=True)
+            await db_manager.safe_create_index("osm_data", [("location", 1), ("type", 1)], unique=True)
+            await db_manager.safe_create_index("streets", [("geometry", "2dsphere")])
+            await db_manager.safe_create_index("streets", [("properties.location", 1)])
+            await db_manager.safe_create_index("coverage_metadata", [("location", 1)], unique=True)
+            
+            # Start task manager only if quota is not exceeded
+            await task_manager.start()
+            await init_task_history_collection()
+            await ensure_street_coverage_indexes()
+            logger.info("Application startup completed successfully")
+        else:
+            logger.warning(
+                "Application started in limited mode due to exceeded storage quota (%.2f MB / %d MB)",
+                used_mb,
+                limit_mb
+            )
+    except Exception as e:
+        logger.error("Error during application startup: %s", e, exc_info=True)
+        # Don't raise the exception - let the application start in a degraded state
+        # but log the error for monitoring
 
 
 @app.on_event("shutdown")
@@ -3926,6 +3952,106 @@ async def delete_coverage_area(request: Request):
             raise
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.get("/database-management")
+async def database_management_page(request: Request):
+    """Render the database management page."""
+    try:
+        # Get database stats
+        db_stats = await db.command("dbStats")
+        storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
+        storage_limit_mb = 512  # Your MongoDB Atlas free tier limit
+        storage_usage_percent = round((storage_used_mb / storage_limit_mb) * 100, 2)
+
+        # Get collection stats
+        collections = []
+        for collection_name in await db.list_collection_names():
+            stats = await db.command("collStats", collection_name)
+            collections.append({
+                "name": collection_name,
+                "document_count": stats["count"],
+                "size_mb": round(stats["size"] / (1024 * 1024), 2)
+            })
+
+        return templates.TemplateResponse(
+            "database_management.html",
+            {
+                "request": request,
+                "storage_used_mb": storage_used_mb,
+                "storage_limit_mb": storage_limit_mb,
+                "storage_usage_percent": storage_usage_percent,
+                "collections": collections
+            }
+        )
+    except Exception as e:
+        logger.error("Error loading database management page: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/database/storage-info")
+async def get_storage_info():
+    """Get current database storage information."""
+    try:
+        db_stats = await db.command("dbStats")
+        storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
+        storage_limit_mb = 512
+        storage_usage_percent = round((storage_used_mb / storage_limit_mb) * 100, 2)
+        
+        return {
+            "used_mb": storage_used_mb,
+            "limit_mb": storage_limit_mb,
+            "usage_percent": storage_usage_percent
+        }
+    except Exception as e:
+        logger.error("Error getting storage info: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/database/optimize-collection")
+async def optimize_collection(collection: dict):
+    """Optimize a specific collection."""
+    try:
+        # Run compact command on the collection
+        await db.command("compact", collection["collection"])
+        # Rebuild indexes
+        await db[collection["collection"]].reindex()
+        return {"message": f"Successfully optimized collection {collection['collection']}"}
+    except Exception as e:
+        logger.error("Error optimizing collection: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/database/clear-collection")
+async def clear_collection(collection: dict):
+    """Clear all documents from a collection."""
+    try:
+        result = await db[collection["collection"]].delete_many({})
+        return {"message": f"Successfully cleared {result.deleted_count} documents from {collection['collection']}"}
+    except Exception as e:
+        logger.error("Error clearing collection: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/database/optimize-all")
+async def optimize_all_collections():
+    """Optimize all collections in the database."""
+    try:
+        collection_names = await db.list_collection_names()
+        for collection_name in collection_names:
+            await db.command("compact", collection_name)
+            await db[collection_name].reindex()
+        return {"message": "Successfully optimized all collections"}
+    except Exception as e:
+        logger.error("Error optimizing all collections: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/database/repair-indexes")
+async def repair_indexes():
+    """Repair indexes for all collections."""
+    try:
+        collection_names = await db.list_collection_names()
+        for collection_name in collection_names:
+            await db[collection_name].reindex()
+        return {"message": "Successfully repaired indexes for all collections"}
+    except Exception as e:
+        logger.error("Error repairing indexes: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
