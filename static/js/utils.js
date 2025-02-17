@@ -5,12 +5,11 @@ class NotificationManager {
     this.container = this._getOrCreateContainer();
   }
 
-  static _getOrCreateContainer() {
+  _getOrCreateContainer() {
     let container = document.querySelector(".notification-container");
-    if (!(container instanceof HTMLElement)) {
+    if (!container) {
       container = document.createElement("div");
-      container.className =
-        "notification-container position-fixed top-0 end-0 p-3";
+      container.className = "notification-container position-fixed top-0 end-0 p-3";
       document.body.appendChild(container);
     }
     return container;
@@ -18,10 +17,10 @@ class NotificationManager {
 
   show(message, type = "info", duration = 5000) {
     const notificationDiv = document.createElement("div");
-    notificationDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    notificationDiv.className = `alert alert-${type} alert-dismissible fade show bg-dark text-white`;
     notificationDiv.innerHTML = `
       ${message}
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
     this.container.appendChild(notificationDiv);
     setTimeout(() => notificationDiv.remove(), duration);
@@ -38,10 +37,10 @@ class ConfirmationDialog {
     const modalHtml = `
       <div class="modal fade" id="${this.modalId}" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
-          <div class="modal-content">
+          <div class="modal-content bg-dark text-white">
             <div class="modal-header">
               <h5 class="modal-title"></h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body"></div>
             <div class="modal-footer">
@@ -66,7 +65,7 @@ class ConfirmationDialog {
       message = "Are you sure?",
       confirmText = "Confirm",
       cancelText = "Cancel",
-      confirmButtonClass = "btn-primary",
+      confirmButtonClass = "btn-danger",
     } = options;
 
     return new Promise((resolve) => {

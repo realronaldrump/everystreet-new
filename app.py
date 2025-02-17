@@ -83,14 +83,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# uploaded_trips_collection.create_index("transactionId", unique=True)
-# matched_trips_collection.create_index("transactionId", unique=True)
-# osm_data_collection.create_index([("location", 1), ("type", 1)], unique=True)
-# streets_collection.create_index([("geometry", "2dsphere")])
-# streets_collection.create_index([("properties.location", 1)])
-# coverage_metadata_collection.create_index([("location", 1)], unique=True)
-
-
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")

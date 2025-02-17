@@ -1,7 +1,8 @@
-import os
 import logging
+import math
+import os
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -29,14 +30,14 @@ coverage_metadata_collection = db["coverage_metadata"]
 OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
 # Coordinate reference systems and transformers
-wgs84 = pyproj.CRS("EPSG:4326")
-# For segmentation purposes, we define a default UTM projection.
-default_utm = pyproj.CRS("EPSG:32610")  # Adjust the UTM zone as needed.
+WGS84 = pyproj.CRS("EPSG:4326")
+# For segmentation purposes, we define a default UTM projection (adjust as needed)
+DEFAULT_UTM = pyproj.CRS("EPSG:32610")
 project_to_utm = pyproj.Transformer.from_crs(
-    wgs84, default_utm, always_xy=True
+    WGS84, DEFAULT_UTM, always_xy=True
 ).transform
 project_to_wgs84 = pyproj.Transformer.from_crs(
-    default_utm, wgs84, always_xy=True
+    DEFAULT_UTM, WGS84, always_xy=True
 ).transform
 
 
@@ -45,16 +46,6 @@ async def fetch_osm_data(
 ) -> Dict[str, Any]:
     """
     Asynchronously fetch OSM data for the given location using the Overpass API.
-
-    Args:
-        location: Dictionary containing location data with osm_id and osm_type.
-        streets_only: If True, only fetch street data. If False, fetch all data.
-
-    Returns:
-        Dictionary containing the OSM data response.
-
-    Raises:
-        aiohttp.ClientError: If there's an error fetching the data.
     """
     area_id = int(location["osm_id"])
     if location["osm_type"] == "relation":
@@ -78,77 +69,99 @@ async def fetch_osm_data(
         );
         out geom;
         """
-    async with (
-        aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=30)
-        ) as session,
-        session.get(OVERPASS_URL, params={"data": query}) as response,
-    ):
-        response.raise_for_status()
-        osm_data = await response.json()
-        return osm_data
+    timeout = aiohttp.ClientTimeout(total=30)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.get(
+            OVERPASS_URL, params={"data": query}
+        ) as response:
+            response.raise_for_status()
+            osm_data = await response.json()
+            return osm_data
+
+
+def substring(
+    line: LineString, start: float, end: float
+) -> Optional[LineString]:
+    """
+    Return a segment (substring) of the LineString between distances start and end.
+    """
+    if start < 0 or end > line.length or start >= end:
+        return None
+    coords = list(line.coords)
+    if start == 0 and end >= line.length:
+        return line
+
+    segment_coords = []
+    accumulated = 0.0
+    for i in range(len(coords) - 1):
+        p0, p1 = coords[i], coords[i + 1]
+        seg = LineString([p0, p1])
+        seg_length = seg.length
+
+        # Check if this segment contains the start
+        if accumulated + seg_length < start:
+            accumulated += seg_length
+            continue
+
+        # Determine the start point
+        if accumulated < start <= accumulated + seg_length:
+            fraction = (start - accumulated) / seg_length
+            start_point = (
+                p0[0] + fraction * (p1[0] - p0[0]),
+                p0[1] + fraction * (p1[1] - p0[1]),
+            )
+        else:
+            start_point = p0
+
+        # Determine the end point for the current segment
+        if accumulated + seg_length >= end:
+            fraction = (end - accumulated) / seg_length
+            end_point = (
+                p0[0] + fraction * (p1[0] - p0[0]),
+                p0[1] + fraction * (p1[1] - p0[1]),
+            )
+            if not segment_coords:
+                segment_coords.append(start_point)
+            else:
+                # Ensure continuity if needed
+                if segment_coords[-1] != start_point:
+                    segment_coords.append(start_point)
+            segment_coords.append(end_point)
+            break
+        else:
+            if not segment_coords:
+                segment_coords.append(start_point)
+            else:
+                if segment_coords[-1] != start_point:
+                    segment_coords.append(start_point)
+            segment_coords.append(p1)
+            accumulated += seg_length
+
+    return LineString(segment_coords) if len(segment_coords) >= 2 else None
 
 
 def segment_street(
     line: LineString, segment_length_meters: float = 100
 ) -> List[LineString]:
     """
-    Split a LineString into segments each roughly segment_length_meters long.
-
-    Args:
-        line: The LineString to segment.
-        segment_length_meters: Target length for each segment in meters.
-
-    Returns:
-        List of LineString segments.
+    Split a LineString into segments approximately segment_length_meters long.
+    If the line is shorter than the target segment length, returns the line itself.
     """
     segments = []
-    length = line.length
-    if length <= segment_length_meters:
+    total_length = line.length
+    if total_length <= segment_length_meters:
         return [line]
-    for i in range(0, int(length), segment_length_meters):
-        segment = cut(line, i, min(i + segment_length_meters, length))
-        if segment:
-            segments.append(segment)
+    # Use a while-loop to extract substrings
+    start_distance = 0.0
+    while start_distance < total_length:
+        end_distance = min(
+            start_distance + segment_length_meters, total_length
+        )
+        seg = substring(line, start_distance, end_distance)
+        if seg is not None:
+            segments.append(seg)
+        start_distance = end_distance
     return segments
-
-
-def cut(
-    line: LineString, start_distance: float, end_distance: float
-) -> Optional[LineString]:
-    """
-    Cut a LineString between start_distance and end_distance.
-
-    Args:
-        line: The LineString to cut.
-        start_distance: Starting distance along the line.
-        end_distance: Ending distance along the line.
-
-    Returns:
-        A new LineString for the cut segment or None if invalid.
-    """
-    if (
-        start_distance < 0
-        or end_distance > line.length
-        or start_distance >= end_distance
-    ):
-        return None
-    coords = list(line.coords)
-    if start_distance == 0 and end_distance == line.length:
-        return line
-
-    segment_coords = []
-    if start_distance > 0:
-        start_point = line.interpolate(start_distance)
-        segment_coords.append((start_point.x, start_point.y))
-    for coord in coords:
-        point = Point(coord)
-        if start_distance < line.project(point) < end_distance:
-            segment_coords.append(coord)
-    if end_distance < line.length:
-        end_point = line.interpolate(end_distance)
-        segment_coords.append((end_point.x, end_point.y))
-    return LineString(segment_coords) if len(segment_coords) >= 2 else None
 
 
 async def process_osm_data(
@@ -157,32 +170,32 @@ async def process_osm_data(
     """
     Process OSM elements: segment each street (way) and store them in MongoDB.
     Also update coverage metadata for the location.
-
-    Args:
-        osm_data: Dictionary containing OSM data response.
-        location: Dictionary containing location information.
     """
     features = []
-    total_length = 0.0  # Explicitly declare as float
+    total_length = 0.0
 
     for element in osm_data.get("elements", []):
         if element.get("type") != "way":
             continue
         try:
+            # Extract coordinates from the element's geometry
             nodes = [
                 (node["lon"], node["lat"]) for node in element["geometry"]
             ]
+            if len(nodes) < 2:
+                continue
             line = LineString(nodes)
-            # Project to UTM for segmentation
+            # Project to UTM for more accurate segmentation
             projected_line = transform(project_to_utm, line)
-            segments = segment_street(projected_line)
+            segments = segment_street(
+                projected_line, segment_length_meters=100
+            )
 
             for i, segment in enumerate(segments):
                 # Reproject each segment back to WGS84
                 segment_wgs84 = transform(project_to_wgs84, segment)
-                segment_length = (
-                    segment.length
-                )  # Length in meters (UTM units)
+                segment_length = segment.length  # in meters (UTM units)
+                total_length += segment_length
 
                 feature = {
                     "type": "Feature",
@@ -194,14 +207,13 @@ async def process_osm_data(
                             "name", "Unnamed Street"
                         ),
                         "location": location["display_name"],
-                        "length": segment_length,
+                        "segment_length": segment_length,
                         "driven": False,
                         "last_updated": None,
                         "matched_trips": [],
                     },
                 }
                 features.append(feature)
-                total_length += segment_length
         except Exception as e:
             logger.error(
                 "Error processing element %s: %s",
@@ -243,23 +255,17 @@ async def process_osm_data(
 async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
     """
     Asynchronously preprocess street data for a given validated location.
-
-    Args:
-        validated_location: Dictionary containing validated location data.
-
-    This function performs:
-        1. Asynchronously fetching OSM data for the location.
-        2. Processing the OSM data (segmenting streets) and inserting the segments into
-        MongoDB.
-        3. Updating the coverage metadata for the location.
+    This involves:
+      1. Fetching OSM data from the Overpass API.
+      2. Segmenting the streets.
+      3. Inserting segments into MongoDB and updating coverage metadata.
     """
     try:
         logger.info(
             "Starting street preprocessing for %s",
             validated_location["display_name"],
         )
-
-        # Update status to indicate processing has started
+        # Update metadata to indicate processing has started
         await coverage_metadata_collection.update_one(
             {"location.display_name": validated_location["display_name"]},
             {
@@ -269,10 +275,8 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
                 }
             },
         )
-
-        osm_data = await fetch_osm_data(validated_location)
+        osm_data = await fetch_osm_data(validated_location, streets_only=True)
         await process_osm_data(osm_data, validated_location)
-
         logger.info(
             "Street preprocessing completed for %s.",
             validated_location["display_name"],
@@ -281,7 +285,7 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
         logger.error(
             "Error during street preprocessing: %s", e, exc_info=True
         )
-        # Update status to indicate error
+        # Update status to indicate error in metadata
         await coverage_metadata_collection.update_one(
             {"location.display_name": validated_location["display_name"]},
             {
@@ -293,9 +297,3 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
             },
         )
         raise
-
-
-if __name__ == "__main__":
-    logger.info(
-        "This module is not meant to be run independently. Use it via your application."
-    )
