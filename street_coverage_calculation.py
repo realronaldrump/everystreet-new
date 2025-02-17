@@ -54,31 +54,30 @@ class CoverageCalculator:
         self.processed_trips = 0
 
     async def update_progress(
-        self, stage: str, progress: float, message: str = ""
+        self, stage: str, progress: float, message: str = "", error: str = ""
     ):
         """Update progress in MongoDB with more detailed information"""
         try:
+            update_data = {
+                "stage": stage,
+                "progress": progress,
+                "message": message,
+                "updated_at": datetime.now(timezone.utc),
+                "location": self.location.get("display_name", "Unknown"),
+                "total_trips": self.total_trips,
+                "processed_trips": self.processed_trips,
+                "total_length": self.total_length,
+                "covered_segments": (
+                    len(self.covered_segments)
+                    if hasattr(self, "covered_segments")
+                    else 0
+                ),
+            }
+            if error:
+                update_data["error"] = error
             await progress_collection.update_one(
                 {"_id": self.task_id},
-                {
-                    "$set": {
-                        "stage": stage,
-                        "progress": progress,
-                        "message": message,
-                        "updated_at": datetime.now(timezone.utc),
-                        "location": self.location.get(
-                            "display_name", "Unknown"
-                        ),
-                        "total_trips": self.total_trips,
-                        "processed_trips": self.processed_trips,
-                        "total_length": self.total_length,
-                        "covered_segments": (
-                            len(self.covered_segments)
-                            if hasattr(self, "covered_segments")
-                            else 0
-                        ),
-                    }
-                },
+                {"$set": update_data},
                 upsert=True,
             )
         except Exception as e:

@@ -4083,6 +4083,54 @@ async def repair_indexes():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/coverage_areas/retry")
+async def retry_coverage_area(request: Request):
+    """Retry processing a coverage area."""
+    try:
+        data = await request.json()
+        location = data.get("location")
+        if not location or not isinstance(location, dict):
+            raise HTTPException(status_code=400, detail="Invalid location data")
+
+        # Generate a new task ID
+        task_id = str(uuid.uuid4())
+
+        # Start the coverage calculation in the background
+        asyncio.create_task(process_coverage_calculation(location, task_id))
+
+        return {"status": "success", "task_id": task_id}
+
+    except Exception as e:
+        logger.error("Error retrying coverage area: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/coverage_areas/cancel")
+async def cancel_coverage_area(request: Request):
+    """Cancel processing of a coverage area."""
+    try:
+        data = await request.json()
+        location = data.get("location")
+        if not location or not isinstance(location, dict):
+            raise HTTPException(status_code=400, detail="Invalid location data")
+
+        display_name = location.get("display_name")
+        if not display_name:
+            raise HTTPException(status_code=400, detail="Invalid location display name")
+
+        # Update the status to canceled
+        await coverage_metadata_collection.update_one(
+            {"location.display_name": display_name},
+            {"$set": {"status": "canceled", "last_error": "Task was canceled by user."}}
+        )
+
+        return {"status": "success", "message": "Coverage area processing canceled"}
+
+    except Exception as e:
+        logger.error("Error canceling coverage area: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
 
