@@ -10,7 +10,6 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 import pymongo
 import threading
 
-# Configure logging for this module.
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
@@ -64,29 +63,25 @@ class DatabaseManager:
 
     @property
     def db(self) -> AsyncIOMotorDatabase:
-        """Get the database instance."""
         if self._db is None:
             raise RuntimeError("Database not initialized.")
         return self._db
 
     @property
     def client(self) -> AsyncIOMotorClient:
-        """Get the MongoDB client instance."""
         if self._client is None:
             raise RuntimeError("Client not initialized.")
         return self._client
 
     @property
     def quota_exceeded(self) -> bool:
-        """Indicate whether the database quota is exceeded."""
         return self._quota_exceeded
 
     async def check_quota(self) -> Tuple[Optional[float], Optional[float]]:
         """
         Check if the database quota is exceeded.
 
-        Returns:
-            A tuple (used_mb, limit_mb) if successful, or (None, None) on error.
+        Returns: (used_mb, limit_mb) or (None, None) on error.
         """
         try:
             stats = await self.db.command("dbStats")
@@ -95,7 +90,7 @@ class DatabaseManager:
                 logger.error("dbStats did not return 'dataSize'")
                 return None, None
             used_mb = data_size / (1024 * 1024)
-            limit_mb = 512  # Atlas free tier limit (adjust if necessary)
+            limit_mb = 512  # e.g. an Atlas free tier limit
             self._quota_exceeded = used_mb > limit_mb
             if self._quota_exceeded:
                 logger.warning(
@@ -107,21 +102,17 @@ class DatabaseManager:
         except Exception as e:
             if "you are over your space quota" in str(e).lower():
                 self._quota_exceeded = True
-                logger.error("MongoDB quota exceeded error: %s", e)
+                logger.error("MongoDB quota exceeded: %s", e)
             else:
                 logger.error("Error checking database quota: %s", e)
             return None, None
 
     async def safe_create_index(
-        self, collection_name: str, keys: List[Tuple[str, int]], **kwargs: Any
+        self, collection_name: str, keys, **kwargs: Any
     ) -> None:
         """
         Create an index on a given collection if the quota is not exceeded.
-
-        Args:
-            collection_name (str): The name of the collection.
-            keys (list): A list of (field, direction) tuples.
-            **kwargs: Additional keyword arguments for index creation.
+        keys can be a single field or a list of (field, direction) tuples.
         """
         if self._quota_exceeded:
             logger.warning(
@@ -150,11 +141,10 @@ class DatabaseManager:
                 )
 
 
-# Create a single instance of the database manager
 db_manager = DatabaseManager()
-
-# Export the database instance and collections using the singleton manager.
 db: AsyncIOMotorDatabase = db_manager.db
+
+# Collections
 trips_collection = db["trips"]
 matched_trips_collection = db["matched_trips"]
 historical_trips_collection = db["historical_trips"]
@@ -197,14 +187,7 @@ async def init_task_history_collection() -> None:
 async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
     """
     Asynchronously retrieve a trip document by its transactionId from trips_collection.
-
-    Ensures the trip contains a 'gps' field and converts it to a dictionary if needed.
-
-    Args:
-        trip_id (str): The transaction ID of the trip.
-
-    Returns:
-        Optional[dict]: The trip document if found and valid; otherwise, None.
+    Ensures the trip contains 'gps' field; returns the trip if valid, else None.
     """
     try:
         trip = await trips_collection.find_one({"transactionId": trip_id})
@@ -212,7 +195,7 @@ async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
             logger.warning("Trip %s not found in DB", trip_id)
             return None
         if "gps" not in trip:
-            logger.error("Trip %s missing GPS", trip_id)
+            logger.error("Trip %s missing 'gps' field", trip_id)
             return None
         if isinstance(trip["gps"], str):
             try:
@@ -235,12 +218,10 @@ async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
 
 async def ensure_street_coverage_indexes() -> None:
     """
-    Create indexes for collections used in street coverage.
-    Index creation is done concurrently.
+    Create indexes for collections used in street coverage. Done concurrently.
     """
     try:
         tasks = [
-            # For coverage_metadata_collection: compound unique index on location.display_name and status.
             coverage_metadata_collection.create_index(
                 [
                     ("location.display_name", pymongo.ASCENDING),
@@ -248,14 +229,12 @@ async def ensure_street_coverage_indexes() -> None:
                 ],
                 unique=True,
             ),
-            # Indexes for streets_collection.
             streets_collection.create_index(
                 [("properties.location", pymongo.ASCENDING)]
             ),
             streets_collection.create_index(
                 [("properties.segment_id", pymongo.ASCENDING)]
             ),
-            # Indexes for trips_collection.
             trips_collection.create_index([("gps", pymongo.ASCENDING)]),
             trips_collection.create_index([("startTime", pymongo.ASCENDING)]),
             trips_collection.create_index([("endTime", pymongo.ASCENDING)]),

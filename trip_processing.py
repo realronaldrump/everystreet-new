@@ -1,90 +1,139 @@
 """
 trip_processing.py
 
-This module contains helper functions for processing a trip object:
-  - Parsing and normalizing timestamp fields.
-  - Validating and formatting GPS data.
-  - Setting geo‑point fields.
-  - Converting an idle time in seconds to a human‐readable format.
+Helper functions for processing a trip dictionary:
+ - parsing timestamps
+ - converting GPS data to JSON
+ - setting geo-points
+ - checking custom places
+ - reverse geocoding
+ - formatting idle time
 """
 
 import json
 import logging
+from typing import Optional, Any, Dict, List
+from datetime import datetime, timezone
+
 from dateutil import parser
-from datetime import timezone
-from typing import Optional, Any, Dict
+from shapely.geometry import shape, Point
+from db import places_collection
+from utils import reverse_geocode_nominatim
 
 logger = logging.getLogger(__name__)
 
 
-def process_trip(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+async def get_place_at_point(point: Point) -> Optional[dict]:
     """
-    Processes a trip dictionary by:
-      - Parsing startTime and endTime (if they are strings) into timezone‑aware
-      datetime objects.
-      - Converting the 'gps' field into a JSON string.
-      - Validating that the gps data contains a "coordinates" array.
-      - Setting additional keys 'startGeoPoint' and 'destinationGeoPoint'
-        based on the first and last coordinates.
-      - Converting "distance" to a float (or setting it to 0.0 if missing or invalid).
+    Find a custom place (from places_collection) that contains the given shapely.Point.
+    """
+    places = await places_collection.find({}).to_list(length=None)
+    for p in places:
+        place_geom = p["geometry"]
+        shp = shape(place_geom)
+        if shp.contains(point):
+            return p
+    return None
 
-    Returns the modified trip dict or None if any critical validation fails.
+
+async def process_trip_data(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
+    Asynchronously process a trip:
+      - Convert 'startTime'/'endTime' to aware datetimes if strings.
+      - Parse 'gps' to a Python dict if it's a JSON string, ensure it has 'coordinates'.
+      - Attempt to find a custom place for start/end; if none, do reverse geocoding.
+      - Set 'startGeoPoint' and 'destinationGeoPoint'.
+      - Return the updated trip, or None if invalid.
+    """
+    transaction_id = trip.get("transactionId", "?")
+    logger.info(
+        "Processing trip data for transactionId=%s...", transaction_id
+    )
     try:
-        # Process startTime.
-        start_time = trip.get("startTime")
-        if isinstance(start_time, str):
-            parsed_start = parser.isoparse(start_time)
-            # Ensure the datetime is timezone-aware.
-            if parsed_start.tzinfo is None:
-                parsed_start = parsed_start.replace(tzinfo=timezone.utc)
-            trip["startTime"] = parsed_start
+        # Convert start/end times if strings
+        for key in ("startTime", "endTime"):
+            val = trip.get(key)
+            if isinstance(val, str):
+                dt_parsed = parser.isoparse(val)
+                if dt_parsed.tzinfo is None:
+                    dt_parsed = dt_parsed.replace(tzinfo=timezone.utc)
+                trip[key] = dt_parsed
 
-        # Process endTime.
-        end_time = trip.get("endTime")
-        if isinstance(end_time, str):
-            parsed_end = parser.isoparse(end_time)
-            if parsed_end.tzinfo is None:
-                parsed_end = parsed_end.replace(tzinfo=timezone.utc)
-            trip["endTime"] = parsed_end
-
-        # Validate gps data exists.
-        if "gps" not in trip:
-            logger.error(
-                "Trip %s missing gps data.", trip.get("transactionId", "?")
-            )
+        # Ensure gps is dict
+        gps_data = trip.get("gps")
+        if not gps_data:
+            logger.warning("Trip %s has no GPS data", transaction_id)
             return None
 
-        # Ensure gps data is a dictionary.
-        gps_data = trip["gps"]
         if isinstance(gps_data, str):
-            gps_data = json.loads(gps_data)
+            try:
+                gps_data = json.loads(gps_data)
+            except Exception as e:
+                logger.error(
+                    "Error parsing gps data for trip %s: %s",
+                    transaction_id,
+                    e,
+                    exc_info=True,
+                )
+                return None
         if not gps_data.get("coordinates"):
-            logger.error(
-                "Trip %s has invalid coordinates.",
-                trip.get("transactionId", "?"),
+            logger.warning(
+                "Trip %s has no coordinates array in gps data", transaction_id
             )
             return None
 
-        # Store the gps data as a JSON string.
-        trip["gps"] = json.dumps(gps_data)
+        # Overwrite the 'gps' field with the parsed dict
+        trip["gps"] = gps_data
 
-        # Set geo-point fields from the coordinates.
-        trip["startGeoPoint"] = gps_data["coordinates"][0]
-        trip["destinationGeoPoint"] = gps_data["coordinates"][-1]
+        coords = gps_data["coordinates"]
+        if len(coords) < 2:
+            logger.warning(
+                "Trip %s has fewer than 2 coords in gps data", transaction_id
+            )
 
-        # Convert "distance" to a float (default to 0.0 if missing or conversion fails).
-        try:
-            trip["distance"] = float(trip.get("distance", 0.0))
-        except (ValueError, TypeError):
-            trip["distance"] = 0.0
+        # Build shapely Points for first/last
+        st = coords[0]
+        en = coords[-1]
+        start_pt = Point(st[0], st[1])
+        end_pt = Point(en[0], en[1])
 
+        # Check custom places
+        start_place = await get_place_at_point(start_pt)
+        if start_place:
+            trip["startLocation"] = start_place["name"]
+            trip["startPlaceId"] = str(start_place.get("_id", ""))
+        else:
+            # fallback to reverse geocode
+            rev_start = await reverse_geocode_nominatim(st[1], st[0])
+            if rev_start and isinstance(rev_start, dict):
+                trip["startLocation"] = rev_start.get("display_name", "")
+
+        end_place = await get_place_at_point(end_pt)
+        if end_place:
+            trip["destination"] = end_place["name"]
+            trip["destinationPlaceId"] = str(end_place.get("_id", ""))
+        else:
+            rev_end = await reverse_geocode_nominatim(en[1], en[0])
+            if rev_end and isinstance(rev_end, dict):
+                trip["destination"] = rev_end.get("display_name", "")
+
+        # Set geo-points
+        trip["startGeoPoint"] = {
+            "type": "Point",
+            "coordinates": [st[0], st[1]],
+        }
+        trip["destinationGeoPoint"] = {
+            "type": "Point",
+            "coordinates": [en[0], en[1]],
+        }
+
+        # Return updated trip
         return trip
 
     except Exception as e:
         logger.error(
-            "Error processing trip %s: %s",
-            trip.get("transactionId", "?"),
+            "Error in process_trip_data for trip %s: %s",
+            transaction_id,
             e,
             exc_info=True,
         )
@@ -93,20 +142,17 @@ def process_trip(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def format_idle_time(seconds: Any) -> str:
     """
-    Converts a number of seconds (as a float or int) into a string formatted as
-    HH:MM:SS.
-    Returns "00:00:00" if seconds is falsy.
+    Convert idle time in seconds to HH:MM:SS.
+    If `seconds` is missing or invalid, returns "Invalid Input" or "00:00:00".
     """
     if not seconds:
         return "00:00:00"
     try:
         total_seconds = int(seconds)
-    except (TypeError, ValueError) as e:
-        logger.error(
-            "Invalid input for format_idle_time: %s - %s", seconds, e
-        )
+    except (TypeError, ValueError):
+        logger.error("Invalid input for format_idle_time: %s", seconds)
         return "Invalid Input"
-    hours = total_seconds // 3600
-    minutes = (total_seconds % 3600) // 60
+    hrs = total_seconds // 3600
+    mins = (total_seconds % 3600) // 60
     secs = total_seconds % 60
-    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+    return f"{hrs:02d}:{mins:02d}:{secs:02d}"

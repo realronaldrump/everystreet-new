@@ -8,20 +8,16 @@ logger = logging.getLogger(__name__)
 
 def parse_bouncie_timestamp(ts: str) -> Optional[datetime]:
     """
-    Parse an ISO 8601 timestamp from Bouncie's API ensuring it is timezone-aware.
-    Returns None if parsing fails.
+    Parse an ISO 8601 timestamp from Bouncie, ensure it's timezone-aware, default UTC.
     """
     if not ts:
-        logger.warning("Missing timestamp field in Bouncie API response.")
+        logger.warning("Missing timestamp field in Bouncie event data.")
         return None
     try:
         parsed_time = dateutil.parser.isoparse(ts)
-        # Ensure the parsed time is timezone-aware (default to UTC if missing)
-        return (
-            parsed_time
-            if parsed_time.tzinfo
-            else parsed_time.replace(tzinfo=timezone.utc)
-        )
+        if parsed_time.tzinfo is None:
+            parsed_time = parsed_time.replace(tzinfo=timezone.utc)
+        return parsed_time
     except Exception as e:
         logger.warning("Failed to parse timestamp '%s': %s", ts, e)
         return None
@@ -32,7 +28,6 @@ def get_trip_timestamps(
 ) -> Tuple[Optional[datetime], Optional[datetime]]:
     """
     Extract startTime and endTime from Bouncie webhook event data.
-    Logs a warning if any timestamp is missing or invalid.
     """
     start_time = None
     end_time = None
@@ -42,19 +37,21 @@ def get_trip_timestamps(
             logger.warning(
                 "Invalid or missing startTime in event: %s", event_data
             )
+
     if "end" in event_data and event_data["end"].get("timestamp"):
         end_time = parse_bouncie_timestamp(event_data["end"]["timestamp"])
         if end_time is None:
             logger.warning(
                 "Invalid or missing endTime in event: %s", event_data
             )
+
     return start_time, end_time
 
 
 def sort_and_filter_trip_coordinates(trip_data: List[dict]) -> List[Dict]:
     """
-    Extract, sort, and deduplicate trip coordinates based on timestamps.
-    Each valid point is a dict with keys: "timestamp", "lat", and "lon".
+    Extract, sort, and deduplicate trip coordinates from 'tripData' Bouncie event chunks.
+    Each point is a dict with 'timestamp', 'lat', 'lon'.
     """
     seen = set()
     valid_points = []
@@ -69,4 +66,5 @@ def sort_and_filter_trip_coordinates(trip_data: List[dict]) -> List[Dict]:
         if key not in seen:
             seen.add(key)
             valid_points.append({"timestamp": ts, "lat": lat, "lon": lon})
+
     return sorted(valid_points, key=lambda x: x["timestamp"])

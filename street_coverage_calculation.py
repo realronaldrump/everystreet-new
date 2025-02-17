@@ -3,7 +3,7 @@ import json
 import logging
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 import pyproj
 import rtree
@@ -11,7 +11,6 @@ from shapely.geometry import box, LineString, shape
 from shapely.ops import transform
 from dotenv import load_dotenv
 
-# Database functions/collections from db.py
 from db import (
     streets_collection,
     trips_collection,
@@ -28,38 +27,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Define CRS for WGS84 globally
 WGS84 = pyproj.CRS("EPSG:4326")
 
 
 class CoverageCalculator:
     def __init__(self, location: Dict[str, Any], task_id: str) -> None:
-        """
-        Initialize the calculator with a given location and task identifier.
-        """
-        self.location: Dict[str, Any] = location
-        self.task_id: str = task_id
+        self.location = location
+        self.task_id = task_id
         self.streets_index = rtree.index.Index()
         self.streets_lookup: Dict[int, Dict[str, Any]] = {}
         self.utm_proj: Optional[pyproj.CRS] = None
         self.project_to_utm = None
         self.project_to_wgs84 = None
-        self.match_buffer: float = 15.0  # meters
-        self.min_match_length: float = 5.0  # meters
+
+        self.match_buffer: float = 15.0
+        self.min_match_length: float = 5.0
         self.batch_size: int = 1000
-        self.boundary_box: Optional[box] = None
+        self.boundary_box = None
+
         self.total_length: float = 0.0
         self.covered_segments: Set[str] = set()
-        self.segment_coverage: Dict[str, int] = defaultdict(int)
+        self.segment_coverage = defaultdict(int)
         self.total_trips: int = 0
         self.processed_trips: int = 0
 
         self.initialize_projections()
 
     def initialize_projections(self) -> None:
-        """
-        Initialize UTM projection based on the location’s center.
-        """
         center_lat, center_lon = self._get_location_center()
         utm_zone = int((center_lon + 180) / 6) + 1
         hemisphere = "north" if center_lat >= 0 else "south"
@@ -73,24 +67,17 @@ class CoverageCalculator:
             self.utm_proj, WGS84, always_xy=True
         ).transform
 
-    def _get_location_center(self) -> Tuple[float, float]:
-        """
-        Extract center point from location's bounding box (if available) or return (0.0, 0.0).
-        """
+    def _get_location_center(self):
         if "boundingbox" in self.location:
             bbox = self.location["boundingbox"]
-            return (
-                (float(bbox[0]) + float(bbox[1])) / 2,
-                (float(bbox[2]) + float(bbox[3])) / 2,
-            )
+            return (float(bbox[0]) + float(bbox[1])) / 2, (
+                float(bbox[2]) + float(bbox[3])
+            ) / 2
         return 0.0, 0.0
 
     async def update_progress(
         self, stage: str, progress: float, message: str = "", error: str = ""
     ) -> None:
-        """
-        Update progress in MongoDB.
-        """
         try:
             update_data = {
                 "stage": stage,
@@ -111,11 +98,7 @@ class CoverageCalculator:
         except Exception as e:
             logger.error("Error updating progress: %s", e)
 
-    def build_spatial_index(self, streets: List[Dict[str, Any]]) -> None:
-        """
-        Build an R-tree spatial index for street segments and accumulate total street length.
-        Also caches each street's UTM length.
-        """
+    def build_spatial_index(self, streets: List[Dict[str, Any]]):
         logger.info("Building spatial index for %d streets...", len(streets))
         for idx, street in enumerate(streets):
             try:
@@ -124,9 +107,7 @@ class CoverageCalculator:
                 self.streets_index.insert(idx, bounds)
                 self.streets_lookup[idx] = street
 
-                # Compute length in UTM (meters)
                 street_utm = transform(self.project_to_utm, geom)
-                # Cache the computed length for later reuse
                 street["properties"]["segment_length"] = street_utm.length
                 self.total_length += street_utm.length
             except Exception as e:
@@ -137,10 +118,7 @@ class CoverageCalculator:
                 )
 
     @staticmethod
-    def calculate_boundary_box(streets: List[Dict[str, Any]]) -> box:
-        """
-        Calculate a bounding box that contains all given streets.
-        """
+    def calculate_boundary_box(streets: List[Dict[str, Any]]):
         bounds = None
         for street in streets:
             try:
@@ -153,27 +131,17 @@ class CoverageCalculator:
                     bounds[2] = max(bounds[2], geom.bounds[2])
                     bounds[3] = max(bounds[3], geom.bounds[3])
             except Exception as e:
-                logger.error(
-                    "Error processing geometry for boundary box: %s", e
-                )
+                logger.error("Error computing boundary for a street: %s", e)
         return box(*bounds) if bounds else box(0, 0, 0, 0)
 
-    def _is_valid_trip(
-        self, gps_data: Any
-    ) -> Tuple[bool, List[Tuple[float, float]]]:
-        """
-        Validate and extract coordinates from a trip's GPS data.
-
-        Returns:
-            A tuple (is_valid, coordinates). A trip is valid only if it has at least two coordinates.
-        """
+    def _is_valid_trip(self, gps_data: Any):
         try:
             data = (
                 json.loads(gps_data)
                 if isinstance(gps_data, str)
                 else gps_data
             )
-            coords: List[Tuple[float, float]] = data.get("coordinates", [])
+            coords = data.get("coordinates", [])
             if len(coords) < 2:
                 return False, []
             return True, coords
@@ -182,9 +150,6 @@ class CoverageCalculator:
             return False, []
 
     def is_trip_in_boundary(self, trip: Dict[str, Any]) -> bool:
-        """
-        Quickly determine if a trip’s GPS path intersects the boundary box.
-        """
         try:
             gps_data = trip.get("gps")
             if not gps_data:
@@ -194,27 +159,22 @@ class CoverageCalculator:
                 return False
             return self.boundary_box.intersects(LineString(coords))
         except Exception as e:
-            logger.error("Error checking trip boundary: %s", e)
+            logger.error(
+                "Error checking boundary for trip %s: %s", trip.get("_id"), e
+            )
             return False
 
-    def _process_trip_sync(
-        self, coords: List[Tuple[float, float]]
-    ) -> Set[str]:
-        """
-        Synchronous helper that performs heavy geometry processing for a trip.
-        This function is intended to be run in a separate thread via asyncio.to_thread.
-        """
-        covered: Set[str] = set()
+    def _process_trip_sync(self, coords):
+        covered = set()
         try:
             trip_line = LineString(coords)
             if len(trip_line.coords) < 2:
                 return covered
-            # Transform trip geometry to UTM and create a buffer.
+
             trip_line_utm = transform(self.project_to_utm, trip_line)
             trip_buffer = trip_line_utm.buffer(self.match_buffer)
-            # Transform the buffer back to WGS84 for spatial index querying.
             trip_buffer_wgs84 = transform(self.project_to_wgs84, trip_buffer)
-            # Query the R-tree spatial index.
+
             for idx in self.streets_index.intersection(
                 trip_buffer_wgs84.bounds
             ):
@@ -226,9 +186,9 @@ class CoverageCalculator:
                     not intersection.is_empty
                     and intersection.length >= self.min_match_length
                 ):
-                    segment_id = street["properties"].get("segment_id")
-                    if segment_id:
-                        covered.add(segment_id)
+                    seg_id = street["properties"].get("segment_id")
+                    if seg_id:
+                        covered.add(seg_id)
         except Exception as e:
             logger.error(
                 "Error processing trip synchronously: %s", e, exc_info=True
@@ -236,46 +196,36 @@ class CoverageCalculator:
         return covered
 
     async def process_single_trip(self, trip: Dict[str, Any]) -> Set[str]:
-        """
-        Process a single trip by validating its GPS data and offloading heavy geometry processing.
-        """
         try:
             gps_data = trip.get("gps")
             if not gps_data:
                 return set()
             valid, coords = self._is_valid_trip(gps_data)
             if not valid:
-                logger.warning(
-                    "Skipping trip %s due to invalid or insufficient coordinates",
-                    trip.get("_id"),
-                )
                 return set()
-            # Offload heavy processing to a background thread.
             return await asyncio.to_thread(self._process_trip_sync, coords)
         except Exception as e:
             logger.error(
                 "Error processing trip (ID %s): %s",
-                trip.get("_id", "unknown"),
+                trip.get("_id"),
                 e,
                 exc_info=True,
             )
             return set()
 
-    async def process_trip_batch(self, trips: List[Dict[str, Any]]) -> None:
-        """
-        Process a batch of trips concurrently. Yields control after each batch to keep the event loop responsive.
-        """
-        tasks = [
-            self.process_single_trip(trip)
-            for trip in trips
-            if self.boundary_box and self.is_trip_in_boundary(trip)
-        ]
+    async def process_trip_batch(self, trips: List[Dict[str, Any]]):
+        tasks = []
+        for trp in trips:
+            if self.boundary_box and self.is_trip_in_boundary(trp):
+                tasks.append(self.process_single_trip(trp))
+
         if tasks:
             results = await asyncio.gather(*tasks)
-            for segments in results:
-                for seg in segments:
+            for seg_set in results:
+                for seg in seg_set:
                     self.covered_segments.add(seg)
                     self.segment_coverage[seg] += 1
+
         self.processed_trips += len(trips)
         progress_val = (
             (self.processed_trips / self.total_trips * 100)
@@ -287,13 +237,9 @@ class CoverageCalculator:
             progress_val,
             f"Processed {self.processed_trips} of {self.total_trips} trips",
         )
-        # Yield to the event loop to remain responsive.
         await asyncio.sleep(0)
 
     async def compute_coverage(self) -> Optional[Dict[str, Any]]:
-        """
-        Compute the street coverage for the location using improved asynchronous batch processing.
-        """
         try:
             await self.update_progress(
                 "initializing", 0, "Starting coverage calculation..."
@@ -303,8 +249,7 @@ class CoverageCalculator:
             await self.update_progress(
                 "loading_streets", 10, "Loading street data..."
             )
-            # Load all street segments for the location from the database.
-            streets: List[Dict[str, Any]] = await streets_collection.find(
+            streets = await streets_collection.find(
                 {"properties.location": self.location.get("display_name")}
             ).to_list(length=None)
             if not streets:
@@ -322,7 +267,6 @@ class CoverageCalculator:
             await self.update_progress(
                 "counting_trips", 30, "Counting trips..."
             )
-            # Use a bounding box query to filter trips.
             bbox = self.boundary_box.bounds
             trip_filter = {
                 "gps": {"$exists": True},
@@ -349,6 +293,7 @@ class CoverageCalculator:
                     },
                 ],
             }
+
             self.total_trips = await trips_collection.count_documents(
                 trip_filter
             )
@@ -358,10 +303,9 @@ class CoverageCalculator:
                 f"Processing {self.total_trips} trips...",
             )
 
-            batch: List[Dict[str, Any]] = []
-            async for trip in trips_collection.aggregate(
-                [{"$match": trip_filter}]
-            ):
+            batch = []
+            cursor = trips_collection.aggregate([{"$match": trip_filter}])
+            async for trip in cursor:
                 batch.append(trip)
                 if len(batch) >= self.batch_size:
                     await self.process_trip_batch(batch)
@@ -375,22 +319,22 @@ class CoverageCalculator:
                         progress,
                         f"Processed {self.processed_trips} of {self.total_trips} trips",
                     )
+
             if batch:
                 await self.process_trip_batch(batch)
 
-            # Finalize: calculate covered length and build GeoJSON features.
             await self.update_progress(
                 "finalizing", 95, "Calculating final coverage..."
             )
             covered_length = 0.0
             features = []
             for street in streets:
-                segment_id = street["properties"].get("segment_id")
+                seg_id = street["properties"].get("segment_id")
                 geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, geom)
                 seg_length = street_utm.length
 
-                is_covered = segment_id in self.covered_segments
+                is_covered = seg_id in self.covered_segments
                 if is_covered:
                     covered_length += seg_length
 
@@ -401,10 +345,10 @@ class CoverageCalculator:
                         **street["properties"],
                         "driven": is_covered,
                         "coverage_count": self.segment_coverage.get(
-                            segment_id, 0
+                            seg_id, 0
                         ),
                         "segment_length": seg_length,
-                        "segment_id": segment_id,
+                        "segment_id": seg_id,
                     },
                 }
                 features.append(feature)
@@ -441,16 +385,13 @@ class CoverageCalculator:
 async def compute_coverage_for_location(
     location: Dict[str, Any], task_id: str
 ) -> Optional[Dict[str, Any]]:
-    """
-    Compute street coverage for a given location.
-    """
-    calculator = CoverageCalculator(location, task_id)
-    return await calculator.compute_coverage()
+    calc = CoverageCalculator(location, task_id)
+    return await calc.compute_coverage()
 
 
 async def update_coverage_for_all_locations() -> None:
     """
-    Update street coverage for all locations.
+    Iterate all coverage_metadata docs, run coverage calculation for each location.
     """
     try:
         logger.info("Starting coverage update for all locations...")
@@ -489,6 +430,7 @@ async def update_coverage_for_all_locations() -> None:
                     display_name,
                     result["coverage_percentage"],
                 )
+
         logger.info("Finished coverage update for all locations.")
     except Exception as e:
         logger.error(
