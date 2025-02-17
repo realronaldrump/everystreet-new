@@ -82,7 +82,13 @@
                 <div class="progress mb-3">
                     <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
                 </div>
-                <p class="progress-message text-center">Starting...</p>
+                <p class="progress-message text-center mb-2">Starting...</p>
+                <div class="progress-details text-center text-muted">
+                    <!-- Progress details will be dynamically updated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -105,6 +111,26 @@
         <div class="toast-body"></div>
     </div>
 </template>
+
+<!-- Add CSS for processing row highlight -->
+<style>
+    .processing-row {
+        background-color: rgba(0, 123, 255, 0.1) !important;
+    }
+    
+    .progress-details {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    #coverage-areas-table .progress {
+        min-width: 100px;
+    }
+    
+    .toast-container {
+        z-index: 1060;
+    }
+</style>
 {% endblock %}
 
 {% block extra_js %}

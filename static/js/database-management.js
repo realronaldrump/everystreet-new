@@ -10,6 +10,19 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentCollection = null;
     let currentButton = null;
 
+    // Notification helper function
+    function showNotification(message, type) {
+        if (typeof notificationManager !== 'undefined' && notificationManager) {
+            notificationManager.show(message, type);
+        } else {
+            // Fallback to alert if notification manager is not available
+            console.log(`${type}: ${message}`);
+            if (type === 'danger') {
+                alert(`Error: ${message}`);
+            }
+        }
+    }
+
     function setButtonLoading(button, isLoading, action) {
         if (!button) return;
         
@@ -17,9 +30,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isLoading) {
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         } else {
-            button.innerHTML = action === 'optimize' ? 
-                '<i class="fas fa-compress-arrows-alt"></i> Optimize' :
-                '<i class="fas fa-trash"></i> Clear';
+            if (action === 'optimize-all') {
+                button.innerHTML = '<i class="fas fa-compress-arrows-alt"></i> Optimize All Collections';
+            } else if (action === 'repair-indexes') {
+                button.innerHTML = '<i class="fas fa-tools"></i> Repair Indexes';
+            } else {
+                button.innerHTML = action === 'optimize' ? 
+                    '<i class="fas fa-compress-arrows-alt"></i> Optimize' :
+                    '<i class="fas fa-trash"></i> Clear';
+            }
         }
     }
 
@@ -70,10 +89,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 storageText.textContent = `Using ${data.used_mb}MB of ${data.limit_mb}MB`;
             }
             
-            notificationManager.show('Storage information updated successfully', 'success');
+            showNotification('Storage information updated successfully', 'success');
         } catch (error) {
             console.error('Error refreshing storage info:', error);
-            notificationManager.show('Failed to refresh storage information', 'danger');
+            showNotification('Failed to refresh storage information', 'danger');
         } finally {
             setButtonLoading(this, false);
         }
@@ -152,13 +171,13 @@ document.addEventListener('DOMContentLoaded', function() {
             setButtonLoading(currentButton, true, currentAction);
             
             const result = await performDatabaseAction(endpoint, body);
-            notificationManager.show(result.message || 'Operation completed successfully', 'success');
+            showNotification(result.message || 'Operation completed successfully', 'success');
             
             // Refresh the page to show updated stats
             setTimeout(() => window.location.reload(), 1500);
         } catch (error) {
             console.error('Error performing database action:', error);
-            notificationManager.show(error.message || 'Failed to perform database action', 'danger');
+            showNotification(error.message || 'Failed to perform database action', 'danger');
             
             // Reset button state if action failed
             setButtonLoading(currentButton, false, currentAction);

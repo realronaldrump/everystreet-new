@@ -56,7 +56,7 @@ class CoverageCalculator:
     async def update_progress(
         self, stage: str, progress: float, message: str = ""
     ):
-        """Update progress in MongoDB"""
+        """Update progress in MongoDB with more detailed information"""
         try:
             await progress_collection.update_one(
                 {"_id": self.task_id},
@@ -68,6 +68,14 @@ class CoverageCalculator:
                         "updated_at": datetime.now(timezone.utc),
                         "location": self.location.get(
                             "display_name", "Unknown"
+                        ),
+                        "total_trips": self.total_trips,
+                        "processed_trips": self.processed_trips,
+                        "total_length": self.total_length,
+                        "covered_segments": (
+                            len(self.covered_segments)
+                            if hasattr(self, "covered_segments")
+                            else 0
                         ),
                     }
                 },
@@ -286,13 +294,23 @@ class CoverageCalculator:
                 if len(batch) >= self.batch_size:
                     await self.process_trip_batch(batch)
                     batch = []
+                    # Update progress after each batch
+                    progress = min(
+                        90,
+                        40 + (self.processed_trips / self.total_trips * 50),
+                    )
+                    await self.update_progress(
+                        "processing_trips",
+                        progress,
+                        f"Processed {self.processed_trips} of {self.total_trips} trips",
+                    )
 
             if batch:
                 await self.process_trip_batch(batch)
 
             # Calculate covered length and prepare features
             await self.update_progress(
-                "finalizing", 90, "Calculating final coverage..."
+                "finalizing", 95, "Calculating final coverage..."
             )
             covered_length = 0.0
             features = []
@@ -347,7 +365,7 @@ class CoverageCalculator:
 
         except Exception as e:
             logger.error("Error computing coverage: %s", e, exc_info=True)
-            await self.update_progress("error", 0, "Error: %s" % str(e))
+            await self.update_progress("error", 0, f"Error: {str(e)}")
             return None
 
     @staticmethod

@@ -76,7 +76,7 @@ class DatabaseManager:
                 logger.warning(
                     "MongoDB quota exceeded: using %.2f MB of %d MB",
                     used_mb,
-                    limit_mb
+                    limit_mb,
                 )
             return used_mb, limit_mb
         except Exception as e:
@@ -95,7 +95,9 @@ class DatabaseManager:
             except Exception as e:
                 if "you are over your space quota" in str(e):
                     self._quota_exceeded = True
-                    logger.warning("Cannot create index due to quota exceeded")
+                    logger.warning(
+                        "Cannot create index due to quota exceeded"
+                    )
                 else:
                     logger.error("Error creating index: %s", e)
 

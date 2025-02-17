@@ -7,6 +7,7 @@
       this.toastManager = new ToastManager();
       this.validatedLocation = null;
       this.taskProgressModal = new bootstrap.Modal(document.getElementById("taskProgressModal"));
+      this.processingAreas = new Set();
       this.setupEventListeners();
       this.loadCoverageAreas();
       // Set up auto-refresh for processing areas
@@ -21,6 +22,11 @@
       document.getElementById("location-input")?.addEventListener("input", () => {
         document.getElementById("add-coverage-area").disabled = true;
         this.validatedLocation = null;
+      });
+
+      // Add event listener for modal close
+      document.getElementById("taskProgressModal")?.addEventListener("hidden.bs.modal", () => {
+        this.loadCoverageAreas(); // Refresh data when modal is closed
       });
     }
 
@@ -132,8 +138,34 @@
     }
 
     async pollCoverageProgress(taskId) {
-      const maxRetries = 60; // 5 minutes maximum (with 5-second intervals)
+      const maxRetries = 180; // 15 minutes maximum (with 5-second intervals)
       let retries = 0;
+      let lastProgress = -1;
+
+      const updateModalContent = (data) => {
+        const progressBar = document.querySelector("#taskProgressModal .progress-bar");
+        const messageEl = document.querySelector("#taskProgressModal .progress-message");
+        const detailsEl = document.querySelector("#taskProgressModal .progress-details");
+
+        if (progressBar && messageEl) {
+          progressBar.style.width = `${data.progress}%`;
+          progressBar.setAttribute("aria-valuenow", data.progress);
+          messageEl.textContent = data.message || "Processing...";
+
+          // Update details if they exist
+          if (detailsEl && data.processed_trips !== undefined) {
+            detailsEl.innerHTML = `
+              <div class="mt-2">
+                <small>
+                  Processed: ${data.processed_trips} / ${data.total_trips} trips<br>
+                  Covered segments: ${data.covered_segments || 0}<br>
+                  Total length: ${((data.total_length || 0) * 0.000621371).toFixed(2)} miles
+                </small>
+              </div>
+            `;
+          }
+        }
+      };
 
       while (retries < maxRetries) {
         try {
@@ -141,13 +173,19 @@
           if (!response.ok) throw new Error("Failed to get coverage status");
           
           const data = await response.json();
+          
+          // Only update if progress has changed
+          if (data.progress !== lastProgress) {
+            updateModalContent(data);
+            lastProgress = data.progress;
+          }
+
           if (data.stage === "complete") {
             return data;
           } else if (data.stage === "error") {
             throw new Error(data.message || "Coverage calculation failed");
           }
 
-          this.updateProgressModal(data.message || "Processing...", data.progress || 0);
           await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds between polls
           retries++;
         } catch (error) {
@@ -162,22 +200,18 @@
       const modal = document.getElementById("taskProgressModal");
       const progressBar = modal.querySelector(".progress-bar");
       const messageEl = modal.querySelector(".progress-message");
+      const detailsEl = modal.querySelector(".progress-details");
 
       progressBar.style.width = `${progress}%`;
       progressBar.setAttribute("aria-valuenow", progress);
       messageEl.textContent = message;
+      
+      // Clear previous details
+      if (detailsEl) {
+        detailsEl.innerHTML = '';
+      }
 
       this.taskProgressModal.show();
-    }
-
-    updateProgressModal(message, progress) {
-      const modal = document.getElementById("taskProgressModal");
-      const progressBar = modal.querySelector(".progress-bar");
-      const messageEl = modal.querySelector(".progress-message");
-
-      progressBar.style.width = `${progress}%`;
-      progressBar.setAttribute("aria-valuenow", progress);
-      messageEl.textContent = message;
     }
 
     hideProgressModal() {
@@ -207,6 +241,11 @@
         const isProcessing = area.status === "processing";
         const hasError = area.status === "error";
         
+        // Add processing class to row if area is being processed
+        if (isProcessing) {
+          row.classList.add("processing-row");
+        }
+        
         row.innerHTML = `
           <td>${area.location.display_name || "Unknown"}</td>
           <td>${(area.total_length * 0.000621371).toFixed(2)} miles</td>
@@ -233,7 +272,7 @@
               </div>`
             }
           </td>
-          <td>${area.total_segments}</td>
+          <td>${area.total_segments || 0}</td>
           <td>${area.last_updated ? new Date(area.last_updated).toLocaleString() : "Never"}</td>
           <td>
             <div class="btn-group btn-group-sm">
@@ -340,10 +379,8 @@
     setupAutoRefresh() {
       // Refresh the table every 5 seconds if there are processing areas
       setInterval(async () => {
-        const tbody = document.querySelector("#coverage-areas-table tbody");
-        const hasProcessingAreas = tbody?.querySelector(".spinner-border");
-        
-        if (hasProcessingAreas) {
+        const processingRows = document.querySelectorAll(".processing-row");
+        if (processingRows.length > 0) {
           await this.loadCoverageAreas();
         }
       }, 5000);
