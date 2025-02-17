@@ -59,7 +59,7 @@
                 updateDatesAndFetch(startDate, endDate);
               })
               .catch((error) =>
-                console.error("Error fetching first trip date:", error)
+                console.error("Error fetching first trip date:", error),
               );
             return;
         }
@@ -73,7 +73,7 @@
     }
 
     const refreshGeocodingBtn = document.getElementById(
-      "refresh-geocoding-btn"
+      "refresh-geocoding-btn",
     );
     if (refreshGeocodingBtn) {
       refreshGeocodingBtn.addEventListener("click", refreshGeocoding);
@@ -158,7 +158,7 @@
         console.error("Error updating trip:", error);
         notificationManager.show(
           error.message || "Failed to update trip",
-          "danger"
+          "danger",
         );
       }
     });
@@ -214,7 +214,7 @@
                 formatter.format(date),
                 type,
                 "startTime",
-                "datetime-local"
+                "datetime-local",
               );
             }
             return data;
@@ -237,7 +237,7 @@
                 formatter.format(date),
                 type,
                 "endTime",
-                "datetime-local"
+                "datetime-local",
               );
             }
             return data;
@@ -275,7 +275,7 @@
               value,
               type,
               "totalIdleDuration",
-              "number"
+              "number",
             );
           },
         },
@@ -360,13 +360,13 @@
         if (data.status === "success") {
           notificationManager.show(
             `Successfully deleted ${data.deleted_count} trip(s).`,
-            "success"
+            "success",
           );
           fetchTrips();
         } else {
           notificationManager.show(
             `Error deleting trip(s): ${data.message}`,
-            "danger"
+            "danger",
           );
           console.error("Error deleting trip(s):", data.message);
         }
@@ -374,7 +374,7 @@
         console.error("Error deleting trips:", error);
         notificationManager.show(
           "Error deleting trip(s). Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -412,14 +412,14 @@
         const data = await response.json();
         notificationManager.show(
           `Successfully refreshed geocoding for ${data.updated_count} trip(s).`,
-          "success"
+          "success",
         );
         fetchTrips();
       } catch (error) {
         console.error("Error refreshing geocoding:", error);
         notificationManager.show(
           error.message || "Error refreshing geocoding. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -495,7 +495,7 @@
       console.error("Error fetching trips:", error);
       notificationManager.show(
         "Error loading trips. Please try again.",
-        "danger"
+        "danger",
       );
     }
   }
@@ -550,7 +550,7 @@
           console.error("Error deleting trip:", error);
           notificationManager.show(
             "Error deleting trip. Please try again.",
-            "danger"
+            "danger",
           );
         }
       }
@@ -577,7 +577,7 @@
           console.error("Error exporting trip:", error);
           notificationManager.show(
             "Error exporting trip. Please try again.",
-            "danger"
+            "danger",
           );
         });
     },

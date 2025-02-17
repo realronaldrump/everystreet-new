@@ -48,11 +48,11 @@
         "body",
       ];
       const missingElements = requiredElements.filter(
-        (el) => !this.elements[el]
+        (el) => !this.elements[el],
       );
       if (missingElements.length > 0) {
         throw new Error(
-          `Missing required elements: ${missingElements.join(", ")}`
+          `Missing required elements: ${missingElements.join(", ")}`,
         );
       }
     }
@@ -61,18 +61,18 @@
       [this.elements.toggleButton, this.elements.collapseButton].forEach(
         (button) => {
           button?.addEventListener("click", this.handleToggleClick.bind(this));
-        }
+        },
       );
 
       [this.elements.startDateInput, this.elements.endDateInput].forEach(
         (input) => {
           input?.addEventListener("change", this.handleDateChange.bind(this));
-        }
+        },
       );
 
       window.addEventListener(
         "resize",
-        this.debounce(this.handleResponsiveLayout.bind(this), 250)
+        this.debounce(this.handleResponsiveLayout.bind(this), 250),
       );
 
       document.addEventListener("click", this.handleOutsideClick.bind(this));
@@ -80,7 +80,7 @@
       if (this.elements.filtersToggle) {
         this.elements.filtersToggle.addEventListener(
           "click",
-          this.handleFiltersToggle.bind(this)
+          this.handleFiltersToggle.bind(this),
         );
       }
     }
@@ -129,7 +129,7 @@
     storeSidebarState() {
       localStorage.setItem(
         this.config.storageKeys.sidebarState,
-        this.elements.sidebar.classList.contains("collapsed")
+        this.elements.sidebar.classList.contains("collapsed"),
       );
     }
 
@@ -190,7 +190,7 @@
       const isCollapsed = e.currentTarget.classList.toggle("collapsed");
       localStorage.setItem(
         this.config.storageKeys.filtersCollapsed,
-        isCollapsed
+        isCollapsed,
       );
     }
 
@@ -221,7 +221,7 @@
       if (this.elements.sidebarBody) {
         this.elements.sidebarBody.addEventListener(
           "scroll",
-          this.handleScrollIndicator
+          this.handleScrollIndicator,
         );
         // Initial check
         this.handleScrollIndicator({ target: this.elements.sidebarBody });
@@ -233,11 +233,11 @@
       const isScrollable = element.scrollHeight > element.clientHeight;
       const isScrolledToBottom =
         Math.abs(
-          element.scrollHeight - element.scrollTop - element.clientHeight
+          element.scrollHeight - element.scrollTop - element.clientHeight,
         ) < 1;
       element.classList.toggle(
         "is-scrollable",
-        isScrollable && !isScrolledToBottom
+        isScrollable && !isScrolledToBottom,
       );
     }
 

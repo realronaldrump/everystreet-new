@@ -9,7 +9,8 @@ class NotificationManager {
     let container = document.querySelector(".notification-container");
     if (!container) {
       container = document.createElement("div");
-      container.className = "notification-container position-fixed top-0 end-0 p-3";
+      container.className =
+        "notification-container position-fixed top-0 end-0 p-3";
       document.body.appendChild(container);
     }
     return container;

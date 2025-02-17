@@ -136,11 +136,7 @@ class CoverageCalculator:
 
     def _is_valid_trip(self, gps_data: Any):
         try:
-            data = (
-                json.loads(gps_data)
-                if isinstance(gps_data, str)
-                else gps_data
-            )
+            data = json.loads(gps_data) if isinstance(gps_data, str) else gps_data
             coords = data.get("coordinates", [])
             if len(coords) < 2:
                 return False, []
@@ -159,9 +155,7 @@ class CoverageCalculator:
                 return False
             return self.boundary_box.intersects(LineString(coords))
         except Exception as e:
-            logger.error(
-                "Error checking boundary for trip %s: %s", trip.get("_id"), e
-            )
+            logger.error("Error checking boundary for trip %s: %s", trip.get("_id"), e)
             return False
 
     def _process_trip_sync(self, coords):
@@ -175,9 +169,7 @@ class CoverageCalculator:
             trip_buffer = trip_line_utm.buffer(self.match_buffer)
             trip_buffer_wgs84 = transform(self.project_to_wgs84, trip_buffer)
 
-            for idx in self.streets_index.intersection(
-                trip_buffer_wgs84.bounds
-            ):
+            for idx in self.streets_index.intersection(trip_buffer_wgs84.bounds):
                 street = self.streets_lookup[idx]
                 street_geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, street_geom)
@@ -190,9 +182,7 @@ class CoverageCalculator:
                     if seg_id:
                         covered.add(seg_id)
         except Exception as e:
-            logger.error(
-                "Error processing trip synchronously: %s", e, exc_info=True
-            )
+            logger.error("Error processing trip synchronously: %s", e, exc_info=True)
         return covered
 
     async def process_single_trip(self, trip: Dict[str, Any]) -> Set[str]:
@@ -246,9 +236,7 @@ class CoverageCalculator:
             )
             await ensure_street_coverage_indexes()
 
-            await self.update_progress(
-                "loading_streets", 10, "Loading street data..."
-            )
+            await self.update_progress("loading_streets", 10, "Loading street data...")
             streets = await streets_collection.find(
                 {"properties.location": self.location.get("display_name")}
             ).to_list(length=None)
@@ -258,15 +246,11 @@ class CoverageCalculator:
                 await self.update_progress("error", 0, msg)
                 return None
 
-            await self.update_progress(
-                "indexing", 20, "Building spatial index..."
-            )
+            await self.update_progress("indexing", 20, "Building spatial index...")
             self.build_spatial_index(streets)
             self.boundary_box = self.calculate_boundary_box(streets)
 
-            await self.update_progress(
-                "counting_trips", 30, "Counting trips..."
-            )
+            await self.update_progress("counting_trips", 30, "Counting trips...")
             bbox = self.boundary_box.bounds
             trip_filter = {
                 "gps": {"$exists": True},
@@ -294,9 +278,7 @@ class CoverageCalculator:
                 ],
             }
 
-            self.total_trips = await trips_collection.count_documents(
-                trip_filter
-            )
+            self.total_trips = await trips_collection.count_documents(trip_filter)
             await self.update_progress(
                 "processing_trips",
                 40,
@@ -344,9 +326,7 @@ class CoverageCalculator:
                     "properties": {
                         **street["properties"],
                         "driven": is_covered,
-                        "coverage_count": self.segment_coverage.get(
-                            seg_id, 0
-                        ),
+                        "coverage_count": self.segment_coverage.get(seg_id, 0),
                         "segment_length": seg_length,
                         "segment_id": seg_id,
                     },
@@ -359,9 +339,7 @@ class CoverageCalculator:
                 else 0
             )
 
-            await self.update_progress(
-                "complete", 100, "Coverage calculation complete"
-            )
+            await self.update_progress("complete", 100, "Coverage calculation complete")
             return {
                 "total_length": self.total_length,
                 "driven_length": covered_length,
@@ -395,9 +373,7 @@ async def update_coverage_for_all_locations() -> None:
     """
     try:
         logger.info("Starting coverage update for all locations...")
-        cursor = coverage_metadata_collection.find(
-            {}, {"location": 1, "_id": 1}
-        )
+        cursor = coverage_metadata_collection.find({}, {"location": 1, "_id": 1})
         async for doc in cursor:
             loc = doc.get("location")
             if not loc or isinstance(loc, str):
@@ -417,9 +393,7 @@ async def update_coverage_for_all_locations() -> None:
                             "location": loc,
                             "total_length": result["total_length"],
                             "driven_length": result["driven_length"],
-                            "coverage_percentage": result[
-                                "coverage_percentage"
-                            ],
+                            "coverage_percentage": result["coverage_percentage"],
                             "last_updated": datetime.now(timezone.utc),
                         }
                     },
@@ -433,6 +407,4 @@ async def update_coverage_for_all_locations() -> None:
 
         logger.info("Finished coverage update for all locations.")
     except Exception as e:
-        logger.error(
-            "Error updating coverage for all locations: %s", e, exc_info=True
-        )
+        logger.error("Error updating coverage for all locations: %s", e, exc_info=True)
