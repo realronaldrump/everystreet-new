@@ -1,5 +1,6 @@
-{% extends "base.html" %} {% block title %}Coverage Management{% endblock %} {%
-block content %}
+{% extends "base.html" %}
+{% block title %}Coverage Management{% endblock %}
+{% block content %}
 <div class="container-fluid">
   <div class="row">
     <div class="col-12">
@@ -16,7 +17,7 @@ block content %}
                   type="text"
                   id="location-input"
                   class="form-control location-input"
-                  placeholder="Enter location"
+                  placeholder="Enter location (e.g. 'Waco, TX')"
                 />
               </div>
             </div>
@@ -62,7 +63,7 @@ block content %}
                 </tr>
               </thead>
               <tbody>
-                <!-- Areas will be populated by JavaScript -->
+                <!-- Coverage areas are populated dynamically by JavaScript -->
               </tbody>
             </table>
           </div>
@@ -84,7 +85,7 @@ block content %}
   <div class="modal-dialog">
     <div class="modal-content bg-dark text-white">
       <div class="modal-header">
-        <h5 class="modal-title" id="taskProgressModalLabel">Processing Area</h5>
+        <h5 class="modal-title" id="taskProgressModalLabel">Processing Coverage Update</h5>
         <button
           type="button"
           class="btn-close btn-close-white"
@@ -100,16 +101,16 @@ block content %}
             style="width: 0%"
           ></div>
         </div>
-        <p class="progress-message text-center mb-2">Starting...</p>
+        <p class="progress-message text-center mb-2">Initializing...</p>
         <div class="progress-details text-center">
           <div class="stage-info mb-2 text-info">
-            <!-- Stage information will be shown here -->
+            <!-- Current stage information -->
           </div>
           <div class="stats-info">
-            <!-- Detailed statistics will be shown here -->
+            <!-- Detailed statistics will appear here -->
           </div>
           <div class="time-info text-muted mt-2">
-            <!-- Time information will be shown here -->
+            <!-- Time elapsed info -->
           </div>
         </div>
       </div>
@@ -124,21 +125,21 @@ block content %}
     </div>
   </div>
 </div>
-<!-- Add CSS for processing row highlight -->
+
+<!-- Custom styles for highlighting processing rows -->
 <style>
   .processing-row {
     background-color: rgba(0, 123, 255, 0.1) !important;
   }
-
   .progress-details {
     font-size: 0.875rem;
     color: #6c757d;
   }
-
   #coverage-areas-table .progress {
     min-width: 100px;
   }
 </style>
-{% endblock %} {% block extra_js %}
+{% endblock %}
+{% block extra_js %}
 <script src="{{ url_for('static', path='js/coverage-management.js') }}"></script>
 {% endblock %}
