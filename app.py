@@ -3718,7 +3718,7 @@ async def startup_event():
     try:
         # Check database quota first
         used_mb, limit_mb = await db_manager.check_quota()
-        
+
         if not db_manager.quota_exceeded:
             # Only create indexes if quota is not exceeded
             await db_manager.safe_create_index("uploaded_trips", "transactionId", unique=True)
@@ -3727,7 +3727,7 @@ async def startup_event():
             await db_manager.safe_create_index("streets", [("geometry", "2dsphere")])
             await db_manager.safe_create_index("streets", [("properties.location", 1)])
             await db_manager.safe_create_index("coverage_metadata", [("location", 1)], unique=True)
-            
+
             # Start task manager only if quota is not exceeded
             await task_manager.start()
             await init_task_history_collection()
@@ -3961,7 +3961,8 @@ async def database_management_page(request: Request):
         db_stats = await db.command("dbStats")
         storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
         storage_limit_mb = 512  # Your MongoDB Atlas free tier limit
-        storage_usage_percent = round((storage_used_mb / storage_limit_mb) * 100, 2)
+        storage_usage_percent = round(
+            (storage_used_mb / storage_limit_mb) * 100, 2)
 
         # Get collection stats
         collections = []
@@ -3987,6 +3988,7 @@ async def database_management_page(request: Request):
         logger.error("Error loading database management page: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/api/database/storage-info")
 async def get_storage_info():
     """Get current database storage information."""
@@ -3994,8 +3996,9 @@ async def get_storage_info():
         db_stats = await db.command("dbStats")
         storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
         storage_limit_mb = 512
-        storage_usage_percent = round((storage_used_mb / storage_limit_mb) * 100, 2)
-        
+        storage_usage_percent = round(
+            (storage_used_mb / storage_limit_mb) * 100, 2)
+
         return {
             "used_mb": storage_used_mb,
             "limit_mb": storage_limit_mb,
@@ -4004,6 +4007,7 @@ async def get_storage_info():
     except Exception as e:
         logger.error("Error getting storage info: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/database/optimize-collection")
 async def optimize_collection(collection: dict):
@@ -4018,6 +4022,7 @@ async def optimize_collection(collection: dict):
         logger.error("Error optimizing collection: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/database/clear-collection")
 async def clear_collection(collection: dict):
     """Clear all documents from a collection."""
@@ -4027,6 +4032,7 @@ async def clear_collection(collection: dict):
     except Exception as e:
         logger.error("Error clearing collection: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/database/optimize-all")
 async def optimize_all_collections():
@@ -4040,6 +4046,7 @@ async def optimize_all_collections():
     except Exception as e:
         logger.error("Error optimizing all collections: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/database/repair-indexes")
 async def repair_indexes():
