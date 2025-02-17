@@ -77,12 +77,14 @@ class CoverageCalculator:
         center_lat, center_lon = self._get_location_center()
         utm_zone = int((center_lon + 180) / 6) + 1
         hemisphere = "north" if center_lat >= 0 else "south"
-        
+
         self.utm_proj = pyproj.CRS(
             f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84"
         )
-        self.project_to_utm = pyproj.Transformer.from_crs(wgs84, self.utm_proj, always_xy=True).transform
-        self.project_to_wgs84 = pyproj.Transformer.from_crs(self.utm_proj, wgs84, always_xy=True).transform
+        self.project_to_utm = pyproj.Transformer.from_crs(
+            wgs84, self.utm_proj, always_xy=True).transform
+        self.project_to_wgs84 = pyproj.Transformer.from_crs(
+            self.utm_proj, wgs84, always_xy=True).transform
 
     def _get_location_center(self) -> Tuple[float, float]:
         """Extract center point from location's bounding box or use default"""
@@ -108,8 +110,9 @@ class CoverageCalculator:
 
     async def process_trip_batch(self, trips: List[Dict[str, Any]]) -> None:
         """Process a batch of trips efficiently"""
-        tasks = [self.process_single_trip(trip) for trip in trips if self.is_trip_in_boundary(trip)]
-        
+        tasks = [self.process_single_trip(
+            trip) for trip in trips if self.is_trip_in_boundary(trip)]
+
         if tasks:
             results = await asyncio.gather(*tasks)
             for segments in results:
@@ -118,7 +121,8 @@ class CoverageCalculator:
                     self.segment_coverage[segment_id] += 1
 
         self.processed_trips += len(trips)
-        progress = self.processed_trips / self.total_trips * 100 if self.total_trips > 0 else 0
+        progress = self.processed_trips / self.total_trips * \
+            100 if self.total_trips > 0 else 0
         await self.update_progress(
             "processing_trips",
             progress,
@@ -132,7 +136,8 @@ class CoverageCalculator:
             if not gps_data:
                 return False
 
-            coords = json.loads(gps_data)["coordinates"] if isinstance(gps_data, str) else gps_data["coordinates"]
+            coords = json.loads(gps_data)["coordinates"] if isinstance(
+                gps_data, str) else gps_data["coordinates"]
             return self.boundary_box.intersects(LineString(coords))
         except (KeyError, json.JSONDecodeError):
             return False
