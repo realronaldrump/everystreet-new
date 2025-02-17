@@ -15,9 +15,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Create a global connection pool with limits
-CONN_POOL = TCPConnector(
-    limit=10, force_close=True, enable_cleanup_closed=True
-)
+CONN_POOL = TCPConnector(limit=10, force_close=True, enable_cleanup_closed=True)
 SESSION_TIMEOUT = aiohttp.ClientTimeout(
     total=10, connect=5, sock_connect=5, sock_read=5
 )
@@ -103,9 +101,7 @@ async def validate_location_osm(
                     location,
                 )
                 return data[0] if data else None
-            logger.error(
-                "HTTP %s error for location '%s'.", response.status, location
-            )
+            logger.error("HTTP %s error for location '%s'.", response.status, location)
             return None
     except Exception as e:
         logger.error(
@@ -229,21 +225,15 @@ async def reverse_geocode_nominatim(
                         continue
                 elif response.status == 429:  # Too Many Requests
                     retry_after = int(
-                        response.headers.get(
-                            "Retry-After", backoff_factor * 5
-                        )
+                        response.headers.get("Retry-After", backoff_factor * 5)
                     )
                     await asyncio.sleep(retry_after)
                     continue
                 else:
-                    logger.warning(
-                        "Unexpected status code: %s", response.status
-                    )
+                    logger.warning("Unexpected status code: %s", response.status)
 
         except (ClientResponseError, ClientConnectorError) as e:
-            log_level = (
-                logging.WARNING if attempt < retries else logging.ERROR
-            )
+            log_level = logging.WARNING if attempt < retries else logging.ERROR
             logger.log(
                 log_level,
                 "Reverse geocode error (attempt %s) for (%s, %s): %s",

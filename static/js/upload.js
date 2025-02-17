@@ -208,10 +208,10 @@
       );
       polyline.on("click", async () => {
         const confirmed = await confirmationDialog.show({
-          title: 'Remove File',
+          title: "Remove File",
           message: `Remove ${entry.filename}?`,
-          confirmText: 'Remove',
-          confirmButtonClass: 'btn-danger'
+          confirmText: "Remove",
+          confirmButtonClass: "btn-danger",
         });
         if (confirmed) {
           selectedFiles = selectedFiles.filter((e) => e !== entry);
@@ -411,10 +411,10 @@
     }
 
     const confirmed = await confirmationDialog.show({
-      title: 'Delete Trips',
+      title: "Delete Trips",
       message: `Are you sure you want to delete ${tripIds.length} selected trips?`,
-      confirmText: 'Delete',
-      confirmButtonClass: 'btn-danger'
+      confirmText: "Delete",
+      confirmButtonClass: "btn-danger",
     });
 
     if (confirmed) {
@@ -428,7 +428,7 @@
         if (data.status === "success") {
           notificationManager.show(
             `${data.deleted_uploaded_trips} uploaded trips and ${data.deleted_matched_trips} matched trips deleted successfully.`,
-            "success"
+            "success",
           );
           loadUploadedTrips();
         } else {
@@ -446,12 +446,12 @@
   // Delete an individual uploaded trip
   async function deleteUploadedTrip(tripId) {
     loadingManager.startOperation("Deleting Trip");
-    
+
     const confirmed = await confirmationDialog.show({
-      title: 'Delete Trip',
-      message: 'Are you sure you want to delete this trip?',
-      confirmText: 'Delete',
-      confirmButtonClass: 'btn-danger'
+      title: "Delete Trip",
+      message: "Are you sure you want to delete this trip?",
+      confirmText: "Delete",
+      confirmButtonClass: "btn-danger",
     });
 
     if (confirmed) {
@@ -465,7 +465,7 @@
         if (data.status === "success") {
           notificationManager.show(
             `Trip deleted successfully. Matched trips deleted: ${data.deleted_matched_trips}`,
-            "success"
+            "success",
           );
           loadUploadedTrips();
         } else {

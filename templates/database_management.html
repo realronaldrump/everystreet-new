@@ -1,6 +1,5 @@
-{% extends "base.html" %}
-{% block title %}Database Management{% endblock %}
-{% block content %}
+{% extends "base.html" %} {% block title %}Database Management{% endblock %} {%
+block content %}
 <div class="container-fluid py-4">
   <h1 class="mb-4">Database Management</h1>
 
@@ -10,8 +9,8 @@
       <i class="fas fa-exclamation-triangle"></i> Storage Quota Exceeded!
     </h4>
     <p>
-      Your database is currently using {{ storage_used_mb }}MB of
-      {{ storage_limit_mb }}MB allocated storage. The application is running in
+      Your database is currently using {{ storage_used_mb }}MB of {{
+      storage_limit_mb }}MB allocated storage. The application is running in
       limited mode with some features disabled.
     </p>
     <hr />
@@ -26,8 +25,8 @@
       <i class="fas fa-exclamation-circle"></i> Storage Quota Warning
     </h4>
     <p>
-      Your database is approaching its storage limit
-      ({{ storage_used_mb }}MB of {{ storage_limit_mb }}MB used).
+      Your database is approaching its storage limit ({{ storage_used_mb }}MB of
+      {{ storage_limit_mb }}MB used).
     </p>
     <hr />
     <p class="mb-0">
@@ -45,7 +44,7 @@
     <div class="card-body">
       <div class="row">
         <div class="col-md-6">
-          <div class="progress mb-3" style="height: 25px;">
+          <div class="progress mb-3" style="height: 25px">
             <div
               class="progress-bar {% if storage_usage_percent > 95 %}bg-danger{% elif storage_usage_percent > 80 %}bg-warning{% else %}bg-success{% endif %}"
               role="progressbar"
@@ -138,9 +137,7 @@
 
 <!-- Add notification container at the end if needed -->
 <div class="notification-container position-fixed top-0 end-0 p-3"></div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', path='js/utils.js') }}"></script>
 <script src="{{ url_for('static', path='js/database-management.js') }}"></script>
 {% endblock %}

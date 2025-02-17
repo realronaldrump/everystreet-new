@@ -60,9 +60,7 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
-AUTHORIZED_DEVICES = [
-    d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
-]
+AUTHORIZED_DEVICES = [d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d]
 AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 
 
@@ -82,18 +80,14 @@ async def get_access_token(client_session: aiohttp.ClientSession) -> str:
         "redirect_uri": REDIRECT_URI,
     }
     try:
-        async with client_session.post(
-            AUTH_URL, data=payload
-        ) as auth_response:
+        async with client_session.post(AUTH_URL, data=payload) as auth_response:
             auth_response.raise_for_status()
             data = await auth_response.json()
             access_token = data.get("access_token")
             if not access_token:
                 logger.error("Access token not found in response: %s", data)
                 return None
-            logger.info(
-                "Successfully retrieved access token from Bouncie API."
-            )
+            logger.info("Successfully retrieved access token from Bouncie API.")
             return access_token
     except ClientResponseError as e:
         logger.error(
@@ -111,9 +105,7 @@ async def get_access_token(client_session: aiohttp.ClientSession) -> str:
         )
         return None
     except Exception as e:
-        logger.error(
-            "Unexpected error retrieving access token: %s", e, exc_info=True
-        )
+        logger.error("Unexpected error retrieving access token: %s", e, exc_info=True)
         return None
 
 
@@ -137,9 +129,7 @@ async def fetch_trips_for_device(
     }
     url = f"{API_BASE_URL}/trips"
     try:
-        async with session.get(
-            url, headers=headers, params=params
-        ) as response:
+        async with session.get(url, headers=headers, params=params) as response:
             response.raise_for_status()
             trips = await response.json()
             for trip in trips:
@@ -151,9 +141,9 @@ async def fetch_trips_for_device(
                         ).replace(tzinfo=timezone.utc)
                     # Parse endTime if present
                     if "endTime" in trip:
-                        trip["endTime"] = date_parser.isoparse(
-                            trip["endTime"]
-                        ).replace(tzinfo=timezone.utc)
+                        trip["endTime"] = date_parser.isoparse(trip["endTime"]).replace(
+                            tzinfo=timezone.utc
+                        )
                     else:
                         # Possibly the trip is in progress
                         logger.debug(
@@ -176,9 +166,7 @@ async def fetch_trips_for_device(
             )
             return trips
     except Exception as e:
-        logger.error(
-            "Error fetching trips for device %s: %s", imei, e, exc_info=True
-        )
+        logger.error("Error fetching trips for device %s: %s", imei, e, exc_info=True)
         return []
 
 
@@ -196,9 +184,7 @@ async def store_trip(trip: dict) -> bool:
     # 1) Validate the trip data
     is_valid, error_msg = validate_trip_data(trip)
     if not is_valid:
-        logger.error(
-            "Trip %s failed validation: %s", transaction_id, error_msg
-        )
+        logger.error("Trip %s failed validation: %s", transaction_id, error_msg)
         return False
     logger.debug("Trip data validation passed for %s.", transaction_id)
 
@@ -221,9 +207,7 @@ async def store_trip(trip: dict) -> bool:
         logger.info("Stored trip %s successfully.", transaction_id)
         return True
     except Exception as e:
-        logger.error(
-            "Error storing trip %s: %s", transaction_id, e, exc_info=True
-        )
+        logger.error("Error storing trip %s: %s", transaction_id, e, exc_info=True)
         return False
 
 
@@ -293,9 +277,7 @@ async def fetch_bouncie_trips_in_range(
                 )
                 logger.info("Map matching completed for new trips.")
             except Exception as e:
-                logger.error(
-                    "Error during map matching: %s", e, exc_info=True
-                )
+                logger.error("Error during map matching: %s", e, exc_info=True)
 
         if task_progress is not None:
             task_progress["fetch_and_store_trips"]["progress"] = 100
@@ -327,9 +309,7 @@ async def get_trips_from_api(
     }
     url = f"{API_BASE_URL}/trips"
     try:
-        async with client_session.get(
-            url, headers=headers, params=params
-        ) as response:
+        async with client_session.get(url, headers=headers, params=params) as response:
             response.raise_for_status()
             trips = await response.json()
             # Localize times

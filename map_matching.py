@@ -80,10 +80,7 @@ async def map_match_coordinates(coordinates):
 
             except ClientResponseError as e:
                 error_data = None
-                if (
-                    e.response
-                    and e.response.content_type == "application/json"
-                ):
+                if e.response and e.response.content_type == "application/json":
                     error_data = await e.response.json()
                 logger.error(
                     "Chunk %d: ClientResponseError %s - %s, URL: %s, Resp: %s",
@@ -247,9 +244,7 @@ async def process_and_map_match_trip(trip):
             {"transactionId": trip["transactionId"]}
         )
         if existing:
-            logger.info(
-                "Trip %s is already matched; skipping.", trip["transactionId"]
-            )
+            logger.info("Trip %s is already matched; skipping.", trip["transactionId"])
             return
 
         # Extract GPS data
@@ -294,12 +289,8 @@ async def process_and_map_match_trip(trip):
 
         # Possibly split on time gaps
         segments = [coords_with_time]
-        if len(coords_with_time) > 2 and isinstance(
-            coords_with_time[0][-1], datetime
-        ):
-            segments = split_trip_on_time_gaps(
-                coords_with_time, max_gap_minutes=15
-            )
+        if len(coords_with_time) > 2 and isinstance(coords_with_time[0][-1], datetime):
+            segments = split_trip_on_time_gaps(coords_with_time, max_gap_minutes=15)
 
         matched_coords_combined = []
         for seg_index, seg in enumerate(segments):
@@ -353,9 +344,7 @@ async def process_and_map_match_trip(trip):
             first_lon, first_lat = matched_coords_combined[0]
             city_info = await reverse_geocode_nominatim(first_lat, first_lon)
             if city_info:
-                matched_trip["location"] = city_info.get(
-                    "display_name", "Unknown"
-                )
+                matched_trip["location"] = city_info.get("display_name", "Unknown")
         except Exception as ge_err:
             logger.warning(
                 "Reverse geocode error for trip %s: %s",

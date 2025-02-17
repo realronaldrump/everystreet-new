@@ -4,9 +4,17 @@ class LiveTripTracker {
   constructor(map) {
     this.map = map;
     this.activeTrip = null;
-    this.polyline = L.polyline([], { color: "#00FF00", weight: 3, opacity: 0.8 }).addTo(this.map);
+    this.polyline = L.polyline([], {
+      color: "#00FF00",
+      weight: 3,
+      opacity: 0.8,
+    }).addTo(this.map);
     this.marker = L.marker([0, 0], {
-      icon: L.divIcon({ className: "vehicle-marker", iconSize: [12, 12], iconAnchor: [6, 6] }),
+      icon: L.divIcon({
+        className: "vehicle-marker",
+        iconSize: [12, 12],
+        iconAnchor: [6, 6],
+      }),
     });
     this.websocket = null;
     this.reconnectAttempts = 0;
@@ -50,8 +58,10 @@ class LiveTripTracker {
       return;
     }
 
-    trip.coordinates.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    const latLngs = trip.coordinates.map(coord => [coord.lat, coord.lon]);
+    trip.coordinates.sort(
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
+    );
+    const latLngs = trip.coordinates.map((coord) => [coord.lat, coord.lon]);
     this.polyline.setLatLngs(latLngs);
 
     const lastPoint = latLngs[latLngs.length - 1];
