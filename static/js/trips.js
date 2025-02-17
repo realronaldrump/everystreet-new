@@ -59,7 +59,7 @@
                 updateDatesAndFetch(startDate, endDate);
               })
               .catch((error) =>
-                console.error("Error fetching first trip date:", error),
+                console.error("Error fetching first trip date:", error)
               );
             return;
         }
@@ -73,7 +73,7 @@
     }
 
     const refreshGeocodingBtn = document.getElementById(
-      "refresh-geocoding-btn",
+      "refresh-geocoding-btn"
     );
     if (refreshGeocodingBtn) {
       refreshGeocodingBtn.addEventListener("click", refreshGeocoding);
@@ -156,7 +156,10 @@
         notificationManager.show("Trip updated successfully", "success");
       } catch (error) {
         console.error("Error updating trip:", error);
-        notificationManager.show(error.message || "Failed to update trip", "danger");
+        notificationManager.show(
+          error.message || "Failed to update trip",
+          "danger"
+        );
       }
     });
   }
@@ -207,10 +210,15 @@
                 timeZone: timezone,
                 hour12: true,
               });
-              return createEditableCell(formatter.format(date), type, "startTime", "datetime-local");
+              return createEditableCell(
+                formatter.format(date),
+                type,
+                "startTime",
+                "datetime-local"
+              );
             }
             return data;
-          }
+          },
         },
         {
           data: "endTime",
@@ -225,10 +233,15 @@
                 timeZone: timezone,
                 hour12: true,
               });
-              return createEditableCell(formatter.format(date), type, "endTime", "datetime-local");
+              return createEditableCell(
+                formatter.format(date),
+                type,
+                "endTime",
+                "datetime-local"
+              );
             }
             return data;
-          }
+          },
         },
         {
           data: "distance",
@@ -262,7 +275,7 @@
               value,
               type,
               "totalIdleDuration",
-              "number",
+              "number"
             );
           },
         },
@@ -330,10 +343,10 @@
     }
 
     const confirmed = await confirmationDialog.show({
-      title: 'Delete Trips',
+      title: "Delete Trips",
       message: `Are you sure you want to delete ${selectedTrips.length} trip(s)?`,
-      confirmText: 'Delete',
-      confirmButtonClass: 'btn-danger'
+      confirmText: "Delete",
+      confirmButtonClass: "btn-danger",
     });
 
     if (confirmed) {
@@ -379,10 +392,10 @@
     }
 
     const confirmed = await confirmationDialog.show({
-      title: 'Refresh Geocoding',
+      title: "Refresh Geocoding",
       message: `Are you sure you want to refresh geocoding for ${selectedTrips.length} trip(s)?`,
-      confirmText: 'Refresh',
-      confirmButtonClass: 'btn-primary'
+      confirmText: "Refresh",
+      confirmButtonClass: "btn-primary",
     });
 
     if (confirmed) {
@@ -480,16 +493,19 @@
       });
     } catch (error) {
       console.error("Error fetching trips:", error);
-      notificationManager.show("Error loading trips. Please try again.", "danger");
+      notificationManager.show(
+        "Error loading trips. Please try again.",
+        "danger"
+      );
     }
   }
 
   function createEditableCell(data, type, field, inputType = "text") {
     if (type !== "display") return data;
-    
+
     const value = data != null ? data : "";
     let inputValue = value;
-    
+
     if (field === "startTime" || field === "endTime") {
       inputValue = value ? new Date(value).toISOString().slice(0, 16) : "";
     }
@@ -511,15 +527,17 @@
     createEditableCell,
     deleteTrip: async function (tripId) {
       const confirmed = await confirmationDialog.show({
-        title: 'Delete Trip',
-        message: 'Are you sure you want to delete this trip?',
-        confirmText: 'Delete',
-        confirmButtonClass: 'btn-danger'
+        title: "Delete Trip",
+        message: "Are you sure you want to delete this trip?",
+        confirmText: "Delete",
+        confirmButtonClass: "btn-danger",
       });
 
       if (confirmed) {
         try {
-          const response = await fetch(`/api/trips/${tripId}`, { method: "DELETE" });
+          const response = await fetch(`/api/trips/${tripId}`, {
+            method: "DELETE",
+          });
           if (!response.ok) throw new Error("Network response was not ok");
           const data = await response.json();
           if (data.status === "success") {
@@ -537,7 +555,7 @@
         }
       }
     },
-    exportTrip: function(tripId, format) {
+    exportTrip: function (tripId, format) {
       const url = `/api/export/trip/${tripId}?format=${format}`;
       fetch(url)
         .then((response) => {
@@ -557,8 +575,11 @@
         })
         .catch((error) => {
           console.error("Error exporting trip:", error);
-          notificationManager.show("Error exporting trip. Please try again.", "danger");
+          notificationManager.show(
+            "Error exporting trip. Please try again.",
+            "danger"
+          );
         });
-    }
+    },
   };
 })();

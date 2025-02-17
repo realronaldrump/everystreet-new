@@ -12,7 +12,7 @@
         mainContent: document.querySelector("main"),
         body: document.body,
         filtersToggle: document.getElementById("toggle-filters"),
-        sidebarBody: document.querySelector(".sidebar-body")
+        sidebarBody: document.querySelector(".sidebar-body"),
       };
 
       this.config = {
@@ -21,7 +21,7 @@
           sidebarState: "sidebarCollapsed",
           startDate: "startDate",
           endDate: "endDate",
-          filtersCollapsed: "filtersCollapsed"
+          filtersCollapsed: "filtersCollapsed",
         },
       };
 
@@ -41,7 +41,12 @@
     }
 
     validateElements() {
-      const requiredElements = ["sidebar", "toggleButton", "mainContent", "body"];
+      const requiredElements = [
+        "sidebar",
+        "toggleButton",
+        "mainContent",
+        "body",
+      ];
       const missingElements = requiredElements.filter(
         (el) => !this.elements[el]
       );
@@ -71,9 +76,12 @@
       );
 
       document.addEventListener("click", this.handleOutsideClick.bind(this));
-      
+
       if (this.elements.filtersToggle) {
-        this.elements.filtersToggle.addEventListener("click", this.handleFiltersToggle.bind(this));
+        this.elements.filtersToggle.addEventListener(
+          "click",
+          this.handleFiltersToggle.bind(this)
+        );
       }
     }
 
@@ -87,8 +95,9 @@
       const isOutsideClick =
         !this.elements.sidebar.contains(e.target) &&
         !this.elements.toggleButton.contains(e.target);
-      const isSidebarActive = this.elements.sidebar.classList.contains("active");
-      
+      const isSidebarActive =
+        this.elements.sidebar.classList.contains("active");
+
       if (isMobile && isOutsideClick && isSidebarActive) {
         this.toggleSidebar();
       }
@@ -179,11 +188,16 @@
 
     handleFiltersToggle(e) {
       const isCollapsed = e.currentTarget.classList.toggle("collapsed");
-      localStorage.setItem(this.config.storageKeys.filtersCollapsed, isCollapsed);
+      localStorage.setItem(
+        this.config.storageKeys.filtersCollapsed,
+        isCollapsed
+      );
     }
 
     loadFiltersState() {
-      const isCollapsed = localStorage.getItem(this.config.storageKeys.filtersCollapsed) === "true";
+      const isCollapsed =
+        localStorage.getItem(this.config.storageKeys.filtersCollapsed) ===
+        "true";
       if (isCollapsed && this.elements.filtersToggle) {
         this.elements.filtersToggle.classList.add("collapsed");
         const filtersContent = document.getElementById("filters-content");
@@ -195,17 +209,20 @@
 
     highlightCurrentPage() {
       const currentPath = window.location.pathname;
-      const navLinks = this.elements.sidebar.querySelectorAll('.nav-link');
-      navLinks.forEach(link => {
-        if (link.getAttribute('href') === currentPath) {
-          link.classList.add('active');
+      const navLinks = this.elements.sidebar.querySelectorAll(".nav-link");
+      navLinks.forEach((link) => {
+        if (link.getAttribute("href") === currentPath) {
+          link.classList.add("active");
         }
       });
     }
 
     initializeScrollIndicator() {
       if (this.elements.sidebarBody) {
-        this.elements.sidebarBody.addEventListener('scroll', this.handleScrollIndicator);
+        this.elements.sidebarBody.addEventListener(
+          "scroll",
+          this.handleScrollIndicator
+        );
         // Initial check
         this.handleScrollIndicator({ target: this.elements.sidebarBody });
       }
@@ -214,14 +231,20 @@
     handleScrollIndicator(event) {
       const element = event.target;
       const isScrollable = element.scrollHeight > element.clientHeight;
-      const isScrolledToBottom = Math.abs(element.scrollHeight - element.scrollTop - element.clientHeight) < 1;
-      element.classList.toggle('is-scrollable', isScrollable && !isScrolledToBottom);
+      const isScrolledToBottom =
+        Math.abs(
+          element.scrollHeight - element.scrollTop - element.clientHeight
+        ) < 1;
+      element.classList.toggle(
+        "is-scrollable",
+        isScrollable && !isScrolledToBottom
+      );
     }
 
     initializeKeyboardNavigation() {
-      document.addEventListener('keydown', (e) => {
+      document.addEventListener("keydown", (e) => {
         // Toggle sidebar with Ctrl + B
-        if (e.ctrlKey && e.key === 'b') {
+        if (e.ctrlKey && e.key === "b") {
           e.preventDefault();
           this.toggleSidebar();
         }
@@ -231,11 +254,12 @@
     setButtonLoading(buttonId, isLoading) {
       const button = document.getElementById(buttonId);
       if (!button) return;
-      
+
       const originalContent = button.innerHTML;
       if (isLoading) {
         button.disabled = true;
-        button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Loading...';
+        button.innerHTML =
+          '<span class="spinner-border spinner-border-sm me-1"></span> Loading...';
       } else {
         button.disabled = false;
         button.innerHTML = originalContent;

@@ -36,7 +36,7 @@
       this.placeNameInput = document.getElementById("place-name");
       this.placesList = document.getElementById("places-list");
       this.managePlacesModal = new bootstrap.Modal(
-        document.getElementById("manage-places-modal"),
+        document.getElementById("manage-places-modal")
       );
     }
 
@@ -62,11 +62,11 @@
 
     setupEventListeners() {
       this.startDrawingBtn?.addEventListener("click", () =>
-        this.startDrawing(),
+        this.startDrawing()
       );
       this.savePlaceBtn?.addEventListener("click", () => this.savePlace());
       this.managePlacesBtn?.addEventListener("click", () =>
-        this.showManagePlacesModal(),
+        this.showManagePlacesModal()
       );
       this.map?.on(L.Draw.Event.CREATED, (e) => this.onPolygonCreated(e));
     }
@@ -113,7 +113,10 @@
         }
       } catch (error) {
         console.error("Error saving place:", error);
-        notificationManager.show(error.message || "An error occurred while saving the place.", "danger");
+        notificationManager.show(
+          error.message || "An error occurred while saving the place.",
+          "danger"
+        );
       }
     }
 
@@ -126,7 +129,7 @@
             feature.properties = {};
           }
           feature.properties.placeId = place._id;
-        }
+        },
       });
       polygon.bindPopup(`
           <div class="custom-place-popup">
@@ -143,10 +146,10 @@
         const results = await Promise.all(
           Array.from(this.places.keys()).map(async (placeId) => {
             const stats = await fetch(`/api/places/${placeId}/statistics`).then(
-              (res) => res.json(),
+              (res) => res.json()
             );
             return { placeId, stats };
-          }),
+          })
         );
         results.forEach(({ placeId, stats }) => {
           const place = this.places.get(placeId);
@@ -160,7 +163,7 @@
     async showPlaceStatistics(placeId) {
       try {
         const stats = await fetch(`/api/places/${placeId}/statistics`).then(
-          (res) => res.json(),
+          (res) => res.json()
         );
         const place = this.places.get(placeId);
         L.popup()
@@ -170,9 +173,11 @@
               <div class="custom-place-popup">
                 <h6>${place.name}</h6>
                 <p>Total Visits: ${stats.totalVisits}</p>
-                <p>Last Visit: ${new Date(stats.lastVisit).toLocaleDateString()}</p>
+                <p>Last Visit: ${new Date(
+                  stats.lastVisit
+                ).toLocaleDateString()}</p>
               </div>
-            `,
+            `
           )
           .openOn(this.map);
       } catch (error) {
@@ -242,10 +247,10 @@
 
     async deletePlace(placeId) {
       const confirmed = await confirmationDialog.show({
-        title: 'Delete Place',
-        message: 'Are you sure you want to delete this place?',
-        confirmText: 'Delete',
-        confirmButtonClass: 'btn-danger'
+        title: "Delete Place",
+        message: "Are you sure you want to delete this place?",
+        confirmText: "Delete",
+        confirmButtonClass: "btn-danger",
       });
 
       if (confirmed) {
@@ -256,7 +261,10 @@
           if (response.ok) {
             this.places.delete(placeId);
             this.customPlacesLayer.eachLayer((layer) => {
-              if (layer.feature && layer.feature.properties.placeId === placeId) {
+              if (
+                layer.feature &&
+                layer.feature.properties.placeId === placeId
+              ) {
                 this.customPlacesLayer.removeLayer(layer);
               }
             });
@@ -267,7 +275,10 @@
           }
         } catch (error) {
           console.error("Error deleting place:", error);
-          notificationManager.show(error.message || "An error occurred while deleting the place.", "danger");
+          notificationManager.show(
+            error.message || "An error occurred while deleting the place.",
+            "danger"
+          );
         }
       }
     }

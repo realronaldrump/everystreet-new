@@ -25,7 +25,7 @@ class LoadingManager {
 
     this.currentOperation.currentStep = Math.min(
       Math.max(step, 0),
-      this.currentOperation.totalSteps,
+      this.currentOperation.totalSteps
     );
     if (message) {
       this.currentOperation.name = message;
@@ -54,12 +54,12 @@ class LoadingManager {
 
     const totalWeight = Array.from(this.subOperations.values()).reduce(
       (sum, op) => sum + op.weight,
-      0,
+      0
     );
 
     const weightedProgress = Array.from(this.subOperations.entries()).reduce(
       (sum, [_, op]) => sum + (op.progress / 100) * op.weight,
-      0,
+      0
     );
 
     const totalProgress = (weightedProgress / totalWeight) * 100;
@@ -71,7 +71,7 @@ class LoadingManager {
 
     const percentage = Math.round(
       (this.currentOperation.currentStep / this.currentOperation.totalSteps) *
-        100,
+        100
     );
     this.loadingText.textContent = `${this.currentOperation.name}: ${percentage}%`;
     this.loadingBar.style.width = `${percentage}%`;

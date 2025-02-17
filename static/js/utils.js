@@ -6,17 +6,18 @@ class NotificationManager {
   }
 
   static _getOrCreateContainer() {
-    let container = document.querySelector('.notification-container');
+    let container = document.querySelector(".notification-container");
     if (!(container instanceof HTMLElement)) {
-      container = document.createElement('div');
-      container.className = 'notification-container position-fixed top-0 end-0 p-3';
+      container = document.createElement("div");
+      container.className =
+        "notification-container position-fixed top-0 end-0 p-3";
       document.body.appendChild(container);
     }
     return container;
   }
 
-  show(message, type = 'info', duration = 5000) {
-    const notificationDiv = document.createElement('div');
+  show(message, type = "info", duration = 5000) {
+    const notificationDiv = document.createElement("div");
     notificationDiv.className = `alert alert-${type} alert-dismissible fade show`;
     notificationDiv.innerHTML = `
       ${message}
@@ -29,7 +30,7 @@ class NotificationManager {
 
 class ConfirmationDialog {
   constructor() {
-    this.modalId = 'confirmationModal';
+    this.modalId = "confirmationModal";
     this._createModal();
   }
 
@@ -54,29 +55,29 @@ class ConfirmationDialog {
 
     if (!document.getElementById(this.modalId)) {
       const parser = new DOMParser();
-      const doc = parser.parseFromString(modalHtml, 'text/html');
+      const doc = parser.parseFromString(modalHtml, "text/html");
       document.body.appendChild(doc.body.firstChild);
     }
   }
 
   show(options = {}) {
     const {
-      title = 'Confirm',
-      message = 'Are you sure?',
-      confirmText = 'Confirm',
-      cancelText = 'Cancel',
-      confirmButtonClass = 'btn-primary'
+      title = "Confirm",
+      message = "Are you sure?",
+      confirmText = "Confirm",
+      cancelText = "Cancel",
+      confirmButtonClass = "btn-primary",
     } = options;
 
     return new Promise((resolve) => {
       const modalElement = document.getElementById(this.modalId);
       const modal = new bootstrap.Modal(modalElement);
 
-      modalElement.querySelector('.modal-title').textContent = title;
-      modalElement.querySelector('.modal-body').textContent = message;
+      modalElement.querySelector(".modal-title").textContent = title;
+      modalElement.querySelector(".modal-body").textContent = message;
 
-      const confirmBtn = modalElement.querySelector('.confirm-btn');
-      const cancelBtn = modalElement.querySelector('.btn-secondary');
+      const confirmBtn = modalElement.querySelector(".confirm-btn");
+      const cancelBtn = modalElement.querySelector(".btn-secondary");
 
       confirmBtn.textContent = confirmText;
       cancelBtn.textContent = cancelText;
@@ -94,12 +95,12 @@ class ConfirmationDialog {
       };
 
       const cleanup = () => {
-        confirmBtn.removeEventListener('click', handleConfirm);
-        modalElement.removeEventListener('hidden.bs.modal', handleDismiss);
+        confirmBtn.removeEventListener("click", handleConfirm);
+        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
       };
 
-      confirmBtn.addEventListener('click', handleConfirm);
-      modalElement.addEventListener('hidden.bs.modal', handleDismiss);
+      confirmBtn.addEventListener("click", handleConfirm);
+      modalElement.addEventListener("hidden.bs.modal", handleDismiss);
 
       modal.show();
     });
