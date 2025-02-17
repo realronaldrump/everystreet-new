@@ -88,9 +88,7 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
                 continue
 
         if not gps_data:
-            logger.warning(
-                "No gps data for trip %s", t.get("transactionId", "?")
-            )
+            logger.warning("No gps data for trip %s", t.get("transactionId", "?"))
             continue
 
         if gps_data.get("type") == "LineString":

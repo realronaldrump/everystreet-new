@@ -94,9 +94,7 @@ CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
-AUTHORIZED_DEVICES = [
-    d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
-]
+AUTHORIZED_DEVICES = [d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d]
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
@@ -124,9 +122,7 @@ async def add_header(request: Request, call_next):
     A middleware to set no-cache headers for all responses.
     """
     response = await call_next(request)
-    response.headers["Cache-Control"] = (
-        "no-store, no-cache, must-revalidate, max-age=0"
-    )
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
@@ -162,14 +158,10 @@ def parse_query_date(
         dt2 = datetime.strptime(date_str, "%Y-%m-%d")
         dt2 = dt2.replace(tzinfo=timezone.utc)
         if end_of_day:
-            dt2 = dt2.replace(
-                hour=23, minute=59, second=59, microsecond=999999
-            )
+            dt2 = dt2.replace(hour=23, minute=59, second=59, microsecond=999999)
         return dt2
     except ValueError:
-        logger.warning(
-            "Unable to parse date string '%s'; returning None.", date_str
-        )
+        logger.warning("Unable to parse date string '%s'; returning None.", date_str)
         return None
 
 
@@ -208,9 +200,7 @@ class CustomPlace:
     A utility class for user-defined places.
     """
 
-    def __init__(
-        self, name: str, geometry: dict, created_at: datetime = None
-    ):
+    def __init__(self, name: str, geometry: dict, created_at: datetime = None):
         self.name = name
         self.geometry = geometry
         self.created_at = created_at or datetime.now(timezone.utc)
@@ -263,9 +253,7 @@ async def settings_page(request: Request):
 
 @app.get("/driving-insights", response_class=HTMLResponse)
 async def driving_insights_page(request: Request):
-    return templates.TemplateResponse(
-        "driving_insights.html", {"request": request}
-    )
+    return templates.TemplateResponse("driving_insights.html", {"request": request})
 
 
 @app.get("/visits", response_class=HTMLResponse)
@@ -286,9 +274,7 @@ async def upload_page(request: Request):
 @app.get("/coverage-management", response_class=HTMLResponse)
 async def coverage_management_page(request: Request):
     """Coverage management page."""
-    return templates.TemplateResponse(
-        "coverage_management.html", {"request": request}
-    )
+    return templates.TemplateResponse("coverage_management.html", {"request": request})
 
 
 @app.get("/database-management")
@@ -300,9 +286,7 @@ async def database_management_page(request: Request):
         db_stats = await db.command("dbStats")
         storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
         storage_limit_mb = 512  # e.g., for free-tier limit
-        storage_usage_percent = round(
-            (storage_used_mb / storage_limit_mb) * 100, 2
-        )
+        storage_usage_percent = round((storage_used_mb / storage_limit_mb) * 100, 2)
 
         # Get collection stats
         collections_info = []
@@ -370,9 +354,7 @@ async def get_background_tasks_config():
                     if isinstance(task_config[ts_field], str):
                         task_config[ts_field] = task_config[ts_field]
                     else:
-                        task_config[ts_field] = task_config[
-                            ts_field
-                        ].isoformat()
+                        task_config[ts_field] = task_config[ts_field].isoformat()
 
         return config
     except Exception as e:
@@ -401,13 +383,11 @@ async def update_background_tasks_config(request: Request):
 
                     # Update specific fields
                     if "enabled" in task_config:
-                        config["tasks"][task_id]["enabled"] = task_config[
-                            "enabled"
-                        ]
+                        config["tasks"][task_id]["enabled"] = task_config["enabled"]
                     if "interval_minutes" in task_config:
-                        config["tasks"][task_id]["interval_minutes"] = (
-                            task_config["interval_minutes"]
-                        )
+                        config["tasks"][task_id]["interval_minutes"] = task_config[
+                            "interval_minutes"
+                        ]
 
         await task_config_collection.replace_one(
             {"_id": "global_background_task_config"}, config, upsert=True
@@ -608,17 +588,13 @@ async def get_task_history():
     """
     try:
         history = []
-        cursor = (
-            task_history_collection.find({}).sort("timestamp", -1).limit(100)
-        )
+        cursor = task_history_collection.find({}).sort("timestamp", -1).limit(100)
         entries = await cursor.to_list(length=None)
         for entry in entries:
             entry["_id"] = str(entry["_id"])
             entry["timestamp"] = entry["timestamp"].isoformat()
             if "runtime" in entry:
-                entry["runtime"] = (
-                    float(entry["runtime"]) if entry["runtime"] else None
-                )
+                entry["runtime"] = float(entry["runtime"]) if entry["runtime"] else None
             history.append(entry)
         return history
     except Exception as e:
@@ -650,9 +626,7 @@ async def get_task_details(task_id: str):
     try:
         task_def = task_manager.tasks.get(task_id)
         if not task_def:
-            raise HTTPException(
-                status_code=404, detail=f"Task {task_id} not found"
-            )
+            raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
 
         config = await task_manager.get_config()
         task_config = config.get("tasks", {}).get(task_id, {})
@@ -730,9 +704,7 @@ async def get_edit_trips(request: Request):
             raise HTTPException(status_code=400, detail="Invalid trip type")
 
         collection = (
-            trips_collection
-            if trip_type == "trips"
-            else matched_trips_collection
+            trips_collection if trip_type == "trips" else matched_trips_collection
         )
 
         query: Dict[str, Any] = {}
@@ -796,9 +768,7 @@ async def update_trip(trip_id: str, request: Request):
                 collection = other_collection
 
         if not trip:
-            raise HTTPException(
-                status_code=404, detail=f"No trip found for {trip_id}"
-            )
+            raise HTTPException(status_code=404, detail=f"No trip found for {trip_id}")
 
         update_fields = {"updatedAt": datetime.now(timezone.utc)}
         if geometry and isinstance(geometry, dict):
@@ -864,9 +834,7 @@ async def get_street_coverage(request: Request):
         data = await request.json()
         location = data.get("location")
         if not location or not isinstance(location, dict):
-            raise HTTPException(
-                status_code=400, detail="Invalid location data."
-            )
+            raise HTTPException(status_code=400, detail="Invalid location data.")
 
         task_id = str(uuid.uuid4())
         asyncio.create_task(process_coverage_calculation(location, task_id))
@@ -878,9 +846,7 @@ async def get_street_coverage(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def process_coverage_calculation(
-    location: Dict[str, Any], task_id: str
-):
+async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
     """
     Worker that calls compute_coverage_for_location and stores results in progress_collection.
     """
@@ -979,9 +945,7 @@ async def get_trips(request: Request):
         # Fetch in parallel
         regular_future = trips_collection.find(query).to_list(None)
         uploaded_future = uploaded_trips_collection.find(query).to_list(None)
-        historical_future = historical_trips_collection.find(query).to_list(
-            None
-        )
+        historical_future = historical_trips_collection.find(query).to_list(None)
 
         regular, uploaded, historical = await asyncio.gather(
             regular_future, uploaded_future, historical_future
@@ -1031,16 +995,12 @@ async def get_trips(request: Request):
                     "fuelConsumed": float(trip.get("fuelConsumed", 0)),
                     "source": trip.get("source", "regular"),
                     "hardBrakingCount": trip.get("hardBrakingCount"),
-                    "hardAccelerationCount": trip.get(
-                        "hardAccelerationCount"
-                    ),
+                    "hardAccelerationCount": trip.get("hardAccelerationCount"),
                     "startOdometer": trip.get("startOdometer"),
                     "endOdometer": trip.get("endOdometer"),
                     "averageSpeed": trip.get("averageSpeed"),
                 }
-                feature = geojson_module.Feature(
-                    geometry=geom, properties=props
-                )
+                feature = geojson_module.Feature(geometry=geom, properties=props)
                 features.append(feature)
             except Exception as e:
                 logger.exception(
@@ -1053,9 +1013,7 @@ async def get_trips(request: Request):
         return JSONResponse(content=fc)
     except Exception as e:
         logger.exception("Error in /api/trips endpoint")
-        raise HTTPException(
-            status_code=500, detail="Failed to retrieve trips"
-        )
+        raise HTTPException(status_code=500, detail="Failed to retrieve trips")
 
 
 @app.get("/api/driving-insights")
@@ -1085,25 +1043,19 @@ async def get_driving_insights(request: Request):
                     "_id": None,
                     "total_trips": {"$sum": 1},
                     "total_distance": {"$sum": {"$ifNull": ["$distance", 0]}},
-                    "total_fuel_consumed": {
-                        "$sum": {"$ifNull": ["$fuelConsumed", 0]}
-                    },
+                    "total_fuel_consumed": {"$sum": {"$ifNull": ["$fuelConsumed", 0]}},
                     "max_speed": {"$max": {"$ifNull": ["$maxSpeed", 0]}},
                     "total_idle_duration": {
                         "$sum": {"$ifNull": ["$totalIdleDuration", 0]}
                     },
-                    "longest_trip_distance": {
-                        "$max": {"$ifNull": ["$distance", 0]}
-                    },
+                    "longest_trip_distance": {"$max": {"$ifNull": ["$distance", 0]}},
                 }
             },
         ]
-        trips_result = await trips_collection.aggregate(pipeline).to_list(
+        trips_result = await trips_collection.aggregate(pipeline).to_list(None)
+        uploaded_result = await uploaded_trips_collection.aggregate(pipeline).to_list(
             None
         )
-        uploaded_result = await uploaded_trips_collection.aggregate(
-            pipeline
-        ).to_list(None)
 
         pipeline_most_visited = [
             {"$match": query},
@@ -1117,9 +1069,7 @@ async def get_driving_insights(request: Request):
             {"$sort": {"count": -1}},
             {"$limit": 1},
         ]
-        trips_mv = await trips_collection.aggregate(
-            pipeline_most_visited
-        ).to_list(None)
+        trips_mv = await trips_collection.aggregate(pipeline_most_visited).to_list(None)
         uploaded_mv = await uploaded_trips_collection.aggregate(
             pipeline_most_visited
         ).to_list(None)
@@ -1138,15 +1088,11 @@ async def get_driving_insights(request: Request):
             if r:
                 combined["total_trips"] += r.get("total_trips", 0)
                 combined["total_distance"] += r.get("total_distance", 0)
-                combined["total_fuel_consumed"] += r.get(
-                    "total_fuel_consumed", 0
-                )
+                combined["total_fuel_consumed"] += r.get("total_fuel_consumed", 0)
                 combined["max_speed"] = max(
                     combined["max_speed"], r.get("max_speed", 0)
                 )
-                combined["total_idle_duration"] += r.get(
-                    "total_idle_duration", 0
-                )
+                combined["total_idle_duration"] += r.get("total_idle_duration", 0)
                 combined["longest_trip_distance"] = max(
                     combined["longest_trip_distance"],
                     r.get("longest_trip_distance", 0),
@@ -1154,9 +1100,7 @@ async def get_driving_insights(request: Request):
 
         all_most_visited = trips_mv + uploaded_mv
         if all_most_visited:
-            best = sorted(
-                all_most_visited, key=lambda x: x["count"], reverse=True
-            )[0]
+            best = sorted(all_most_visited, key=lambda x: x["count"], reverse=True)[0]
             combined["most_visited"] = {
                 "_id": best["_id"],
                 "count": best["count"],
@@ -1191,9 +1135,7 @@ async def get_metrics(request: Request):
             query["imei"] = imei
 
         trips_cursor_future = trips_collection.find(query).to_list(None)
-        hist_cursor_future = historical_trips_collection.find(query).to_list(
-            None
-        )
+        hist_cursor_future = historical_trips_collection.find(query).to_list(None)
 
         trips_data, hist_data = await asyncio.gather(
             trips_cursor_future, hist_cursor_future
@@ -1215,9 +1157,7 @@ async def get_metrics(request: Request):
 
         # Summations
         total_distance = sum(t.get("distance", 0) for t in all_trips)
-        avg_distance_val = (
-            (total_distance / total_trips) if total_trips > 0 else 0.0
-        )
+        avg_distance_val = (total_distance / total_trips) if total_trips > 0 else 0.0
 
         # Start times
         start_times = []
@@ -1227,11 +1167,7 @@ async def get_metrics(request: Request):
                 st = dateutil_parser.isoparse(st)
             if st and st.tzinfo is None:
                 st = st.replace(tzinfo=timezone.utc)
-            local_st = (
-                st.astimezone(pytz.timezone("America/Chicago"))
-                if st
-                else None
-            )
+            local_st = st.astimezone(pytz.timezone("America/Chicago")) if st else None
             if local_st:
                 start_times.append(local_st.hour + local_st.minute / 60.0)
         if start_times:
@@ -1266,15 +1202,11 @@ async def get_metrics(request: Request):
         avg_driving_h = int(avg_driving_minutes // 60)
         avg_driving_m = int(avg_driving_minutes % 60)
 
-        total_driving_hours = (
-            sum(driving_times) / 60.0 if driving_times else 0
-        )
+        total_driving_hours = sum(driving_times) / 60.0 if driving_times else 0
         avg_speed_val = (
             total_distance / total_driving_hours if total_driving_hours else 0
         )
-        max_speed_val = max(
-            (t.get("maxSpeed", 0) for t in all_trips), default=0
-        )
+        max_speed_val = max((t.get("maxSpeed", 0) for t in all_trips), default=0)
 
         return JSONResponse(
             content={
@@ -1299,9 +1231,7 @@ async def api_fetch_trips():
     """
     start_date = datetime.now(timezone.utc) - timedelta(days=4 * 365)
     end_date = datetime.now(timezone.utc)
-    await fetch_bouncie_trips_in_range(
-        start_date, end_date, do_map_match=False
-    )
+    await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=False)
     return {"status": "success", "message": "Trips fetched & stored."}
 
 
@@ -1315,9 +1245,7 @@ async def api_fetch_trips_range(request: Request):
     end_date = parse_query_date(data["end_date"], end_of_day=True)
     if not start_date or not end_date:
         raise HTTPException(status_code=400, detail="Invalid date range.")
-    await fetch_bouncie_trips_in_range(
-        start_date, end_date, do_map_match=False
-    )
+    await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=False)
     return {"status": "success", "message": "Trips fetched & stored."}
 
 
@@ -1360,9 +1288,7 @@ async def export_geojson(request: Request):
 
         trips = await trips_collection.find(query).to_list(None)
         if not trips:
-            raise HTTPException(
-                status_code=404, detail="No trips found for filters."
-            )
+            raise HTTPException(status_code=404, detail="No trips found for filters.")
 
         fc = {"type": "FeatureCollection", "features": []}
         for t in trips:
@@ -1375,12 +1301,8 @@ async def export_geojson(request: Request):
                 "geometry": gps_data,
                 "properties": {
                     "transactionId": t["transactionId"],
-                    "startTime": (
-                        t["startTime"].isoformat() if t["startTime"] else ""
-                    ),
-                    "endTime": (
-                        t["endTime"].isoformat() if t["endTime"] else ""
-                    ),
+                    "startTime": (t["startTime"].isoformat() if t["startTime"] else ""),
+                    "endTime": (t["endTime"].isoformat() if t["endTime"] else ""),
                     "distance": t.get("distance", 0),
                     "imei": t["imei"],
                 },
@@ -1391,9 +1313,7 @@ async def export_geojson(request: Request):
         return StreamingResponse(
             io.BytesIO(content.encode()),
             media_type="application/geo+json",
-            headers={
-                "Content-Disposition": 'attachment; filename="all_trips.geojson"'
-            },
+            headers={"Content-Disposition": 'attachment; filename="all_trips.geojson"'},
         )
     except Exception as e:
         logger.exception("Error exporting GeoJSON")
@@ -1453,9 +1373,7 @@ async def export_gpx(request: Request):
         return StreamingResponse(
             io.BytesIO(gpx_xml.encode()),
             media_type="application/gpx+xml",
-            headers={
-                "Content-Disposition": 'attachment; filename="trips.gpx"'
-            },
+            headers={"Content-Disposition": 'attachment; filename="trips.gpx"'},
         )
     except Exception as e:
         logger.exception("Error exporting GPX")
@@ -1568,9 +1486,7 @@ async def generate_geojson_osm(
 
         features = await process_elements(data["elements"], streets_only)
         if features:
-            gdf = gpd.GeoDataFrame.from_features(features).set_geometry(
-                "geometry"
-            )
+            gdf = gpd.GeoDataFrame.from_features(features).set_geometry("geometry")
             geojson_data = json.loads(gdf.to_json())
 
             # Size check for Mongo
@@ -1733,14 +1649,10 @@ async def get_matched_trips(request: Request):
                     "transactionId": trip["transactionId"],
                     "imei": trip.get("imei", ""),
                     "startTime": (
-                        trip["startTime"].isoformat()
-                        if trip.get("startTime")
-                        else ""
+                        trip["startTime"].isoformat() if trip.get("startTime") else ""
                     ),
                     "endTime": (
-                        trip["endTime"].isoformat()
-                        if trip.get("endTime")
-                        else ""
+                        trip["endTime"].isoformat() if trip.get("endTime") else ""
                     ),
                     "distance": trip.get("distance", 0),
                     "timeZone": trip.get("timeZone", "UTC"),
@@ -1837,9 +1749,7 @@ async def remap_matched_trips(request: Request):
         return {"status": "success", "message": "Re-matching completed."}
     except Exception as e:
         logger.exception("Error in remap_matched_trips")
-        raise HTTPException(
-            status_code=500, detail=f"Error re-matching trips: {e}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error re-matching trips: {e}")
 
 
 @app.get("/api/export/trip/{trip_id}")
@@ -1861,9 +1771,7 @@ async def export_single_trip(trip_id: str, request: Request):
             "geometry": gps_data,
             "properties": {
                 "transactionId": t["transactionId"],
-                "startTime": (
-                    t["startTime"].isoformat() if t["startTime"] else ""
-                ),
+                "startTime": (t["startTime"].isoformat() if t["startTime"] else ""),
                 "endTime": t["endTime"].isoformat() if t["endTime"] else "",
                 "distance": t.get("distance", 0),
                 "imei": t["imei"],
@@ -1957,18 +1865,14 @@ async def export_all_trips(request: Request):
         return StreamingResponse(
             io.BytesIO(geojson_data.encode()),
             media_type="application/geo+json",
-            headers={
-                "Content-Disposition": 'attachment; filename="all_trips.geojson"'
-            },
+            headers={"Content-Disposition": 'attachment; filename="all_trips.geojson"'},
         )
     elif fmt == "gpx":
         gpx_data = await create_gpx(all_trips)
         return StreamingResponse(
             io.BytesIO(gpx_data.encode()),
             media_type="application/gpx+xml",
-            headers={
-                "Content-Disposition": 'attachment; filename="all_trips.gpx"'
-            },
+            headers={"Content-Disposition": 'attachment; filename="all_trips.gpx"'},
         )
     elif fmt == "json":
         return JSONResponse(content=all_trips)
@@ -1988,20 +1892,14 @@ async def export_trips_within_range(request: Request):
     start_date = parse_query_date(start_date_str)
     end_date = parse_query_date(end_date_str, end_of_day=True)
     if not start_date or not end_date:
-        raise HTTPException(
-            status_code=400, detail="Invalid or missing date range"
-        )
+        raise HTTPException(status_code=400, detail="Invalid or missing date range")
 
     query = {"startTime": {"$gte": start_date, "$lte": end_date}}
 
     # Gather from all three collections
     trips_future = trips_collection.find(query).to_list(length=None)
-    uploaded_future = uploaded_trips_collection.find(query).to_list(
-        length=None
-    )
-    historical_future = historical_trips_collection.find(query).to_list(
-        length=None
-    )
+    uploaded_future = uploaded_trips_collection.find(query).to_list(length=None)
+    historical_future = historical_trips_collection.find(query).to_list(length=None)
 
     trips_data, ups_data, hist_data = await asyncio.gather(
         trips_future, uploaded_future, historical_future
@@ -2013,18 +1911,14 @@ async def export_trips_within_range(request: Request):
         return StreamingResponse(
             io.BytesIO(geojson_data.encode()),
             media_type="application/geo+json",
-            headers={
-                "Content-Disposition": 'attachment; filename="all_trips.geojson"'
-            },
+            headers={"Content-Disposition": 'attachment; filename="all_trips.geojson"'},
         )
     elif fmt == "gpx":
         gpx_data = await create_gpx(all_trips)
         return StreamingResponse(
             io.BytesIO(gpx_data.encode()),
             media_type="application/gpx+xml",
-            headers={
-                "Content-Disposition": 'attachment; filename="all_trips.gpx"'
-            },
+            headers={"Content-Disposition": 'attachment; filename="all_trips.gpx"'},
         )
     else:
         raise HTTPException(status_code=400, detail="Invalid export format")
@@ -2042,9 +1936,7 @@ async def export_matched_trips_within_range(request: Request):
     start_date = parse_query_date(start_date_str)
     end_date = parse_query_date(end_date_str, end_of_day=True)
     if not start_date or not end_date:
-        raise HTTPException(
-            status_code=400, detail="Invalid or missing date range"
-        )
+        raise HTTPException(status_code=400, detail="Invalid or missing date range")
 
     query = {"startTime": {"$gte": start_date, "$lte": end_date}}
     matched = await matched_trips_collection.find(query).to_list(length=None)
@@ -2063,9 +1955,7 @@ async def export_matched_trips_within_range(request: Request):
         return StreamingResponse(
             io.BytesIO(gpx_data.encode()),
             media_type="application/gpx+xml",
-            headers={
-                "Content-Disposition": 'attachment; filename="matched_trips.gpx"'
-            },
+            headers={"Content-Disposition": 'attachment; filename="matched_trips.gpx"'},
         )
     else:
         raise HTTPException(status_code=400, detail="Invalid export format")
@@ -2084,17 +1974,13 @@ async def export_streets(request: Request):
     loc = json.loads(location_param)
     data, _ = await generate_geojson_osm(loc, streets_only=True)
     if not data:
-        raise HTTPException(
-            status_code=500, detail="No data returned from Overpass"
-        )
+        raise HTTPException(status_code=500, detail="No data returned from Overpass")
 
     if fmt == "geojson":
         return StreamingResponse(
             io.BytesIO(json.dumps(data).encode()),
             media_type="application/geo+json",
-            headers={
-                "Content-Disposition": 'attachment; filename="streets.geojson"'
-            },
+            headers={"Content-Disposition": 'attachment; filename="streets.geojson"'},
         )
     elif fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
@@ -2115,9 +2001,7 @@ async def export_streets(request: Request):
         return StreamingResponse(
             buf,
             media_type="application/zip",
-            headers={
-                "Content-Disposition": 'attachment; filename="streets.zip"'
-            },
+            headers={"Content-Disposition": 'attachment; filename="streets.zip"'},
         )
     else:
         raise HTTPException(status_code=400, detail="Invalid export format")
@@ -2136,17 +2020,13 @@ async def export_boundary(request: Request):
     loc = json.loads(location_param)
     data, _ = await generate_geojson_osm(loc, streets_only=False)
     if not data:
-        raise HTTPException(
-            status_code=500, detail="No boundary data from Overpass"
-        )
+        raise HTTPException(status_code=500, detail="No boundary data from Overpass")
 
     if fmt == "geojson":
         return StreamingResponse(
             io.BytesIO(json.dumps(data).encode()),
             media_type="application/geo+json",
-            headers={
-                "Content-Disposition": 'attachment; filename="boundary.geojson"'
-            },
+            headers={"Content-Disposition": 'attachment; filename="boundary.geojson"'},
         )
     elif fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
@@ -2167,9 +2047,7 @@ async def export_boundary(request: Request):
         return StreamingResponse(
             buf,
             media_type="application/zip",
-            headers={
-                "Content-Disposition": 'attachment; filename="boundary.zip"'
-            },
+            headers={"Content-Disposition": 'attachment; filename="boundary.zip"'},
         )
     else:
         raise HTTPException(status_code=400, detail="Invalid export format")
@@ -2191,13 +2069,9 @@ async def preprocess_streets_route(request: Request):
         location = data.get("location")
         location_type = data.get("location_type")
         if not location or not location_type:
-            raise HTTPException(
-                status_code=400, detail="Missing location data"
-            )
+            raise HTTPException(status_code=400, detail="Missing location data")
 
-        validated_location = await validate_location_osm(
-            location, location_type
-        )
+        validated_location = await validate_location_osm(location, location_type)
         if not validated_location:
             raise HTTPException(status_code=400, detail="Invalid location")
 
@@ -2358,9 +2232,7 @@ async def load_historical_data(start_date_str=None, end_date_str=None):
             except Exception as e:
                 logger.error("Error reading %s: %s", filename, e)
 
-    processed = await asyncio.gather(
-        *(process_historical_trip(t) for t in all_trips)
-    )
+    processed = await asyncio.gather(*(process_historical_trip(t) for t in all_trips))
     inserted_count = 0
     for trip in processed:
         try:
@@ -2381,9 +2253,7 @@ async def load_historical_data_endpoint(request: Request):
     start_date = data.get("start_date")
     end_date = data.get("end_date")
     inserted_count = await load_historical_data(start_date, end_date)
-    return {
-        "message": f"Loaded historical data. Inserted {inserted_count} new trips."
-    }
+    return {"message": f"Loaded historical data. Inserted {inserted_count} new trips."}
 
 
 # ------------------------------------------------------------------------------
@@ -2427,9 +2297,7 @@ async def get_single_trip(trip_id: str):
         try:
             object_id = ObjectId(trip_id)
         except Exception:
-            raise HTTPException(
-                status_code=400, detail="Invalid trip ID format"
-            )
+            raise HTTPException(status_code=400, detail="Invalid trip ID format")
 
         trip = await trips_collection.find_one({"_id": object_id})
         if not trip:
@@ -2459,9 +2327,7 @@ async def delete_trip(trip_id: str):
         if trip:
             collection = trips_collection
         else:
-            trip = await matched_trips_collection.find_one(
-                {"transactionId": trip_id}
-            )
+            trip = await matched_trips_collection.find_one({"transactionId": trip_id})
             if trip:
                 collection = matched_trips_collection
             else:
@@ -2526,9 +2392,7 @@ async def get_first_trip_date():
     Returns the earliest startTime across trips, uploaded, historical.
     """
     try:
-        regular_trip = await trips_collection.find_one(
-            {}, sort=[("startTime", 1)]
-        )
+        regular_trip = await trips_collection.find_one({}, sort=[("startTime", 1)])
         uploaded_trip = await uploaded_trips_collection.find_one(
             {}, sort=[("startTime", 1)]
         )
@@ -2550,9 +2414,7 @@ async def get_first_trip_date():
 
         earliest_trip_date = min(candidates)
         if earliest_trip_date.tzinfo is None:
-            earliest_trip_date = earliest_trip_date.replace(
-                tzinfo=timezone.utc
-            )
+            earliest_trip_date = earliest_trip_date.replace(tzinfo=timezone.utc)
         return {"first_trip_date": earliest_trip_date.isoformat()}
 
     except Exception as e:
@@ -2590,9 +2452,7 @@ async def delete_uploaded_trip(trip_id: str):
     Delete a single uploaded trip by its ObjectId from 'uploaded_trips_collection'.
     """
     try:
-        result = await uploaded_trips_collection.delete_one(
-            {"_id": ObjectId(trip_id)}
-        )
+        result = await uploaded_trips_collection.delete_one({"_id": ObjectId(trip_id)})
         if result.deleted_count == 1:
             return {"status": "success", "message": "Trip deleted"}
         raise HTTPException(status_code=404, detail="Not found")
@@ -2665,9 +2525,7 @@ def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
                 else datetime.now(timezone.utc)
             )
             etime_parsed = (
-                dateutil_parser.isoparse(etime_str)
-                if etime_str
-                else stime_parsed
+                dateutil_parser.isoparse(etime_str) if etime_str else stime_parsed
             )
 
             trip_geo = {
@@ -2725,9 +2583,7 @@ async def process_and_store_trip(trip: dict):
         )
         if existing:
             updates = {}
-            if not existing.get("startLocation") and trip.get(
-                "startLocation"
-            ):
+            if not existing.get("startLocation") and trip.get("startLocation"):
                 updates["startLocation"] = trip["startLocation"]
             if not existing.get("destination") and trip.get("destination"):
                 updates["destination"] = trip["destination"]
@@ -2741,9 +2597,7 @@ async def process_and_store_trip(trip: dict):
             await uploaded_trips_collection.insert_one(trip)
 
     except DuplicateKeyError:
-        logger.warning(
-            "Duplicate trip ID %s; skipping.", trip["transactionId"]
-        )
+        logger.warning("Duplicate trip ID %s; skipping.", trip["transactionId"])
     except Exception as e:
         logger.exception("process_and_store_trip error")
         raise
@@ -2758,9 +2612,7 @@ async def upload_gpx_endpoint(request: Request):
         form = await request.form()
         files = form.getlist("files[]")
         if not files:
-            raise HTTPException(
-                status_code=400, detail="No files found for upload"
-            )
+            raise HTTPException(status_code=400, detail="No files found for upload")
 
         success_count = 0
         for f in files:
@@ -2770,9 +2622,7 @@ async def upload_gpx_endpoint(request: Request):
                 gpx_obj = gpxpy.parse(gpx_data)
                 for track in gpx_obj.tracks:
                     for seg in track.segments:
-                        coords = [
-                            [p.longitude, p.latitude] for p in seg.points
-                        ]
+                        coords = [[p.longitude, p.latitude] for p in seg.points]
                         if len(coords) < 2:
                             continue
                         times = [p.time for p in seg.points if p.time]
@@ -2808,9 +2658,7 @@ async def upload_gpx_endpoint(request: Request):
                         await process_and_store_trip(t)
                         success_count += 1
             else:
-                logger.warning(
-                    "Skipping unhandled file extension: %s", filename
-                )
+                logger.warning("Skipping unhandled file extension: %s", filename)
 
         return {
             "status": "success",
@@ -2838,9 +2686,7 @@ async def upload_files(request: Request, files: List[UploadFile] = File(...)):
                     for seg in track.segments:
                         if not seg.points:
                             continue
-                        coords = [
-                            [p.longitude, p.latitude] for p in seg.points
-                        ]
+                        coords = [[p.longitude, p.latitude] for p in seg.points]
                         times = [p.time for p in seg.points if p.time]
                         if not times:
                             continue
@@ -2926,9 +2772,7 @@ async def bulk_delete_trips(request: Request):
         data = await request.json()
         trip_ids = data.get("trip_ids", [])
         if not trip_ids:
-            raise HTTPException(
-                status_code=400, detail="No trip IDs provided"
-            )
+            raise HTTPException(status_code=400, detail="No trip IDs provided")
 
         trips_result = await trips_collection.delete_many(
             {"transactionId": {"$in": trip_ids}}
@@ -2965,8 +2809,7 @@ async def handle_places(request: Request):
     if request.method == "GET":
         pls = await places_collection.find().to_list(length=None)
         return [
-            {"_id": str(p["_id"]), **CustomPlace.from_dict(p).to_dict()}
-            for p in pls
+            {"_id": str(p["_id"]), **CustomPlace.from_dict(p).to_dict()} for p in pls
         ]
     else:
         data = await request.json()
@@ -2994,11 +2837,7 @@ async def get_place_statistics(place_id: str):
         query = {
             "$or": [
                 {"destinationPlaceId": place_id},
-                {
-                    "destinationGeoPoint": {
-                        "$geoWithin": {"$geometry": p["geometry"]}
-                    }
-                },
+                {"destinationGeoPoint": {"$geoWithin": {"$geometry": p["geometry"]}}},
             ],
             "endTime": {"$ne": None},
         }
@@ -3051,9 +2890,7 @@ async def get_place_statistics(place_id: str):
                         if isinstance(next_start, str):
                             next_start = dateutil_parser.isoparse(next_start)
                         if next_start and next_start.tzinfo is None:
-                            next_start = next_start.replace(
-                                tzinfo=timezone.utc
-                            )
+                            next_start = next_start.replace(tzinfo=timezone.utc)
 
                         if next_start and next_start > t_end:
                             duration_minutes = (
@@ -3066,13 +2903,9 @@ async def get_place_statistics(place_id: str):
                 if i > 0:
                     prev_trip_end = valid_trips[i - 1].get("endTime")
                     if isinstance(prev_trip_end, str):
-                        prev_trip_end = dateutil_parser.isoparse(
-                            prev_trip_end
-                        )
+                        prev_trip_end = dateutil_parser.isoparse(prev_trip_end)
                     if prev_trip_end and prev_trip_end.tzinfo is None:
-                        prev_trip_end = prev_trip_end.replace(
-                            tzinfo=timezone.utc
-                        )
+                        prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
 
                     if prev_trip_end and t_end > prev_trip_end:
                         hrs_since_last = (
@@ -3083,9 +2916,7 @@ async def get_place_statistics(place_id: str):
 
                 visits.append(t_end)
             except Exception as ex:
-                logger.exception(
-                    "Issue processing trip for place %s", place_id
-                )
+                logger.exception("Issue processing trip for place %s", place_id)
                 continue
 
         total_visits = len(visits)
@@ -3096,9 +2927,7 @@ async def get_place_statistics(place_id: str):
             mm = int(m % 60)
             return f"{hh}h {mm:02d}m"
 
-        avg_duration_str = (
-            format_h_m(avg_duration) if avg_duration > 0 else "0h 00m"
-        )
+        avg_duration_str = format_h_m(avg_duration) if avg_duration > 0 else "0h 00m"
         avg_time_since_last = (
             sum(time_since_last_visits) / len(time_since_last_visits)
             if time_since_last_visits
@@ -3132,11 +2961,7 @@ async def get_trips_for_place(place_id: str):
         query = {
             "$or": [
                 {"destinationPlaceId": place_id},
-                {
-                    "destinationGeoPoint": {
-                        "$geoWithin": {"$geometry": p["geometry"]}
-                    }
-                },
+                {"destinationGeoPoint": {"$geoWithin": {"$geometry": p["geometry"]}}},
             ],
             "endTime": {"$ne": None},
         }
@@ -3196,9 +3021,7 @@ async def get_trips_for_place(place_id: str):
                 if prev_trip_end and prev_trip_end.tzinfo is None:
                     prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
                 if prev_trip_end and end_time > prev_trip_end:
-                    hrs_since_last = (
-                        end_time - prev_trip_end
-                    ).total_seconds() / 3600.0
+                    hrs_since_last = (end_time - prev_trip_end).total_seconds() / 3600.0
                     time_since_last_str = f"{hrs_since_last:.2f} hours"
 
             trips_data.append(
@@ -3245,19 +3068,15 @@ async def get_non_custom_places_visits():
             {"$match": {"totalVisits": {"$gte": 5}}},
             {"$sort": {"totalVisits": -1}},
         ]
-        trips_results = await trips_collection.aggregate(pipeline).to_list(
-            None
-        )
+        trips_results = await trips_collection.aggregate(pipeline).to_list(None)
         historical_results = await historical_trips_collection.aggregate(
             pipeline
         ).to_list(None)
-        uploaded_results = await uploaded_trips_collection.aggregate(
-            pipeline
-        ).to_list(None)
-
-        combined_results = (
-            trips_results + historical_results + uploaded_results
+        uploaded_results = await uploaded_trips_collection.aggregate(pipeline).to_list(
+            None
         )
+
+        combined_results = trips_results + historical_results + uploaded_results
         visits_data = []
         for doc in combined_results:
             visits_data.append(
@@ -3265,14 +3084,10 @@ async def get_non_custom_places_visits():
                     "name": doc["_id"],
                     "totalVisits": doc["totalVisits"],
                     "firstVisit": (
-                        doc["firstVisit"].isoformat()
-                        if doc.get("firstVisit")
-                        else None
+                        doc["firstVisit"].isoformat() if doc.get("firstVisit") else None
                     ),
                     "lastVisit": (
-                        doc["lastVisit"].isoformat()
-                        if doc.get("lastVisit")
-                        else None
+                        doc["lastVisit"].isoformat() if doc.get("lastVisit") else None
                     ),
                 }
             )
@@ -3350,10 +3165,7 @@ async def get_trip_analytics(request: Request):
                 if hr not in hourly_data:
                     hourly_data[hr] = 0
                 hourly_data[hr] += r["tripCount"]
-            return [
-                {"hour": h, "count": c}
-                for h, c in sorted(hourly_data.items())
-            ]
+            return [{"hour": h, "count": c} for h, c in sorted(hourly_data.items())]
 
         daily_list = organize_daily_data(results)
         hourly_list = organize_hourly_data(results)
@@ -3396,9 +3208,7 @@ async def update_geo_points_route(request: Request):
         return {"message": f"GeoPoints updated for {collection_name}"}
     except Exception as e:
         logger.exception("Error in update_geo_points_route")
-        raise HTTPException(
-            status_code=500, detail=f"Error updating GeoPoints: {e}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error updating GeoPoints: {e}")
 
 
 @app.post("/api/regeocode_all_trips")
@@ -3416,15 +3226,11 @@ async def regeocode_all_trips():
             for trip in trips_list:
                 updated_trip = await process_trip_data(trip)
                 if updated_trip is not None:
-                    await collection.replace_one(
-                        {"_id": trip["_id"]}, updated_trip
-                    )
+                    await collection.replace_one({"_id": trip["_id"]}, updated_trip)
         return {"message": "All trips re-geocoded successfully."}
     except Exception as e:
         logger.exception("Error in regeocode_all_trips")
-        raise HTTPException(
-            status_code=500, detail=f"Error re-geocoding trips: {e}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error re-geocoding trips: {e}")
 
 
 @app.post("/api/trips/refresh_geocoding")
@@ -3443,9 +3249,7 @@ async def refresh_geocoding_for_trips(request: Request):
         if trip:
             updated_trip = await process_trip_data(trip)
             if updated_trip is not None:
-                await trips_collection.replace_one(
-                    {"_id": trip["_id"]}, updated_trip
-                )
+                await trips_collection.replace_one({"_id": trip["_id"]}, updated_trip)
                 updated_count += 1
 
     return {
@@ -3472,10 +3276,7 @@ async def bouncie_webhook(request: Request):
             raise HTTPException(status_code=400, detail="Missing eventType")
 
         transaction_id = data.get("transactionId")
-        if (
-            event_type in ("tripStart", "tripData", "tripEnd")
-            and not transaction_id
-        ):
+        if event_type in ("tripStart", "tripData", "tripEnd") and not transaction_id:
             raise HTTPException(
                 status_code=400, detail="Missing transactionId for trip event"
             )
@@ -3544,9 +3345,7 @@ async def bouncie_webhook(request: Request):
                 await live_trips_collection.delete_one({"_id": trip["_id"]})
 
         # Prepare a message for WebSocket broadcast
-        active_trip = await live_trips_collection.find_one(
-            {"status": "active"}
-        )
+        active_trip = await live_trips_collection.find_one({"status": "active"})
         if active_trip:
             for key in ("startTime", "lastUpdate", "endTime"):
                 val = active_trip.get(key)
@@ -3578,14 +3377,10 @@ async def get_active_trip():
     Returns the currently active trip (if any).
     """
     try:
-        active_trip = await live_trips_collection.find_one(
-            {"status": "active"}
-        )
+        active_trip = await live_trips_collection.find_one({"status": "active"})
         if active_trip:
             for key in ("startTime", "lastUpdate", "endTime"):
-                if key in active_trip and isinstance(
-                    active_trip[key], datetime
-                ):
+                if key in active_trip and isinstance(active_trip[key], datetime):
                     active_trip[key] = active_trip[key].isoformat()
             active_trip["_id"] = str(active_trip["_id"])
             return active_trip
@@ -3632,9 +3427,7 @@ async def get_storage_info():
         db_stats = await db.command("dbStats")
         storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
         storage_limit_mb = 512
-        storage_usage_percent = round(
-            (storage_used_mb / storage_limit_mb) * 100, 2
-        )
+        storage_usage_percent = round((storage_used_mb / storage_limit_mb) * 100, 2)
         return {
             "used_mb": storage_used_mb,
             "limit_mb": storage_limit_mb,
@@ -3653,9 +3446,7 @@ async def optimize_collection(collection: Dict[str, str]):
     try:
         name = collection.get("collection")
         if not name:
-            raise HTTPException(
-                status_code=400, detail="Missing 'collection' field"
-            )
+            raise HTTPException(status_code=400, detail="Missing 'collection' field")
         await db.command("compact", name)
         await db[name].reindex()
         return {"message": f"Successfully optimized collection {name}"}
@@ -3672,13 +3463,9 @@ async def clear_collection(collection: Dict[str, str]):
     try:
         name = collection.get("collection")
         if not name:
-            raise HTTPException(
-                status_code=400, detail="Missing 'collection' field"
-            )
+            raise HTTPException(status_code=400, detail="Missing 'collection' field")
         result = await db[name].delete_many({})
-        return {
-            "message": f"Cleared {result.deleted_count} documents from {name}"
-        }
+        return {"message": f"Cleared {result.deleted_count} documents from {name}"}
     except Exception as e:
         logger.exception("Error clearing collection")
         raise HTTPException(status_code=500, detail=str(e))
@@ -3709,9 +3496,7 @@ async def repair_indexes():
         collection_names = await db.list_collection_names()
         for coll_name in collection_names:
             await db[coll_name].reindex()
-        return {
-            "message": "Successfully repaired indexes for all collections"
-        }
+        return {"message": "Successfully repaired indexes for all collections"}
     except Exception as e:
         logger.exception("Error repairing indexes")
         raise HTTPException(status_code=500, detail=str(e))
@@ -3758,29 +3543,21 @@ async def delete_coverage_area(request: Request):
         data = await request.json()
         location = data.get("location")
         if not location or not isinstance(location, dict):
-            raise HTTPException(
-                status_code=400, detail="Invalid location data"
-            )
+            raise HTTPException(status_code=400, detail="Invalid location data")
 
         display_name = location.get("display_name")
         if not display_name:
-            raise HTTPException(
-                status_code=400, detail="Invalid location display name"
-            )
+            raise HTTPException(status_code=400, detail="Invalid location display name")
 
         # Delete from coverage metadata
         delete_result = await coverage_metadata_collection.delete_one(
             {"location.display_name": display_name}
         )
         # Delete from streets
-        await streets_collection.delete_many(
-            {"properties.location": display_name}
-        )
+        await streets_collection.delete_many({"properties.location": display_name})
 
         if delete_result.deleted_count == 0:
-            raise HTTPException(
-                status_code=404, detail="Coverage area not found"
-            )
+            raise HTTPException(status_code=404, detail="Coverage area not found")
 
         return {
             "status": "success",
@@ -3802,9 +3579,7 @@ async def retry_coverage_area(request: Request):
         data = await request.json()
         location = data.get("location")
         if not location or not isinstance(location, dict):
-            raise HTTPException(
-                status_code=400, detail="Invalid location data"
-            )
+            raise HTTPException(status_code=400, detail="Invalid location data")
 
         task_id = str(uuid.uuid4())
         asyncio.create_task(process_coverage_calculation(location, task_id))
@@ -3824,15 +3599,11 @@ async def cancel_coverage_area(request: Request):
         data = await request.json()
         location = data.get("location")
         if not location or not isinstance(location, dict):
-            raise HTTPException(
-                status_code=400, detail="Invalid location data"
-            )
+            raise HTTPException(status_code=400, detail="Invalid location data")
 
         display_name = location.get("display_name")
         if not display_name:
-            raise HTTPException(
-                status_code=400, detail="Invalid location display name"
-            )
+            raise HTTPException(status_code=400, detail="Invalid location display name")
 
         await coverage_metadata_collection.update_one(
             {"location.display_name": display_name},
@@ -3875,12 +3646,8 @@ async def startup_event():
             await db_manager.safe_create_index(
                 "osm_data", [("location", 1), ("type", 1)], unique=True
             )
-            await db_manager.safe_create_index(
-                "streets", [("geometry", "2dsphere")]
-            )
-            await db_manager.safe_create_index(
-                "streets", [("properties.location", 1)]
-            )
+            await db_manager.safe_create_index("streets", [("geometry", "2dsphere")])
+            await db_manager.safe_create_index("streets", [("properties.location", 1)])
             await db_manager.safe_create_index(
                 "coverage_metadata", [("location", 1)], unique=True
             )
@@ -3916,22 +3683,16 @@ async def shutdown_event():
 
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc):
-    return JSONResponse(
-        status_code=404, content={"error": "Endpoint not found"}
-    )
+    return JSONResponse(status_code=404, content={"error": "Endpoint not found"})
 
 
 @app.exception_handler(500)
 async def internal_error_handler(request: Request, exc):
-    return JSONResponse(
-        status_code=500, content={"error": "Internal server error"}
-    )
+    return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 if __name__ == "__main__":
     import uvicorn
 
     port = int(os.getenv("PORT", "8080"))
-    uvicorn.run(
-        "app:app", host="0.0.0.0", port=port, log_level="info", reload=True
-    )
+    uvicorn.run("app:app", host="0.0.0.0", port=port, log_level="info", reload=True)

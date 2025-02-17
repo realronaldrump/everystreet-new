@@ -115,7 +115,6 @@ document.addEventListener("DOMContentLoaded", () => {
           ? `/api/matched_trips?start_date=${startDate}&end_date=${endDate}`
           : `/api/trips?start_date=${startDate}&end_date=${endDate}`;
 
-      
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch trips");
 
@@ -270,7 +269,10 @@ document.addEventListener("DOMContentLoaded", () => {
           "Error: transactionId is undefined.",
           currentTrip.tripData,
         );
-        notificationManager.show("Error: Could not find the trip ID to save changes.", "danger");
+        notificationManager.show(
+          "Error: Could not find the trip ID to save changes.",
+          "danger",
+        );
         return;
       }
       const url = `${baseUrl}/${tripId}`;
