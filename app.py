@@ -4090,7 +4090,8 @@ async def retry_coverage_area(request: Request):
         data = await request.json()
         location = data.get("location")
         if not location or not isinstance(location, dict):
-            raise HTTPException(status_code=400, detail="Invalid location data")
+            raise HTTPException(
+                status_code=400, detail="Invalid location data")
 
         # Generate a new task ID
         task_id = str(uuid.uuid4())
@@ -4112,11 +4113,13 @@ async def cancel_coverage_area(request: Request):
         data = await request.json()
         location = data.get("location")
         if not location or not isinstance(location, dict):
-            raise HTTPException(status_code=400, detail="Invalid location data")
+            raise HTTPException(
+                status_code=400, detail="Invalid location data")
 
         display_name = location.get("display_name")
         if not display_name:
-            raise HTTPException(status_code=400, detail="Invalid location display name")
+            raise HTTPException(
+                status_code=400, detail="Invalid location display name")
 
         # Update the status to canceled
         await coverage_metadata_collection.update_one(
