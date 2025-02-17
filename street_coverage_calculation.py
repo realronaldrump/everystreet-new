@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 import json
 import pyproj
-from shapely.geometry import shape, box, LineString, Point
+from shapely.geometry import shape, box, LineString
 from shapely.ops import transform
 import rtree
 from collections import defaultdict
@@ -53,7 +53,9 @@ class CoverageCalculator:
         self.total_trips = 0
         self.processed_trips = 0
 
-    async def update_progress(self, stage: str, progress: float, message: str = ""):
+    async def update_progress(
+        self, stage: str, progress: float, message: str = ""
+    ):
         """Update progress in MongoDB"""
         try:
             await progress_collection.update_one(
@@ -64,31 +66,40 @@ class CoverageCalculator:
                         "progress": progress,
                         "message": message,
                         "updated_at": datetime.now(timezone.utc),
-                        "location": self.location.get("display_name", "Unknown"),
+                        "location": self.location.get(
+                            "display_name", "Unknown"
+                        ),
                     }
                 },
                 upsert=True,
             )
         except Exception as e:
-            logger.error(f"Error updating progress: {e}")
+            logger.error("Error updating progress: %s", e)
 
     def initialize_projections(self):
         """Initialize UTM projection based on location center"""
         center_lat, center_lon = self._get_location_center()
         utm_zone = int((center_lon + 180) / 6) + 1
         hemisphere = "north" if center_lat >= 0 else "south"
-        
+
         self.utm_proj = pyproj.CRS(
             f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84"
         )
-        self.project_to_utm = pyproj.Transformer.from_crs(wgs84, self.utm_proj, always_xy=True).transform
-        self.project_to_wgs84 = pyproj.Transformer.from_crs(self.utm_proj, wgs84, always_xy=True).transform
+        self.project_to_utm = pyproj.Transformer.from_crs(
+            wgs84, self.utm_proj, always_xy=True
+        ).transform
+        self.project_to_wgs84 = pyproj.Transformer.from_crs(
+            self.utm_proj, wgs84, always_xy=True
+        ).transform
 
     def _get_location_center(self) -> Tuple[float, float]:
         """Extract center point from location's bounding box or use default"""
         if "boundingbox" in self.location:
             bbox = self.location["boundingbox"]
-            return ((float(bbox[0]) + float(bbox[1])) / 2, (float(bbox[2]) + float(bbox[3])) / 2)
+            return (
+                (float(bbox[0]) + float(bbox[1])) / 2,
+                (float(bbox[2]) + float(bbox[3])) / 2,
+            )
         return 0.0, 0.0
 
     def build_spatial_index(self, streets: List[Dict[str, Any]]):
@@ -104,12 +115,16 @@ class CoverageCalculator:
                 street_utm = transform(self.project_to_utm, geom)
                 self.total_length += street_utm.length
             except Exception as e:
-                logger.error(f"Error indexing street: {e}")
+                logger.error("Error indexing street: %s", e)
 
     async def process_trip_batch(self, trips: List[Dict[str, Any]]) -> None:
         """Process a batch of trips efficiently"""
-        tasks = [self.process_single_trip(trip) for trip in trips if self.is_trip_in_boundary(trip)]
-        
+        tasks = [
+            self.process_single_trip(trip)
+            for trip in trips
+            if self.is_trip_in_boundary(trip)
+        ]
+
         if tasks:
             results = await asyncio.gather(*tasks)
             for segments in results:
@@ -118,7 +133,11 @@ class CoverageCalculator:
                     self.segment_coverage[segment_id] += 1
 
         self.processed_trips += len(trips)
-        progress = self.processed_trips / self.total_trips * 100 if self.total_trips > 0 else 0
+        progress = (
+            self.processed_trips / self.total_trips * 100
+            if self.total_trips > 0
+            else 0
+        )
         await self.update_progress(
             "processing_trips",
             progress,
@@ -132,19 +151,29 @@ class CoverageCalculator:
             if not gps_data:
                 return False
 
-            coords = json.loads(gps_data)["coordinates"] if isinstance(gps_data, str) else gps_data["coordinates"]
+            coords = (
+                json.loads(gps_data)["coordinates"]
+                if isinstance(gps_data, str)
+                else gps_data["coordinates"]
+            )
             return self.boundary_box.intersects(LineString(coords))
         except (KeyError, json.JSONDecodeError):
             return False
         except Exception as e:
-            logger.error(f"Error checking trip boundary: {e}")
+            logger.error("Error checking trip boundary: %s", e)
             return False
 
     async def process_single_trip(self, trip: Dict[str, Any]) -> Set[str]:
         """Process a single trip and return covered segment IDs"""
         try:
             gps_data = trip.get("gps")
-            if not gps_data or "coordinates" not in (coords := (json.loads(gps_data) if isinstance(gps_data, str) else gps_data)):
+            if not gps_data or "coordinates" not in (
+                coords := (
+                    json.loads(gps_data)
+                    if isinstance(gps_data, str)
+                    else gps_data
+                )
+            ):
                 return set()
 
             trip_line = LineString(coords["coordinates"])
@@ -154,18 +183,23 @@ class CoverageCalculator:
             trip_buffer_wgs84 = transform(self.project_to_wgs84, trip_buffer)
             covered = set()
 
-            for idx in self.streets_index.intersection(trip_buffer_wgs84.bounds):
+            for idx in self.streets_index.intersection(
+                trip_buffer_wgs84.bounds
+            ):
                 street = self.streets_lookup[idx]
                 street_geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, street_geom)
 
                 intersection = trip_buffer.intersection(street_utm)
-                if not intersection.is_empty and intersection.length >= self.min_match_length:
+                if (
+                    not intersection.is_empty
+                    and intersection.length >= self.min_match_length
+                ):
                     covered.add(street["properties"]["segment_id"])
 
             return covered
         except Exception as e:
-            logger.error(f"Error processing trip: {e}", exc_info=True)
+            logger.error("Error processing trip: %s", e, exc_info=True)
             return set()
 
     async def compute_coverage(self) -> Optional[Dict[str, Any]]:
@@ -312,8 +346,8 @@ class CoverageCalculator:
             }
 
         except Exception as e:
-            logger.error(f"Error computing coverage: {e}", exc_info=True)
-            await self.update_progress("error", 0, f"Error: {str(e)}")
+            logger.error("Error computing coverage: %s", e, exc_info=True)
+            await self.update_progress("error", 0, "Error: %s" % str(e))
             return None
 
     @staticmethod
