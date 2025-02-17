@@ -10,11 +10,14 @@
       this.setupEventListeners();
       this.loadCoverageAreas();
       this.setupAutoRefresh(); // Set up auto-refresh
+      this.currentProcessingLocation = null;
+      this.processingStartTime = null;
     }
 
     setupEventListeners() {
       document.getElementById("validate-location")?.addEventListener("click", () => this.validateLocation());
       document.getElementById("add-coverage-area")?.addEventListener("click", () => this.addCoverageArea());
+      document.getElementById("cancel-processing")?.addEventListener("click", () => this.cancelProcessing());
 
       // Disable "Add Area" button on location input change
       document.getElementById("location-input")?.addEventListener("input", () => {
@@ -32,6 +35,7 @@
         const updateBtn = event.target.closest(".update-coverage");
         const viewBtn = event.target.closest(".view-on-map");
         const deleteBtn = event.target.closest(".delete-area");
+        const cancelBtn = event.target.closest(".cancel-processing");
 
         if (updateBtn) {
           const location = JSON.parse(updateBtn.dataset.location);
@@ -42,6 +46,9 @@
         } else if (deleteBtn) {
           const location = JSON.parse(deleteBtn.dataset.location);
           this.deleteArea(location);
+        } else if (cancelBtn) {
+          const location = JSON.parse(cancelBtn.dataset.location);
+          this.cancelProcessing(location);
         }
       });
     }
@@ -146,74 +153,49 @@
     }
 
 
-    static async pollCoverageProgress(taskId) {
-      const maxRetries = 180; // 15 minutes (with 5-second intervals)
-      let retries = 0;
-      let lastProgress = -1;
-
-      const updateModalContent = (data) => {
-        const progressBar = document.querySelector("#taskProgressModal .progress-bar");
-        const messageEl = document.querySelector("#taskProgressModal .progress-message");
-        const detailsEl = document.querySelector("#taskProgressModal .progress-details");
-
-        if (progressBar && messageEl) {
-          progressBar.style.width = `${data.progress}%`;
-          progressBar.setAttribute("aria-valuenow", data.progress);
-          messageEl.textContent = data.message || "Processing...";
-
-          if (detailsEl && data.processed_trips !== undefined) {
-            detailsEl.innerHTML = `
-              <div class="mt-2">
-                <small>
-                  Processed: ${data.processed_trips} / ${data.total_trips} trips<br>
-                  Covered segments: ${data.covered_segments || 0}<br>
-                  Total length: ${((data.total_length || 0) * 0.000621371).toFixed(2)} miles
-                </small>
-              </div>
-            `;
-          }
-        }
-      };
-
-      while (retries < maxRetries) {
-        try {
-          const response = await fetch(`/api/street_coverage/${taskId}`);
-          if (!response.ok) throw new Error("Failed to get coverage status");
-
-          const data = await response.json();
-
-          if (data.progress !== lastProgress) {
-            updateModalContent(data);
-            lastProgress = data.progress;
-          }
-
-          if (data.stage === "complete") {
-            return data;
-          } else if (data.stage === "error") {
-            throw new Error(data.message || "Coverage calculation failed");
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, 5000));
-          retries++;
-        } catch (error) {
-          console.error("Error polling coverage progress:", error);
-          throw error; // Re-throw to be caught by the caller
-        }
+    async cancelProcessing(location = null) {
+      const locationToCancel = location || this.currentProcessingLocation;
+      if (!locationToCancel) {
+        notificationManager.show("No active processing to cancel.", "warning");
+        return;
       }
-      throw new Error("Coverage calculation timed out");
+
+      try {
+        const response = await fetch("/api/coverage_areas/cancel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ location: locationToCancel }),
+        });
+
+        if (!response.ok) throw new Error("Failed to cancel processing");
+        
+        notificationManager.show("Processing cancelled successfully.", "success");
+        this.hideProgressModal();
+        await this.loadCoverageAreas();
+      } catch (error) {
+        console.error("Error cancelling processing:", error);
+        notificationManager.show("Failed to cancel processing. Please try again.", "danger");
+      }
     }
 
     showProgressModal(message = "Processing...", progress = 0) {
       const modal = document.getElementById("taskProgressModal");
       const progressBar = modal.querySelector(".progress-bar");
       const messageEl = modal.querySelector(".progress-message");
-      const detailsEl = modal.querySelector(".progress-details");
+      const stageInfoEl = modal.querySelector(".stage-info");
+      const statsInfoEl = modal.querySelector(".stats-info");
+      const timeInfoEl = modal.querySelector(".time-info");
 
       progressBar.style.width = `${progress}%`;
       progressBar.setAttribute("aria-valuenow", progress);
       messageEl.textContent = message;
-      if (detailsEl) detailsEl.innerHTML = "";
-
+      
+      // Clear previous info
+      stageInfoEl.innerHTML = "";
+      statsInfoEl.innerHTML = "";
+      timeInfoEl.innerHTML = "";
+      
+      this.processingStartTime = Date.now();
       this.taskProgressModal.show();
     }
 
@@ -278,7 +260,9 @@
             <div class="btn-group btn-group-sm">
               ${
                 isProcessing
-                  ? `<button class="btn btn-secondary" disabled><i class="fas fa-spinner fa-spin"></i></button>`
+                  ? `<button class="btn btn-danger cancel-processing" data-location='${JSON.stringify(
+                      area.location
+                    )}' title="Cancel Processing"><i class="fas fa-stop-circle"></i></button>`
                   : `<button class="btn btn-primary update-coverage" data-location='${JSON.stringify(
                       area.location
                     )}' title="Update Coverage"><i class="fas fa-sync-alt"></i></button>
@@ -299,6 +283,7 @@
 
     async updateCoverageForArea(location) {
       try {
+        this.currentProcessingLocation = location;
         this.showProgressModal("Updating coverage...");
         const response = await fetch("/api/street_coverage", {
           method: "POST",
@@ -310,12 +295,14 @@
         const data = await response.json();
 
         await this.pollCoverageProgress(data.task_id);
-        await this.loadCoverageAreas(); // Reload after polling
+        await this.loadCoverageAreas();
         notificationManager.show("Coverage updated successfully!", "success");
       } catch (error) {
         console.error("Error updating coverage:", error);
         notificationManager.show("Failed to update coverage. Please try again.", "danger");
       } finally {
+        this.currentProcessingLocation = null;
+        this.processingStartTime = null;
         this.hideProgressModal();
       }
     }
@@ -359,6 +346,112 @@
           await this.loadCoverageAreas();
         }
       }, 5000);
+    }
+
+    updateModalContent(data) {
+      const modal = document.getElementById("taskProgressModal");
+      const progressBar = modal.querySelector(".progress-bar");
+      const messageEl = modal.querySelector(".progress-message");
+      const stageInfoEl = modal.querySelector(".stage-info");
+      const statsInfoEl = modal.querySelector(".stats-info");
+      const timeInfoEl = modal.querySelector(".time-info");
+
+      // Update progress bar and message
+      progressBar.style.width = `${data.progress}%`;
+      progressBar.setAttribute("aria-valuenow", data.progress);
+      messageEl.textContent = data.message || "Processing...";
+
+      // Update stage information with icon
+      const stageIcon = this.getStageIcon(data.stage);
+      stageInfoEl.innerHTML = `
+        <span class="text-info">
+          <i class="${stageIcon}"></i>
+          Current Stage: ${this.formatStageName(data.stage)}
+        </span>
+      `;
+
+      // Update statistics
+      if (data.processed_trips !== undefined) {
+        statsInfoEl.innerHTML = `
+          <div class="mt-2">
+            <div class="mb-1">
+              <i class="fas fa-route"></i> Trips: ${data.processed_trips} / ${data.total_trips}
+            </div>
+            <div class="mb-1">
+              <i class="fas fa-road"></i> Covered Segments: ${data.covered_segments || 0}
+            </div>
+            <div>
+              <i class="fas fa-ruler"></i> Total Length: ${((data.total_length || 0) * 0.000621371).toFixed(2)} miles
+            </div>
+          </div>
+        `;
+      }
+
+      // Update time information
+      if (this.processingStartTime) {
+        const elapsedSeconds = Math.floor((Date.now() - this.processingStartTime) / 1000);
+        const minutes = Math.floor(elapsedSeconds / 60);
+        const seconds = elapsedSeconds % 60;
+        timeInfoEl.innerHTML = `
+          <small>
+            <i class="fas fa-clock"></i> Time Elapsed: ${minutes}m ${seconds}s
+          </small>
+        `;
+      }
+    }
+
+    getStageIcon(stage) {
+      const icons = {
+        initializing: "fas fa-cog fa-spin",
+        loading_streets: "fas fa-map-marked-alt",
+        indexing: "fas fa-database",
+        counting_trips: "fas fa-calculator",
+        processing_trips: "fas fa-route",
+        finalizing: "fas fa-check-circle",
+        complete: "fas fa-flag-checkered",
+        error: "fas fa-exclamation-triangle"
+      };
+      return icons[stage] || "fas fa-circle-notch fa-spin";
+    }
+
+    formatStageName(stage) {
+      return stage
+        .split("_")
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    }
+
+    static async pollCoverageProgress(taskId) {
+      const maxRetries = 180; // 15 minutes (with 5-second intervals)
+      let retries = 0;
+      let lastProgress = -1;
+
+      while (retries < maxRetries) {
+        try {
+          const response = await fetch(`/api/street_coverage/${taskId}`);
+          if (!response.ok) throw new Error("Failed to get coverage status");
+
+          const data = await response.json();
+
+          if (data.progress !== lastProgress) {
+            this.updateModalContent(data);
+            lastProgress = data.progress;
+          }
+
+          if (data.stage === "complete") {
+            return data;
+          } else if (data.stage === "error") {
+            throw new Error(data.message || "Coverage calculation failed");
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          retries++;
+        } catch (error) {
+          console.error("Error polling coverage progress:", error);
+          throw error;
+        }
+      }
+      throw new Error("Coverage calculation timed out");
     }
   }
 

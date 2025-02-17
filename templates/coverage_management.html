@@ -101,11 +101,22 @@ block content %}
           ></div>
         </div>
         <p class="progress-message text-center mb-2">Starting...</p>
-        <div class="progress-details text-center text-muted">
-          <!-- Progress details will be dynamically updated here -->
+        <div class="progress-details text-center">
+          <div class="stage-info mb-2 text-info">
+            <!-- Stage information will be shown here -->
+          </div>
+          <div class="stats-info">
+            <!-- Detailed statistics will be shown here -->
+          </div>
+          <div class="time-info text-muted mt-2">
+            <!-- Time information will be shown here -->
+          </div>
         </div>
       </div>
       <div class="modal-footer">
+        <button type="button" class="btn btn-danger" id="cancel-processing">
+          <i class="fas fa-stop-circle"></i> Cancel Processing
+        </button>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
           Close
         </button>

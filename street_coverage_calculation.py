@@ -126,7 +126,7 @@ class CoverageCalculator:
 
                 # Compute length in UTM (meters)
                 street_utm = transform(self.project_to_utm, geom)
-                # Save the computed length to the street properties for later reuse
+                # Cache the computed length for later reuse
                 street["properties"]["segment_length"] = street_utm.length
                 self.total_length += street_utm.length
             except Exception as e:
@@ -158,57 +158,63 @@ class CoverageCalculator:
                 )
         return box(*bounds) if bounds else box(0, 0, 0, 0)
 
+    def _is_valid_trip(
+        self, gps_data: Any
+    ) -> Tuple[bool, List[Tuple[float, float]]]:
+        """
+        Validate and extract coordinates from a trip's GPS data.
+
+        Returns:
+            A tuple (is_valid, coordinates). A trip is valid only if it has at least two coordinates.
+        """
+        try:
+            data = (
+                json.loads(gps_data)
+                if isinstance(gps_data, str)
+                else gps_data
+            )
+            coords: List[Tuple[float, float]] = data.get("coordinates", [])
+            if len(coords) < 2:
+                return False, []
+            return True, coords
+        except Exception as e:
+            logger.error("Error decoding GPS data: %s", e, exc_info=True)
+            return False, []
+
     def is_trip_in_boundary(self, trip: Dict[str, Any]) -> bool:
         """
         Quickly determine if a trip’s GPS path intersects the boundary box.
         """
         try:
             gps_data = trip.get("gps")
-            if not gps_data or "coordinates" not in (
-                coords := (
-                    json.loads(gps_data)
-                    if isinstance(gps_data, str)
-                    else gps_data
-                )
-            ):
+            if not gps_data:
                 return False
-            coords_list = coords["coordinates"]
-            return self.boundary_box.intersects(LineString(coords_list))
-        except (KeyError, json.JSONDecodeError) as e:
-            logger.error("Error decoding trip GPS data: %s", e)
-            return False
+            valid, coords = self._is_valid_trip(gps_data)
+            if not valid:
+                return False
+            return self.boundary_box.intersects(LineString(coords))
         except Exception as e:
             logger.error("Error checking trip boundary: %s", e)
             return False
 
-    async def process_single_trip(self, trip: Dict[str, Any]) -> Set[str]:
+    def _process_trip_sync(
+        self, coords: List[Tuple[float, float]]
+    ) -> Set[str]:
         """
-        Process a single trip, determining which street segments were covered.
+        Synchronous helper that performs heavy geometry processing for a trip.
+        This function is intended to be run in a separate thread via asyncio.to_thread.
         """
         covered: Set[str] = set()
         try:
-            gps_data = trip.get("gps")
-            if not gps_data:
-                return covered
-
-            data = (
-                json.loads(gps_data)
-                if isinstance(gps_data, str)
-                else gps_data
-            )
-            if "coordinates" not in data:
-                return covered
-
-            coords = data["coordinates"]
             trip_line = LineString(coords)
-            # Transform the trip geometry into UTM
+            if len(trip_line.coords) < 2:
+                return covered
+            # Transform trip geometry to UTM and create a buffer.
             trip_line_utm = transform(self.project_to_utm, trip_line)
             trip_buffer = trip_line_utm.buffer(self.match_buffer)
-
-            # Pre-transform the buffer back to WGS84 for spatial index query
+            # Transform the buffer back to WGS84 for spatial index querying.
             trip_buffer_wgs84 = transform(self.project_to_wgs84, trip_buffer)
-
-            # Query spatial index using the buffer's bounding box
+            # Query the R-tree spatial index.
             for idx in self.streets_index.intersection(
                 trip_buffer_wgs84.bounds
             ):
@@ -223,7 +229,29 @@ class CoverageCalculator:
                     segment_id = street["properties"].get("segment_id")
                     if segment_id:
                         covered.add(segment_id)
-            return covered
+        except Exception as e:
+            logger.error(
+                "Error processing trip synchronously: %s", e, exc_info=True
+            )
+        return covered
+
+    async def process_single_trip(self, trip: Dict[str, Any]) -> Set[str]:
+        """
+        Process a single trip by validating its GPS data and offloading heavy geometry processing.
+        """
+        try:
+            gps_data = trip.get("gps")
+            if not gps_data:
+                return set()
+            valid, coords = self._is_valid_trip(gps_data)
+            if not valid:
+                logger.warning(
+                    "Skipping trip %s due to invalid or insufficient coordinates",
+                    trip.get("_id"),
+                )
+                return set()
+            # Offload heavy processing to a background thread.
+            return await asyncio.to_thread(self._process_trip_sync, coords)
         except Exception as e:
             logger.error(
                 "Error processing trip (ID %s): %s",
@@ -231,11 +259,11 @@ class CoverageCalculator:
                 e,
                 exc_info=True,
             )
-            return covered
+            return set()
 
     async def process_trip_batch(self, trips: List[Dict[str, Any]]) -> None:
         """
-        Process a batch of trips concurrently.
+        Process a batch of trips concurrently. Yields control after each batch to keep the event loop responsive.
         """
         tasks = [
             self.process_single_trip(trip)
@@ -259,10 +287,12 @@ class CoverageCalculator:
             progress_val,
             f"Processed {self.processed_trips} of {self.total_trips} trips",
         )
+        # Yield to the event loop to remain responsive.
+        await asyncio.sleep(0)
 
     async def compute_coverage(self) -> Optional[Dict[str, Any]]:
         """
-        Compute the street coverage for the location.
+        Compute the street coverage for the location using improved asynchronous batch processing.
         """
         try:
             await self.update_progress(
@@ -273,7 +303,7 @@ class CoverageCalculator:
             await self.update_progress(
                 "loading_streets", 10, "Loading street data..."
             )
-            # Load all street segments for the location from the database
+            # Load all street segments for the location from the database.
             streets: List[Dict[str, Any]] = await streets_collection.find(
                 {"properties.location": self.location.get("display_name")}
             ).to_list(length=None)
@@ -292,7 +322,7 @@ class CoverageCalculator:
             await self.update_progress(
                 "counting_trips", 30, "Counting trips..."
             )
-            # Use bounding box query to filter trips
+            # Use a bounding box query to filter trips.
             bbox = self.boundary_box.bounds
             trip_filter = {
                 "gps": {"$exists": True},
@@ -348,7 +378,7 @@ class CoverageCalculator:
             if batch:
                 await self.process_trip_batch(batch)
 
-            # Finalize: calculate covered length and build GeoJSON features
+            # Finalize: calculate covered length and build GeoJSON features.
             await self.update_progress(
                 "finalizing", 95, "Calculating final coverage..."
             )
@@ -357,7 +387,6 @@ class CoverageCalculator:
             for street in streets:
                 segment_id = street["properties"].get("segment_id")
                 geom = shape(street["geometry"])
-                # Compute the segment length (UTM units)
                 street_utm = transform(self.project_to_utm, geom)
                 seg_length = street_utm.length
 
