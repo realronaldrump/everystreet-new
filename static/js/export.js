@@ -111,7 +111,10 @@ function downloadFile(url, filename) {
     })
     .catch((error) => {
       console.error("Error downloading file:", error);
-      notificationManager.show("An error occurred while downloading the file. Please try again.", "danger");
+      notificationManager.show(
+        "An error occurred while downloading the file. Please try again.",
+        "danger",
+      );
     });
 }
 
@@ -148,12 +151,18 @@ function validateLocation(inputId) {
         }
         notificationManager.show("Location validated successfully!", "success");
       } else {
-        notificationManager.show("Location not found. Please try a different search term.", "warning");
+        notificationManager.show(
+          "Location not found. Please try a different search term.",
+          "warning",
+        );
       }
     })
     .catch((error) => {
       console.error("Error validating location:", error);
-      notificationManager.show("Error validating location. Please try again.", "danger");
+      notificationManager.show(
+        "Error validating location. Please try again.",
+        "danger",
+      );
     });
 }
 

@@ -46,9 +46,7 @@ async def process_trip_data(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
       - Return the updated trip, or None if invalid.
     """
     transaction_id = trip.get("transactionId", "?")
-    logger.info(
-        "Processing trip data for transactionId=%s...", transaction_id
-    )
+    logger.info("Processing trip data for transactionId=%s...", transaction_id)
     try:
         # Convert start/end times if strings
         for key in ("startTime", "endTime"):

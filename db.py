@@ -56,9 +56,7 @@ class DatabaseManager:
             self._db = self._client["every_street"]
             logger.info("MongoDB client initialized successfully.")
         except Exception as e:
-            logger.error(
-                "Failed to initialize MongoDB client: %s", e, exc_info=True
-            )
+            logger.error("Failed to initialize MongoDB client: %s", e, exc_info=True)
             raise
 
     @property
@@ -122,9 +120,7 @@ class DatabaseManager:
             return
         try:
             await self.db[collection_name].create_index(keys, **kwargs)
-            logger.info(
-                "Index created on %s with keys %s", collection_name, keys
-            )
+            logger.info("Index created on %s with keys %s", collection_name, keys)
         except Exception as e:
             if "you are over your space quota" in str(e).lower():
                 self._quota_exceeded = True
@@ -167,9 +163,7 @@ async def init_task_history_collection() -> None:
     """
     try:
         tasks = [
-            task_history_collection.create_index(
-                [("task_id", pymongo.ASCENDING)]
-            ),
+            task_history_collection.create_index([("task_id", pymongo.ASCENDING)]),
             task_history_collection.create_index([("timestamp", -1)]),
             task_history_collection.create_index(
                 [("task_id", pymongo.ASCENDING), ("timestamp", -1)]
@@ -178,9 +172,7 @@ async def init_task_history_collection() -> None:
         await asyncio.gather(*tasks)
         logger.info("Task history collection indexes created successfully")
     except Exception as e:
-        logger.error(
-            "Error creating task history indexes: %s", e, exc_info=True
-        )
+        logger.error("Error creating task history indexes: %s", e, exc_info=True)
         raise
 
 
@@ -210,9 +202,7 @@ async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
                 return None
         return trip
     except Exception as e:
-        logger.error(
-            "Error retrieving trip %s: %s", trip_id, e, exc_info=True
-        )
+        logger.error("Error retrieving trip %s: %s", trip_id, e, exc_info=True)
         return None
 
 
@@ -242,7 +232,5 @@ async def ensure_street_coverage_indexes() -> None:
         await asyncio.gather(*tasks)
         logger.info("Street coverage indexes created successfully")
     except Exception as e:
-        logger.error(
-            "Error creating street coverage indexes: %s", e, exc_info=True
-        )
+        logger.error("Error creating street coverage indexes: %s", e, exc_info=True)
         raise
