@@ -46,7 +46,7 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
     />
-    <!-- DataTables 1.13.6 & Buttons 2.4.1 (Ensure other templates match this version) -->
+    <!-- DataTables 1.13.6 & Buttons 2.4.1 -->
     <link
       rel="stylesheet"
       href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"
@@ -149,7 +149,6 @@
             ></button>
           </div>
           <div class="modal-body">
-            <!-- Add your modal content here -->
             <p>Manage your custom places here.</p>
           </div>
           <div class="modal-footer">
@@ -183,6 +182,8 @@
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
+
+    <!-- Global JS Utils -->
     <script src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
     <script src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"></script>
     <script src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"></script>
@@ -193,15 +194,14 @@
     ></script>
 
     {% block extra_js %}{% endblock %}
+
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         // Enable tooltips
         const tooltipTriggerList = [].slice.call(
           document.querySelectorAll('[data-bs-toggle="tooltip"]')
         );
-        tooltipTriggerList.map(function (el) {
-          return new bootstrap.Tooltip(el);
-        });
+        tooltipTriggerList.map((el) => new bootstrap.Tooltip(el));
       });
     </script>
   </body>

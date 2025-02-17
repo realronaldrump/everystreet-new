@@ -1,6 +1,5 @@
-{% extends "base.html" %}
-{% block title %}Coverage Management{% endblock %}
-{% block content %}
+{% extends "base.html" %} {% block title %}Coverage Management{% endblock %} {%
+block content %}
 <div class="container-fluid">
   <div class="row">
     <div class="col-12">
@@ -85,7 +84,9 @@
   <div class="modal-dialog">
     <div class="modal-content bg-dark text-white">
       <div class="modal-header">
-        <h5 class="modal-title" id="taskProgressModalLabel">Processing Coverage Update</h5>
+        <h5 class="modal-title" id="taskProgressModalLabel">
+          Processing Coverage Update
+        </h5>
         <button
           type="button"
           class="btn-close btn-close-white"
@@ -103,15 +104,9 @@
         </div>
         <p class="progress-message text-center mb-2">Initializing...</p>
         <div class="progress-details text-center">
-          <div class="stage-info mb-2 text-info">
-            <!-- Current stage information -->
-          </div>
-          <div class="stats-info">
-            <!-- Detailed statistics will appear here -->
-          </div>
-          <div class="time-info text-muted mt-2">
-            <!-- Time elapsed info -->
-          </div>
+          <div class="stage-info mb-2 text-info"></div>
+          <div class="stats-info"></div>
+          <div class="time-info text-muted mt-2"></div>
         </div>
       </div>
       <div class="modal-footer">
@@ -139,7 +134,6 @@
     min-width: 100px;
   }
 </style>
-{% endblock %}
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', path='js/coverage-management.js') }}"></script>
 {% endblock %}

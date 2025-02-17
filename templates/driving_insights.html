@@ -1,13 +1,14 @@
 {% extends "base.html" %}
-
+{% block title %}Driving Insights{% endblock %}
 {% block content %}
 <div class="container-fluid">
-
   <!-- Summary Metrics -->
   <div class="row mb-4">
     <div class="col-12 col-md-6">
       <div class="card">
-        <div class="card-header"><h2 class="h5 mb-0">Summary</h2></div>
+        <div class="card-header">
+          <h2 class="h5 mb-0">Summary</h2>
+        </div>
         <div class="card-body">
           <div class="row">
             <div class="col-6">
@@ -52,7 +53,9 @@
     <!-- Fuel Consumption Chart -->
     <div class="col-12 col-lg-6 mb-4">
       <div class="card">
-        <div class="card-header"><h2 class="h5 mb-0">Fuel Consumption</h2></div>
+        <div class="card-header">
+          <h2 class="h5 mb-0">Fuel Consumption</h2>
+        </div>
         <div class="card-body">
           <canvas id="fuelConsumptionChart" height="300"></canvas>
         </div>
@@ -64,7 +67,9 @@
   <div class="row">
     <div class="col-12 mb-4">
       <div class="card">
-        <div class="card-header"><h2 class="h5 mb-0">Trip Counts Over Time</h2></div>
+        <div class="card-header">
+          <h2 class="h5 mb-0">Trip Counts Over Time</h2>
+        </div>
         <div class="card-body">
           <canvas id="tripCountsChart" height="400"></canvas>
         </div>
@@ -72,7 +77,9 @@
     </div>
     <div class="col-12 col-lg-6 mb-4">
       <div class="card">
-        <div class="card-header"><h2 class="h5 mb-0">Daily Distance</h2></div>
+        <div class="card-header">
+          <h2 class="h5 mb-0">Daily Distance</h2>
+        </div>
         <div class="card-body">
           <canvas id="distanceChart" height="300"></canvas>
         </div>
@@ -80,7 +87,9 @@
     </div>
     <div class="col-12 col-lg-6 mb-4">
       <div class="card">
-        <div class="card-header"><h2 class="h5 mb-0">Trip Time Distribution</h2></div>
+        <div class="card-header">
+          <h2 class="h5 mb-0">Trip Time Distribution</h2>
+        </div>
         <div class="card-body">
           <canvas id="timeDistributionChart" height="300"></canvas>
         </div>
@@ -92,7 +101,9 @@
   <div class="row">
     <div class="col-12">
       <div class="card">
-        <div class="card-header"><h2 class="h5 mb-0">Detailed Insights</h2></div>
+        <div class="card-header">
+          <h2 class="h5 mb-0">Detailed Insights</h2>
+        </div>
         <div class="card-body">
           <div class="table-responsive">
             <table id="insights-table" class="table table-striped">

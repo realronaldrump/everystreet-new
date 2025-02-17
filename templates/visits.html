@@ -1,182 +1,242 @@
-{# templates/visits.html #}
-{% extends "base.html" %}
-{% block title %}Every Street - Visits{% endblock %}
+{% extends "base.html" %} {% block title %}Every Street - Visits{% endblock %}
 {% block content %}
 <div class="container-fluid px-4 py-3">
-    <div id="visits-page">
+  <div id="visits-page"></div>
+  <div class="row">
+    <!-- Places Management Column -->
+    <div class="col-md-4">
+      <div class="card bg-dark border-secondary mb-4">
+        <div class="card-header border-secondary">
+          <h3 class="h5 mb-0">Places Management</h3>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label for="place-name" class="form-label">Place Name</label>
+            <input
+              type="text"
+              id="place-name"
+              class="form-control"
+              placeholder="Enter place name"
+            />
+          </div>
+          <div class="form-check mb-3">
+            <input
+              type="checkbox"
+              class="form-check-input"
+              id="toggle-custom-places"
+              checked
+            />
+            <label class="form-check-label" for="toggle-custom-places">
+              Show Custom Places
+            </label>
+          </div>
+          <div class="d-grid gap-2">
+            <button id="start-drawing" class="btn btn-primary">
+              <i class="fas fa-draw-polygon me-1"></i> Draw Place
+            </button>
+            <button id="save-place" class="btn btn-success" disabled>
+              <i class="fas fa-save me-1"></i> Save Place
+            </button>
+          </div>
+          <hr />
+          <button id="manage-places" class="btn btn-secondary mb-3">
+            <i class="fas fa-cog me-1"></i> Manage Places
+          </button>
+          <div id="places-list" class="list-group"></div>
+        </div>
+      </div>
     </div>
-    <div class="row">
-        <!-- Places Management Column -->
-        <div class="col-md-4">
-            <div class="card bg-dark border-secondary mb-4">
-                <div class="card-header border-secondary">
-                    <h3 class="h5 mb-0">Places Management</h3>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label for="place-name" class="form-label">Place Name</label>
-                        <input type="text" id="place-name" class="form-control" placeholder="Enter place name">
-                    </div>
-                    <div class="form-check mb-3">
-                        <input type="checkbox" class="form-check-input" id="toggle-custom-places" checked>
-                        <label class="form-check-label" for="toggle-custom-places">Show Custom Places</label>
-                    </div>
-                    <div class="d-grid gap-2">
-                        <button id="start-drawing" class="btn btn-primary">
-                            <i class="fas fa-draw-polygon me-1"></i> Draw Place
-                        </button>
-                        <button id="save-place" class="btn btn-success" disabled>
-                            <i class="fas fa-save me-1"></i> Save Place
-                        </button>
-                    </div>
-                    <hr>
-                    <button id="manage-places" class="btn btn-secondary mb-3">
-                        <i class="fas fa-cog me-1"></i> Manage Places
-                    </button>
-                    <div id="places-list" class="list-group">
-                        </div>
-                </div>
+    <!-- Map Column -->
+    <div class="col-md-8">
+      <div class="card bg-dark border-secondary mb-4">
+        <div
+          class="card-header border-secondary d-flex justify-content-between align-items-center"
+        >
+          <h3 class="h5 mb-0">Places Map</h3>
+          <div class="map-controls">
+            <div class="btn-group btn-group-sm" role="group">
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                id="zoom-to-fit"
+              >
+                <i class="fas fa-expand-arrows-alt"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                id="clear-drawing"
+              >
+                <i class="fas fa-trash-alt"></i>
+              </button>
             </div>
+          </div>
         </div>
-        <!-- Map Column -->
-        <div class="col-md-8">
-            <div class="card bg-dark border-secondary mb-4">
-                <div class="card-header border-secondary d-flex justify-content-between align-items-center">
-                    <h3 class="h5 mb-0">Places Map</h3>
-                    <div class="map-controls">
-                        <div class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-outline-secondary" id="zoom-to-fit">
-                                <i class="fas fa-expand-arrows-alt"></i>
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" id="clear-drawing">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div id="map" class="map-container"></div>
-                </div>
-            </div>
+        <div class="card-body">
+          <div id="map" class="map-container"></div>
         </div>
-        <!-- Visit Statistics -->
-        <div class="col-12" id="visits-table-container">
-            <div class="card bg-dark border-secondary">
-                <div class="card-header border-secondary">
-                    <h3 class="h5 mb-0">Visit Statistics</h3>
-                    <button id="toggle-view-btn" class="btn btn-sm btn-outline-secondary float-end">Show Trips for Selected Place</button>
-                </div>
-                <div class="card-body">
-                    <ul class="nav nav-tabs" id="visitsTab" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="custom-places-tab" data-bs-toggle="tab" data-bs-target="#custom-places-content" type="button" role="tab">Custom Places</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="non-custom-places-tab" data-bs-toggle="tab" data-bs-target="#non-custom-places-content" type="button" role="tab">Non-Custom Places</button>
-                        </li>
-                    </ul>
-                    <div class="tab-content" id="visitsTabContent">
-                        <div class="tab-pane fade show active" id="custom-places-content" role="tabpanel">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <canvas id="visitsChart"></canvas>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="table-responsive">
-                                        <table id="visits-table" class="table table-dark table-striped">
-                                            <thead>
-                                                <tr>
-                                                    <th>Place</th>
-                                                    <th>Total Visits</th>
-                                                    <th>First Visit</th>
-                                                    <th>Last Visit</th>
-                                                    <th>Avg Time Spent</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody></tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="non-custom-places-content" role="tabpanel">
-                            <div class="table-responsive">
-                                <table id="non-custom-visits-table" class="table table-dark table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Place</th>
-                                            <th>Total Visits</th>
-                                            <th>First Visit</th>
-                                            <th>Last Visit</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- Trips for Selected Place -->
-        <div class="col-12" id="trips-for-place-container" style="display: none;">
-            <div class="card bg-dark border-secondary">
-                <div class="card-header border-secondary">
-                    <h3 class="h5 mb-0">Trips for Selected Place</h3>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table id="trips-for-place-table" class="table table-dark table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Trip ID</th>
-                                    <th>Date</th>
-                                    <th>Time</th>
-                                    <th>Duration of Stay</th>
-                                    <th>Time Since Last Visit</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
+    <!-- Visit Statistics -->
+    <div class="col-12" id="visits-table-container">
+      <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+          <h3 class="h5 mb-0">Visit Statistics</h3>
+          <button
+            id="toggle-view-btn"
+            class="btn btn-sm btn-outline-secondary float-end"
+          >
+            Show Trips for Selected Place
+          </button>
+        </div>
+        <div class="card-body">
+          <ul class="nav nav-tabs" id="visitsTab" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link active"
+                id="custom-places-tab"
+                data-bs-toggle="tab"
+                data-bs-target="#custom-places-content"
+                type="button"
+                role="tab"
+              >
+                Custom Places
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link"
+                id="non-custom-places-tab"
+                data-bs-toggle="tab"
+                data-bs-target="#non-custom-places-content"
+                type="button"
+                role="tab"
+              >
+                Non-Custom Places
+              </button>
+            </li>
+          </ul>
+          <div class="tab-content" id="visitsTabContent">
+            <div
+              class="tab-pane fade show active"
+              id="custom-places-content"
+              role="tabpanel"
+            >
+              <div class="row">
+                <div class="col-md-6">
+                  <canvas id="visitsChart"></canvas>
+                </div>
+                <div class="col-md-6">
+                  <div class="table-responsive">
+                    <table
+                      id="visits-table"
+                      class="table table-dark table-striped"
+                    >
+                      <thead>
+                        <tr>
+                          <th>Place</th>
+                          <th>Total Visits</th>
+                          <th>First Visit</th>
+                          <th>Last Visit</th>
+                          <th>Avg Time Spent</th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="tab-pane fade"
+              id="non-custom-places-content"
+              role="tabpanel"
+            >
+              <div class="table-responsive">
+                <table
+                  id="non-custom-visits-table"
+                  class="table table-dark table-striped"
+                >
+                  <thead>
+                    <tr>
+                      <th>Place</th>
+                      <th>Total Visits</th>
+                      <th>First Visit</th>
+                      <th>Last Visit</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Trips for Selected Place -->
+    <div class="col-12" id="trips-for-place-container" style="display: none">
+      <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+          <h3 class="h5 mb-0">Trips for Selected Place</h3>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table
+              id="trips-for-place-table"
+              class="table table-dark table-striped"
+            >
+              <thead>
+                <tr>
+                  <th>Trip ID</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Duration of Stay</th>
+                  <th>Time Since Last Visit</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 <!-- Place Details Modal -->
 <div class="modal fade" id="place-details-modal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content bg-dark text-light">
-            <div class="modal-header border-secondary">
-                <h5 class="modal-title">Place Details</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div id="place-details-content"></div>
-            </div>
-        </div>
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title">Place Details</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div id="place-details-content"></div>
+      </div>
     </div>
+  </div>
 </div>
-{% endblock %}
-{% block extra_css %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+{% endblock %} {% block extra_css %}
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"
+/>
 <style>
-    .place-popup .btn {
-        margin-top: 10px;
-    }
-
-    .map-controls {
-        z-index: 1000;
-    }
-
-    /* Moved inline style to CSS */
-    .map-container {
-        height: 500px;
-    }
+  .place-popup .btn {
+    margin-top: 10px;
+  }
+  .map-controls {
+    z-index: 1000;
+  }
+  .map-container {
+    height: 500px;
+  }
 </style>
-{% endblock %}
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ url_for('static', path='js/visits.js') }}"></script>
