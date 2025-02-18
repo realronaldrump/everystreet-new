@@ -2310,11 +2310,11 @@ async def get_single_trip(trip_id: str):
             trip["endTime"] = trip["endTime"].isoformat()
 
         return {"status": "success", "trip": trip}
-    except HTTPException:
-        raise
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         logger.exception("get_single_trip error")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @app.delete("/api/trips/{trip_id}")
@@ -2340,12 +2340,11 @@ async def delete_trip(trip_id: str):
                 "message": "Trip deleted successfully",
             }
         raise HTTPException(status_code=500, detail="Failed to delete trip")
-
-    except HTTPException:
-        raise
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         logger.exception("Error deleting trip")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @app.get("/api/debug/trip/{trip_id}")

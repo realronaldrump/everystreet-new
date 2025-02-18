@@ -169,7 +169,7 @@ class CoverageCalculator:
             trip_buffer = trip_line_utm.buffer(self.match_buffer)
             trip_buffer_wgs84 = transform(self.project_to_wgs84, trip_buffer)
 
-            for idx in self.streets_index.intersection(trip_buffer_wgs84.bounds):
+            for idx in list(self.streets_index.intersection(trip_buffer_wgs84.bounds)):
                 street = self.streets_lookup[idx]
                 street_geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, street_geom)
