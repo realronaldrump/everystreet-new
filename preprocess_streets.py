@@ -1,6 +1,9 @@
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+import multiprocessing
+import asyncio
+from concurrent.futures import ProcessPoolExecutor
 
 import aiohttp
 import pyproj
@@ -35,7 +38,8 @@ async def fetch_osm_data(
     location: Dict[str, Any], streets_only: bool = True
 ) -> Dict[str, Any]:
     """
-    Fetch OSM data from Overpass API for a given location (which includes osm_id, osm_type).
+    Fetch OSM data from Overpass API for a given location (which includes osm_id,
+    osm_type).
     """
     area_id = int(location["osm_id"])
     if location["osm_type"] == "relation":
@@ -71,7 +75,7 @@ async def fetch_osm_data(
 
 def substring(line: LineString, start: float, end: float) -> Optional[LineString]:
     """
-    Return a sub-linestring from 'start' to 'end' (in the line's local distance measure).
+    Return a sub-linestring from 'start' to 'end' (in the line's local distance measure)
     """
     if start < 0 or end > line.length or start >= end:
         return None
@@ -147,80 +151,129 @@ def segment_street(
     return segments
 
 
+def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Process a single street element in parallel.
+    Returns a list of feature dictionaries for the segmented street.
+    """
+    try:
+        element, location, project_to_utm, project_to_wgs84 = (
+            element_data["element"],
+            element_data["location"],
+            element_data["project_to_utm"],
+            element_data["project_to_wgs84"],
+        )
+
+        nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
+        if len(nodes) < 2:
+            return []
+
+        line = LineString(nodes)
+        projected_line = transform(project_to_utm, line)
+        segments = segment_street(projected_line, segment_length_meters=100)
+
+        features = []
+        for i, segment in enumerate(segments):
+            segment_wgs84 = transform(project_to_wgs84, segment)
+            segment_length = segment.length
+
+            feature = {
+                "type": "Feature",
+                "geometry": mapping(segment_wgs84),
+                "properties": {
+                    "street_id": element["id"],
+                    "segment_id": f"{element['id']}-{i}",
+                    "street_name": element.get("tags", {}).get(
+                        "name", "Unnamed Street"
+                    ),
+                    "location": location,
+                    "segment_length": segment_length,
+                    "driven": False,
+                    "last_updated": None,
+                    "matched_trips": [],
+                },
+            }
+            features.append(feature)
+        return features
+    except Exception as e:
+        logger.error(
+            f"Error processing element {element_data['element'].get('id')}: {e}"
+        )
+        return []
+
+
 async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -> None:
     """
     Convert OSM ways into segmented Feature docs. Insert them into streets_collection.
     Update coverage_metadata_collection with total_length, total_segments, etc.
+    Now uses parallel processing for street segmentation.
     """
     features = []
     total_length = 0.0
-    for element in osm_data.get("elements", []):
-        if element.get("type") != "way":
-            continue
-        try:
-            nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
-            if len(nodes) < 2:
-                continue
-            line = LineString(nodes)
-            projected_line = transform(project_to_utm, line)
-            segments = segment_street(projected_line, segment_length_meters=100)
 
-            for i, segment in enumerate(segments):
-                segment_wgs84 = transform(project_to_wgs84, segment)
-                segment_length = segment.length  # in meters
-                total_length += segment_length
+    # Get elements that are ways
+    way_elements = [
+        element
+        for element in osm_data.get("elements", [])
+        if element.get("type") == "way"
+    ]
 
-                feature = {
-                    "type": "Feature",
-                    "geometry": mapping(segment_wgs84),
-                    "properties": {
-                        "street_id": element["id"],
-                        "segment_id": f"{element['id']}-{i}",
-                        "street_name": element.get("tags", {}).get(
-                            "name", "Unnamed Street"
-                        ),
-                        "location": location["display_name"],
-                        "segment_length": segment_length,
-                        "driven": False,
-                        "last_updated": None,
-                        "matched_trips": [],
-                    },
-                }
-                features.append(feature)
-        except Exception as e:
-            logger.error(
-                "Error processing element %s: %s",
-                element.get("id"),
-                e,
-                exc_info=True,
-            )
+    if not way_elements:
+        return
 
+    # Prepare data for parallel processing
+    process_data = []
+    for element in way_elements:
+        process_data.append(
+            {
+                "element": element,
+                "location": location["display_name"],
+                "project_to_utm": project_to_utm,
+                "project_to_wgs84": project_to_wgs84,
+            }
+        )
+
+    # Process streets in parallel
+    with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+        # Convert to async
+        loop = asyncio.get_event_loop()
+        feature_lists = await loop.run_in_executor(
+            None, lambda: list(executor.map(process_element_parallel, process_data))
+        )
+
+    # Combine all features and calculate total length
+    for feature_list in feature_lists:
+        for feature in feature_list:
+            features.append(feature)
+            total_length += feature["properties"]["segment_length"]
+
+    # Batch insert features into streets_collection
     if features:
-        try:
-            await streets_collection.insert_many(features)
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": location.get("display_name")},
-                {
-                    "$set": {
-                        "location": location,
-                        "total_segments": len(features),
-                        "total_length": total_length,
-                        "driven_length": 0,
-                        "coverage_percentage": 0.0,
-                        "last_updated": datetime.now(timezone.utc),
-                    }
-                },
-                upsert=True,
-            )
-            logger.info(
-                "Stored %d street segments for %s.",
-                len(features),
-                location["display_name"],
-            )
-        except Exception as e:
-            logger.error("Error storing data: %s", e, exc_info=True)
+        await streets_collection.insert_many(features)
+
+        # Update coverage metadata
+        await coverage_metadata_collection.update_one(
+            {"location.display_name": location["display_name"]},
+            {
+                "$set": {
+                    "location": location,
+                    "total_length": total_length,
+                    "total_segments": len(features),
+                    "last_updated": datetime.now(timezone.utc),
+                }
+            },
+            upsert=True,
+        )
+
+        logger.info(
+            "Processed %d street segments for %s",
+            len(features),
+            location["display_name"],
+        )
     else:
-        logger.info("No valid street segments found for %s.", location["display_name"])
+        logger.warning(
+            "No valid street segments found for %s", location["display_name"]
+        )
 
 
 async def preprocess_streets(validated_location: Dict[str, Any]) -> None:

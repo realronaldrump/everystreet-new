@@ -14,8 +14,7 @@ tf = TimezoneFinder()
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Create a global connection pool with limits
-CONN_POOL = TCPConnector(limit=10, force_close=True, enable_cleanup_closed=True)
+# Instead of creating CONN_POOL globally, define the timeout constant only.
 SESSION_TIMEOUT = aiohttp.ClientTimeout(
     total=10, connect=5, sock_connect=5, sock_read=5
 )
@@ -33,8 +32,12 @@ class SessionManager:
     async def get_session(self) -> aiohttp.ClientSession:
         """Get or create a shared aiohttp ClientSession."""
         if self._session is None or self._session.closed:
+            # Create the TCPConnector lazily, inside the running event loop.
+            connector = TCPConnector(
+                limit=10, force_close=True, enable_cleanup_closed=True
+            )
             self._session = aiohttp.ClientSession(
-                connector=CONN_POOL,
+                connector=connector,
                 timeout=SESSION_TIMEOUT,
                 headers={
                     "User-Agent": "EveryStreet/1.0 (myapp@example.com)",

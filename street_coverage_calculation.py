@@ -5,6 +5,8 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 import itertools
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
 
 import pyproj
 import rtree
@@ -52,6 +54,9 @@ class CoverageCalculator:
         self.segment_coverage = defaultdict(int)
         self.total_trips: int = 0
         self.processed_trips: int = 0
+
+        # Initialize process pool with number of CPU cores
+        self.process_pool = ProcessPoolExecutor(max_workers=multiprocessing.cpu_count())
 
         self.initialize_projections()
 
@@ -199,6 +204,10 @@ class CoverageCalculator:
             return False
 
     def _process_trip_sync(self, coords):
+        """
+        Process a single trip's coordinates synchronously.
+        This method uses Shapely operations which release the GIL internally.
+        """
         covered = set()
         try:
             trip_line = LineString(coords)
@@ -225,36 +234,37 @@ class CoverageCalculator:
             logger.error("Error processing trip synchronously: %s", e, exc_info=True)
         return covered
 
-    async def process_single_trip(self, trip: Dict[str, Any]) -> Set[str]:
-        try:
-            gps_data = trip.get("gps")
-            if not gps_data:
-                return set()
-            valid, coords = self._is_valid_trip(gps_data)
-            if not valid:
-                return set()
-            return await asyncio.to_thread(self._process_trip_sync, coords)
-        except Exception as e:
-            logger.error(
-                "Error processing trip (ID %s): %s",
-                trip.get("_id"),
-                e,
-                exc_info=True,
-            )
-            return set()
-
     async def process_trip_batch(self, trips: List[Dict[str, Any]]):
-        tasks = []
-        for trp in trips:
-            if self.boundary_box and self.is_trip_in_boundary(trp):
-                tasks.append(self.process_single_trip(trp))
+        """
+        Process a batch of trips using chunked processing.
+        Each chunk is processed using asyncio.to_thread since Shapely operations release the GIL.
+        """
+        # Prepare trip coordinates for parallel processing
+        trip_coords = []
+        for trip in trips:
+            if self.boundary_box and self.is_trip_in_boundary(trip):
+                gps_data = trip.get("gps")
+                if gps_data:
+                    valid, coords = self._is_valid_trip(gps_data)
+                    if valid:
+                        trip_coords.append(coords)
 
-        if tasks:
-            results = await asyncio.gather(*tasks)
-            for seg_set in results:
-                for seg in seg_set:
-                    self.covered_segments.add(seg)
-                    self.segment_coverage[seg] += 1
+        if trip_coords:
+            # Process trips in chunks to avoid memory issues
+            chunk_size = 100  # Process 100 trips at a time
+            for i in range(0, len(trip_coords), chunk_size):
+                chunk = trip_coords[i : i + chunk_size]
+                try:
+                    # Process the chunk synchronously since we can't pickle the rtree index
+                    for coords in chunk:
+                        covered = await asyncio.to_thread(
+                            self._process_trip_sync, coords
+                        )
+                        for seg in covered:
+                            self.covered_segments.add(seg)
+                            self.segment_coverage[seg] += 1
+                except Exception as e:
+                    logger.error("Error processing trip chunk: %s", e, exc_info=True)
 
         self.processed_trips += len(trips)
         progress_val = (
@@ -347,6 +357,9 @@ class CoverageCalculator:
 
             if batch:
                 await self.process_trip_batch(batch)
+
+            # Clean up the process pool
+            self.process_pool.shutdown()
 
             await self.update_progress(
                 "finalizing", 95, "Calculating final coverage..."

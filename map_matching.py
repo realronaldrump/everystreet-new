@@ -3,6 +3,7 @@ import math
 import logging
 import asyncio
 import aiohttp
+import numpy as np
 from aiohttp import ClientResponseError, ClientConnectorError
 from geojson import loads as geojson_loads
 from dotenv import load_dotenv
@@ -142,64 +143,99 @@ async def map_match_coordinates(coordinates):
     }
 
 
-def filter_outliers_by_distance(coordinates, max_speed_m_s=60.0):
+def haversine_distance_vectorized(
+    coords1: np.ndarray, coords2: np.ndarray
+) -> np.ndarray:
     """
-    Remove points that imply speeds above max_speed_m_s between consecutive points.
-    Each coordinate is [lon, lat, timestamp].
+    Vectorized version of haversine distance calculation that releases the GIL.
+    Takes numpy arrays of shape (N, 2) where each row is [lon, lat].
+    Returns distances in miles.
     """
-    if len(coordinates) < 2:
-        return coordinates
+    R = 6371.0  # Earth's radius in kilometers
 
-    cleaned = [coordinates[0]]
-    for i in range(1, len(coordinates)):
-        prev = cleaned[-1]
-        curr = coordinates[i]
-        if len(prev) < 3 or len(curr) < 3:
-            cleaned.append(curr)
-            continue
-        lon1, lat1, t1 = prev
-        lon2, lat2, t2 = curr
-        if not (isinstance(t1, datetime) and isinstance(t2, datetime)):
-            cleaned.append(curr)
-            continue
+    # Convert to radians
+    coords1_rad = np.radians(coords1)
+    coords2_rad = np.radians(coords2)
 
-        dt = (t2 - t1).total_seconds()
-        if dt <= 0:
-            # No time difference, skip
-            continue
-        speed = haversine_distance_meters((lon1, lat1), (lon2, lat2)) / dt
-        if speed < max_speed_m_s:
-            cleaned.append(curr)
-        else:
-            logger.debug(
-                "Discarding outlier with speed %.2f m/s > %.2f m/s",
-                speed,
-                max_speed_m_s,
-            )
-    return cleaned
+    # Differences in coordinates
+    dlat = coords2_rad[:, 1] - coords1_rad[:, 1]
+    dlon = coords2_rad[:, 0] - coords1_rad[:, 0]
+
+    # Haversine formula
+    a = (
+        np.sin(dlat / 2) ** 2
+        + np.cos(coords1_rad[:, 1]) * np.cos(coords2_rad[:, 1]) * np.sin(dlon / 2) ** 2
+    )
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+
+    return R * c * 0.621371  # Convert to miles
+
+
+def filter_outliers_by_distance(coords_with_time, max_speed_m_s=60.0):
+    """
+    Filter out coordinates that would require unrealistic speeds to reach.
+    Uses vectorized operations for better performance.
+    """
+    if len(coords_with_time) < 2:
+        return coords_with_time
+
+    # Convert coordinates to numpy array for vectorized operations
+    coords = np.array([[c[0], c[1]] for c in coords_with_time])
+
+    # Calculate distances between consecutive points
+    coords_shifted = np.roll(coords, -1, axis=0)
+    distances = (
+        haversine_distance_vectorized(coords[:-1], coords_shifted[:-1]) * 1609.34
+    )  # Convert miles to meters
+
+    # Calculate time differences if timestamps are available
+    if len(coords_with_time[0]) > 2:
+        times = np.array([c[2].timestamp() for c in coords_with_time])
+        times_shifted = np.roll(times, -1)
+        time_diffs = times_shifted[:-1] - times[:-1]
+        speeds = distances / np.maximum(time_diffs, 1e-6)  # Avoid division by zero
+    else:
+        # If no timestamps, assume constant time between points
+        speeds = distances / 1.0  # Assume 1 second between points
+
+    # Mark points that exceed max speed
+    valid_speeds = speeds <= max_speed_m_s
+    valid_indices = np.ones(len(coords_with_time), dtype=bool)
+    valid_indices[1:-1] = valid_speeds
+
+    return [
+        coords_with_time[i] for i in range(len(coords_with_time)) if valid_indices[i]
+    ]
 
 
 def split_trip_on_time_gaps(coords_with_time, max_gap_minutes=15):
     """
-    Split a list of [lon, lat, datetime] points into segments where time gaps exceed
-    max_gap_minutes.
+    Split a trip into segments when there are large time gaps between points.
+    Uses vectorized operations for better performance.
     """
-    if len(coords_with_time) < 2:
+    if len(coords_with_time) < 2 or not isinstance(coords_with_time[0][-1], datetime):
+        return [coords_with_time]
+
+    # Convert timestamps to numpy array
+    times = np.array([c[-1].timestamp() for c in coords_with_time])
+
+    # Calculate time differences between consecutive points
+    time_diffs = np.diff(times) / 60  # Convert to minutes
+
+    # Find indices where time gaps exceed threshold
+    split_indices = np.where(time_diffs > max_gap_minutes)[0] + 1
+
+    # Split the coordinates at the gap points
+    if len(split_indices) == 0:
         return [coords_with_time]
 
     segments = []
-    current_segment = [coords_with_time[0]]
-    for i in range(1, len(coords_with_time)):
-        prev, curr = coords_with_time[i - 1], coords_with_time[i]
-        gap = (curr[2] - prev[2]).total_seconds() / 60.0
-        if gap > max_gap_minutes:
-            if len(current_segment) > 1:
-                segments.append(current_segment)
-            current_segment = [curr]
-        else:
-            current_segment.append(curr)
-    if len(current_segment) > 1:
-        segments.append(current_segment)
+    start_idx = 0
+    for end_idx in split_indices:
+        segments.append(coords_with_time[start_idx:end_idx])
+        start_idx = end_idx
+    segments.append(coords_with_time[start_idx:])
+
     return segments
 
 
