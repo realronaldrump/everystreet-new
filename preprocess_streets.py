@@ -69,9 +69,7 @@ async def fetch_osm_data(
         return osm_data
 
 
-def substring(
-    line: LineString, start: float, end: float
-) -> Optional[LineString]:
+def substring(line: LineString, start: float, end: float) -> Optional[LineString]:
     """
     Return a sub-linestring from 'start' to 'end' (in the line's local distance measure).
     """
@@ -141,9 +139,7 @@ def segment_street(
 
     start_distance = 0.0
     while start_distance < total_length:
-        end_distance = min(
-            start_distance + segment_length_meters, total_length
-        )
+        end_distance = min(start_distance + segment_length_meters, total_length)
         seg = substring(line, start_distance, end_distance)
         if seg is not None:
             segments.append(seg)
@@ -151,9 +147,7 @@ def segment_street(
     return segments
 
 
-async def process_osm_data(
-    osm_data: Dict[str, Any], location: Dict[str, Any]
-) -> None:
+async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -> None:
     """
     Convert OSM ways into segmented Feature docs. Insert them into streets_collection.
     Update coverage_metadata_collection with total_length, total_segments, etc.
@@ -164,16 +158,12 @@ async def process_osm_data(
         if element.get("type") != "way":
             continue
         try:
-            nodes = [
-                (node["lon"], node["lat"]) for node in element["geometry"]
-            ]
+            nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
             if len(nodes) < 2:
                 continue
             line = LineString(nodes)
             projected_line = transform(project_to_utm, line)
-            segments = segment_street(
-                projected_line, segment_length_meters=100
-            )
+            segments = segment_street(projected_line, segment_length_meters=100)
 
             for i, segment in enumerate(segments):
                 segment_wgs84 = transform(project_to_wgs84, segment)
@@ -230,9 +220,7 @@ async def process_osm_data(
         except Exception as e:
             logger.error("Error storing data: %s", e, exc_info=True)
     else:
-        logger.info(
-            "No valid street segments found for %s.", location["display_name"]
-        )
+        logger.info("No valid street segments found for %s.", location["display_name"])
 
 
 async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
@@ -265,9 +253,7 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
             validated_location["display_name"],
         )
     except Exception as e:
-        logger.error(
-            "Error during street preprocessing: %s", e, exc_info=True
-        )
+        logger.error("Error during street preprocessing: %s", e, exc_info=True)
         await coverage_metadata_collection.update_one(
             {"location.display_name": validated_location["display_name"]},
             {

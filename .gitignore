@@ -2,3 +2,8 @@
 /venv
 .DS_Store
 __pycache__/
+node_modules
+.prettierignore
+.prettierrc
+package.json
+package-lock.json

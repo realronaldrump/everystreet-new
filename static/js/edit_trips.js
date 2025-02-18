@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
       {
         maxZoom: 19,
         attribution: "",
-      },
+      }
     ).addTo(editMap);
 
     tripsLayerGroup = L.featureGroup().addTo(editMap);
@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function initializeControls() {
     if (typeof L.Control.Draw !== "function") {
       console.error(
-        "Leaflet Draw is missing. Ensure leaflet.draw.js is included.",
+        "Leaflet Draw is missing. Ensure leaflet.draw.js is included."
       );
       return;
     }
@@ -47,7 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
           rectangle: false,
           polygon: false,
         },
-      }),
+      })
     );
   }
 
@@ -115,7 +115,6 @@ document.addEventListener("DOMContentLoaded", () => {
           ? `/api/matched_trips?start_date=${startDate}&end_date=${endDate}`
           : `/api/trips?start_date=${startDate}&end_date=${endDate}`;
 
-      
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch trips");
 
@@ -147,7 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const gps = trip.geometry || trip.gps;
         if (!gps || gps.type !== "LineString" || !gps.coordinates?.length) {
           console.warn(
-            `Skipping trip ${trip.transactionId} (no valid coordinates)`,
+            `Skipping trip ${trip.transactionId} (no valid coordinates)`
           );
           return null;
         }
@@ -207,7 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
         pointIndex: index,
       });
       marker.on("dragend", (e) =>
-        updatePointInTrip(index, e.target.getLatLng()),
+        updatePointInTrip(index, e.target.getLatLng())
       );
       editableLayers.addLayer(marker);
     });
@@ -268,9 +267,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!tripId) {
         console.error(
           "Error: transactionId is undefined.",
-          currentTrip.tripData,
+          currentTrip.tripData
         );
-        notificationManager.show("Error: Could not find the trip ID to save changes.", "danger");
+        notificationManager.show(
+          "Error: Could not find the trip ID to save changes.",
+          "danger"
+        );
         return;
       }
       const url = `${baseUrl}/${tripId}`;

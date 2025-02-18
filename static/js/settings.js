@@ -224,8 +224,8 @@
                   .map(
                     (opt) => `
                   <option value="${opt.value}" ${
-                      opt.value === task.interval_minutes ? "selected" : ""
-                    }>
+                    opt.value === task.interval_minutes ? "selected" : ""
+                  }>
                     ${opt.label}
                   </option>
                 `
@@ -332,8 +332,8 @@
       return hours > 0
         ? `${hours}h ${minutes % 60}m ${seconds % 60}s`
         : minutes > 0
-        ? `${minutes}m ${seconds % 60}s`
-        : `${seconds}s`;
+          ? `${minutes}m ${seconds % 60}s`
+          : `${seconds}s`;
     }
 
     gatherTaskConfigFromUI() {

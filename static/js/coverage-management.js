@@ -6,7 +6,9 @@
   class CoverageManager {
     constructor() {
       this.validatedLocation = null;
-      this.taskProgressModal = new bootstrap.Modal(document.getElementById("taskProgressModal"));
+      this.taskProgressModal = new bootstrap.Modal(
+        document.getElementById("taskProgressModal")
+      );
       this.activeTaskIds = new Set();
       this.currentProcessingLocation = null;
       this.processingStartTime = null;
@@ -16,49 +18,64 @@
     }
 
     setupEventListeners() {
-      document.getElementById("validate-location")?.addEventListener("click", () => this.validateLocation());
-      document.getElementById("add-coverage-area")?.addEventListener("click", () => this.addCoverageArea());
-      document.getElementById("cancel-processing")?.addEventListener("click", () => this.cancelProcessing());
+      document
+        .getElementById("validate-location")
+        ?.addEventListener("click", () => this.validateLocation());
+      document
+        .getElementById("add-coverage-area")
+        ?.addEventListener("click", () => this.addCoverageArea());
+      document
+        .getElementById("cancel-processing")
+        ?.addEventListener("click", () => this.cancelProcessing());
 
       // Disable "Add Area" button when location input changes.
-      document.getElementById("location-input")?.addEventListener("input", () => {
-        document.getElementById("add-coverage-area").disabled = true;
-        this.validatedLocation = null;
-      });
+      document
+        .getElementById("location-input")
+        ?.addEventListener("input", () => {
+          document.getElementById("add-coverage-area").disabled = true;
+          this.validatedLocation = null;
+        });
 
       // Refresh coverage areas when the modal is closed.
-      document.getElementById("taskProgressModal")?.addEventListener("hidden.bs.modal", () => {
-        this.loadCoverageAreas();
-      });
+      document
+        .getElementById("taskProgressModal")
+        ?.addEventListener("hidden.bs.modal", () => {
+          this.loadCoverageAreas();
+        });
 
       // Event delegation for action buttons in the table.
-      document.querySelector("#coverage-areas-table tbody")?.addEventListener("click", (event) => {
-        const updateBtn = event.target.closest(".update-coverage");
-        const viewBtn = event.target.closest(".view-on-map");
-        const deleteBtn = event.target.closest(".delete-area");
-        const cancelBtn = event.target.closest(".cancel-processing");
+      document
+        .querySelector("#coverage-areas-table tbody")
+        ?.addEventListener("click", (event) => {
+          const updateBtn = event.target.closest(".update-coverage");
+          const viewBtn = event.target.closest(".view-on-map");
+          const deleteBtn = event.target.closest(".delete-area");
+          const cancelBtn = event.target.closest(".cancel-processing");
 
-        if (updateBtn) {
-          const location = JSON.parse(updateBtn.dataset.location);
-          this.updateCoverageForArea(location);
-        } else if (viewBtn) {
-          const location = JSON.parse(viewBtn.dataset.location);
-          this.viewAreaOnMap(location);
-        } else if (deleteBtn) {
-          const location = JSON.parse(deleteBtn.dataset.location);
-          this.deleteArea(location);
-        } else if (cancelBtn) {
-          const location = JSON.parse(cancelBtn.dataset.location);
-          this.cancelProcessing(location);
-        }
-      });
+          if (updateBtn) {
+            const location = JSON.parse(updateBtn.dataset.location);
+            this.updateCoverageForArea(location);
+          } else if (viewBtn) {
+            const location = JSON.parse(viewBtn.dataset.location);
+            this.viewAreaOnMap(location);
+          } else if (deleteBtn) {
+            const location = JSON.parse(deleteBtn.dataset.location);
+            this.deleteArea(location);
+          } else if (cancelBtn) {
+            const location = JSON.parse(cancelBtn.dataset.location);
+            this.cancelProcessing(location);
+          }
+        });
     }
 
     async validateLocation() {
       const locInput = document.getElementById("location-input");
       const locType = document.getElementById("location-type");
       if (!locInput?.value || !locType?.value) {
-        notificationManager.show("Please enter a location and select a location type.", "danger");
+        notificationManager.show(
+          "Please enter a location and select a location type.",
+          "danger"
+        );
         return;
       }
 
@@ -66,14 +83,20 @@
         const response = await fetch("/api/validate_location", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ location: locInput.value, locationType: locType.value }),
+          body: JSON.stringify({
+            location: locInput.value,
+            locationType: locType.value,
+          }),
         });
 
         if (!response.ok) throw new Error("Failed to validate location");
         const data = await response.json();
 
         if (!data) {
-          notificationManager.show("Location not found. Please check your input.", "warning");
+          notificationManager.show(
+            "Location not found. Please check your input.",
+            "warning"
+          );
           return;
         }
 
@@ -82,7 +105,10 @@
         notificationManager.show("Location validated successfully!", "success");
       } catch (error) {
         console.error("Error validating location:", error);
-        notificationManager.show("Failed to validate location. Please try again.", "danger");
+        notificationManager.show(
+          "Failed to validate location. Please try again.",
+          "danger"
+        );
       }
     }
 
@@ -98,11 +124,15 @@
         const { areas } = await response.json();
 
         const exists = areas.some(
-          (area) => area.location.display_name === this.validatedLocation.display_name
+          (area) =>
+            area.location.display_name === this.validatedLocation.display_name
         );
 
         if (exists) {
-          notificationManager.show("This area is already being tracked.", "warning");
+          notificationManager.show(
+            "This area is already being tracked.",
+            "warning"
+          );
           return;
         }
 
@@ -114,7 +144,7 @@
           coverage_percentage: 0,
           total_segments: 0,
           last_updated: null, // Indicates that processing is underway.
-          status: "processing"
+          status: "processing",
         };
         this.updateCoverageTable([...areas, newArea]);
 
@@ -128,7 +158,8 @@
           }),
         });
 
-        if (!preprocessResponse.ok) throw new Error("Failed to start preprocessing");
+        if (!preprocessResponse.ok)
+          throw new Error("Failed to start preprocessing");
         const taskData = await preprocessResponse.json();
 
         if (taskData?.task_id) {
@@ -146,7 +177,10 @@
         this.validatedLocation = null;
       } catch (error) {
         console.error("Error adding coverage area:", error);
-        notificationManager.show("Failed to add coverage area. Please try again.", "danger");
+        notificationManager.show(
+          "Failed to add coverage area. Please try again.",
+          "danger"
+        );
       } finally {
         this.hideProgressModal();
       }
@@ -167,13 +201,19 @@
         });
 
         if (!response.ok) throw new Error("Failed to cancel processing");
-        
-        notificationManager.show("Processing cancelled successfully.", "success");
+
+        notificationManager.show(
+          "Processing cancelled successfully.",
+          "success"
+        );
         this.hideProgressModal();
         await this.loadCoverageAreas();
       } catch (error) {
         console.error("Error cancelling processing:", error);
-        notificationManager.show("Failed to cancel processing. Please try again.", "danger");
+        notificationManager.show(
+          "Failed to cancel processing. Please try again.",
+          "danger"
+        );
       }
     }
 
@@ -188,7 +228,7 @@
       progressBar.style.width = `${progress}%`;
       progressBar.setAttribute("aria-valuenow", progress);
       messageEl.textContent = message;
-      
+
       // Clear previous details.
       stageInfoEl.innerHTML = "";
       statsInfoEl.innerHTML = "";
@@ -210,7 +250,10 @@
         this.updateCoverageTable(data.areas);
       } catch (error) {
         console.error("Error loading coverage areas:", error);
-        notificationManager.show("Failed to load coverage areas. Please refresh the page.", "danger");
+        notificationManager.show(
+          "Failed to load coverage areas. Please refresh the page.",
+          "danger"
+        );
       }
     }
 
@@ -238,11 +281,11 @@
                      <span>Processing...</span>
                    </div>`
                 : hasError
-                ? `<div class="text-danger">
+                  ? `<div class="text-danger">
                      <i class="fas fa-exclamation-circle me-1"></i>
                      Error: ${area.last_error || "Unknown error"}
                    </div>`
-                : `<div class="progress" style="height: 20px;">
+                  : `<div class="progress" style="height: 20px;">
                      <div class="progress-bar bg-success" role="progressbar"
                           style="width: ${area.coverage_percentage}%;"
                           aria-valuenow="${area.coverage_percentage}"
@@ -266,11 +309,11 @@
                       area.location
                     )}' title="Update Coverage"><i class="fas fa-sync-alt"></i></button>
                      <button class="btn btn-info view-on-map" data-location='${JSON.stringify(
-                      area.location
-                    )}' title="View on Map"><i class="fas fa-map-marked-alt"></i></button>
+                       area.location
+                     )}' title="View on Map"><i class="fas fa-map-marked-alt"></i></button>
                      <button class="btn btn-danger delete-area" data-location='${JSON.stringify(
-                      area.location
-                    )}' title="Delete Area"><i class="fas fa-trash"></i></button>`
+                       area.location
+                     )}' title="Delete Area"><i class="fas fa-trash"></i></button>`
               }
             </div>
           </td>
@@ -297,7 +340,10 @@
         notificationManager.show("Coverage updated successfully!", "success");
       } catch (error) {
         console.error("Error updating coverage:", error);
-        notificationManager.show("Failed to update coverage. Please try again.", "danger");
+        notificationManager.show(
+          "Failed to update coverage. Please try again.",
+          "danger"
+        );
       } finally {
         this.currentProcessingLocation = null;
         this.processingStartTime = null;
@@ -313,7 +359,7 @@
     async deleteArea(location) {
       const confirmed = await confirmationDialog.show({
         message: `Are you sure you want to delete the coverage area for ${location.display_name}?`,
-        confirmButtonClass: 'btn-danger'
+        confirmButtonClass: "btn-danger",
       });
 
       if (!confirmed) return;
@@ -328,10 +374,16 @@
         if (!response.ok) throw new Error("Failed to delete coverage area");
 
         await this.loadCoverageAreas();
-        notificationManager.show("Coverage area deleted successfully!", "success");
+        notificationManager.show(
+          "Coverage area deleted successfully!",
+          "success"
+        );
       } catch (error) {
         console.error("Error deleting coverage area:", error);
-        notificationManager.show("Failed to delete coverage area. Please try again.", "danger");
+        notificationManager.show(
+          "Failed to delete coverage area. Please try again.",
+          "danger"
+        );
       }
     }
 
@@ -385,7 +437,9 @@
 
       // Update elapsed time.
       if (this.processingStartTime) {
-        const elapsedSeconds = Math.floor((Date.now() - this.processingStartTime) / 1000);
+        const elapsedSeconds = Math.floor(
+          (Date.now() - this.processingStartTime) / 1000
+        );
         const minutes = Math.floor(elapsedSeconds / 60);
         const seconds = elapsedSeconds % 60;
         timeInfoEl.innerHTML = `
@@ -405,7 +459,7 @@
         processing_trips: "fas fa-route",
         finalizing: "fas fa-check-circle",
         complete: "fas fa-flag-checkered",
-        error: "fas fa-exclamation-triangle"
+        error: "fas fa-exclamation-triangle",
       };
       return icons[stage] || "fas fa-circle-notch fa-spin";
     }
@@ -413,7 +467,7 @@
     formatStageName(stage) {
       return stage
         .split("_")
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" ");
     }
 
