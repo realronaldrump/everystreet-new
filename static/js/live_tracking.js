@@ -59,7 +59,7 @@ class LiveTripTracker {
     }
 
     trip.coordinates.sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
     );
     const latLngs = trip.coordinates.map((coord) => [coord.lat, coord.lon]);
     this.polyline.setLatLngs(latLngs);
