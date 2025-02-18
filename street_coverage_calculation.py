@@ -4,6 +4,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
+import itertools
 
 import pyproj
 import rtree
@@ -43,6 +44,7 @@ class CoverageCalculator:
         self.match_buffer: float = 15.0
         self.min_match_length: float = 5.0
         self.batch_size: int = 1000
+        self.street_chunk_size: int = 500  # For processing streets in chunks
         self.boundary_box = None
 
         self.total_length: float = 0.0
@@ -98,14 +100,30 @@ class CoverageCalculator:
         except Exception as e:
             logger.error("Error updating progress: %s", e)
 
-    def build_spatial_index(self, streets: List[Dict[str, Any]]):
+    async def initialize(self) -> None:
+        """Asynchronous initialization method"""
+        await asyncio.to_thread(self.initialize_projections)
+
+    async def build_spatial_index(self, streets: List[Dict[str, Any]]):
         logger.info("Building spatial index for %d streets...", len(streets))
+
+        # Process streets in chunks to avoid blocking
+        for i in range(0, len(streets), self.street_chunk_size):
+            chunk = streets[i : i + self.street_chunk_size]
+            await asyncio.to_thread(self._process_street_chunk, chunk)
+
+            # Allow other tasks to run
+            await asyncio.sleep(0)
+
+    def _process_street_chunk(self, streets: List[Dict[str, Any]]):
+        """Process a chunk of streets synchronously"""
         for idx, street in enumerate(streets):
             try:
                 geom = shape(street["geometry"])
                 bounds = geom.bounds
-                self.streets_index.insert(idx, bounds)
-                self.streets_lookup[idx] = street
+                current_idx = len(self.streets_lookup)
+                self.streets_index.insert(current_idx, bounds)
+                self.streets_lookup[current_idx] = street
 
                 street_utm = transform(self.project_to_utm, geom)
                 street["properties"]["segment_length"] = street_utm.length
@@ -117,8 +135,30 @@ class CoverageCalculator:
                     e,
                 )
 
-    @staticmethod
-    def calculate_boundary_box(streets: List[Dict[str, Any]]):
+    async def calculate_boundary_box(self, streets: List[Dict[str, Any]]):
+        bounds = None
+
+        # Process streets in chunks
+        for i in range(0, len(streets), self.street_chunk_size):
+            chunk = streets[i : i + self.street_chunk_size]
+            chunk_bounds = await asyncio.to_thread(self._process_boundary_chunk, chunk)
+
+            if bounds is None:
+                bounds = chunk_bounds
+            else:
+                bounds = (
+                    min(bounds[0], chunk_bounds[0]),
+                    min(bounds[1], chunk_bounds[1]),
+                    max(bounds[2], chunk_bounds[2]),
+                    max(bounds[3], chunk_bounds[3]),
+                )
+
+            # Allow other tasks to run
+            await asyncio.sleep(0)
+
+        return box(*bounds) if bounds else box(0, 0, 0, 0)
+
+    def _process_boundary_chunk(self, streets: List[Dict[str, Any]]) -> tuple:
         bounds = None
         for street in streets:
             try:
@@ -132,7 +172,7 @@ class CoverageCalculator:
                     bounds[3] = max(bounds[3], geom.bounds[3])
             except Exception as e:
                 logger.error("Error computing boundary for a street: %s", e)
-        return box(*bounds) if bounds else box(0, 0, 0, 0)
+        return bounds if bounds else (0, 0, 0, 0)
 
     def _is_valid_trip(self, gps_data: Any):
         try:
@@ -236,6 +276,9 @@ class CoverageCalculator:
             )
             await ensure_street_coverage_indexes()
 
+            # Initialize projections asynchronously
+            await self.initialize()
+
             await self.update_progress("loading_streets", 10, "Loading street data...")
             streets = await streets_collection.find(
                 {"properties.location": self.location.get("display_name")}
@@ -247,8 +290,8 @@ class CoverageCalculator:
                 return None
 
             await self.update_progress("indexing", 20, "Building spatial index...")
-            self.build_spatial_index(streets)
-            self.boundary_box = self.calculate_boundary_box(streets)
+            await self.build_spatial_index(streets)
+            self.boundary_box = await self.calculate_boundary_box(streets)
 
             await self.update_progress("counting_trips", 30, "Counting trips...")
             bbox = self.boundary_box.bounds
