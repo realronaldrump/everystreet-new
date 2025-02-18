@@ -23,7 +23,7 @@ function initializeFormListener(formId, submitHandler) {
   const form = document.getElementById(formId);
   if (form)
     form.addEventListener("submit", (event) =>
-      handleFormSubmit(event, submitHandler)
+      handleFormSubmit(event, submitHandler),
     );
 }
 
@@ -36,7 +36,7 @@ function exportTrips() {
   const url = getExportUrl(
     "trips-start-date",
     "trips-end-date",
-    "trips-format"
+    "trips-format",
   );
   downloadFile(url, `trips.${document.getElementById("trips-format").value}`);
 }
@@ -45,11 +45,11 @@ function exportMatchedTrips() {
   const url = getExportUrl(
     "matched-trips-start-date",
     "matched-trips-end-date",
-    "matched-trips-format"
+    "matched-trips-format",
   );
   downloadFile(
     url,
-    `matched_trips.${document.getElementById("matched-trips-format").value}`
+    `matched_trips.${document.getElementById("matched-trips-format").value}`,
   );
 }
 
@@ -113,7 +113,7 @@ function downloadFile(url, filename) {
       console.error("Error downloading file:", error);
       notificationManager.show(
         "An error occurred while downloading the file. Please try again.",
-        "danger"
+        "danger",
       );
     });
 }
@@ -139,7 +139,7 @@ function validateLocation(inputId) {
         locationInput.setAttribute("data-location", JSON.stringify(data));
         locationInput.setAttribute(
           "data-display-name",
-          data.display_name || data.name || locationInput.value
+          data.display_name || data.name || locationInput.value,
         );
         // Enable the submit button in the parent form
         const form = locationInput.closest("form");
@@ -153,7 +153,7 @@ function validateLocation(inputId) {
       } else {
         notificationManager.show(
           "Location not found. Please try a different search term.",
-          "warning"
+          "warning",
         );
       }
     })
@@ -161,7 +161,7 @@ function validateLocation(inputId) {
       console.error("Error validating location:", error);
       notificationManager.show(
         "Error validating location. Please try again.",
-        "danger"
+        "danger",
       );
     });
 }
