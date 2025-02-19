@@ -14,8 +14,6 @@ from datetime import datetime, timedelta
 from utils import validate_trip_data, reverse_geocode_nominatim
 from db import (
     matched_trips_collection,
-    trips_collection,
-    historical_trips_collection,
 )
 
 load_dotenv()
@@ -31,8 +29,8 @@ logger = logging.getLogger(__name__)
 
 async def map_match_coordinates(coordinates):
     """
-    Given [lon, lat] coordinate pairs, call Mapbox's map matching API in chunks if needed,
-    and return a dict with a matched LineString geometry.
+    Given [lon, lat] coordinate pairs, call Mapbox's map matching API in chunks if
+    needed, and return a dict with a matched LineString geometry.
     """
     if len(coordinates) < 2:
         logger.warning("Insufficient coordinates for map matching.")
@@ -244,8 +242,6 @@ async def process_and_map_match_trip(trip):
     Process a single trip (validate + map-match):
       - Validate trip
       - Extract coordinates
-      - Filter outliers
-      - Split segments
       - Map match each segment
       - Merge matched coords
       - Insert into matched_trips_collection
@@ -282,71 +278,13 @@ async def process_and_map_match_trip(trip):
             )
             return
 
-        # Distribute timestamps linearly if needed
-        start_dt = trip.get("startTime")
-        end_dt = trip.get("endTime")
-        if isinstance(start_dt, str):
-            start_dt = parser.isoparse(start_dt)
-        if isinstance(end_dt, str):
-            end_dt = parser.isoparse(end_dt)
-
-        if start_dt and end_dt and len(coords) > 1:
-            total_secs = (end_dt - start_dt).total_seconds()
-            if total_secs <= 0:
-                coords_with_time = [[lon, lat] for lon, lat in coords]
-            else:
-                coords_with_time = []
-                for i, (lon, lat) in enumerate(coords):
-                    frac = i / (len(coords) - 1)
-                    ts = start_dt + timedelta(seconds=(frac * total_secs))
-                    coords_with_time.append([lon, lat, ts])
-        else:
-            coords_with_time = [[lon, lat] for lon, lat in coords]
-
-        # Filter out outliers above some speed threshold
-        coords_with_time = filter_outliers_by_distance(
-            coords_with_time, max_speed_m_s=60.0
-        )
-
-        # Possibly split on time gaps
-        segments = [coords_with_time]
-        if len(coords_with_time) > 2 and isinstance(coords_with_time[0][-1], datetime):
-            segments = split_trip_on_time_gaps(coords_with_time, max_gap_minutes=15)
-
-        matched_coords_combined = []
-        for seg_index, seg in enumerate(segments):
-            if len(seg) < 2:
-                logger.warning(
-                    "Skipping segment %d for trip %s: < 2 points",
-                    seg_index,
-                    trip["transactionId"],
-                )
-                continue
-
-            # We only need (lon, lat) for the map matching request
-            seg_lonlat = [(pt[0], pt[1]) for pt in seg]
-            match_result = await map_match_coordinates(seg_lonlat)
-            if match_result.get("code") == "Ok":
-                part = match_result["matchings"][0]["geometry"]["coordinates"]
-                if not matched_coords_combined:
-                    matched_coords_combined.extend(part)
-                else:
-                    # If the last matched coord == first new coord, avoid duplicating
-                    if matched_coords_combined[-1] == part[0]:
-                        matched_coords_combined.extend(part[1:])
-                    else:
-                        matched_coords_combined.extend(part)
-            else:
-                logger.error(
-                    "Map matching failed on segment %d of trip %s",
-                    seg_index,
-                    trip["transactionId"],
-                )
-
-        if len(matched_coords_combined) < 2:
-            logger.warning(
-                "Trip %s resulted in < 2 matched coords after Mapbox",
-                trip["transactionId"],
+        # Map match the coordinates
+        match_result = await map_match_coordinates(coords)
+        if match_result.get("code") != "Ok":
+            logger.error(
+                "Map matching failed for trip %s: %s",
+                trip.get("transactionId"),
+                match_result.get("message", "Unknown error"),
             )
             return
 
@@ -355,14 +293,13 @@ async def process_and_map_match_trip(trip):
         if isinstance(matched_trip["gps"], dict):
             matched_trip["gps"] = json.dumps(matched_trip["gps"])
 
-        matched_trip["matchedGps"] = {
-            "type": "LineString",
-            "coordinates": matched_coords_combined,
-        }
+        matched_trip["matchedGps"] = match_result["matchings"][0]["geometry"]
 
         # Optionally update location via reverse geocode for the first matched point
         try:
-            first_lon, first_lat = matched_coords_combined[0]
+            first_lon, first_lat = match_result["matchings"][0]["geometry"][
+                "coordinates"
+            ][0]
             city_info = await reverse_geocode_nominatim(first_lat, first_lon)
             if city_info:
                 matched_trip["location"] = city_info.get("display_name", "Unknown")
@@ -377,7 +314,7 @@ async def process_and_map_match_trip(trip):
         logger.info(
             "Stored map–matched trip %s with %d coords in matched_trips.",
             trip["transactionId"],
-            len(matched_coords_combined),
+            len(match_result["matchings"][0]["geometry"]["coordinates"]),
         )
 
     except Exception as e:

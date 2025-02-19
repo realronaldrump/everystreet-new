@@ -2465,6 +2465,9 @@ def meters_to_miles(m: float) -> float:
 
 
 def haversine(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    """
+    Calculate haversine distance between two points. Only used for uploaded GPX/GeoJSON files.
+    """
     R = 3958.8
     dlat = radians(lat2 - lat1)
     dlon = radians(lon2 - lon1)
@@ -2478,7 +2481,7 @@ def haversine(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
 
 def calculate_distance(coordinates: List[List[float]]) -> float:
     """
-    Calculate total distance in miles using Haversine.
+    Calculate total distance in miles using Haversine. Only used for uploaded GPX/GeoJSON files.
     """
     if not coordinates or len(coordinates) < 2:
         return 0
@@ -2493,6 +2496,7 @@ def calculate_distance(coordinates: List[List[float]]) -> float:
 def calculate_gpx_distance(coords: List[List[float]]) -> float:
     """
     Use gpxpy.geo's haversine_distance for each pair of points. Return total in meters.
+    Only used for uploaded GPX files.
     """
     dist = 0
     for i in range(len(coords) - 1):
@@ -2505,6 +2509,7 @@ def calculate_gpx_distance(coords: List[List[float]]) -> float:
 def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
     """
     Convert a FeatureCollection of trips into a list of trip dicts suitable for insertion.
+    Uses haversine distance calculation since these are uploaded files without odometer data.
     """
     try:
         feats = geojson_data.get("features", [])
@@ -2531,6 +2536,7 @@ def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
                 "type": geom.get("type"),
                 "coordinates": geom.get("coordinates"),
             }
+            # For uploaded files, we need to calculate distance since we don't have odometer data
             dist_miles = calculate_distance(geom.get("coordinates", []))
 
             trips.append(
