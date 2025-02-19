@@ -117,5 +117,5 @@
   </div>
 </div>
 {% endblock %} {% block extra_js %}
-<script src="{{ url_for('static', path='js/upload.js') }}"></script>
+<script src="{{ url_for('static', path='js/upload.js') | replace('http://', '//') }}"></script>
 {% endblock %}

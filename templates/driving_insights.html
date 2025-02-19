@@ -130,5 +130,5 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
-<script src="{{ url_for('static', path='js/driving_insights.js') }}"></script>
+<script src="{{ url_for('static', path='js/driving_insights.js') | replace('http://', '//') }}"></script>
 {% endblock %}

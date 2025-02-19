@@ -141,6 +141,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', path='js/utils.js') }}"></script>
-<script src="{{ url_for('static', path='js/database-management.js') }}"></script>
+<script src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/database-management.js') | replace('http://', '//') }}"></script>
 {% endblock %}

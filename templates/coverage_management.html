@@ -135,5 +135,5 @@ block content %}
   }
 </style>
 {% endblock %} {% block extra_js %}
-<script src="{{ url_for('static', path='js/coverage-management.js') }}"></script>
+<script src="{{ url_for('static', path='js/coverage-management.js') | replace('http://', '//') }}"></script>
 {% endblock %}
