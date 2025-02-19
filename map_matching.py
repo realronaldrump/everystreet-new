@@ -239,21 +239,6 @@ def split_trip_on_time_gaps(coords_with_time, max_gap_minutes=15):
     return segments
 
 
-def haversine_distance_meters(coord1, coord2):
-    """Return the Haversine distance (in meters) between two [lon, lat] points."""
-    R = 6371000  # Earth radius in meters
-    lon1, lat1 = math.radians(coord1[0]), math.radians(coord1[1])
-    lon2, lat2 = math.radians(coord2[0]), math.radians(coord2[1])
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
-
-
 async def process_and_map_match_trip(trip):
     """
     Process a single trip (validate + map-match):
@@ -402,20 +387,3 @@ async def process_and_map_match_trip(trip):
             e,
             exc_info=True,
         )
-
-
-def haversine_distance(coord1, coord2):
-    """
-    Return the Haversine distance in miles between two [lon, lat] points.
-    """
-    R_km = 6371
-    lat1, lon1 = math.radians(coord1[1]), math.radians(coord1[0])
-    lat2, lon2 = math.radians(coord2[1]), math.radians(coord2[0])
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R_km * c * 0.621371
