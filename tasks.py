@@ -437,17 +437,24 @@ class BackgroundTaskManager:
             now = datetime.now(timezone.utc)
             stale_threshold = now - timedelta(minutes=5)
             cleanup_count = 0
-            cursor = self.db["live_trips"].find(
-                {"lastUpdate": {"$lt": stale_threshold}, "status": "active"}
-            )
-            async for trip in cursor:
+
+            # Use find_one_and_delete in a loop
+            while True:
+                trip = await self.db["live_trips"].find_one_and_delete(
+                    {"lastUpdate": {"$lt": stale_threshold}, "status": "active"},
+                    projection={"_id": False},  # Exclude _id from the result
+                )
+                if not trip:
+                    break  # No more stale trips found
+
                 trip["status"] = "stale"
                 trip["endTime"] = now
                 await self.db["archived_live_trips"].insert_one(trip)
-                await self.db["live_trips"].delete_one({"_id": trip["_id"]})
                 cleanup_count += 1
+
             logger.info("Cleaned up %d stale trips", cleanup_count)
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
+
         except Exception as e:
             await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
             logger.error("Error in cleanup_stale_trips: %s", e, exc_info=True)
