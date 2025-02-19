@@ -3272,13 +3272,13 @@ async def bouncie_webhook(request: Request):
         data = await request.json()
         event_type = data.get("eventType")
         if not event_type:
-            raise HTTPException(status_code=400, detail="Missing eventType")
+            logger.error("Missing eventType in webhook data")
+            return {"status": "success", "message": "Event processed"}
 
         transaction_id = data.get("transactionId")
         if event_type in ("tripStart", "tripData", "tripEnd") and not transaction_id:
-            raise HTTPException(
-                status_code=400, detail="Missing transactionId for trip event"
-            )
+            logger.error("Missing transactionId for trip event")
+            return {"status": "success", "message": "Event processed"}
 
         if event_type == "tripStart":
             start_time, _ = get_trip_timestamps(data)
@@ -3344,30 +3344,35 @@ async def bouncie_webhook(request: Request):
                 await live_trips_collection.delete_one({"_id": trip["_id"]})
 
         # Prepare a message for WebSocket broadcast
-        active_trip = await live_trips_collection.find_one({"status": "active"})
-        if active_trip:
-            for key in ("startTime", "lastUpdate", "endTime"):
-                val = active_trip.get(key)
-                if isinstance(val, datetime):
-                    active_trip[key] = val.isoformat()
-            if "_id" in active_trip:
-                active_trip["_id"] = str(active_trip["_id"])
-            if "coordinates" in active_trip:
-                for coord in active_trip["coordinates"]:
-                    ts = coord.get("timestamp")
-                    if isinstance(ts, datetime):
-                        coord["timestamp"] = ts.isoformat()
+        try:
+            active_trip = await live_trips_collection.find_one({"status": "active"})
+            if active_trip:
+                for key in ("startTime", "lastUpdate", "endTime"):
+                    val = active_trip.get(key)
+                    if isinstance(val, datetime):
+                        active_trip[key] = val.isoformat()
+                if "_id" in active_trip:
+                    active_trip["_id"] = str(active_trip["_id"])
+                if "coordinates" in active_trip:
+                    for coord in active_trip["coordinates"]:
+                        ts = coord.get("timestamp")
+                        if isinstance(ts, datetime):
+                            coord["timestamp"] = ts.isoformat()
 
-            message = {"type": "trip_update", "data": active_trip}
-        else:
-            message = {"type": "heartbeat"}
+                message = {"type": "trip_update", "data": active_trip}
+            else:
+                message = {"type": "heartbeat"}
 
-        await manager.broadcast(json.dumps(message))
-        return {"status": "success"}
+            await manager.broadcast(json.dumps(message))
+        except Exception as broadcast_error:
+            logger.exception("Error broadcasting webhook update")
+
+        return {"status": "success", "message": "Event processed"}
 
     except Exception as e:
         logger.exception("Error in bouncie_webhook")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Still return success to prevent Bouncie from deactivating the webhook
+        return {"status": "success", "message": "Event processed with errors"}
 
 
 @app.get("/api/active_trip")
