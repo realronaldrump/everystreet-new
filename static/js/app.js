@@ -127,7 +127,7 @@
         {
           maxZoom: 19,
           attribution: "",
-        }
+        },
       ).addTo(map);
       layerGroup = L.layerGroup().addTo(map);
       mapLayers.customPlaces.layer = L.layerGroup();
@@ -196,7 +196,7 @@
         if (input) {
           localStorage.setItem(
             input.id === "start-date" ? "startDate" : "endDate",
-            dateStr
+            dateStr,
           );
         }
       },
@@ -228,17 +228,17 @@
     loadingManager.addSubOperation(
       "Fetching and Displaying Trips",
       "Fetching Data",
-      50
+      50,
     );
     loadingManager.addSubOperation(
       "Fetching and Displaying Trips",
       "Processing Data",
-      30
+      30,
     );
     loadingManager.addSubOperation(
       "Fetching and Displaying Trips",
       "Displaying Data",
-      20
+      20,
     );
     try {
       const startDate = localStorage.getItem("startDate"),
@@ -253,7 +253,7 @@
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Fetching Data",
-        25
+        25,
       );
       const params = getFilterParams();
       const response = await fetch(`/api/trips?${params.toString()}`);
@@ -263,12 +263,12 @@
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Fetching Data",
-        50
+        50,
       );
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Processing Data",
-        15
+        15,
       );
 
       if (window.tripsTable) {
@@ -291,13 +291,13 @@
         mapLayers.trips.layer = {
           type: "FeatureCollection",
           features: geojson.features.filter(
-            (f) => f.properties.imei !== "HISTORICAL"
+            (f) => f.properties.imei !== "HISTORICAL",
           ),
         };
         mapLayers.historicalTrips.layer = {
           type: "FeatureCollection",
           features: geojson.features.filter(
-            (f) => f.properties.imei === "HISTORICAL"
+            (f) => f.properties.imei === "HISTORICAL",
           ),
         };
         await updateMap();
@@ -305,12 +305,12 @@
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Processing Data",
-        30
+        30,
       );
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Displaying Data",
-        10
+        10,
       );
       try {
         await fetchMatchedTrips();
@@ -320,14 +320,14 @@
         loadingManager.updateSubOperation(
           "Fetching and Displaying Trips",
           "Displaying Data",
-          20
+          20,
         );
       }
     } catch (error) {
       console.error("Error fetching trips:", error);
       notificationManager.show(
         "Error fetching trips. Check console for details.",
-        "danger"
+        "danger",
       );
     } finally {
       loadingManager.finish("Fetching and Displaying Trips");
@@ -344,7 +344,7 @@
       const response = await fetch(url);
       if (!response.ok)
         throw new Error(
-          `HTTP error fetching matched trips: ${response.status}`
+          `HTTP error fetching matched trips: ${response.status}`,
         );
       const geojson = await response.json();
       mapLayers.matchedTrips.layer = geojson;
@@ -462,7 +462,7 @@
               lyr.on("popupopen", () => {
                 const popupEl = lyr.getPopup().getElement();
                 const deleteMatchedBtn = popupEl.querySelector(
-                  ".delete-matched-trip"
+                  ".delete-matched-trip",
                 );
                 const deleteTripBtn = popupEl.querySelector(".delete-trip");
 
@@ -482,7 +482,7 @@
                       console.error("Error deleting:", error);
                       notificationManager.show(
                         "Error deleting. Try again.",
-                        "danger"
+                        "danger",
                       );
                     }
                   }
@@ -493,7 +493,7 @@
                   const tid = e.target.dataset.tripId;
                   if (
                     confirm(
-                      "Delete this trip? This will also delete its corresponding matched trip."
+                      "Delete this trip? This will also delete its corresponding matched trip.",
                     )
                   ) {
                     try {
@@ -504,24 +504,24 @@
 
                       const matchedRes = await fetch(
                         `/api/matched_trips/${tid}`,
-                        { method: "DELETE" }
+                        { method: "DELETE" },
                       );
                       if (!matchedRes.ok) {
                         console.warn(
-                          "No matched trip found or failed to delete matched trip"
+                          "No matched trip found or failed to delete matched trip",
                         );
                       }
                       lyr.closePopup();
                       await fetchTrips();
                       notificationManager.show(
                         "Trip and its matched trip deleted",
-                        "success"
+                        "success",
                       );
                     } catch (error) {
                       console.error("Error deleting:", error);
                       notificationManager.show(
                         "Error deleting. Try again.",
-                        "danger"
+                        "danger",
                       );
                     }
                   }
@@ -535,7 +535,7 @@
             .setStyle({ color: info.color, opacity: info.opacity })
             .addTo(layerGroup);
         }
-      })
+      }),
     );
 
     // Bring the selected trip to the front
@@ -603,18 +603,18 @@
       document
         .getElementById(`${name}-toggle`)
         ?.addEventListener("change", (e) =>
-          toggleLayer(name, e.target.checked)
+          toggleLayer(name, e.target.checked),
         );
       if (showControls) {
         document
           .getElementById(`${name}-color`)
           ?.addEventListener("change", (e) =>
-            changeLayerColor(name, e.target.value)
+            changeLayerColor(name, e.target.value),
           );
         document
           .getElementById(`${name}-opacity`)
           ?.addEventListener("input", (e) =>
-            changeLayerOpacity(name, parseFloat(e.target.value))
+            changeLayerOpacity(name, parseFloat(e.target.value)),
           );
       }
     });
@@ -720,7 +720,7 @@
     if (!locInput || !locType || !locInput.value || !locType.value) {
       notificationManager.show(
         "Please enter a location and select a location type.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -738,7 +738,7 @@
       if (!data) {
         notificationManager.show(
           "Location not found. Please check your input.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -748,7 +748,7 @@
       console.error("Error validating location:", err);
       notificationManager.show(
         "Error validating location. Please try again.",
-        "danger"
+        "danger",
       );
     }
   }
@@ -758,7 +758,7 @@
     locInput.setAttribute("data-location", JSON.stringify(data));
     locInput.setAttribute(
       "data-display-name",
-      data.display_name || data.name || locInput.value
+      data.display_name || data.name || locInput.value,
     );
     [
       "generate-boundary",
@@ -844,7 +844,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ start_date: sd, end_date: ed }),
-        })
+        }),
       );
     }
     try {
@@ -853,7 +853,7 @@
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(
-            errorData.message || `HTTP error! status: ${response.status}`
+            errorData.message || `HTTP error! status: ${response.status}`,
           );
         }
       }
@@ -861,14 +861,14 @@
       console.log("Map matching responses:", results);
       notificationManager.show(
         "Map matching completed for selected trips.",
-        "success"
+        "success",
       );
       fetchTrips();
     } catch (err) {
       console.error("Error map matching trips:", err);
       notificationManager.show(
         "Error map matching trips. Check console.",
-        "danger"
+        "danger",
       );
     } finally {
       loadingManager.finish("MapMatching");
@@ -901,14 +901,14 @@
         console.error(`Error: ${data.message}`);
         notificationManager.show(
           "Error fetching trips. Check console.",
-          "danger"
+          "danger",
         );
       }
     } catch (err) {
       console.error("Error fetching trips in range:", err);
       notificationManager.show(
         "Error fetching trips. Check console.",
-        "danger"
+        "danger",
       );
     } finally {
       loadingManager.finish("FetchTripsRange");
@@ -925,7 +925,7 @@
     if (!sd || !ed) return;
     try {
       const r = await fetch(
-        `/api/metrics?start_date=${sd}&end_date=${ed}&imei=${imei}`
+        `/api/metrics?start_date=${sd}&end_date=${ed}&imei=${imei}`,
       );
       const metrics = await r.json();
       const mapping = {
@@ -955,7 +955,7 @@
     if (!location) {
       notificationManager.show(
         "Please enter and validate a location first.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -975,7 +975,7 @@
       console.error("Error preprocessing streets:", error);
       notificationManager.show(
         "Error preprocessing streets. Please check the console for details.",
-        "danger"
+        "danger",
       );
     }
   }
@@ -1006,7 +1006,7 @@
         icon?.classList.toggle("fa-chevron-up");
         icon?.classList.toggle("fa-chevron-down");
         controlsContent.style.display = mapControls?.classList.contains(
-          "minimized"
+          "minimized",
         )
           ? "none"
           : "block";
@@ -1067,7 +1067,7 @@
         console.error("Error fetching first trip date:", err);
         notificationManager.show(
           "Error fetching first trip date. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         loadingManager.finish("AllTimeDatePreset");
@@ -1135,7 +1135,7 @@
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Failed to start coverage calculation"
+          errorData.message || "Failed to start coverage calculation",
         );
       }
       const data = await response.json();
@@ -1161,12 +1161,12 @@
           if (statusResponse.status === 500) {
             const errorData = await statusResponse.json();
             throw new Error(
-              errorData.detail || "Error in coverage calculation"
+              errorData.detail || "Error in coverage calculation",
             );
           }
           if (!statusResponse.ok) {
             throw new Error(
-              `Server returned ${statusResponse.status}: ${statusResponse.statusText}`
+              `Server returned ${statusResponse.status}: ${statusResponse.statusText}`,
             );
           }
           const statusData = await statusResponse.json();
@@ -1189,7 +1189,7 @@
             break;
           } else if (statusData.stage === "error") {
             throw new Error(
-              statusData.message || "Error in coverage calculation"
+              statusData.message || "Error in coverage calculation",
             );
           }
           const progress = statusData.progress || 0;
@@ -1210,7 +1210,7 @@
       console.error("Error generating street coverage:", error);
       notificationManager.show(
         error.message || "An error occurred while generating street coverage.",
-        "danger"
+        "danger",
       );
       progressBar.style.width = "0%";
       progressBar.setAttribute("aria-valuenow", "0");
@@ -1285,10 +1285,10 @@
     const statsDiv = document.getElementById("coverage-stats");
     const progressBar = document.getElementById("coverage-progress");
     const coveragePercentageSpan = document.getElementById(
-      "coverage-percentage"
+      "coverage-percentage",
     );
     const totalStreetLengthSpan = document.getElementById(
-      "total-street-length"
+      "total-street-length",
     );
     const milesDrivenSpan = document.getElementById("miles-driven");
     if (
@@ -1319,7 +1319,7 @@
   async function showCoverageForLocation(location) {
     try {
       const response = await fetch(
-        `/api/street_coverage/${location.display_name}`
+        `/api/street_coverage/${location.display_name}`,
       );
       if (!response.ok) throw new Error("Failed to fetch coverage data");
       const data = await response.json();
@@ -1351,7 +1351,7 @@
         console.error("Failed to initialize map components");
         notificationManager.show(
           "Failed to initialize map components. Please refresh the page.",
-          "danger"
+          "danger",
         );
         return;
       }
