@@ -27,9 +27,9 @@
   --border-radius-sm: 4px;
   --border-radius-md: 8px;
   --border-radius-lg: 12px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-  --shadow-md: 0 3px 6px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.12);
-  --shadow-lg: 0 10px 20px rgba(0,0,0,0.15), 0 3px 6px rgba(0,0,0,0.10);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 3px 6px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* Global Styles */
@@ -42,7 +42,11 @@
 body {
   background-color: var(--background-color);
   color: var(--on-background);
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family:
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    sans-serif;
   line-height: 1.5;
   min-height: 100vh;
   overflow-x: hidden;
@@ -255,29 +259,29 @@ body.sidebar-collapsed .sidebar-body {
     width: 100%;
     max-width: 320px;
   }
-  
+
   #sidebar.active {
     transform: translateX(0);
   }
-  
+
   main {
     margin-left: 0 !important;
     padding: var(--spacing-md) !important;
   }
-  
+
   .card-deck {
     flex-direction: column;
   }
-  
+
   .card {
     margin-bottom: var(--spacing-md);
   }
-  
+
   #map {
     height: 50vh;
     min-height: 300px;
   }
-  
+
   .date-presets-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--spacing-xs);
@@ -290,7 +294,9 @@ body.sidebar-collapsed .sidebar-body {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--border-radius-md);
   box-shadow: var(--shadow-sm);
-  transition: transform var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
+  transition:
+    transform var(--transition-speed) ease,
+    box-shadow var(--transition-speed) ease;
 }
 
 .card:hover {
@@ -741,7 +747,11 @@ canvas {
   border: 1px solid transparent;
   border-radius: 4px;
   color: #fff;
-  font: 12px/18px "Helvetica Neue", Arial, Helvetica, sans-serif;
+  font:
+    12px/18px "Helvetica Neue",
+    Arial,
+    Helvetica,
+    sans-serif;
   margin-left: 20px;
   margin-top: -21px;
   padding: 4px 8px;
@@ -813,7 +823,6 @@ canvas {
   }
 }
 
-
 .status-indicator {
   background-color: #dc3545;
   border-radius: 50%;
@@ -822,13 +831,10 @@ canvas {
   width: 12px;
 }
 
-
-
 #active-trips-count {
   font-size: 0.9rem;
   padding: 0.25rem 0.5rem;
 }
-
 
 @keyframes pulse {
   0% {
@@ -1000,7 +1006,6 @@ canvas {
   gap: 0.5rem;
 }
 
-
 /* Trip Marker */
 .trip-marker {
   align-items: center;
@@ -1009,7 +1014,7 @@ canvas {
 }
 
 .trip-marker.trip-end i {
-  color: #4CAF50;
+  color: #4caf50;
   font-size: 20px;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
@@ -1025,7 +1030,7 @@ canvas {
 }
 
 .trip-popup h4 {
-  color: #FF5722;
+  color: #ff5722;
   margin: 0 0 10px 0;
 }
 
@@ -1077,7 +1082,9 @@ canvas {
   border-radius: 50%;
   box-shadow: 0 0 0 rgba(0, 247, 255, 0.4);
   animation: pulse 1.5s infinite;
-  transition: left 0.5s linear, top 0.5s linear;
+  transition:
+    left 0.5s linear,
+    top 0.5s linear;
 }
 
 @keyframes pulse {
@@ -1106,16 +1113,17 @@ canvas {
 .place-link:hover,
 .place-link:focus {
   text-decoration: underline;
-  color: var(--primary-variant); /* Lighter shade of primary color on hover/focus */
+  color: var(
+    --primary-variant
+  ); /* Lighter shade of primary color on hover/focus */
 }
 
 /* Live Tracking Status Styles */
 .live-tracking-status {
   min-width: 300px;
   max-width: 400px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
-
 
 .status-indicator.connected {
   background-color: #28a745;
@@ -1127,7 +1135,7 @@ canvas {
 }
 
 .trip-metrics {
-  background: rgba(0,0,0,0.2);
+  background: rgba(0, 0, 0, 0.2);
   border-radius: 4px;
   padding: 0.5rem;
   margin-bottom: 0.5rem;
@@ -1138,22 +1146,22 @@ canvas {
 }
 
 .trip-end-marker {
-  color: #4CAF50;
-  text-shadow: 0 0 4px rgba(76,175,80,0.8);
+  color: #4caf50;
+  text-shadow: 0 0 4px rgba(76, 175, 80, 0.8);
 }
 
 @keyframes pulse {
   0% {
-      transform: scale(1);
-      opacity: 1;
+    transform: scale(1);
+    opacity: 1;
   }
   50% {
-      transform: scale(1.2);
-      opacity: 0.7;
+    transform: scale(1.2);
+    opacity: 0.7;
   }
   100% {
-      transform: scale(1);
-      opacity: 1;
+    transform: scale(1);
+    opacity: 1;
   }
 }
 
@@ -1332,7 +1340,6 @@ canvas {
   background-color: var(--info-color) !important;
 }
 
-
 /* Flatpickr Custom Styles */
 .flatpickr-calendar {
   background: var(--surface-color);
@@ -1465,7 +1472,7 @@ span.flatpickr-weekday {
 }
 
 .sidebar-body::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   left: 0;

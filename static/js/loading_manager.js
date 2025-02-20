@@ -96,7 +96,7 @@ class LoadingManager {
     // Summation of op.progress, each normalized out of 100
     this.totalProgress = Object.values(this.operations).reduce(
       (acc, op) => acc + op.progress / 100,
-      0
+      0,
     );
 
     // Next, compute the final percentage

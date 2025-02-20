@@ -23,7 +23,7 @@
       {
         maxZoom: 19,
         attribution: "",
-      }
+      },
     ).addTo(previewMap);
     previewLayer = L.featureGroup().addTo(previewMap);
   }
@@ -79,8 +79,8 @@
           } else {
             reject(
               new Error(
-                `Invalid file type: ${file.name}. Only .gpx and .geojson files are supported.`
-              )
+                `Invalid file type: ${file.name}. Only .gpx and .geojson files are supported.`,
+              ),
             );
           }
         } catch (error) {
@@ -204,7 +204,7 @@
     selectedFiles.forEach((entry) => {
       const latlngs = entry.coordinates.map((coord) => [coord[1], coord[0]]);
       const polyline = L.polyline(latlngs, { color: "red" }).addTo(
-        previewLayer
+        previewLayer,
       );
       polyline.on("click", async () => {
         const confirmed = await confirmationDialog.show({
@@ -241,7 +241,7 @@
     }
     const totalPoints = selectedFiles.reduce(
       (sum, entry) => sum + entry.points,
-      0
+      0,
     );
     totalPointsSpan.textContent = totalPoints;
   }
@@ -378,7 +378,7 @@
       cb.addEventListener("change", function () {
         const allCheckboxes = document.querySelectorAll(".trip-checkbox");
         selectAllCheckbox.checked = Array.from(allCheckboxes).every(
-          (cb) => cb.checked
+          (cb) => cb.checked,
         );
         updateBulkDeleteButtonState();
       });
@@ -387,7 +387,7 @@
 
   function updateBulkDeleteButtonState() {
     const selectedCheckboxes = document.querySelectorAll(
-      ".trip-checkbox:checked"
+      ".trip-checkbox:checked",
     );
     const bulkDeleteBtn = document.getElementById("bulk-delete-btn");
     bulkDeleteBtn.disabled = selectedCheckboxes.length === 0;
@@ -401,7 +401,7 @@
   async function bulkDeleteTrips() {
     loadingManager.startOperation("Deleting Selected Trips");
     const selectedCheckboxes = document.querySelectorAll(
-      ".trip-checkbox:checked"
+      ".trip-checkbox:checked",
     );
     const tripIds = Array.from(selectedCheckboxes).map((cb) => cb.value);
     if (tripIds.length === 0) {
@@ -428,7 +428,7 @@
         if (data.status === "success") {
           notificationManager.show(
             `${data.deleted_uploaded_trips} uploaded trips and ${data.deleted_matched_trips} matched trips deleted successfully.`,
-            "success"
+            "success",
           );
           loadUploadedTrips();
         } else {
@@ -465,7 +465,7 @@
         if (data.status === "success") {
           notificationManager.show(
             `Trip deleted successfully. Matched trips deleted: ${data.deleted_matched_trips}`,
-            "success"
+            "success",
           );
           loadUploadedTrips();
         } else {
