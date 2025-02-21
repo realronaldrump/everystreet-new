@@ -2,7 +2,42 @@
 (() => {
   "use strict";
 
-  // Map layer configuration
+  // ------------------------------
+  // Utility Functions
+  // ------------------------------
+
+  /**
+   * Debounce a function by a specified delay.
+   * @param {Function} func 
+   * @param {number} delay in ms
+   * @returns {Function}
+   */
+  function debounce(func, delay) {
+    let timeout;
+    return function (...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), delay);
+    };
+  }
+
+  /**
+   * Central error handler for logging and notifications.
+   * @param {Error} error 
+   * @param {string} context 
+   */
+  function handleError(error, context = "") {
+    console.error(`Error in ${context}:`, error);
+    notificationManager.show(`Error in ${context}: ${error.message}`, "danger");
+  }
+
+  // ------------------------------
+  // DOM Cache for Frequently Accessed Elements
+  // ------------------------------
+  const DOMCache = {};
+
+  // ------------------------------
+  // Map and Layer Configurations
+  // ------------------------------
   const mapLayers = {
     trips: {
       order: 1,
@@ -60,18 +95,45 @@
   };
 
   const mapSettings = { highlightRecentTrips: true };
-  let map,
-    layerGroup,
-    liveTracker,
-    mapInitialized = false,
+  let map, layerGroup, liveTracker;
+  let mapInitialized = false,
     selectedTripId = null;
 
+  // Debounced updateMap to reduce rapid calls from multiple events.
+  const debouncedUpdateMap = debounce(() => {
+    updateMap();
+  }, 100);
+
+  // ------------------------------
+  // Helper Functions for Dates
+  // ------------------------------
+  const getStartDate = () =>
+    DOMCache.startDateInput
+      ? DOMCache.startDateInput.value
+      : document.getElementById("start-date")?.value;
+  const getEndDate = () =>
+    DOMCache.endDateInput
+      ? DOMCache.endDateInput.value
+      : document.getElementById("end-date")?.value;
+
   /**
-   * Returns the style object for a given trip feature based on the current selectedTripId.
-   * This function is used both during initial map rendering and to update styles when a trip is clicked.
-   * @param {Object} feature - The GeoJSON feature.
-   * @param {Object} info - The mapLayers info object for this layer.
-   * @returns {Object} - The style object.
+   * Build URL search parameters from date pickers.
+   */
+  function getFilterParams() {
+    return new URLSearchParams({
+      start_date: getStartDate(),
+      end_date: getEndDate(),
+    });
+  }
+
+  // ------------------------------
+  // Map Feature Styling
+  // ------------------------------
+  /**
+   * Returns style for a trip feature.
+   * @param {Object} feature 
+   * @param {Object} info 
+   * @returns {Object}
    */
   function getTripFeatureStyle(feature, info) {
     const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
@@ -91,23 +153,22 @@
       color: isSelected
         ? info.highlightColor
         : isMatchedPair
-          ? info === mapLayers.matchedTrips
-            ? mapLayers.matchedTrips.highlightColor
-            : mapLayers.trips.highlightColor
-          : highlight
-            ? "#FF5722"
-            : info.color,
+        ? info === mapLayers.matchedTrips
+          ? mapLayers.matchedTrips.highlightColor
+          : mapLayers.trips.highlightColor
+        : highlight
+        ? "#FF5722"
+        : info.color,
       weight: isSelected || isMatchedPair ? 5 : highlight ? 4 : 2,
-      opacity:
-        isSelected || isMatchedPair ? 0.9 : highlight ? 0.8 : info.opacity,
+      opacity: isSelected || isMatchedPair ? 0.9 : highlight ? 0.8 : info.opacity,
       className: highlight ? "recent-trip" : "",
       zIndexOffset: isSelected || isMatchedPair ? 1000 : 0,
     };
   }
 
-  /**
-   * Initialize the map if the #map element is present.
-   */
+  // ------------------------------
+  // Map Initialization
+  // ------------------------------
   async function initializeMap() {
     if (mapInitialized || !document.getElementById("map")) return;
     try {
@@ -136,7 +197,7 @@
         try {
           window.liveTracker = new LiveTripTracker(map);
         } catch (error) {
-          console.error("Error initializing live tracking:", error);
+          handleError(error, "LiveTripTracker Initialization");
         }
       }
 
@@ -153,19 +214,19 @@
           map.setView([31.55002, -97.123354], 14);
         }
       } catch (error) {
-        console.error("Error fetching last point:", error);
+        handleError(error, "Fetching Last Trip Point");
         map.setView([37.0902, -95.7129], 4);
       } finally {
         mapInitialized = true;
       }
     } catch (error) {
-      console.error("Error initializing map:", error);
+      handleError(error, "Map Initialization");
     }
   }
 
-  /**
-   * Set default dates in localStorage if not already set.
-   */
+  // ------------------------------
+  // Date Initialization and Pickers
+  // ------------------------------
   function setInitialDates() {
     const today = new Date().toISOString().split("T")[0];
     if (!localStorage.getItem("startDate"))
@@ -174,10 +235,11 @@
       localStorage.setItem("endDate", today);
   }
 
-  /**
-   * Initialize flatpickr on date inputs.
-   */
   function initializeDatePickers() {
+    // Cache date input elements
+    DOMCache.startDateInput = document.getElementById("start-date");
+    DOMCache.endDateInput = document.getElementById("end-date");
+
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
@@ -202,27 +264,14 @@
       },
     };
 
-    const dateInputs = ["start-date", "end-date"];
-    dateInputs.forEach((id) => {
-      const element = document.getElementById(id);
-      if (element) {
-        flatpickr(element, config);
-      }
+    [DOMCache.startDateInput, DOMCache.endDateInput].forEach((element) => {
+      if (element) flatpickr(element, config);
     });
   }
 
-  /**
-   * Build URL search parameters from date pickers.
-   */
-  function getFilterParams() {
-    const startDate = document.getElementById("start-date")?.value,
-      endDate = document.getElementById("end-date")?.value;
-    return new URLSearchParams({ start_date: startDate, end_date: endDate });
-  }
-
-  /**
-   * Fetch and display trips.
-   */
+  // ------------------------------
+  // API and Map Data Functions
+  // ------------------------------
   async function fetchTrips() {
     loadingManager.startOperation("Fetching and Displaying Trips", 100);
     loadingManager.addSubOperation(
@@ -241,15 +290,16 @@
       20
     );
     try {
-      const startDate = localStorage.getItem("startDate"),
-        endDate = localStorage.getItem("endDate");
+      const startDate = localStorage.getItem("startDate");
+      const endDate = localStorage.getItem("endDate");
       if (!startDate || !endDate) {
         console.warn("No dates selected for fetching trips.");
         loadingManager.finish("Fetching and Displaying Trips");
         return;
       }
-      document.getElementById("start-date").value = startDate;
-      document.getElementById("end-date").value = endDate;
+      if (DOMCache.startDateInput) DOMCache.startDateInput.value = startDate;
+      if (DOMCache.endDateInput) DOMCache.endDateInput.value = endDate;
+
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Fetching Data",
@@ -260,6 +310,7 @@
       if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
       const geojson = await response.json();
+
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Fetching Data",
@@ -302,6 +353,7 @@
         };
         await updateMap();
       }
+
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Processing Data",
@@ -315,7 +367,7 @@
       try {
         await fetchMatchedTrips();
       } catch (err) {
-        console.error("Error fetching matched trips:", err);
+        handleError(err, "Fetching Matched Trips");
       } finally {
         loadingManager.updateSubOperation(
           "Fetching and Displaying Trips",
@@ -324,19 +376,12 @@
         );
       }
     } catch (error) {
-      console.error("Error fetching trips:", error);
-      notificationManager.show(
-        "Error fetching trips. Check console for details.",
-        "danger"
-      );
+      handleError(error, "Fetching Trips");
     } finally {
       loadingManager.finish("Fetching and Displaying Trips");
     }
   }
 
-  /**
-   * Fetch matched trips.
-   */
   async function fetchMatchedTrips() {
     const params = getFilterParams();
     const url = `/api/matched_trips?${params.toString()}`;
@@ -349,50 +394,36 @@
       const geojson = await response.json();
       mapLayers.matchedTrips.layer = geojson;
     } catch (error) {
-      console.error("Error fetching matched trips:", error);
+      handleError(error, "Fetching Matched Trips");
     }
   }
 
-  /**
-   * Update the map layers without clearing the popup.
-   * Uses the extracted style function for trips.
-   */
   async function updateMap(fitBounds = false) {
     if (!layerGroup) return;
     layerGroup.clearLayers();
-    const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
     const visibleLayers = Object.entries(mapLayers)
       .filter(([, info]) => info.visible && info.layer)
       .sort(([, a], [, b]) => a.order - b.order);
-
-    // We'll collect the trip layers so we can update their style on click later.
     const tripLayers = new Map();
 
     await Promise.all(
-      visibleLayers.map(async ([name, info], i) => {
-        // For coverage and custom places, simply add the layer group.
-        if (name === "streetCoverage" || name === "customPlaces") {
+      visibleLayers.map(async ([name, info]) => {
+        if (["streetCoverage", "customPlaces"].includes(name)) {
           info.layer.addTo(layerGroup);
         } else if (
           ["trips", "historicalTrips", "matchedTrips"].includes(name)
         ) {
           const geoJsonLayer = L.geoJSON(info.layer, {
-            style: (feature) => {
-              return getTripFeatureStyle(feature, info);
-            },
+            style: (feature) => getTripFeatureStyle(feature, info),
             onEachFeature: (feature, lyr) => {
               tripLayers.set(feature.properties.transactionId, lyr);
               lyr.on("click", () => {
                 const clickedId = feature.properties.transactionId;
                 const wasSelected = selectedTripId === clickedId;
                 selectedTripId = wasSelected ? null : clickedId;
-
-                // Close any open popups
-                layerGroup.eachLayer((layer) => {
-                  if (layer.closePopup) layer.closePopup();
-                });
-
-                // If not already selected and it's from the trips layer, open popup.
+                layerGroup.eachLayer((layer) =>
+                  layer.closePopup && layer.closePopup()
+                );
                 if (!wasSelected && name === "trips") {
                   const timezone =
                     feature.properties.timezone || "America/Chicago";
@@ -407,19 +438,33 @@
                   const popupContent = `
                     <div class="trip-popup">
                       <h4>Trip Details</h4>
-                      <p><strong>Start:</strong> ${formatter.format(startTime)}</p>
-                      <p><strong>End:</strong> ${formatter.format(endTime)}</p>
-                      <p><strong>Distance:</strong> ${Number(feature.properties.distance).toFixed(2)} miles</p>
-                      <p><strong>From:</strong> ${feature.properties.startLocation || "Unknown"}</p>
-                      <p><strong>To:</strong> ${feature.properties.destination || "Unknown"}</p>
+                      <p><strong>Start:</strong> ${formatter.format(
+                        startTime
+                      )}</p>
+                      <p><strong>End:</strong> ${formatter.format(
+                        endTime
+                      )}</p>
+                      <p><strong>Distance:</strong> ${Number(
+                        feature.properties.distance
+                      ).toFixed(2)} miles</p>
+                      <p><strong>From:</strong> ${
+                        feature.properties.startLocation || "Unknown"
+                      }</p>
+                      <p><strong>To:</strong> ${
+                        feature.properties.destination || "Unknown"
+                      }</p>
                       ${
                         feature.properties.maxSpeed
-                          ? `<p><strong>Max Speed:</strong> ${Number(feature.properties.maxSpeed).toFixed(1)} mph</p>`
+                          ? `<p><strong>Max Speed:</strong> ${Number(
+                              feature.properties.maxSpeed
+                            ).toFixed(1)} mph</p>`
                           : ""
                       }
                       ${
                         feature.properties.averageSpeed
-                          ? `<p><strong>Avg Speed:</strong> ${Number(feature.properties.averageSpeed).toFixed(1)} mph</p>`
+                          ? `<p><strong>Avg Speed:</strong> ${Number(
+                              feature.properties.averageSpeed
+                            ).toFixed(1)} mph</p>`
                           : ""
                       }
                       ${
@@ -428,8 +473,12 @@
                           : ""
                       }
                       <div class="mt-2">
-                        <button class="btn btn-danger btn-sm me-2 delete-trip" data-trip-id="${feature.properties.transactionId}">Delete Trip</button>
-                        <button class="btn btn-danger btn-sm delete-matched-trip" data-trip-id="${feature.properties.transactionId}">Delete Matched Trip</button>
+                        <button class="btn btn-danger btn-sm me-2 delete-trip" data-trip-id="${
+                          feature.properties.transactionId
+                        }">Delete Trip</button>
+                        <button class="btn btn-danger btn-sm delete-matched-trip" data-trip-id="${
+                          feature.properties.transactionId
+                        }">Delete Matched Trip</button>
                       </div>
                     </div>
                   `;
@@ -441,14 +490,12 @@
                     })
                     .openPopup();
                 }
-                // After click, update styles for all trip layers to reflect the new selection.
                 layerGroup.eachLayer((layer) => {
                   if (
                     layer.feature &&
                     layer.feature.properties &&
                     layer.setStyle
                   ) {
-                    // Choose appropriate info based on imei value:
                     const infoObj =
                       layer.feature.properties.imei !== "HISTORICAL"
                         ? mapLayers.trips
@@ -458,7 +505,6 @@
                 });
               });
 
-              // When a popup opens, attach delete button event listeners.
               lyr.on("popupopen", () => {
                 const popupEl = lyr.getPopup().getElement();
                 const deleteMatchedBtn = popupEl.querySelector(
@@ -479,11 +525,7 @@
                       await fetchTrips();
                       notificationManager.show("Trip deleted", "success");
                     } catch (error) {
-                      console.error("Error deleting:", error);
-                      notificationManager.show(
-                        "Error deleting. Try again.",
-                        "danger"
-                      );
+                      handleError(error, "Deleting Matched Trip");
                     }
                   }
                 });
@@ -500,17 +542,16 @@
                       const tripRes = await fetch(`/api/trips/${tid}`, {
                         method: "DELETE",
                       });
-                      if (!tripRes.ok) throw new Error("Failed to delete trip");
-
+                      if (!tripRes.ok)
+                        throw new Error("Failed to delete trip");
                       const matchedRes = await fetch(
                         `/api/matched_trips/${tid}`,
                         { method: "DELETE" }
                       );
-                      if (!matchedRes.ok) {
+                      if (!matchedRes.ok)
                         console.warn(
                           "No matched trip found or failed to delete matched trip"
                         );
-                      }
                       lyr.closePopup();
                       await fetchTrips();
                       notificationManager.show(
@@ -518,11 +559,7 @@
                         "success"
                       );
                     } catch (error) {
-                      console.error("Error deleting:", error);
-                      notificationManager.show(
-                        "Error deleting. Try again.",
-                        "danger"
-                      );
+                      handleError(error, "Deleting Trip and Matched Trip");
                     }
                   }
                 });
@@ -538,17 +575,14 @@
       })
     );
 
-    // Bring the selected trip to the front
     if (selectedTripId && tripLayers.has(selectedTripId)) {
-      const selectedLayer = tripLayers.get(selectedTripId);
-      selectedLayer?.bringToFront();
+      tripLayers.get(selectedTripId)?.bringToFront();
     }
 
-    // Optionally fit map to all visible layers
     if (fitBounds) {
       const bounds = L.latLngBounds();
       let validBounds = false;
-      for (const [lname, linfo] of Object.entries(mapLayers)) {
+      Object.entries(mapLayers).forEach(([lname, linfo]) => {
         if (linfo.visible && linfo.layer) {
           try {
             const b =
@@ -560,24 +594,24 @@
               validBounds = true;
             }
           } catch (e) {
-            // ignore
+            // ignore errors
           }
         }
-      }
+      });
       if (validBounds) map.fitBounds(bounds);
     }
   }
 
-  /**
-   * Build dynamic layer controls.
-   */
+  // ------------------------------
+  // Layer Controls with Event Delegation
+  // ------------------------------
   function initializeLayerControls() {
-    const toggles = document.getElementById("layer-toggles");
-    if (!toggles) {
+    DOMCache.layerToggles = document.getElementById("layer-toggles");
+    if (!DOMCache.layerToggles) {
       console.warn("No 'layer-toggles' element found.");
       return;
     }
-    toggles.innerHTML = "";
+    DOMCache.layerToggles.innerHTML = "";
     Object.entries(mapLayers).forEach(([name, info]) => {
       const showControls = !["streetCoverage", "customPlaces"].includes(name);
       const colorPicker = showControls
@@ -592,30 +626,34 @@
       div.dataset.layerName = name;
       div.innerHTML = `
         <label class="custom-checkbox">
-          <input type="checkbox" id="${name}-toggle" ${info.visible ? "checked" : ""}>
+          <input type="checkbox" id="${name}-toggle" ${
+        info.visible ? "checked" : ""
+      }>
           <span class="checkmark"></span>
         </label>
         <label for="${name}-toggle">${info.name || name}</label>
         ${colorPicker}
         ${opacitySlider}
       `;
-      toggles.appendChild(div);
-      document
-        .getElementById(`${name}-toggle`)
-        ?.addEventListener("change", (e) =>
-          toggleLayer(name, e.target.checked)
-        );
-      if (showControls) {
-        document
-          .getElementById(`${name}-color`)
-          ?.addEventListener("change", (e) =>
-            changeLayerColor(name, e.target.value)
-          );
-        document
-          .getElementById(`${name}-opacity`)
-          ?.addEventListener("input", (e) =>
-            changeLayerOpacity(name, parseFloat(e.target.value))
-          );
+      DOMCache.layerToggles.appendChild(div);
+    });
+    // Event delegation for all layer control changes
+    DOMCache.layerToggles.addEventListener("change", (e) => {
+      const target = e.target;
+      if (target.matches('input[type="checkbox"]')) {
+        const layerName = target.id.replace("-toggle", "");
+        toggleLayer(layerName, target.checked);
+      }
+    });
+    DOMCache.layerToggles.addEventListener("input", (e) => {
+      const target = e.target;
+      if (target.matches('input[type="color"]')) {
+        const layerName = target.id.replace("-color", "");
+        changeLayerColor(layerName, target.value);
+      }
+      if (target.matches('input[type="range"]')) {
+        const layerName = target.id.replace("-opacity", "");
+        changeLayerOpacity(layerName, parseFloat(target.value));
       }
     });
     updateLayerOrderUI();
@@ -627,7 +665,7 @@
       if (name === "customPlaces" && window.customPlaces) {
         window.customPlaces.toggleVisibility(visible);
       } else {
-        updateMap();
+        debouncedUpdateMap();
       }
       updateLayerOrderUI();
     } else {
@@ -638,27 +676,24 @@
   function changeLayerColor(name, color) {
     if (mapLayers[name]) {
       mapLayers[name].color = color;
-      updateMap();
+      debouncedUpdateMap();
     }
   }
 
   function changeLayerOpacity(name, opacity) {
     if (mapLayers[name]) {
       mapLayers[name].opacity = opacity;
-      updateMap();
+      debouncedUpdateMap();
     }
   }
 
-  /**
-   * Manage layer order via drag & drop.
-   */
   function updateLayerOrderUI() {
-    const orderDiv = document.getElementById("layer-order");
-    if (!orderDiv) {
+    DOMCache.layerOrder = document.getElementById("layer-order");
+    if (!DOMCache.layerOrder) {
       console.warn("layer-order element not found.");
       return;
     }
-    orderDiv.innerHTML = '<h4 class="h6">Layer Order</h4>';
+    DOMCache.layerOrder.innerHTML = '<h4 class="h6">Layer Order</h4>';
     const ordered = Object.entries(mapLayers)
       .filter(([, v]) => v.visible)
       .sort(([, a], [, b]) => b.order - a.order);
@@ -673,7 +708,7 @@
       li.className = "list-group-item bg-dark text-white";
       ul.appendChild(li);
     });
-    orderDiv.appendChild(ul);
+    DOMCache.layerOrder.appendChild(ul);
     initializeDragAndDrop();
   }
 
@@ -694,7 +729,8 @@
         list.insertBefore(dragged, next ? target.nextSibling : target);
       }
     });
-    list.addEventListener("dragend", updateLayerOrder);
+    // Debounce layer order updates
+    list.addEventListener("dragend", debounce(updateLayerOrder, 50));
   }
 
   function updateLayerOrder() {
@@ -708,12 +744,12 @@
         mapLayers[lname].order = total - i;
       }
     });
-    updateMap();
+    debouncedUpdateMap();
   }
 
-  /**
-   * Validate location input.
-   */
+  // ------------------------------
+  // Location Validation and OSM Data
+  // ------------------------------
   async function validateLocation() {
     const locInput = document.getElementById("location-input");
     const locType = document.getElementById("location-type");
@@ -745,11 +781,7 @@
       handleLocationValidationSuccess(data, locInput);
       notificationManager.show("Location validated successfully!", "success");
     } catch (err) {
-      console.error("Error validating location:", err);
-      notificationManager.show(
-        "Error validating location. Please try again.",
-        "danger"
-      );
+      handleError(err, "Validating Location");
     }
   }
 
@@ -760,21 +792,15 @@
       "data-display-name",
       data.display_name || data.name || locInput.value
     );
-    [
-      "generate-boundary",
-      "generate-streets",
-      "generate-coverage",
-      "preprocess-streets",
-    ].forEach((id) => {
-      const btn = document.getElementById(id);
-      if (btn) btn.disabled = false;
-    });
+    ["generate-boundary", "generate-streets", "generate-coverage", "preprocess-streets"].forEach(
+      (id) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = false;
+      }
+    );
     document.dispatchEvent(new Event("locationValidated"));
   }
 
-  /**
-   * Generate OSM data.
-   */
   async function generateOSMData(streetsOnly) {
     if (!window.validatedLocation) {
       notificationManager.show("Please validate a location first.", "warning");
@@ -811,21 +837,20 @@
       } else {
         mapLayers.osmBoundary.layer = layer;
       }
-      updateMap();
+      debouncedUpdateMap();
       updateLayerOrderUI();
       notificationManager.show("OSM data generated successfully!", "success");
     } catch (err) {
-      console.error("Error generating OSM data:", err);
-      notificationManager.show(err.message, "danger");
+      handleError(err, "Generating OSM Data");
     }
   }
 
-  /**
-   * Map match trips (standard or historical).
-   */
+  // ------------------------------
+  // Map Matching and Metrics
+  // ------------------------------
   async function mapMatchTrips(isHistorical = false) {
-    const sd = document.getElementById("start-date")?.value;
-    const ed = document.getElementById("end-date")?.value;
+    const sd = getStartDate();
+    const ed = getEndDate();
     if (!sd || !ed) {
       notificationManager.show("Select start and end dates.", "warning");
       return;
@@ -865,22 +890,15 @@
       );
       fetchTrips();
     } catch (err) {
-      console.error("Error map matching trips:", err);
-      notificationManager.show(
-        "Error map matching trips. Check console.",
-        "danger"
-      );
+      handleError(err, "Map Matching");
     } finally {
       loadingManager.finish("MapMatching");
     }
   }
 
-  /**
-   * Fetch trips in a given date range.
-   */
   async function fetchTripsInRange() {
-    const sd = document.getElementById("start-date")?.value;
-    const ed = document.getElementById("end-date")?.value;
+    const sd = getStartDate();
+    const ed = getEndDate();
     if (!sd || !ed) {
       notificationManager.show("Select start and end dates.", "warning");
       return;
@@ -905,22 +923,15 @@
         );
       }
     } catch (err) {
-      console.error("Error fetching trips in range:", err);
-      notificationManager.show(
-        "Error fetching trips. Check console.",
-        "danger"
-      );
+      handleError(err, "Fetching Trips in Range");
     } finally {
       loadingManager.finish("FetchTripsRange");
     }
   }
 
-  /**
-   * Fetch top-level metrics.
-   */
   async function fetchMetrics() {
-    const sd = document.getElementById("start-date")?.value;
-    const ed = document.getElementById("end-date")?.value;
+    const sd = getStartDate();
+    const ed = getEndDate();
     const imei = document.getElementById("imei")?.value || "";
     if (!sd || !ed) return;
     try {
@@ -942,13 +953,10 @@
         if (el) el.textContent = mapping[id];
       });
     } catch (err) {
-      console.error("Error fetching metrics:", err);
+      handleError(err, "Fetching Metrics");
     }
   }
 
-  /**
-   * Preprocess streets for coverage.
-   */
   async function preprocessStreets() {
     const location = document.getElementById("location-input")?.value;
     const locationType = document.getElementById("location-type")?.value;
@@ -966,30 +974,236 @@
         body: JSON.stringify({ location, location_type: locationType }),
       });
       const data = await response.json();
-      if (data.status === "success") {
-        notificationManager.show(data.message, "success");
-      } else {
-        notificationManager.show(`Error: ${data.message}`, "danger");
-      }
+      data.status === "success"
+        ? notificationManager.show(data.message, "success")
+        : notificationManager.show(`Error: ${data.message}`, "danger");
     } catch (error) {
-      console.error("Error preprocessing streets:", error);
-      notificationManager.show(
-        "Error preprocessing streets. Please check the console for details.",
-        "danger"
-      );
+      handleError(error, "Preprocessing Streets");
     }
   }
 
-  /**
-   * Attach various event listeners.
-   */
+  // ------------------------------
+  // Street Coverage and Polling
+  // ------------------------------
+  async function generateStreetCoverage() {
+    if (!window.validatedLocation) {
+      notificationManager.show("Validate a location first.", "warning");
+      return;
+    }
+    const coverageBtn = document.getElementById("generate-coverage");
+    const originalText = coverageBtn.innerHTML;
+    const progressBar = document.getElementById("coverage-progress");
+    const progressText = document.getElementById("coverage-progress-text");
+    try {
+      coverageBtn.disabled = true;
+      coverageBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm"></span> Starting...';
+      document.getElementById("coverage-stats").classList.remove("d-none");
+      progressBar.style.width = "0%";
+      progressBar.setAttribute("aria-valuenow", "0");
+      progressText.textContent = "Starting coverage calculation...";
+      const response = await fetch("/api/street_coverage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location: window.validatedLocation }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || "Failed to start coverage calculation"
+        );
+      }
+      const data = await response.json();
+      if (!data || !data.task_id) {
+        throw new Error("Invalid response from server: missing task ID");
+      }
+      const task_id = data.task_id;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const maxRetries = 3;
+      let retryCount = 0;
+      let pollDelay = 1000;
+      const maxPollDelay = 8000;
+      while (true) {
+        try {
+          const statusResponse = await fetch(`/api/street_coverage/${task_id}`);
+          if (statusResponse.status === 404) {
+            retryCount++;
+            if (retryCount > maxRetries)
+              throw new Error("Task not found after multiple retries");
+            await new Promise((resolve) => setTimeout(resolve, pollDelay));
+            pollDelay = Math.min(pollDelay * 2, maxPollDelay);
+            continue;
+          }
+          retryCount = 0;
+          if (statusResponse.status === 500) {
+            const errorData = await statusResponse.json();
+            throw new Error(
+              errorData.detail || "Error in coverage calculation"
+            );
+          }
+          if (!statusResponse.ok)
+            throw new Error(
+              `Server returned ${statusResponse.status}: ${statusResponse.statusText}`
+            );
+          const statusData = await statusResponse.json();
+          if (!statusData) {
+            console.warn("Received empty status data");
+            await new Promise((resolve) => setTimeout(resolve, pollDelay));
+            continue;
+          }
+          if (statusData.streets_data) {
+            visualizeStreetCoverage(statusData);
+            break;
+          }
+          if (!statusData.stage) {
+            console.warn("Invalid progress data received:", statusData);
+            await new Promise((resolve) => setTimeout(resolve, pollDelay));
+            continue;
+          }
+          if (statusData.stage === "complete" && statusData.result) {
+            visualizeStreetCoverage(statusData.result);
+            break;
+          } else if (statusData.stage === "error") {
+            throw new Error(
+              statusData.message || "Error in coverage calculation"
+            );
+          }
+          const progress = statusData.progress || 0;
+          // Use requestAnimationFrame for smooth progress updates
+          requestAnimationFrame(() => {
+            progressBar.style.width = `${progress}%`;
+            progressBar.setAttribute("aria-valuenow", progress);
+            progressText.textContent =
+              statusData.message || `Progress: ${progress}%`;
+          });
+          await new Promise((resolve) => setTimeout(resolve, pollDelay));
+        } catch (error) {
+          if (error.message === "Task not found after multiple retries")
+            throw error;
+          console.warn("Error polling progress:", error);
+          await new Promise((resolve) => setTimeout(resolve, pollDelay));
+        }
+      }
+    } catch (error) {
+      handleError(error, "Generating Street Coverage");
+      progressBar.style.width = "0%";
+      progressBar.setAttribute("aria-valuenow", "0");
+      progressText.textContent = "Error calculating coverage";
+    } finally {
+      coverageBtn.disabled = false;
+      coverageBtn.innerHTML = originalText;
+    }
+  }
+
+  function visualizeStreetCoverage(coverageData) {
+    if (mapLayers.streetCoverage.layer) {
+      layerGroup.removeLayer(mapLayers.streetCoverage.layer);
+      mapLayers.streetCoverage.layer = null;
+    }
+    if (!coverageData || !coverageData.streets_data) {
+      console.error("Invalid coverage data received");
+      return;
+    }
+    mapLayers.streetCoverage.layer = L.geoJSON(coverageData.streets_data, {
+      style: (feature) => {
+        const { driven, coverage_count: count = 0 } = feature.properties;
+        let color = "#FF4444",
+          opacity = 0.4,
+          weight = 3;
+        if (driven) {
+          if (count >= 10) color = "#004400";
+          else if (count >= 5) color = "#006600";
+          else if (count >= 3) color = "#008800";
+          else color = "#00AA00";
+          opacity = 0.8;
+          weight = 4;
+        }
+        return { color, weight, opacity };
+      },
+      onEachFeature: (feature, layer) => {
+        const { length, street_name, driven, coverage_count = 0, segment_id } =
+          feature.properties;
+        const lengthMiles = (length * 0.000621371).toFixed(2);
+        const popupContent = `
+          <strong>${street_name || "Unnamed Street"}</strong><br>
+          Status: ${driven ? "Driven" : "Not driven"}<br>
+          Times driven: ${coverage_count}<br>
+          Length: ${lengthMiles} miles<br>
+          Segment ID: ${segment_id}
+        `;
+        layer.bindPopup(popupContent);
+        layer.on({
+          mouseover: (e) => e.target.setStyle({ weight: 5, opacity: 1 }),
+          mouseout: (e) =>
+            mapLayers.streetCoverage.layer.resetStyle(e.target),
+        });
+      },
+    });
+    mapLayers.streetCoverage.layer.addTo(layerGroup);
+    mapLayers.streetCoverage.visible = true;
+    updateLayerOrderUI();
+    debouncedUpdateMap();
+    updateCoverageStats(coverageData);
+  }
+
+  function updateCoverageStats(coverageData) {
+    const statsDiv = document.getElementById("coverage-stats"),
+      progressBar = document.getElementById("coverage-progress"),
+      coveragePercentageSpan = document.getElementById("coverage-percentage"),
+      totalStreetLengthSpan = document.getElementById("total-street-length"),
+      milesDrivenSpan = document.getElementById("miles-driven");
+    if (
+      !statsDiv ||
+      !progressBar ||
+      !coveragePercentageSpan ||
+      !totalStreetLengthSpan ||
+      !milesDrivenSpan
+    ) {
+      console.error("One or more coverage stats elements not found!");
+      return;
+    }
+    statsDiv.classList.remove("d-none");
+    const {
+      coverage_percentage: percent = 0,
+      total_length_miles: totalMiles = 0,
+      driven_length_miles: drivenMiles = 0,
+    } = coverageData.streets_data.metadata;
+    progressBar.style.width = `${percent}%`;
+    progressBar.setAttribute("aria-valuenow", percent.toFixed(1));
+    coveragePercentageSpan.textContent = percent.toFixed(1);
+    totalStreetLengthSpan.textContent = totalMiles.toFixed(2);
+    milesDrivenSpan.textContent = drivenMiles.toFixed(2);
+  }
+
+  async function showCoverageForLocation(location) {
+    try {
+      const response = await fetch(
+        `/api/street_coverage/${location.display_name}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch coverage data");
+      const data = await response.json();
+      if (data?.streets_data) {
+        visualizeStreetCoverage(data);
+        mapLayers.streetCoverage.visible = true;
+        updateLayerOrderUI();
+        updateMap(true);
+      }
+    } catch (error) {
+      handleError(error, "Showing Coverage for Location");
+      notificationManager.show("Error loading coverage data", "danger");
+    }
+  }
+
+  // ------------------------------
+  // Event Listeners
+  // ------------------------------
   function initializeEventListeners() {
     const applyFiltersBtn = document.getElementById("apply-filters");
     if (applyFiltersBtn && !applyFiltersBtn.hasListener) {
       applyFiltersBtn.hasListener = true;
       applyFiltersBtn.addEventListener("click", () => {
-        const sd = document.getElementById("start-date").value;
-        const ed = document.getElementById("end-date").value;
+        const sd = getStartDate();
+        const ed = getEndDate();
         localStorage.setItem("startDate", sd);
         localStorage.setItem("endDate", ed);
         fetchTrips();
@@ -997,21 +1211,17 @@
       });
     }
     const controlsToggle = document.getElementById("controls-toggle");
-    if (controlsToggle) {
-      controlsToggle.addEventListener("click", function () {
-        const mapControls = document.getElementById("map-controls");
-        const controlsContent = document.getElementById("controls-content");
-        mapControls?.classList.toggle("minimized");
-        const icon = this.querySelector("i");
-        icon?.classList.toggle("fa-chevron-up");
-        icon?.classList.toggle("fa-chevron-down");
-        controlsContent.style.display = mapControls?.classList.contains(
-          "minimized"
-        )
-          ? "none"
-          : "block";
-      });
-    }
+    controlsToggle?.addEventListener("click", function () {
+      const mapControls = document.getElementById("map-controls");
+      const controlsContent = document.getElementById("controls-content");
+      mapControls?.classList.toggle("minimized");
+      const icon = this.querySelector("i");
+      icon?.classList.toggle("fa-chevron-up");
+      icon?.classList.toggle("fa-chevron-down");
+      controlsContent.style.display = mapControls?.classList.contains("minimized")
+        ? "none"
+        : "block";
+    });
     document
       .getElementById("validate-location")
       ?.addEventListener("click", validateLocation);
@@ -1037,20 +1247,15 @@
       .getElementById("fetch-trips-range")
       ?.addEventListener("click", fetchTripsInRange);
     const highlightRecent = document.getElementById("highlight-recent-trips");
-    if (highlightRecent) {
-      highlightRecent.addEventListener("change", function () {
-        mapSettings.highlightRecentTrips = this.checked;
-        updateMap();
-      });
-    }
+    highlightRecent?.addEventListener("change", function () {
+      mapSettings.highlightRecentTrips = this.checked;
+      debouncedUpdateMap();
+    });
     document
       .getElementById("preprocess-streets")
       ?.addEventListener("click", preprocessStreets);
   }
 
-  /**
-   * Handle date preset clicks.
-   */
   async function handleDatePresetClick() {
     const range = this.dataset.range;
     const today = new Date();
@@ -1064,7 +1269,7 @@
         const d = await r.json();
         updateDatePickersAndStore(new Date(d.first_trip_date), endDate);
       } catch (err) {
-        console.error("Error fetching first trip date:", err);
+        handleError(err, "Fetching First Trip Date");
         notificationManager.show(
           "Error fetching first trip date. Please try again.",
           "danger"
@@ -1107,237 +1312,9 @@
     localStorage.setItem("endDate", endDate.toISOString().split("T")[0]);
   }
 
-  /**
-   * Generate street coverage.
-   */
-  async function generateStreetCoverage() {
-    if (!window.validatedLocation) {
-      notificationManager.show("Validate a location first.", "warning");
-      return;
-    }
-    const coverageBtn = document.getElementById("generate-coverage");
-    const originalText = coverageBtn.innerHTML;
-    const progressBar = document.getElementById("coverage-progress");
-    const progressText = document.getElementById("coverage-progress-text");
-    try {
-      coverageBtn.disabled = true;
-      coverageBtn.innerHTML =
-        '<span class="spinner-border spinner-border-sm"></span> Starting...';
-      document.getElementById("coverage-stats").classList.remove("d-none");
-      progressBar.style.width = "0%";
-      progressBar.setAttribute("aria-valuenow", "0");
-      progressText.textContent = "Starting coverage calculation...";
-      const response = await fetch("/api/street_coverage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ location: window.validatedLocation }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Failed to start coverage calculation"
-        );
-      }
-      const data = await response.json();
-      if (!data || !data.task_id) {
-        throw new Error("Invalid response from server: missing task ID");
-      }
-      const task_id = data.task_id;
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const maxRetries = 3;
-      let retryCount = 0;
-      while (true) {
-        try {
-          const statusResponse = await fetch(`/api/street_coverage/${task_id}`);
-          if (statusResponse.status === 404) {
-            retryCount++;
-            if (retryCount > maxRetries) {
-              throw new Error("Task not found after multiple retries");
-            }
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-            continue;
-          }
-          retryCount = 0;
-          if (statusResponse.status === 500) {
-            const errorData = await statusResponse.json();
-            throw new Error(
-              errorData.detail || "Error in coverage calculation"
-            );
-          }
-          if (!statusResponse.ok) {
-            throw new Error(
-              `Server returned ${statusResponse.status}: ${statusResponse.statusText}`
-            );
-          }
-          const statusData = await statusResponse.json();
-          if (!statusData) {
-            console.warn("Received empty status data");
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            continue;
-          }
-          if (statusData.streets_data) {
-            visualizeStreetCoverage(statusData);
-            break;
-          }
-          if (!statusData.stage) {
-            console.warn("Invalid progress data received:", statusData);
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            continue;
-          }
-          if (statusData.stage === "complete" && statusData.result) {
-            visualizeStreetCoverage(statusData.result);
-            break;
-          } else if (statusData.stage === "error") {
-            throw new Error(
-              statusData.message || "Error in coverage calculation"
-            );
-          }
-          const progress = statusData.progress || 0;
-          progressBar.style.width = `${progress}%`;
-          progressBar.setAttribute("aria-valuenow", progress);
-          progressText.textContent =
-            statusData.message || `Progress: ${progress}%`;
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        } catch (error) {
-          if (error.message === "Task not found after multiple retries") {
-            throw error;
-          }
-          console.warn("Error polling progress:", error);
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-      }
-    } catch (error) {
-      console.error("Error generating street coverage:", error);
-      notificationManager.show(
-        error.message || "An error occurred while generating street coverage.",
-        "danger"
-      );
-      progressBar.style.width = "0%";
-      progressBar.setAttribute("aria-valuenow", "0");
-      progressText.textContent = "Error calculating coverage";
-    } finally {
-      coverageBtn.disabled = false;
-      coverageBtn.innerHTML = originalText;
-    }
-  }
-
-  /**
-   * Display street coverage data on the map.
-   */
-  function visualizeStreetCoverage(coverageData) {
-    if (mapLayers.streetCoverage.layer) {
-      layerGroup.removeLayer(mapLayers.streetCoverage.layer);
-      mapLayers.streetCoverage.layer = null;
-    }
-    if (!coverageData || !coverageData.streets_data) {
-      console.error("Invalid coverage data received");
-      return;
-    }
-    mapLayers.streetCoverage.layer = L.geoJSON(coverageData.streets_data, {
-      style: (feature) => {
-        const driven = feature.properties.driven;
-        const count = feature.properties.coverage_count || 0;
-        let color = "#FF4444";
-        let opacity = 0.4;
-        let weight = 3;
-        if (driven) {
-          if (count >= 10) color = "#004400";
-          else if (count >= 5) color = "#006600";
-          else if (count >= 3) color = "#008800";
-          else color = "#00AA00";
-          opacity = 0.8;
-          weight = 4;
-        }
-        return { color, weight, opacity };
-      },
-      onEachFeature: (feature, layer) => {
-        const props = feature.properties;
-        const lengthMiles = (props.length * 0.000621371).toFixed(2);
-        const popupContent = `
-          <strong>${props.street_name || "Unnamed Street"}</strong><br>
-          Status: ${props.driven ? "Driven" : "Not driven"}<br>
-          Times driven: ${props.coverage_count || 0}<br>
-          Length: ${lengthMiles} miles<br>
-          Segment ID: ${props.segment_id}
-        `;
-        layer.bindPopup(popupContent);
-        layer.on({
-          mouseover: (e) => {
-            e.target.setStyle({ weight: 5, opacity: 1 });
-          },
-          mouseout: (e) => {
-            mapLayers.streetCoverage.layer.resetStyle(e.target);
-          },
-        });
-      },
-    });
-    mapLayers.streetCoverage.layer.addTo(layerGroup);
-    mapLayers.streetCoverage.visible = true;
-    updateLayerOrderUI();
-    updateMap();
-    updateCoverageStats(coverageData);
-  }
-
-  /**
-   * Update the coverage stats display.
-   */
-  function updateCoverageStats(coverageData) {
-    const statsDiv = document.getElementById("coverage-stats");
-    const progressBar = document.getElementById("coverage-progress");
-    const coveragePercentageSpan = document.getElementById(
-      "coverage-percentage"
-    );
-    const totalStreetLengthSpan = document.getElementById(
-      "total-street-length"
-    );
-    const milesDrivenSpan = document.getElementById("miles-driven");
-    if (
-      !statsDiv ||
-      !progressBar ||
-      !coveragePercentageSpan ||
-      !totalStreetLengthSpan ||
-      !milesDrivenSpan
-    ) {
-      console.error("One or more coverage stats elements not found!");
-      return;
-    }
-    statsDiv.classList.remove("d-none");
-    const metadata = coverageData.streets_data.metadata;
-    const percent = metadata.coverage_percentage || 0;
-    const totalMiles = metadata.total_length_miles || 0;
-    const drivenMiles = metadata.driven_length_miles || 0;
-    progressBar.style.width = `${percent}%`;
-    progressBar.setAttribute("aria-valuenow", percent.toFixed(1));
-    coveragePercentageSpan.textContent = percent.toFixed(1);
-    totalStreetLengthSpan.textContent = totalMiles.toFixed(2);
-    milesDrivenSpan.textContent = drivenMiles.toFixed(2);
-  }
-
-  /**
-   * Show coverage for a given location (from coverage management navigation).
-   */
-  async function showCoverageForLocation(location) {
-    try {
-      const response = await fetch(
-        `/api/street_coverage/${location.display_name}`
-      );
-      if (!response.ok) throw new Error("Failed to fetch coverage data");
-      const data = await response.json();
-      if (data?.streets_data) {
-        visualizeStreetCoverage(data);
-        mapLayers.streetCoverage.visible = true;
-        updateLayerOrderUI();
-        updateMap(true);
-      }
-    } catch (error) {
-      console.error("Error showing coverage:", error);
-      notificationManager.show("Error loading coverage data", "danger");
-    }
-  }
-
-  /**
-   * DOMContentLoaded: initialize date pickers, event listeners, and the map.
-   */
+  // ------------------------------
+  // DOMContentLoaded Initialization
+  // ------------------------------
   document.addEventListener("DOMContentLoaded", () => {
     setInitialDates();
     initializeDatePickers();
@@ -1372,16 +1349,11 @@
     } else {
       fetchMetrics();
     }
-    [
-      "generate-boundary",
-      "generate-streets",
-      "generate-coverage",
-      "preprocess-streets",
-    ].forEach((id) => {
-      const btn = document.getElementById(id);
-      if (btn) btn.disabled = true;
-    });
+    ["generate-boundary", "generate-streets", "generate-coverage", "preprocess-streets"].forEach(
+      (id) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = true;
+      }
+    );
   });
-
-  // Expose functions if needed globally
 })();
