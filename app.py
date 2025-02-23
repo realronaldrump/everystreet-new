@@ -128,32 +128,23 @@ async def add_header(request: Request, call_next):
     return response
 
 
+# 1. Improved date parsing: Replace trailing "Z" with "+00:00"
 def parse_query_date(
     date_str: Optional[str], end_of_day: bool = False
 ) -> Optional[datetime]:
-    """
-    Attempt to parse a query date string. We expect either:
-      1) An ISO 8601 string, e.g. "2023-02-13T15:00:00Z"
-      2) A simple 'YYYY-MM-DD' format
-    Always returns a UTC datetime or None if the string is empty/invalid.
-    """
     if not date_str:
         return None
-
-    # Try fromisoformat first
+    # Replace trailing 'Z' with '+00:00' for ISO8601 compatibility
+    date_str = date_str.replace("Z", "+00:00")
     try:
         dt = datetime.fromisoformat(date_str)
-        # If dt has no tzinfo, assume UTC
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        # If end_of_day, set time to 23:59:59.999999
         if end_of_day:
             dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
         return dt
     except ValueError:
         pass
-
-    # Fallback to strict 'YYYY-MM-DD' parse
     try:
         dt2 = datetime.strptime(date_str, "%Y-%m-%d")
         dt2 = dt2.replace(tzinfo=timezone.utc)
@@ -2302,18 +2293,23 @@ async def get_last_trip_point():
 # ------------------------------------------------------------------------------
 
 
+# 2. Fix GET /api/trips/{trip_id} to support both ObjectId and transactionId
 @app.get("/api/trips/{trip_id}")
 async def get_single_trip(trip_id: str):
     """
-    Return a single trip by _id from 'trips_collection'.
+    Return a single trip by _id or transactionId from 'trips_collection'.
     """
     try:
+        # Try to interpret trip_id as an ObjectId first
+        trip = None
         try:
             object_id = ObjectId(trip_id)
+            trip = await trips_collection.find_one({"_id": object_id})
         except Exception:
-            raise HTTPException(status_code=400, detail="Invalid trip ID format")
-
-        trip = await trips_collection.find_one({"_id": object_id})
+            pass
+        # Fallback: search by transactionId
+        if not trip:
+            trip = await trips_collection.find_one({"transactionId": trip_id})
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
 
@@ -2325,8 +2321,6 @@ async def get_single_trip(trip_id: str):
 
         return {"status": "success", "trip": trip}
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
         logger.exception("get_single_trip error")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
@@ -3471,7 +3465,7 @@ async def optimize_collection(collection: Dict[str, str]):
         name = collection.get("collection")
         if not name:
             raise HTTPException(status_code=400, detail="Missing 'collection' field")
-        await db.command("compact", name)
+        await db.command({"compact": name})
         await db[name].reindex()
         return {"message": f"Successfully optimized collection {name}"}
     except Exception as e:
