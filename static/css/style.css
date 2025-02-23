@@ -642,26 +642,38 @@ canvas {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
-.form-check-input {
+/* Table-specific form switch styles */
+.table .form-check.form-switch {
+  background: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.table .form-check-input {
   background-color: var(--background-color);
   border: 2px solid rgba(255, 255, 255, 0.3);
   cursor: pointer;
   height: 18px;
-  margin-right: 10px;
+  margin: 0;
   transition: all var(--transition-speed) ease;
-  width: 18px;
+  width: 34px;
 }
 
-.form-check-input:checked {
+.table .form-check-input:checked {
   background-color: var(--primary-color);
   border-color: var(--primary-color);
 }
 
-.form-check-input:focus {
+.table .form-check-input:focus {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 0.2rem rgba(187, 134, 252, 0.25);
 }
 
+/* General form-check-label styles */
 .form-check-label {
   align-items: center;
   color: var(--on-surface);
@@ -669,6 +681,21 @@ canvas {
   display: inline-flex;
   font-size: 0.95rem;
   user-select: none;
+}
+
+/* Form switch specific styles */
+.form-switch .form-check-input {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(255, 255, 255, 0.8)'/%3e%3c/svg%3e");
+  background-position: left center;
+  border-radius: 2em;
+  margin-left: 0;
+  transition: background-position .15s ease-in-out;
+  width: 34px;
+}
+
+.form-switch .form-check-input:checked {
+  background-position: right center;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
 }
 
 /* Map Display Options */
