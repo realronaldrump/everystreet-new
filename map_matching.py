@@ -176,7 +176,12 @@ async def map_match_coordinates(
     final_matched = []
     for cindex, (start_i, end_i) in enumerate(chunk_indices, 1):
         chunk_coords = coordinates[start_i:end_i]
-        logger.debug("Matching chunk %d/%d with %d coords", cindex, len(chunk_indices), len(chunk_coords))
+        logger.debug(
+            "Matching chunk %d/%d with %d coords",
+            cindex,
+            len(chunk_indices),
+            len(chunk_coords),
+        )
         result = await match_chunk(chunk_coords, depth=0)
         if result is None:
             # If a chunk absolutely fails, we bail out
@@ -193,7 +198,9 @@ async def map_match_coordinates(
                 result = result[1:]
             final_matched.extend(result)
 
-    logger.info("Stitched matched coords from all chunks, total points=%d", len(final_matched))
+    logger.info(
+        "Stitched matched coords from all chunks, total points=%d", len(final_matched)
+    )
 
     # Step 3: “Jump Detection” – detect large leaps, attempt local re-match
     # We scan final_matched for suspicious big jumps. If found, we attempt
@@ -219,7 +226,9 @@ async def map_match_coordinates(
         big_jumps = detect_big_jumps(final_matched, jump_threshold_m)
         if not big_jumps:
             break  # no suspicious leaps, done
-        logger.info("Found %d suspicious jump(s) on pass %d", len(big_jumps), pass_count + 1)
+        logger.info(
+            "Found %d suspicious jump(s) on pass %d", len(big_jumps), pass_count + 1
+        )
 
         # We'll fix them from left to right. But each fix might change indexing,
         # so we'll keep track of how many we've done.
@@ -245,14 +254,21 @@ async def map_match_coordinates(
             # attempt local re-match
             local_match = await match_chunk(sub_coords, depth=0)
             if local_match and len(local_match) >= 2:
-                logger.info("Re-matched sub-segment around index %d, replaced %d points", i, (end_sub - start_sub))
+                logger.info(
+                    "Re-matched sub-segment around index %d, replaced %d points",
+                    i,
+                    (end_sub - start_sub),
+                )
                 # We'll splice local_match in place of sub_coords
                 new_coords = new_coords[:start_sub] + local_match + new_coords[end_sub:]
                 # Adjust offset so further jump indices are correct
                 offset += len(local_match) - (end_sub - start_sub)
                 fix_count += 1
             else:
-                logger.info("Local re-match for sub-segment around index %d failed, leaving it as is", i)
+                logger.info(
+                    "Local re-match for sub-segment around index %d failed, leaving it as is",
+                    i,
+                )
 
         final_matched = new_coords
         pass_count += 1
@@ -261,7 +277,9 @@ async def map_match_coordinates(
             break
 
     # Done jump detection attempts
-    logger.info("Final matched coords after jump detection: %d points", len(final_matched))
+    logger.info(
+        "Final matched coords after jump detection: %d points", len(final_matched)
+    )
 
     return {
         "code": "Ok",
@@ -336,7 +354,9 @@ async def process_and_map_match_trip(trip):
 
         # Optionally update location via reverse geocode for the first matched point
         try:
-            first_lon, first_lat = match_result["matchings"][0]["geometry"]["coordinates"][0]
+            first_lon, first_lat = match_result["matchings"][0]["geometry"][
+                "coordinates"
+            ][0]
             city_info = await reverse_geocode_nominatim(first_lat, first_lon)
             if city_info:
                 matched_trip["location"] = city_info.get("display_name", "Unknown")
