@@ -1579,14 +1579,18 @@ async def map_match_trips_endpoint(request: Request):
         elif start_date and end_date:
             query["startTime"] = {"$gte": start_date, "$lte": end_date}
         else:
-            raise HTTPException(status_code=400, detail="Either trip_id or date range is required")
+            raise HTTPException(
+                status_code=400, detail="Either trip_id or date range is required"
+            )
 
         cursor = trips_collection.find(query)
         trips_list = await cursor.to_list(length=None)
-        
+
         if not trips_list:
-            raise HTTPException(status_code=404, detail="No trips found matching criteria")
-            
+            raise HTTPException(
+                status_code=404, detail="No trips found matching criteria"
+            )
+
         for trip in trips_list:
             await process_and_map_match_trip(trip)
 

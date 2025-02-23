@@ -8,7 +8,7 @@
 
   /**
    * Debounce a function by a specified delay.
-   * @param {Function} func 
+   * @param {Function} func
    * @param {number} delay in ms
    * @returns {Function}
    */
@@ -22,8 +22,8 @@
 
   /**
    * Central error handler for logging and notifications.
-   * @param {Error} error 
-   * @param {string} context 
+   * @param {Error} error
+   * @param {string} context
    */
   function handleError(error, context = "") {
     console.error(`Error in ${context}:`, error);
@@ -131,8 +131,8 @@
   // ------------------------------
   /**
    * Returns style for a trip feature.
-   * @param {Object} feature 
-   * @param {Object} info 
+   * @param {Object} feature
+   * @param {Object} info
    * @returns {Object}
    */
   function getTripFeatureStyle(feature, info) {
@@ -153,14 +153,15 @@
       color: isSelected
         ? info.highlightColor
         : isMatchedPair
-        ? info === mapLayers.matchedTrips
-          ? mapLayers.matchedTrips.highlightColor
-          : mapLayers.trips.highlightColor
-        : highlight
-        ? "#FF5722"
-        : info.color,
+          ? info === mapLayers.matchedTrips
+            ? mapLayers.matchedTrips.highlightColor
+            : mapLayers.trips.highlightColor
+          : highlight
+            ? "#FF5722"
+            : info.color,
       weight: isSelected || isMatchedPair ? 5 : highlight ? 4 : 2,
-      opacity: isSelected || isMatchedPair ? 0.9 : highlight ? 0.8 : info.opacity,
+      opacity:
+        isSelected || isMatchedPair ? 0.9 : highlight ? 0.8 : info.opacity,
       className: highlight ? "recent-trip" : "",
       zIndexOffset: isSelected || isMatchedPair ? 1000 : 0,
     };
@@ -188,7 +189,7 @@
         {
           maxZoom: 19,
           attribution: "",
-        }
+        },
       ).addTo(map);
       layerGroup = L.layerGroup().addTo(map);
       mapLayers.customPlaces.layer = L.layerGroup();
@@ -258,7 +259,7 @@
         if (input) {
           localStorage.setItem(
             input.id === "start-date" ? "startDate" : "endDate",
-            dateStr
+            dateStr,
           );
         }
       },
@@ -277,17 +278,17 @@
     loadingManager.addSubOperation(
       "Fetching and Displaying Trips",
       "Fetching Data",
-      50
+      50,
     );
     loadingManager.addSubOperation(
       "Fetching and Displaying Trips",
       "Processing Data",
-      30
+      30,
     );
     loadingManager.addSubOperation(
       "Fetching and Displaying Trips",
       "Displaying Data",
-      20
+      20,
     );
     try {
       const startDate = localStorage.getItem("startDate");
@@ -303,7 +304,7 @@
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Fetching Data",
-        25
+        25,
       );
       const params = getFilterParams();
       const response = await fetch(`/api/trips?${params.toString()}`);
@@ -314,12 +315,12 @@
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Fetching Data",
-        50
+        50,
       );
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Processing Data",
-        15
+        15,
       );
 
       if (window.tripsTable) {
@@ -342,13 +343,13 @@
         mapLayers.trips.layer = {
           type: "FeatureCollection",
           features: geojson.features.filter(
-            (f) => f.properties.imei !== "HISTORICAL"
+            (f) => f.properties.imei !== "HISTORICAL",
           ),
         };
         mapLayers.historicalTrips.layer = {
           type: "FeatureCollection",
           features: geojson.features.filter(
-            (f) => f.properties.imei === "HISTORICAL"
+            (f) => f.properties.imei === "HISTORICAL",
           ),
         };
         await updateMap();
@@ -357,12 +358,12 @@
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Processing Data",
-        30
+        30,
       );
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Displaying Data",
-        10
+        10,
       );
       try {
         await fetchMatchedTrips();
@@ -372,7 +373,7 @@
         loadingManager.updateSubOperation(
           "Fetching and Displaying Trips",
           "Displaying Data",
-          20
+          20,
         );
       }
     } catch (error) {
@@ -389,7 +390,7 @@
       const response = await fetch(url);
       if (!response.ok)
         throw new Error(
-          `HTTP error fetching matched trips: ${response.status}`
+          `HTTP error fetching matched trips: ${response.status}`,
         );
       const geojson = await response.json();
       mapLayers.matchedTrips.layer = geojson;
@@ -421,11 +422,12 @@
                 const clickedId = feature.properties.transactionId;
                 const wasSelected = selectedTripId === clickedId;
                 selectedTripId = wasSelected ? null : clickedId;
-                layerGroup.eachLayer((layer) =>
-                  layer.closePopup && layer.closePopup()
+                layerGroup.eachLayer(
+                  (layer) => layer.closePopup && layer.closePopup(),
                 );
                 if (!wasSelected) {
-                  const timezone = feature.properties.timezone || "America/Chicago";
+                  const timezone =
+                    feature.properties.timezone || "America/Chicago";
                   const startTime = new Date(feature.properties.startTime);
                   const endTime = new Date(feature.properties.endTime);
                   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -447,22 +449,35 @@
                       ${feature.properties.totalIdleDurationFormatted ? `<p><strong>Idle Time:</strong> ${feature.properties.totalIdleDurationFormatted}</p>` : ""}
                       <div class="mt-2">
                         ${name === "trips" ? `<button class="btn btn-danger btn-sm me-2 delete-trip" data-trip-id="${feature.properties.transactionId}">Delete Trip</button>` : ""}
-                        ${name === "matchedTrips" ? `
+                        ${
+                          name === "matchedTrips"
+                            ? `
                           <button class="btn btn-danger btn-sm me-2 delete-matched-trip" data-trip-id="${feature.properties.transactionId}">Delete Matched Trip</button>
                           <button class="btn btn-warning btn-sm rematch-trip" data-trip-id="${feature.properties.transactionId}">Re-match Trip</button>
-                        ` : ""}
+                        `
+                            : ""
+                        }
                       </div>
                     </div>
                   `;
-                  lyr.bindPopup(popupContent, {
-                    className: "trip-popup",
-                    maxWidth: 300,
-                    autoPan: true,
-                  }).openPopup(e.latlng);
+                  lyr
+                    .bindPopup(popupContent, {
+                      className: "trip-popup",
+                      maxWidth: 300,
+                      autoPan: true,
+                    })
+                    .openPopup(e.latlng);
                 }
                 layerGroup.eachLayer((layer) => {
-                  if (layer.feature && layer.feature.properties && layer.setStyle) {
-                    const infoObj = layer.feature.properties.imei !== "HISTORICAL" ? mapLayers.trips : mapLayers.historicalTrips;
+                  if (
+                    layer.feature &&
+                    layer.feature.properties &&
+                    layer.setStyle
+                  ) {
+                    const infoObj =
+                      layer.feature.properties.imei !== "HISTORICAL"
+                        ? mapLayers.trips
+                        : mapLayers.historicalTrips;
                     layer.setStyle(getTripFeatureStyle(layer.feature, infoObj));
                   }
                 });
@@ -470,7 +485,9 @@
 
               lyr.on("popupopen", () => {
                 const popupEl = lyr.getPopup().getElement();
-                const deleteMatchedBtn = popupEl.querySelector(".delete-matched-trip");
+                const deleteMatchedBtn = popupEl.querySelector(
+                  ".delete-matched-trip",
+                );
                 const deleteTripBtn = popupEl.querySelector(".delete-trip");
                 const rematchTripBtn = popupEl.querySelector(".rematch-trip");
 
@@ -479,9 +496,10 @@
                   const tid = e.target.dataset.tripId;
                   const confirmed = await confirmationDialog.show({
                     title: "Delete Matched Trip",
-                    message: "Are you sure you want to delete this matched trip?",
+                    message:
+                      "Are you sure you want to delete this matched trip?",
                     confirmText: "Delete",
-                    confirmButtonClass: "btn-danger"
+                    confirmButtonClass: "btn-danger",
                   });
                   if (confirmed) {
                     try {
@@ -503,9 +521,10 @@
                   const tid = e.target.dataset.tripId;
                   const confirmed = await confirmationDialog.show({
                     title: "Delete Trip",
-                    message: "Delete this trip? This will also delete its corresponding matched trip.",
+                    message:
+                      "Delete this trip? This will also delete its corresponding matched trip.",
                     confirmText: "Delete",
-                    confirmButtonClass: "btn-danger"
+                    confirmButtonClass: "btn-danger",
                   });
                   if (confirmed) {
                     try {
@@ -513,11 +532,20 @@
                         method: "DELETE",
                       });
                       if (!tripRes.ok) throw new Error("Failed to delete trip");
-                      const matchedRes = await fetch(`/api/matched_trips/${tid}`, { method: "DELETE" });
-                      if (!matchedRes.ok) console.warn("No matched trip found or failed to delete matched trip");
+                      const matchedRes = await fetch(
+                        `/api/matched_trips/${tid}`,
+                        { method: "DELETE" },
+                      );
+                      if (!matchedRes.ok)
+                        console.warn(
+                          "No matched trip found or failed to delete matched trip",
+                        );
                       lyr.closePopup();
                       await fetchTrips();
-                      notificationManager.show("Trip and its matched trip deleted", "success");
+                      notificationManager.show(
+                        "Trip and its matched trip deleted",
+                        "success",
+                      );
                     } catch (error) {
                       handleError(error, "Deleting Trip and Matched Trip");
                     }
@@ -529,33 +557,44 @@
                   const tid = e.target.dataset.tripId;
                   const confirmed = await confirmationDialog.show({
                     title: "Re-match Trip",
-                    message: "Re-match this trip? This will delete the existing matched trip and create a new one.",
+                    message:
+                      "Re-match this trip? This will delete the existing matched trip and create a new one.",
                     confirmText: "Re-match",
-                    confirmButtonClass: "btn-warning"
+                    confirmButtonClass: "btn-warning",
                   });
                   if (confirmed) {
                     try {
                       // First delete the existing matched trip
-                      const deleteRes = await fetch(`/api/matched_trips/${tid}`, {
-                        method: "DELETE",
-                      });
-                      if (!deleteRes.ok) throw new Error("Failed to delete existing matched trip");
+                      const deleteRes = await fetch(
+                        `/api/matched_trips/${tid}`,
+                        {
+                          method: "DELETE",
+                        },
+                      );
+                      if (!deleteRes.ok)
+                        throw new Error(
+                          "Failed to delete existing matched trip",
+                        );
 
                       // Then trigger re-matching for just this trip
                       const rematchRes = await fetch("/api/map_match_trips", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ 
+                        body: JSON.stringify({
                           start_date: feature.properties.startTime,
                           end_date: feature.properties.endTime,
-                          trip_id: tid
+                          trip_id: tid,
                         }),
                       });
-                      if (!rematchRes.ok) throw new Error("Failed to re-match trip");
+                      if (!rematchRes.ok)
+                        throw new Error("Failed to re-match trip");
 
                       lyr.closePopup();
                       await fetchTrips();
-                      notificationManager.show("Trip successfully re-matched", "success");
+                      notificationManager.show(
+                        "Trip successfully re-matched",
+                        "success",
+                      );
                     } catch (error) {
                       handleError(error, "Re-matching Trip");
                     }
@@ -570,7 +609,7 @@
             .setStyle({ color: info.color, opacity: info.opacity })
             .addTo(layerGroup);
         }
-      })
+      }),
     );
 
     if (selectedTripId && tripLayers.has(selectedTripId)) {
@@ -625,8 +664,8 @@
       div.innerHTML = `
         <label class="custom-checkbox">
           <input type="checkbox" id="${name}-toggle" ${
-        info.visible ? "checked" : ""
-      }>
+            info.visible ? "checked" : ""
+          }>
           <span class="checkmark"></span>
         </label>
         <label for="${name}-toggle">${info.name || name}</label>
@@ -754,7 +793,7 @@
     if (!locInput || !locType || !locInput.value || !locType.value) {
       notificationManager.show(
         "Please enter a location and select a location type.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -772,7 +811,7 @@
       if (!data) {
         notificationManager.show(
           "Location not found. Please check your input.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -788,14 +827,17 @@
     locInput.setAttribute("data-location", JSON.stringify(data));
     locInput.setAttribute(
       "data-display-name",
-      data.display_name || data.name || locInput.value
+      data.display_name || data.name || locInput.value,
     );
-    ["generate-boundary", "generate-streets", "generate-coverage", "preprocess-streets"].forEach(
-      (id) => {
-        const btn = document.getElementById(id);
-        if (btn) btn.disabled = false;
-      }
-    );
+    [
+      "generate-boundary",
+      "generate-streets",
+      "generate-coverage",
+      "preprocess-streets",
+    ].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.disabled = false;
+    });
     document.dispatchEvent(new Event("locationValidated"));
   }
 
@@ -867,7 +909,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ start_date: sd, end_date: ed }),
-        })
+        }),
       );
     }
     try {
@@ -876,7 +918,7 @@
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(
-            errorData.message || `HTTP error! status: ${response.status}`
+            errorData.message || `HTTP error! status: ${response.status}`,
           );
         }
       }
@@ -884,7 +926,7 @@
       console.log("Map matching responses:", results);
       notificationManager.show(
         "Map matching completed for selected trips.",
-        "success"
+        "success",
       );
       fetchTrips();
     } catch (err) {
@@ -917,7 +959,7 @@
         console.error(`Error: ${data.message}`);
         notificationManager.show(
           "Error fetching trips. Check console.",
-          "danger"
+          "danger",
         );
       }
     } catch (err) {
@@ -934,7 +976,7 @@
     if (!sd || !ed) return;
     try {
       const r = await fetch(
-        `/api/metrics?start_date=${sd}&end_date=${ed}&imei=${imei}`
+        `/api/metrics?start_date=${sd}&end_date=${ed}&imei=${imei}`,
       );
       const metrics = await r.json();
       const mapping = {
@@ -961,7 +1003,7 @@
     if (!location) {
       notificationManager.show(
         "Please enter and validate a location first.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -1008,7 +1050,7 @@
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Failed to start coverage calculation"
+          errorData.message || "Failed to start coverage calculation",
         );
       }
       const data = await response.json();
@@ -1036,12 +1078,12 @@
           if (statusResponse.status === 500) {
             const errorData = await statusResponse.json();
             throw new Error(
-              errorData.detail || "Error in coverage calculation"
+              errorData.detail || "Error in coverage calculation",
             );
           }
           if (!statusResponse.ok)
             throw new Error(
-              `Server returned ${statusResponse.status}: ${statusResponse.statusText}`
+              `Server returned ${statusResponse.status}: ${statusResponse.statusText}`,
             );
           const statusData = await statusResponse.json();
           if (!statusData) {
@@ -1063,7 +1105,7 @@
             break;
           } else if (statusData.stage === "error") {
             throw new Error(
-              statusData.message || "Error in coverage calculation"
+              statusData.message || "Error in coverage calculation",
             );
           }
           const progress = statusData.progress || 0;
@@ -1119,8 +1161,13 @@
         return { color, weight, opacity };
       },
       onEachFeature: (feature, layer) => {
-        const { length, street_name, driven, coverage_count = 0, segment_id } =
-          feature.properties;
+        const {
+          length,
+          street_name,
+          driven,
+          coverage_count = 0,
+          segment_id,
+        } = feature.properties;
         const lengthMiles = (length * 0.000621371).toFixed(2);
         const popupContent = `
           <strong>${street_name || "Unnamed Street"}</strong><br>
@@ -1132,8 +1179,7 @@
         layer.bindPopup(popupContent);
         layer.on({
           mouseover: (e) => e.target.setStyle({ weight: 5, opacity: 1 }),
-          mouseout: (e) =>
-            mapLayers.streetCoverage.layer.resetStyle(e.target),
+          mouseout: (e) => mapLayers.streetCoverage.layer.resetStyle(e.target),
         });
       },
     });
@@ -1176,7 +1222,7 @@
   async function showCoverageForLocation(location) {
     try {
       const response = await fetch(
-        `/api/street_coverage/${location.display_name}`
+        `/api/street_coverage/${location.display_name}`,
       );
       if (!response.ok) throw new Error("Failed to fetch coverage data");
       const data = await response.json();
@@ -1216,7 +1262,9 @@
       const icon = this.querySelector("i");
       icon?.classList.toggle("fa-chevron-up");
       icon?.classList.toggle("fa-chevron-down");
-      controlsContent.style.display = mapControls?.classList.contains("minimized")
+      controlsContent.style.display = mapControls?.classList.contains(
+        "minimized",
+      )
         ? "none"
         : "block";
     });
@@ -1270,7 +1318,7 @@
         handleError(err, "Fetching First Trip Date");
         notificationManager.show(
           "Error fetching first trip date. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         loadingManager.finish("AllTimeDatePreset");
@@ -1326,7 +1374,7 @@
         console.error("Failed to initialize map components");
         notificationManager.show(
           "Failed to initialize map components. Please refresh the page.",
-          "danger"
+          "danger",
         );
         return;
       }
@@ -1347,11 +1395,14 @@
     } else {
       fetchMetrics();
     }
-    ["generate-boundary", "generate-streets", "generate-coverage", "preprocess-streets"].forEach(
-      (id) => {
-        const btn = document.getElementById(id);
-        if (btn) btn.disabled = true;
-      }
-    );
+    [
+      "generate-boundary",
+      "generate-streets",
+      "generate-coverage",
+      "preprocess-streets",
+    ].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.disabled = true;
+    });
   });
 })();
