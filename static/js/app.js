@@ -417,16 +417,15 @@
             style: (feature) => getTripFeatureStyle(feature, info),
             onEachFeature: (feature, lyr) => {
               tripLayers.set(feature.properties.transactionId, lyr);
-              lyr.on("click", () => {
+              lyr.on("click", (e) => {
                 const clickedId = feature.properties.transactionId;
                 const wasSelected = selectedTripId === clickedId;
                 selectedTripId = wasSelected ? null : clickedId;
                 layerGroup.eachLayer((layer) =>
                   layer.closePopup && layer.closePopup()
                 );
-                if (!wasSelected && name === "trips") {
-                  const timezone =
-                    feature.properties.timezone || "America/Chicago";
+                if (!wasSelected) {
+                  const timezone = feature.properties.timezone || "America/Chicago";
                   const startTime = new Date(feature.properties.startTime);
                   const endTime = new Date(feature.properties.endTime);
                   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -438,68 +437,29 @@
                   const popupContent = `
                     <div class="trip-popup">
                       <h4>Trip Details</h4>
-                      <p><strong>Start:</strong> ${formatter.format(
-                        startTime
-                      )}</p>
-                      <p><strong>End:</strong> ${formatter.format(
-                        endTime
-                      )}</p>
-                      <p><strong>Distance:</strong> ${Number(
-                        feature.properties.distance
-                      ).toFixed(2)} miles</p>
-                      <p><strong>From:</strong> ${
-                        feature.properties.startLocation || "Unknown"
-                      }</p>
-                      <p><strong>To:</strong> ${
-                        feature.properties.destination || "Unknown"
-                      }</p>
-                      ${
-                        feature.properties.maxSpeed
-                          ? `<p><strong>Max Speed:</strong> ${Number(
-                              feature.properties.maxSpeed
-                            ).toFixed(1)} mph</p>`
-                          : ""
-                      }
-                      ${
-                        feature.properties.averageSpeed
-                          ? `<p><strong>Avg Speed:</strong> ${Number(
-                              feature.properties.averageSpeed
-                            ).toFixed(1)} mph</p>`
-                          : ""
-                      }
-                      ${
-                        feature.properties.totalIdleDurationFormatted
-                          ? `<p><strong>Idle Time:</strong> ${feature.properties.totalIdleDurationFormatted}</p>`
-                          : ""
-                      }
+                      <p><strong>Start:</strong> ${formatter.format(startTime)}</p>
+                      <p><strong>End:</strong> ${formatter.format(endTime)}</p>
+                      <p><strong>Distance:</strong> ${Number(feature.properties.distance).toFixed(2)} miles</p>
+                      <p><strong>From:</strong> ${feature.properties.startLocation || "Unknown"}</p>
+                      <p><strong>To:</strong> ${feature.properties.destination || "Unknown"}</p>
+                      ${feature.properties.maxSpeed ? `<p><strong>Max Speed:</strong> ${Number(feature.properties.maxSpeed).toFixed(1)} mph</p>` : ""}
+                      ${feature.properties.averageSpeed ? `<p><strong>Avg Speed:</strong> ${Number(feature.properties.averageSpeed).toFixed(1)} mph</p>` : ""}
+                      ${feature.properties.totalIdleDurationFormatted ? `<p><strong>Idle Time:</strong> ${feature.properties.totalIdleDurationFormatted}</p>` : ""}
                       <div class="mt-2">
-                        <button class="btn btn-danger btn-sm me-2 delete-trip" data-trip-id="${
-                          feature.properties.transactionId
-                        }">Delete Trip</button>
-                        <button class="btn btn-danger btn-sm delete-matched-trip" data-trip-id="${
-                          feature.properties.transactionId
-                        }">Delete Matched Trip</button>
+                        ${name === "trips" ? `<button class="btn btn-danger btn-sm me-2 delete-trip" data-trip-id="${feature.properties.transactionId}">Delete Trip</button>` : ""}
+                        ${name === "matchedTrips" ? `<button class="btn btn-danger btn-sm delete-matched-trip" data-trip-id="${feature.properties.transactionId}">Delete Matched Trip</button>` : ""}
                       </div>
                     </div>
                   `;
-                  lyr
-                    .bindPopup(popupContent, {
-                      className: "trip-popup",
-                      maxWidth: 300,
-                      autoPan: true,
-                    })
-                    .openPopup();
+                  lyr.bindPopup(popupContent, {
+                    className: "trip-popup",
+                    maxWidth: 300,
+                    autoPan: true,
+                  }).openPopup(e.latlng);
                 }
                 layerGroup.eachLayer((layer) => {
-                  if (
-                    layer.feature &&
-                    layer.feature.properties &&
-                    layer.setStyle
-                  ) {
-                    const infoObj =
-                      layer.feature.properties.imei !== "HISTORICAL"
-                        ? mapLayers.trips
-                        : mapLayers.historicalTrips;
+                  if (layer.feature && layer.feature.properties && layer.setStyle) {
+                    const infoObj = layer.feature.properties.imei !== "HISTORICAL" ? mapLayers.trips : mapLayers.historicalTrips;
                     layer.setStyle(getTripFeatureStyle(layer.feature, infoObj));
                   }
                 });
