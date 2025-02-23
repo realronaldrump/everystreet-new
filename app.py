@@ -3443,7 +3443,10 @@ async def get_storage_info():
     """
     try:
         db_stats = await db.command("dbStats")
-        storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
+        data_size = db_stats.get("dataSize")
+        if data_size is None:
+            raise ValueError("dbStats did not return 'dataSize'")
+        storage_used_mb = round(data_size / (1024 * 1024), 2)
         storage_limit_mb = 512
         storage_usage_percent = round((storage_used_mb / storage_limit_mb) * 100, 2)
         return {
@@ -3497,7 +3500,7 @@ async def optimize_all_collections():
     try:
         collection_names = await db.list_collection_names()
         for coll_name in collection_names:
-            await db.command("compact", coll_name)
+            await db.command({"compact": coll_name})
             await db[coll_name].reindex()
         return {"message": "Successfully optimized all collections"}
     except Exception as e:

@@ -79,7 +79,8 @@ class DatabaseManager:
         """
         Check if the database quota is exceeded.
 
-        Returns: (used_mb, limit_mb) or (None, None) on error.
+        Returns:
+            Tuple of (used_mb, limit_mb). Returns (None, None) on error.
         """
         try:
             stats = await self.db.command("dbStats")
@@ -88,13 +89,11 @@ class DatabaseManager:
                 logger.error("dbStats did not return 'dataSize'")
                 return None, None
             used_mb = data_size / (1024 * 1024)
-            limit_mb = 512  # e.g. an Atlas free tier limit
+            limit_mb = 512
             self._quota_exceeded = used_mb > limit_mb
             if self._quota_exceeded:
                 logger.warning(
-                    "MongoDB quota exceeded: using %.2f MB of %d MB",
-                    used_mb,
-                    limit_mb,
+                    "MongoDB quota exceeded: using %.2f MB of %d MB", used_mb, limit_mb
                 )
             return used_mb, limit_mb
         except Exception as e:
@@ -110,12 +109,10 @@ class DatabaseManager:
     ) -> None:
         """
         Create an index on a given collection if the quota is not exceeded.
-        keys can be a single field or a list of (field, direction) tuples.
         """
         if self._quota_exceeded:
             logger.warning(
-                "Skipping index creation for %s due to quota exceeded",
-                collection_name,
+                "Skipping index creation for %s due to quota exceeded", collection_name
             )
             return
         try:
@@ -125,15 +122,11 @@ class DatabaseManager:
             if "you are over your space quota" in str(e).lower():
                 self._quota_exceeded = True
                 logger.warning(
-                    "Cannot create index on %s due to quota exceeded",
-                    collection_name,
+                    "Cannot create index on %s due to quota exceeded", collection_name
                 )
             else:
                 logger.error(
-                    "Error creating index on %s: %s",
-                    collection_name,
-                    e,
-                    exc_info=True,
+                    "Error creating index on %s: %s", collection_name, e, exc_info=True
                 )
 
 
@@ -194,10 +187,7 @@ async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
                 trip["gps"] = json.loads(trip["gps"])
             except Exception as e:
                 logger.error(
-                    "Failed to parse gps for %s: %s",
-                    trip_id,
-                    e,
-                    exc_info=True,
+                    "Failed to parse gps for %s: %s", trip_id, e, exc_info=True
                 )
                 return None
         return trip
@@ -208,7 +198,7 @@ async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
 
 async def ensure_street_coverage_indexes() -> None:
     """
-    Create indexes for collections used in street coverage. Done concurrently.
+    Create indexes for collections used in street coverage concurrently.
     """
     try:
         tasks = [
