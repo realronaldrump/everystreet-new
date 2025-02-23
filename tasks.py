@@ -20,6 +20,7 @@ from preprocess_streets import preprocess_streets as async_preprocess_streets
 
 # Instead of building a new Motor client, use db.py
 from db import db, task_history_collection
+from pymongo import UpdateOne
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,6 @@ class BackgroundTaskManager:
         self.tasks: Dict[str, TaskDefinition] = self._initialize_tasks()
         self.task_status: Dict[str, TaskStatus] = {}
         self.task_history: List[Dict[str, Any]] = []
-
         self.db = db  # Reuse from db.py
         self._setup_event_listeners()
 
@@ -158,23 +158,22 @@ class BackgroundTaskManager:
             )
             self.task_status[task_id] = TaskStatus.COMPLETED
             runtime = getattr(event, "runtime", None)
-
+            now = datetime.now(timezone.utc)
             history_entry = {
                 "task_id": task_id,
                 "status": TaskStatus.COMPLETED.value,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": now,
                 "runtime": runtime,
                 "result": True,
             }
             await self.db["task_history"].insert_one(history_entry)
-
             job = self.scheduler.get_job(event.job_id)
             next_run = job.next_run_time if job else None
             await self._update_task_config(
                 task_id,
                 {
                     "status": TaskStatus.COMPLETED.value,
-                    "last_run": datetime.now(timezone.utc),
+                    "last_run": now,
                     "next_run": next_run,
                 },
             )
@@ -193,24 +192,23 @@ class BackgroundTaskManager:
             self.task_status[task_id] = TaskStatus.FAILED
             error_msg = str(event.exception)
             runtime = getattr(event, "runtime", None)
-
+            now = datetime.now(timezone.utc)
             history_entry = {
                 "task_id": task_id,
                 "status": TaskStatus.FAILED.value,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": now,
                 "runtime": runtime,
                 "error": error_msg,
                 "result": False,
             }
             await self.db["task_history"].insert_one(history_entry)
-
             job = self.scheduler.get_job(event.job_id)
             next_run = job.next_run_time if job else None
             await self._update_task_config(
                 task_id,
                 {
                     "status": TaskStatus.FAILED.value,
-                    "last_run": datetime.now(timezone.utc),
+                    "last_run": now,
                     "last_error": error_msg,
                     "next_run": next_run,
                 },
@@ -281,7 +279,6 @@ class BackgroundTaskManager:
                 coalesce=True,
                 misfire_grace_time=interval_minutes * 60,
             )
-
             await self._update_task_config(
                 task_id,
                 {
@@ -291,11 +288,8 @@ class BackgroundTaskManager:
                 },
             )
             logger.info(
-                "Added task %s with %d minute interval",
-                task_id,
-                interval_minutes,
+                "Added task %s with %d minute interval", task_id, interval_minutes
             )
-
         except Exception as e:
             logger.error("Error adding task %s: %s", task_id, e, exc_info=True)
             raise
@@ -313,8 +307,7 @@ class BackgroundTaskManager:
                     await self.add_task(
                         task_id,
                         task_cfg.get(
-                            "interval_minutes",
-                            task_def.default_interval_minutes,
+                            "interval_minutes", task_def.default_interval_minutes
                         ),
                         enabled=True,
                         replace_existing=True,
@@ -437,24 +430,19 @@ class BackgroundTaskManager:
             now = datetime.now(timezone.utc)
             stale_threshold = now - timedelta(minutes=5)
             cleanup_count = 0
-
-            # Use find_one_and_delete in a loop
             while True:
                 trip = await self.db["live_trips"].find_one_and_delete(
                     {"lastUpdate": {"$lt": stale_threshold}, "status": "active"},
-                    projection={"_id": False},  # Exclude _id from the result
+                    projection={"_id": False},
                 )
                 if not trip:
-                    break  # No more stale trips found
-
+                    break
                 trip["status"] = "stale"
                 trip["endTime"] = now
                 await self.db["archived_live_trips"].insert_one(trip)
                 cleanup_count += 1
-
             logger.info("Cleaned up %d stale trips", cleanup_count)
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
-
         except Exception as e:
             await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
             logger.error("Error in cleanup_stale_trips: %s", e, exc_info=True)
@@ -464,22 +452,28 @@ class BackgroundTaskManager:
         task_id = "cleanup_invalid_trips"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
-            invalid_count = 0
-            async for trip in self.db["trips"].find({}):
+            update_ops = []
+            # Use projection to get only necessary fields
+            async for trip in self.db["trips"].find(
+                {}, {"startTime": 1, "endTime": 1, "gps": 1}
+            ):
                 valid, message = validate_trip_data(trip)
                 if not valid:
-                    await self.db["trips"].update_one(
-                        {"_id": trip["_id"]},
-                        {
-                            "$set": {
-                                "invalid": True,
-                                "validation_message": message,
-                                "validated_at": datetime.now(timezone.utc),
-                            }
-                        },
+                    update_ops.append(
+                        UpdateOne(
+                            {"_id": trip["_id"]},
+                            {
+                                "$set": {
+                                    "invalid": True,
+                                    "validation_message": message,
+                                    "validated_at": datetime.now(timezone.utc),
+                                }
+                            },
+                        )
                     )
-                    invalid_count += 1
-            logger.info("Marked %d invalid trips", invalid_count)
+            if update_ops:
+                result = await self.db["trips"].bulk_write(update_ops)
+                logger.info("Marked %d invalid trips", result.modified_count)
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
         except Exception as e:
             await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
@@ -490,7 +484,7 @@ class BackgroundTaskManager:
         task_id = "update_geocoding"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
-            update_count = 0
+            update_ops = []
             query = {
                 "$or": [
                     {"startLocation": {"$exists": False}},
@@ -499,11 +493,13 @@ class BackgroundTaskManager:
                     {"destination": ""},
                 ]
             }
-            async for trip in self.db["trips"].find(query):
+            # Use projection to reduce document size
+            async for trip in self.db["trips"].find(
+                query, {"gps": 1, "startLocation": 1, "destination": 1}
+            ):
                 gps = trip.get("gps")
                 if not gps:
                     continue
-
                 if isinstance(gps, str):
                     try:
                         gps = json.loads(gps)
@@ -512,7 +508,6 @@ class BackgroundTaskManager:
                 coords = gps.get("coordinates", [])
                 if not coords:
                     continue
-
                 updates = {}
                 start_coords = coords[0]
                 end_coords = coords[-1]
@@ -528,14 +523,14 @@ class BackgroundTaskManager:
                     )
                     if loc_end:
                         updates["destination"] = loc_end.get("display_name")
-
                 if updates:
                     updates["geocoded_at"] = datetime.now(timezone.utc)
-                    await self.db["trips"].update_one(
-                        {"_id": trip["_id"]}, {"$set": updates}
+                    update_ops.append(
+                        UpdateOne({"_id": trip["_id"]}, {"$set": updates})
                     )
-                    update_count += 1
-            logger.info("Updated geocoding for %d trips", update_count)
+            if update_ops:
+                result = await self.db["trips"].bulk_write(update_ops)
+                logger.info("Updated geocoding for %d trips", result.modified_count)
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
         except Exception as e:
             await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
@@ -566,12 +561,7 @@ class BackgroundTaskManager:
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
             remap_count = 0
-            query = {
-                "$or": [
-                    {"matchedGps": {"$exists": False}},
-                    {"matchedGps": None},
-                ]
-            }
+            query = {"$or": [{"matchedGps": {"$exists": False}}, {"matchedGps": None}]}
             async for trip in self.db["trips"].find(query):
                 try:
                     await process_and_map_match_trip(trip)
@@ -589,8 +579,10 @@ class BackgroundTaskManager:
         task_id = "validate_trip_data"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
-            update_count = 0
-            async for trip in self.db["trips"].find({}):
+            update_ops = []
+            async for trip in self.db["trips"].find(
+                {}, {"startTime": 1, "endTime": 1, "gps": 1}
+            ):
                 updates = {}
                 for field in ["startTime", "endTime"]:
                     val = trip.get(field)
@@ -601,21 +593,20 @@ class BackgroundTaskManager:
                         except ValueError:
                             updates["invalid"] = True
                             updates["validation_message"] = f"Invalid {field} format"
-
                 if isinstance(trip.get("gps"), str):
                     try:
                         json.loads(trip["gps"])
                     except json.JSONDecodeError:
                         updates["invalid"] = True
                         updates["validation_message"] = "Invalid GPS JSON"
-
                 if updates:
                     updates["validated_at"] = datetime.now(timezone.utc)
-                    await self.db["trips"].update_one(
-                        {"_id": trip["_id"]}, {"$set": updates}
+                    update_ops.append(
+                        UpdateOne({"_id": trip["_id"]}, {"$set": updates})
                     )
-                    update_count += 1
-            logger.info("Validated and updated %d trips", update_count)
+            if update_ops:
+                result = await self.db["trips"].bulk_write(update_ops)
+                logger.info("Validated and updated %d trips", result.modified_count)
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
         except Exception as e:
             await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
@@ -626,18 +617,24 @@ class BackgroundTaskManager:
         self, task_id: str, status: TaskStatus, error: Optional[str] = None
     ) -> None:
         self.task_status[task_id] = status
+        now = datetime.now(timezone.utc)
         update_data = {
             f"tasks.{task_id}.status": status.value,
-            f"tasks.{task_id}.last_updated": datetime.now(timezone.utc),
+            f"tasks.{task_id}.last_updated": now,
         }
         if status == TaskStatus.RUNNING:
-            update_data[f"tasks.{task_id}.start_time"] = datetime.now(timezone.utc)
+            update_data[f"tasks.{task_id}.start_time"] = now
         elif status in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
-            update_data[f"tasks.{task_id}.end_time"] = datetime.now(timezone.utc)
+            update_data[f"tasks.{task_id}.end_time"] = now
         if error:
             update_data[f"tasks.{task_id}.last_error"] = error
 
         await self._update_task_config(task_id, update_data)
+
+    async def _update_task_config(self, task_id: str, updates: Dict[str, Any]):
+        await self.db["task_config"].update_one(
+            {"_id": "global_background_task_config"}, {"$set": updates}
+        )
 
 
 task_manager = BackgroundTaskManager()
