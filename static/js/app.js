@@ -447,7 +447,10 @@
                       ${feature.properties.totalIdleDurationFormatted ? `<p><strong>Idle Time:</strong> ${feature.properties.totalIdleDurationFormatted}</p>` : ""}
                       <div class="mt-2">
                         ${name === "trips" ? `<button class="btn btn-danger btn-sm me-2 delete-trip" data-trip-id="${feature.properties.transactionId}">Delete Trip</button>` : ""}
-                        ${name === "matchedTrips" ? `<button class="btn btn-danger btn-sm delete-matched-trip" data-trip-id="${feature.properties.transactionId}">Delete Matched Trip</button>` : ""}
+                        ${name === "matchedTrips" ? `
+                          <button class="btn btn-danger btn-sm me-2 delete-matched-trip" data-trip-id="${feature.properties.transactionId}">Delete Matched Trip</button>
+                          <button class="btn btn-warning btn-sm rematch-trip" data-trip-id="${feature.properties.transactionId}">Re-match Trip</button>
+                        ` : ""}
                       </div>
                     </div>
                   `;
@@ -467,15 +470,20 @@
 
               lyr.on("popupopen", () => {
                 const popupEl = lyr.getPopup().getElement();
-                const deleteMatchedBtn = popupEl.querySelector(
-                  ".delete-matched-trip"
-                );
+                const deleteMatchedBtn = popupEl.querySelector(".delete-matched-trip");
                 const deleteTripBtn = popupEl.querySelector(".delete-trip");
+                const rematchTripBtn = popupEl.querySelector(".rematch-trip");
 
                 deleteMatchedBtn?.addEventListener("click", async (e) => {
                   e.preventDefault();
                   const tid = e.target.dataset.tripId;
-                  if (confirm("Delete this matched trip?")) {
+                  const confirmed = await confirmationDialog.show({
+                    title: "Delete Matched Trip",
+                    message: "Are you sure you want to delete this matched trip?",
+                    confirmText: "Delete",
+                    confirmButtonClass: "btn-danger"
+                  });
+                  if (confirmed) {
                     try {
                       const res = await fetch(`/api/matched_trips/${tid}`, {
                         method: "DELETE",
@@ -493,33 +501,63 @@
                 deleteTripBtn?.addEventListener("click", async (e) => {
                   e.preventDefault();
                   const tid = e.target.dataset.tripId;
-                  if (
-                    confirm(
-                      "Delete this trip? This will also delete its corresponding matched trip."
-                    )
-                  ) {
+                  const confirmed = await confirmationDialog.show({
+                    title: "Delete Trip",
+                    message: "Delete this trip? This will also delete its corresponding matched trip.",
+                    confirmText: "Delete",
+                    confirmButtonClass: "btn-danger"
+                  });
+                  if (confirmed) {
                     try {
                       const tripRes = await fetch(`/api/trips/${tid}`, {
                         method: "DELETE",
                       });
-                      if (!tripRes.ok)
-                        throw new Error("Failed to delete trip");
-                      const matchedRes = await fetch(
-                        `/api/matched_trips/${tid}`,
-                        { method: "DELETE" }
-                      );
-                      if (!matchedRes.ok)
-                        console.warn(
-                          "No matched trip found or failed to delete matched trip"
-                        );
+                      if (!tripRes.ok) throw new Error("Failed to delete trip");
+                      const matchedRes = await fetch(`/api/matched_trips/${tid}`, { method: "DELETE" });
+                      if (!matchedRes.ok) console.warn("No matched trip found or failed to delete matched trip");
                       lyr.closePopup();
                       await fetchTrips();
-                      notificationManager.show(
-                        "Trip and its matched trip deleted",
-                        "success"
-                      );
+                      notificationManager.show("Trip and its matched trip deleted", "success");
                     } catch (error) {
                       handleError(error, "Deleting Trip and Matched Trip");
+                    }
+                  }
+                });
+
+                rematchTripBtn?.addEventListener("click", async (e) => {
+                  e.preventDefault();
+                  const tid = e.target.dataset.tripId;
+                  const confirmed = await confirmationDialog.show({
+                    title: "Re-match Trip",
+                    message: "Re-match this trip? This will delete the existing matched trip and create a new one.",
+                    confirmText: "Re-match",
+                    confirmButtonClass: "btn-warning"
+                  });
+                  if (confirmed) {
+                    try {
+                      // First delete the existing matched trip
+                      const deleteRes = await fetch(`/api/matched_trips/${tid}`, {
+                        method: "DELETE",
+                      });
+                      if (!deleteRes.ok) throw new Error("Failed to delete existing matched trip");
+
+                      // Then trigger re-matching for just this trip
+                      const rematchRes = await fetch("/api/map_match_trips", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ 
+                          start_date: feature.properties.startTime,
+                          end_date: feature.properties.endTime,
+                          trip_id: tid
+                        }),
+                      });
+                      if (!rematchRes.ok) throw new Error("Failed to re-match trip");
+
+                      lyr.closePopup();
+                      await fetchTrips();
+                      notificationManager.show("Trip successfully re-matched", "success");
+                    } catch (error) {
+                      handleError(error, "Re-matching Trip");
                     }
                   }
                 });

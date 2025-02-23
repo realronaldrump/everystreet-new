@@ -1565,24 +1565,34 @@ async def generate_geojson_endpoint(request: Request):
 async def map_match_trips_endpoint(request: Request):
     """
     Map-match trips in a given date range from 'trips_collection'.
+    If trip_id is provided, only map-match that specific trip.
     """
     try:
         data = await request.json()
         start_date = parse_query_date(data.get("start_date"))
         end_date = parse_query_date(data.get("end_date"), end_of_day=True)
+        trip_id = data.get("trip_id")
 
         query: Dict[str, Any] = {}
-        if start_date and end_date:
+        if trip_id:
+            query["transactionId"] = trip_id
+        elif start_date and end_date:
             query["startTime"] = {"$gte": start_date, "$lte": end_date}
+        else:
+            raise HTTPException(status_code=400, detail="Either trip_id or date range is required")
 
         cursor = trips_collection.find(query)
         trips_list = await cursor.to_list(length=None)
+        
+        if not trips_list:
+            raise HTTPException(status_code=404, detail="No trips found matching criteria")
+            
         for trip in trips_list:
             await process_and_map_match_trip(trip)
 
         return {
             "status": "success",
-            "message": "Map matching started for trips.",
+            "message": f"Map matching completed for {len(trips_list)} trip(s).",
         }
     except Exception as e:
         logger.exception("Error in map_match_trips endpoint")

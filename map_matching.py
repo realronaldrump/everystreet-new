@@ -12,12 +12,12 @@ from dateutil import parser
 from datetime import datetime, timedelta
 
 from utils import validate_trip_data, reverse_geocode_nominatim
-from db import (
-    matched_trips_collection,
-)
+from db import matched_trips_collection
 
 load_dotenv()
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
+
+# We'll keep this set to 100, but we'll chunk manually with overlap
 MAX_MAPBOX_COORDINATES = 100
 
 logging.basicConfig(
@@ -27,10 +27,44 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def map_match_coordinates(coordinates):
+def haversine_single(lon1, lat1, lon2, lat2):
     """
-    Given [lon, lat] coordinate pairs, call Mapbox's map matching API in chunks if
-    needed, and return a dict with a matched LineString geometry.
+    Simple haversine distance between two points in meters.
+    """
+    R = 6371000.0  # radius of Earth in meters
+    d_lat = math.radians(lat2 - lat1)
+    d_lon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(d_lat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(d_lon / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
+
+async def map_match_coordinates(
+    coordinates,
+    chunk_size=100,
+    overlap=10,
+    max_retries=2,
+    min_sub_chunk=20,
+    jump_threshold_m=200.0,
+):
+    """
+    Map-match coordinates via the Mapbox API, with:
+      - Overlapping chunks
+      - Retry-based sub-chunk splitting if chunk fails
+      - Final jump detection & local re-match to remove big diagonal lines
+
+    :param coordinates: List of [lon, lat] pairs
+    :param chunk_size:  Max # of points to send to Mapbox per chunk (<= 100)
+    :param overlap:     # of overlapping points between consecutive chunks
+    :param max_retries: Times to retry chunk splitting if an API call fails
+    :param min_sub_chunk: Minimum sub-chunk size during fallback splitting
+    :param jump_threshold_m: Gap distance (in meters) that we consider a suspicious jump
+    :return: dict with "code": "Ok" or "Error", and on success "matchings" -> geometry
     """
     if len(coordinates) < 2:
         logger.warning("Insufficient coordinates for map matching.")
@@ -39,94 +73,195 @@ async def map_match_coordinates(coordinates):
             "message": "At least two coordinates are required for map matching.",
         }
 
-    base_url = "https://api.mapbox.com/matching/v5/mapbox/driving/"
-    chunks = [
-        coordinates[i : i + MAX_MAPBOX_COORDINATES]
-        for i in range(0, len(coordinates), MAX_MAPBOX_COORDINATES)
-    ]
+    async def call_mapbox_api(coords):
+        """
+        Call the Mapbox Map Matching API for a single chunk of coords.
+        coords is a list of [lon, lat].
+        Returns the API JSON or raises an Exception if there's an error.
+        """
+        base_url = "https://api.mapbox.com/matching/v5/mapbox/driving/"
+        coords_str = ";".join(f"{lon},{lat}" for lon, lat in coords)
+        url = base_url + coords_str
+        params = {
+            "access_token": MAPBOX_ACCESS_TOKEN,
+            "geometries": "geojson",
+            # We'll keep radius=25 to ensure we only match close to the real road
+            "radiuses": ";".join("25" for _ in coords),
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params) as response:
+                response.raise_for_status()
+                data = await response.json()
+                return data
 
-    matched_geometries = []
-    async with aiohttp.ClientSession() as session:
-        for index, chunk in enumerate(chunks):
-            coords_str = ";".join(f"{lon},{lat}" for lon, lat in chunk)
-            url = base_url + coords_str
-            params = {
-                "access_token": MAPBOX_ACCESS_TOKEN,
-                "geometries": "geojson",
-                "radiuses": ";".join("25" for _ in chunk),
-            }
-            try:
-                async with session.get(url, params=params) as response:
-                    response.raise_for_status()
-                    data = await response.json()
-                    if data.get("code") == "Ok":
-                        part = data["matchings"][0]["geometry"]["coordinates"]
-                        matched_geometries.extend(part)
-                        logger.debug(
-                            "Chunk %s/%s: succeeded with %d coords.",
-                            index + 1,
-                            len(chunks),
-                            len(chunk),
-                        )
-                    else:
-                        msg = data.get("message", "Mapbox API error")
-                        logger.error(
-                            "Chunk %d: Map Matching API error: %s",
-                            index + 1,
-                            msg,
-                        )
-                        return {"code": "Error", "message": msg}
+    async def match_chunk(chunk_coords, depth=0):
+        """
+        Recursively attempt to map-match the given chunk. If it fails:
+          - we split the chunk into sub-chunks (2 halves) and try again
+          - up to max_retries times
+        Returns None on total failure, or a list of [lon, lat] for the matched geometry.
+        """
+        if len(chunk_coords) < 2:
+            return []
+        if len(chunk_coords) > 100:
+            logger.error("Logic error: match_chunk got >100 coords unexpectedly.")
+            return []
 
-            except ClientResponseError as e:
-                error_data = None
-                if e.response and e.response.content_type == "application/json":
-                    error_data = await e.response.json()
-                logger.error(
-                    "Chunk %d: ClientResponseError %s - %s, URL: %s, Resp: %s",
-                    index + 1,
-                    e.status,
-                    e.message,
-                    e.request_info.url,
-                    error_data,
-                    exc_info=True,
-                )
-                return {
-                    "code": "Error",
-                    "message": (
-                        error_data.get("message", f"Mapbox error {e.status}")
-                        if error_data
-                        else str(e)
-                    ),
-                }
-            except ClientConnectorError as e:
-                logger.error(
-                    "Chunk %d: ClientConnectorError: %s",
-                    index + 1,
-                    e,
-                    exc_info=True,
-                )
-                return {
-                    "code": "Error",
-                    "message": f"Connection error to Mapbox: {str(e)}",
-                }
-            except asyncio.TimeoutError:
-                logger.error(
-                    "Chunk %d: Mapbox request timed out.",
-                    index + 1,
-                    exc_info=True,
-                )
-                return {
-                    "code": "Error",
-                    "message": "Mapbox API request timed out.",
-                }
-            except Exception as e:
-                logger.error(
-                    "Chunk %d: Unexpected error: %s",
-                    index + 1,
-                    e,
-                    exc_info=True,
-                )
-                return {"code": "Error", "message": str(e)}
+        try:
+            data = await call_mapbox_api(chunk_coords)
+            if data.get("code") == "Ok":
+                # We'll just use the first matching from the results.
+                matched_coords = data["matchings"][0]["geometry"]["coordinates"]
+                return matched_coords
+            else:
+                msg = data.get("message", "Mapbox error (code != Ok)")
+                logger.warning("Mapbox chunk error: %s", msg)
+        except (ClientResponseError, ClientConnectorError) as e:
+            logger.warning("Mapbox chunk network error: %s", str(e))
+        except asyncio.TimeoutError:
+            logger.warning("Mapbox chunk request timed out.")
+        except Exception as exc:
+            logger.warning("Unexpected error in mapbox chunk: %s", str(exc))
+
+        # If we reach here, we had an error or non-Ok result.
+        if depth < max_retries and len(chunk_coords) > min_sub_chunk:
+            # We'll attempt sub-splitting the chunk into two halves.
+            mid = len(chunk_coords) // 2
+            first_half = chunk_coords[:mid]
+            second_half = chunk_coords[mid:]
+            logger.info(
+                "Retry chunk of size %d by splitting into sub-chunks: %d, %d (depth=%d)",
+                len(chunk_coords),
+                len(first_half),
+                len(second_half),
+                depth,
+            )
+            matched_first = await match_chunk(first_half, depth + 1)
+            matched_second = await match_chunk(second_half, depth + 1)
+            if matched_first is not None and matched_second is not None:
+                # Stitch them by removing duplicate boundary if needed
+                if matched_first and matched_second:
+                    if matched_first[-1] == matched_second[0]:
+                        matched_second = matched_second[1:]
+                return matched_first + matched_second
+
+        # Total fail
+        logger.error(
+            "Chunk of size %d failed after %d retries, giving up.",
+            len(chunk_coords),
+            depth,
+        )
+        return None
+
+    # Step 1: Build chunk indices with overlap
+    n = len(coordinates)
+    chunk_indices = []
+    start_idx = 0
+    while start_idx < n:
+        end_idx = min(start_idx + chunk_size, n)
+        chunk_indices.append((start_idx, end_idx))
+        if end_idx == n:
+            break
+        start_idx = end_idx - overlap
+
+    logger.info(
+        "Splitting %d coords into %d chunk(s) w/ chunk_size=%d overlap=%d",
+        n,
+        len(chunk_indices),
+        chunk_size,
+        overlap,
+    )
+
+    # Step 2: Map-match each chunk, stitch them carefully
+    final_matched = []
+    for cindex, (start_i, end_i) in enumerate(chunk_indices, 1):
+        chunk_coords = coordinates[start_i:end_i]
+        logger.debug("Matching chunk %d/%d with %d coords", cindex, len(chunk_indices), len(chunk_coords))
+        result = await match_chunk(chunk_coords, depth=0)
+        if result is None:
+            # If a chunk absolutely fails, we bail out
+            msg = f"Chunk {cindex} of {len(chunk_indices)} failed map matching."
+            logger.error(msg)
+            return {"code": "Error", "message": msg}
+
+        if not final_matched:
+            # first chunk
+            final_matched = result
+        else:
+            # Attempt to remove any overlap duplication
+            if final_matched[-1] == result[0]:
+                result = result[1:]
+            final_matched.extend(result)
+
+    logger.info("Stitched matched coords from all chunks, total points=%d", len(final_matched))
+
+    # Step 3: “Jump Detection” – detect large leaps, attempt local re-match
+    # We scan final_matched for suspicious big jumps. If found, we attempt
+    # a smaller re-match from i-1 to i+1 around that jump.
+    # We'll do this in a loop until no large jumps remain or we exceed max passes.
+    def detect_big_jumps(coords, threshold_m=200):
+        """
+        Return list of indices i where distance from coords[i] to coords[i+1] > threshold_m
+        """
+        suspicious_indices = []
+        for i in range(len(coords) - 1):
+            lon1, lat1 = coords[i]
+            lon2, lat2 = coords[i + 1]
+            dist_m = haversine_single(lon1, lat1, lon2, lat2)
+            if dist_m > threshold_m:
+                suspicious_indices.append(i)
+        return suspicious_indices
+
+    max_jump_passes = 2
+    pass_count = 0
+
+    while pass_count < max_jump_passes:
+        big_jumps = detect_big_jumps(final_matched, jump_threshold_m)
+        if not big_jumps:
+            break  # no suspicious leaps, done
+        logger.info("Found %d suspicious jump(s) on pass %d", len(big_jumps), pass_count + 1)
+
+        # We'll fix them from left to right. But each fix might change indexing,
+        # so we'll keep track of how many we've done.
+        fix_count = 0
+        new_coords = final_matched[:]
+        offset = 0  # offset in new_coords indexing
+        for j_idx in big_jumps:
+            i = j_idx + offset
+            if i < 1 or i >= len(new_coords) - 1:
+                # can't fix a jump at boundary
+                continue
+
+            # We'll try re-matching the sub-segment from i-1..i+2 if that exists
+            start_sub = i - 1
+            end_sub = i + 2
+            if end_sub > len(new_coords):
+                end_sub = len(new_coords)
+
+            sub_coords = new_coords[start_sub:end_sub]
+            if len(sub_coords) < 2:
+                continue
+
+            # attempt local re-match
+            local_match = await match_chunk(sub_coords, depth=0)
+            if local_match and len(local_match) >= 2:
+                logger.info("Re-matched sub-segment around index %d, replaced %d points", i, (end_sub - start_sub))
+                # We'll splice local_match in place of sub_coords
+                new_coords = new_coords[:start_sub] + local_match + new_coords[end_sub:]
+                # Adjust offset so further jump indices are correct
+                offset += len(local_match) - (end_sub - start_sub)
+                fix_count += 1
+            else:
+                logger.info("Local re-match for sub-segment around index %d failed, leaving it as is", i)
+
+        final_matched = new_coords
+        pass_count += 1
+        if fix_count == 0:
+            # No fixes were performed; no reason to keep looping
+            break
+
+    # Done jump detection attempts
+    logger.info("Final matched coords after jump detection: %d points", len(final_matched))
 
     return {
         "code": "Ok",
@@ -134,107 +269,11 @@ async def map_match_coordinates(coordinates):
             {
                 "geometry": {
                     "type": "LineString",
-                    "coordinates": matched_geometries,
+                    "coordinates": final_matched,
                 },
             }
         ],
     }
-
-
-def haversine_distance_vectorized(
-    coords1: np.ndarray, coords2: np.ndarray
-) -> np.ndarray:
-    """
-    Vectorized version of haversine distance calculation that releases the GIL.
-    Takes numpy arrays of shape (N, 2) where each row is [lon, lat].
-    Returns distances in miles.
-    """
-    R = 6371.0  # Earth's radius in kilometers
-
-    # Convert to radians
-    coords1_rad = np.radians(coords1)
-    coords2_rad = np.radians(coords2)
-
-    # Differences in coordinates
-    dlat = coords2_rad[:, 1] - coords1_rad[:, 1]
-    dlon = coords2_rad[:, 0] - coords1_rad[:, 0]
-
-    # Haversine formula
-    a = (
-        np.sin(dlat / 2) ** 2
-        + np.cos(coords1_rad[:, 1]) * np.cos(coords2_rad[:, 1]) * np.sin(dlon / 2) ** 2
-    )
-    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
-
-    return R * c * 0.621371  # Convert to miles
-
-
-def filter_outliers_by_distance(coords_with_time, max_speed_m_s=60.0):
-    """
-    Filter out coordinates that would require unrealistic speeds to reach.
-    Uses vectorized operations for better performance.
-    """
-    if len(coords_with_time) < 2:
-        return coords_with_time
-
-    # Convert coordinates to numpy array for vectorized operations
-    coords = np.array([[c[0], c[1]] for c in coords_with_time])
-
-    # Calculate distances between consecutive points
-    coords_shifted = np.roll(coords, -1, axis=0)
-    distances = (
-        haversine_distance_vectorized(coords[:-1], coords_shifted[:-1]) * 1609.34
-    )  # Convert miles to meters
-
-    # Calculate time differences if timestamps are available
-    if len(coords_with_time[0]) > 2:
-        times = np.array([c[2].timestamp() for c in coords_with_time])
-        times_shifted = np.roll(times, -1)
-        time_diffs = times_shifted[:-1] - times[:-1]
-        speeds = distances / np.maximum(time_diffs, 1e-6)  # Avoid division by zero
-    else:
-        # If no timestamps, assume constant time between points
-        speeds = distances / 1.0  # Assume 1 second between points
-
-    # Mark points that exceed max speed
-    valid_speeds = speeds <= max_speed_m_s
-    valid_indices = np.ones(len(coords_with_time), dtype=bool)
-    valid_indices[1:-1] = valid_speeds
-
-    return [
-        coords_with_time[i] for i in range(len(coords_with_time)) if valid_indices[i]
-    ]
-
-
-def split_trip_on_time_gaps(coords_with_time, max_gap_minutes=15):
-    """
-    Split a trip into segments when there are large time gaps between points.
-    Uses vectorized operations for better performance.
-    """
-    if len(coords_with_time) < 2 or not isinstance(coords_with_time[0][-1], datetime):
-        return [coords_with_time]
-
-    # Convert timestamps to numpy array
-    times = np.array([c[-1].timestamp() for c in coords_with_time])
-
-    # Calculate time differences between consecutive points
-    time_diffs = np.diff(times) / 60  # Convert to minutes
-
-    # Find indices where time gaps exceed threshold
-    split_indices = np.where(time_diffs > max_gap_minutes)[0] + 1
-
-    # Split the coordinates at the gap points
-    if len(split_indices) == 0:
-        return [coords_with_time]
-
-    segments = []
-    start_idx = 0
-    for end_idx in split_indices:
-        segments.append(coords_with_time[start_idx:end_idx])
-        start_idx = end_idx
-    segments.append(coords_with_time[start_idx:])
-
-    return segments
 
 
 async def process_and_map_match_trip(trip):
@@ -243,7 +282,7 @@ async def process_and_map_match_trip(trip):
       - Validate trip
       - Extract coordinates
       - Map match each segment
-      - Merge matched coords
+      - Store matched coords
       - Insert into matched_trips_collection
     """
     try:
@@ -297,9 +336,7 @@ async def process_and_map_match_trip(trip):
 
         # Optionally update location via reverse geocode for the first matched point
         try:
-            first_lon, first_lat = match_result["matchings"][0]["geometry"][
-                "coordinates"
-            ][0]
+            first_lon, first_lat = match_result["matchings"][0]["geometry"]["coordinates"][0]
             city_info = await reverse_geocode_nominatim(first_lat, first_lon)
             if city_info:
                 matched_trip["location"] = city_info.get("display_name", "Unknown")
