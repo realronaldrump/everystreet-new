@@ -47,58 +47,51 @@
         "mainContent",
         "body",
       ];
-      const missingElements = requiredElements.filter(
-        (el) => !this.elements[el]
-      );
-      if (missingElements.length > 0) {
-        throw new Error(
-          `Missing required elements: ${missingElements.join(", ")}`
-        );
+      const missing = requiredElements.filter((el) => !this.elements[el]);
+      if (missing.length) {
+        throw new Error(`Missing required elements: ${missing.join(", ")}`);
       }
     }
 
     initializeEventListeners() {
       [this.elements.toggleButton, this.elements.collapseButton].forEach(
         (button) => {
-          button?.addEventListener("click", this.handleToggleClick.bind(this));
+          button?.addEventListener("click", (e) => {
+            e.preventDefault();
+            this.toggleSidebar();
+          });
         }
       );
 
       [this.elements.startDateInput, this.elements.endDateInput].forEach(
         (input) => {
-          input?.addEventListener("change", this.handleDateChange.bind(this));
+          input?.addEventListener("change", (e) => {
+            const key = e.target.id.includes("start") ? "startDate" : "endDate";
+            localStorage.setItem(this.config.storageKeys[key], e.target.value);
+          });
         }
       );
 
       window.addEventListener(
         "resize",
-        this.debounce(this.handleResponsiveLayout.bind(this), 250)
+        this.debounce(() => this.handleResponsiveLayout(), 250)
       );
-
-      document.addEventListener("click", this.handleOutsideClick.bind(this));
-
-      if (this.elements.filtersToggle) {
-        this.elements.filtersToggle.addEventListener(
-          "click",
-          this.handleFiltersToggle.bind(this)
-        );
-      }
-    }
-
-    handleToggleClick(e) {
-      e.preventDefault();
-      this.toggleSidebar();
+      document.addEventListener("click", (e) => this.handleOutsideClick(e));
+      this.elements.filtersToggle?.addEventListener("click", (e) =>
+        this.handleFiltersToggle(e)
+      );
     }
 
     handleOutsideClick(e) {
       const isMobile = window.innerWidth < this.config.mobileBreakpoint;
-      const isOutsideClick =
+      const clickedOutside =
         !this.elements.sidebar.contains(e.target) &&
         !this.elements.toggleButton.contains(e.target);
-      const isSidebarActive =
-        this.elements.sidebar.classList.contains("active");
-
-      if (isMobile && isOutsideClick && isSidebarActive) {
+      if (
+        isMobile &&
+        clickedOutside &&
+        this.elements.sidebar.classList.contains("active")
+      ) {
         this.toggleSidebar();
       }
     }
@@ -106,7 +99,6 @@
     toggleSidebar() {
       const { sidebar, toggleButton, body, mainContent } = this.elements;
       const isMobile = window.innerWidth < this.config.mobileBreakpoint;
-
       if (isMobile) {
         sidebar.classList.toggle("active");
       } else {
@@ -114,7 +106,6 @@
         body.classList.toggle("sidebar-collapsed");
         mainContent?.classList.toggle("expanded");
       }
-
       toggleButton.classList.toggle("active");
       this.updateToggleButtonIcon();
       this.storeSidebarState();
@@ -147,30 +138,21 @@
 
     loadStoredDates() {
       ["startDate", "endDate"].forEach((key) => {
-        const storedValue = localStorage.getItem(this.config.storageKeys[key]);
-        const inputId = key.toLowerCase().replace("date", "-date");
-        const input = document.getElementById(inputId);
-        if (storedValue && input) {
-          input.value = storedValue;
-        }
+        const stored = localStorage.getItem(this.config.storageKeys[key]);
+        const input = document.getElementById(
+          key.toLowerCase().replace("date", "-date")
+        );
+        if (stored && input) input.value = stored;
       });
-    }
-
-    handleDateChange(event) {
-      const key = event.target.id.includes("start") ? "startDate" : "endDate";
-      localStorage.setItem(this.config.storageKeys[key], event.target.value);
     }
 
     handleResponsiveLayout() {
       const isMobile = window.innerWidth < this.config.mobileBreakpoint;
       const { sidebar, body, mainContent } = this.elements;
-
       if (isMobile) {
-        if (!sidebar.classList.contains("active")) {
-          sidebar.classList.remove("collapsed");
-          body.classList.remove("sidebar-collapsed");
-          mainContent?.classList.remove("expanded");
-        }
+        sidebar.classList.remove("collapsed");
+        body.classList.remove("sidebar-collapsed");
+        mainContent?.classList.remove("expanded");
       } else {
         const isCollapsed =
           localStorage.getItem(this.config.storageKeys.sidebarState) === "true";
@@ -187,11 +169,8 @@
     }
 
     handleFiltersToggle(e) {
-      const isCollapsed = e.currentTarget.classList.toggle("collapsed");
-      localStorage.setItem(
-        this.config.storageKeys.filtersCollapsed,
-        isCollapsed
-      );
+      const collapsed = e.currentTarget.classList.toggle("collapsed");
+      localStorage.setItem(this.config.storageKeys.filtersCollapsed, collapsed);
     }
 
     loadFiltersState() {
@@ -201,9 +180,7 @@
       if (isCollapsed && this.elements.filtersToggle) {
         this.elements.filtersToggle.classList.add("collapsed");
         const filtersContent = document.getElementById("filters-content");
-        if (filtersContent) {
-          filtersContent.classList.remove("show");
-        }
+        if (filtersContent) filtersContent.classList.remove("show");
       }
     }
 
@@ -219,31 +196,23 @@
 
     initializeScrollIndicator() {
       if (this.elements.sidebarBody) {
-        this.elements.sidebarBody.addEventListener(
-          "scroll",
-          this.handleScrollIndicator
+        this.elements.sidebarBody.addEventListener("scroll", (e) =>
+          this.handleScrollIndicator(e)
         );
-        // Initial check
         this.handleScrollIndicator({ target: this.elements.sidebarBody });
       }
     }
 
-    handleScrollIndicator(event) {
-      const element = event.target;
-      const isScrollable = element.scrollHeight > element.clientHeight;
-      const isScrolledToBottom =
-        Math.abs(
-          element.scrollHeight - element.scrollTop - element.clientHeight
-        ) < 1;
-      element.classList.toggle(
-        "is-scrollable",
-        isScrollable && !isScrolledToBottom
-      );
+    handleScrollIndicator(e) {
+      const el = e.target;
+      const isScrollable = el.scrollHeight > el.clientHeight;
+      const atBottom =
+        Math.abs(el.scrollHeight - el.scrollTop - el.clientHeight) < 1;
+      el.classList.toggle("is-scrollable", isScrollable && !atBottom);
     }
 
     initializeKeyboardNavigation() {
       document.addEventListener("keydown", (e) => {
-        // Toggle sidebar with Ctrl + B
         if (e.ctrlKey && e.key === "b") {
           e.preventDefault();
           this.toggleSidebar();
@@ -254,21 +223,20 @@
     setButtonLoading(buttonId, isLoading) {
       const button = document.getElementById(buttonId);
       if (!button) return;
-
-      const originalContent = button.innerHTML;
+      const original = button.innerHTML;
       if (isLoading) {
         button.disabled = true;
         button.innerHTML =
           '<span class="spinner-border spinner-border-sm me-1"></span> Loading...';
       } else {
         button.disabled = false;
-        button.innerHTML = originalContent;
+        button.innerHTML = original;
       }
     }
 
     debounce(func, wait) {
       let timeout;
-      return function (...args) {
+      return (...args) => {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
       };

@@ -1,5 +1,4 @@
 /* global L */
-
 class LiveTripTracker {
   constructor(map) {
     this.map = map;
@@ -49,25 +48,19 @@ class LiveTripTracker {
 
   setActiveTrip(trip) {
     this.activeTrip = trip;
-
     if (!Array.isArray(trip.coordinates) || trip.coordinates.length === 0) {
       this.polyline.setLatLngs([]);
-      if (this.map.hasLayer(this.marker)) {
-        this.map.removeLayer(this.marker);
-      }
+      if (this.map.hasLayer(this.marker)) this.map.removeLayer(this.marker);
       return;
     }
-
+    // Sort coordinates by timestamp and update the polyline and marker
     trip.coordinates.sort(
       (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
     );
     const latLngs = trip.coordinates.map((coord) => [coord.lat, coord.lon]);
     this.polyline.setLatLngs(latLngs);
-
     const lastPoint = latLngs[latLngs.length - 1];
-    if (!this.map.hasLayer(this.marker)) {
-      this.marker.addTo(this.map);
-    }
+    if (!this.map.hasLayer(this.marker)) this.marker.addTo(this.map);
     this.marker.setLatLng(lastPoint);
     this.marker.setOpacity(1);
   }
@@ -81,29 +74,28 @@ class LiveTripTracker {
   connectWebSocket() {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const wsUrl = `${protocol}://${window.location.host}/ws/live_trip`;
-
     this.websocket = new WebSocket(wsUrl);
 
-    this.websocket.onopen = () => {
+    this.websocket.addEventListener("open", () => {
       this.updateStatus(true);
       this.reconnectAttempts = 0;
-    };
+    });
 
-    this.websocket.onmessage = (event) => {
+    this.websocket.addEventListener("message", (event) => {
       try {
         const message = JSON.parse(event.data);
         this.handleWebSocketMessage(message);
       } catch (err) {
         console.error("Error parsing WebSocket message:", err);
       }
-    };
+    });
 
-    this.websocket.onerror = (err) => {
+    this.websocket.addEventListener("error", (err) => {
       console.error("WebSocket error:", err);
       this.updateStatus(false);
-    };
+    });
 
-    this.websocket.onclose = () => {
+    this.websocket.addEventListener("close", () => {
       console.warn("WebSocket closed");
       this.updateStatus(false);
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
@@ -112,7 +104,7 @@ class LiveTripTracker {
       } else {
         console.error("Maximum WS reconnect attempts reached.");
       }
-    };
+    });
   }
 
   updateStatus(connected) {
@@ -126,24 +118,24 @@ class LiveTripTracker {
 
   handleWebSocketMessage(message) {
     if (!message || !message.type) return;
-    const { type } = message;
-
-    if (type === "trip_update") {
-      if (message.data) {
-        this.setActiveTrip(message.data);
-        this.updateActiveTripsCount(1);
-      }
-    } else if (type === "heartbeat") {
-      this.activeTrip = null;
-      this.polyline.setLatLngs([]);
-      if (this.map.hasLayer(this.marker)) {
-        this.map.removeLayer(this.marker);
-      }
-      this.updateActiveTripsCount(0);
-    } else if (type === "error") {
-      console.error("WebSocket error from server:", message.message);
-    } else {
-      console.warn("Unhandled WebSocket message type:", type);
+    switch (message.type) {
+      case "trip_update":
+        if (message.data) {
+          this.setActiveTrip(message.data);
+          this.updateActiveTripsCount(1);
+        }
+        break;
+      case "heartbeat":
+        this.activeTrip = null;
+        this.polyline.setLatLngs([]);
+        if (this.map.hasLayer(this.marker)) this.map.removeLayer(this.marker);
+        this.updateActiveTripsCount(0);
+        break;
+      case "error":
+        console.error("WebSocket error from server:", message.message);
+        break;
+      default:
+        console.warn("Unhandled WebSocket message type:", message.type);
     }
   }
 }
