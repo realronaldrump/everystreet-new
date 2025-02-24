@@ -1,10 +1,16 @@
+"""
+Street coverage calculation module.
+Calculates the percentage of street segments that have been driven based on trip data.
+Utilizes spatial indexes and parallel processing.
+"""
+
 import asyncio
 import json
 import logging
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set
-import itertools
+from typing import Any, Dict, List, Optional, Set, Tuple
+
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 
@@ -46,7 +52,7 @@ class CoverageCalculator:
         self.match_buffer: float = 15.0
         self.min_match_length: float = 5.0
         self.batch_size: int = 1000
-        self.street_chunk_size: int = 500  # For processing streets in chunks
+        self.street_chunk_size: int = 500
         self.boundary_box = None
 
         self.total_length: float = 0.0
@@ -55,7 +61,6 @@ class CoverageCalculator:
         self.total_trips: int = 0
         self.processed_trips: int = 0
 
-        # Initialize process pool with number of CPU cores
         self.process_pool = ProcessPoolExecutor(max_workers=multiprocessing.cpu_count())
 
         self.initialize_projections()
@@ -74,7 +79,7 @@ class CoverageCalculator:
             self.utm_proj, WGS84, always_xy=True
         ).transform
 
-    def _get_location_center(self):
+    def _get_location_center(self) -> Tuple[float, float]:
         if "boundingbox" in self.location:
             bbox = self.location["boundingbox"]
             return (float(bbox[0]) + float(bbox[1])) / 2, (
@@ -106,30 +111,23 @@ class CoverageCalculator:
             logger.error("Error updating progress: %s", e)
 
     async def initialize(self) -> None:
-        """Asynchronous initialization method"""
         await asyncio.to_thread(self.initialize_projections)
 
-    async def build_spatial_index(self, streets: List[Dict[str, Any]]):
+    async def build_spatial_index(self, streets: List[Dict[str, Any]]) -> None:
         logger.info("Building spatial index for %d streets...", len(streets))
-
-        # Process streets in chunks to avoid blocking
         for i in range(0, len(streets), self.street_chunk_size):
             chunk = streets[i : i + self.street_chunk_size]
             await asyncio.to_thread(self._process_street_chunk, chunk)
-
-            # Allow other tasks to run
             await asyncio.sleep(0)
 
-    def _process_street_chunk(self, streets: List[Dict[str, Any]]):
-        """Process a chunk of streets synchronously"""
-        for idx, street in enumerate(streets):
+    def _process_street_chunk(self, streets: List[Dict[str, Any]]) -> None:
+        for street in streets:
             try:
                 geom = shape(street["geometry"])
                 bounds = geom.bounds
                 current_idx = len(self.streets_lookup)
                 self.streets_index.insert(current_idx, bounds)
                 self.streets_lookup[current_idx] = street
-
                 street_utm = transform(self.project_to_utm, geom)
                 street["properties"]["segment_length"] = street_utm.length
                 self.total_length += street_utm.length
@@ -140,14 +138,13 @@ class CoverageCalculator:
                     e,
                 )
 
-    async def calculate_boundary_box(self, streets: List[Dict[str, Any]]):
-        bounds = None
-
-        # Process streets in chunks
+    async def calculate_boundary_box(self, streets: List[Dict[str, Any]]) -> box:
+        bounds: Optional[Tuple[float, float, float, float]] = None
         for i in range(0, len(streets), self.street_chunk_size):
             chunk = streets[i : i + self.street_chunk_size]
             chunk_bounds = await asyncio.to_thread(self._process_boundary_chunk, chunk)
-
+            if chunk_bounds is None:
+                continue
             if bounds is None:
                 bounds = chunk_bounds
             else:
@@ -157,14 +154,13 @@ class CoverageCalculator:
                     max(bounds[2], chunk_bounds[2]),
                     max(bounds[3], chunk_bounds[3]),
                 )
-
-            # Allow other tasks to run
             await asyncio.sleep(0)
-
         return box(*bounds) if bounds else box(0, 0, 0, 0)
 
-    def _process_boundary_chunk(self, streets: List[Dict[str, Any]]) -> tuple:
-        bounds = None
+    def _process_boundary_chunk(
+        self, streets: List[Dict[str, Any]]
+    ) -> Optional[Tuple[float, float, float, float]]:
+        bounds: Optional[List[float]] = None
         for street in streets:
             try:
                 geom = shape(street["geometry"])
@@ -177,15 +173,13 @@ class CoverageCalculator:
                     bounds[3] = max(bounds[3], geom.bounds[3])
             except Exception as e:
                 logger.error("Error computing boundary for a street: %s", e)
-        return bounds if bounds else (0, 0, 0, 0)
+        return tuple(bounds) if bounds else None
 
-    def _is_valid_trip(self, gps_data: Any):
+    def _is_valid_trip(self, gps_data: Any) -> Tuple[bool, List[Any]]:
         try:
             data = json.loads(gps_data) if isinstance(gps_data, str) else gps_data
             coords = data.get("coordinates", [])
-            if len(coords) < 2:
-                return False, []
-            return True, coords
+            return (False, []) if len(coords) < 2 else (True, coords)
         except Exception as e:
             logger.error("Error decoding GPS data: %s", e, exc_info=True)
             return False, []
@@ -203,21 +197,15 @@ class CoverageCalculator:
             logger.error("Error checking boundary for trip %s: %s", trip.get("_id"), e)
             return False
 
-    def _process_trip_sync(self, coords):
-        """
-        Process a single trip's coordinates synchronously.
-        This method uses Shapely operations which release the GIL internally.
-        """
-        covered = set()
+    def _process_trip_sync(self, coords: List[Any]) -> Set[str]:
+        covered: Set[str] = set()
         try:
             trip_line = LineString(coords)
             if len(trip_line.coords) < 2:
                 return covered
-
             trip_line_utm = transform(self.project_to_utm, trip_line)
             trip_buffer = trip_line_utm.buffer(self.match_buffer)
             trip_buffer_wgs84 = transform(self.project_to_wgs84, trip_buffer)
-
             for idx in list(self.streets_index.intersection(trip_buffer_wgs84.bounds)):
                 street = self.streets_lookup[idx]
                 street_geom = shape(street["geometry"])
@@ -234,13 +222,8 @@ class CoverageCalculator:
             logger.error("Error processing trip synchronously: %s", e, exc_info=True)
         return covered
 
-    async def process_trip_batch(self, trips: List[Dict[str, Any]]):
-        """
-        Process a batch of trips using chunked processing.
-        Each chunk is processed using asyncio.to_thread since Shapely operations release the GIL.
-        """
-        # Prepare trip coordinates for parallel processing
-        trip_coords = []
+    async def process_trip_batch(self, trips: List[Dict[str, Any]]) -> None:
+        trip_coords: List[List[Any]] = []
         for trip in trips:
             if self.boundary_box and self.is_trip_in_boundary(trip):
                 gps_data = trip.get("gps")
@@ -248,36 +231,27 @@ class CoverageCalculator:
                     valid, coords = self._is_valid_trip(gps_data)
                     if valid:
                         trip_coords.append(coords)
-
         if trip_coords:
-            # Process trips in chunks to avoid memory issues
-            chunk_size = 100  # Process 100 trips at a time
+            chunk_size = 100
             for i in range(0, len(trip_coords), chunk_size):
                 chunk = trip_coords[i : i + chunk_size]
-                try:
-                    # Process the chunk synchronously since we can't pickle the rtree index
-                    for coords in chunk:
-                        covered = await asyncio.to_thread(
-                            self._process_trip_sync, coords
-                        )
-                        for seg in covered:
-                            self.covered_segments.add(seg)
-                            self.segment_coverage[seg] += 1
-                except Exception as e:
-                    logger.error("Error processing trip chunk: %s", e, exc_info=True)
-
-        self.processed_trips += len(trips)
-        progress_val = (
-            (self.processed_trips / self.total_trips * 100)
-            if self.total_trips > 0
-            else 0
-        )
-        await self.update_progress(
-            "processing_trips",
-            progress_val,
-            f"Processed {self.processed_trips} of {self.total_trips} trips",
-        )
-        await asyncio.sleep(0)
+                for coords in chunk:
+                    covered = await asyncio.to_thread(self._process_trip_sync, coords)
+                    for seg in covered:
+                        self.covered_segments.add(seg)
+                        self.segment_coverage[seg] += 1
+                self.processed_trips += len(chunk)
+                progress_val = (
+                    (self.processed_trips / self.total_trips * 100)
+                    if self.total_trips > 0
+                    else 0
+                )
+                await self.update_progress(
+                    "processing_trips",
+                    progress_val,
+                    f"Processed {self.processed_trips} of {self.total_trips} trips",
+                )
+                await asyncio.sleep(0)
 
     async def compute_coverage(self) -> Optional[Dict[str, Any]]:
         try:
@@ -285,10 +259,7 @@ class CoverageCalculator:
                 "initializing", 0, "Starting coverage calculation..."
             )
             await ensure_street_coverage_indexes()
-
-            # Initialize projections asynchronously
             await self.initialize()
-
             await self.update_progress("loading_streets", 10, "Loading street data...")
             streets = await streets_collection.find(
                 {"properties.location": self.location.get("display_name")}
@@ -298,11 +269,9 @@ class CoverageCalculator:
                 logger.warning(msg)
                 await self.update_progress("error", 0, msg)
                 return None
-
             await self.update_progress("indexing", 20, "Building spatial index...")
             await self.build_spatial_index(streets)
             self.boundary_box = await self.calculate_boundary_box(streets)
-
             await self.update_progress("counting_trips", 30, "Counting trips...")
             bbox = self.boundary_box.bounds
             trip_filter = {
@@ -311,33 +280,23 @@ class CoverageCalculator:
                     {
                         "startGeoPoint": {
                             "$geoWithin": {
-                                "$box": [
-                                    [bbox[0], bbox[1]],
-                                    [bbox[2], bbox[3]],
-                                ]
+                                "$box": [[bbox[0], bbox[1]], [bbox[2], bbox[3]]]
                             }
                         }
                     },
                     {
                         "destinationGeoPoint": {
                             "$geoWithin": {
-                                "$box": [
-                                    [bbox[0], bbox[1]],
-                                    [bbox[2], bbox[3]],
-                                ]
+                                "$box": [[bbox[0], bbox[1]], [bbox[2], bbox[3]]]
                             }
                         }
                     },
                 ],
             }
-
             self.total_trips = await trips_collection.count_documents(trip_filter)
             await self.update_progress(
-                "processing_trips",
-                40,
-                f"Processing {self.total_trips} trips...",
+                "processing_trips", 40, f"Processing {self.total_trips} trips..."
             )
-
             batch = []
             cursor = trips_collection.aggregate([{"$match": trip_filter}])
             async for trip in cursor:
@@ -346,21 +305,16 @@ class CoverageCalculator:
                     await self.process_trip_batch(batch)
                     batch = []
                     progress = min(
-                        90,
-                        40 + (self.processed_trips / self.total_trips * 50),
+                        90, 40 + (self.processed_trips / self.total_trips * 50)
                     )
                     await self.update_progress(
                         "processing_trips",
                         progress,
                         f"Processed {self.processed_trips} of {self.total_trips} trips",
                     )
-
             if batch:
                 await self.process_trip_batch(batch)
-
-            # Clean up the process pool
             self.process_pool.shutdown()
-
             await self.update_progress(
                 "finalizing", 95, "Calculating final coverage..."
             )
@@ -371,11 +325,9 @@ class CoverageCalculator:
                 geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, geom)
                 seg_length = street_utm.length
-
                 is_covered = seg_id in self.covered_segments
                 if is_covered:
                     covered_length += seg_length
-
                 feature = {
                     "type": "Feature",
                     "geometry": street["geometry"],
@@ -388,13 +340,11 @@ class CoverageCalculator:
                     },
                 }
                 features.append(feature)
-
             coverage_percentage = (
                 (covered_length / self.total_length * 100)
                 if self.total_length > 0
                 else 0
             )
-
             await self.update_progress("complete", 100, "Coverage calculation complete")
             return {
                 "total_length": self.total_length,
@@ -425,7 +375,7 @@ async def compute_coverage_for_location(
 
 async def update_coverage_for_all_locations() -> None:
     """
-    Iterate all coverage_metadata docs, run coverage calculation for each location.
+    Iterate over all coverage_metadata docs and update coverage for each location.
     """
     try:
         logger.info("Starting coverage update for all locations...")
@@ -434,8 +384,7 @@ async def update_coverage_for_all_locations() -> None:
             loc = doc.get("location")
             if not loc or isinstance(loc, str):
                 logger.warning(
-                    "Skipping doc %s - invalid location format",
-                    doc.get("_id"),
+                    "Skipping doc %s - invalid location format", doc.get("_id")
                 )
                 continue
             task_id = f"bulk_update_{doc['_id']}"
@@ -460,7 +409,6 @@ async def update_coverage_for_all_locations() -> None:
                     display_name,
                     result["coverage_percentage"],
                 )
-
         logger.info("Finished coverage update for all locations.")
     except Exception as e:
         logger.error("Error updating coverage for all locations: %s", e, exc_info=True)

@@ -1,3 +1,8 @@
+"""
+Background tasks manager using APScheduler.
+Manages scheduling, execution, and history recording for periodic tasks.
+"""
+
 import asyncio
 import json
 import logging
@@ -11,16 +16,16 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 
-# Local imports
+from pymongo import UpdateOne
+
+# Local module imports
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from map_matching import process_and_map_match_trip
 from utils import validate_trip_data, reverse_geocode_nominatim
 from street_coverage_calculation import update_coverage_for_all_locations
 from preprocess_streets import preprocess_streets as async_preprocess_streets
 
-# Instead of building a new Motor client, use db.py
-from db import db, task_history_collection
-from pymongo import UpdateOne
+from db import db, task_history_collection, task_config_collection
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +64,7 @@ class BackgroundTaskManager:
         self.tasks: Dict[str, TaskDefinition] = self._initialize_tasks()
         self.task_status: Dict[str, TaskStatus] = {}
         self.task_history: List[Dict[str, Any]] = []
-        self.db = db  # Reuse from db.py
+        self.db = db
         self._setup_event_listeners()
 
     @staticmethod
@@ -140,16 +145,22 @@ class BackgroundTaskManager:
         }
 
     def _setup_event_listeners(self) -> None:
-        def job_executed_callback(event):
-            asyncio.create_task(self._handle_job_executed(event))
+        async def job_executed_callback(event):
+            await self._handle_job_executed(event)
 
-        def job_error_callback(event):
-            asyncio.create_task(self._handle_job_error(event))
+        async def job_error_callback(event):
+            await self._handle_job_error(event)
 
-        self.scheduler.add_listener(job_executed_callback, EVENT_JOB_EXECUTED)
-        self.scheduler.add_listener(job_error_callback, EVENT_JOB_ERROR)
+        self.scheduler.add_listener(
+            lambda event: asyncio.create_task(job_executed_callback(event)),
+            EVENT_JOB_EXECUTED,
+        )
+        self.scheduler.add_listener(
+            lambda event: asyncio.create_task(job_error_callback(event)),
+            EVENT_JOB_ERROR,
+        )
 
-    async def _handle_job_executed(self, event):
+    async def _handle_job_executed(self, event) -> None:
         try:
             task_id = (
                 event.job_id.split("_manual_")[0]
@@ -182,7 +193,7 @@ class BackgroundTaskManager:
             logger.error("Error in _handle_job_executed: %s", e, exc_info=True)
             raise
 
-    async def _handle_job_error(self, event):
+    async def _handle_job_error(self, event) -> None:
         try:
             task_id = (
                 event.job_id.split("_manual_")[0]
@@ -219,13 +230,13 @@ class BackgroundTaskManager:
             logger.error("Error in _handle_job_error: %s", e, exc_info=True)
             raise
 
-    async def _update_task_config(self, task_id: str, updates: Dict[str, Any]):
+    async def _update_task_config(self, task_id: str, updates: Dict[str, Any]) -> None:
         update_dict = {f"tasks.{task_id}.{k}": v for k, v in updates.items()}
         await self.db["task_config"].update_one(
             {"_id": "global_background_task_config"}, {"$set": update_dict}
         )
 
-    def _update_in_memory_history(self, entry: Dict[str, Any]):
+    def _update_in_memory_history(self, entry: Dict[str, Any]) -> None:
         self.task_history.insert(0, entry)
         self.task_history = self.task_history[:50]
 
@@ -267,7 +278,6 @@ class BackgroundTaskManager:
                 self.scheduler.remove_job(task_id)
             except JobLookupError:
                 pass
-
             self.scheduler.add_job(
                 self.get_task_function(task_id),
                 "interval",
@@ -354,10 +364,9 @@ class BackgroundTaskManager:
             await self.db["task_config"].insert_one(cfg)
         return cfg
 
-    # -------------------------------------------------------------------------
-    # Actual Task Implementations
-    # -------------------------------------------------------------------------
-    async def _periodic_fetch_trips(self):
+    # --- Task Implementations ---
+
+    async def _periodic_fetch_trips(self) -> None:
         task_id = "periodic_fetch_trips"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
@@ -376,7 +385,7 @@ class BackgroundTaskManager:
             logger.error("Error in periodic_fetch_trips: %s", e, exc_info=True)
             raise
 
-    async def _update_coverage(self):
+    async def _update_coverage(self) -> None:
         task_id = "update_coverage_for_all_locations"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
@@ -388,7 +397,7 @@ class BackgroundTaskManager:
             logger.error("Error in _update_coverage: %s", e, exc_info=True)
             raise
 
-    async def _preprocess_streets(self):
+    async def _preprocess_streets(self) -> None:
         task_id = "preprocess_streets"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
@@ -423,7 +432,7 @@ class BackgroundTaskManager:
             logger.error("Error in preprocess_streets: %s", e, exc_info=True)
             raise
 
-    async def _cleanup_stale_trips(self):
+    async def _cleanup_stale_trips(self) -> None:
         task_id = "cleanup_stale_trips"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
@@ -448,12 +457,11 @@ class BackgroundTaskManager:
             logger.error("Error in cleanup_stale_trips: %s", e, exc_info=True)
             raise
 
-    async def _cleanup_invalid_trips(self):
+    async def _cleanup_invalid_trips(self) -> None:
         task_id = "cleanup_invalid_trips"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
             update_ops = []
-            # Use projection to get only necessary fields
             async for trip in self.db["trips"].find(
                 {}, {"startTime": 1, "endTime": 1, "gps": 1}
             ):
@@ -480,7 +488,7 @@ class BackgroundTaskManager:
             logger.error("Error in cleanup_invalid_trips: %s", e, exc_info=True)
             raise
 
-    async def _update_geocoding(self):
+    async def _update_geocoding(self) -> None:
         task_id = "update_geocoding"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
@@ -493,7 +501,6 @@ class BackgroundTaskManager:
                     {"destination": ""},
                 ]
             }
-            # Use projection to reduce document size
             async for trip in self.db["trips"].find(
                 query, {"gps": 1, "startLocation": 1, "destination": 1}
             ):
@@ -537,7 +544,7 @@ class BackgroundTaskManager:
             logger.error("Error in update_geocoding: %s", e, exc_info=True)
             raise
 
-    async def _optimize_database(self):
+    async def _optimize_database(self) -> None:
         task_id = "optimize_database"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
@@ -556,7 +563,7 @@ class BackgroundTaskManager:
             logger.error("Error in optimize_database: %s", e, exc_info=True)
             raise
 
-    async def _remap_unmatched_trips(self):
+    async def _remap_unmatched_trips(self) -> None:
         task_id = "remap_unmatched_trips"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
@@ -575,7 +582,7 @@ class BackgroundTaskManager:
             logger.error("Error in remap_unmatched_trips: %s", e, exc_info=True)
             raise
 
-    async def _validate_trip_data(self):
+    async def _validate_trip_data(self) -> None:
         task_id = "validate_trip_data"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
@@ -631,7 +638,7 @@ class BackgroundTaskManager:
 
         await self._update_task_config(task_id, update_data)
 
-    async def _update_task_config(self, task_id: str, updates: Dict[str, Any]):
+    async def _update_task_config(self, task_id: str, updates: Dict[str, Any]) -> None:
         await self.db["task_config"].update_one(
             {"_id": "global_background_task_config"}, {"$set": updates}
         )

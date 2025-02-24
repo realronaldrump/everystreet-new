@@ -3,12 +3,12 @@ import json
 import certifi
 import logging
 import asyncio
+import threading
 from datetime import timezone
-from typing import Optional, Any, Dict, Tuple, List
+from typing import Optional, Any, Dict, Tuple
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 import pymongo
-import threading
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,7 +32,7 @@ class DatabaseManager:
     def __new__(cls) -> "DatabaseManager":
         with cls._lock:
             if cls._instance is None:
-                cls._instance = super(DatabaseManager, cls).__new__(cls)
+                cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self) -> None:
@@ -78,7 +78,6 @@ class DatabaseManager:
     async def check_quota(self) -> Tuple[Optional[float], Optional[float]]:
         """
         Check if the database quota is exceeded.
-
         Returns:
             Tuple of (used_mb, limit_mb). Returns (None, None) on error.
         """
@@ -89,7 +88,7 @@ class DatabaseManager:
                 logger.error("dbStats did not return 'dataSize'")
                 return None, None
             used_mb = data_size / (1024 * 1024)
-            limit_mb = 512
+            limit_mb = 512  # Free-tier limit
             self._quota_exceeded = used_mb > limit_mb
             if self._quota_exceeded:
                 logger.warning(
@@ -133,7 +132,7 @@ class DatabaseManager:
 db_manager = DatabaseManager()
 db: AsyncIOMotorDatabase = db_manager.db
 
-# Collections
+# Define collections
 trips_collection = db["trips"]
 matched_trips_collection = db["matched_trips"]
 historical_trips_collection = db["historical_trips"]
@@ -171,8 +170,8 @@ async def init_task_history_collection() -> None:
 
 async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
     """
-    Asynchronously retrieve a trip document by its transactionId from trips_collection.
-    Ensures the trip contains 'gps' field; returns the trip if valid, else None.
+    Retrieve a trip document by its transactionId from trips_collection.
+    Ensures the trip contains the 'gps' field.
     """
     try:
         trip = await trips_collection.find_one({"transactionId": trip_id})
