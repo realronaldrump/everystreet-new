@@ -186,7 +186,7 @@
         {
           maxZoom: 19,
           attribution: "",
-        }
+        },
       ).addTo(map);
       layerGroup = L.layerGroup().addTo(map);
       mapLayers.customPlaces.layer = L.layerGroup();
@@ -371,17 +371,17 @@
     loadingManager.addSubOperation(
       "Fetching and Displaying Trips",
       "Fetching Data",
-      50
+      50,
     );
     loadingManager.addSubOperation(
       "Fetching and Displaying Trips",
       "Processing Data",
-      30
+      30,
     );
     loadingManager.addSubOperation(
       "Fetching and Displaying Trips",
       "Displaying Data",
-      20
+      20,
     );
     try {
       const startDate = localStorage.getItem("startDate");
@@ -397,7 +397,7 @@
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Fetching Data",
-        25
+        25,
       );
       const params = getFilterParams();
       const response = await fetch(`/api/trips?${params.toString()}`);
@@ -408,12 +408,12 @@
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Fetching Data",
-        50
+        50,
       );
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Processing Data",
-        15
+        15,
       );
 
       if (window.tripsTable) {
@@ -436,13 +436,13 @@
         mapLayers.trips.layer = {
           type: "FeatureCollection",
           features: geojson.features.filter(
-            (f) => f.properties.imei !== "HISTORICAL"
+            (f) => f.properties.imei !== "HISTORICAL",
           ),
         };
         mapLayers.historicalTrips.layer = {
           type: "FeatureCollection",
           features: geojson.features.filter(
-            (f) => f.properties.imei === "HISTORICAL"
+            (f) => f.properties.imei === "HISTORICAL",
           ),
         };
         await updateMap();
@@ -451,12 +451,12 @@
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Processing Data",
-        30
+        30,
       );
       loadingManager.updateSubOperation(
         "Fetching and Displaying Trips",
         "Displaying Data",
-        10
+        10,
       );
       try {
         await fetchMatchedTrips();
@@ -466,7 +466,7 @@
         loadingManager.updateSubOperation(
           "Fetching and Displaying Trips",
           "Displaying Data",
-          20
+          20,
         );
       }
     } catch (error) {
@@ -483,7 +483,7 @@
       const response = await fetch(url);
       if (!response.ok)
         throw new Error(
-          `HTTP error fetching matched trips: ${response.status}`
+          `HTTP error fetching matched trips: ${response.status}`,
         );
       const geojson = await response.json();
       mapLayers.matchedTrips.layer = geojson;
@@ -516,7 +516,7 @@
                 const wasSelected = selectedTripId === clickedId;
                 selectedTripId = wasSelected ? null : clickedId;
                 layerGroup.eachLayer(
-                  (layer) => layer.closePopup && layer.closePopup()
+                  (layer) => layer.closePopup && layer.closePopup(),
                 );
                 if (!wasSelected) {
                   const timezone =
@@ -579,7 +579,7 @@
               lyr.on("popupopen", () => {
                 const popupEl = lyr.getPopup().getElement();
                 const deleteMatchedBtn = popupEl.querySelector(
-                  ".delete-matched-trip"
+                  ".delete-matched-trip",
                 );
                 const deleteTripBtn = popupEl.querySelector(".delete-trip");
                 const rematchTripBtn = popupEl.querySelector(".rematch-trip");
@@ -627,17 +627,17 @@
                       if (!tripRes.ok) throw new Error("Failed to delete trip");
                       const matchedRes = await fetch(
                         `/api/matched_trips/${tid}`,
-                        { method: "DELETE" }
+                        { method: "DELETE" },
                       );
                       if (!matchedRes.ok)
                         console.warn(
-                          "No matched trip found or failed to delete matched trip"
+                          "No matched trip found or failed to delete matched trip",
                         );
                       lyr.closePopup();
                       await fetchTrips();
                       notificationManager.show(
                         "Trip and its matched trip deleted",
-                        "success"
+                        "success",
                       );
                     } catch (error) {
                       handleError(error, "Deleting Trip and Matched Trip");
@@ -659,11 +659,11 @@
                     try {
                       const deleteRes = await fetch(
                         `/api/matched_trips/${tid}`,
-                        { method: "DELETE" }
+                        { method: "DELETE" },
                       );
                       if (!deleteRes.ok)
                         throw new Error(
-                          "Failed to delete existing matched trip"
+                          "Failed to delete existing matched trip",
                         );
                       const rematchRes = await fetch("/api/map_match_trips", {
                         method: "POST",
@@ -680,7 +680,7 @@
                       await fetchTrips();
                       notificationManager.show(
                         "Trip successfully re-matched",
-                        "success"
+                        "success",
                       );
                     } catch (error) {
                       handleError(error, "Re-matching Trip");
@@ -696,7 +696,7 @@
             .setStyle({ color: info.color, opacity: info.opacity })
             .addTo(layerGroup);
         }
-      })
+      }),
     );
 
     if (selectedTripId && tripLayers.has(selectedTripId)) {
@@ -736,7 +736,7 @@
     if (!locInput || !locType || !locInput.value || !locType.value) {
       notificationManager.show(
         "Please enter a location and select a location type.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -754,7 +754,7 @@
       if (!data) {
         notificationManager.show(
           "Location not found. Please check your input.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -770,7 +770,7 @@
     locInput.setAttribute("data-location", JSON.stringify(data));
     locInput.setAttribute(
       "data-display-name",
-      data.display_name || data.name || locInput.value
+      data.display_name || data.name || locInput.value,
     );
     [
       "generate-boundary",
@@ -853,7 +853,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ start_date: sd, end_date: ed }),
-        })
+        }),
       );
     }
     try {
@@ -862,7 +862,7 @@
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(
-            errorData.message || `HTTP error! status: ${response.status}`
+            errorData.message || `HTTP error! status: ${response.status}`,
           );
         }
       }
@@ -870,7 +870,7 @@
       console.log("Map matching responses:", results);
       notificationManager.show(
         "Map matching completed for selected trips.",
-        "success"
+        "success",
       );
       fetchTrips();
     } catch (err) {
@@ -903,7 +903,7 @@
         console.error(`Error: ${data.message}`);
         notificationManager.show(
           "Error fetching trips. Check console.",
-          "danger"
+          "danger",
         );
       }
     } catch (err) {
@@ -920,7 +920,7 @@
     if (!sd || !ed) return;
     try {
       const r = await fetch(
-        `/api/metrics?start_date=${sd}&end_date=${ed}&imei=${imei}`
+        `/api/metrics?start_date=${sd}&end_date=${ed}&imei=${imei}`,
       );
       const metrics = await r.json();
       const mapping = {
@@ -970,7 +970,7 @@
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Failed to start coverage calculation"
+          errorData.message || "Failed to start coverage calculation",
         );
       }
       const data = await response.json();
@@ -997,12 +997,12 @@
           if (statusResponse.status === 500) {
             const errorData = await statusResponse.json();
             throw new Error(
-              errorData.detail || "Error in coverage calculation"
+              errorData.detail || "Error in coverage calculation",
             );
           }
           if (!statusResponse.ok)
             throw new Error(
-              `Server returned ${statusResponse.status}: ${statusResponse.statusText}`
+              `Server returned ${statusResponse.status}: ${statusResponse.statusText}`,
             );
           const statusData = await statusResponse.json();
           if (!statusData) {
@@ -1024,7 +1024,7 @@
             break;
           } else if (statusData.stage === "error") {
             throw new Error(
-              statusData.message || "Error in coverage calculation"
+              statusData.message || "Error in coverage calculation",
             );
           }
           const progress = statusData.progress || 0;
@@ -1140,7 +1140,7 @@
   const showCoverageForLocation = async (location) => {
     try {
       const response = await fetch(
-        `/api/street_coverage/${location.display_name}`
+        `/api/street_coverage/${location.display_name}`,
       );
       if (!response.ok) throw new Error("Failed to fetch coverage data");
       const data = await response.json();
@@ -1176,7 +1176,7 @@
         handleError(err, "Fetching First Trip Date");
         notificationManager.show(
           "Error fetching first trip date. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         loadingManager.finish("AllTimeDatePreset");
@@ -1227,7 +1227,7 @@
       icon?.classList.toggle("fa-chevron-up");
       icon?.classList.toggle("fa-chevron-down");
       controlsContent.style.display = mapControls?.classList.contains(
-        "minimized"
+        "minimized",
       )
         ? "none"
         : "block";
@@ -1298,7 +1298,7 @@
         if (input) {
           localStorage.setItem(
             input.id === "start-date" ? "startDate" : "endDate",
-            dateStr
+            dateStr,
           );
         }
       },
@@ -1321,7 +1321,7 @@
           console.error("Failed to initialize map components");
           notificationManager.show(
             "Failed to initialize map components. Please refresh the page.",
-            "danger"
+            "danger",
           );
           return;
         }
