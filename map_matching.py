@@ -73,7 +73,7 @@ async def map_match_coordinates(
             "message": "At least two coordinates are required for map matching.",
         }
 
-    # Limit concurrency so we do not hammer Mapbox
+    # Limit concurrency so we do not overwhelm Mapbox.
     semaphore = asyncio.Semaphore(2)
 
     async with aiohttp.ClientSession() as session:
@@ -176,7 +176,6 @@ async def map_match_coordinates(
             except Exception as exc:
                 logger.warning("Unexpected error in mapbox chunk: %s", str(exc))
 
-            # If an error occurred, try splitting the chunk (if allowed)
             if depth < max_retries and len(chunk_coords) > min_sub_chunk:
                 mid = len(chunk_coords) // 2
                 first_half = chunk_coords[:mid]
@@ -225,7 +224,6 @@ async def map_match_coordinates(
             overlap,
         )
 
-        # Process each chunk and stitch results.
         final_matched = []
         for cindex, (start_i, end_i) in enumerate(chunk_indices, 1):
             chunk_coords = coordinates[start_i:end_i]
@@ -243,7 +241,6 @@ async def map_match_coordinates(
             if not final_matched:
                 final_matched = result
             else:
-                # Avoid duplicate boundary if present.
                 if final_matched[-1] == result[0]:
                     result = result[1:]
                 final_matched.extend(result)
@@ -375,6 +372,9 @@ async def process_and_map_match_trip(trip):
             return
 
         matched_trip = trip.copy()
+        # Remove _id if it exists to avoid duplicate key errors.
+        matched_trip.pop("_id", None)
+
         if isinstance(matched_trip["gps"], dict):
             matched_trip["gps"] = json.dumps(matched_trip["gps"])
 
