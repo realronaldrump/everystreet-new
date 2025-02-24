@@ -46,7 +46,7 @@ class LoadingManager {
     if (!subOps.length) return;
     const subProgress = subOps.reduce(
       (acc, sub) => acc + (sub.progress / sub.total) * (sub.total / op.total),
-      0
+      0,
     );
     op.progress = subProgress * op.total;
     this.updateOverallProgress();
@@ -55,7 +55,7 @@ class LoadingManager {
   updateOverallProgress() {
     this.totalProgress = Object.values(this.operations).reduce(
       (acc, op) => acc + op.progress / 100,
-      0
+      0,
     );
     const opCount = Object.keys(this.operations).length || 1;
     const overallPercentage = (this.totalProgress / opCount) * 100;

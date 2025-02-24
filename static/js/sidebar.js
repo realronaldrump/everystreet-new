@@ -60,7 +60,7 @@
             e.preventDefault();
             this.toggleSidebar();
           });
-        }
+        },
       );
 
       [this.elements.startDateInput, this.elements.endDateInput].forEach(
@@ -69,16 +69,16 @@
             const key = e.target.id.includes("start") ? "startDate" : "endDate";
             localStorage.setItem(this.config.storageKeys[key], e.target.value);
           });
-        }
+        },
       );
 
       window.addEventListener(
         "resize",
-        this.debounce(() => this.handleResponsiveLayout(), 250)
+        this.debounce(() => this.handleResponsiveLayout(), 250),
       );
       document.addEventListener("click", (e) => this.handleOutsideClick(e));
       this.elements.filtersToggle?.addEventListener("click", (e) =>
-        this.handleFiltersToggle(e)
+        this.handleFiltersToggle(e),
       );
     }
 
@@ -120,7 +120,7 @@
     storeSidebarState() {
       localStorage.setItem(
         this.config.storageKeys.sidebarState,
-        this.elements.sidebar.classList.contains("collapsed")
+        this.elements.sidebar.classList.contains("collapsed"),
       );
     }
 
@@ -140,7 +140,7 @@
       ["startDate", "endDate"].forEach((key) => {
         const stored = localStorage.getItem(this.config.storageKeys[key]);
         const input = document.getElementById(
-          key.toLowerCase().replace("date", "-date")
+          key.toLowerCase().replace("date", "-date"),
         );
         if (stored && input) input.value = stored;
       });
@@ -197,7 +197,7 @@
     initializeScrollIndicator() {
       if (this.elements.sidebarBody) {
         this.elements.sidebarBody.addEventListener("scroll", (e) =>
-          this.handleScrollIndicator(e)
+          this.handleScrollIndicator(e),
         );
         this.handleScrollIndicator({ target: this.elements.sidebarBody });
       }
