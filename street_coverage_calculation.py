@@ -175,7 +175,8 @@ class CoverageCalculator:
                 logger.error("Error computing boundary for a street: %s", e)
         return tuple(bounds) if bounds else None
 
-    def _is_valid_trip(self, gps_data: Any) -> Tuple[bool, List[Any]]:
+    @staticmethod
+    def _is_valid_trip(gps_data: Any) -> Tuple[bool, List[Any]]:
         try:
             data = json.loads(gps_data) if isinstance(gps_data, str) else gps_data
             coords = data.get("coordinates", [])

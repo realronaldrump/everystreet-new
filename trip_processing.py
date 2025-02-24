@@ -13,7 +13,7 @@ Helper functions for processing a trip dictionary:
 import json
 import logging
 from typing import Optional, Any, Dict, List
-from datetime import datetime, timezone
+from datetime import timezone
 
 from dateutil import parser
 from shapely.geometry import shape, Point
