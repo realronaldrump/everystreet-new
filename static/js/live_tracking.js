@@ -19,9 +19,11 @@ class LiveTripTracker {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
     this.reconnectDelay = 2000; // Start with 2 seconds
-    
+
     // Updated selectors for the new location in map controls
-    this.statusIndicator = document.querySelector("#map-controls .status-indicator");
+    this.statusIndicator = document.querySelector(
+      "#map-controls .status-indicator",
+    );
     this.statusText = document.querySelector("#map-controls .status-text");
     this.activeTripsCountElem = document.querySelector("#active-trips-count");
     this.heartbeatTimer = null;
@@ -41,13 +43,19 @@ class LiveTripTracker {
     try {
       await this.loadInitialTripData();
       this.connectWebSocket();
-      
+
       // Set up periodic heartbeat check
-      this.heartbeatTimer = setInterval(() => this.checkHeartbeat(), this.heartbeatInterval);
+      this.heartbeatTimer = setInterval(
+        () => this.checkHeartbeat(),
+        this.heartbeatInterval,
+      );
     } catch (error) {
       console.error("LiveTripTracker initialization error:", error);
       if (notificationManager) {
-        notificationManager.show("Error initializing live tracking.", "warning");
+        notificationManager.show(
+          "Error initializing live tracking.",
+          "warning",
+        );
       }
     }
   }
@@ -55,26 +63,32 @@ class LiveTripTracker {
   async loadInitialTripData() {
     try {
       const response = await fetch("/api/active_trip");
-      
+
       if (response.status === 404) {
         console.log("No active trip found - this is normal");
         this.clearTrip();
         this.updateActiveTripsCount(0);
         return;
       }
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch active trip: ${response.status}`);
       }
-      
+
       const trip = await response.json();
-      
+
       // Make sure we have valid coordinates before setting as active
-      if (trip && Array.isArray(trip.coordinates) && trip.coordinates.length > 0) {
+      if (
+        trip &&
+        Array.isArray(trip.coordinates) &&
+        trip.coordinates.length > 0
+      ) {
         this.setActiveTrip(trip);
         this.updateActiveTripsCount(1);
       } else {
-        console.log("Trip data has no valid coordinates - treating as no active trip");
+        console.log(
+          "Trip data has no valid coordinates - treating as no active trip",
+        );
         this.clearTrip();
         this.updateActiveTripsCount(0);
       }
@@ -88,7 +102,12 @@ class LiveTripTracker {
         this.clearTrip();
         this.updateActiveTripsCount(0);
         if (notificationManager) {
-          notificationManager.show("Failed to load active trip data.", "warning", 5000, true);
+          notificationManager.show(
+            "Failed to load active trip data.",
+            "warning",
+            5000,
+            true,
+          );
         }
       }
     }
@@ -96,20 +115,24 @@ class LiveTripTracker {
 
   setActiveTrip(trip) {
     this.activeTrip = trip;
-    if (!trip || !Array.isArray(trip.coordinates) || trip.coordinates.length === 0) {
+    if (
+      !trip ||
+      !Array.isArray(trip.coordinates) ||
+      trip.coordinates.length === 0
+    ) {
       this.polyline.setLatLngs([]);
       if (this.map.hasLayer(this.marker)) this.map.removeLayer(this.marker);
       return;
     }
-    
+
     // Sort coordinates by timestamp and update the polyline and marker
     trip.coordinates.sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
     );
-    
+
     const latLngs = trip.coordinates.map((coord) => [coord.lat, coord.lon]);
     this.polyline.setLatLngs(latLngs);
-    
+
     const lastPoint = latLngs[latLngs.length - 1];
     if (lastPoint && lastPoint.length === 2) {
       if (!this.map.hasLayer(this.marker)) this.marker.addTo(this.map);
@@ -133,15 +156,27 @@ class LiveTripTracker {
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const wsUrl = `${protocol}://${window.location.host}/ws/live_trip`;
-    
+
     try {
       this.websocket = new WebSocket(wsUrl);
-      
-      this.websocket.addEventListener("open", this.handleWebSocketOpen.bind(this));
-      this.websocket.addEventListener("message", this.handleWebSocketMessage.bind(this));
-      this.websocket.addEventListener("error", this.handleWebSocketError.bind(this));
-      this.websocket.addEventListener("close", this.handleWebSocketClose.bind(this));
-      
+
+      this.websocket.addEventListener(
+        "open",
+        this.handleWebSocketOpen.bind(this),
+      );
+      this.websocket.addEventListener(
+        "message",
+        this.handleWebSocketMessage.bind(this),
+      );
+      this.websocket.addEventListener(
+        "error",
+        this.handleWebSocketError.bind(this),
+      );
+      this.websocket.addEventListener(
+        "close",
+        this.handleWebSocketClose.bind(this),
+      );
+
       console.log("WebSocket connection attempt initiated");
     } catch (err) {
       console.error("Error creating WebSocket:", err);
@@ -156,7 +191,7 @@ class LiveTripTracker {
     this.reconnectAttempts = 0;
     this.reconnectDelay = 2000; // Reset delay
     this.lastHeartbeat = Date.now();
-    
+
     // Request active trip data immediately
     this.requestActiveTripData();
   }
@@ -174,13 +209,13 @@ class LiveTripTracker {
   handleWebSocketMessage(event) {
     try {
       const message = JSON.parse(event.data);
-      
+
       // Update heartbeat timestamp
       if (message.type === "heartbeat") {
         this.lastHeartbeat = Date.now();
         return;
       }
-      
+
       this.processWebSocketMessage(message);
     } catch (err) {
       console.error("Error parsing WebSocket message:", err);
@@ -189,10 +224,14 @@ class LiveTripTracker {
 
   processWebSocketMessage(message) {
     if (!message || !message.type) return;
-    
+
     switch (message.type) {
       case "trip_update":
-        if (message.data && Array.isArray(message.data.coordinates) && message.data.coordinates.length > 0) {
+        if (
+          message.data &&
+          Array.isArray(message.data.coordinates) &&
+          message.data.coordinates.length > 0
+        ) {
           this.setActiveTrip(message.data);
           this.updateActiveTripsCount(1);
         } else {
@@ -209,7 +248,12 @@ class LiveTripTracker {
       case "error":
         console.error("WebSocket error from server:", message.message);
         if (notificationManager) {
-          notificationManager.show(`Live tracking error: ${message.message}`, "warning", 5000, true);
+          notificationManager.show(
+            `Live tracking error: ${message.message}`,
+            "warning",
+            5000,
+            true,
+          );
         }
         break;
       default:
@@ -223,7 +267,9 @@ class LiveTripTracker {
   }
 
   handleWebSocketClose(event) {
-    console.warn(`WebSocket closed (code: ${event.code}, reason: ${event.reason})`);
+    console.warn(
+      `WebSocket closed (code: ${event.code}, reason: ${event.reason})`,
+    );
     this.updateStatus(false);
     this.scheduleReconnect();
   }
@@ -231,18 +277,26 @@ class LiveTripTracker {
   scheduleReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      
+
       // Exponential backoff with jitter
       const jitter = Math.random() * 1000;
-      const delay = Math.min(this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts - 1), 60000);
-      
-      console.log(`Scheduling reconnect attempt ${this.reconnectAttempts} in ${Math.round(delay/1000)}s`);
-      
+      const delay = Math.min(
+        this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts - 1),
+        60000,
+      );
+
+      console.log(
+        `Scheduling reconnect attempt ${this.reconnectAttempts} in ${Math.round(delay / 1000)}s`,
+      );
+
       setTimeout(() => this.connectWebSocket(), delay + jitter);
     } else {
       console.error("Maximum reconnect attempts reached");
       if (notificationManager) {
-        notificationManager.show("Unable to establish live tracking connection. Please reload the page.", "danger");
+        notificationManager.show(
+          "Unable to establish live tracking connection. Please reload the page.",
+          "danger",
+        );
       }
     }
   }
@@ -250,15 +304,20 @@ class LiveTripTracker {
   checkHeartbeat() {
     const now = Date.now();
     const timeSinceLastHeartbeat = now - this.lastHeartbeat;
-    
-    if (this.lastHeartbeat > 0 && timeSinceLastHeartbeat > this.heartbeatInterval * 2) {
-      console.warn(`No heartbeat received for ${Math.round(timeSinceLastHeartbeat/1000)}s, reconnecting...`);
-      
+
+    if (
+      this.lastHeartbeat > 0 &&
+      timeSinceLastHeartbeat > this.heartbeatInterval * 2
+    ) {
+      console.warn(
+        `No heartbeat received for ${Math.round(timeSinceLastHeartbeat / 1000)}s, reconnecting...`,
+      );
+
       if (this.websocket) {
         this.websocket.close();
         this.websocket = null;
       }
-      
+
       this.connectWebSocket();
     }
   }
@@ -269,7 +328,7 @@ class LiveTripTracker {
       this.statusIndicator.classList.toggle("connected", connected);
       this.statusIndicator.classList.toggle("disconnected", !connected);
     }
-    
+
     if (this.statusText) {
       this.statusText.textContent = connected ? "Connected" : "Disconnected";
     }
@@ -281,17 +340,17 @@ class LiveTripTracker {
       this.websocket.close();
       this.websocket = null;
     }
-    
+
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
     }
-    
+
     if (this.map) {
       if (this.map.hasLayer(this.polyline)) {
         this.map.removeLayer(this.polyline);
       }
-      
+
       if (this.map.hasLayer(this.marker)) {
         this.map.removeLayer(this.marker);
       }
@@ -306,8 +365,15 @@ class LiveTripTracker {
 
   // Add new method to center map on active trip
   centerOnActiveTrip() {
-    if (this.activeTrip && Array.isArray(this.activeTrip.coordinates) && this.activeTrip.coordinates.length > 0) {
-      const latLngs = this.activeTrip.coordinates.map(coord => [coord.lat, coord.lon]);
+    if (
+      this.activeTrip &&
+      Array.isArray(this.activeTrip.coordinates) &&
+      this.activeTrip.coordinates.length > 0
+    ) {
+      const latLngs = this.activeTrip.coordinates.map((coord) => [
+        coord.lat,
+        coord.lon,
+      ]);
       if (latLngs.length > 0) {
         // Create a bounds object from the trip coordinates
         const bounds = L.latLngBounds(latLngs);
@@ -319,7 +385,7 @@ class LiveTripTracker {
         return true;
       }
     }
-    
+
     // If no active trip or no coordinates, show a notification
     if (notificationManager) {
       notificationManager.show("No active trip to focus on", "warning", 3000);
