@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" data-bs-theme="dark">
   <head>
     <meta charset="UTF-8" />
@@ -9,31 +9,37 @@
     />
     <meta name="theme-color" content="#121212" />
     <meta name="color-scheme" content="dark light" />
-    
+
     <!-- Prevent flash of wrong theme -->
     <script>
-      (function() {
-        const savedTheme = localStorage.getItem('theme');
-        const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        
-        if (savedTheme === 'light' || (!savedTheme && !prefersDarkScheme)) {
-          document.documentElement.setAttribute('data-bs-theme', 'light');
-          document.documentElement.classList.add('light-mode');
-          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f8f9fa');
+      (function () {
+        const savedTheme = localStorage.getItem("theme");
+        const prefersDarkScheme = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        if (savedTheme === "light" || (!savedTheme && !prefersDarkScheme)) {
+          document.documentElement.setAttribute("data-bs-theme", "light");
+          document.documentElement.classList.add("light-mode");
+          document
+            .querySelector('meta[name="theme-color"]')
+            .setAttribute("content", "#f8f9fa");
         } else {
-          document.documentElement.setAttribute('data-bs-theme', 'dark');
-          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#121212');
+          document.documentElement.setAttribute("data-bs-theme", "dark");
+          document
+            .querySelector('meta[name="theme-color"]')
+            .setAttribute("content", "#121212");
         }
       })();
     </script>
-    
+
     <title>{% block title %}Every Street{% endblock %}</title>
 
     <!-- Resource hints -->
-    <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
-    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
-    <link rel="preconnect" href="//cdn.jsdelivr.net" crossorigin>
-    
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net" />
+    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com" />
+    <link rel="preconnect" href="//cdn.jsdelivr.net" crossorigin />
+
     <!-- Favicon -->
     <link
       rel="icon"
@@ -46,10 +52,13 @@
     />
 
     <!-- Font loading -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
     <!-- Critical CSS -->
     <link
       rel="stylesheet"
@@ -68,7 +77,7 @@
       rel="stylesheet"
       href="{{ url_for('static', path='css/style.css') | replace('http://', '//') }}"
     />
-    
+
     <!-- Non-critical CSS loaded asynchronously -->
     <link
       rel="stylesheet"
@@ -115,33 +124,42 @@
       .notification-container .alert-info {
         border-left-color: #17a2b8;
       }
-      
+
       /* Accessibility improvements */
-      .btn:focus, .form-control:focus {
+      .btn:focus,
+      .form-control:focus {
         box-shadow: 0 0 0 0.25rem rgba(187, 134, 252, 0.5);
-        outline: 2px solid #BB86FC;
+        outline: 2px solid #bb86fc;
       }
-      
+
       /* Mobile optimizations */
       @media (max-width: 768px) {
-        .btn, .form-control, .nav-link {
+        .btn,
+        .form-control,
+        .nav-link {
           padding: 0.5rem 0.75rem;
           min-height: 42px;
         }
-        .card { margin-bottom: 1rem; }
-        .custom-checkbox, input[type="radio"], input[type="checkbox"] {
+        .card {
+          margin-bottom: 1rem;
+        }
+        .custom-checkbox,
+        input[type="radio"],
+        input[type="checkbox"] {
           min-width: 24px;
           min-height: 24px;
         }
       }
-      
+
       /* Loading state */
       .loading-overlay {
         opacity: 0;
         visibility: hidden;
-        transition: opacity 0.3s ease-in-out, visibility 0.3s;
+        transition:
+          opacity 0.3s ease-in-out,
+          visibility 0.3s;
       }
-      
+
       .loading-overlay[style*="display: flex"] {
         opacity: 1;
         visibility: visible;
@@ -152,14 +170,18 @@
   </head>
   <body>
     <a href="#main-content" class="visually-hidden-focusable">Skip to main</a>
-    
+
     <div id="app" class="layout-wrapper">
       <!-- Top Navigation Bar -->
       <header class="app-header">
         <div class="header-container">
           <!-- Logo and Brand -->
           <div class="brand-section">
-            <button id="menu-toggle" class="menu-toggle-btn" aria-label="Toggle navigation menu">
+            <button
+              id="menu-toggle"
+              class="menu-toggle-btn"
+              aria-label="Toggle navigation menu"
+            >
               <i class="fas fa-bars"></i>
             </button>
             <a href="/" class="brand-logo">
@@ -167,44 +189,94 @@
               <span class="brand-text">EveryStreet</span>
             </a>
           </div>
-          
+
           <!-- Primary Navigation -->
           <nav class="main-nav" aria-label="Main navigation">
             <ul class="nav-list">
-              <li class="nav-item {% if request.path == '/' %}active{% endif %}">
-                <a href="/" title="Map"><i class="fas fa-map"></i> <span>Map</span></a>
+              <li
+                class="nav-item {% if request.path == '/' %}active{% endif %}"
+              >
+                <a href="/" title="Map"
+                  ><i class="fas fa-map"></i> <span>Map</span></a
+                >
               </li>
-              <li class="nav-item {% if request.path == '/trips' %}active{% endif %}">
-                <a href="/trips" title="Trips"><i class="fas fa-road"></i> <span>Trips</span></a>
+              <li
+                class="nav-item {% if request.path == '/trips' %}active{% endif %}"
+              >
+                <a href="/trips" title="Trips"
+                  ><i class="fas fa-road"></i> <span>Trips</span></a
+                >
               </li>
-              <li class="nav-item {% if request.path == '/driving-insights' %}active{% endif %}">
-                <a href="/driving-insights" title="Insights"><i class="fas fa-chart-line"></i> <span>Insights</span></a>
+              <li
+                class="nav-item {% if request.path == '/driving-insights' %}active{% endif %}"
+              >
+                <a href="/driving-insights" title="Insights"
+                  ><i class="fas fa-chart-line"></i> <span>Insights</span></a
+                >
               </li>
               <li class="nav-item dropdown">
-                <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <a
+                  href="#"
+                  class="dropdown-toggle"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                >
                   <i class="fas fa-ellipsis-h"></i> <span>More</span>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
-                  <li><a class="dropdown-item" href="/edit_trips"><i class="fas fa-edit"></i> Edit Trips</a></li>
-                  <li><a class="dropdown-item" href="/visits"><i class="fas fa-map-marker-alt"></i> Visits</a></li>
-                  <li><a class="dropdown-item" href="/coverage-management"><i class="fas fa-map-marked-alt"></i> Coverage Areas</a></li>
-                  <li><a class="dropdown-item" href="/export"><i class="fas fa-file-export"></i> Export Data</a></li>
-                  <li><a class="dropdown-item" href="/upload"><i class="fas fa-upload"></i> Upload GPX</a></li>
-                  <li><hr class="dropdown-divider"></li>
-                  <li><a class="dropdown-item" href="/database-management"><i class="fas fa-database"></i> Database</a></li>
-                  <li><a class="dropdown-item" href="/settings"><i class="fas fa-cog"></i> Settings</a></li>
+                  <li>
+                    <a class="dropdown-item" href="/edit_trips"
+                      ><i class="fas fa-edit"></i> Edit Trips</a
+                    >
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="/visits"
+                      ><i class="fas fa-map-marker-alt"></i> Visits</a
+                    >
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="/coverage-management"
+                      ><i class="fas fa-map-marked-alt"></i> Coverage Areas</a
+                    >
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="/export"
+                      ><i class="fas fa-file-export"></i> Export Data</a
+                    >
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="/upload"
+                      ><i class="fas fa-upload"></i> Upload GPX</a
+                    >
+                  </li>
+                  <li><hr class="dropdown-divider" /></li>
+                  <li>
+                    <a class="dropdown-item" href="/database-management"
+                      ><i class="fas fa-database"></i> Database</a
+                    >
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="/settings"
+                      ><i class="fas fa-cog"></i> Settings</a
+                    >
+                  </li>
                 </ul>
               </li>
             </ul>
           </nav>
-          
+
           <!-- Tools and User Options -->
           <div class="tools-section">
-            <button id="filters-toggle" class="tool-btn" aria-label="Toggle filters panel" title="Filters">
+            <button
+              id="filters-toggle"
+              class="tool-btn"
+              aria-label="Toggle filters panel"
+              title="Filters"
+            >
               <i class="fas fa-filter"></i>
             </button>
             <label class="theme-toggle" title="Toggle dark/light mode">
-              <input type="checkbox" id="theme-toggle-checkbox">
+              <input type="checkbox" id="theme-toggle-checkbox" />
               <span class="theme-slider">
                 <i class="fas fa-moon"></i>
                 <i class="fas fa-sun"></i>
@@ -213,7 +285,7 @@
           </div>
         </div>
       </header>
-      
+
       <!-- Mobile Navigation Drawer -->
       <div id="mobile-nav-drawer" class="mobile-nav-drawer">
         <div class="drawer-header">
@@ -224,20 +296,78 @@
         </div>
         <nav class="drawer-nav">
           <ul class="drawer-nav-list">
-            <li><a href="/" class="{% if request.path == '/' %}active{% endif %}"><i class="fas fa-map"></i> Map</a></li>
-            <li><a href="/trips" class="{% if request.path == '/trips' %}active{% endif %}"><i class="fas fa-road"></i> Trips</a></li>
-            <li><a href="/edit_trips" class="{% if request.path == '/edit_trips' %}active{% endif %}"><i class="fas fa-edit"></i> Edit Trips</a></li>
-            <li><a href="/driving-insights" class="{% if request.path == '/driving-insights' %}active{% endif %}"><i class="fas fa-chart-line"></i> Driving Insights</a></li>
-            <li><a href="/export" class="{% if request.path == '/export' %}active{% endif %}"><i class="fas fa-file-export"></i> Export Data</a></li>
-            <li><a href="/coverage-management" class="{% if request.path == '/coverage-management' %}active{% endif %}"><i class="fas fa-map-marked-alt"></i> Coverage Areas</a></li>
-            <li><a href="/upload" class="{% if request.path == '/upload' %}active{% endif %}"><i class="fas fa-upload"></i> Upload GPX</a></li>
-            <li><a href="/visits" class="{% if request.path == '/visits' %}active{% endif %}"><i class="fas fa-map-marker-alt"></i> Visits</a></li>
-            <li><a href="/database-management" class="{% if request.path == '/database-management' %}active{% endif %}"><i class="fas fa-database"></i> Database</a></li>
-            <li><a href="/settings" class="{% if request.path == '/settings' %}active{% endif %}"><i class="fas fa-cog"></i> Settings</a></li>
+            <li>
+              <a href="/" class="{% if request.path == '/' %}active{% endif %}"
+                ><i class="fas fa-map"></i> Map</a
+              >
+            </li>
+            <li>
+              <a
+                href="/trips"
+                class="{% if request.path == '/trips' %}active{% endif %}"
+                ><i class="fas fa-road"></i> Trips</a
+              >
+            </li>
+            <li>
+              <a
+                href="/edit_trips"
+                class="{% if request.path == '/edit_trips' %}active{% endif %}"
+                ><i class="fas fa-edit"></i> Edit Trips</a
+              >
+            </li>
+            <li>
+              <a
+                href="/driving-insights"
+                class="{% if request.path == '/driving-insights' %}active{% endif %}"
+                ><i class="fas fa-chart-line"></i> Driving Insights</a
+              >
+            </li>
+            <li>
+              <a
+                href="/export"
+                class="{% if request.path == '/export' %}active{% endif %}"
+                ><i class="fas fa-file-export"></i> Export Data</a
+              >
+            </li>
+            <li>
+              <a
+                href="/coverage-management"
+                class="{% if request.path == '/coverage-management' %}active{% endif %}"
+                ><i class="fas fa-map-marked-alt"></i> Coverage Areas</a
+              >
+            </li>
+            <li>
+              <a
+                href="/upload"
+                class="{% if request.path == '/upload' %}active{% endif %}"
+                ><i class="fas fa-upload"></i> Upload GPX</a
+              >
+            </li>
+            <li>
+              <a
+                href="/visits"
+                class="{% if request.path == '/visits' %}active{% endif %}"
+                ><i class="fas fa-map-marker-alt"></i> Visits</a
+              >
+            </li>
+            <li>
+              <a
+                href="/database-management"
+                class="{% if request.path == '/database-management' %}active{% endif %}"
+                ><i class="fas fa-database"></i> Database</a
+              >
+            </li>
+            <li>
+              <a
+                href="/settings"
+                class="{% if request.path == '/settings' %}active{% endif %}"
+                ><i class="fas fa-cog"></i> Settings</a
+              >
+            </li>
           </ul>
         </nav>
       </div>
-      
+
       <!-- Filters Panel (Hidden by default) -->
       <aside id="filters-panel" class="side-panel filters-panel">
         <div class="panel-header">
@@ -250,26 +380,74 @@
           <form id="filters-form" aria-label="Trip filters">
             <div class="form-group">
               <label for="start-date" class="form-label">Start Date</label>
-              <input type="text" id="start-date" class="form-control" placeholder="Select Start Date" aria-label="Start date filter" />
+              <input
+                type="text"
+                id="start-date"
+                class="form-control"
+                placeholder="Select Start Date"
+                aria-label="Start date filter"
+              />
             </div>
             <div class="form-group">
               <label for="end-date" class="form-label">End Date</label>
-              <input type="text" id="end-date" class="form-control" placeholder="Select End Date" aria-label="End date filter" />
+              <input
+                type="text"
+                id="end-date"
+                class="form-control"
+                placeholder="Select End Date"
+                aria-label="End date filter"
+              />
             </div>
 
             <div class="form-group">
               <label class="form-label">Quick Selections</label>
               <div class="quick-selections">
-                <button type="button" class="quick-select-btn" data-range="today">Today</button>
-                <button type="button" class="quick-select-btn" data-range="yesterday">Yesterday</button>
-                <button type="button" class="quick-select-btn" data-range="last-week">Last 7 Days</button>
-                <button type="button" class="quick-select-btn" data-range="last-month">Last 30 Days</button>
-                <button type="button" class="quick-select-btn" data-range="last-year">Last Year</button>
-                <button type="button" class="quick-select-btn" data-range="all-time">All Time</button>
+                <button
+                  type="button"
+                  class="quick-select-btn"
+                  data-range="today"
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  class="quick-select-btn"
+                  data-range="yesterday"
+                >
+                  Yesterday
+                </button>
+                <button
+                  type="button"
+                  class="quick-select-btn"
+                  data-range="last-week"
+                >
+                  Last 7 Days
+                </button>
+                <button
+                  type="button"
+                  class="quick-select-btn"
+                  data-range="last-month"
+                >
+                  Last 30 Days
+                </button>
+                <button
+                  type="button"
+                  class="quick-select-btn"
+                  data-range="last-year"
+                >
+                  Last Year
+                </button>
+                <button
+                  type="button"
+                  class="quick-select-btn"
+                  data-range="all-time"
+                >
+                  All Time
+                </button>
               </div>
             </div>
           </form>
-          
+
           <div class="panel-actions">
             <button id="apply-filters" class="btn btn-primary btn-block">
               <i class="fas fa-check"></i> Apply Filters
@@ -280,10 +458,10 @@
           </div>
         </div>
       </aside>
-      
+
       <!-- Content Overlay (for when panels are open) -->
       <div id="content-overlay" class="content-overlay"></div>
-      
+
       <!-- Main Content Area -->
       <main id="main-content" class="main-content" role="main">
         {% block content %}{% endblock %}
@@ -293,7 +471,7 @@
       <button id="action-button" class="floating-action-btn">
         <i class="fas fa-plus"></i>
       </button>
-      
+
       <!-- Floating Action Menu (initially hidden) -->
       <div id="action-menu" class="floating-action-menu">
         <button class="action-menu-item" data-action="fetch-trips">
@@ -306,7 +484,7 @@
           <i class="fas fa-map-marker-alt"></i> Add Place
         </button>
       </div>
-      
+
       <!-- Notification Container -->
       <div class="notification-container" aria-live="polite">
         <!-- Notifications will be dynamically inserted here -->
@@ -314,7 +492,9 @@
 
       <!-- Live Tracking Status -->
       <div class="live-tracking-status card">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div
+          class="card-header d-flex justify-content-between align-items-center"
+        >
           <h6 class="mb-0">Live Tracking</h6>
           <div class="connection-status d-flex align-items-center">
             <div class="status-indicator disconnected me-2"></div>
@@ -350,12 +530,25 @@
     <!-- Modals Container -->
     <div id="modals-container">
       <!-- Custom Places Modal -->
-      <div class="modal fade" id="manage-places-modal" tabindex="-1" aria-labelledby="managePlacesModalLabel" aria-hidden="true">
+      <div
+        class="modal fade"
+        id="manage-places-modal"
+        tabindex="-1"
+        aria-labelledby="managePlacesModalLabel"
+        aria-hidden="true"
+      >
         <div class="modal-dialog modal-dialog-centered">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title" id="managePlacesModalLabel">Manage Places</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              <h5 class="modal-title" id="managePlacesModalLabel">
+                Manage Places
+              </h5>
+              <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="Close"
+              ></button>
             </div>
             <div class="modal-body">
               <div id="places-list" class="places-list">
@@ -363,8 +556,16 @@
               </div>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-outline" data-bs-dismiss="modal">Close</button>
-              <button type="button" class="btn btn-primary" id="add-new-place">Add New Place</button>
+              <button
+                type="button"
+                class="btn btn-outline"
+                data-bs-dismiss="modal"
+              >
+                Close
+              </button>
+              <button type="button" class="btn btn-primary" id="add-new-place">
+                Add New Place
+              </button>
             </div>
           </div>
         </div>
@@ -372,23 +573,59 @@
     </div>
 
     <!-- Core JS - Load in order of dependency -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    
+    <script
+      src="https://code.jquery.com/jquery-3.7.1.min.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      crossorigin=""
+    ></script>
+
     <!-- Bundle non-critical scripts with defer -->
     <script defer src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
-    <script defer src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-    <script defer src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script defer src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"
+    ></script>
+    <script
+      defer
+      src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"
+    ></script>
+    <script
+      defer
+      src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"
+    ></script>
+    <script
+      defer
+      src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"
+    ></script>
 
     <!-- App scripts -->
-    <script defer src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
-    <script defer src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"></script>
-    <script defer src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"></script>
-    <script defer src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}"></script>
-    <script defer src="{{ url_for('static', path='js/modern-ui.js') | replace('http://', '//') }}"></script>
+    <script
+      defer
+      src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"
+    ></script>
+    <script
+      defer
+      src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"
+    ></script>
+    <script
+      defer
+      src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"
+    ></script>
+    <script
+      defer
+      src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}"
+    ></script>
+    <script
+      defer
+      src="{{ url_for('static', path='js/modern-ui.js') | replace('http://', '//') }}"
+    ></script>
 
     {% block extra_js %}{% endblock %}
   </body>
