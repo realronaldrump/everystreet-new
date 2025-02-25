@@ -2017,6 +2017,7 @@ body.light-mode #layer-controls .opacity-label {
 /* Fix form range appearance */
 .form-range {
   -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   background: transparent;
 }

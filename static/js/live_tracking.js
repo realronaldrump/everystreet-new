@@ -38,7 +38,9 @@ class LiveTripTracker {
         this.setActiveTrip(trip);
         this.updateActiveTripsCount(1);
       } else {
-        console.log(`No active trip found - server returned ${response.status}`);
+        console.log(
+          `No active trip found - server returned ${response.status}`
+        );
         this.updateActiveTripsCount(0);
       }
     } catch (error) {
