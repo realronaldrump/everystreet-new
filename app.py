@@ -1065,7 +1065,10 @@ async def export_gpx(request: Request):
                     lon, lat = coords[0], coords[1]
                     seg.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
             track.name = t.get("transactionId", "Unnamed Trip")
-            track.description = f"Trip from {t.get('startLocation', 'Unknown')} to {t.get('destination', 'Unknown')}"
+            track.description = (
+                f"Trip from {t.get('startLocation', 'Unknown')} to "
+                f"{t.get('destination', 'Unknown')}"
+            )
         gpx_xml = gpx_obj.to_xml()
         return StreamingResponse(
             io.BytesIO(gpx_xml.encode()),
@@ -1748,39 +1751,6 @@ async def upload_files(request: Request, files: List[UploadFile] = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/api/uploaded_trips/bulk_delete")
-async def bulk_delete_uploaded_trips(request: Request):
-    try:
-        data = await request.json()
-        trip_ids = data.get("trip_ids", [])
-        if not trip_ids:
-            raise HTTPException(status_code=400, detail="No trip IDs")
-        valid_ids = []
-        for tid in trip_ids:
-            try:
-                valid_ids.append(ObjectId(tid))
-            except bson.errors.InvalidId:
-                logger.warning("Invalid ObjectId format: %s", tid)
-        if not valid_ids:
-            raise HTTPException(status_code=400, detail="No valid IDs found")
-        ups = await uploaded_trips_collection.find({"_id": {"$in": valid_ids}}).to_list(
-            length=None
-        )
-        trans_ids = [u["transactionId"] for u in ups]
-        res1 = await uploaded_trips_collection.delete_many({"_id": {"$in": valid_ids}})
-        res2 = await matched_trips_collection.delete_many(
-            {"transactionId": {"$in": trans_ids}}
-        )
-        return {
-            "status": "success",
-            "deleted_uploaded_trips": res1.deleted_count,
-            "deleted_matched_trips": res2.deleted_count,
-        }
-    except Exception as e:
-        logger.exception("Error in bulk_delete_uploaded_trips")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.delete("/api/trips/bulk_delete")
 async def bulk_delete_trips(request: Request):
     try:
@@ -1921,19 +1891,6 @@ async def get_place_statistics(place_id: str):
 
 
 # --- GPX / GeoJSON Processing and Upload Helpers ---
-@app.get("/api/uploaded_trips")
-async def get_uploaded_trips_endpoint():
-    try:
-        ups = await uploaded_trips_collection.find().to_list(length=None)
-        for u in ups:
-            u["_id"] = str(u["_id"])
-            for key in ("startTime", "endTime"):
-                if u.get(key) and isinstance(u[key], datetime):
-                    u[key] = u[key].isoformat()
-        return {"status": "success", "trips": ups}
-    except Exception as e:
-        logger.exception("Error in get_uploaded_trips")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.delete("/api/uploaded_trips/bulk_delete")
@@ -1969,49 +1926,6 @@ async def bulk_delete_uploaded_trips(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/api/trips/bulk_delete")
-async def bulk_delete_trips_endpoint(request: Request):
-    try:
-        data = await request.json()
-        trip_ids = data.get("trip_ids", [])
-        if not trip_ids:
-            raise HTTPException(status_code=400, detail="No trip IDs provided")
-        res1 = await trips_collection.delete_many({"transactionId": {"$in": trip_ids}})
-        res2 = await matched_trips_collection.delete_many(
-            {"transactionId": {"$in": trip_ids}}
-        )
-        return {
-            "status": "success",
-            "message": f"Deleted {res1.deleted_count} trips and {res2.deleted_count} matched trips",
-            "deleted_trips_count": res1.deleted_count,
-            "deleted_matched_trips_count": res2.deleted_count,
-        }
-    except Exception as e:
-        logger.exception("Error in bulk_delete_trips")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# --- Places ---
-@app.api_route("/api/places", methods=["GET", "POST"])
-async def handle_places_endpoint(request: Request):
-    if request.method == "GET":
-        pls = await places_collection.find().to_list(length=None)
-        return [
-            {"_id": str(p["_id"]), **CustomPlace.from_dict(p).to_dict()} for p in pls
-        ]
-    else:
-        data = await request.json()
-        place = CustomPlace(data["name"], data["geometry"])
-        r = await places_collection.insert_one(place.to_dict())
-        return {"_id": str(r.inserted_id), **place.to_dict()}
-
-
-@app.delete("/api/places/{place_id}")
-async def delete_place_endpoint(place_id: str):
-    await places_collection.delete_one({"_id": ObjectId(place_id)})
-    return ""
-
-
 # --- Last Trip Point ---
 @app.get("/api/last_trip_point")
 async def get_last_trip_point():
@@ -2023,7 +1937,7 @@ async def get_last_trip_point():
         if "coordinates" not in gps or not gps["coordinates"]:
             return {"lastPoint": None}
         return {"lastPoint": gps["coordinates"][-1]}
-    except Exception as e:
+    except Exception:
         logger.exception("Error in get_last_trip_point")
         raise HTTPException(
             status_code=500, detail="Failed to retrieve last trip point"

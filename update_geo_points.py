@@ -6,8 +6,7 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -22,10 +21,6 @@ uploaded_trips_collection = db["uploaded_trips"]
 
 
 async def update_geo_points(collection):
-    """
-    Asynchronously update documents in the given collection to add startGeoPoint and
-    destinationGeoPoint.
-    """
     logger.info("Starting GeoPoint update for collection: %s", collection.name)
     updated_count = 0
     try:
@@ -40,10 +35,10 @@ async def update_geo_points(collection):
         )
         async for doc in cursor:
             try:
-                gps_data = doc.get("gps")
-                if isinstance(gps_data, str):
-                    gps_data = json.loads(gps_data)
-                coords = gps_data.get("coordinates", [])
+                gps = doc.get("gps")
+                if isinstance(gps, str):
+                    gps = json.loads(gps)
+                coords = gps.get("coordinates", [])
                 if not coords:
                     continue
                 start_coord = coords[0]
@@ -65,18 +60,17 @@ async def update_geo_points(collection):
                     )
                     updated_count += 1
                     logger.debug(
-                        "Updated GeoPoints for document _id: %s",
-                        doc.get("_id", "?"),
+                        "Updated GeoPoints for document %s", doc.get("_id", "?")
                     )
             except (KeyError, IndexError) as e:
                 logger.warning(
-                    "Skipping document %s: Incomplete GPS data - %s",
+                    "Skipping document %s due to incomplete GPS data: %s",
                     doc.get("_id", "?"),
                     e,
                 )
             except json.JSONDecodeError as e:
                 logger.error(
-                    "Invalid JSON in 'gps' for document %s: %s",
+                    "Invalid JSON in gps for document %s: %s",
                     doc.get("_id", "?"),
                     e,
                     exc_info=True,
@@ -90,14 +84,11 @@ async def update_geo_points(collection):
                 )
     except Exception as e:
         logger.error(
-            "Error iterating collection %s: %s",
-            collection.name,
-            e,
-            exc_info=True,
+            "Error iterating collection %s: %s", collection.name, e, exc_info=True
         )
     finally:
         logger.info(
-            "GeoPoint update for collection %s completed. Updated %d documents.",
+            "GeoPoint update for %s completed. Updated %d documents.",
             collection.name,
             updated_count,
         )
@@ -105,17 +96,16 @@ async def update_geo_points(collection):
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        collection_name = sys.argv[1]
-        if collection_name == "trips":
+        coll_name = sys.argv[1]
+        if coll_name == "trips":
             coll = trips_collection
-        elif collection_name == "historical_trips":
+        elif coll_name == "historical_trips":
             coll = historical_trips_collection
-        elif collection_name == "uploaded_trips":
+        elif coll_name == "uploaded_trips":
             coll = uploaded_trips_collection
         else:
             print("Invalid collection name")
             sys.exit(1)
-        # Run the async update_geo_points function using asyncio.run.
         asyncio.run(update_geo_points(coll))
     else:
         print("No collection name provided")

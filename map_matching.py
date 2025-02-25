@@ -1,10 +1,3 @@
-"""
-Map matching module.
-Divides trip coordinate sequences into overlapping chunks,
-calls Mapbox API with retries and fallback splitting, performs jump detection,
-and stores the matched trip.
-"""
-
 import json
 import math
 import logging
@@ -12,27 +5,23 @@ import asyncio
 import aiohttp
 from aiohttp import ClientResponseError, ClientConnectorError
 from geojson import loads as geojson_loads
-from dotenv import load_dotenv
 import os
 from typing import List, Dict, Any, Optional
 
 from utils import validate_trip_data, reverse_geocode_nominatim
 from db import matched_trips_collection
 
-load_dotenv()
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
-
 MAX_MAPBOX_COORDINATES = 100
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 
 def haversine_single(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-    R = 6371000.0  # Earth's radius in meters
+    R = 6371000.0
     d_lat = math.radians(lat2 - lat1)
     d_lon = math.radians(lon2 - lon1)
     a = (
@@ -92,6 +81,7 @@ async def map_match_coordinates(
                                 )
                                 if attempt < max_attempts_for_429:
                                     logger.info(
+                                        # skipcq: FLK-E501
                                         "Sleeping %.1f sec before retry... (attempt %d/%d)",
                                         wait_time,
                                         attempt,
@@ -100,27 +90,20 @@ async def map_match_coordinates(
                                     await asyncio.sleep(wait_time)
                                     attempt += 1
                                     continue
-                                else:
-                                    logger.error(
-                                        "Gave up after %d attempts for 429 errors.",
-                                        attempt,
-                                    )
-                                    raise ClientResponseError(
-                                        response.request_info,
-                                        response.history,
-                                        status=429,
-                                        message="Too Many Requests (exceeded max attempts)",
-                                    )
+                                raise ClientResponseError(
+                                    response.request_info,
+                                    response.history,
+                                    status=429,
+                                    message="Too Many Requests",
+                                )
                             response.raise_for_status()
-                            data = await response.json()
-                            return data
+                            return await response.json()
                     except ClientResponseError as e:
                         if e.status != 429:
                             raise
-                        else:
-                            raise
+                        raise
                     except (ClientConnectorError, asyncio.TimeoutError) as e:
-                        logger.warning("Mapbox network error for chunk: %s", str(e))
+                        logger.warning("Mapbox network error: %s", str(e))
                         raise
 
         async def match_chunk(
@@ -128,51 +111,25 @@ async def map_match_coordinates(
         ) -> Optional[List[List[float]]]:
             if len(chunk_coords) < 2:
                 return []
-            if len(chunk_coords) > 100:
-                logger.error("match_chunk received >100 coords unexpectedly.")
-                return []
             try:
                 data = await call_mapbox_api(chunk_coords)
                 if data.get("code") == "Ok" and data.get("matchings"):
                     return data["matchings"][0]["geometry"]["coordinates"]
-                else:
-                    msg = data.get("message", "Mapbox API error (code != Ok)")
-                    logger.warning("Mapbox chunk error: %s", msg)
-            except ClientResponseError as cre:
-                if cre.status == 429:
-                    logger.error(
-                        "Still receiving 429 after backoff. Failing chunk of size %d.",
-                        len(chunk_coords),
-                    )
-                else:
-                    logger.warning("Mapbox HTTP error for chunk: %s", str(cre))
-            except Exception as exc:
-                logger.warning("Unexpected error in mapbox chunk: %s", str(exc))
+                logger.warning("Mapbox error: %s", data.get("message", "Unknown error"))
+            except Exception:
+                pass
             if depth < max_retries and len(chunk_coords) > min_sub_chunk:
                 mid = len(chunk_coords) // 2
                 first_half = chunk_coords[:mid]
                 second_half = chunk_coords[mid:]
-                logger.info(
-                    "Retry chunk of size %d by splitting into halves (%d, %d) at depth %d",
-                    len(chunk_coords),
-                    len(first_half),
-                    len(second_half),
-                    depth,
-                )
-                matched_first = await match_chunk(first_half, depth + 1)
-                matched_second = await match_chunk(second_half, depth + 1)
-                if matched_first is not None and matched_second is not None:
-                    if (
-                        matched_first
-                        and matched_second
-                        and matched_first[-1] == matched_second[0]
-                    ):
-                        matched_second = matched_second[1:]
-                    return matched_first + matched_second
+                m1 = await match_chunk(first_half, depth + 1)
+                m2 = await match_chunk(second_half, depth + 1)
+                if m1 is not None and m2 is not None:
+                    if m1 and m2 and m1[-1] == m2[0]:
+                        m2 = m2[1:]
+                    return m1 + m2
             logger.error(
-                "Chunk of size %d failed after %d retries, giving up.",
-                len(chunk_coords),
-                depth,
+                "Chunk of size %d failed after %d retries.", len(chunk_coords), depth
             )
             return None
 
@@ -186,25 +143,12 @@ async def map_match_coordinates(
                 break
             start_idx = end_idx - overlap
 
-        logger.info(
-            "Splitting %d coords into %d chunks (chunk_size=%d, overlap=%d)",
-            n,
-            len(chunk_indices),
-            chunk_size,
-            overlap,
-        )
         final_matched: List[List[float]] = []
-        for cindex, (start_i, end_i) in enumerate(chunk_indices, 1):
+        for start_i, end_i in chunk_indices:
             chunk_coords = coordinates[start_i:end_i]
-            logger.debug(
-                "Matching chunk %d/%d with %d coords",
-                cindex,
-                len(chunk_indices),
-                len(chunk_coords),
-            )
             result = await match_chunk(chunk_coords, depth=0)
             if result is None:
-                msg = f"Chunk {cindex} of {len(chunk_indices)} failed map matching."
+                msg = f"Chunk from index {start_i} to {end_i} failed map matching."
                 logger.error(msg)
                 return {"code": "Error", "message": msg}
             if not final_matched:
@@ -214,68 +158,39 @@ async def map_match_coordinates(
                     result = result[1:]
                 final_matched.extend(result)
 
-        logger.info(
-            "Stitched matched coords from all chunks, total points=%d",
-            len(final_matched),
-        )
-
         def detect_big_jumps(
             coords: List[List[float]], threshold_m: float = 200
         ) -> List[int]:
-            suspicious_indices = []
+            indices = []
             for i in range(len(coords) - 1):
-                lon1, lat1 = coords[i]
-                lon2, lat2 = coords[i + 1]
-                if haversine_single(lon1, lat1, lon2, lat2) > threshold_m:
-                    suspicious_indices.append(i)
-            return suspicious_indices
+                if (
+                    haversine_single(
+                        coords[i][0], coords[i][1], coords[i + 1][0], coords[i + 1][1]
+                    )
+                    > threshold_m
+                ):
+                    indices.append(i)
+            return indices
 
         max_jump_passes = 2
-        pass_count = 0
-        while pass_count < max_jump_passes:
-            big_jumps = detect_big_jumps(final_matched, jump_threshold_m)
-            if not big_jumps:
+        for _ in range(max_jump_passes):
+            jumps = detect_big_jumps(final_matched, jump_threshold_m)
+            if not jumps:
                 break
-            logger.info(
-                "Found %d suspicious jump(s) on pass %d", len(big_jumps), pass_count + 1
-            )
-            fix_count = 0
             new_coords = final_matched[:]
             offset = 0
-            for j_idx in big_jumps:
-                i = j_idx + offset
+            for j in jumps:
+                i = j + offset
                 if i < 1 or i >= len(new_coords) - 1:
                     continue
-                start_sub = i - 1
-                end_sub = i + 2
-                sub_coords = new_coords[start_sub:end_sub]
-                if len(sub_coords) < 2:
-                    continue
-                local_match = await match_chunk(sub_coords, depth=0)
-                if local_match and len(local_match) >= 2:
-                    logger.info(
-                        "Re-matched sub-segment around index %d, replaced %d points",
-                        i,
-                        (end_sub - start_sub),
-                    )
-                    new_coords = (
-                        new_coords[:start_sub] + local_match + new_coords[end_sub:]
-                    )
-                    offset += len(local_match) - (end_sub - start_sub)
-                    fix_count += 1
-                else:
-                    logger.info(
-                        "Local re-match for sub-segment around index %d failed, leaving as is",
-                        i,
-                    )
+                sub = new_coords[i - 1 : i + 2]
+                local = await match_chunk(sub, depth=0)
+                if local and len(local) >= 2:
+                    new_coords = new_coords[: i - 1] + local + new_coords[i + 2 :]
+                    offset += len(local) - 3
             final_matched = new_coords
-            pass_count += 1
-            if fix_count == 0:
-                break
 
-        logger.info(
-            "Final matched coords after jump detection: %d points", len(final_matched)
-        )
+        logger.info("Final matched coordinates count: %d", len(final_matched))
         return {
             "code": "Ok",
             "matchings": [
@@ -285,10 +200,6 @@ async def map_match_coordinates(
 
 
 async def process_and_map_match_trip(trip: Dict[str, Any]) -> None:
-    """
-    Process a trip: validate, extract GPS, map-match via Mapbox, reverse geocode,
-    and store the matched trip.
-    """
     try:
         is_valid, error_message = validate_trip_data(trip)
         if not is_valid:
@@ -302,16 +213,15 @@ async def process_and_map_match_trip(trip: Dict[str, Any]) -> None:
             {"transactionId": trip["transactionId"]}
         )
         if existing:
-            logger.info("Trip %s is already matched; skipping.", trip["transactionId"])
+            logger.info("Trip %s already matched; skipping.", trip["transactionId"])
             return
-        if isinstance(trip["gps"], dict):
-            gps_data = trip["gps"]
-        else:
-            gps_data = geojson_loads(trip["gps"])
-        coords = gps_data.get("coordinates", [])
-        if not coords or len(coords) < 2:
+        gps = (
+            trip["gps"] if isinstance(trip["gps"], dict) else geojson_loads(trip["gps"])
+        )
+        coords = gps.get("coordinates", [])
+        if len(coords) < 2:
             logger.warning(
-                "Trip %s has insufficient coords for map matching",
+                "Trip %s has insufficient coordinates for map matching.",
                 trip.get("transactionId"),
             )
             return
@@ -343,13 +253,13 @@ async def process_and_map_match_trip(trip: Dict[str, Any]) -> None:
             )
         await matched_trips_collection.insert_one(matched_trip)
         logger.info(
-            "Stored map–matched trip %s with %d coords in matched_trips.",
+            "Stored map–matched trip %s with %d coordinates.",
             trip["transactionId"],
             len(match_result["matchings"][0]["geometry"]["coordinates"]),
         )
     except Exception as e:
         logger.error(
-            "Error in process_and_map_match_trip for trip %s: %s",
+            "Error processing map match for trip %s: %s",
             trip.get("transactionId"),
             e,
             exc_info=True,

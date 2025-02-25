@@ -1,14 +1,16 @@
 """
-Preprocess streets module.
-Fetches OSM data from Overpass, segments street geometries in parallel, and updates the database.
+preprocess_streets.py
+
+Fetches OSM data from Overpass for a given location, segments street geometries in
+parallel, and updates the database with the street segments and coverage metadata.
 """
 
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-import multiprocessing
 import asyncio
+import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 
 import aiohttp
@@ -41,20 +43,14 @@ project_to_wgs84 = pyproj.Transformer.from_crs(
 async def fetch_osm_data(
     location: Dict[str, Any], streets_only: bool = True
 ) -> Dict[str, Any]:
-    """
-    Fetch OSM data from Overpass API for a given location.
-    """
     area_id = int(location["osm_id"])
     if location["osm_type"] == "relation":
         area_id += 3600000000
-
     if streets_only:
         query = f"""
         [out:json];
         area({area_id})->.searchArea;
-        (
-          way["highway"](area.searchArea);
-        );
+        (way["highway"](area.searchArea););
         (._;>;);
         out geom;
         """
@@ -67,18 +63,14 @@ async def fetch_osm_data(
         out geom;
         """
     timeout = aiohttp.ClientTimeout(total=30)
-    async with aiohttp.ClientSession(timeout=timeout) as session, session.get(
-        OVERPASS_URL, params={"data": query}
-    ) as response:
-        response.raise_for_status()
-        osm_data = await response.json()
-        return osm_data
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.get(OVERPASS_URL, params={"data": query}) as response:
+            response.raise_for_status()
+            osm_data = await response.json()
+            return osm_data
 
 
 def substring(line: LineString, start: float, end: float) -> Any:
-    """
-    Return a sub-linestring from 'start' to 'end' along the line.
-    """
     if start < 0 or end > line.length or start >= end:
         return None
     coords = list(line.coords)
@@ -125,9 +117,6 @@ def substring(line: LineString, start: float, end: float) -> Any:
 def segment_street(
     line: LineString, segment_length_meters: float = 100
 ) -> List[LineString]:
-    """
-    Split a linestring into segments of approximately segment_length_meters.
-    """
     segments = []
     total_length = line.length
     if total_length <= segment_length_meters:
@@ -143,16 +132,12 @@ def segment_street(
 
 
 def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Process a single street element in parallel.
-    Returns a list of segmented feature dictionaries.
-    """
     try:
         element = element_data["element"]
         location = element_data["location"]
         proj_to_utm = element_data["project_to_utm"]
         proj_to_wgs84 = element_data["project_to_wgs84"]
-        nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
+        nodes = [(node["lon"], node["lat"]) for node in element.get("geometry", [])]
         if len(nodes) < 2:
             return []
         line = LineString(nodes)
@@ -187,37 +172,31 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
 
 
 async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -> None:
-    """
-    Convert OSM ways into segmented features and insert them into streets_collection.
-    Also update coverage metadata.
-    """
     features = []
     total_length = 0.0
     way_elements = [
-        element
-        for element in osm_data.get("elements", [])
-        if element.get("type") == "way"
+        el for el in osm_data.get("elements", []) if el.get("type") == "way"
     ]
     if not way_elements:
         return
     process_data = [
         {
-            "element": element,
+            "element": el,
             "location": location["display_name"],
             "project_to_utm": project_to_utm,
             "project_to_wgs84": project_to_wgs84,
         }
-        for element in way_elements
+        for el in way_elements
     ]
     with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
         loop = asyncio.get_event_loop()
         feature_lists = await loop.run_in_executor(
             None, lambda: list(executor.map(process_element_parallel, process_data))
         )
-    for feature_list in feature_lists:
-        for feature in feature_list:
-            features.append(feature)
-            total_length += feature["properties"]["segment_length"]
+    for flist in feature_lists:
+        for feat in flist:
+            features.append(feat)
+            total_length += feat["properties"]["segment_length"]
     if features:
         await streets_collection.insert_many(features)
         await coverage_metadata_collection.update_one(
@@ -244,10 +223,6 @@ async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -
 
 
 async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
-    """
-    Preprocess street data for a validated location:
-    Fetch OSM data, segment streets, and update the database.
-    """
     try:
         logger.info(
             "Starting street preprocessing for %s", validated_location["display_name"]
@@ -264,7 +239,7 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
         osm_data = await fetch_osm_data(validated_location, streets_only=True)
         await process_osm_data(osm_data, validated_location)
         logger.info(
-            "Street preprocessing completed for %s.", validated_location["display_name"]
+            "Street preprocessing completed for %s", validated_location["display_name"]
         )
     except Exception as e:
         logger.error("Error during street preprocessing: %s", e, exc_info=True)

@@ -11,18 +11,12 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 import pymongo
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 
 class DatabaseManager:
-    """
-    Singleton class to manage the MongoDB client and database connection.
-    Provides helper methods for checking quota and safely creating indexes.
-    """
-
     _instance: Optional["DatabaseManager"] = None
     _client: Optional[AsyncIOMotorClient] = None
     _db: Optional[AsyncIOMotorDatabase] = None
@@ -40,24 +34,19 @@ class DatabaseManager:
             self._initialize_client()
 
     def _initialize_client(self) -> None:
-        """Initialize the MongoDB client and database connection."""
-        try:
-            mongo_uri: str = os.getenv("MONGO_URI")
-            if not mongo_uri:
-                raise ValueError("MONGO_URI environment variable not set")
-            self._client = AsyncIOMotorClient(
-                mongo_uri,
-                tls=True,
-                tlsAllowInvalidCertificates=True,
-                tlsCAFile=certifi.where(),
-                tz_aware=True,
-                tzinfo=timezone.utc,
-            )
-            self._db = self._client["every_street"]
-            logger.info("MongoDB client initialized successfully.")
-        except Exception as e:
-            logger.error("Failed to initialize MongoDB client: %s", e, exc_info=True)
-            raise
+        mongo_uri: str = os.getenv("MONGO_URI")
+        if not mongo_uri:
+            raise ValueError("MONGO_URI environment variable not set")
+        self._client = AsyncIOMotorClient(
+            mongo_uri,
+            tls=True,
+            tlsAllowInvalidCertificates=True,
+            tlsCAFile=certifi.where(),
+            tz_aware=True,
+            tzinfo=timezone.utc,
+        )
+        self._db = self._client["every_street"]
+        logger.info("MongoDB client initialized successfully.")
 
     @property
     def db(self) -> AsyncIOMotorDatabase:
@@ -76,11 +65,6 @@ class DatabaseManager:
         return self._quota_exceeded
 
     async def check_quota(self) -> Tuple[Optional[float], Optional[float]]:
-        """
-        Check if the database quota is exceeded.
-        Returns:
-            Tuple of (used_mb, limit_mb). Returns (None, None) on error.
-        """
         try:
             stats = await self.db.command("dbStats")
             data_size = stats.get("dataSize")
@@ -88,7 +72,7 @@ class DatabaseManager:
                 logger.error("dbStats did not return 'dataSize'")
                 return None, None
             used_mb = data_size / (1024 * 1024)
-            limit_mb = 512  # Free-tier limit
+            limit_mb = 512
             self._quota_exceeded = used_mb > limit_mb
             if self._quota_exceeded:
                 logger.warning(
@@ -106,9 +90,6 @@ class DatabaseManager:
     async def safe_create_index(
         self, collection_name: str, keys, **kwargs: Any
     ) -> None:
-        """
-        Create an index on a given collection if the quota is not exceeded.
-        """
         if self._quota_exceeded:
             logger.warning(
                 "Skipping index creation for %s due to quota exceeded", collection_name
@@ -132,7 +113,6 @@ class DatabaseManager:
 db_manager = DatabaseManager()
 db: AsyncIOMotorDatabase = db_manager.db
 
-# Define collections
 trips_collection = db["trips"]
 matched_trips_collection = db["matched_trips"]
 historical_trips_collection = db["historical_trips"]
@@ -150,9 +130,6 @@ progress_collection = db["progress_status"]
 
 
 async def init_task_history_collection() -> None:
-    """
-    Initialize indexes for the task history collection concurrently.
-    """
     try:
         tasks = [
             task_history_collection.create_index([("task_id", pymongo.ASCENDING)]),
@@ -169,10 +146,6 @@ async def init_task_history_collection() -> None:
 
 
 async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
-    """
-    Retrieve a trip document by its transactionId from trips_collection.
-    Ensures the trip contains the 'gps' field.
-    """
     try:
         trip = await trips_collection.find_one({"transactionId": trip_id})
         if not trip:
@@ -196,9 +169,6 @@ async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
 
 
 async def ensure_street_coverage_indexes() -> None:
-    """
-    Create indexes for collections used in street coverage concurrently.
-    """
     try:
         tasks = [
             coverage_metadata_collection.create_index(
