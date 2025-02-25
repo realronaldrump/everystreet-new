@@ -1,8 +1,5 @@
-{% extends "base.html" %}
-
-{% block title %}Every Street - Map{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Every Street - Map{% endblock %} {%
+block content %}
 <div class="d-flex flex-column h-100">
   <!-- Map Container -->
   <div id="map" class="flex-grow-1 position-relative">
@@ -79,11 +76,13 @@
             </ul>
           </div>
         </div>
-        
+
         <!-- Live Tracking Status Section -->
         <div class="col-12 col-md-4">
           <div class="card bg-dark border-secondary">
-            <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+            <div
+              class="card-header border-secondary d-flex justify-content-between align-items-center"
+            >
               <h3 class="h6 mb-0">Live Tracking</h3>
               <div class="connection-status d-flex align-items-center">
                 <div class="status-indicator disconnected me-2"></div>
@@ -91,7 +90,9 @@
               </div>
             </div>
             <div class="card-body">
-              <div class="d-flex align-items-center justify-content-between mb-2">
+              <div
+                class="d-flex align-items-center justify-content-between mb-2"
+              >
                 <span>Active Trips:</span>
                 <span id="active-trips-count" class="badge bg-primary">0</span>
               </div>
@@ -99,14 +100,17 @@
                 <!-- Trip metrics will be inserted here -->
               </div>
               <div class="d-flex justify-content-center mt-3">
-                <button id="center-on-active" class="btn btn-sm btn-outline-primary">
+                <button
+                  id="center-on-active"
+                  class="btn btn-sm btn-outline-primary"
+                >
                   <i class="fas fa-crosshairs me-1"></i> Focus on Active Trip
                 </button>
               </div>
             </div>
           </div>
         </div>
-        
+
         <!-- Coverage Stats Section -->
         <div class="col-12 col-md-4">
           <div class="card bg-dark border-secondary">
