@@ -15,7 +15,6 @@ from geojson import loads as geojson_loads
 from dotenv import load_dotenv
 import os
 from typing import List, Dict, Any, Optional
-from dateutil import parser as dateutil_parse
 
 from utils import validate_trip_data, reverse_geocode_nominatim
 from db import matched_trips_collection
