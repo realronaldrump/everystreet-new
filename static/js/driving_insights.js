@@ -1,4 +1,4 @@
-/* global L, flatpickr, notificationManager, bootstrap, LoadingManager, Chart, $ */
+/* global L, flatpickr, notificationManager, bootstrap, Chart, $ */
 
 "use strict";
 
@@ -21,7 +21,13 @@
     },
   };
 
-  const loadingManager = new LoadingManager();
+  // Use the global loadingManager instance if it exists, or null as fallback
+  const loadingManager = window.loadingManager || {
+    startOperation: () => {},
+    addSubOperation: () => {},
+    updateSubOperation: () => {},
+    finish: () => {}
+  };
 
   // Initialize everything once DOM is ready
   document.addEventListener("DOMContentLoaded", () => {

@@ -1,10 +1,10 @@
-/* global L, LoadingManager, Chart, $ */
+/* global L, Chart, $ */
 (() => {
   "use strict";
 
   class VisitsManager {
-    constructor(map) {
-      this.map = map;
+    constructor() {
+      this.map = null;
       this.places = new Map();
       this.drawControl = null;
       this.currentPolygon = null;
@@ -14,7 +14,13 @@
       this.nonCustomVisitsTable = null;
       this.drawingEnabled = false;
       this.customPlacesLayer = null;
-      this.loadingManager = new LoadingManager();
+      this.loadingManager = window.loadingManager || {
+        startOperation: () => {},
+        addSubOperation: () => {},
+        updateSubOperation: () => {},
+        finish: () => {},
+        error: () => {}
+      };
       this.isDetailedView = false;
       this.initialize();
     }

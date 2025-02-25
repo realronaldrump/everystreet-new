@@ -1,4 +1,4 @@
-/* global L, flatpickr, notificationManager, bootstrap, LoadingManager, EveryStreet, confirmationDialog, $ */
+/* global L, flatpickr, notificationManager, bootstrap, EveryStreet, confirmationDialog, $ */
 
 /**
  * Creates an editable cell for the DataTable
@@ -48,9 +48,21 @@ function createEditableCell(data, type, field, inputType = 'text') {
    */
   class TripsManager {
     constructor() {
-      // State
+      // Initialize properties
       this.tripsTable = null;
-      this.loadingManager = new LoadingManager();
+      this.map = null;
+      this.tripsLayer = L.layerGroup();
+      this.selectedTripId = null;
+      this.tripsCache = new Map();
+      
+      // Use global loadingManager
+      this.loadingManager = window.loadingManager || {
+        startOperation: () => {},
+        addSubOperation: () => {},
+        updateSubOperation: () => {},
+        finish: () => {},
+        error: () => {}
+      };
       
       // Configuration
       this.config = {

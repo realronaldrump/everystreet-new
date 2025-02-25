@@ -1,4 +1,4 @@
-/* global L, LoadingManager, uploadFiles, parseFiles, notificationManager, bootstrap, confirmationDialog */
+/* global L, uploadFiles, parseFiles, notificationManager, bootstrap, confirmationDialog */
 
 /**
  * UploadManager - Manages file uploads and processing
@@ -8,6 +8,25 @@ class UploadManager {
    * Initialize the upload manager
    */
   constructor() {
+    // Initialize properties
+    this.droppedFiles = [];
+    this.parsedFiles = [];
+    this.selectedFiles = [];
+    this.selectedRows = new Set();
+    this.map = null;
+    this.fileTable = null;
+    this.tripTable = null;
+    this.uploadedTripsLayer = null;
+    
+    // Use global loadingManager
+    this.loadingManager = window.loadingManager || {
+      startOperation: () => {},
+      addSubOperation: () => {},
+      updateSubOperation: () => {},
+      finish: () => {},
+      error: () => {}
+    };
+
     // Component state
     this.state = {
       selectedFiles: [],
@@ -40,9 +59,6 @@ class UploadManager {
       }
     };
 
-    // Initialize loading manager
-    this.loadingManager = new LoadingManager();
-    
     // Initialize on DOM content loaded
     document.addEventListener("DOMContentLoaded", () => this.init());
   }
