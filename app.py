@@ -2328,3 +2328,86 @@ async def trips_fetch_redirect(request: Request):
     except Exception as e:
         logger.exception("Error in trips_fetch_redirect")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Bouncie Webhook Endpoint ---
+@app.post("/api/webhook/bouncie")
+async def bouncie_webhook(request: Request):
+    """
+    Handle Bouncie webhook events.
+    Returns 200 status code to ensure the webhook isn't deactivated.
+    """
+    try:
+        # Get webhook data
+        data = await request.json()
+        logger.info(f"Received Bouncie webhook: {data.get('event_type', 'unknown')}")
+
+        # Process data in background task to avoid blocking the response
+        asyncio.create_task(process_bouncie_webhook(data))
+
+        # Return 200 status immediately - this is crucial for Bouncie to consider the webhook delivery successful
+        return {"status": "success", "message": "Webhook received"}
+    except Exception as e:
+        # Log error but still return 200 to avoid webhook deactivation
+        logger.exception(f"Error processing Bouncie webhook: {e}")
+        return {
+            "status": "error",
+            "message": "Error processing webhook, but acknowledged receipt",
+        }
+
+
+async def process_bouncie_webhook(data: dict):
+    """Process Bouncie webhook data in the background"""
+    try:
+        # Extract event type
+        event_type = data.get("event_type")
+
+        if not event_type:
+            logger.warning("Received webhook with no event type")
+            return
+
+        # Process the webhook based on event type
+        if event_type == "trip.started":
+            # Handle trip start event - store in live_trips_collection
+            if data.get("device") and data.get("trip"):
+                trip_data = data.get("trip", {})
+                # Update with device info
+                trip_data["imei"] = data.get("device", {}).get("imei")
+                trip_data["device"] = data.get("device")
+
+                # Store in live trips collection (replaces any existing entry)
+                await live_trips_collection.replace_one(
+                    {"imei": trip_data["imei"]}, trip_data, upsert=True
+                )
+                logger.info(f"Stored live trip start for device {trip_data['imei']}")
+
+        elif event_type == "trip.updated":
+            # Handle trip update - update the live trip data
+            if data.get("device") and data.get("trip"):
+                trip_data = data.get("trip", {})
+                trip_data["imei"] = data.get("device", {}).get("imei")
+                trip_data["device"] = data.get("device")
+
+                # Update the live trip data
+                await live_trips_collection.update_one(
+                    {"imei": trip_data["imei"]}, {"$set": trip_data}, upsert=True
+                )
+                logger.info(f"Updated live trip for device {trip_data['imei']}")
+
+        elif event_type == "trip.completed":
+            # Handle trip completion - move from live to archived
+            imei = data.get("device", {}).get("imei")
+            if imei:
+                # Find the current live trip
+                live_trip = await live_trips_collection.find_one({"imei": imei})
+
+                if live_trip:
+                    # Move to archived collection
+                    live_trip["completed_at"] = datetime.now(timezone.utc)
+                    await archived_live_trips_collection.insert_one(live_trip)
+
+                    # Remove from live collection
+                    await live_trips_collection.delete_one({"imei": imei})
+                    logger.info(f"Completed and archived live trip for device {imei}")
+    except Exception as e:
+        logger.exception(f"Error in process_bouncie_webhook: {e}")
