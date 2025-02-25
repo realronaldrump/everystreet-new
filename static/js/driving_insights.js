@@ -26,7 +26,7 @@
     startOperation: () => {},
     addSubOperation: () => {},
     updateSubOperation: () => {},
-    finish: () => {}
+    finish: () => {},
   };
 
   // Initialize everything once DOM is ready
