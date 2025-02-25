@@ -5,7 +5,6 @@ import asyncio
 import zipfile
 import glob
 import io
-import shutil
 import uuid
 import tempfile
 from datetime import datetime, timedelta, timezone

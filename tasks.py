@@ -6,7 +6,6 @@ Manages scheduling, execution, and history recording for periodic tasks.
 import asyncio
 import json
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from dataclasses import dataclass
@@ -25,7 +24,7 @@ from utils import validate_trip_data, reverse_geocode_nominatim
 from street_coverage_calculation import update_coverage_for_all_locations
 from preprocess_streets import preprocess_streets as async_preprocess_streets
 
-from db import db, task_history_collection, task_config_collection
+from db import db
 
 logger = logging.getLogger(__name__)
 

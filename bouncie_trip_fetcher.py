@@ -12,10 +12,9 @@ import pytz
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
-from motor.motor_asyncio import AsyncIOMotorClient
 from dateutil import parser as date_parser
 import aiohttp
-from geojson import dumps as geojson_dumps, loads as geojson_loads
+from geojson import dumps as geojson_dumps
 from aiohttp.client_exceptions import (
     ClientConnectorError,
     ClientResponseError,
@@ -24,7 +23,6 @@ from aiohttp.client_exceptions import (
 # Local imports
 from db import trips_collection
 from utils import (
-    reverse_geocode_nominatim,
     get_trip_timezone,
     validate_trip_data,
 )
@@ -32,7 +30,6 @@ from map_matching import process_and_map_match_trip
 from trip_processing import (
     process_trip_data,
 )  # <-- was previously from app import ...
-from aiohttp import ClientSession
 
 logging.basicConfig(
     level=logging.INFO,
