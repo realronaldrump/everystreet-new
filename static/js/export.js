@@ -75,27 +75,27 @@ class ExportManager {
   initializeFormHandlers() {
     // Trip export form
     this.initializeFormListener(this.config.forms.trips.id, () =>
-      this.exportTrips()
+      this.exportTrips(),
     );
 
     // Matched trips export form
     this.initializeFormListener(this.config.forms.matchedTrips.id, () =>
-      this.exportMatchedTrips()
+      this.exportMatchedTrips(),
     );
 
     // Streets export form
     this.initializeFormListener(this.config.forms.streets.id, () =>
-      this.exportStreets()
+      this.exportStreets(),
     );
 
     // Boundary export form
     this.initializeFormListener(this.config.forms.boundary.id, () =>
-      this.exportBoundary()
+      this.exportBoundary(),
     );
 
     // All trips export form
     this.initializeFormListener(this.config.forms.all.id, () =>
-      this.exportAllTrips()
+      this.exportAllTrips(),
     );
 
     // Initialize location validation buttons
@@ -141,7 +141,7 @@ class ExportManager {
       const url = this.getExportUrl(
         config.dateStart,
         config.dateEnd,
-        config.format
+        config.format,
       );
       const format = document.getElementById(config.format).value;
 
@@ -160,7 +160,7 @@ class ExportManager {
       const url = this.getExportUrl(
         config.dateStart,
         config.dateEnd,
-        config.format
+        config.format,
       );
       const format = document.getElementById(config.format).value;
 
@@ -259,7 +259,7 @@ class ExportManager {
 
       if (!response.ok) {
         throw new Error(
-          `Server returned ${response.status}: ${response.statusText}`
+          `Server returned ${response.status}: ${response.statusText}`,
         );
       }
 
@@ -335,7 +335,7 @@ class ExportManager {
 
       if (!response.ok) {
         throw new Error(
-          `Server returned ${response.status}: ${response.statusText}`
+          `Server returned ${response.status}: ${response.statusText}`,
         );
       }
 
@@ -346,7 +346,7 @@ class ExportManager {
       } else {
         notificationManager.show(
           "Location not found. Please try a different search term",
-          "warning"
+          "warning",
         );
       }
     } catch (error) {
@@ -363,7 +363,7 @@ class ExportManager {
     locationInput.setAttribute("data-location", JSON.stringify(data));
     locationInput.setAttribute(
       "data-display-name",
-      data.display_name || data.name || locationInput.value
+      data.display_name || data.name || locationInput.value,
     );
 
     // Enable the submit button in the parent form
