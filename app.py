@@ -2065,40 +2065,77 @@ async def websocket_live_trip(websocket: WebSocket):
             await websocket.send_text(
                 json.dumps({"type": "trip_update", "data": active_trip})
             )
+        else:
+            # Send empty trip data structure when no active trip exists
+            empty_trip = {
+                "trip_id": "",
+                "start_time": None,
+                "end_time": None,
+                "coordinates": [],
+                "is_active": False,
+            }
+            await websocket.send_text(
+                json.dumps({"type": "trip_update", "data": empty_trip})
+            )
+
+        # Setup a heartbeat task to run every 20 seconds
+        last_heartbeat_time = datetime.now(timezone.utc)
+        heartbeat_interval = 20  # seconds
 
         # Keep connection alive and handle messages
         while True:
             try:
-                # Wait for message (this will also keep the connection alive)
-                data = await websocket.receive_text()
+                # Check if we need to send a heartbeat
+                now = datetime.now(timezone.utc)
+                time_since_heartbeat = (now - last_heartbeat_time).total_seconds()
 
-                # Process client message if needed
+                if time_since_heartbeat >= heartbeat_interval:
+                    # Send a heartbeat to keep connection alive
+                    await websocket.send_text(
+                        json.dumps({"type": "heartbeat", "timestamp": now.isoformat()})
+                    )
+                    last_heartbeat_time = now
+
+                # Wait for message with timeout (this will also keep the connection alive)
                 try:
-                    message = json.loads(data)
-                except:
-                    # If not valid JSON, just treat as heartbeat request
-                    message = {"type": "heartbeat_request"}
+                    # Use a small timeout so we can still send regular heartbeats
+                    data = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
 
-                if (
-                    message.get("type") == "request_active_trip"
-                    or message.get("type") == "heartbeat_request"
-                ):
-                    # Fetch active trip data and send it back
-                    active_trip = await get_active_trip_data()
-                    if active_trip:
-                        await websocket.send_text(
-                            json.dumps({"type": "trip_update", "data": active_trip})
-                        )
-                    else:
-                        await websocket.send_text(
-                            json.dumps(
-                                {
-                                    "type": "heartbeat",
-                                    "timestamp": datetime.now().isoformat(),
-                                }
+                    # Process client message if received
+                    try:
+                        message = json.loads(data)
+                    except:
+                        # If not valid JSON, just treat as heartbeat request
+                        message = {"type": "heartbeat_request"}
+
+                    if (
+                        message.get("type") == "request_active_trip"
+                        or message.get("type") == "heartbeat_request"
+                    ):
+                        # Fetch active trip data and send it back
+                        active_trip = await get_active_trip_data()
+                        if active_trip:
+                            await websocket.send_text(
+                                json.dumps({"type": "trip_update", "data": active_trip})
                             )
-                        )
+                        else:
+                            # Send empty trip data structure when no active trip exists
+                            empty_trip = {
+                                "trip_id": "",
+                                "start_time": None,
+                                "end_time": None,
+                                "coordinates": [],
+                                "is_active": False,
+                            }
+                            await websocket.send_text(
+                                json.dumps({"type": "trip_update", "data": empty_trip})
+                            )
+                except asyncio.TimeoutError:
+                    # This is normal - just continue and check heartbeat timing
+                    continue
+
             except WebSocketDisconnect:
+                logger.info("WebSocket client disconnected normally")
                 manager.disconnect(websocket)
                 break
             except Exception as e:
@@ -2111,6 +2148,7 @@ async def websocket_live_trip(websocket: WebSocket):
                     break
 
     except WebSocketDisconnect:
+        logger.info("WebSocket client disconnected during setup")
         manager.disconnect(websocket)
     except Exception as e:
         logger.exception(f"WebSocket error: {e}")
@@ -2216,7 +2254,14 @@ async def get_active_trip():
     try:
         trip_data = await get_active_trip_data()
         if not trip_data:
-            raise HTTPException(status_code=404, detail="No active trip found")
+            # Return empty data structure instead of 404 error
+            return {
+                "trip_id": "",
+                "start_time": None,
+                "end_time": None,
+                "coordinates": [],
+                "is_active": False,
+            }
         return trip_data
     except Exception as e:
         logger.exception("Error in get_active_trip endpoint")

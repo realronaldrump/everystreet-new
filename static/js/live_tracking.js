@@ -56,40 +56,28 @@ class LiveTripTracker {
     try {
       const response = await fetch("/api/active_trip");
       
-      if (response.status === 404) {
-        console.log("No active trip found - this is normal");
-        this.clearTrip();
-        this.updateActiveTripsCount(0);
-        return;
-      }
-      
       if (!response.ok) {
         throw new Error(`Failed to fetch active trip: ${response.status}`);
       }
       
       const trip = await response.json();
       
-      // Make sure we have valid coordinates before setting as active
-      if (trip && Array.isArray(trip.coordinates) && trip.coordinates.length > 0) {
+      // Check if this is an active trip with coordinates or an empty placeholder
+      if (trip && trip.is_active && Array.isArray(trip.coordinates) && trip.coordinates.length > 0) {
         this.setActiveTrip(trip);
         this.updateActiveTripsCount(1);
       } else {
-        console.log("Trip data has no valid coordinates - treating as no active trip");
+        console.log("No active trip data - this is normal");
         this.clearTrip();
         this.updateActiveTripsCount(0);
       }
     } catch (error) {
-      if (error.message.includes("404")) {
-        console.log("No active trip available - this is normal");
-        this.clearTrip();
-        this.updateActiveTripsCount(0);
-      } else {
-        console.error("Error loading initial trip data:", error);
-        this.clearTrip();
-        this.updateActiveTripsCount(0);
-        if (notificationManager) {
-          notificationManager.show("Failed to load active trip data.", "warning", 5000, true);
-        }
+      console.error("Error loading initial trip data:", error);
+      this.clearTrip();
+      this.updateActiveTripsCount(0);
+      
+      if (notificationManager) {
+        notificationManager.show("Failed to load active trip data.", "warning", 5000, true);
       }
     }
   }
@@ -127,7 +115,11 @@ class LiveTripTracker {
   connectWebSocket() {
     if (this.websocket) {
       // Close existing connection before creating a new one
-      this.websocket.close();
+      try {
+        this.websocket.close();
+      } catch (err) {
+        console.error("Error closing existing WebSocket:", err);
+      }
       this.websocket = null;
     }
 
@@ -136,6 +128,9 @@ class LiveTripTracker {
     
     try {
       this.websocket = new WebSocket(wsUrl);
+      
+      // Track connection time for monitoring initial heartbeat
+      this.connectTime = Date.now();
       
       this.websocket.addEventListener("open", this.handleWebSocketOpen.bind(this));
       this.websocket.addEventListener("message", this.handleWebSocketMessage.bind(this));
@@ -192,17 +187,19 @@ class LiveTripTracker {
     
     switch (message.type) {
       case "trip_update":
-        if (message.data && Array.isArray(message.data.coordinates) && message.data.coordinates.length > 0) {
+        if (message.data && message.data.is_active && Array.isArray(message.data.coordinates) && message.data.coordinates.length > 0) {
           this.setActiveTrip(message.data);
           this.updateActiveTripsCount(1);
+          console.log("Received active trip update with coordinates:", message.data.coordinates.length);
         } else {
-          console.log("Trip update with invalid data - clearing trip");
+          console.log("Received trip update with no active trip - clearing display");
           this.clearTrip();
           this.updateActiveTripsCount(0);
         }
         break;
       case "heartbeat":
-        // Just update the timestamp, no active trip
+        // Update timestamp and make sure no trip is shown
+        this.lastHeartbeat = Date.now();
         this.clearTrip();
         this.updateActiveTripsCount(0);
         break;
@@ -251,15 +248,51 @@ class LiveTripTracker {
     const now = Date.now();
     const timeSinceLastHeartbeat = now - this.lastHeartbeat;
     
-    if (this.lastHeartbeat > 0 && timeSinceLastHeartbeat > this.heartbeatInterval * 2) {
-      console.warn(`No heartbeat received for ${Math.round(timeSinceLastHeartbeat/1000)}s, reconnecting...`);
+    // Only check if we've had at least one heartbeat
+    if (this.lastHeartbeat > 0) {
+      // Log heartbeat status for debugging
+      console.log(`Last heartbeat was ${Math.round(timeSinceLastHeartbeat/1000)}s ago`);
       
-      if (this.websocket) {
-        this.websocket.close();
-        this.websocket = null;
+      // If we've missed too many heartbeats, reconnect
+      if (timeSinceLastHeartbeat > this.heartbeatInterval * 2) {
+        console.warn(`No heartbeat received for ${Math.round(timeSinceLastHeartbeat/1000)}s, reconnecting...`);
+        this.updateStatus(false);
+        
+        if (this.websocket && this.websocket.readyState !== WebSocket.CLOSED) {
+          console.log("Closing stale WebSocket connection");
+          try {
+            this.websocket.close();
+          } catch (err) {
+            console.error("Error closing WebSocket:", err);
+          }
+          this.websocket = null;
+        }
+        
+        // Wait a short moment before reconnecting
+        setTimeout(() => {
+          console.log("Attempting to reconnect WebSocket");
+          this.connectWebSocket();
+        }, 500);
       }
+    } else {
+      console.log("No heartbeat received yet");
       
-      this.connectWebSocket();
+      // If we haven't received a heartbeat in a while after connecting, try reconnecting
+      if (this.websocket && now - this.connectTime > this.heartbeatInterval) {
+        console.warn(`No initial heartbeat received after ${Math.round((now - this.connectTime)/1000)}s, reconnecting...`);
+        this.updateStatus(false);
+        
+        if (this.websocket) {
+          try {
+            this.websocket.close();
+          } catch (err) {
+            console.error("Error closing WebSocket:", err);
+          }
+          this.websocket = null;
+        }
+        
+        this.connectWebSocket();
+      }
     }
   }
 
