@@ -34,9 +34,6 @@
     initializeEventListeners();
     initializeDataTable();
     initializeCharts();
-    document
-      .getElementById("apply-filters")
-      ?.addEventListener("click", fetchDrivingInsights);
   });
 
   //  INITIALIZATION FUNCTIONS
@@ -194,7 +191,33 @@
   }
 
   function initializeEventListeners() {
-    // (No additional event listeners for now)
+    // Initialize date filter inputs with localStorage values or defaults
+    const today = new Date().toISOString().split("T")[0];
+    const startDateInput = document.getElementById("start-date");
+    const endDateInput = document.getElementById("end-date");
+
+    if (startDateInput && endDateInput) {
+      // Set initial values from localStorage or use defaults
+      startDateInput.value = localStorage.getItem("startDate") || today;
+      endDateInput.value = localStorage.getItem("endDate") || today;
+
+      // Save values to localStorage when changed
+      startDateInput.addEventListener("change", () => {
+        localStorage.setItem("startDate", startDateInput.value);
+      });
+
+      endDateInput.addEventListener("change", () => {
+        localStorage.setItem("endDate", endDateInput.value);
+      });
+    }
+
+    // Set up filter button
+    document
+      .getElementById("apply-filters")
+      ?.addEventListener("click", fetchDrivingInsights);
+
+    // Automatically load insights when the page loads
+    fetchDrivingInsights();
   }
 
   //  UTILITY FUNCTIONS
@@ -232,8 +255,7 @@
       updateFuelChart(generalData);
       loadingManager.updateSubOperation("analytics", 100);
     } catch (error) {
-      console.error("Error fetching driving insights:", error);
-      showError("Error loading driving insights.");
+      showError(`Error loading driving insights: ${error.message}`);
     } finally {
       loadingManager.finish();
     }
@@ -309,8 +331,14 @@
       `${(data.total_fuel_consumed || 0).toFixed(2)} gallons`;
     document.getElementById("max-speed").textContent =
       `${data.max_speed || 0} mph`;
+
+    // Format idle duration for better readability
+    const totalSeconds = data.total_idle_duration || 0;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
     document.getElementById("total-idle").textContent =
-      `${data.total_idle_duration || 0} seconds`;
+      `${minutes}m ${seconds}s`;
+
     document.getElementById("longest-trip").textContent =
       `${(data.longest_trip_distance || 0).toFixed(2)} miles`;
 
