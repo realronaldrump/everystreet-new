@@ -8,22 +8,24 @@
  * @param {string} [inputType='text'] - HTML input type
  * @returns {string} HTML for the editable cell
  */
-function createEditableCell(data, type, field, inputType = 'text') {
-  if (type !== 'display') return data;
-  
-  const value = data === null || data === undefined ? '' : data;
-  let inputAttributes = '';
-  
+function createEditableCell(data, type, field, inputType = "text") {
+  if (type !== "display") return data;
+
+  const value = data === null || data === undefined ? "" : data;
+  let inputAttributes = "";
+
   // Set specific attributes based on input type
-  if (inputType === 'number') {
+  if (inputType === "number") {
     inputAttributes = 'step="any"';
-  } else if (inputType === 'datetime-local') {
+  } else if (inputType === "datetime-local") {
     // Convert date to datetime-local format for input
     const datetime = value ? new Date(value) : new Date();
-    const localDatetime = new Date(datetime.getTime() - datetime.getTimezoneOffset() * 60000)
+    const localDatetime = new Date(
+      datetime.getTime() - datetime.getTimezoneOffset() * 60000,
+    )
       .toISOString()
       .slice(0, 16);
-    
+
     return `
       <div class="editable-cell" data-field="${field}">
         <span class="display-value">${value}</span>
@@ -31,7 +33,7 @@ function createEditableCell(data, type, field, inputType = 'text') {
       </div>
     `;
   }
-  
+
   return `
     <div class="editable-cell" data-field="${field}">
       <span class="display-value">${value}</span>
@@ -51,24 +53,24 @@ function createEditableCell(data, type, field, inputType = 'text') {
       // State
       this.tripsTable = null;
       this.loadingManager = new LoadingManager();
-      
+
       // Configuration
       this.config = {
         tables: {
           order: [[3, "desc"]],
-          language: { 
-            emptyTable: "No trips found in the selected date range" 
-          }
+          language: {
+            emptyTable: "No trips found in the selected date range",
+          },
         },
         dateFormats: {
-          display: { 
-            dateStyle: "medium", 
-            timeStyle: "short", 
-            hour12: true 
-          }
-        }
+          display: {
+            dateStyle: "medium",
+            timeStyle: "short",
+            hour12: true,
+          },
+        },
       };
-      
+
       // Initialize on DOM load
       this.init();
     }
@@ -89,7 +91,9 @@ function createEditableCell(data, type, field, inputType = 'text') {
       // Apply filters button
       const applyFiltersButton = document.getElementById("apply-filters");
       if (applyFiltersButton) {
-        applyFiltersButton.addEventListener("click", () => this.handleApplyFilters());
+        applyFiltersButton.addEventListener("click", () =>
+          this.handleApplyFilters(),
+        );
       }
 
       // Date preset buttons
@@ -106,7 +110,7 @@ function createEditableCell(data, type, field, inputType = 'text') {
      * Initialize date preset buttons
      */
     initializeDatePresetButtons() {
-      document.querySelectorAll(".date-preset").forEach(button => {
+      document.querySelectorAll(".date-preset").forEach((button) => {
         button.addEventListener("click", (e) => this.handleDatePresetClick(e));
       });
     }
@@ -144,7 +148,7 @@ function createEditableCell(data, type, field, inputType = 'text') {
           this.fetchFirstTripDate(endDate);
           return;
       }
-      
+
       this.updateDatesAndFetch(startDate, endDate);
     }
 
@@ -173,9 +177,13 @@ function createEditableCell(data, type, field, inputType = 'text') {
         bulkDeleteBtn.addEventListener("click", () => this.bulkDeleteTrips());
       }
 
-      const refreshGeocodingBtn = document.getElementById("refresh-geocoding-btn");
+      const refreshGeocodingBtn = document.getElementById(
+        "refresh-geocoding-btn",
+      );
       if (refreshGeocodingBtn) {
-        refreshGeocodingBtn.addEventListener("click", () => this.refreshGeocoding());
+        refreshGeocodingBtn.addEventListener("click", () =>
+          this.refreshGeocoding(),
+        );
       }
     }
 
@@ -225,7 +233,7 @@ function createEditableCell(data, type, field, inputType = 'text') {
      */
     cancelRowEdit(row) {
       const rowData = this.tripsTable.row(row).data();
-      row.find(".edit-input").each(function() {
+      row.find(".edit-input").each(function () {
         const field = $(this).closest(".editable-cell").data("field");
         $(this).val(rowData[field]);
       });
@@ -242,7 +250,7 @@ function createEditableCell(data, type, field, inputType = 'text') {
         const updatedData = { ...rowData };
 
         // Collect updated values from inputs
-        row.find(".edit-input").each(function() {
+        row.find(".edit-input").each(function () {
           const field = $(this).closest(".editable-cell").data("field");
           let value = $(this).val();
           if (field === "startTime" || field === "endTime") {
@@ -273,19 +281,22 @@ function createEditableCell(data, type, field, inputType = 'text') {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updatePayload),
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || "Failed to update trip");
         }
-        
+
         // Update the table
         this.tripsTable.row(row).data(updatedData).draw();
         this.setRowEditMode(row, false);
         notificationManager.show("Trip updated successfully", "success");
       } catch (error) {
         console.error("Error updating trip:", error);
-        notificationManager.show(error.message || "Failed to update trip", "danger");
+        notificationManager.show(
+          error.message || "Failed to update trip",
+          "danger",
+        );
       }
     }
 
@@ -335,14 +346,14 @@ function createEditableCell(data, type, field, inputType = 'text') {
     updateDatesAndFetch(startDate, endDate) {
       const startDateStr = startDate.toISOString().split("T")[0];
       const endDateStr = endDate.toISOString().split("T")[0];
-      
+
       // Update DOM inputs
       const startInput = document.getElementById("start-date");
       const endInput = document.getElementById("end-date");
-      
+
       if (startInput) startInput.value = startDateStr;
       if (endInput) endInput.value = endDateStr;
-      
+
       // Store and fetch
       this.storeDates(startDateStr, endDateStr);
       this.fetchTrips();
@@ -368,7 +379,8 @@ function createEditableCell(data, type, field, inputType = 'text') {
           {
             data: "transactionId",
             title: "Transaction ID",
-            render: (data, type) => createEditableCell(data, type, "transactionId"),
+            render: (data, type) =>
+              createEditableCell(data, type, "transactionId"),
           },
           {
             data: "imei",
@@ -378,45 +390,57 @@ function createEditableCell(data, type, field, inputType = 'text') {
           {
             data: "startTime",
             title: "Start Time",
-            render: (data, type, row) => this.renderDateTime(data, type, row, "startTime"),
+            render: (data, type, row) =>
+              this.renderDateTime(data, type, row, "startTime"),
           },
           {
             data: "endTime",
             title: "End Time",
-            render: (data, type, row) => this.renderDateTime(data, type, row, "endTime"),
+            render: (data, type, row) =>
+              this.renderDateTime(data, type, row, "endTime"),
           },
           {
             data: "distance",
             title: "Distance (miles)",
-            render: (data, type) => createEditableCell(data, type, "distance", "number"),
+            render: (data, type) =>
+              createEditableCell(data, type, "distance", "number"),
           },
           {
             data: "startLocation",
             title: "Start Location",
-            render: (data, type) => createEditableCell(data, type, "startLocation"),
+            render: (data, type) =>
+              createEditableCell(data, type, "startLocation"),
           },
           {
             data: "destination",
             title: "Destination",
-            render: (data, type) => createEditableCell(data, type, "destination"),
+            render: (data, type) =>
+              createEditableCell(data, type, "destination"),
           },
           {
             data: "maxSpeed",
             title: "Max Speed (mph)",
-            render: (data, type) => createEditableCell(data, type, "maxSpeed", "number"),
+            render: (data, type) =>
+              createEditableCell(data, type, "maxSpeed", "number"),
           },
           {
             data: "totalIdleDuration",
             title: "Idle Duration (min)",
             render: (data, type) => {
               const value = data != null ? (data / 60).toFixed(2) : "N/A";
-              return createEditableCell(value, type, "totalIdleDuration", "number");
+              return createEditableCell(
+                value,
+                type,
+                "totalIdleDuration",
+                "number",
+              );
             },
           },
           {
             data: "fuelConsumed",
             title: "Fuel Consumed (gal)",
-            render: (data, type) => createEditableCell(data, type, "fuelConsumed", "number"),
+            render: (data, type) =>
+              createEditableCell(data, type, "fuelConsumed", "number"),
           },
           {
             data: null,
@@ -459,7 +483,12 @@ function createEditableCell(data, type, field, inputType = 'text') {
           ...this.config.dateFormats.display,
           timeZone: timezone,
         });
-        return createEditableCell(formatter.format(date), type, field, "datetime-local");
+        return createEditableCell(
+          formatter.format(date),
+          type,
+          field,
+          "datetime-local",
+        );
       }
       return data;
     }
@@ -503,13 +532,13 @@ function createEditableCell(data, type, field, inputType = 'text') {
      */
     async bulkDeleteTrips() {
       const selectedTrips = [];
-      
+
       // Collect selected trip IDs
       $(".trip-checkbox:checked").each((_, el) => {
         const rowData = this.tripsTable.row($(el).closest("tr")).data();
         selectedTrips.push(rowData.transactionId);
       });
-      
+
       if (selectedTrips.length === 0) {
         notificationManager.show("No trips selected for deletion.", "warning");
         return;
@@ -529,20 +558,29 @@ function createEditableCell(data, type, field, inputType = 'text') {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ trip_ids: selectedTrips }),
           });
-          
+
           const data = await response.json();
-          
+
           if (data.status === "success") {
-            notificationManager.show(`Successfully deleted ${data.deleted_count} trip(s).`, "success");
+            notificationManager.show(
+              `Successfully deleted ${data.deleted_count} trip(s).`,
+              "success",
+            );
             this.fetchTrips();
           } else {
-            notificationManager.show(`Error deleting trip(s): ${data.message}`, "danger");
+            notificationManager.show(
+              `Error deleting trip(s): ${data.message}`,
+              "danger",
+            );
             console.error("Error deleting trip(s):", data.message);
           }
         }
       } catch (error) {
         console.error("Error deleting trips:", error);
-        notificationManager.show("Error deleting trip(s). Please try again.", "danger");
+        notificationManager.show(
+          "Error deleting trip(s). Please try again.",
+          "danger",
+        );
       }
     }
 
@@ -551,13 +589,13 @@ function createEditableCell(data, type, field, inputType = 'text') {
      */
     async refreshGeocoding() {
       const selectedTrips = [];
-      
+
       // Collect selected trip IDs
       $(".trip-checkbox:checked").each((_, el) => {
         const rowData = this.tripsTable.row($(el).closest("tr")).data();
         selectedTrips.push(rowData.transactionId);
       });
-      
+
       if (selectedTrips.length === 0) {
         notificationManager.show("No trips selected to refresh.", "warning");
         return;
@@ -577,19 +615,25 @@ function createEditableCell(data, type, field, inputType = 'text') {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ trip_ids: selectedTrips }),
           });
-          
+
           if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.message || "Failed to refresh geocoding");
           }
-          
+
           const data = await response.json();
-          notificationManager.show(`Successfully refreshed geocoding for ${data.updated_count} trip(s).`, "success");
+          notificationManager.show(
+            `Successfully refreshed geocoding for ${data.updated_count} trip(s).`,
+            "success",
+          );
           this.fetchTrips();
         }
       } catch (error) {
         console.error("Error refreshing geocoding:", error);
-        notificationManager.show(error.message || "Error refreshing geocoding. Please try again.", "danger");
+        notificationManager.show(
+          error.message || "Error refreshing geocoding. Please try again.",
+          "danger",
+        );
       }
     }
 
@@ -599,20 +643,20 @@ function createEditableCell(data, type, field, inputType = 'text') {
      */
     getFilterParams() {
       const params = new URLSearchParams();
-      
+
       // Get dates from localStorage or date inputs
       let startDate = localStorage.getItem("startDate");
       let endDate = localStorage.getItem("endDate");
-      
+
       const startInput = document.getElementById("start-date");
       const endInput = document.getElementById("end-date");
-      
+
       if (!startDate && startInput) startDate = startInput.value;
       if (!endDate && endInput) endDate = endInput.value;
-      
+
       params.append("start_date", startDate);
       params.append("end_date", endDate);
-      
+
       return params;
     }
 
@@ -623,29 +667,34 @@ function createEditableCell(data, type, field, inputType = 'text') {
       try {
         const params = this.getFilterParams();
         const url = `/api/trips?${params.toString()}`;
-        
+
         const response = await fetch(url);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         if (!data.features || !Array.isArray(data.features)) {
           console.warn("No trips data received or invalid format");
           this.tripsTable.clear().draw();
           return;
         }
-        
-        const formattedTrips = data.features.map(trip => this.formatTripData(trip));
-        
+
+        const formattedTrips = data.features.map((trip) =>
+          this.formatTripData(trip),
+        );
+
         // Update the DataTable
-        await new Promise(resolve => {
+        await new Promise((resolve) => {
           this.tripsTable.clear().rows.add(formattedTrips).draw();
           setTimeout(resolve, 100);
         });
       } catch (error) {
         console.error("Error fetching trips:", error);
-        notificationManager.show("Error loading trips. Please try again.", "danger");
+        notificationManager.show(
+          "Error loading trips. Please try again.",
+          "danger",
+        );
       }
     }
 
@@ -661,7 +710,10 @@ function createEditableCell(data, type, field, inputType = 'text') {
         destination: trip.properties.destination || "N/A",
         isCustomPlace: trip.properties.isCustomPlace || false,
         distance: parseFloat(trip.properties.distance).toFixed(2),
-        maxSpeed: trip.properties.maxSpeed || trip.properties.endLocation?.obdMaxSpeed || 0,
+        maxSpeed:
+          trip.properties.maxSpeed ||
+          trip.properties.endLocation?.obdMaxSpeed ||
+          0,
         totalIdleDuration: trip.properties.totalIdleDuration,
         fuelConsumed: trip.properties.fuelConsumed || 0,
       };
@@ -684,11 +736,11 @@ function createEditableCell(data, type, field, inputType = 'text') {
           const response = await fetch(`/api/trips/${tripId}`, {
             method: "DELETE",
           });
-          
+
           if (!response.ok) {
             throw new Error("Network response was not ok");
           }
-          
+
           const data = await response.json();
           if (data.status === "success") {
             notificationManager.show("Trip deleted successfully", "success");
@@ -699,7 +751,10 @@ function createEditableCell(data, type, field, inputType = 'text') {
         }
       } catch (error) {
         console.error("Error deleting trip:", error);
-        notificationManager.show("Error deleting trip. Please try again.", "danger");
+        notificationManager.show(
+          "Error deleting trip. Please try again.",
+          "danger",
+        );
       }
     }
 
@@ -710,15 +765,15 @@ function createEditableCell(data, type, field, inputType = 'text') {
      */
     exportTrip(tripId, format) {
       const url = `/api/export/trip/${tripId}?format=${format}`;
-      
+
       fetch(url)
-        .then(response => {
+        .then((response) => {
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
           return response.blob();
         })
-        .then(blob => {
+        .then((blob) => {
           const blobUrl = window.URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.style.display = "none";
@@ -729,9 +784,12 @@ function createEditableCell(data, type, field, inputType = 'text') {
           window.URL.revokeObjectURL(blobUrl);
           document.body.removeChild(a);
         })
-        .catch(error => {
+        .catch((error) => {
           console.error("Error exporting trip:", error);
-          notificationManager.show("Error exporting trip. Please try again.", "danger");
+          notificationManager.show(
+            "Error exporting trip. Please try again.",
+            "danger",
+          );
         });
     }
   }
@@ -739,12 +797,13 @@ function createEditableCell(data, type, field, inputType = 'text') {
   // Initialize TripsManager on DOM load
   document.addEventListener("DOMContentLoaded", () => {
     const tripsManager = new TripsManager();
-    
+
     // Export public methods for global access
     window.EveryStreet = window.EveryStreet || {};
     window.EveryStreet.Trips = {
       fetchTrips: () => tripsManager.fetchTrips(),
-      updateDatesAndFetch: (startDate, endDate) => tripsManager.updateDatesAndFetch(startDate, endDate),
+      updateDatesAndFetch: (startDate, endDate) =>
+        tripsManager.updateDatesAndFetch(startDate, endDate),
       getFilterParams: () => tripsManager.getFilterParams(),
       deleteTrip: (tripId) => tripsManager.deleteTrip(tripId),
       exportTrip: (tripId, format) => tripsManager.exportTrip(tripId, format),
