@@ -38,7 +38,9 @@ class LiveTripTracker {
         this.setActiveTrip(trip);
         this.updateActiveTripsCount(1);
       } else {
-        console.log(`No active trip found - server returned ${response.status}`);
+        console.log(
+          `No active trip found - server returned ${response.status}`,
+        );
         this.updateActiveTripsCount(0);
       }
     } catch (error) {
@@ -56,7 +58,7 @@ class LiveTripTracker {
     }
     // Sort coordinates by timestamp and update the polyline and marker
     trip.coordinates.sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
     );
     const latLngs = trip.coordinates.map((coord) => [coord.lat, coord.lon]);
     this.polyline.setLatLngs(latLngs);
