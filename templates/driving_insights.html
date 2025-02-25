@@ -1,7 +1,5 @@
-{% extends "base.html" %}
-{% block title %}Driving Insights{% endblock %}
-
-{% block extra_css %}
+{% extends "base.html" %} {% block title %}Driving Insights{% endblock %} {%
+block extra_css %}
 <style>
   .card {
     height: auto;
@@ -42,9 +40,7 @@
     text-overflow: ellipsis;
   }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="container-fluid">
   <!-- Filter Controls -->
   <div class="row mb-4">
@@ -53,25 +49,37 @@
         <div class="card-header d-flex justify-content-between">
           <h2 class="h5 mb-0">Filter Options</h2>
           <div>
-            <button id="preset-today" class="btn btn-sm btn-outline-primary">Today</button>
-            <button id="preset-week" class="btn btn-sm btn-outline-primary">Week</button>
-            <button id="preset-month" class="btn btn-sm btn-outline-primary">Month</button>
-            <button id="preset-quarter" class="btn btn-sm btn-outline-primary">Quarter</button>
-            <button id="preset-year" class="btn btn-sm btn-outline-primary">Year</button>
+            <button id="preset-today" class="btn btn-sm btn-outline-primary">
+              Today
+            </button>
+            <button id="preset-week" class="btn btn-sm btn-outline-primary">
+              Week
+            </button>
+            <button id="preset-month" class="btn btn-sm btn-outline-primary">
+              Month
+            </button>
+            <button id="preset-quarter" class="btn btn-sm btn-outline-primary">
+              Quarter
+            </button>
+            <button id="preset-year" class="btn btn-sm btn-outline-primary">
+              Year
+            </button>
           </div>
         </div>
         <div class="card-body">
           <div class="row">
             <div class="col-md-4 mb-3">
               <label for="start-date" class="form-label">Start Date</label>
-              <input type="date" class="form-control" id="start-date">
+              <input type="date" class="form-control" id="start-date" />
             </div>
             <div class="col-md-4 mb-3">
               <label for="end-date" class="form-label">End Date</label>
-              <input type="date" class="form-control" id="end-date">
+              <input type="date" class="form-control" id="end-date" />
             </div>
             <div class="col-md-4 d-flex align-items-end">
-              <button id="apply-filters" class="btn btn-primary w-100">Apply Filters</button>
+              <button id="apply-filters" class="btn btn-primary w-100">
+                Apply Filters
+              </button>
             </div>
           </div>
         </div>
@@ -91,7 +99,10 @@
             <div class="col-md-3 col-sm-6 mb-3 text-center">
               <div class="card metric-card h-100 border-0 bg-light">
                 <div class="card-body">
-                  <i class="fas fa-route text-primary mb-2" style="font-size: 24px;"></i>
+                  <i
+                    class="fas fa-route text-primary mb-2"
+                    style="font-size: 24px"
+                  ></i>
                   <h4 class="h6">Total Distance</h4>
                   <p class="h2" id="total-distance">0 miles</p>
                 </div>
@@ -100,7 +111,10 @@
             <div class="col-md-3 col-sm-6 mb-3 text-center">
               <div class="card metric-card h-100 border-0 bg-light">
                 <div class="card-body">
-                  <i class="fas fa-car text-primary mb-2" style="font-size: 24px;"></i>
+                  <i
+                    class="fas fa-car text-primary mb-2"
+                    style="font-size: 24px"
+                  ></i>
                   <h4 class="h6">Total Trips</h4>
                   <p class="h2" id="total-trips">0</p>
                 </div>
@@ -109,7 +123,10 @@
             <div class="col-md-3 col-sm-6 mb-3 text-center">
               <div class="card metric-card h-100 border-0 bg-light">
                 <div class="card-body">
-                  <i class="fas fa-gas-pump text-primary mb-2" style="font-size: 24px;"></i>
+                  <i
+                    class="fas fa-gas-pump text-primary mb-2"
+                    style="font-size: 24px"
+                  ></i>
                   <h4 class="h6">Total Fuel</h4>
                   <p class="h2" id="total-fuel">0 gallons</p>
                 </div>
@@ -118,7 +135,10 @@
             <div class="col-md-3 col-sm-6 mb-3 text-center">
               <div class="card metric-card h-100 border-0 bg-light">
                 <div class="card-body">
-                  <i class="fas fa-tachometer-alt text-primary mb-2" style="font-size: 24px;"></i>
+                  <i
+                    class="fas fa-tachometer-alt text-primary mb-2"
+                    style="font-size: 24px"
+                  ></i>
                   <h4 class="h6">Max Speed</h4>
                   <p class="h2" id="max-speed">0 mph</p>
                 </div>
@@ -249,9 +269,7 @@
     </div>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/date-fns/dist/date-fns.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>

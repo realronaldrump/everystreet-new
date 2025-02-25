@@ -320,7 +320,7 @@
                   const value = context.raw || 0;
                   const total = context.dataset.data.reduce(
                     (sum, val) => sum + val,
-                    0
+                    0,
                   );
                   const percentage = total
                     ? Math.round((value / total) * 100)
@@ -473,7 +473,7 @@
 
     // Sort daily distances by date
     const dailyDistances = Object.values(dateMap).sort((a, b) =>
-      a.date.localeCompare(b.date)
+      a.date.localeCompare(b.date),
     );
 
     return {
@@ -517,7 +517,7 @@
 
       // Generate speed distribution data
       const speedDistribution = calculateSpeedDistribution(
-        tripsData.features || []
+        tripsData.features || [],
       );
       updateSpeedDistributionChart(speedDistribution);
 
