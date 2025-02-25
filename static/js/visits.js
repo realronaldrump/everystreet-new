@@ -19,7 +19,7 @@
         addSubOperation: () => {},
         updateSubOperation: () => {},
         finish: () => {},
-        error: () => {}
+        error: () => {},
       };
       this.isDetailedView = false;
       this.initialize();
@@ -75,7 +75,7 @@
           "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
           {
             maxZoom: 19,
-          }
+          },
         ).addTo(this.map);
         // Create a layer group for custom places
         this.customPlacesLayer = L.layerGroup().addTo(this.map);
@@ -251,12 +251,12 @@
           event.preventDefault();
           const placeId = $(event.target).data("place-id");
           this.toggleView(placeId);
-        }
+        },
       );
 
       // Toggle view button listener
       $("#visits-table-container").on("click", "#toggle-view-btn", () =>
-        this.toggleView()
+        this.toggleView(),
       );
     }
 
@@ -332,17 +332,17 @@
         } catch (error) {
           console.error(
             `Error fetching statistics for place ${place.name}:`,
-            error
+            error,
           );
           this.loadingManager.error(
-            `Failed to fetch statistics for ${place.name}`
+            `Failed to fetch statistics for ${place.name}`,
           );
         }
       }
 
       this.visitsChart.data.labels = visitsData.map((d) => d.name);
       this.visitsChart.data.datasets[0].data = visitsData.map(
-        (d) => d.totalVisits
+        (d) => d.totalVisits,
       );
       this.visitsChart.update();
       this.visitsTable.clear().rows.add(visitsData).draw();

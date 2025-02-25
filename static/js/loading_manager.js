@@ -1,5 +1,5 @@
 // Only define LoadingManager if it doesn't already exist
-if (typeof window.LoadingManager === 'undefined') {
+if (typeof window.LoadingManager === "undefined") {
   /**
    * LoadingManager - Manages loading states and progress for async operations
    */
@@ -10,11 +10,11 @@ if (typeof window.LoadingManager === 'undefined') {
     constructor() {
       // Cache DOM elements
       this.elements = {
-        overlay: document.querySelector('.loading-overlay'),
-        text: document.getElementById('loading-text'),
-        bar: document.getElementById('loading-bar')
+        overlay: document.querySelector(".loading-overlay"),
+        text: document.getElementById("loading-text"),
+        bar: document.getElementById("loading-bar"),
       };
-      
+
       this.operations = {};
       this.isVisible = false;
       this.errorTimeout = null;
@@ -28,20 +28,20 @@ if (typeof window.LoadingManager === 'undefined') {
      */
     startOperation(name, total = 100) {
       if (!name) {
-        console.warn('Operation name is required');
+        console.warn("Operation name is required");
         return this;
       }
-      
-      this.operations[name] = { 
-        total, 
+
+      this.operations[name] = {
+        total,
         progress: 0,
         subOperations: {},
-        startTime: Date.now()
+        startTime: Date.now(),
       };
-      
+
       this._showOverlay(name);
       this.updateOverallProgress();
-      
+
       return this;
     }
 
@@ -57,7 +57,7 @@ if (typeof window.LoadingManager === 'undefined') {
         console.warn(`Parent operation "${opName}" not found`);
         return this;
       }
-      
+
       this.operations[opName].subOperations[subName] = { total, progress: 0 };
       return this;
     }
@@ -75,16 +75,16 @@ if (typeof window.LoadingManager === 'undefined') {
         console.warn(`Operation "${opName}" not found`);
         return this;
       }
-      
+
       const subOp = op.subOperations[subName];
       if (!subOp) {
         console.warn(`Sub-operation "${subName}" not found in "${opName}"`);
         return this;
       }
-      
+
       subOp.progress = Math.min(Math.max(0, progress), subOp.total);
       this._updateOperationProgress(opName);
-      
+
       return this;
     }
 
@@ -100,10 +100,10 @@ if (typeof window.LoadingManager === 'undefined') {
         console.warn(`Operation "${name}" not found`);
         return this;
       }
-      
+
       op.progress = Math.min(Math.max(0, progress), op.total);
       this.updateOverallProgress();
-      
+
       return this;
     }
 
@@ -118,13 +118,13 @@ if (typeof window.LoadingManager === 'undefined') {
       } else {
         this.operations = {};
       }
-      
+
       this.updateOverallProgress();
-      
+
       if (Object.keys(this.operations).length === 0) {
         this._hideOverlay();
       }
-      
+
       return this;
     }
 
@@ -136,36 +136,36 @@ if (typeof window.LoadingManager === 'undefined') {
      * @returns {LoadingManager} This instance for chaining
      */
     error(message, opName = null, autoHide = true) {
-      console.error('Loading Error:', message, opName ? `in ${opName}` : '');
-      
+      console.error("Loading Error:", message, opName ? `in ${opName}` : "");
+
       if (this.elements.text) {
         this.elements.text.textContent = `Error: ${message}`;
-        this.elements.text.classList.add('text-danger');
+        this.elements.text.classList.add("text-danger");
       }
-      
+
       if (opName) {
         delete this.operations[opName];
       }
-      
+
       // Clear any existing timeout
       if (this.errorTimeout) {
         clearTimeout(this.errorTimeout);
         this.errorTimeout = null;
       }
-      
+
       // Auto-hide if requested
       if (autoHide) {
         this.errorTimeout = setTimeout(() => {
           this._hideOverlay();
           this.errorTimeout = null;
-          
+
           // Reset error styling
           if (this.elements.text) {
-            this.elements.text.classList.remove('text-danger');
+            this.elements.text.classList.remove("text-danger");
           }
         }, 3000);
       }
-      
+
       return this;
     }
 
@@ -175,10 +175,13 @@ if (typeof window.LoadingManager === 'undefined') {
     updateOverallProgress() {
       const ops = Object.values(this.operations);
       if (ops.length === 0) return;
-      
+
       const totalWeight = ops.reduce((sum, op) => sum + op.total, 0);
-      const weightedProgress = ops.reduce((sum, op) => sum + (op.progress / op.total) * op.total, 0);
-      
+      const weightedProgress = ops.reduce(
+        (sum, op) => sum + (op.progress / op.total) * op.total,
+        0,
+      );
+
       const overallPercentage = (weightedProgress / totalWeight) * 100;
       this._updateOverlayProgress(overallPercentage);
     }
@@ -191,14 +194,18 @@ if (typeof window.LoadingManager === 'undefined') {
     _updateOperationProgress(opName) {
       const op = this.operations[opName];
       if (!op) return;
-      
+
       const subOps = Object.values(op.subOperations);
       if (subOps.length === 0) return;
-      
+
       const totalSubWeight = subOps.reduce((sum, sub) => sum + sub.total, 0);
-      const subProgress = subOps.reduce((sum, sub) => sum + (sub.progress / sub.total) * sub.total, 0);
-      
-      op.progress = totalSubWeight > 0 ? (subProgress / totalSubWeight) * op.total : 0;
+      const subProgress = subOps.reduce(
+        (sum, sub) => sum + (sub.progress / sub.total) * sub.total,
+        0,
+      );
+
+      op.progress =
+        totalSubWeight > 0 ? (subProgress / totalSubWeight) * op.total : 0;
       this.updateOverallProgress();
     }
 
@@ -209,25 +216,25 @@ if (typeof window.LoadingManager === 'undefined') {
      */
     _showOverlay(message) {
       const { overlay, text, bar } = this.elements;
-      
+
       if (!overlay) {
-        console.warn('Loading overlay not found in DOM');
+        console.warn("Loading overlay not found in DOM");
         return;
       }
-      
+
       if (!this.isVisible) {
-        overlay.style.display = 'flex';
+        overlay.style.display = "flex";
         this.isVisible = true;
       }
-      
+
       if (text) {
         text.textContent = `${message}: 0%`;
-        text.classList.remove('text-danger');
+        text.classList.remove("text-danger");
       }
-      
+
       if (bar) {
-        bar.style.width = '0%';
-        bar.setAttribute('aria-valuenow', '0');
+        bar.style.width = "0%";
+        bar.setAttribute("aria-valuenow", "0");
       }
     }
 
@@ -240,13 +247,13 @@ if (typeof window.LoadingManager === 'undefined') {
     _updateOverlayProgress(percentage, message) {
       const { text, bar } = this.elements;
       if (!text || !bar) return;
-      
+
       const pct = Math.min(Math.round(percentage), 100);
-      const currentMsg = message || (text.textContent.split(':')[0] || 'Loading');
-      
+      const currentMsg = message || text.textContent.split(":")[0] || "Loading";
+
       text.textContent = `${currentMsg}: ${pct}%`;
       bar.style.width = `${pct}%`;
-      bar.setAttribute('aria-valuenow', pct);
+      bar.setAttribute("aria-valuenow", pct);
     }
 
     /**
@@ -256,14 +263,14 @@ if (typeof window.LoadingManager === 'undefined') {
     _hideOverlay() {
       const { overlay } = this.elements;
       if (!overlay || !this.isVisible) return;
-      
+
       // Use setTimeout to allow CSS transitions to complete
       setTimeout(() => {
-        overlay.style.display = 'none';
+        overlay.style.display = "none";
         this.isVisible = false;
       }, 300);
     }
-  }
+  };
 }
 
 // Create and expose global instance only if it doesn't already exist
