@@ -20,13 +20,19 @@ class LiveTripTracker {
     this.maxReconnectAttempts = 10;
     this.reconnectDelay = 2000; // Start with 2 seconds
     
-    // Updated selectors to ensure we get the right elements
-    this.statusIndicator = document.querySelector(".live-tracking-status .status-indicator");
-    this.statusText = document.querySelector(".live-tracking-status .status-text");
+    // Updated selectors for the new location in map controls
+    this.statusIndicator = document.querySelector("#map-controls .status-indicator");
+    this.statusText = document.querySelector("#map-controls .status-text");
     this.activeTripsCountElem = document.querySelector("#active-trips-count");
     this.heartbeatTimer = null;
     this.lastHeartbeat = 0;
     this.heartbeatInterval = 30000; // 30 seconds
+
+    // Hook up the focus button if it exists
+    const focusButton = document.querySelector("#center-on-active");
+    if (focusButton) {
+      focusButton.addEventListener("click", () => this.centerOnActiveTrip());
+    }
 
     this.initialize();
   }
@@ -296,6 +302,29 @@ class LiveTripTracker {
     this.activeTrip = null;
     this.polyline.setLatLngs([]);
     if (this.map.hasLayer(this.marker)) this.map.removeLayer(this.marker);
+  }
+
+  // Add new method to center map on active trip
+  centerOnActiveTrip() {
+    if (this.activeTrip && Array.isArray(this.activeTrip.coordinates) && this.activeTrip.coordinates.length > 0) {
+      const latLngs = this.activeTrip.coordinates.map(coord => [coord.lat, coord.lon]);
+      if (latLngs.length > 0) {
+        // Create a bounds object from the trip coordinates
+        const bounds = L.latLngBounds(latLngs);
+        // Fit the map to these bounds with some padding
+        this.map.fitBounds(bounds, { padding: [30, 30] });
+        if (notificationManager) {
+          notificationManager.show("Map centered on active trip", "info", 3000);
+        }
+        return true;
+      }
+    }
+    
+    // If no active trip or no coordinates, show a notification
+    if (notificationManager) {
+      notificationManager.show("No active trip to focus on", "warning", 3000);
+    }
+    return false;
   }
 }
 

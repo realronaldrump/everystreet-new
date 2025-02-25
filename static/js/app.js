@@ -520,20 +520,8 @@
     try {
       // Initialize the live tracker
       window.liveTracker = new LiveTripTracker(map);
-      
-      // Make the live tracking status UI element draggable if jQuery UI is available
-      if ($ && $.fn.draggable) {
-        $(".live-tracking-status").draggable({
-          containment: "document",
-          handle: ".card-header"
-        });
-      }
-    } catch (error) {
-      console.error("LiveTripTracker initialization error:", error);
-      // Create a friendly error notification, but don't disrupt the main app
-      if (notificationManager) {
-        notificationManager.show("Live tracking feature could not be initialized, but the app will continue to work.", "warning");
-      }
+    } catch (e) {
+      console.error("Error initializing live tracking:", e);
     }
   }
 
