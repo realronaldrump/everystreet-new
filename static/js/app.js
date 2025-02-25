@@ -295,12 +295,13 @@
           transactionId.replace("MATCHED-", "") === selectedTripId));
 
     // Determine appropriate styling
-    let color, weight, opacity;
+    let color, weight, opacity, className = "";
 
     if (isSelected) {
       color = layerInfo.highlightColor;
       weight = 5;
       opacity = 0.9;
+      className = "highlighted-trip";
     } else if (isMatchedPair) {
       color =
         layerInfo === mapLayers.matchedTrips
@@ -308,24 +309,61 @@
           : mapLayers.trips.highlightColor;
       weight = 5;
       opacity = 0.9;
+      className = "highlighted-matched-trip";
     } else if (isRecent) {
       color = "#FF5722";
       weight = 4;
       opacity = 0.8;
+      className = "recent-trip";
     } else {
       color = layerInfo.color;
       weight = 2;
       opacity = layerInfo.opacity;
+      className = "";
     }
 
     return {
       color,
       weight,
       opacity,
-      className: isRecent ? "recent-trip" : "",
+      className,
       zIndexOffset: isSelected || isMatchedPair ? 1000 : 0,
     };
   };
+
+  /**
+   * Updates the styling of all trip layers based on the current selection
+   * without having to refresh the entire map
+   */
+  function refreshTripStyles() {
+    if (!layerGroup) return;
+    
+    layerGroup.eachLayer((layer) => {
+      // Check if this is a GeoJSON layer with features
+      if (layer.eachLayer) {
+        layer.eachLayer((featureLayer) => {
+          // Only process layers with features and style method
+          if (featureLayer.feature?.properties && featureLayer.setStyle) {
+            const isHistorical = featureLayer.feature.properties.imei === "HISTORICAL";
+            let layerInfo = isHistorical ? mapLayers.historicalTrips : mapLayers.trips;
+            
+            // If this is a matched trip layer
+            if (featureLayer.feature.properties.isMatched) {
+              layerInfo = mapLayers.matchedTrips;
+            }
+            
+            // Update the style based on current selection
+            featureLayer.setStyle(getTripFeatureStyle(featureLayer.feature, layerInfo));
+            
+            // Bring selected trips to front
+            if (featureLayer.feature.properties.transactionId === selectedTripId) {
+              featureLayer.bringToFront();
+            }
+          }
+        });
+      }
+    });
+  }
 
   // ==============================
   // Map Initialization & Controls
@@ -363,6 +401,18 @@
       // Initialize layer groups
       layerGroup = L.layerGroup().addTo(map);
       mapLayers.customPlaces.layer = L.layerGroup();
+
+      // Add map click handler to clear trip selection when clicking outside of any trip
+      map.on('click', (e) => {
+        // Only clear if we have a selected trip and we're not clicking on a marker or popup
+        if (selectedTripId && !e.originalEvent._stopped) {
+          // Clear the selected trip ID
+          selectedTripId = null;
+          
+          // Update trip styles
+          refreshTripStyles();
+        }
+      });
 
       // Initialize live trip tracker
       initializeLiveTracker();
@@ -900,6 +950,10 @@
    * @param {string} name - Layer name
    */
   function handleTripClick(e, feature, layer, info, name) {
+    // Stop propagation to prevent the map click handler from triggering
+    e.originalEvent._stopped = true;
+    L.DomEvent.stopPropagation(e);
+    
     const clickedId = feature.properties.transactionId;
     const wasSelected = selectedTripId === clickedId;
 
@@ -922,16 +976,8 @@
         .openPopup(e.latlng);
     }
 
-    // Update styles for all trip layers
-    layerGroup.eachLayer((l) => {
-      if (l.feature?.properties && l.setStyle) {
-        const layerInfo =
-          l.feature.properties.imei !== "HISTORICAL"
-            ? mapLayers.trips
-            : mapLayers.historicalTrips;
-        l.setStyle(getTripFeatureStyle(l.feature, layerInfo));
-      }
-    });
+    // Update styles for all trip layers immediately
+    refreshTripStyles();
   }
 
   /**
@@ -1006,6 +1052,10 @@
 
     // Single event handler for all popup buttons
     const handlePopupClick = async (e) => {
+      // Stop propagation to prevent the map click from closing the popup
+      e.stopPropagation();
+      L.DomEvent.stopPropagation(e);
+      
       const target = e.target;
       const tripId = target.dataset.tripId;
 
