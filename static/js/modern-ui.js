@@ -107,7 +107,7 @@ const ModernUI = {
       
       L.tileLayer(tileUrl, {
         maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        attribution: ''
       }).addTo(window.map);
       
       // Refresh map size to fix display issues
@@ -948,23 +948,47 @@ const ModernUI = {
    * Handle add place action
    */
   handleAddPlace() {
-    // Check if we should use the modal or direct API call
-    const manageModal = document.getElementById('manage-places-modal');
-    
-    if (manageModal && window.bootstrap?.Modal) {
-      // Use the modal
-      const modalInstance = new bootstrap.Modal(manageModal);
-      modalInstance.show();
-    } else {
-      // Create a simple modal for adding places if one doesn't exist
-      this.createPlaceModal();
+    // First check if the CustomPlacesManager is available
+    if (window.customPlaces) {
+      // If the app has 'start-drawing' button, use that workflow
+      const startDrawingBtn = document.getElementById('start-drawing');
+      if (startDrawingBtn) {
+        startDrawingBtn.click();
+        
+        // Show a notification with instructions
+        this.showNotification({
+          title: 'Draw Mode Activated',
+          message: 'Draw a polygon on the map to create a new place',
+          type: 'info',
+          duration: 5000
+        });
+        
+        // Focus the map if possible
+        if (window.map) {
+          window.map.getContainer().focus();
+        }
+        
+        return;
+      }
+      
+      // Alternative - check for existing place management modal
+      const manageModal = document.getElementById('manage-places-modal');
+      if (manageModal && window.bootstrap?.Modal) {
+        const modalInstance = new bootstrap.Modal(manageModal);
+        modalInstance.show();
+        return;
+      }
     }
+    
+    // If customPlaces manager isn't available or if we're on a different page,
+    // fall back to our own simple modal
+    this.createSimplePlaceModal();
   },
   
   /**
    * Create a simple modal for adding places
    */
-  createPlaceModal() {
+  createSimplePlaceModal() {
     // Check if modal already exists
     if (document.getElementById('add-place-modal')) {
       return this.showAddPlaceModal();

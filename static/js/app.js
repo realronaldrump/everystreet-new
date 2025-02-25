@@ -416,7 +416,7 @@
       // Add tile layer with appropriate theme
       L.tileLayer(tileUrl, {
         maxZoom: CONFIG.MAP.maxZoom,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        attribution: '',
       }).addTo(map);
 
       // Initialize layer groups
@@ -484,7 +484,7 @@
     
     L.tileLayer(tileUrl, {
       maxZoom: CONFIG.MAP.maxZoom,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      attribution: ''
     }).addTo(map);
     
     // Refresh styles for all layers

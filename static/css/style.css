@@ -2173,3 +2173,513 @@ body.light-mode .map-controls-overlay {
   background-color: var(--light-surface-1);
   border-color: var(--light-border-color);
 }
+
+/* === Comprehensive Light Mode Fixes === */
+
+/* Fix table styling consistently across all tables */
+body.light-mode table,
+body.light-mode .table,
+body.light-mode .dataTables_wrapper .dataTables_length, 
+body.light-mode .dataTables_wrapper .dataTables_filter,
+body.light-mode .dataTables_wrapper .dataTables_info,
+body.light-mode .dataTables_wrapper .dataTables_processing,
+body.light-mode .dataTables_wrapper .dataTables_paginate {
+  color: var(--light-text-primary) !important;
+  background-color: var(--light-surface-1) !important;
+}
+
+body.light-mode .table-dark {
+  color: var(--light-text-primary) !important;
+  background-color: var(--light-surface-1) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode .table-dark th,
+body.light-mode .table-dark td,
+body.light-mode .table-dark thead th,
+body.light-mode .table-dark tbody + tbody {
+  border-color: var(--light-border-color) !important;
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+}
+
+body.light-mode .table-dark tbody tr:nth-of-type(odd) td {
+  background-color: var(--light-surface-2) !important;
+}
+
+body.light-mode .table-dark.table-striped tbody tr:nth-of-type(odd) {
+  background-color: var(--light-surface-2) !important;
+}
+
+body.light-mode .table-dark.table-hover tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.075) !important;
+}
+
+/* DataTables Specific Fixes */
+body.light-mode table.dataTable thead th,
+body.light-mode table.dataTable thead td {
+  background-color: var(--light-surface-2) !important;
+  color: var(--light-text-primary) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode table.dataTable tbody tr {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+}
+
+body.light-mode table.dataTable tbody tr.odd {
+  background-color: var(--light-surface-2) !important;
+}
+
+body.light-mode table.dataTable.stripe tbody tr.odd {
+  background-color: var(--light-surface-2) !important;
+}
+
+body.light-mode table.dataTable.hover tbody tr:hover,
+body.light-mode table.dataTable.hover tbody tr.odd:hover {
+  background-color: rgba(0, 0, 0, 0.075) !important;
+}
+
+body.light-mode .dataTables_wrapper .dataTables_paginate .paginate_button {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  background-color: var(--light-surface-2) !important;
+  color: var(--primary) !important;
+}
+
+body.light-mode .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+body.light-mode .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+  background: var(--primary-gradient) !important;
+  color: white !important;
+  border-color: var(--primary) !important;
+}
+
+/* Fix list groups specifically */
+body.light-mode .list-group-item,
+body.light-mode .list-group-item-action {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode .list-group-item.active {
+  background-color: var(--primary) !important;
+  color: white !important;
+  border-color: var(--primary) !important;
+}
+
+body.light-mode .list-group-item-action:hover {
+  background-color: var(--light-surface-2) !important;
+}
+
+/* Fix layer control lists */
+body.light-mode #layer-order-list .list-group-item {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode #layer-order-list .list-group-item:hover {
+  background-color: var(--light-surface-2) !important;
+}
+
+/* Fix dark bg-dark table-dark combinations */
+body.light-mode .bg-dark {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+}
+
+body.light-mode .text-white {
+  color: var(--light-text-primary) !important;
+}
+
+body.light-mode .border-secondary {
+  border-color: var(--light-border-color) !important;
+}
+
+/* Fix input groups and buttons */
+body.light-mode .input-group,
+body.light-mode .input-group-text {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+/* Metrics cards and text */
+body.light-mode .metrics .card {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+}
+
+body.light-mode .metric-value,
+body.light-mode .metric-label {
+  color: var(--light-text-primary) !important;
+}
+
+/* Fix progress bars */
+body.light-mode .progress {
+  background-color: var(--light-surface-3) !important;
+}
+
+body.light-mode .progress-bar-striped {
+  background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent) !important;
+}
+
+/* Fix modal content */
+body.light-mode .modal-content {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+}
+
+body.light-mode .modal-header {
+  background-color: var(--light-surface-2) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode .modal-footer {
+  border-color: var(--light-border-color) !important;
+}
+
+/* Fix tabs */
+body.light-mode .nav-tabs {
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode .nav-tabs .nav-link {
+  color: var(--light-text-secondary) !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+}
+
+body.light-mode .nav-tabs .nav-link.active {
+  color: var(--light-text-primary) !important;
+  background-color: var(--light-surface-1) !important;
+  border-color: var(--light-border-color) var(--light-border-color) var(--light-surface-1) !important;
+}
+
+body.light-mode .nav-tabs .nav-link:hover {
+  border-color: var(--light-surface-3) var(--light-surface-3) var(--light-border-color) !important;
+}
+
+/* Fix specific UI components that might still be dark */
+body.light-mode #map-controls .card {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode #metrics .list-group-item,
+body.light-mode #layer-toggles .list-group-item,
+body.light-mode #coverage-statistics .list-group-item {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+/* Fix Flatpickr calendar in light mode */
+body.light-mode .flatpickr-calendar {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+body.light-mode .flatpickr-calendar .flatpickr-month,
+body.light-mode .flatpickr-calendar .flatpickr-weekday {
+  color: var(--light-text-primary) !important;
+  fill: var(--light-text-primary) !important;
+}
+
+body.light-mode .flatpickr-day {
+  color: var(--light-text-primary) !important;
+}
+
+body.light-mode .flatpickr-day.selected {
+  background-color: var(--primary) !important;
+  color: white !important;
+}
+
+/* Fix code and pre blocks */
+body.light-mode code, 
+body.light-mode pre {
+  background-color: var(--light-surface-2) !important;
+  color: var(--light-text-primary) !important;
+}
+
+/* Fix alerts and badges */
+body.light-mode .alert {
+  color: var(--light-text-primary) !important;
+  background-color: var(--light-surface-2) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode .badge {
+  color: white !important;
+}
+
+body.light-mode .badge-primary {
+  background-color: var(--primary) !important;
+}
+
+body.light-mode .badge-secondary {
+  background-color: var(--secondary) !important;
+}
+
+/* Fix alert variants but maintain good contrast */
+body.light-mode .alert-success {
+  color: #155724 !important;
+  background-color: #d4edda !important;
+  border-color: #c3e6cb !important;
+}
+
+body.light-mode .alert-danger {
+  color: #721c24 !important;
+  background-color: #f8d7da !important;
+  border-color: #f5c6cb !important;
+}
+
+body.light-mode .alert-warning {
+  color: #856404 !important;
+  background-color: #fff3cd !important;
+  border-color: #ffeeba !important;
+}
+
+body.light-mode .alert-info {
+  color: #0c5460 !important;
+  background-color: #d1ecf1 !important;
+  border-color: #bee5eb !important;
+}
+
+/* Fix tooltips */
+body.light-mode .tooltip-inner {
+  background-color: var(--light-surface-4) !important;
+  color: var(--light-text-primary) !important;
+}
+
+/* Fix specific instances of bg-dark we might have missed */
+body.light-mode [class*="bg-dark"] {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+}
+
+/* Make sure any white text is properly converted */
+body.light-mode [class*="text-white"] {
+  color: var(--light-text-primary) !important;
+}
+
+/* Fix specific metrics cards at the bottom of the map page */
+body.light-mode #total-trips,
+body.light-mode #total-distance,
+body.light-mode #avg-distance,
+body.light-mode #avg-start-time,
+body.light-mode #avg-driving-time,
+body.light-mode #avg-speed,
+body.light-mode #max-speed {
+  color: var(--light-text-primary) !important;
+}
+
+/* Fix code mirror if used */
+body.light-mode .CodeMirror {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+}
+
+/* Ensure all dark-themed cards and container elements are properly styled in light mode */
+body.light-mode .card.bg-dark,
+body.light-mode .card-header.bg-dark,
+body.light-mode .card-footer.bg-dark {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode .list-group-item.bg-dark.text-white {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+}
+
+/* Layer Controls Specific Improvements */
+#layer-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.layer-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-2);
+}
+
+.layer-control input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.layer-control label {
+  margin: 0;
+  flex: 1;
+  cursor: pointer;
+}
+
+.layer-control input[type="color"] {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: none;
+  margin-right: var(--space-2);
+}
+
+.layer-control input[type="range"] {
+  width: 100px;
+  flex-shrink: 0;
+}
+
+body.light-mode .layer-control {
+  background-color: var(--light-surface-2);
+  color: var(--light-text-primary);
+}
+
+body.light-mode .layer-control input[type="color"] {
+  border-color: var(--light-border-color);
+}
+
+body.light-mode #layer-toggles .form-check-input {
+  background-color: var(--light-surface-3);
+  border-color: var(--light-border-color);
+}
+
+body.light-mode #layer-toggles .form-check-input:checked {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* Improve layer order list styling */
+#layer-order-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background-color: var(--surface-2);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+#layer-order-list li {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-color);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+}
+
+#layer-order-list li:last-child {
+  border-bottom: none;
+}
+
+#layer-order-list li::before {
+  content: "\f0b2";
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  margin-right: var(--space-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+#layer-order-list li.dragging {
+  background-color: var(--surface-3);
+  box-shadow: var(--shadow-md);
+}
+
+body.light-mode #layer-order-list {
+  background-color: var(--light-surface-2);
+}
+
+body.light-mode #layer-order-list li {
+  border-color: var(--light-border-color);
+  color: var(--light-text-primary);
+}
+
+body.light-mode #layer-order-list li::before {
+  color: var(--light-text-secondary);
+}
+
+body.light-mode #layer-order-list li.dragging {
+  background-color: var(--light-surface-3);
+}
+
+/* Metrics table specific fixes */
+body.light-mode #metrics .list-group-item.bg-dark,
+body.light-mode #coverage-statistics .list-group-item.bg-dark {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode #metrics .card-header.bg-dark,
+body.light-mode #coverage-statistics .card-header.bg-dark {
+  background-color: var(--light-surface-2) !important;
+  color: var(--light-text-primary) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode #metrics strong,
+body.light-mode #coverage-statistics strong {
+  color: var(--light-text-primary) !important;
+}
+
+/* Fix coverage stats area with exact selectors */
+body.light-mode #coverage-stats .small.text-muted {
+  color: var(--light-text-secondary) !important;
+}
+
+/* Ensure all data values are properly visible */
+body.light-mode #coverage-percentage,
+body.light-mode #total-street-length,
+body.light-mode #miles-driven {
+  color: var(--light-text-primary) !important;
+}
+
+/* Style for map display options in light mode */
+body.light-mode #map-display-options {
+  background-color: var(--light-surface-1);
+  color: var(--light-text-primary);
+  border-color: var(--light-border-color);
+}
+
+body.light-mode #map-display-options .card-header {
+  background-color: var(--light-surface-2);
+  border-color: var(--light-border-color);
+}
+
+body.light-mode #map-display-options .form-check-label {
+  color: var(--light-text-primary);
+}
+
+/* Additional card fixes for the bottom controls panel */
+body.light-mode #map-controls .card {
+  background-color: var(--light-surface-1);
+  color: var(--light-text-primary);
+  border-color: var(--light-border-color);
+}
+
+body.light-mode #map-controls .list-group-item.bg-dark {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+/* Strong consistent styles for total values */
+body.light-mode #map-controls strong {
+  color: var(--light-text-primary) !important;
+}
