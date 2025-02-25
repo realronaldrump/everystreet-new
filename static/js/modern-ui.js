@@ -803,91 +803,50 @@ const ModernUI = {
   /**
    * Handle fetch trips action
    */
-  handleFetchTrips() {
-    this.showLoading("Fetching trips...");
+  async handleFetchTrips() {
+    const notification = notificationManager.show(
+      "Fetching new trips...",
+      "info",
+      0
+    );
+    loadingManager.startOperation("fetchTrips");
 
-    // Get date range from localStorage or use current date
-    const startDate =
-      localStorage.getItem("startDate") ||
-      new Date().toISOString().split("T")[0];
-    const endDate =
-      localStorage.getItem("endDate") || new Date().toISOString().split("T")[0];
-
-    // Create request data
-    const requestData = {
-      start_date: startDate,
-      end_date: endDate,
-      include_points: true,
-    };
-
-    // Track the loading operation
-    const opId = window.loadingManager
-      ? window.loadingManager.startOperation("fetchTrips", 100)
-      : null;
-
-    // Call the API
-    fetch("/api/trips/fetch", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestData),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data) => {
-        // Update the loading manager
-        if (opId && window.loadingManager) {
-          window.loadingManager.finish(opId);
-        }
-
-        // Hide loading overlay
-        this.hideLoading();
-
-        // Show notification with actual data
-        this.showNotification({
-          title: "Trips Fetched",
-          message: `Successfully fetched ${data.trips_count || 0} trips.`,
-          type: "success",
-          duration: 5000,
-        });
-
-        // Reload the map data if map exists
-        if (window.map && typeof window.refreshMapData === "function") {
-          window.refreshMapData();
-        } else if (
-          window.fetchTrips &&
-          typeof window.fetchTrips === "function"
-        ) {
-          // Legacy support - call the global fetchTrips function
-          window.fetchTrips();
-        }
-
-        // Update trip statistics if the function exists
-        if (typeof window.updateTripStatistics === "function") {
-          window.updateTripStatistics();
-        }
-      })
-      .catch((error) => {
-        console.error("Error fetching trips:", error);
-
-        // Hide loading and show error notification
-        if (opId && window.loadingManager) {
-          window.loadingManager.finish(opId);
-        }
-        this.hideLoading();
-
-        this.showNotification({
-          title: "Error Fetching Trips",
-          message: `There was an error: ${error.message}`,
-          type: "error",
-          duration: 8000,
-        });
+    try {
+      // Use the endpoint that only fetches trips since the last one
+      const response = await fetch("/api/trips/fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      notificationManager.update(
+        notification,
+        data.message || "New trips fetched successfully!",
+        "success",
+        3000
+      );
+
+      // Reload trips data
+      if (typeof fetchTrips === "function") {
+        await fetchTrips();
+      }
+
+      return data;
+    } catch (error) {
+      notificationManager.update(
+        notification,
+        `Error fetching trips: ${error.message}`,
+        "danger",
+        5000
+      );
+      throw error;
+    } finally {
+      loadingManager.finish("fetchTrips");
+    }
   },
 
   /**

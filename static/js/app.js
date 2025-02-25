@@ -502,32 +502,37 @@
    * Initializes the live trip tracker
    */
   function initializeLiveTracker() {
-    if (!window.liveTracker && map) {
+    if (window.liveTracker) {
+      // If there's already a tracker instance, destroy it first
       try {
-        // Create a special error handler for LiveTripTracker that ignores 500 errors
-        // from the /api/active_trip endpoint as these are expected when no trip is active
-        const originalHandleError = window.handleError;
-        window.handleError = function (error, context) {
-          // Check if this is the expected error for no active trip
-          if (
-            context === "LiveTripTracker Initialization" &&
-            error.message &&
-            error.message.includes("/api/active_trip 500")
-          ) {
-            console.log("No active trip available - this is normal");
-            return; // Don't show error notification
-          }
-          // Otherwise use the original error handler
-          return originalHandleError(error, context);
-        };
-
-        // Initialize the live tracker
-        window.liveTracker = new LiveTripTracker(map);
-
-        // Restore the original error handler
-        window.handleError = originalHandleError;
-      } catch (error) {
-        window.handleError(error, "LiveTripTracker Initialization");
+        window.liveTracker.destroy();
+      } catch (e) {
+        console.warn("Error destroying existing live tracker:", e);
+      }
+      window.liveTracker = null;
+    }
+    
+    if (!map) {
+      console.warn("Cannot initialize LiveTripTracker: map is not available");
+      return;
+    }
+    
+    try {
+      // Initialize the live tracker
+      window.liveTracker = new LiveTripTracker(map);
+      
+      // Make the live tracking status UI element draggable if jQuery UI is available
+      if ($ && $.fn.draggable) {
+        $(".live-tracking-status").draggable({
+          containment: "document",
+          handle: ".card-header"
+        });
+      }
+    } catch (error) {
+      console.error("LiveTripTracker initialization error:", error);
+      // Create a friendly error notification, but don't disrupt the main app
+      if (notificationManager) {
+        notificationManager.show("Live tracking feature could not be initialized, but the app will continue to work.", "warning");
       }
     }
   }

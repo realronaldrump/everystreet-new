@@ -312,6 +312,29 @@
         <!-- Notifications will be dynamically inserted here -->
       </div>
 
+      <!-- Live Tracking Status -->
+      <div class="live-tracking-status card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">Live Tracking</h6>
+          <div class="connection-status d-flex align-items-center">
+            <div class="status-indicator disconnected me-2"></div>
+            <span class="status-text">Disconnected</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span>Active Trips:</span>
+            <span id="active-trips-count" class="badge bg-primary">0</span>
+          </div>
+          <div class="live-trip-metrics">
+            <!-- Trip metrics will be inserted here -->
+          </div>
+          <div class="error-message alert alert-danger d-none mt-3">
+            <!-- Error messages will be shown here -->
+          </div>
+        </div>
+      </div>
+
       <!-- Loading overlay -->
       <div class="loading-overlay">
         <div class="loading-content">

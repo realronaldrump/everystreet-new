@@ -1,7 +1,8 @@
 """
 street_coverage_calculation.py
 
-Calculates street coverage by determining the percentage of street segments that have been driven based on trip data.
+Calculates street coverage by determining the percentage of street segments that have
+been driven based on trip data.
 Utilizes spatial indexing and parallel processing.
 """
 

@@ -6,33 +6,7 @@
 <div class="d-flex flex-column h-100">
   <!-- Map Container -->
   <div id="map" class="flex-grow-1 position-relative">
-    <!-- Live Tracking Status Panel -->
-    <div
-      class="live-tracking-status card bg-dark border-secondary position-absolute top-0 end-0 m-3"
-      style="z-index: 1000"
-    >
-      <div
-        class="card-header border-secondary d-flex justify-content-between align-items-center"
-      >
-        <h5 class="mb-0">Live Tracking</h5>
-        <div class="connection-status d-flex align-items-center">
-          <div class="status-indicator me-2"></div>
-          <span class="status-text">Connecting...</span>
-        </div>
-      </div>
-      <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <span>Active Trips:</span>
-          <span id="active-trips-count" class="badge bg-primary">0</span>
-        </div>
-        <div class="live-trip-metrics">
-          <!-- Trip metrics will be inserted here -->
-        </div>
-        <div class="error-message alert alert-danger d-none mt-3">
-          <!-- Error messages will be shown here -->
-        </div>
-      </div>
-    </div>
+    <!-- Live tracking status is now included only once in base.html -->
   </div>
 
   <!-- Controls Panel -->
