@@ -1976,3 +1976,74 @@ async def delete_trip(trip_id: str):
     except Exception as e:
         logger.exception("Error deleting trip")
         raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+# --- Add new trip-analytics endpoint ---
+@app.get("/api/trip-analytics")
+async def get_trip_analytics(request: Request):
+    try:
+        start_date_str = request.query_params.get("start_date")
+        end_date_str = request.query_params.get("end_date")
+        imei = request.query_params.get("imei")
+        start_date = parse_query_date(start_date_str)
+        end_date = parse_query_date(end_date_str, end_of_day=True)
+
+        query = {"source": {"$ne": "historical"}}
+        if start_date and end_date:
+            query["startTime"] = {"$gte": start_date, "$lte": end_date}
+        if imei:
+            query["imei"] = imei
+
+        # Get trip data
+        trips_list = await trips_collection.find(query).to_list(length=None)
+        uploaded_list = await uploaded_trips_collection.find(query).to_list(length=None)
+        all_trips = trips_list + uploaded_list
+
+        # Process daily distances
+        daily_distances = {}
+        time_distribution = [{"hour": i, "count": 0} for i in range(24)]
+
+        for trip in all_trips:
+            try:
+                start_time = trip.get("startTime")
+                if not start_time:
+                    continue
+
+                if isinstance(start_time, str):
+                    start_time = dateutil_parser.isoparse(start_time)
+                if start_time.tzinfo is None:
+                    start_time = start_time.replace(tzinfo=timezone.utc)
+
+                # Add to time distribution
+                hour = start_time.hour
+                time_distribution[hour]["count"] += 1
+
+                # Add to daily distances
+                date_key = start_time.strftime("%Y-%m-%d")
+                distance = float(trip.get("distance", 0))
+
+                if date_key not in daily_distances:
+                    daily_distances[date_key] = {
+                        "date": date_key,
+                        "distance": 0,
+                        "count": 0,
+                    }
+
+                daily_distances[date_key]["distance"] += distance
+                daily_distances[date_key]["count"] += 1
+
+            except Exception as e:
+                logger.warning(f"Error processing trip analytics: {e}")
+                continue
+
+        # Convert to sorted list for output
+        daily_distances_list = list(daily_distances.values())
+        daily_distances_list.sort(key=lambda x: x["date"])
+
+        return {
+            "daily_distances": daily_distances_list,
+            "time_distribution": time_distribution,
+        }
+    except Exception as e:
+        logger.exception("Error in get_trip_analytics")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -1,13 +1,64 @@
 {% extends "base.html" %}
 {% block title %}Driving Insights{% endblock %}
+
+{% block extra_css %}
+<style>
+  .card {
+    height: auto;
+    overflow: visible;
+  }
+  .card-body {
+    overflow: hidden;
+  }
+  .metric-card {
+    transition: all 0.2s ease;
+    position: relative;
+    z-index: 1;
+  }
+  .metric-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+    z-index: 2;
+  }
+  .chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+  }
+  .row {
+    margin-bottom: var(--space-5);
+  }
+  /* Fix for mobile responsiveness */
+  @media (max-width: 768px) {
+    .chart-container {
+      height: 250px;
+    }
+  }
+  .h3 {
+    font-size: 1.5rem;
+    margin-bottom: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
   <!-- Filter Controls -->
   <div class="row mb-4">
     <div class="col-12">
       <div class="card">
-        <div class="card-header">
+        <div class="card-header d-flex justify-content-between">
           <h2 class="h5 mb-0">Filter Options</h2>
+          <div>
+            <button id="preset-today" class="btn btn-sm btn-outline-primary">Today</button>
+            <button id="preset-week" class="btn btn-sm btn-outline-primary">Week</button>
+            <button id="preset-month" class="btn btn-sm btn-outline-primary">Month</button>
+            <button id="preset-quarter" class="btn btn-sm btn-outline-primary">Quarter</button>
+            <button id="preset-year" class="btn btn-sm btn-outline-primary">Year</button>
+          </div>
         </div>
         <div class="card-body">
           <div class="row">
@@ -28,48 +79,99 @@
     </div>
   </div>
 
-  <!-- Summary Metrics -->
+  <!-- Key Metrics Row -->
   <div class="row mb-4">
-    <div class="col-12 col-md-6">
+    <div class="col-12">
       <div class="card">
         <div class="card-header">
-          <h2 class="h5 mb-0">Summary</h2>
+          <h2 class="h5 mb-0">Key Metrics</h2>
         </div>
         <div class="card-body">
           <div class="row">
-            <div class="col-6">
-              <h4 class="h6">Total Trips</h4>
-              <p class="h2" id="total-trips">0</p>
+            <div class="col-md-3 col-sm-6 mb-3 text-center">
+              <div class="card metric-card h-100 border-0 bg-light">
+                <div class="card-body">
+                  <i class="fas fa-route text-primary mb-2" style="font-size: 24px;"></i>
+                  <h4 class="h6">Total Distance</h4>
+                  <p class="h2" id="total-distance">0 miles</p>
+                </div>
+              </div>
             </div>
-            <div class="col-6">
-              <h4 class="h6">Most Visited</h4>
-              <p class="h6" id="most-visited">-</p>
+            <div class="col-md-3 col-sm-6 mb-3 text-center">
+              <div class="card metric-card h-100 border-0 bg-light">
+                <div class="card-body">
+                  <i class="fas fa-car text-primary mb-2" style="font-size: 24px;"></i>
+                  <h4 class="h6">Total Trips</h4>
+                  <p class="h2" id="total-trips">0</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 col-sm-6 mb-3 text-center">
+              <div class="card metric-card h-100 border-0 bg-light">
+                <div class="card-body">
+                  <i class="fas fa-gas-pump text-primary mb-2" style="font-size: 24px;"></i>
+                  <h4 class="h6">Total Fuel</h4>
+                  <p class="h2" id="total-fuel">0 gallons</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 col-sm-6 mb-3 text-center">
+              <div class="card metric-card h-100 border-0 bg-light">
+                <div class="card-body">
+                  <i class="fas fa-tachometer-alt text-primary mb-2" style="font-size: 24px;"></i>
+                  <h4 class="h6">Max Speed</h4>
+                  <p class="h2" id="max-speed">0 mph</p>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="row mt-4">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Metrics -->
+  <div class="row mb-4">
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-header">
+          <h2 class="h5 mb-0">Detailed Metrics</h2>
+        </div>
+        <div class="card-body">
+          <div class="row mb-3">
             <div class="col-6">
-              <h4 class="h6">Total Distance</h4>
-              <p class="h2" id="total-distance">0 miles</p>
+              <h4 class="h6">Average Speed</h4>
+              <p class="h3" id="avg-speed">0 mph</p>
             </div>
             <div class="col-6">
-              <h4 class="h6">Total Fuel Consumed</h4>
-              <p class="h2" id="total-fuel">0 gallons</p>
+              <h4 class="h6">Average Distance</h4>
+              <p class="h3" id="avg-distance">0 miles</p>
             </div>
           </div>
-          <div class="row mt-4">
+          <div class="row mb-3">
             <div class="col-6">
-              <h4 class="h6">Max Speed</h4>
-              <p class="h2" id="max-speed">0 mph</p>
+              <h4 class="h6">Fuel Efficiency</h4>
+              <p class="h3" id="fuel-efficiency">N/A</p>
             </div>
-            <div class="col-6">
-              <h4 class="h6">Total Idle Duration</h4>
-              <p class="h2" id="total-idle">0m 0s</p>
-            </div>
-          </div>
-          <div class="row mt-4">
             <div class="col-6">
               <h4 class="h6">Longest Trip</h4>
-              <p class="h2" id="longest-trip">0 miles</p>
+              <p class="h3" id="longest-trip">0 miles</p>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-6">
+              <h4 class="h6">Total Idle Duration</h4>
+              <p class="h3" id="total-idle">0m 0s</p>
+            </div>
+            <div class="col-6">
+              <h4 class="h6">Busiest Time</h4>
+              <p class="h3" id="busiest-time">-</p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-12">
+              <h4 class="h6">Most Visited Location</h4>
+              <p class="h5" id="most-visited">-</p>
             </div>
           </div>
         </div>
@@ -78,70 +180,69 @@
 
     <!-- Fuel Consumption Chart -->
     <div class="col-12 col-lg-6 mb-4">
-      <div class="card">
+      <div class="card h-100">
         <div class="card-header">
           <h2 class="h5 mb-0">Fuel Consumption</h2>
         </div>
         <div class="card-body">
-          <canvas id="fuelConsumptionChart" height="300"></canvas>
+          <div class="chart-container">
+            <canvas id="fuelConsumptionChart"></canvas>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Charts -->
-  <div class="row">
-    <div class="col-12 mb-4">
-      <div class="card">
+  <!-- Trip Count and Speed Distribution -->
+  <div class="row mb-4">
+    <div class="col-12 col-lg-8">
+      <div class="card h-100">
         <div class="card-header">
           <h2 class="h5 mb-0">Trip Counts Over Time</h2>
         </div>
         <div class="card-body">
-          <canvas id="tripCountsChart" height="400"></canvas>
+          <div class="chart-container">
+            <canvas id="tripCountsChart"></canvas>
+          </div>
         </div>
       </div>
     </div>
-    <div class="col-12 col-lg-6 mb-4">
-      <div class="card">
+    <div class="col-12 col-lg-4">
+      <div class="card h-100">
         <div class="card-header">
-          <h2 class="h5 mb-0">Daily Distance</h2>
+          <h2 class="h5 mb-0">Speed Distribution</h2>
         </div>
         <div class="card-body">
-          <canvas id="distanceChart" height="300"></canvas>
-        </div>
-      </div>
-    </div>
-    <div class="col-12 col-lg-6 mb-4">
-      <div class="card">
-        <div class="card-header">
-          <h2 class="h5 mb-0">Trip Time Distribution</h2>
-        </div>
-        <div class="card-body">
-          <canvas id="timeDistributionChart" height="300"></canvas>
+          <div class="chart-container">
+            <canvas id="speedDistributionChart"></canvas>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Data Table -->
+  <!-- Daily Distance and Time Distribution -->
   <div class="row">
-    <div class="col-12">
-      <div class="card">
+    <div class="col-12 col-lg-8 mb-4">
+      <div class="card h-100">
         <div class="card-header">
-          <h2 class="h5 mb-0">Detailed Insights</h2>
+          <h2 class="h5 mb-0">Daily Distance</h2>
         </div>
         <div class="card-body">
-          <div class="table-responsive">
-            <table id="insights-table" class="table table-striped">
-              <thead>
-                <tr>
-                  <th>Destination</th>
-                  <th>Visit Count</th>
-                  <th>Last Visit</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+          <div class="chart-container">
+            <canvas id="distanceChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-4 mb-4">
+      <div class="card h-100">
+        <div class="card-header">
+          <h2 class="h5 mb-0">Trip Time Distribution</h2>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="timeDistributionChart"></canvas>
           </div>
         </div>
       </div>
@@ -154,7 +255,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/date-fns/dist/date-fns.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-<script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js"></script>
 <script src="{{ url_for('static', path='js/driving_insights.js') | replace('http://', '//') }}"></script>
 {% endblock %}
