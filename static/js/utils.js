@@ -9,38 +9,43 @@
  * @param {Function} [onComplete] - Optional callback after error handling
  * @returns {Error} The original error for chaining
  */
-function handleError(error, context = '', onComplete = null) {
+function handleError(error, context = "", onComplete = null) {
   // Convert string errors to Error objects
-  const errorObj = typeof error === 'string' ? new Error(error) : error;
+  const errorObj = typeof error === "string" ? new Error(error) : error;
   console.error(`Error in ${context}:`, errorObj);
-  
+
   // Create user-friendly message based on error type
   let userMessage = `Error in ${context}: ${errorObj.message}`;
-  
-  if (errorObj.name === 'NetworkError' || 
-      errorObj.message.includes('fetch') || 
-      errorObj.message.includes('network')) {
-    userMessage = 'Network error: Please check your connection and try again.';
-  } else if (errorObj.message.includes('timeout')) {
-    userMessage = 'The operation timed out. Please try again.';
-  } else if (errorObj.message.includes('permission')) {
-    userMessage = 'Permission denied: You don\'t have access to this resource.';
-  } else if (errorObj.message.includes('not found') || errorObj.status === 404) {
-    userMessage = 'Resource not found: The requested item doesn\'t exist.';
+
+  if (
+    errorObj.name === "NetworkError" ||
+    errorObj.message.includes("fetch") ||
+    errorObj.message.includes("network")
+  ) {
+    userMessage = "Network error: Please check your connection and try again.";
+  } else if (errorObj.message.includes("timeout")) {
+    userMessage = "The operation timed out. Please try again.";
+  } else if (errorObj.message.includes("permission")) {
+    userMessage = "Permission denied: You don't have access to this resource.";
+  } else if (
+    errorObj.message.includes("not found") ||
+    errorObj.status === 404
+  ) {
+    userMessage = "Resource not found: The requested item doesn't exist.";
   } else if (errorObj.status >= 500) {
-    userMessage = 'Server error: Please try again later.';
+    userMessage = "Server error: Please try again later.";
   }
-  
+
   // Show notification to user if notificationManager is available
   if (window.notificationManager) {
-    window.notificationManager.show(userMessage, 'danger');
+    window.notificationManager.show(userMessage, "danger");
   }
-  
+
   // Execute completion callback if provided
-  if (typeof onComplete === 'function') {
+  if (typeof onComplete === "function") {
     onComplete();
   }
-  
+
   return errorObj;
 }
 
@@ -54,13 +59,13 @@ class NotificationManager {
    */
   constructor(config = {}) {
     this.config = {
-      position: config.position || 'top-end',
-      containerClass: config.containerClass || 'notification-container',
+      position: config.position || "top-end",
+      containerClass: config.containerClass || "notification-container",
       defaultDuration: config.defaultDuration || 5000,
       maxNotifications: config.maxNotifications || 5,
-      animations: config.animations !== false
+      animations: config.animations !== false,
     };
-    
+
     this.notifications = [];
     this.container = this._getOrCreateContainer();
   }
@@ -72,14 +77,14 @@ class NotificationManager {
    */
   _getOrCreateContainer() {
     let container = document.querySelector(`.${this.config.containerClass}`);
-    
+
     if (!container) {
-      container = document.createElement('div');
+      container = document.createElement("div");
       container.className = `${this.config.containerClass} position-fixed top-0 end-0 p-3`;
-      container.setAttribute('aria-live', 'polite');
+      container.setAttribute("aria-live", "polite");
       document.body.appendChild(container);
     }
-    
+
     return container;
   }
 
@@ -90,42 +95,42 @@ class NotificationManager {
    * @param {number} [duration] - Duration in ms to show the notification
    * @returns {HTMLElement} The notification element
    */
-  show(message, type = 'info', duration = this.config.defaultDuration) {
+  show(message, type = "info", duration = this.config.defaultDuration) {
     // Create notification element
-    const notification = document.createElement('div');
+    const notification = document.createElement("div");
     notification.className = `alert alert-${type} alert-dismissible fade show bg-dark text-white`;
-    notification.role = 'alert';
+    notification.role = "alert";
     notification.innerHTML = `
       ${message}
       <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
-    
+
     // Add to container
     this.container.appendChild(notification);
-    
+
     // Trigger reflow for animation to work
     if (this.config.animations) {
       notification.offsetHeight; // Force reflow
     }
-    
+
     // Track notification
     this.notifications.push(notification);
     this._trimNotifications();
-    
+
     // Set up auto-removal
     const timeout = setTimeout(() => {
       this._removeNotification(notification);
     }, duration);
-    
+
     // Handle manual dismissal
-    const closeButton = notification.querySelector('.btn-close');
+    const closeButton = notification.querySelector(".btn-close");
     if (closeButton) {
-      closeButton.addEventListener('click', () => {
+      closeButton.addEventListener("click", () => {
         clearTimeout(timeout);
         this._removeNotification(notification);
       });
     }
-    
+
     return notification;
   }
 
@@ -136,21 +141,23 @@ class NotificationManager {
    */
   _removeNotification(notification) {
     if (!notification || !notification.parentNode) return;
-    
+
     // Add fade-out class if using animations
     if (this.config.animations) {
-      notification.classList.remove('show');
-      
+      notification.classList.remove("show");
+
       // Wait for animation before removing
       setTimeout(() => {
         if (notification.parentNode) {
           notification.parentNode.removeChild(notification);
         }
-        this.notifications = this.notifications.filter(n => n !== notification);
+        this.notifications = this.notifications.filter(
+          (n) => n !== notification
+        );
       }, 150);
     } else {
       notification.parentNode.removeChild(notification);
-      this.notifications = this.notifications.filter(n => n !== notification);
+      this.notifications = this.notifications.filter((n) => n !== notification);
     }
   }
 
@@ -160,7 +167,7 @@ class NotificationManager {
    */
   _trimNotifications() {
     if (this.notifications.length <= this.config.maxNotifications) return;
-    
+
     const excess = this.notifications.length - this.config.maxNotifications;
     for (let i = 0; i < excess; i++) {
       const oldest = this.notifications.shift();
@@ -176,7 +183,7 @@ class NotificationManager {
   clearAll() {
     // Create a copy to avoid mutation issues during removal
     const notificationsCopy = [...this.notifications];
-    notificationsCopy.forEach(notification => {
+    notificationsCopy.forEach((notification) => {
       this._removeNotification(notification);
     });
   }
@@ -192,15 +199,16 @@ class ConfirmationDialog {
    */
   constructor(config = {}) {
     this.config = {
-      modalId: config.modalId || 'confirmationModal',
+      modalId: config.modalId || "confirmationModal",
       backdropStatic: config.backdropStatic !== false,
-      defaultTitle: config.defaultTitle || 'Confirm',
-      defaultMessage: config.defaultMessage || 'Are you sure?',
-      defaultConfirmText: config.defaultConfirmText || 'Confirm',
-      defaultCancelText: config.defaultCancelText || 'Cancel',
-      defaultConfirmButtonClass: config.defaultConfirmButtonClass || 'btn-primary'
+      defaultTitle: config.defaultTitle || "Confirm",
+      defaultMessage: config.defaultMessage || "Are you sure?",
+      defaultConfirmText: config.defaultConfirmText || "Confirm",
+      defaultCancelText: config.defaultCancelText || "Cancel",
+      defaultConfirmButtonClass:
+        config.defaultConfirmButtonClass || "btn-primary",
     };
-    
+
     this.modalId = this.config.modalId;
     this.activeModal = null;
     this._createModal();
@@ -213,16 +221,16 @@ class ConfirmationDialog {
   _createModal() {
     if (document.getElementById(this.modalId)) return;
 
-    const modal = document.createElement('div');
-    modal.className = 'modal fade';
+    const modal = document.createElement("div");
+    modal.className = "modal fade";
     modal.id = this.modalId;
     modal.tabIndex = -1;
-    modal.setAttribute('aria-hidden', 'true');
-    
+    modal.setAttribute("aria-hidden", "true");
+
     if (this.config.backdropStatic) {
-      modal.setAttribute('data-bs-backdrop', 'static');
+      modal.setAttribute("data-bs-backdrop", "static");
     }
-    
+
     modal.innerHTML = `
       <div class="modal-dialog">
         <div class="modal-content bg-dark text-white">
@@ -238,7 +246,7 @@ class ConfirmationDialog {
         </div>
       </div>
     `;
-    
+
     document.body.appendChild(modal);
   }
 
@@ -253,10 +261,10 @@ class ConfirmationDialog {
    * @returns {Promise<boolean>} Resolves to true if confirmed, false if cancelled
    */
   show(options = {}) {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       const modalElement = document.getElementById(this.modalId);
       if (!modalElement) {
-        console.error('Confirmation modal not found');
+        console.error("Confirmation modal not found");
         resolve(false);
         return;
       }
@@ -266,19 +274,20 @@ class ConfirmationDialog {
       const message = options.message || this.config.defaultMessage;
       const confirmText = options.confirmText || this.config.defaultConfirmText;
       const cancelText = options.cancelText || this.config.defaultCancelText;
-      const confirmButtonClass = options.confirmButtonClass || this.config.defaultConfirmButtonClass;
+      const confirmButtonClass =
+        options.confirmButtonClass || this.config.defaultConfirmButtonClass;
 
-      modalElement.querySelector('.modal-title').textContent = title;
-      modalElement.querySelector('.modal-body').textContent = message;
+      modalElement.querySelector(".modal-title").textContent = title;
+      modalElement.querySelector(".modal-body").textContent = message;
 
-      const confirmBtn = modalElement.querySelector('.confirm-btn');
-      const cancelBtn = modalElement.querySelector('.cancel-btn');
+      const confirmBtn = modalElement.querySelector(".confirm-btn");
+      const cancelBtn = modalElement.querySelector(".cancel-btn");
 
       if (confirmBtn) {
         confirmBtn.textContent = confirmText;
         confirmBtn.className = `btn confirm-btn ${confirmButtonClass}`;
       }
-      
+
       if (cancelBtn) {
         cancelBtn.textContent = cancelText;
       }
@@ -296,22 +305,22 @@ class ConfirmationDialog {
         this.activeModal = null;
         resolve(false);
       };
-      
+
       const cleanup = () => {
-        confirmBtn?.removeEventListener('click', handleConfirm);
-        modalElement.removeEventListener('hidden.bs.modal', handleDismiss);
+        confirmBtn?.removeEventListener("click", handleConfirm);
+        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
       };
 
       // Attach event listeners
-      confirmBtn?.addEventListener('click', handleConfirm);
-      modalElement.addEventListener('hidden.bs.modal', handleDismiss);
+      confirmBtn?.addEventListener("click", handleConfirm);
+      modalElement.addEventListener("hidden.bs.modal", handleDismiss);
 
       // Show the modal
       try {
         this.activeModal = new bootstrap.Modal(modalElement);
         this.activeModal.show();
       } catch (error) {
-        console.error('Error showing modal:', error);
+        console.error("Error showing modal:", error);
         cleanup();
         resolve(false);
       }
@@ -341,7 +350,7 @@ const DOM = {
   byId(id) {
     return document.getElementById(id);
   },
-  
+
   /**
    * Query selector with optional context
    * @param {string} selector - CSS selector
@@ -351,7 +360,7 @@ const DOM = {
   query(selector, context = document) {
     return context.querySelector(selector);
   },
-  
+
   /**
    * Query all elements matching selector
    * @param {string} selector - CSS selector
@@ -361,7 +370,7 @@ const DOM = {
   queryAll(selector, context = document) {
     return Array.from(context.querySelectorAll(selector));
   },
-  
+
   /**
    * Create an element with attributes and content
    * @param {string} tag - Element tag name
@@ -371,24 +380,24 @@ const DOM = {
    */
   create(tag, attrs = {}, content = null) {
     const element = document.createElement(tag);
-    
+
     // Set attributes
     Object.entries(attrs).forEach(([key, value]) => {
-      if (key === 'class' || key === 'className') {
+      if (key === "class" || key === "className") {
         element.className = value;
-      } else if (key === 'style' && typeof value === 'object') {
+      } else if (key === "style" && typeof value === "object") {
         Object.assign(element.style, value);
-      } else if (key.startsWith('data-')) {
+      } else if (key.startsWith("data-")) {
         element.setAttribute(key, value);
       } else {
         element[key] = value;
       }
     });
-    
+
     // Add content
     if (content) {
       if (Array.isArray(content)) {
-        content.forEach(item => {
+        content.forEach((item) => {
           if (item instanceof Node) {
             element.appendChild(item);
           } else {
@@ -401,9 +410,9 @@ const DOM = {
         element.textContent = content;
       }
     }
-    
+
     return element;
-  }
+  },
 };
 
 /**
@@ -418,12 +427,12 @@ const Utils = {
    */
   debounce(func, wait = 300) {
     let timeout;
-    return function(...args) {
+    return function (...args) {
       clearTimeout(timeout);
       timeout = setTimeout(() => func.apply(this, args), wait);
     };
   },
-  
+
   /**
    * Throttle a function
    * @param {Function} func - Function to throttle
@@ -432,15 +441,17 @@ const Utils = {
    */
   throttle(func, limit = 300) {
     let inThrottle;
-    return function(...args) {
+    return function (...args) {
       if (!inThrottle) {
         func.apply(this, args);
         inThrottle = true;
-        setTimeout(() => { inThrottle = false; }, limit);
+        setTimeout(() => {
+          inThrottle = false;
+        }, limit);
       }
     };
   },
-  
+
   /**
    * Format a date using Intl.DateTimeFormat
    * @param {Date|string|number} date - Date to format
@@ -451,13 +462,16 @@ const Utils = {
   formatDate(date, locale, options = {}) {
     const dateObj = date instanceof Date ? date : new Date(date);
     const defaultOptions = {
-      dateStyle: 'medium',
-      timeStyle: 'short'
+      dateStyle: "medium",
+      timeStyle: "short",
     };
-    
-    return new Intl.DateTimeFormat(locale, { ...defaultOptions, ...options }).format(dateObj);
+
+    return new Intl.DateTimeFormat(locale, {
+      ...defaultOptions,
+      ...options,
+    }).format(dateObj);
   },
-  
+
   /**
    * Safely access localStorage with error handling
    * @param {string} key - Storage key
@@ -468,7 +482,7 @@ const Utils = {
     try {
       const item = localStorage.getItem(key);
       if (item === null) return defaultValue;
-      
+
       // Try to parse JSON, return original string if parsing fails
       try {
         return JSON.parse(item);
@@ -480,7 +494,7 @@ const Utils = {
       return defaultValue;
     }
   },
-  
+
   /**
    * Safely set localStorage with error handling
    * @param {string} key - Storage key
@@ -489,8 +503,8 @@ const Utils = {
    */
   setStorage(key, value) {
     try {
-      const valueToStore = typeof value === 'object' ? 
-        JSON.stringify(value) : String(value);
+      const valueToStore =
+        typeof value === "object" ? JSON.stringify(value) : String(value);
       localStorage.setItem(key, valueToStore);
       return true;
     } catch (error) {
@@ -498,7 +512,7 @@ const Utils = {
       return false;
     }
   },
-  
+
   /**
    * Remove item from localStorage with error handling
    * @param {string} key - Storage key
@@ -512,7 +526,7 @@ const Utils = {
       console.warn(`Error removing localStorage for key ${key}:`, error);
       return false;
     }
-  }
+  },
 };
 
 // Initialize and expose utility instances
