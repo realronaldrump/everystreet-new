@@ -1,4 +1,44 @@
-/* global L, flatpickr, notificationManager, bootstrap, LoadingManager, EveryStreet, confirmationDialog, createEditableCell, $ */
+/* global L, flatpickr, notificationManager, bootstrap, LoadingManager, EveryStreet, confirmationDialog, $ */
+
+/**
+ * Creates an editable cell for the DataTable
+ * @param {*} data - Cell data
+ * @param {string} type - Render type ('display', 'filter', etc.)
+ * @param {string} field - Field name
+ * @param {string} [inputType='text'] - HTML input type
+ * @returns {string} HTML for the editable cell
+ */
+function createEditableCell(data, type, field, inputType = 'text') {
+  if (type !== 'display') return data;
+  
+  const value = data === null || data === undefined ? '' : data;
+  let inputAttributes = '';
+  
+  // Set specific attributes based on input type
+  if (inputType === 'number') {
+    inputAttributes = 'step="any"';
+  } else if (inputType === 'datetime-local') {
+    // Convert date to datetime-local format for input
+    const datetime = value ? new Date(value) : new Date();
+    const localDatetime = new Date(datetime.getTime() - datetime.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+    
+    return `
+      <div class="editable-cell" data-field="${field}">
+        <span class="display-value">${value}</span>
+        <input type="${inputType}" class="form-control edit-input d-none" value="${localDatetime}" ${inputAttributes}>
+      </div>
+    `;
+  }
+  
+  return `
+    <div class="editable-cell" data-field="${field}">
+      <span class="display-value">${value}</span>
+      <input type="${inputType}" class="form-control edit-input d-none" value="${value}" ${inputAttributes}>
+    </div>
+  `;
+}
 
 (() => {
   "use strict";
