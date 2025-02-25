@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
@@ -11,10 +11,10 @@
     <title>{% block title %}Every Street{% endblock %}</title>
 
     <!-- Resource hints -->
-    <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
-    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
-    <link rel="preconnect" href="//cdn.jsdelivr.net" crossorigin>
-    
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net" />
+    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com" />
+    <link rel="preconnect" href="//cdn.jsdelivr.net" crossorigin />
+
     <!-- Favicon -->
     <link
       rel="icon"
@@ -44,7 +44,7 @@
       rel="stylesheet"
       href="{{ url_for('static', path='css/style.css') | replace('http://', '//') }}"
     />
-    
+
     <!-- Non-critical CSS loaded asynchronously -->
     <link
       rel="stylesheet"
@@ -91,33 +91,42 @@
       .notification-container .alert-info {
         border-left-color: #17a2b8;
       }
-      
+
       /* Accessibility improvements */
-      .btn:focus, .form-control:focus {
+      .btn:focus,
+      .form-control:focus {
         box-shadow: 0 0 0 0.25rem rgba(187, 134, 252, 0.5);
-        outline: 2px solid #BB86FC;
+        outline: 2px solid #bb86fc;
       }
-      
+
       /* Mobile optimizations */
       @media (max-width: 768px) {
-        .btn, .form-control, .nav-link {
+        .btn,
+        .form-control,
+        .nav-link {
           padding: 0.5rem 0.75rem;
           min-height: 42px;
         }
-        .card { margin-bottom: 1rem; }
-        .custom-checkbox, input[type="radio"], input[type="checkbox"] {
+        .card {
+          margin-bottom: 1rem;
+        }
+        .custom-checkbox,
+        input[type="radio"],
+        input[type="checkbox"] {
           min-width: 24px;
           min-height: 24px;
         }
       }
-      
+
       /* Loading state */
       .loading-overlay {
         opacity: 0;
         visibility: hidden;
-        transition: opacity 0.3s ease-in-out, visibility 0.3s;
+        transition:
+          opacity 0.3s ease-in-out,
+          visibility 0.3s;
       }
-      
+
       .loading-overlay[style*="display: flex"] {
         opacity: 1;
         visibility: visible;
@@ -213,29 +222,58 @@
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       crossorigin=""
     ></script>
-    
+
     <!-- Bundle non-critical scripts with defer -->
     <script defer src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
-    <script defer src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-    <script defer src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script defer src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"
+    ></script>
+    <script
+      defer
+      src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"
+    ></script>
+    <script
+      defer
+      src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"
+    ></script>
+    <script
+      defer
+      src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"
+    ></script>
 
     <!-- App scripts -->
-    <script defer src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
-    <script defer src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"></script>
-    <script defer src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"></script>
-    <script defer src="{{ url_for('static', path='js/sidebar.js') | replace('http://', '//') }}"></script>
-    <script defer src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}"></script>
+    <script
+      defer
+      src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"
+    ></script>
+    <script
+      defer
+      src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"
+    ></script>
+    <script
+      defer
+      src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"
+    ></script>
+    <script
+      defer
+      src="{{ url_for('static', path='js/sidebar.js') | replace('http://', '//') }}"
+    ></script>
+    <script
+      defer
+      src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}"
+    ></script>
 
     {% block extra_js %}{% endblock %}
 
     <script>
-      document.addEventListener("DOMContentLoaded", function() {
+      document.addEventListener("DOMContentLoaded", function () {
         // Enable tooltips
-        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        const tooltipTriggerList = document.querySelectorAll(
+          '[data-bs-toggle="tooltip"]',
+        );
         if (tooltipTriggerList.length > 0 && bootstrap?.Tooltip) {
-          tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+          tooltipTriggerList.forEach((el) => new bootstrap.Tooltip(el));
         }
       });
     </script>
