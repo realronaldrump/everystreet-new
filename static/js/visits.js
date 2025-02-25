@@ -19,7 +19,7 @@
         addSubOperation: () => {},
         updateSubOperation: () => {},
         finish: () => {},
-        error: () => {}
+        error: () => {},
       };
       this.isDetailedView = false;
       this.initialize();

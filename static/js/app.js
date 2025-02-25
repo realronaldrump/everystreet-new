@@ -295,7 +295,10 @@
           transactionId.replace("MATCHED-", "") === selectedTripId));
 
     // Determine appropriate styling
-    let color, weight, opacity, className = "";
+    let color,
+      weight,
+      opacity,
+      className = "";
 
     if (isSelected) {
       color = layerInfo.highlightColor;
@@ -337,26 +340,33 @@
    */
   function refreshTripStyles() {
     if (!layerGroup) return;
-    
+
     layerGroup.eachLayer((layer) => {
       // Check if this is a GeoJSON layer with features
       if (layer.eachLayer) {
         layer.eachLayer((featureLayer) => {
           // Only process layers with features and style method
           if (featureLayer.feature?.properties && featureLayer.setStyle) {
-            const isHistorical = featureLayer.feature.properties.imei === "HISTORICAL";
-            let layerInfo = isHistorical ? mapLayers.historicalTrips : mapLayers.trips;
-            
+            const isHistorical =
+              featureLayer.feature.properties.imei === "HISTORICAL";
+            let layerInfo = isHistorical
+              ? mapLayers.historicalTrips
+              : mapLayers.trips;
+
             // If this is a matched trip layer
             if (featureLayer.feature.properties.isMatched) {
               layerInfo = mapLayers.matchedTrips;
             }
-            
+
             // Update the style based on current selection
-            featureLayer.setStyle(getTripFeatureStyle(featureLayer.feature, layerInfo));
-            
+            featureLayer.setStyle(
+              getTripFeatureStyle(featureLayer.feature, layerInfo)
+            );
+
             // Bring selected trips to front
-            if (featureLayer.feature.properties.transactionId === selectedTripId) {
+            if (
+              featureLayer.feature.properties.transactionId === selectedTripId
+            ) {
               featureLayer.bringToFront();
             }
           }
@@ -403,12 +413,12 @@
       mapLayers.customPlaces.layer = L.layerGroup();
 
       // Add map click handler to clear trip selection when clicking outside of any trip
-      map.on('click', (e) => {
+      map.on("click", (e) => {
         // Only clear if we have a selected trip and we're not clicking on a marker or popup
         if (selectedTripId && !e.originalEvent._stopped) {
           // Clear the selected trip ID
           selectedTripId = null;
-          
+
           // Update trip styles
           refreshTripStyles();
         }
@@ -437,7 +447,28 @@
   function initializeLiveTracker() {
     if (!window.liveTracker && map) {
       try {
+        // Create a special error handler for LiveTripTracker that ignores 500 errors
+        // from the /api/active_trip endpoint as these are expected when no trip is active
+        const originalHandleError = window.handleError;
+        window.handleError = function (error, context) {
+          // Check if this is the expected error for no active trip
+          if (
+            context === "LiveTripTracker Initialization" &&
+            error.message &&
+            error.message.includes("/api/active_trip 500")
+          ) {
+            console.log("No active trip available - this is normal");
+            return; // Don't show error notification
+          }
+          // Otherwise use the original error handler
+          return originalHandleError(error, context);
+        };
+
+        // Initialize the live tracker
         window.liveTracker = new LiveTripTracker(map);
+
+        // Restore the original error handler
+        window.handleError = originalHandleError;
       } catch (error) {
         window.handleError(error, "LiveTripTracker Initialization");
       }
@@ -953,7 +984,7 @@
     // Stop propagation to prevent the map click handler from triggering
     e.originalEvent._stopped = true;
     L.DomEvent.stopPropagation(e);
-    
+
     const clickedId = feature.properties.transactionId;
     const wasSelected = selectedTripId === clickedId;
 
@@ -1055,7 +1086,7 @@
       // Stop propagation to prevent the map click from closing the popup
       e.stopPropagation();
       L.DomEvent.stopPropagation(e);
-      
+
       const target = e.target;
       const tripId = target.dataset.tripId;
 
