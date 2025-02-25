@@ -1,5 +1,8 @@
-{% extends "base.html" %} {% block title %}Every Street - Map{% endblock %} {%
-block content %}
+{% extends "base.html" %}
+
+{% block title %}Every Street - Map{% endblock %}
+
+{% block content %}
 <div class="d-flex flex-column h-100">
   <!-- Map Container -->
   <div id="map" class="flex-grow-1 position-relative">
@@ -18,11 +21,9 @@ block content %}
         </div>
       </div>
       <div class="card-body">
-        <div class="active-trips-info mb-3">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <span>Active Trips:</span>
-            <span id="active-trips-count" class="badge bg-primary">0</span>
-          </div>
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span>Active Trips:</span>
+          <span id="active-trips-count" class="badge bg-primary">0</span>
         </div>
         <div class="live-trip-metrics">
           <!-- Trip metrics will be inserted here -->
