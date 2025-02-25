@@ -388,12 +388,23 @@
     if (!mapContainer || mapInitialized) return;
 
     try {
+      // Make sure the map container is visible
+      mapContainer.style.display = 'block';
+      mapContainer.style.height = '500px';
+      mapContainer.style.position = 'relative';
+      
+      // Determine initial theme
+      const theme = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+      const tileUrl = theme === 'light'
+        ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+      
       // Create map instance
       map = L.map("map", {
         center: CONFIG.MAP.defaultCenter,
         zoom: CONFIG.MAP.defaultZoom,
         zoomControl: true,
-        attributionControl: false,
+        attributionControl: true,
         maxBounds: [
           [-90, -180],
           [90, 180],
@@ -402,10 +413,10 @@
 
       window.map = map; // Expose map for external modules
 
-      // Add tile layer
-      L.tileLayer(CONFIG.MAP.tileLayerUrl, {
+      // Add tile layer with appropriate theme
+      L.tileLayer(tileUrl, {
         maxZoom: CONFIG.MAP.maxZoom,
-        attribution: "",
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
       }).addTo(map);
 
       // Initialize layer groups
@@ -423,6 +434,12 @@
           refreshTripStyles();
         }
       });
+      
+      // Listen for theme changes
+      document.addEventListener('themeChanged', (e) => {
+        const theme = e.detail?.theme || 'dark';
+        updateMapTheme(theme);
+      });
 
       // Initialize live trip tracker
       initializeLiveTracker();
@@ -435,10 +452,46 @@
         map.setView(CONFIG.MAP.defaultCenter, CONFIG.MAP.defaultZoom);
       } finally {
         mapInitialized = true;
+        
+        // Force a resize to fix rendering issues
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 100);
       }
     } catch (error) {
       window.handleError(error, "Map Initialization");
     }
+  }
+  
+  /**
+   * Updates the map theme
+   * @param {string} theme - Theme name ('light' or 'dark')
+   */
+  function updateMapTheme(theme) {
+    if (!map) return;
+    
+    // First remove existing tile layers
+    map.eachLayer(layer => {
+      if (layer instanceof L.TileLayer) {
+        map.removeLayer(layer);
+      }
+    });
+    
+    // Add new tile layer based on theme
+    const tileUrl = theme === 'light' 
+      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    
+    L.tileLayer(tileUrl, {
+      maxZoom: CONFIG.MAP.maxZoom,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    }).addTo(map);
+    
+    // Refresh styles for all layers
+    refreshTripStyles();
+    
+    // Fix rendering issues
+    map.invalidateSize();
   }
 
   /**

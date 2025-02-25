@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-bs-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,6 +8,25 @@
       content="Every Street - Tracking and Visualizing Davis's street coverage"
     />
     <meta name="theme-color" content="#121212" />
+    <meta name="color-scheme" content="dark light" />
+    
+    <!-- Prevent flash of wrong theme -->
+    <script>
+      (function() {
+        const savedTheme = localStorage.getItem('theme');
+        const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        if (savedTheme === 'light' || (!savedTheme && !prefersDarkScheme)) {
+          document.documentElement.setAttribute('data-bs-theme', 'light');
+          document.documentElement.classList.add('light-mode');
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f8f9fa');
+        } else {
+          document.documentElement.setAttribute('data-bs-theme', 'dark');
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#121212');
+        }
+      })();
+    </script>
+    
     <title>{% block title %}Every Street{% endblock %}</title>
 
     <!-- Resource hints -->
@@ -26,6 +45,11 @@
       href="{{ url_for('static', path='apple-touch-icon.png') | replace('http://', '//') }}"
     />
 
+    <!-- Font loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <!-- Critical CSS -->
     <link
       rel="stylesheet"
@@ -128,16 +152,161 @@
   </head>
   <body>
     <a href="#main-content" class="visually-hidden-focusable">Skip to main</a>
-    <div id="app" class="d-flex flex-column min-vh-100">
-      {% include 'sidebar.html' %}
-      <main
-        id="main-content"
-        class="flex-grow-1 d-flex flex-column"
-        role="main"
-      >
+    
+    <div id="app" class="layout-wrapper">
+      <!-- Top Navigation Bar -->
+      <header class="app-header">
+        <div class="header-container">
+          <!-- Logo and Brand -->
+          <div class="brand-section">
+            <button id="menu-toggle" class="menu-toggle-btn" aria-label="Toggle navigation menu">
+              <i class="fas fa-bars"></i>
+            </button>
+            <a href="/" class="brand-logo">
+              <span class="brand-icon"><i class="fas fa-route"></i></span>
+              <span class="brand-text">EveryStreet</span>
+            </a>
+          </div>
+          
+          <!-- Primary Navigation -->
+          <nav class="main-nav" aria-label="Main navigation">
+            <ul class="nav-list">
+              <li class="nav-item {% if request.path == '/' %}active{% endif %}">
+                <a href="/" title="Map"><i class="fas fa-map"></i> <span>Map</span></a>
+              </li>
+              <li class="nav-item {% if request.path == '/trips' %}active{% endif %}">
+                <a href="/trips" title="Trips"><i class="fas fa-road"></i> <span>Trips</span></a>
+              </li>
+              <li class="nav-item {% if request.path == '/driving-insights' %}active{% endif %}">
+                <a href="/driving-insights" title="Insights"><i class="fas fa-chart-line"></i> <span>Insights</span></a>
+              </li>
+              <li class="nav-item dropdown">
+                <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="fas fa-ellipsis-h"></i> <span>More</span>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><a class="dropdown-item" href="/edit_trips"><i class="fas fa-edit"></i> Edit Trips</a></li>
+                  <li><a class="dropdown-item" href="/visits"><i class="fas fa-map-marker-alt"></i> Visits</a></li>
+                  <li><a class="dropdown-item" href="/coverage-management"><i class="fas fa-map-marked-alt"></i> Coverage Areas</a></li>
+                  <li><a class="dropdown-item" href="/export"><i class="fas fa-file-export"></i> Export Data</a></li>
+                  <li><a class="dropdown-item" href="/upload"><i class="fas fa-upload"></i> Upload GPX</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item" href="/database-management"><i class="fas fa-database"></i> Database</a></li>
+                  <li><a class="dropdown-item" href="/settings"><i class="fas fa-cog"></i> Settings</a></li>
+                </ul>
+              </li>
+            </ul>
+          </nav>
+          
+          <!-- Tools and User Options -->
+          <div class="tools-section">
+            <button id="filters-toggle" class="tool-btn" aria-label="Toggle filters panel" title="Filters">
+              <i class="fas fa-filter"></i>
+            </button>
+            <label class="theme-toggle" title="Toggle dark/light mode">
+              <input type="checkbox" id="theme-toggle-checkbox">
+              <span class="theme-slider">
+                <i class="fas fa-moon"></i>
+                <i class="fas fa-sun"></i>
+              </span>
+            </label>
+          </div>
+        </div>
+      </header>
+      
+      <!-- Mobile Navigation Drawer -->
+      <div id="mobile-nav-drawer" class="mobile-nav-drawer">
+        <div class="drawer-header">
+          <span class="drawer-title">Menu</span>
+          <button class="drawer-close-btn" aria-label="Close menu">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <nav class="drawer-nav">
+          <ul class="drawer-nav-list">
+            <li><a href="/" class="{% if request.path == '/' %}active{% endif %}"><i class="fas fa-map"></i> Map</a></li>
+            <li><a href="/trips" class="{% if request.path == '/trips' %}active{% endif %}"><i class="fas fa-road"></i> Trips</a></li>
+            <li><a href="/edit_trips" class="{% if request.path == '/edit_trips' %}active{% endif %}"><i class="fas fa-edit"></i> Edit Trips</a></li>
+            <li><a href="/driving-insights" class="{% if request.path == '/driving-insights' %}active{% endif %}"><i class="fas fa-chart-line"></i> Driving Insights</a></li>
+            <li><a href="/export" class="{% if request.path == '/export' %}active{% endif %}"><i class="fas fa-file-export"></i> Export Data</a></li>
+            <li><a href="/coverage-management" class="{% if request.path == '/coverage-management' %}active{% endif %}"><i class="fas fa-map-marked-alt"></i> Coverage Areas</a></li>
+            <li><a href="/upload" class="{% if request.path == '/upload' %}active{% endif %}"><i class="fas fa-upload"></i> Upload GPX</a></li>
+            <li><a href="/visits" class="{% if request.path == '/visits' %}active{% endif %}"><i class="fas fa-map-marker-alt"></i> Visits</a></li>
+            <li><a href="/database-management" class="{% if request.path == '/database-management' %}active{% endif %}"><i class="fas fa-database"></i> Database</a></li>
+            <li><a href="/settings" class="{% if request.path == '/settings' %}active{% endif %}"><i class="fas fa-cog"></i> Settings</a></li>
+          </ul>
+        </nav>
+      </div>
+      
+      <!-- Filters Panel (Hidden by default) -->
+      <aside id="filters-panel" class="side-panel filters-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Filters</h2>
+          <button class="panel-close-btn" aria-label="Close filters">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="panel-body">
+          <form id="filters-form" aria-label="Trip filters">
+            <div class="form-group">
+              <label for="start-date" class="form-label">Start Date</label>
+              <input type="text" id="start-date" class="form-control" placeholder="Select Start Date" aria-label="Start date filter" />
+            </div>
+            <div class="form-group">
+              <label for="end-date" class="form-label">End Date</label>
+              <input type="text" id="end-date" class="form-control" placeholder="Select End Date" aria-label="End date filter" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Quick Selections</label>
+              <div class="quick-selections">
+                <button type="button" class="quick-select-btn" data-range="today">Today</button>
+                <button type="button" class="quick-select-btn" data-range="yesterday">Yesterday</button>
+                <button type="button" class="quick-select-btn" data-range="last-week">Last 7 Days</button>
+                <button type="button" class="quick-select-btn" data-range="last-month">Last 30 Days</button>
+                <button type="button" class="quick-select-btn" data-range="last-year">Last Year</button>
+                <button type="button" class="quick-select-btn" data-range="all-time">All Time</button>
+              </div>
+            </div>
+          </form>
+          
+          <div class="panel-actions">
+            <button id="apply-filters" class="btn btn-primary btn-block">
+              <i class="fas fa-check"></i> Apply Filters
+            </button>
+            <button id="reset-filters" class="btn btn-outline">
+              <i class="fas fa-undo"></i> Reset
+            </button>
+          </div>
+        </div>
+      </aside>
+      
+      <!-- Content Overlay (for when panels are open) -->
+      <div id="content-overlay" class="content-overlay"></div>
+      
+      <!-- Main Content Area -->
+      <main id="main-content" class="main-content" role="main">
         {% block content %}{% endblock %}
       </main>
 
+      <!-- Floating Action Button (FAB) -->
+      <button id="action-button" class="floating-action-btn">
+        <i class="fas fa-plus"></i>
+      </button>
+      
+      <!-- Floating Action Menu (initially hidden) -->
+      <div id="action-menu" class="floating-action-menu">
+        <button class="action-menu-item" data-action="fetch-trips">
+          <i class="fas fa-sync"></i> Fetch Trips
+        </button>
+        <button class="action-menu-item" data-action="map-match">
+          <i class="fas fa-route"></i> Map Match
+        </button>
+        <button class="action-menu-item" data-action="new-place">
+          <i class="fas fa-map-marker-alt"></i> Add Place
+        </button>
+      </div>
+      
       <!-- Notification Container -->
       <div class="notification-container" aria-live="polite">
         <!-- Notifications will be dynamically inserted here -->
@@ -146,73 +315,43 @@
       <!-- Loading overlay -->
       <div class="loading-overlay">
         <div class="loading-content">
-          <div class="loading-bar-container">
-            <div
-              id="loading-bar"
-              class="loading-bar"
-              role="progressbar"
-              aria-valuenow="0"
-              aria-valuemin="0"
-              aria-valuemax="100"
-            ></div>
+          <div class="loading-spinner"></div>
+          <div class="loading-text">Loading...</div>
+          <div class="loading-progress">
+            <div class="progress-bar" id="loading-progress-bar"></div>
           </div>
-          <div id="loading-text">Loading trips: 0%</div>
         </div>
       </div>
     </div>
 
-    <!-- Custom Places Modal -->
-    <div
-      class="modal fade"
-      id="manage-places-modal"
-      tabindex="-1"
-      aria-labelledby="managePlacesModalLabel"
-      aria-hidden="true"
-    >
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="managePlacesModalLabel">
-              Manage Custom Places
-            </h5>
-            <button
-              type="button"
-              class="btn-close"
-              data-bs-dismiss="modal"
-              aria-label="Close"
-            ></button>
-          </div>
-          <div class="modal-body">
-            <div id="places-list" class="list-group mb-3">
-              <!-- Places will be dynamically added here -->
+    <!-- Modals Container -->
+    <div id="modals-container">
+      <!-- Custom Places Modal -->
+      <div class="modal fade" id="manage-places-modal" tabindex="-1" aria-labelledby="managePlacesModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="managePlacesModalLabel">Manage Places</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-          </div>
-          <div class="modal-footer">
-            <button
-              type="button"
-              class="btn btn-secondary"
-              data-bs-dismiss="modal"
-            >
-              Close
-            </button>
+            <div class="modal-body">
+              <div id="places-list" class="places-list">
+                <!-- Places will be dynamically added here -->
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline" data-bs-dismiss="modal">Close</button>
+              <button type="button" class="btn btn-primary" id="add-new-place">Add New Place</button>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Core JS - Load in order of dependency -->
-    <script
-      src="https://code.jquery.com/jquery-3.7.1.min.js"
-      crossorigin="anonymous"
-    ></script>
-    <script
-      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
-      crossorigin="anonymous"
-    ></script>
-    <script
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      crossorigin=""
-    ></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     
     <!-- Bundle non-critical scripts with defer -->
     <script defer src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -225,19 +364,9 @@
     <script defer src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
     <script defer src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"></script>
     <script defer src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"></script>
-    <script defer src="{{ url_for('static', path='js/sidebar.js') | replace('http://', '//') }}"></script>
     <script defer src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}"></script>
+    <script defer src="{{ url_for('static', path='js/modern-ui.js') | replace('http://', '//') }}"></script>
 
     {% block extra_js %}{% endblock %}
-
-    <script>
-      document.addEventListener("DOMContentLoaded", function() {
-        // Enable tooltips
-        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-        if (tooltipTriggerList.length > 0 && bootstrap?.Tooltip) {
-          tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
-        }
-      });
-    </script>
   </body>
 </html>

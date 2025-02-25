@@ -48,16 +48,25 @@
      * Initialize the sidebar
      */
     init() {
-      if (!this.validateElements()) return;
-      
-      this.initializeEventListeners();
-      this.loadStoredDates();
-      this.handleResponsiveLayout();
-      this.loadSidebarState();
-      this.highlightCurrentPage();
-      this.initializeScrollIndicator();
-      this.initializeKeyboardNavigation();
-      this.loadFiltersState();
+      try {
+        if (!this.validateElements()) return;
+        
+        this.initializeEventListeners();
+        this.loadStoredDates();
+        this.handleResponsiveLayout();
+        this.loadSidebarState();
+        this.highlightCurrentPage();
+        this.initializeScrollIndicator();
+        this.initializeKeyboardNavigation();
+        this.loadFiltersState();
+        
+        // Trigger an event that sidebar is ready - for ModernUI coordination
+        document.dispatchEvent(new CustomEvent('sidebarInitialized'));
+        
+        console.log('Sidebar initialized');
+      } catch (error) {
+        console.error('Error initializing sidebar:', error);
+      }
     }
 
     /**
@@ -65,17 +74,12 @@
      * @returns {boolean} Whether all required elements are present
      */
     validateElements() {
-      const requiredElements = [
-        "sidebar",
-        "toggleButton", 
-        "mainContent",
-        "body",
-      ];
+      const requiredElements = ["sidebar"];
       
       const missing = requiredElements.filter(el => !this.elements[el]);
       
       if (missing.length) {
-        console.error(`Missing required sidebar elements: ${missing.join(", ")}`);
+        console.log(`Sidebar elements not found: ${missing.join(", ")}. This is normal if using ModernUI.`);
         return false;
       }
       
@@ -90,6 +94,25 @@
       this.setupDateInputListeners();
       this.setupWindowListeners();
       this.setupFiltersToggleListener();
+      
+      // Listen for ModernUI filter changes
+      document.addEventListener('filtersApplied', this.handleModernUIFilterChange.bind(this));
+    }
+    
+    /**
+     * Handle filter changes from ModernUI
+     * @param {CustomEvent} e - Filter change event
+     */
+    handleModernUIFilterChange(e) {
+      const { startDate, endDate } = e.detail || {};
+      
+      if (startDate && this.elements.startDateInput) {
+        this.elements.startDateInput.value = startDate;
+      }
+      
+      if (endDate && this.elements.endDateInput) {
+        this.elements.endDateInput.value = endDate;
+      }
     }
 
     /**
@@ -122,6 +145,14 @@
         input?.addEventListener("change", e => {
           const key = e.target.id.includes("start") ? "startDate" : "endDate";
           this.safelyStoreItem(this.config.storageKeys[key], e.target.value);
+          
+          // Trigger an event for ModernUI to detect
+          document.dispatchEvent(new CustomEvent('sidebarDateChanged', {
+            detail: {
+              startDate: this.elements.startDateInput?.value,
+              endDate: this.elements.endDateInput?.value
+            }
+          }));
         });
       });
     }
@@ -162,9 +193,12 @@
      */
     handleOutsideClick(e) {
       const { sidebar, toggleButton } = this.elements;
+      
+      if (!sidebar) return;
+      
       const isMobile = window.innerWidth < this.config.mobileBreakpoint;
       const clickedOutside = !sidebar.contains(e.target) && 
-                            !toggleButton.contains(e.target);
+                             toggleButton && !toggleButton.contains(e.target);
       
       if (isMobile && clickedOutside && sidebar.classList.contains("active")) {
         this.toggleSidebar();
@@ -176,6 +210,9 @@
      */
     toggleSidebar() {
       const { sidebar, toggleButton, body, mainContent } = this.elements;
+      
+      if (!sidebar) return;
+      
       const isMobile = window.innerWidth < this.config.mobileBreakpoint;
       
       if (isMobile) {
@@ -186,8 +223,11 @@
         mainContent?.classList.toggle("expanded");
       }
       
-      toggleButton.classList.toggle("active");
-      this.updateToggleButtonIcon();
+      if (toggleButton) {
+        toggleButton.classList.toggle("active");
+        this.updateToggleButtonIcon();
+      }
+      
       this.storeSidebarState();
     }
 
@@ -195,6 +235,8 @@
      * Update toggle button icon based on sidebar state
      */
     updateToggleButtonIcon() {
+      if (!this.elements.toggleButton) return;
+      
       const icon = this.elements.toggleButton.querySelector("i");
       if (icon) {
         icon.classList.toggle("fa-bars");
@@ -206,6 +248,8 @@
      * Store sidebar state in localStorage
      */
     storeSidebarState() {
+      if (!this.elements.sidebar) return;
+      
       const isCollapsed = this.elements.sidebar.classList.contains("collapsed");
       this.safelyStoreItem(this.config.storageKeys.sidebarState, isCollapsed);
     }
@@ -215,6 +259,8 @@
      */
     loadSidebarState() {
       try {
+        if (!this.elements.sidebar) return;
+        
         const isCollapsed = this.safelyGetItem(this.config.storageKeys.sidebarState) === "true";
         
         if (isCollapsed && window.innerWidth >= this.config.mobileBreakpoint) {
@@ -222,8 +268,9 @@
           
           body.classList.add("sidebar-collapsed");
           sidebar.classList.add("collapsed");
-          toggleButton.classList.add("active");
-          mainContent?.classList.add("expanded");
+          
+          if (toggleButton) toggleButton.classList.add("active");
+          if (mainContent) mainContent.classList.add("expanded");
         }
       } catch (error) {
         console.warn("Failed to load sidebar state:", error);
@@ -253,6 +300,8 @@
      * Handle responsive layout changes
      */
     handleResponsiveLayout() {
+      if (!this.elements.sidebar) return;
+      
       const isMobile = window.innerWidth < this.config.mobileBreakpoint;
       const { sidebar, body, mainContent } = this.elements;
       
@@ -280,6 +329,8 @@
      * @param {Event} e - Click event
      */
     handleFiltersToggle(e) {
+      if (!e.currentTarget) return;
+      
       const collapsed = e.currentTarget.classList.toggle("collapsed");
       this.safelyStoreItem(this.config.storageKeys.filtersCollapsed, collapsed);
     }
@@ -289,9 +340,11 @@
      */
     loadFiltersState() {
       try {
+        if (!this.elements.filtersToggle) return;
+        
         const isCollapsed = this.safelyGetItem(this.config.storageKeys.filtersCollapsed) === "true";
         
-        if (isCollapsed && this.elements.filtersToggle) {
+        if (isCollapsed) {
           this.elements.filtersToggle.classList.add("collapsed");
           const filtersContent = document.getElementById("filters-content");
           if (filtersContent) {
@@ -307,6 +360,8 @@
      * Highlight current page in sidebar navigation
      */
     highlightCurrentPage() {
+      if (!this.elements.sidebar) return;
+      
       const currentPath = window.location.pathname;
       const navLinks = this.elements.sidebar.querySelectorAll(".nav-link");
       
@@ -363,14 +418,14 @@
       this.setButtonLoading("apply-filters", true);
       
       try {
-        const startDate = this.elements.startDateInput.value;
-        const endDate = this.elements.endDateInput.value;
+        const startDate = this.elements.startDateInput?.value;
+        const endDate = this.elements.endDateInput?.value;
         
-        this.safelyStoreItem(this.config.storageKeys.startDate, startDate);
-        this.safelyStoreItem(this.config.storageKeys.endDate, endDate);
+        if (startDate) this.safelyStoreItem(this.config.storageKeys.startDate, startDate);
+        if (endDate) this.safelyStoreItem(this.config.storageKeys.endDate, endDate);
         
-        // Trigger the global event for updating data
-        document.dispatchEvent(new CustomEvent("filters:applied", {
+        // Trigger the global event for updating data - compatible with ModernUI
+        document.dispatchEvent(new CustomEvent("filtersApplied", {
           detail: { startDate, endDate }
         }));
       } catch (error) {
@@ -450,6 +505,51 @@
       window.sidebarManager = new Sidebar();
     } catch (error) {
       console.error("Failed to initialize sidebar:", error);
+    }
+  });
+
+  // Theme Toggle Functionality - coordinated with ModernUI
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      const themeToggle = document.getElementById('theme-toggle-checkbox');
+      
+      if (!themeToggle) {
+        console.log('Theme toggle not found in sidebar.js. This is normal if using ModernUI.');
+        return;
+      }
+      
+      const body = document.body;
+      
+      // Check for saved theme preference or prefer-color-scheme
+      const savedTheme = localStorage.getItem('theme');
+      const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      
+      // Apply saved theme or use system preference
+      if (savedTheme === 'light') {
+        body.classList.add('light-mode');
+        themeToggle.checked = true;
+      } else if (!savedTheme && !prefersDarkScheme) {
+        body.classList.add('light-mode');
+        themeToggle.checked = true;
+      }
+      
+      // Handle theme toggle click
+      themeToggle.addEventListener('change', () => {
+        if (themeToggle.checked) {
+          body.classList.add('light-mode');
+          localStorage.setItem('theme', 'light');
+        } else {
+          body.classList.remove('light-mode');
+          localStorage.setItem('theme', 'dark');
+        }
+        
+        // Trigger a custom event for other scripts that might need to react to theme changes
+        body.dispatchEvent(new CustomEvent('themeChanged', { 
+          detail: { theme: themeToggle.checked ? 'light' : 'dark' } 
+        }));
+      });
+    } catch (error) {
+      console.warn('Theme toggle initialization error:', error);
     }
   });
 })();
