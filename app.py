@@ -80,9 +80,6 @@ OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
 
 # --- Helper Functions ---
-def serialize_datetime(dt: Optional[datetime]) -> Optional[str]:
-    return dt.isoformat() if dt else None
-
 
 def serialize_trip(trip: dict) -> dict:
     if "_id" in trip:
