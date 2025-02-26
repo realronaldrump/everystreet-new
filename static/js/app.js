@@ -363,7 +363,7 @@
 
             // Update the style based on current selection
             featureLayer.setStyle(
-              getTripFeatureStyle(featureLayer.feature, layerInfo)
+              getTripFeatureStyle(featureLayer.feature, layerInfo),
             );
 
             // Bring selected trips to front
@@ -479,7 +479,7 @@
     if (window.notificationManager) {
       window.notificationManager.show(
         `Error in ${context}: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -804,22 +804,22 @@
     if (window.loadingManager) {
       window.loadingManager.startOperation(
         "Fetching and Displaying Trips",
-        100
+        100,
       );
       window.loadingManager.addSubOperation(
         "Fetching and Displaying Trips",
         "Fetching Data",
-        50
+        50,
       );
       window.loadingManager.addSubOperation(
         "Fetching and Displaying Trips",
         "Processing Data",
-        30
+        30,
       );
       window.loadingManager.addSubOperation(
         "Fetching and Displaying Trips",
         "Displaying Data",
-        20
+        20,
       );
     }
 
@@ -842,7 +842,7 @@
         window.loadingManager.updateSubOperation(
           "Fetching and Displaying Trips",
           "Fetching Data",
-          25
+          25,
         );
       }
 
@@ -861,12 +861,12 @@
         window.loadingManager.updateSubOperation(
           "Fetching and Displaying Trips",
           "Fetching Data",
-          50
+          50,
         );
         window.loadingManager.updateSubOperation(
           "Fetching and Displaying Trips",
           "Processing Data",
-          15
+          15,
         );
       }
 
@@ -881,12 +881,12 @@
         window.loadingManager.updateSubOperation(
           "Fetching and Displaying Trips",
           "Processing Data",
-          30
+          30,
         );
         window.loadingManager.updateSubOperation(
           "Fetching and Displaying Trips",
           "Displaying Data",
-          10
+          10,
         );
       }
 
@@ -900,7 +900,7 @@
           window.loadingManager.updateSubOperation(
             "Fetching and Displaying Trips",
             "Displaying Data",
-            20
+            20,
           );
         }
       }
@@ -951,14 +951,14 @@
     AppState.mapLayers.trips.layer = {
       type: "FeatureCollection",
       features: geojson.features.filter(
-        (f) => f.properties.imei !== "HISTORICAL"
+        (f) => f.properties.imei !== "HISTORICAL",
       ),
     };
 
     AppState.mapLayers.historicalTrips.layer = {
       type: "FeatureCollection",
       features: geojson.features.filter(
-        (f) => f.properties.imei === "HISTORICAL"
+        (f) => f.properties.imei === "HISTORICAL",
       ),
     };
 
@@ -1021,12 +1021,12 @@
 
               // Add click handler
               layer.on("click", (e) =>
-                handleTripClick(e, feature, layer, info, name)
+                handleTripClick(e, feature, layer, info, name),
               );
 
               // Setup popup event listeners when opened
               layer.on("popupopen", () =>
-                setupPopupEventListeners(layer, feature)
+                setupPopupEventListeners(layer, feature),
               );
             },
           });
@@ -1038,7 +1038,7 @@
             .setStyle({ color: info.color, opacity: info.opacity })
             .addTo(AppState.layerGroup);
         }
-      })
+      }),
     );
 
     // Bring selected trip to front
@@ -1249,7 +1249,7 @@
     if (!window.confirmationDialog) {
       // Fallback to regular confirm
       confirmed = confirm(
-        "Delete this trip? This will also delete its corresponding matched trip."
+        "Delete this trip? This will also delete its corresponding matched trip.",
       );
     } else {
       confirmed = await window.confirmationDialog.show({
@@ -1285,7 +1285,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Trip and its matched trip deleted",
-          "success"
+          "success",
         );
       }
     } catch (error) {
@@ -1306,7 +1306,7 @@
     if (!window.confirmationDialog) {
       // Fallback to regular confirm
       confirmed = confirm(
-        "Re-match this trip? This will delete the existing matched trip and create a new one."
+        "Re-match this trip? This will delete the existing matched trip and create a new one.",
       );
     } else {
       confirmed = await window.confirmationDialog.show({
@@ -1349,7 +1349,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Trip successfully re-matched",
-          "success"
+          "success",
         );
       }
     } catch (error) {
@@ -1406,7 +1406,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Please enter a location and select a location type.",
-          "warning"
+          "warning",
         );
       }
       return;
@@ -1429,7 +1429,7 @@
         if (window.notificationManager) {
           window.notificationManager.show(
             "Location not found. Please check your input.",
-            "warning"
+            "warning",
           );
         }
         return;
@@ -1440,7 +1440,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Location validated successfully!",
-          "success"
+          "success",
         );
       }
     } catch (err) {
@@ -1461,7 +1461,7 @@
     locInput.setAttribute("data-location", JSON.stringify(data));
     locInput.setAttribute(
       "data-display-name",
-      data.display_name || data.name || locInput.value
+      data.display_name || data.name || locInput.value,
     );
 
     // Enable relevant buttons
@@ -1489,7 +1489,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Please validate a location first.",
-          "warning"
+          "warning",
         );
       }
       return;
@@ -1540,7 +1540,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "OSM data generated successfully!",
-          "success"
+          "success",
         );
       }
     } catch (err) {
@@ -1565,7 +1565,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Select start and end dates.",
-          "warning"
+          "warning",
         );
       }
       return;
@@ -1591,7 +1591,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ start_date: startDate, end_date: endDate }),
-        })
+        }),
       );
     }
 
@@ -1604,7 +1604,8 @@
       if (errorResponses.length > 0) {
         const errorData = await errorResponses[0].json();
         throw new Error(
-          errorData.message || `HTTP error! status: ${errorResponses[0].status}`
+          errorData.message ||
+            `HTTP error! status: ${errorResponses[0].status}`,
         );
       }
 
@@ -1615,7 +1616,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Map matching completed for selected trips.",
-          "success"
+          "success",
         );
       }
 
@@ -1642,7 +1643,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Select start and end dates.",
-          "warning"
+          "warning",
         );
       }
       return;
@@ -1675,7 +1676,7 @@
         if (window.notificationManager) {
           window.notificationManager.show(
             "Error fetching trips. Check console.",
-            "danger"
+            "danger",
           );
         }
       }
@@ -1701,7 +1702,7 @@
 
     try {
       const response = await fetch(
-        `/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`
+        `/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`,
       );
 
       if (!response.ok) {
@@ -1744,7 +1745,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Validate a location first.",
-          "warning"
+          "warning",
         );
       }
       return;
@@ -1785,7 +1786,7 @@
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Failed to start coverage calculation"
+          errorData.message || "Failed to start coverage calculation",
         );
       }
 
@@ -1838,7 +1839,7 @@
 
         if (elapsed < CONFIG.REFRESH.minPollingInterval) {
           await new Promise((resolve) =>
-            setTimeout(resolve, CONFIG.REFRESH.minPollingInterval - elapsed)
+            setTimeout(resolve, CONFIG.REFRESH.minPollingInterval - elapsed),
           );
         }
 
@@ -1870,7 +1871,7 @@
         // Handle other errors
         if (!statusResponse.ok) {
           throw new Error(
-            `Server returned ${statusResponse.status}: ${statusResponse.statusText}`
+            `Server returned ${statusResponse.status}: ${statusResponse.statusText}`,
           );
         }
 
@@ -1905,7 +1906,7 @@
         // Check for error
         else if (statusData.stage === "error") {
           throw new Error(
-            statusData.message || "Error in coverage calculation"
+            statusData.message || "Error in coverage calculation",
           );
         }
 
@@ -2053,7 +2054,7 @@
               AppState.mapLayers.streetCoverage.layer.resetStyle(e.target),
           });
         },
-      }
+      },
     );
 
     // Add to map
@@ -2075,7 +2076,7 @@
     try {
       // Fetch coverage data
       const response = await fetch(
-        `/api/street_coverage/${location.display_name}`
+        `/api/street_coverage/${location.display_name}`,
       );
 
       if (!response.ok) {
@@ -2096,7 +2097,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Error loading coverage data",
-          "danger"
+          "danger",
         );
       }
     }
@@ -2130,7 +2131,7 @@
 
         if (!response.ok) {
           throw new Error(
-            `Failed to fetch first trip date: ${response.status}`
+            `Failed to fetch first trip date: ${response.status}`,
           );
         }
 
@@ -2141,7 +2142,7 @@
         if (window.notificationManager) {
           window.notificationManager.show(
             "Error fetching first trip date. Please try again.",
-            "danger"
+            "danger",
           );
         }
       } finally {
@@ -2201,7 +2202,7 @@
 
       if (controlsContent) {
         controlsContent.style.display = mapControls?.classList.contains(
-          "minimized"
+          "minimized",
         )
           ? "none"
           : "block";
@@ -2211,23 +2212,23 @@
     // Location validation and OSM buttons
     addSingleEventListener("validate-location", "click", validateLocation);
     addSingleEventListener("generate-boundary", "click", () =>
-      generateOSMData(false)
+      generateOSMData(false),
     );
     addSingleEventListener("generate-streets", "click", () =>
-      generateOSMData(true)
+      generateOSMData(true),
     );
 
     // Trip processing buttons
     addSingleEventListener("map-match-trips", "click", () =>
-      mapMatchTrips(false)
+      mapMatchTrips(false),
     );
     addSingleEventListener("map-match-historical-trips", "click", () =>
-      mapMatchTrips(true)
+      mapMatchTrips(true),
     );
     addSingleEventListener(
       "generate-coverage",
       "click",
-      generateStreetCoverage
+      generateStreetCoverage,
     );
     addSingleEventListener("fetch-trips-range", "click", fetchTripsInRange);
 
@@ -2244,7 +2245,7 @@
 
     // Streets preprocessing button
     addSingleEventListener("preprocess-streets", "click", () =>
-      preprocessStreets()
+      preprocessStreets(),
     );
   }
 
@@ -2258,7 +2259,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Please validate a location first.",
-          "warning"
+          "warning",
         );
       }
       return;
@@ -2285,7 +2286,7 @@
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
+          errorData.message || `HTTP error! status: ${response.status}`,
         );
       }
 
@@ -2295,7 +2296,7 @@
         window.notificationManager.show(
           data.message ||
             "Streets preprocessed successfully for route matching.",
-          "success"
+          "success",
         );
       }
     } catch (error) {
@@ -2345,7 +2346,7 @@
     AppState.dom.generateCoverageBtn = getElement("generate-coverage");
     AppState.dom.mapMatchTripsBtn = getElement("map-match-trips");
     AppState.dom.mapMatchHistoricalBtn = getElement(
-      "map-match-historical-trips"
+      "map-match-historical-trips",
     );
     AppState.dom.preprocessStreetsBtn = getElement("preprocess-streets");
     AppState.dom.highlightRecentTrips = getElement("highlight-recent-trips");
@@ -2396,7 +2397,7 @@
             input.id === "start-date"
               ? CONFIG.STORAGE_KEYS.startDate
               : CONFIG.STORAGE_KEYS.endDate,
-            dateStr
+            dateStr,
           );
         }
       },
@@ -2409,7 +2410,7 @@
         if (element && !element._flatpickr) {
           flatpickr(element, config);
         }
-      }
+      },
     );
   }
 
@@ -2431,7 +2432,7 @@
           if (window.notificationManager) {
             window.notificationManager.show(
               "Failed to initialize map components. Please refresh the page.",
-              "danger"
+              "danger",
             );
           }
           return;
@@ -2442,7 +2443,7 @@
 
         // Load selected location from storage if exists
         const selectedLocationStr = getStorageItem(
-          CONFIG.STORAGE_KEYS.selectedLocation
+          CONFIG.STORAGE_KEYS.selectedLocation,
         );
         if (selectedLocationStr) {
           try {
