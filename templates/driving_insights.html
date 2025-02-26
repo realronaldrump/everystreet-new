@@ -2,6 +2,39 @@
 {% block title %}Driving Insights{% endblock %}
 {% block content %}
 <div class="container-fluid">
+  <!-- Filter Controls -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h2 class="h5 mb-0">Date Range Filters</h2>
+        </div>
+        <div class="card-body">
+          <form id="filter-form" class="row g-3">
+            <div class="col-md-4">
+              <label for="start-date" class="form-label">Start Date</label>
+              <input type="date" class="form-control" id="start-date" name="start_date">
+            </div>
+            <div class="col-md-4">
+              <label for="end-date" class="form-label">End Date</label>
+              <input type="date" class="form-control" id="end-date" name="end_date">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <button type="button" class="btn btn-primary me-2" id="apply-filters">
+                <i class="bi bi-filter"></i> Apply Filters
+              </button>
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-secondary quick-select-btn" id="filter-7days" data-range="last-week">7 Days</button>
+                <button type="button" class="btn btn-outline-secondary quick-select-btn" id="filter-30days" data-range="last-month">30 Days</button>
+                <button type="button" class="btn btn-outline-secondary quick-select-btn" id="filter-90days" data-range="quarter">90 Days</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Summary Metrics -->
   <div class="row mb-4">
     <div class="col-12 col-md-6">
@@ -37,7 +70,7 @@
             </div>
             <div class="col-6">
               <h4 class="h6">Total Idle Duration</h4>
-              <p class="h2" id="total-idle">0 minutes</p>
+              <p class="h2" id="total-idle">0m 0s</p>
             </div>
           </div>
           <div class="row mt-4">
@@ -130,5 +163,12 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
+<!-- Only load flatpickr if it's not already loaded by Modern UI -->
+<script>
+  if (typeof flatpickr === 'undefined') {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"><\/script>');
+    document.write('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">');
+  }
+</script>
 <script src="{{ url_for('static', path='js/driving_insights.js') | replace('http://', '//') }}"></script>
 {% endblock %}
