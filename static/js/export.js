@@ -1,259 +1,247 @@
-/* global L, flatpickr, notificationManager, bootstrap, $ */
-
 /**
- * ExportManager - Handles exporting data in various formats
+ * Export functionality - Handles exporting data in various formats
  */
-class ExportManager {
-  /**
-   * Initialize the export manager
-   */
-  constructor() {
-    // DOM elements cache
-    this.elements = {};
+(() => {
+  "use strict";
 
-    // Configuration
-    this.config = {
-      forms: {
-        trips: {
-          id: "export-trips-form",
-          dateStart: "trips-start-date",
-          dateEnd: "trips-end-date",
-          format: "trips-format",
-          endpoint: "/api/export/trips",
-        },
-        matchedTrips: {
-          id: "export-matched-trips-form",
-          dateStart: "matched-trips-start-date",
-          dateEnd: "matched-trips-end-date",
-          format: "matched-trips-format",
-          endpoint: "/api/export/trips",
-        },
-        streets: {
-          id: "export-streets-form",
-          location: "streets-location",
-          format: "streets-format",
-          endpoint: "/api/export/streets",
-        },
-        boundary: {
-          id: "export-boundary-form",
-          location: "boundary-location",
-          format: "boundary-format",
-          endpoint: "/api/export/boundary",
-        },
-        all: {
-          id: "export-all-form",
-          format: "all-format",
-          endpoint: "/api/export/all_trips",
-        },
-      },
-    };
+  // Cache DOM elements and state
+  const elements = {};
+  let locationValidations = {};
 
-    // Initialize on DOM load
-    document.addEventListener("DOMContentLoaded", () => this.init());
-  }
+  // Configuration for export forms
+  const EXPORT_CONFIG = {
+    trips: {
+      id: "export-trips-form",
+      dateStart: "trips-start-date",
+      dateEnd: "trips-end-date",
+      format: "trips-format",
+      endpoint: "/api/export/trips",
+    },
+    matchedTrips: {
+      id: "export-matched-trips-form",
+      dateStart: "matched-trips-start-date",
+      dateEnd: "matched-trips-end-date",
+      format: "matched-trips-format",
+      endpoint: "/api/export/trips",
+    },
+    streets: {
+      id: "export-streets-form",
+      location: "streets-location",
+      format: "streets-format",
+      endpoint: "/api/export/streets",
+    },
+    boundary: {
+      id: "export-boundary-form",
+      location: "boundary-location",
+      format: "boundary-format",
+      endpoint: "/api/export/boundary",
+    },
+    all: {
+      id: "export-all-form",
+      format: "all-format",
+      endpoint: "/api/export/all_trips",
+    },
+  };
 
   /**
-   * Initialize the export manager
+   * Initialize export functionality
    */
-  init() {
-    this.cacheElements();
-    this.initializeFormHandlers();
+  function init() {
+    cacheElements();
+    initEventListeners();
   }
 
   /**
    * Cache DOM elements for better performance
    */
-  cacheElements() {
-    Object.values(this.config.forms).forEach((form) => {
-      this.elements[form.id] = document.getElementById(form.id);
+  function cacheElements() {
+    Object.values(EXPORT_CONFIG).forEach((config) => {
+      elements[config.id] = document.getElementById(config.id);
+
+      if (config.location) {
+        elements[config.location] = document.getElementById(config.location);
+      }
+
+      if (config.format) {
+        elements[config.format] = document.getElementById(config.format);
+      }
+
+      if (config.dateStart) {
+        elements[config.dateStart] = document.getElementById(config.dateStart);
+      }
+
+      if (config.dateEnd) {
+        elements[config.dateEnd] = document.getElementById(config.dateEnd);
+      }
     });
+
+    // Cache validate buttons
+    elements.validateButtons = document.querySelectorAll(
+      ".validate-location-btn"
+    );
   }
 
   /**
-   * Initialize form event handlers
+   * Initialize event listeners
    */
-  initializeFormHandlers() {
-    // Trip export form
-    this.initializeFormListener(this.config.forms.trips.id, () =>
-      this.exportTrips()
-    );
+  function initEventListeners() {
+    // Set up form submit handlers
+    Object.keys(EXPORT_CONFIG).forEach((formKey) => {
+      const form = elements[EXPORT_CONFIG[formKey].id];
+      if (form) {
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          handleFormSubmit(formKey);
+        });
+      }
+    });
 
-    // Matched trips export form
-    this.initializeFormListener(this.config.forms.matchedTrips.id, () =>
-      this.exportMatchedTrips()
-    );
-
-    // Streets export form
-    this.initializeFormListener(this.config.forms.streets.id, () =>
-      this.exportStreets()
-    );
-
-    // Boundary export form
-    this.initializeFormListener(this.config.forms.boundary.id, () =>
-      this.exportBoundary()
-    );
-
-    // All trips export form
-    this.initializeFormListener(this.config.forms.all.id, () =>
-      this.exportAllTrips()
-    );
-
-    // Initialize location validation buttons
-    this.initializeLocationValidationButtons();
-  }
-
-  /**
-   * Initialize a form listener
-   * @param {string} formId - Form ID
-   * @param {Function} submitHandler - Submit handler function
-   */
-  initializeFormListener(formId, submitHandler) {
-    const form = document.getElementById(formId);
-    if (form) {
-      form.addEventListener("submit", (event) => {
-        event.preventDefault();
-        submitHandler();
-      });
-    }
-  }
-
-  /**
-   * Initialize location validation buttons
-   */
-  initializeLocationValidationButtons() {
-    const validateButtons = document.querySelectorAll(".validate-location-btn");
-    validateButtons.forEach((button) => {
+    // Set up location validation buttons
+    elements.validateButtons.forEach((button) => {
       button.addEventListener("click", (event) => {
         const targetId = event.currentTarget.dataset.target;
         if (targetId) {
-          this.validateLocation(targetId);
+          validateLocation(targetId);
         }
       });
     });
   }
 
   /**
-   * Export trips data
+   * Handle form submission for export
+   * @param {string} formType - Key identifying which form was submitted
    */
-  exportTrips() {
+  async function handleFormSubmit(formType) {
+    const config = EXPORT_CONFIG[formType];
+    if (!config) return;
+
     try {
-      const config = this.config.forms.trips;
-      const url = this.getExportUrl(
-        config.dateStart,
-        config.dateEnd,
-        config.format
-      );
-      const format = document.getElementById(config.format).value;
+      let url;
 
-      this.downloadFile(url, `trips.${format}`);
-    } catch (error) {
-      this.handleError(error, "exporting trips");
-    }
-  }
+      // Build the URL based on form type
+      if (formType === "trips" || formType === "matchedTrips") {
+        // Date-based exports
+        const startDate = elements[config.dateStart]?.value;
+        const endDate = elements[config.dateEnd]?.value;
+        const format = elements[config.format]?.value;
 
-  /**
-   * Export matched trips data
-   */
-  exportMatchedTrips() {
-    try {
-      const config = this.config.forms.matchedTrips;
-      const url = this.getExportUrl(
-        config.dateStart,
-        config.dateEnd,
-        config.format
-      );
-      const format = document.getElementById(config.format).value;
+        if (!startDate || !endDate) {
+          throw new Error("Please select both start and end dates");
+        }
 
-      this.downloadFile(url, `matched_trips.${format}`);
-    } catch (error) {
-      this.handleError(error, "exporting matched trips");
-    }
-  }
+        url = `${config.endpoint}?start_date=${startDate}&end_date=${endDate}&format=${format}`;
+      } else if (formType === "streets" || formType === "boundary") {
+        // Location-based exports
+        const locationInput = elements[config.location];
+        const format = elements[config.format]?.value;
 
-  /**
-   * Export streets data
-   */
-  exportStreets() {
-    try {
-      const config = this.config.forms.streets;
-      const locationInput = document.getElementById(config.location);
-      const format = document.getElementById(config.format).value;
+        if (!validateLocationInput(locationInput)) {
+          return; // Error already shown by validateLocationInput
+        }
 
-      if (!this.validateLocationInput(locationInput)) {
-        return;
+        const locationData = locationInput.getAttribute("data-location");
+        url = `${config.endpoint}?location=${encodeURIComponent(locationData)}&format=${format}`;
+      } else {
+        // Simple format-only exports (all)
+        const format = elements[config.format]?.value;
+        url = `${config.endpoint}?format=${format}`;
       }
 
-      const locationData = locationInput.getAttribute("data-location");
-      const url = `${config.endpoint}?location=${encodeURIComponent(locationData)}&format=${format}`;
-
-      this.downloadFile(url, `streets.${format}`);
+      const filename = `${formType}.${elements[config.format].value}`;
+      await downloadFile(url, filename);
     } catch (error) {
-      this.handleError(error, "exporting streets");
+      handleError(error, `exporting ${formType}`);
     }
   }
 
   /**
-   * Export boundary data
+   * Validate location input
+   * @param {HTMLElement} locationInput - Location input element
+   * @returns {boolean} Whether location is valid
    */
-  exportBoundary() {
-    try {
-      const config = this.config.forms.boundary;
-      const locationInput = document.getElementById(config.location);
-      const format = document.getElementById(config.format).value;
+  function validateLocationInput(locationInput) {
+    if (!locationInput) {
+      showNotification("Location input not found", "warning");
+      return false;
+    }
 
-      if (!this.validateLocationInput(locationInput)) {
-        return;
+    if (!locationInput.value.trim()) {
+      showNotification("Please enter a location", "warning");
+      return false;
+    }
+
+    const locationData = locationInput.getAttribute("data-location");
+    if (!locationData) {
+      showNotification("Please validate the location first", "warning");
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Validate a location through the API
+   * @param {string} inputId - ID of location input element
+   */
+  async function validateLocation(inputId) {
+    const locationInput = document.getElementById(inputId);
+
+    if (!locationInput || !locationInput.value.trim()) {
+      showNotification("Please enter a location", "warning");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/validate_location", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location: locationInput.value,
+          locationType: "city",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Server returned ${response.status}: ${response.statusText}`
+        );
       }
 
-      const locationData = locationInput.getAttribute("data-location");
-      const url = `${config.endpoint}?location=${encodeURIComponent(locationData)}&format=${format}`;
+      const data = await response.json();
 
-      this.downloadFile(url, `boundary.${format}`);
+      if (data) {
+        // Store the validated location data
+        locationInput.setAttribute("data-location", JSON.stringify(data));
+        locationInput.setAttribute(
+          "data-display-name",
+          data.display_name || data.name || locationInput.value
+        );
+
+        // Enable submit button in parent form
+        const form = locationInput.closest("form");
+        const submitButton = form?.querySelector('button[type="submit"]');
+        if (submitButton) {
+          submitButton.disabled = false;
+        }
+
+        showNotification("Location validated successfully!", "success");
+      } else {
+        showNotification(
+          "Location not found. Please try a different search term",
+          "warning"
+        );
+      }
     } catch (error) {
-      this.handleError(error, "exporting boundary");
+      handleError(error, "validating location");
     }
-  }
-
-  /**
-   * Export all trips data
-   */
-  exportAllTrips() {
-    try {
-      const config = this.config.forms.all;
-      const format = document.getElementById(config.format).value;
-      const url = `${config.endpoint}?format=${format}`;
-
-      this.downloadFile(url, `all_trips.${format}`);
-    } catch (error) {
-      this.handleError(error, "exporting all trips");
-    }
-  }
-
-  /**
-   * Get export URL for date-based exports
-   * @param {string} startDateId - Start date input ID
-   * @param {string} endDateId - End date input ID
-   * @param {string} formatId - Format input ID
-   * @returns {string} Export URL
-   */
-  getExportUrl(startDateId, endDateId, formatId) {
-    const startDate = document.getElementById(startDateId).value;
-    const endDate = document.getElementById(endDateId).value;
-    const format = document.getElementById(formatId).value;
-
-    if (!startDate || !endDate) {
-      throw new Error("Please select start and end dates");
-    }
-
-    return `/api/export/trips?start_date=${startDate}&end_date=${endDate}&format=${format}`;
   }
 
   /**
    * Download a file from a URL
-   * @param {string} url - Download URL
-   * @param {string} filename - File name
+   * @param {string} url - URL to download from
+   * @param {string} filename - Filename for downloaded file
    */
-  async downloadFile(url, filename) {
+  async function downloadFile(url, filename) {
     try {
       const response = await fetch(url);
 
@@ -280,114 +268,38 @@ class ExportManager {
         URL.revokeObjectURL(blobUrl);
       }, 100);
 
-      notificationManager.show(`Successfully exported ${filename}`, "success");
+      showNotification(`Successfully exported ${filename}`, "success");
     } catch (error) {
-      this.handleError(error, `downloading ${filename}`);
+      handleError(error, `downloading ${filename}`);
     }
   }
 
   /**
-   * Validate a location input
-   * @param {HTMLElement} locationInput - Location input element
-   * @returns {boolean} Whether the location is valid
+   * Show a notification using the global notification manager
+   * @param {string} message - Notification message
+   * @param {string} type - Notification type (success, warning, danger, info)
    */
-  validateLocationInput(locationInput) {
-    if (!locationInput) {
-      notificationManager.show("Location input not found", "warning");
-      return false;
-    }
-
-    if (!locationInput.value.trim()) {
-      notificationManager.show("Please enter a location", "warning");
-      return false;
-    }
-
-    const locationData = locationInput.getAttribute("data-location");
-    if (!locationData) {
-      notificationManager.show("Please validate the location first", "warning");
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * Validate a location
-   * @param {string} inputId - Location input ID
-   */
-  async validateLocation(inputId) {
-    const locationInput = document.getElementById(inputId);
-
-    if (!locationInput || !locationInput.value.trim()) {
-      notificationManager.show("Please enter a location", "warning");
-      return;
-    }
-
-    try {
-      const response = await fetch("/api/validate_location", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: locationInput.value,
-          locationType: "city",
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Server returned ${response.status}: ${response.statusText}`
-        );
-      }
-
-      const data = await response.json();
-
-      if (data) {
-        this.handleValidLocationData(locationInput, data);
-      } else {
-        notificationManager.show(
-          "Location not found. Please try a different search term",
-          "warning"
-        );
-      }
-    } catch (error) {
-      this.handleError(error, "validating location");
+  function showNotification(message, type) {
+    if (window.notificationManager) {
+      window.notificationManager.show(message, type);
+    } else {
+      console.log(`${type.toUpperCase()}: ${message}`);
     }
   }
 
   /**
-   * Handle successful location validation
-   * @param {HTMLElement} locationInput - Location input element
-   * @param {Object} data - Location data
-   */
-  handleValidLocationData(locationInput, data) {
-    locationInput.setAttribute("data-location", JSON.stringify(data));
-    locationInput.setAttribute(
-      "data-display-name",
-      data.display_name || data.name || locationInput.value
-    );
-
-    // Enable the submit button in the parent form
-    const form = locationInput.closest("form");
-    if (form) {
-      const submitButton = form.querySelector('button[type="submit"]');
-      if (submitButton) {
-        submitButton.disabled = false;
-      }
-    }
-
-    notificationManager.show("Location validated successfully!", "success");
-  }
-
-  /**
-   * Handle an error
+   * Handle errors and show notifications
    * @param {Error} error - Error object
    * @param {string} context - Error context
    */
-  handleError(error, context) {
+  function handleError(error, context) {
     console.error(`Error ${context}:`, error);
-    notificationManager.show(`Error ${context}: ${error.message}`, "danger");
+    showNotification(`Error ${context}: ${error.message}`, "danger");
   }
-}
 
-// Initialize the export manager
-const exportManager = new ExportManager();
+  // Initialize on DOM ready
+  document.addEventListener("DOMContentLoaded", init);
+
+  // Expose validateLocation function to make it available for inline onclick handlers
+  window.validateLocation = validateLocation;
+})();

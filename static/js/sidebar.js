@@ -1,374 +1,411 @@
+/**
+ * Sidebar Management - Handles sidebar UI component and related functionality
+ */
 (() => {
   "use strict";
 
+  // Configuration constants
+  const CONFIG = {
+    mobileBreakpoint: 992,
+    storageKeys: {
+      sidebarState: "sidebarCollapsed",
+      startDate: "startDate",
+      endDate: "endDate",
+      filtersCollapsed: "filtersCollapsed",
+    },
+  };
+
+  // Cache DOM elements once on initialization
+  const elements = {};
+
   /**
-   * Sidebar class for managing sidebar UI component
+   * Initialize the sidebar functionality
    */
-  class Sidebar {
-    constructor() {
-      this.config = {
-        mobileBreakpoint: 992,
-        storageKeys: {
-          sidebarState: "sidebarCollapsed",
-          startDate: "startDate",
-          endDate: "endDate",
-          filtersCollapsed: "filtersCollapsed",
-        },
-      };
+  function init() {
+    cacheElements();
 
-      // Cache DOM elements once
-      this.elements = this.getDOMElements();
+    if (!elements.sidebar) return;
 
-      // Initialize only if critical elements exist
-      if (this.elements.sidebar) {
-        this.initializeEventListeners();
-        this.loadSavedState();
-        this.handleResponsiveLayout();
-      }
-    }
+    initEventListeners();
+    loadSavedState();
+    handleResponsiveLayout();
 
-    /**
-     * Get all required DOM elements
-     * @returns {Object} DOM elements
-     */
-    getDOMElements() {
-      return {
-        sidebar: document.getElementById("sidebar"),
-        toggleButton: document.getElementById("sidebar-toggle"),
-        collapseButton: document.getElementById("sidebar-collapse"),
-        startDateInput: document.getElementById("start-date"),
-        endDateInput: document.getElementById("end-date"),
-        mainContent: document.querySelector("main"),
-        body: document.body,
-        filtersToggle: document.getElementById("toggle-filters"),
-        filtersContent: document.getElementById("filters-content"),
-        applyFiltersBtn: document.getElementById("apply-filters"),
-      };
-    }
+    // Handle initial window size
+    window.addEventListener("resize", debounce(handleResponsiveLayout, 250));
+  }
 
-    /**
-     * Initialize event listeners
-     */
-    initializeEventListeners() {
-      // Toggle sidebar buttons
-      [this.elements.toggleButton, this.elements.collapseButton]
-        .filter(Boolean)
-        .forEach((btn) =>
-          btn?.addEventListener("click", () => this.toggleSidebar())
-        );
+  /**
+   * Cache all required DOM elements
+   */
+  function cacheElements() {
+    // Main sidebar elements
+    elements.sidebar = document.getElementById("sidebar");
+    elements.toggleButton = document.getElementById("sidebar-toggle");
+    elements.collapseButton = document.getElementById("sidebar-collapse");
+    elements.mainContent = document.querySelector("main");
+    elements.body = document.body;
 
-      // Date inputs
-      [this.elements.startDateInput, this.elements.endDateInput]
-        .filter(Boolean)
-        .forEach((input) => {
-          input?.addEventListener("change", (e) => {
-            const key = e.target.id.includes("start") ? "startDate" : "endDate";
-            localStorage.setItem(this.config.storageKeys[key], e.target.value);
-          });
-        });
+    // Filter elements
+    elements.filtersToggle = document.getElementById("toggle-filters");
+    elements.filtersContent = document.getElementById("filters-content");
+    elements.applyFiltersBtn = document.getElementById("apply-filters");
+    elements.startDateInput = document.getElementById("start-date");
+    elements.endDateInput = document.getElementById("end-date");
+    elements.datePresetButtons = document.querySelectorAll(".date-preset");
+  }
 
-      // Filters toggle
-      this.elements.filtersToggle?.addEventListener("click", () => {
-        if (this.elements.filtersToggle.classList.toggle("collapsed")) {
-          this.elements.filtersContent?.classList.remove("show");
-        } else {
-          this.elements.filtersContent?.classList.add("show");
-        }
-        localStorage.setItem(
-          this.config.storageKeys.filtersCollapsed,
-          this.elements.filtersToggle.classList.contains("collapsed")
-        );
+  /**
+   * Initialize all event listeners
+   */
+  function initEventListeners() {
+    // Toggle sidebar buttons
+    [elements.toggleButton, elements.collapseButton]
+      .filter(Boolean)
+      .forEach((btn) => btn.addEventListener("click", toggleSidebar));
+
+    // Date inputs
+    [elements.startDateInput, elements.endDateInput]
+      .filter(Boolean)
+      .forEach((input) => {
+        input?.addEventListener("change", handleDateChange);
       });
 
-      // Apply filters button
-      this.elements.applyFiltersBtn?.addEventListener("click", () =>
-        this.applyFilters()
+    // Filters toggle
+    elements.filtersToggle?.addEventListener("click", toggleFiltersSection);
+
+    // Apply filters button
+    elements.applyFiltersBtn?.addEventListener("click", applyFilters);
+
+    // Date preset buttons
+    elements.datePresetButtons.forEach((btn) => {
+      btn.addEventListener("click", (e) =>
+        handleDatePreset(e.currentTarget.dataset.range)
       );
+    });
 
-      // Date preset buttons
-      document.querySelectorAll(".date-preset").forEach((btn) => {
-        btn.addEventListener("click", (e) =>
-          this.handleDatePreset(e.currentTarget.dataset.range)
-        );
-      });
+    // Keyboard shortcut for sidebar toggle (Ctrl+B)
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey && e.key === "b") {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    });
 
-      // Responsive behavior
-      window.addEventListener(
-        "resize",
-        this.debounce(() => this.handleResponsiveLayout(), 250)
-      );
+    // Close sidebar on mobile when clicking outside
+    document.addEventListener("click", handleClickOutside);
+  }
 
-      // Keyboard shortcut
-      document.addEventListener("keydown", (e) => {
-        if (e.ctrlKey && e.key === "b") {
-          e.preventDefault();
-          this.toggleSidebar();
-        }
-      });
+  /**
+   * Handle date input changes
+   * @param {Event} e - Change event
+   */
+  function handleDateChange(e) {
+    const key = e.target.id.includes("start") ? "startDate" : "endDate";
+    setStorage(CONFIG.storageKeys[key], e.target.value);
+  }
 
-      // Click outside to close on mobile
-      document.addEventListener("click", (e) => {
-        const isMobile = window.innerWidth < this.config.mobileBreakpoint;
-        const { sidebar, toggleButton } = this.elements;
+  /**
+   * Toggle the filters section visibility
+   */
+  function toggleFiltersSection() {
+    if (!elements.filtersToggle || !elements.filtersContent) return;
 
-        if (
-          isMobile &&
-          sidebar?.classList.contains("active") &&
-          !sidebar.contains(e.target) &&
-          toggleButton &&
-          !toggleButton.contains(e.target)
-        ) {
-          this.toggleSidebar();
-        }
-      });
+    const isCollapsing =
+      !elements.filtersToggle.classList.contains("collapsed");
+    elements.filtersToggle.classList.toggle("collapsed");
+
+    if (isCollapsing) {
+      elements.filtersContent.classList.remove("show");
+    } else {
+      elements.filtersContent.classList.add("show");
     }
 
-    /**
-     * Load saved state from localStorage
-     */
-    loadSavedState() {
-      // Load dates
-      const startDate = localStorage.getItem(this.config.storageKeys.startDate);
-      const endDate = localStorage.getItem(this.config.storageKeys.endDate);
+    setStorage(CONFIG.storageKeys.filtersCollapsed, isCollapsing);
+  }
 
-      if (startDate && this.elements.startDateInput) {
-        this.elements.startDateInput.value = startDate;
-      }
+  /**
+   * Handle click outside sidebar on mobile
+   * @param {Event} e - Click event
+   */
+  function handleClickOutside(e) {
+    if (!elements.sidebar) return;
 
-      if (endDate && this.elements.endDateInput) {
-        this.elements.endDateInput.value = endDate;
-      }
+    const isMobile = window.innerWidth < CONFIG.mobileBreakpoint;
+    const sidebarActive = elements.sidebar.classList.contains("active");
+    const clickedOutside =
+      !elements.sidebar.contains(e.target) &&
+      (!elements.toggleButton || !elements.toggleButton.contains(e.target));
 
-      // Load sidebar state
-      const isCollapsed =
-        localStorage.getItem(this.config.storageKeys.sidebarState) === "true";
-      if (isCollapsed && window.innerWidth >= this.config.mobileBreakpoint) {
-        this.elements.body?.classList.add("sidebar-collapsed");
-        this.elements.sidebar?.classList.add("collapsed");
-        this.elements.toggleButton?.classList.add("active");
-        this.elements.mainContent?.classList.add("expanded");
-      }
-
-      // Load filters collapsed state
-      const filtersCollapsed =
-        localStorage.getItem(this.config.storageKeys.filtersCollapsed) ===
-        "true";
-      if (filtersCollapsed && this.elements.filtersToggle) {
-        this.elements.filtersToggle.classList.add("collapsed");
-        this.elements.filtersContent?.classList.remove("show");
-      }
-    }
-
-    /**
-     * Toggle sidebar visibility
-     */
-    toggleSidebar() {
-      const { sidebar, toggleButton, body, mainContent } = this.elements;
-      if (!sidebar) return;
-
-      const isMobile = window.innerWidth < this.config.mobileBreakpoint;
-
-      if (isMobile) {
-        sidebar.classList.toggle("active");
-      } else {
-        sidebar.classList.toggle("collapsed");
-        body.classList.toggle("sidebar-collapsed");
-        mainContent?.classList.toggle("expanded");
-      }
-
-      // Update toggle button if it exists
-      if (toggleButton) {
-        toggleButton.classList.toggle("active");
-        const icon = toggleButton.querySelector("i");
-        if (icon) {
-          icon.classList.toggle("fa-bars");
-          icon.classList.toggle("fa-times");
-        }
-      }
-
-      // Store state
-      localStorage.setItem(
-        this.config.storageKeys.sidebarState,
-        !isMobile && sidebar.classList.contains("collapsed")
-      );
-    }
-
-    /**
-     * Handle responsive layout adjustments
-     */
-    handleResponsiveLayout() {
-      const { sidebar, body, mainContent } = this.elements;
-      if (!sidebar) return;
-
-      const isMobile = window.innerWidth < this.config.mobileBreakpoint;
-      const isCollapsed =
-        localStorage.getItem(this.config.storageKeys.sidebarState) === "true";
-
-      if (isMobile) {
-        sidebar.classList.remove("collapsed");
-        body.classList.remove("sidebar-collapsed");
-        mainContent?.classList.remove("expanded");
-      } else if (isCollapsed) {
-        body.classList.add("sidebar-collapsed");
-        sidebar.classList.add("collapsed");
-        mainContent?.classList.add("expanded");
-      } else {
-        body.classList.remove("sidebar-collapsed");
-        sidebar.classList.remove("collapsed");
-        mainContent?.classList.remove("expanded");
-      }
-    }
-
-    /**
-     * Handle date preset selection
-     * @param {string} range - Preset range
-     */
-    async handleDatePreset(range) {
-      if (!range) return;
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      let startDate = new Date(today);
-      let endDate = new Date(today);
-
-      // Handle different range presets
-      switch (range) {
-        case "today":
-          break;
-        case "yesterday":
-          startDate.setDate(startDate.getDate() - 1);
-          endDate.setDate(endDate.getDate() - 1);
-          break;
-        case "last-week":
-          startDate.setDate(startDate.getDate() - 7);
-          break;
-        case "last-month":
-          startDate.setDate(startDate.getDate() - 30);
-          break;
-        case "last-6-months":
-          startDate.setMonth(startDate.getMonth() - 6);
-          break;
-        case "last-year":
-          startDate.setFullYear(startDate.getFullYear() - 1);
-          break;
-        case "all-time":
-          try {
-            const response = await fetch("/api/first_trip_date");
-            if (response.ok) {
-              const data = await response.json();
-              startDate = new Date(data.first_trip_date);
-            } else {
-              // Fallback if API fails
-              startDate = new Date(2020, 0, 1);
-            }
-          } catch (error) {
-            console.warn("Error fetching first trip date:", error);
-            startDate = new Date(2020, 0, 1); // Fallback date
-          }
-          break;
-        default:
-          return;
-      }
-
-      // Format and update inputs
-      const formatDate = (date) => date.toISOString().split("T")[0];
-      const startDateStr = formatDate(startDate);
-      const endDateStr = formatDate(endDate);
-
-      // Update DOM and storage
-      if (this.elements.startDateInput) {
-        this.elements.startDateInput.value = startDateStr;
-        if (this.elements.startDateInput._flatpickr) {
-          this.elements.startDateInput._flatpickr.setDate(startDate);
-        }
-      }
-
-      if (this.elements.endDateInput) {
-        this.elements.endDateInput.value = endDateStr;
-        if (this.elements.endDateInput._flatpickr) {
-          this.elements.endDateInput._flatpickr.setDate(endDate);
-        }
-      }
-
-      localStorage.setItem(this.config.storageKeys.startDate, startDateStr);
-      localStorage.setItem(this.config.storageKeys.endDate, endDateStr);
-
-      // Apply the filters
-      this.applyFilters();
-    }
-
-    /**
-     * Apply date filters and trigger data refresh
-     */
-    applyFilters() {
-      const { startDateInput, endDateInput, applyFiltersBtn } = this.elements;
-
-      if (applyFiltersBtn) {
-        const originalText = applyFiltersBtn.innerHTML;
-        applyFiltersBtn.disabled = true;
-        applyFiltersBtn.innerHTML =
-          '<span class="spinner-border spinner-border-sm"></span> Loading...';
-
-        // Save dates
-        if (startDateInput) {
-          localStorage.setItem(
-            this.config.storageKeys.startDate,
-            startDateInput.value
-          );
-        }
-
-        if (endDateInput) {
-          localStorage.setItem(
-            this.config.storageKeys.endDate,
-            endDateInput.value
-          );
-        }
-
-        // Dispatch event for components to refresh data
-        document.dispatchEvent(
-          new CustomEvent("filtersApplied", {
-            detail: {
-              startDate: startDateInput?.value,
-              endDate: endDateInput?.value,
-            },
-          })
-        );
-
-        // Reset button state
-        setTimeout(() => {
-          applyFiltersBtn.disabled = false;
-          applyFiltersBtn.innerHTML = originalText;
-        }, 500);
-      }
-    }
-
-    /**
-     * Debounce a function call
-     * @param {Function} func - Function to debounce
-     * @param {number} wait - Wait time in ms
-     * @returns {Function} Debounced function
-     */
-    debounce(func, wait) {
-      let timeout;
-      return (...args) => {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), wait);
-      };
+    if (isMobile && sidebarActive && clickedOutside) {
+      toggleSidebar();
     }
   }
 
-  // Initialize sidebar on DOM content loaded
-  document.addEventListener("DOMContentLoaded", () => {
-    window.sidebarManager = new Sidebar();
-  });
+  /**
+   * Load saved state from localStorage
+   */
+  function loadSavedState() {
+    // Load dates
+    const startDate = getStorage(CONFIG.storageKeys.startDate);
+    const endDate = getStorage(CONFIG.storageKeys.endDate);
+
+    if (startDate && elements.startDateInput) {
+      elements.startDateInput.value = startDate;
+    }
+
+    if (endDate && elements.endDateInput) {
+      elements.endDateInput.value = endDate;
+    }
+
+    // Load sidebar state
+    const isCollapsed = getStorage(CONFIG.storageKeys.sidebarState) === "true";
+    if (isCollapsed && window.innerWidth >= CONFIG.mobileBreakpoint) {
+      elements.body?.classList.add("sidebar-collapsed");
+      elements.sidebar?.classList.add("collapsed");
+      elements.toggleButton?.classList.add("active");
+      elements.mainContent?.classList.add("expanded");
+    }
+
+    // Load filters collapsed state
+    const filtersCollapsed =
+      getStorage(CONFIG.storageKeys.filtersCollapsed) === "true";
+    if (filtersCollapsed && elements.filtersToggle) {
+      elements.filtersToggle.classList.add("collapsed");
+      elements.filtersContent?.classList.remove("show");
+    }
+  }
+
+  /**
+   * Toggle sidebar visibility
+   */
+  function toggleSidebar() {
+    if (!elements.sidebar) return;
+
+    const isMobile = window.innerWidth < CONFIG.mobileBreakpoint;
+
+    if (isMobile) {
+      elements.sidebar.classList.toggle("active");
+    } else {
+      elements.sidebar.classList.toggle("collapsed");
+      elements.body.classList.toggle("sidebar-collapsed");
+      elements.mainContent?.classList.toggle("expanded");
+    }
+
+    // Update toggle button if it exists
+    if (elements.toggleButton) {
+      elements.toggleButton.classList.toggle("active");
+      const icon = elements.toggleButton.querySelector("i");
+      if (icon) {
+        icon.classList.toggle("fa-bars");
+        icon.classList.toggle("fa-times");
+      }
+    }
+
+    // Store state (only for desktop mode)
+    if (!isMobile) {
+      setStorage(
+        CONFIG.storageKeys.sidebarState,
+        elements.sidebar.classList.contains("collapsed")
+      );
+    }
+  }
+
+  /**
+   * Handle responsive layout adjustments
+   */
+  function handleResponsiveLayout() {
+    if (!elements.sidebar) return;
+
+    const isMobile = window.innerWidth < CONFIG.mobileBreakpoint;
+    const isCollapsed = getStorage(CONFIG.storageKeys.sidebarState) === "true";
+
+    if (isMobile) {
+      // Remove desktop-specific classes on mobile
+      elements.sidebar.classList.remove("collapsed");
+      elements.body.classList.remove("sidebar-collapsed");
+      elements.mainContent?.classList.remove("expanded");
+    } else if (isCollapsed) {
+      // Apply collapsed state on desktop
+      elements.body.classList.add("sidebar-collapsed");
+      elements.sidebar.classList.add("collapsed");
+      elements.mainContent?.classList.add("expanded");
+    } else {
+      // Apply expanded state on desktop
+      elements.body.classList.remove("sidebar-collapsed");
+      elements.sidebar.classList.remove("collapsed");
+      elements.mainContent?.classList.remove("expanded");
+    }
+  }
+
+  /**
+   * Handle date preset selection
+   * @param {string} range - Preset range identifier
+   */
+  async function handleDatePreset(range) {
+    if (!range) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let startDate = new Date(today);
+    let endDate = new Date(today);
+
+    // Handle different range presets
+    switch (range) {
+      case "today":
+        // Keep default values
+        break;
+      case "yesterday":
+        startDate.setDate(startDate.getDate() - 1);
+        endDate.setDate(endDate.getDate() - 1);
+        break;
+      case "last-week":
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case "last-month":
+        startDate.setDate(startDate.getDate() - 30);
+        break;
+      case "last-6-months":
+        startDate.setMonth(startDate.getMonth() - 6);
+        break;
+      case "last-year":
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      case "all-time":
+        try {
+          const response = await fetch("/api/first_trip_date");
+          if (response.ok) {
+            const data = await response.json();
+            startDate = new Date(data.first_trip_date);
+          } else {
+            // Fallback if API fails
+            startDate = new Date(2020, 0, 1);
+          }
+        } catch (error) {
+          console.warn("Error fetching first trip date:", error);
+          startDate = new Date(2020, 0, 1); // Fallback date
+        }
+        break;
+      default:
+        return;
+    }
+
+    updateDates(startDate, endDate);
+    applyFilters();
+  }
+
+  /**
+   * Update date inputs and storage
+   * @param {Date} startDate - Start date
+   * @param {Date} endDate - End date
+   */
+  function updateDates(startDate, endDate) {
+    const formatDate = (date) => date.toISOString().split("T")[0];
+    const startDateStr = formatDate(startDate);
+    const endDateStr = formatDate(endDate);
+
+    // Update DOM
+    if (elements.startDateInput) {
+      elements.startDateInput.value = startDateStr;
+      if (elements.startDateInput._flatpickr) {
+        elements.startDateInput._flatpickr.setDate(startDate);
+      }
+    }
+
+    if (elements.endDateInput) {
+      elements.endDateInput.value = endDateStr;
+      if (elements.endDateInput._flatpickr) {
+        elements.endDateInput._flatpickr.setDate(endDate);
+      }
+    }
+
+    // Update storage
+    setStorage(CONFIG.storageKeys.startDate, startDateStr);
+    setStorage(CONFIG.storageKeys.endDate, endDateStr);
+  }
+
+  /**
+   * Apply filters and trigger data refresh
+   */
+  function applyFilters() {
+    if (!elements.applyFiltersBtn) return;
+
+    // Save current dates to storage
+    if (elements.startDateInput) {
+      setStorage(CONFIG.storageKeys.startDate, elements.startDateInput.value);
+    }
+
+    if (elements.endDateInput) {
+      setStorage(CONFIG.storageKeys.endDate, elements.endDateInput.value);
+    }
+
+    // Dispatch event for components to refresh data
+    document.dispatchEvent(
+      new CustomEvent("filtersApplied", {
+        detail: {
+          startDate: elements.startDateInput?.value,
+          endDate: elements.endDateInput?.value,
+        },
+      })
+    );
+  }
+
+  /**
+   * Simple debounce function
+   * @param {Function} func - Function to debounce
+   * @param {number} wait - Wait time in ms
+   * @returns {Function} Debounced function
+   */
+  function debounce(func, wait) {
+    let timeout;
+    return function (...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
+
+  /**
+   * Get a value from localStorage with error handling
+   * @param {string} key - Storage key
+   * @param {*} defaultValue - Default value if not found
+   * @returns {*} Retrieved value or default
+   */
+  function getStorage(key, defaultValue = null) {
+    try {
+      return localStorage.getItem(key) || defaultValue;
+    } catch (e) {
+      console.warn(`Error reading from localStorage: ${e.message}`);
+      return defaultValue;
+    }
+  }
+
+  /**
+   * Set a value in localStorage with error handling
+   * @param {string} key - Storage key
+   * @param {*} value - Value to store
+   */
+  function setStorage(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      console.warn(`Error writing to localStorage: ${e.message}`);
+    }
+  }
+
+  // Initialize on DOM content loaded
+  document.addEventListener("DOMContentLoaded", init);
 
   // Theme toggle functionality
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("DOMContentLoaded", initThemeToggle);
+
+  /**
+   * Initialize theme toggle functionality
+   */
+  function initThemeToggle() {
     const themeToggle = document.getElementById("theme-toggle-checkbox");
     if (!themeToggle) return;
 
     // Load saved theme
-    const savedTheme = localStorage.getItem("theme");
+    const savedTheme = getStorage("theme");
     const prefersDarkScheme = window.matchMedia(
       "(prefers-color-scheme: dark)"
     ).matches;
@@ -384,10 +421,10 @@
     themeToggle.addEventListener("change", () => {
       if (themeToggle.checked) {
         document.body.classList.add("light-mode");
-        localStorage.setItem("theme", "light");
+        setStorage("theme", "light");
       } else {
         document.body.classList.remove("light-mode");
-        localStorage.setItem("theme", "dark");
+        setStorage("theme", "dark");
       }
 
       // Trigger theme change event
@@ -397,5 +434,5 @@
         })
       );
     });
-  });
+  }
 })();
