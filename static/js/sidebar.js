@@ -80,7 +80,7 @@
 
       if (missing.length) {
         console.log(
-          `Sidebar elements not found: ${missing.join(", ")}. This is normal if using ModernUI.`
+          `Sidebar elements not found: ${missing.join(", ")}. This is normal if using ModernUI.`,
         );
         return false;
       }
@@ -100,7 +100,7 @@
       // Listen for ModernUI filter changes
       document.addEventListener(
         "filtersApplied",
-        this.handleModernUIFilterChange.bind(this)
+        this.handleModernUIFilterChange.bind(this),
       );
     }
 
@@ -158,7 +158,7 @@
                 startDate: this.elements.startDateInput?.value,
                 endDate: this.elements.endDateInput?.value,
               },
-            })
+            }),
           );
         });
       });
@@ -173,8 +173,8 @@
         "resize",
         this.debounce(
           () => this.handleResponsiveLayout(),
-          this.config.defaultRefreshInterval
-        )
+          this.config.defaultRefreshInterval,
+        ),
       );
 
       // Outside click handler to close sidebar on mobile
@@ -186,13 +186,13 @@
      */
     setupFiltersToggleListener() {
       this.elements.filtersToggle?.addEventListener("click", (e) =>
-        this.handleFiltersToggle(e)
+        this.handleFiltersToggle(e),
       );
 
       // Set up apply filters button
       if (this.elements.applyFiltersBtn) {
         this.elements.applyFiltersBtn.addEventListener("click", (e) =>
-          this.handleApplyFilters(e)
+          this.handleApplyFilters(e),
         );
       }
     }
@@ -396,7 +396,7 @@
 
       if (sidebarBody) {
         sidebarBody.addEventListener("scroll", (e) =>
-          this.handleScrollIndicator(e)
+          this.handleScrollIndicator(e),
         );
         this.handleScrollIndicator({ target: sidebarBody });
       }
@@ -449,7 +449,7 @@
         document.dispatchEvent(
           new CustomEvent("filtersApplied", {
             detail: { startDate, endDate },
-          })
+          }),
         );
       } catch (error) {
         console.error("Error applying filters:", error);
@@ -539,7 +539,7 @@
 
       if (!themeToggle) {
         console.log(
-          "Theme toggle not found in sidebar.js. This is normal if using ModernUI."
+          "Theme toggle not found in sidebar.js. This is normal if using ModernUI.",
         );
         return;
       }
@@ -549,7 +549,7 @@
       // Check for saved theme preference or prefer-color-scheme
       const savedTheme = localStorage.getItem("theme");
       const prefersDarkScheme = window.matchMedia(
-        "(prefers-color-scheme: dark)"
+        "(prefers-color-scheme: dark)",
       ).matches;
 
       // Apply saved theme or use system preference
@@ -575,7 +575,7 @@
         body.dispatchEvent(
           new CustomEvent("themeChanged", {
             detail: { theme: themeToggle.checked ? "light" : "dark" },
-          })
+          }),
         );
       });
     } catch (error) {

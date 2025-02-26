@@ -47,7 +47,7 @@ const ModernUI = {
     // Check for saved theme preference or prefer-color-scheme
     const savedTheme = localStorage.getItem("theme");
     const prefersDarkScheme = window.matchMedia(
-      "(prefers-color-scheme: dark)"
+      "(prefers-color-scheme: dark)",
     ).matches;
 
     // Apply saved theme or use system preference
@@ -81,7 +81,7 @@ const ModernUI = {
       document.dispatchEvent(
         new CustomEvent("themeChanged", {
           detail: { theme: themeToggle.checked ? "light" : "dark" },
-        })
+        }),
       );
     });
   },
@@ -122,7 +122,7 @@ const ModernUI = {
       document.dispatchEvent(
         new CustomEvent("mapThemeChanged", {
           detail: { theme },
-        })
+        }),
       );
     }
   },
@@ -296,7 +296,7 @@ const ModernUI = {
                 startDate: startDateInput.value,
                 endDate: endDateInput.value,
               },
-            })
+            }),
           );
 
           // Show notification
@@ -542,7 +542,7 @@ const ModernUI = {
    */
   initTooltips() {
     const tooltipTriggerList = document.querySelectorAll(
-      '[data-bs-toggle="tooltip"]'
+      '[data-bs-toggle="tooltip"]',
     );
     if (tooltipTriggerList.length > 0 && window.bootstrap?.Tooltip) {
       tooltipTriggerList.forEach((el) => new bootstrap.Tooltip(el));
@@ -755,7 +755,7 @@ const ModernUI = {
    */
   simulateLoadingProgress() {
     const progressBar = document.querySelector(
-      ".loading-overlay .progress-bar"
+      ".loading-overlay .progress-bar",
     );
     if (!progressBar) return;
 
@@ -1168,7 +1168,7 @@ const ModernUI = {
     // Hide modal
     if (window.bootstrap?.Modal) {
       const modal = bootstrap.Modal.getInstance(
-        document.getElementById("add-place-modal")
+        document.getElementById("add-place-modal"),
       );
       if (modal) modal.hide();
     }
@@ -1243,14 +1243,14 @@ const ModernUI = {
    */
   updateProgress(percent, message) {
     const progressBar = document.querySelector(
-      ".loading-overlay .progress-bar"
+      ".loading-overlay .progress-bar",
     );
     if (progressBar) {
       progressBar.style.width = `${percent}%`;
     }
 
     const loadingText = document.querySelector(
-      ".loading-overlay .loading-text"
+      ".loading-overlay .loading-text",
     );
     if (loadingText && message) {
       loadingText.textContent = message;
@@ -1356,7 +1356,7 @@ window.loadingManager = {
     });
 
     console.log(
-      `Added sub-operation ${subOperationName} to ${parentOperation}`
+      `Added sub-operation ${subOperationName} to ${parentOperation}`,
     );
   },
 
@@ -1365,7 +1365,7 @@ window.loadingManager = {
     parentOperation,
     subOperationName,
     progress,
-    message
+    message,
   ) => {
     const operation = window.loadingManager.operations.get(parentOperation);
     if (!operation || !operation.subOperations.has(subOperationName)) return;

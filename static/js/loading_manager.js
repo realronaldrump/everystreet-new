@@ -179,7 +179,7 @@ if (typeof window.LoadingManager === "undefined") {
       const totalWeight = ops.reduce((sum, op) => sum + op.total, 0);
       const weightedProgress = ops.reduce(
         (sum, op) => sum + (op.progress / op.total) * op.total,
-        0
+        0,
       );
 
       const overallPercentage = (weightedProgress / totalWeight) * 100;
@@ -201,7 +201,7 @@ if (typeof window.LoadingManager === "undefined") {
       const totalSubWeight = subOps.reduce((sum, sub) => sum + sub.total, 0);
       const subProgress = subOps.reduce(
         (sum, sub) => sum + (sub.progress / sub.total) * sub.total,
-        0
+        0,
       );
 
       op.progress =
