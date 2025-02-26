@@ -120,7 +120,6 @@ def parse_query_date(
             return None
 
 
-
 async def get_trip_and_collection(
     trip_id: str, trip_type: Optional[str] = None
 ) -> Tuple[Optional[dict], Any]:
