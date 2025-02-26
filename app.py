@@ -71,6 +71,7 @@ OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
 # --- Helper Functions ---
 
+
 def serialize_trip(trip: dict) -> dict:
     if "_id" in trip:
         trip["_id"] = str(trip["_id"])
@@ -105,7 +106,6 @@ def parse_query_date(
                 "Unable to parse date string '%s'; returning None.", date_str
             )
             return None
-
 
 
 async def get_trip_and_collection(
