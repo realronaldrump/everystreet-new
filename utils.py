@@ -216,4 +216,8 @@ def parse_gps(gps) -> dict:
             logger.error("Error parsing gps data: %s", e)
             return {}
     return gps
+    
 
+# --- Helper Functions ---
+def serialize_datetime(dt: Optional[datetime]) -> Optional[str]:
+    return dt.isoformat() if dt else None
