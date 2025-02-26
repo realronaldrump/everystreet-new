@@ -30,6 +30,13 @@
       selectedLocation: "selectedLocation",
       sidebarState: "sidebarCollapsed",
     },
+    ERROR_MESSAGES: {
+      mapInitFailed:
+        "Failed to initialize map components. Please refresh the page.",
+      fetchTripsFailed: "Error loading trips. Please try again.",
+      streetCoverageFailed: "Error calculating street coverage",
+      locationValidationFailed: "Location not found. Please check your input.",
+    },
   };
 
   // Default layer configurations
@@ -101,6 +108,10 @@
     lastPollingTimestamp: 0,
     mapLayers: { ...LAYER_DEFAULTS },
     mapSettings: { highlightRecentTrips: true },
+    polling: {
+      timers: {},
+      active: false,
+    },
   };
 
   // ==============================
@@ -204,6 +215,29 @@
     }
   }
 
+  /**
+   * Unified error handler for consistent error handling
+   * @param {Error} error - Error object
+   * @param {string} context - Error context
+   */
+  function handleError(error, context) {
+    console.error(`Error in ${context}:`, error);
+
+    if (window.notificationManager) {
+      window.notificationManager.show(
+        `Error in ${context}: ${error.message}`,
+        "danger"
+      );
+    }
+
+    // Trigger custom event for error tracking
+    document.dispatchEvent(
+      new CustomEvent("appError", {
+        detail: { context, error: error.message },
+      })
+    );
+  }
+
   // Debounced functions
   const debouncedUpdateMap = debounce(updateMap, CONFIG.MAP.debounceDelay);
 
@@ -219,7 +253,8 @@
     return (
       AppState.dom.startDateInput?.value ||
       document.getElementById("start-date")?.value ||
-      getStorageItem(CONFIG.STORAGE_KEYS.startDate)
+      getStorageItem(CONFIG.STORAGE_KEYS.startDate) ||
+      getCurrentDate()
     );
   }
 
@@ -231,8 +266,17 @@
     return (
       AppState.dom.endDateInput?.value ||
       document.getElementById("end-date")?.value ||
-      getStorageItem(CONFIG.STORAGE_KEYS.endDate)
+      getStorageItem(CONFIG.STORAGE_KEYS.endDate) ||
+      getCurrentDate()
     );
+  }
+
+  /**
+   * Get current date in YYYY-MM-DD format
+   * @returns {string} The current date
+   */
+  function getCurrentDate() {
+    return new Date().toISOString().split("T")[0];
   }
 
   /**
@@ -258,10 +302,14 @@
     // Update flatpickr instances if available
     if (AppState.dom.startDateInput?._flatpickr) {
       AppState.dom.startDateInput._flatpickr.setDate(startDate);
+    } else if (AppState.dom.startDateInput) {
+      AppState.dom.startDateInput.value = startDateString;
     }
 
     if (AppState.dom.endDateInput?._flatpickr) {
       AppState.dom.endDateInput._flatpickr.setDate(endDate);
+    } else if (AppState.dom.endDateInput) {
+      AppState.dom.endDateInput.value = endDateString;
     }
 
     // Store in localStorage
@@ -299,10 +347,10 @@
           transactionId.replace("MATCHED-", "") === AppState.selectedTripId));
 
     // Determine appropriate styling
-    let color,
-      weight,
-      opacity,
-      className = "";
+    let color = layerInfo.color;
+    let weight = 2;
+    let opacity = layerInfo.opacity;
+    let className = "";
 
     if (isSelected) {
       color = layerInfo.highlightColor;
@@ -322,11 +370,6 @@
       weight = 4;
       opacity = 0.8;
       className = "recent-trip";
-    } else {
-      color = layerInfo.color;
-      weight = 2;
-      opacity = layerInfo.opacity;
-      className = "";
     }
 
     return {
@@ -461,26 +504,13 @@
         setTimeout(() => {
           AppState.map.invalidateSize();
         }, 100);
+
+        // Dispatch event that map is ready
+        document.dispatchEvent(new CustomEvent("mapInitialized"));
       }
     } catch (error) {
       console.error("Error initializing map:", error);
       handleError(error, "Map Initialization");
-    }
-  }
-
-  /**
-   * Handles errors in a consistent way
-   * @param {Error} error - The error object
-   * @param {string} context - Error context
-   */
-  function handleError(error, context) {
-    console.error(`Error in ${context}:`, error);
-
-    if (window.notificationManager) {
-      window.notificationManager.show(
-        `Error in ${context}: ${error.message}`,
-        "danger"
-      );
     }
   }
 
@@ -667,6 +697,13 @@
     }
 
     updateLayerOrderUI();
+
+    // Dispatch event for layer visibility change
+    document.dispatchEvent(
+      new CustomEvent("layerVisibilityChanged", {
+        detail: { layer: name, visible },
+      })
+    );
   }
 
   /**
@@ -801,27 +838,29 @@
    * @returns {Promise<void>}
    */
   async function fetchTrips() {
-    if (window.loadingManager) {
-      window.loadingManager.startOperation(
-        "Fetching and Displaying Trips",
-        100
-      );
-      window.loadingManager.addSubOperation(
-        "Fetching and Displaying Trips",
-        "Fetching Data",
-        50
-      );
-      window.loadingManager.addSubOperation(
-        "Fetching and Displaying Trips",
-        "Processing Data",
-        30
-      );
-      window.loadingManager.addSubOperation(
-        "Fetching and Displaying Trips",
-        "Displaying Data",
-        20
-      );
-    }
+    const loadingManager = window.loadingManager || {
+      startOperation: () => {},
+      addSubOperation: () => {},
+      updateSubOperation: () => {},
+      finish: () => {},
+    };
+
+    loadingManager.startOperation("Fetching and Displaying Trips", 100);
+    loadingManager.addSubOperation(
+      "Fetching and Displaying Trips",
+      "Fetching Data",
+      50
+    );
+    loadingManager.addSubOperation(
+      "Fetching and Displaying Trips",
+      "Processing Data",
+      30
+    );
+    loadingManager.addSubOperation(
+      "Fetching and Displaying Trips",
+      "Displaying Data",
+      20
+    );
 
     try {
       const startDate = getStorageItem(CONFIG.STORAGE_KEYS.startDate);
@@ -833,18 +872,19 @@
       }
 
       // Update date inputs if they exist
-      if (AppState.dom.startDateInput)
+      if (AppState.dom.startDateInput) {
         AppState.dom.startDateInput.value = startDate;
-      if (AppState.dom.endDateInput) AppState.dom.endDateInput.value = endDate;
+      }
+      if (AppState.dom.endDateInput) {
+        AppState.dom.endDateInput.value = endDate;
+      }
 
       // Update progress
-      if (window.loadingManager) {
-        window.loadingManager.updateSubOperation(
-          "Fetching and Displaying Trips",
-          "Fetching Data",
-          25
-        );
-      }
+      loadingManager.updateSubOperation(
+        "Fetching and Displaying Trips",
+        "Fetching Data",
+        25
+      );
 
       // Fetch trip data
       const params = getFilterParams();
@@ -857,18 +897,16 @@
       const geojson = await response.json();
 
       // Update progress
-      if (window.loadingManager) {
-        window.loadingManager.updateSubOperation(
-          "Fetching and Displaying Trips",
-          "Fetching Data",
-          50
-        );
-        window.loadingManager.updateSubOperation(
-          "Fetching and Displaying Trips",
-          "Processing Data",
-          15
-        );
-      }
+      loadingManager.updateSubOperation(
+        "Fetching and Displaying Trips",
+        "Fetching Data",
+        50
+      );
+      loadingManager.updateSubOperation(
+        "Fetching and Displaying Trips",
+        "Processing Data",
+        15
+      );
 
       // Update trips table and map
       await Promise.all([
@@ -877,18 +915,16 @@
       ]);
 
       // Update progress
-      if (window.loadingManager) {
-        window.loadingManager.updateSubOperation(
-          "Fetching and Displaying Trips",
-          "Processing Data",
-          30
-        );
-        window.loadingManager.updateSubOperation(
-          "Fetching and Displaying Trips",
-          "Displaying Data",
-          10
-        );
-      }
+      loadingManager.updateSubOperation(
+        "Fetching and Displaying Trips",
+        "Processing Data",
+        30
+      );
+      loadingManager.updateSubOperation(
+        "Fetching and Displaying Trips",
+        "Displaying Data",
+        10
+      );
 
       // Also fetch matched trips
       try {
@@ -896,20 +932,23 @@
       } catch (err) {
         handleError(err, "Fetching Matched Trips");
       } finally {
-        if (window.loadingManager) {
-          window.loadingManager.updateSubOperation(
-            "Fetching and Displaying Trips",
-            "Displaying Data",
-            20
-          );
-        }
+        loadingManager.updateSubOperation(
+          "Fetching and Displaying Trips",
+          "Displaying Data",
+          20
+        );
       }
+
+      // Dispatch event that trips are loaded
+      document.dispatchEvent(
+        new CustomEvent("tripsLoaded", {
+          detail: { count: geojson.features.length },
+        })
+      );
     } catch (error) {
       handleError(error, "Fetching Trips");
     } finally {
-      if (window.loadingManager) {
-        window.loadingManager.finish("Fetching and Displaying Trips");
-      }
+      loadingManager.finish("Fetching and Displaying Trips");
     }
   }
 
@@ -1050,6 +1089,9 @@
     if (fitBounds) {
       fitMapBounds();
     }
+
+    // Dispatch event that map is updated
+    document.dispatchEvent(new CustomEvent("mapUpdated"));
   }
 
   /**
@@ -1089,6 +1131,16 @@
 
     // Update styles for all trip layers immediately
     refreshTripStyles();
+
+    // Dispatch event for trip selection
+    document.dispatchEvent(
+      new CustomEvent("tripSelected", {
+        detail: {
+          id: wasSelected ? null : clickedId,
+          tripData: wasSelected ? null : feature.properties,
+        },
+      })
+    );
   }
 
   /**
@@ -1428,7 +1480,7 @@
       if (!data) {
         if (window.notificationManager) {
           window.notificationManager.show(
-            "Location not found. Please check your input.",
+            CONFIG.ERROR_MESSAGES.locationValidationFailed,
             "warning"
           );
         }
@@ -1476,7 +1528,11 @@
     });
 
     // Dispatch event for other components
-    document.dispatchEvent(new Event("locationValidated"));
+    document.dispatchEvent(
+      new CustomEvent("locationValidated", {
+        detail: { location: data },
+      })
+    );
   }
 
   /**
@@ -1543,6 +1599,13 @@
           "success"
         );
       }
+
+      // Dispatch event for OSM data generation
+      document.dispatchEvent(
+        new CustomEvent("osmDataGenerated", {
+          detail: { type: streetsOnly ? "streets" : "boundary" },
+        })
+      );
     } catch (err) {
       handleError(err, "Generating OSM Data");
     }
@@ -1610,7 +1673,6 @@
 
       // Process results
       const results = await Promise.all(responses.map((r) => r.json()));
-      console.log("Map matching responses:", results);
 
       if (window.notificationManager) {
         window.notificationManager.show(
@@ -1621,6 +1683,16 @@
 
       // Fetch updated trips
       await fetchTrips();
+
+      // Dispatch event for map matching completion
+      document.dispatchEvent(
+        new CustomEvent("mapMatchingCompleted", {
+          detail: {
+            isHistorical,
+            results,
+          },
+        })
+      );
     } catch (err) {
       handleError(err, "Map Matching");
     } finally {
@@ -1671,13 +1743,7 @@
         }
         await fetchTrips();
       } else {
-        console.error(`Error: ${data.message}`);
-        if (window.notificationManager) {
-          window.notificationManager.show(
-            "Error fetching trips. Check console.",
-            "danger"
-          );
-        }
+        throw new Error(data.message || "Error fetching trips");
       }
     } catch (err) {
       handleError(err, "Fetching Trips in Range");
@@ -1726,6 +1792,13 @@
         const el = getElement(id, false); // Don't cache these elements
         if (el) el.textContent = value;
       }
+
+      // Dispatch event for metrics update
+      document.dispatchEvent(
+        new CustomEvent("metricsUpdated", {
+          detail: { metrics },
+        })
+      );
     } catch (err) {
       handleError(err, "Fetching Metrics");
     }
@@ -1806,7 +1879,7 @@
         progressBar.setAttribute("aria-valuenow", "0");
       }
       if (progressText) {
-        progressText.textContent = "Error calculating coverage";
+        progressText.textContent = CONFIG.ERROR_MESSAGES.streetCoverageFailed;
       }
     } finally {
       // Restore button state
@@ -1830,7 +1903,14 @@
     const maxRetries = 3;
     const maxPollDelay = CONFIG.REFRESH.maxPollDelay;
 
-    while (true) {
+    // Clear any existing polling interval
+    if (AppState.polling.timers.coverageStatus) {
+      clearTimeout(AppState.polling.timers.coverageStatus);
+    }
+
+    AppState.polling.active = true;
+
+    while (AppState.polling.active) {
       try {
         // Control polling rate to avoid too many requests
         const now = Date.now();
@@ -1853,7 +1933,12 @@
           if (retryCount > maxRetries) {
             throw new Error("Task not found after multiple retries");
           }
-          await new Promise((resolve) => setTimeout(resolve, pollDelay));
+
+          AppState.polling.timers.coverageStatus = setTimeout(() => {
+            AppState.polling.active = true;
+          }, pollDelay);
+
+          AppState.polling.active = false;
           pollDelay = Math.min(pollDelay * 2, maxPollDelay);
           continue;
         }
@@ -1880,7 +1965,12 @@
         // Handle empty response
         if (!statusData) {
           console.warn("Received empty status data");
-          await new Promise((resolve) => setTimeout(resolve, pollDelay));
+
+          AppState.polling.timers.coverageStatus = setTimeout(() => {
+            AppState.polling.active = true;
+          }, pollDelay);
+
+          AppState.polling.active = false;
           continue;
         }
 
@@ -1893,7 +1983,12 @@
         // Handle invalid data
         if (!statusData.stage) {
           console.warn("Invalid progress data received:", statusData);
-          await new Promise((resolve) => setTimeout(resolve, pollDelay));
+
+          AppState.polling.timers.coverageStatus = setTimeout(() => {
+            AppState.polling.active = true;
+          }, pollDelay);
+
+          AppState.polling.active = false;
           continue;
         }
 
@@ -1922,17 +2017,38 @@
           }
         });
 
+        // Dispatch event for coverage calculation progress
+        document.dispatchEvent(
+          new CustomEvent("coverageCalculationProgress", {
+            detail: {
+              progress,
+              message: statusData.message || `Progress: ${progress}%`,
+              stage: statusData.stage,
+            },
+          })
+        );
+
         // Wait before next poll
-        await new Promise((resolve) => setTimeout(resolve, pollDelay));
+        AppState.polling.timers.coverageStatus = setTimeout(() => {
+          AppState.polling.active = true;
+        }, pollDelay);
+
+        AppState.polling.active = false;
       } catch (error) {
         // Special case for too many retries
         if (error.message === "Task not found after multiple retries") {
+          AppState.polling.active = false;
           throw error;
         }
 
         // Log and continue for other errors
         console.warn("Error polling progress:", error);
-        await new Promise((resolve) => setTimeout(resolve, pollDelay));
+
+        AppState.polling.timers.coverageStatus = setTimeout(() => {
+          AppState.polling.active = true;
+        }, pollDelay);
+
+        AppState.polling.active = false;
       }
     }
   }
@@ -2064,6 +2180,15 @@
     updateLayerOrderUI();
     debouncedUpdateMap();
     updateCoverageStats(coverageData);
+
+    // Dispatch event for street coverage visualization
+    document.dispatchEvent(
+      new CustomEvent("streetCoverageVisualized", {
+        detail: {
+          metadata: coverageData.streets_data.metadata,
+        },
+      })
+    );
   }
 
   /**
@@ -2156,6 +2281,7 @@
     switch (range) {
       case "yesterday":
         startDate.setDate(startDate.getDate() - 1);
+        endDate.setDate(endDate.getDate() - 1);
         break;
       case "last-week":
         startDate.setDate(startDate.getDate() - 7);
@@ -2172,6 +2298,17 @@
     }
 
     updateDatePickersAndStore(startDate, endDate);
+
+    // Dispatch event for date preset selection
+    document.dispatchEvent(
+      new CustomEvent("datePresetSelected", {
+        detail: {
+          preset: range,
+          startDate: startDate.toISOString().split("T")[0],
+          endDate: endDate.toISOString().split("T")[0],
+        },
+      })
+    );
   }
 
   /**
@@ -2246,6 +2383,14 @@
     addSingleEventListener("preprocess-streets", "click", () =>
       preprocessStreets()
     );
+
+    // Cancel coverage polling button (if exists)
+    addSingleEventListener("cancel-coverage-polling", "click", () => {
+      AppState.polling.active = false;
+      if (AppState.polling.timers.coverageStatus) {
+        clearTimeout(AppState.polling.timers.coverageStatus);
+      }
+    });
   }
 
   /**
@@ -2298,6 +2443,13 @@
           "success"
         );
       }
+
+      // Dispatch event for streets preprocessing
+      document.dispatchEvent(
+        new CustomEvent("streetsPreprocessed", {
+          detail: { location },
+        })
+      );
     } catch (error) {
       handleError(error, "Preprocessing Streets");
     } finally {
@@ -2355,7 +2507,7 @@
    * Sets default dates in localStorage if not present
    */
   function setInitialDates() {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getCurrentDate();
 
     if (!getStorageItem(CONFIG.STORAGE_KEYS.startDate)) {
       setStorageItem(CONFIG.STORAGE_KEYS.startDate, today);
@@ -2386,7 +2538,7 @@
       enableTime: false,
       static: false,
       appendTo: document.body,
-      theme: "dark",
+      theme: document.body.classList.contains("light-mode") ? "light" : "dark",
       position: "auto",
       disableMobile: true,
       onChange: function (selectedDates, dateStr) {
@@ -2430,7 +2582,7 @@
 
           if (window.notificationManager) {
             window.notificationManager.show(
-              "Failed to initialize map components. Please refresh the page.",
+              CONFIG.ERROR_MESSAGES.mapInitFailed,
               "danger"
             );
           }
@@ -2438,7 +2590,12 @@
         }
 
         initializeLayerControls();
-        Promise.all([fetchTrips(), fetchMetrics()]);
+
+        // Load data
+        Promise.all([fetchTrips(), fetchMetrics()]).then(() => {
+          // Dispatch event that initial data is loaded
+          document.dispatchEvent(new CustomEvent("initialDataLoaded"));
+        });
 
         // Load selected location from storage if exists
         const selectedLocationStr = getStorageItem(
@@ -2476,6 +2633,17 @@
   // Initialize on DOM content loaded
   document.addEventListener("DOMContentLoaded", initialize);
 
+  // Clean up resources when page is unloaded
+  window.addEventListener("beforeunload", () => {
+    // Clear all polling timers
+    Object.values(AppState.polling.timers).forEach((timer) => {
+      if (timer) clearTimeout(timer);
+    });
+
+    // Set polling to inactive
+    AppState.polling.active = false;
+  });
+
   // Export functions to make them available globally while preserving module pattern
   window.EveryStreet = window.EveryStreet || {};
   window.EveryStreet.App = {
@@ -2486,5 +2654,18 @@
     toggleLayer,
     fetchMetrics,
     initializeMap,
+    handleError,
+    getStartDate,
+    getEndDate,
+    getFilterParams,
+    updateDatePickersAndStore,
+    generateStreetCoverage,
+    fitMapBounds,
+    showCoverageForLocation,
+    preprocessStreets,
+    validateLocation,
+    generateOSMData,
+    mapMatchTrips,
+    fetchTripsInRange,
   };
 })();
