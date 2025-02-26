@@ -2346,14 +2346,20 @@ async def bouncie_webhook(request: Request):
         asyncio.create_task(process_bouncie_webhook(data))
 
         # Return 200 status immediately - this is crucial for Bouncie to consider the webhook delivery successful
-        return {"status": "success", "message": "Webhook received"}
+        return JSONResponse(
+            status_code=200,
+            content={"status": "success", "message": "Webhook received"},
+        )
     except Exception as e:
         # Log error but still return 200 to avoid webhook deactivation
         logger.exception(f"Error processing Bouncie webhook: {e}")
-        return {
-            "status": "error",
-            "message": "Error processing webhook, but acknowledged receipt",
-        }
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "error",
+                "message": "Error processing webhook, but acknowledged receipt",
+            },
+        )
 
 
 async def process_bouncie_webhook(data: dict):

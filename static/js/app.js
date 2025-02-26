@@ -236,9 +236,11 @@
    * @returns {URLSearchParams} The URL parameters
    */
   const getFilterParams = () => {
+    const startDate = new Date(getStartDate());
+    const endDate = new Date(getEndDate());
     return new URLSearchParams({
-      start_date: getStartDate(),
-      end_date: getEndDate(),
+      start_date: startDate.toISOString().split('T')[0],
+      end_date: endDate.toISOString().split('T')[0],
     });
   };
 

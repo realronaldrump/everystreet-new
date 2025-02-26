@@ -337,27 +337,27 @@
 
   function initializeEventListeners() {
     // Initialize date filter inputs with localStorage values or defaults
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-    const oneMonthAgoStr = oneMonthAgo.toISOString().split("T")[0];
+    const oneMonthAgoStr = oneMonthAgo.toISOString().split('T')[0];
 
     const startDateInput = document.getElementById("start-date");
     const endDateInput = document.getElementById("end-date");
 
     if (startDateInput && endDateInput) {
       // Set initial values from localStorage or use defaults
-      startDateInput.value =
-        localStorage.getItem("startDate") || oneMonthAgoStr;
-      endDateInput.value = localStorage.getItem("endDate") || today;
+      startDateInput.value = localStorage.getItem('start-date') || oneMonthAgoStr;
+      endDateInput.value = localStorage.getItem('end-date') || todayStr;
 
       // Save values to localStorage when changed
       startDateInput.addEventListener("change", () => {
-        localStorage.setItem("startDate", startDateInput.value);
+        localStorage.setItem("start-date", startDateInput.value);
       });
 
       endDateInput.addEventListener("change", () => {
-        localStorage.setItem("endDate", endDateInput.value);
+        localStorage.setItem("end-date", endDateInput.value);
       });
     }
 
@@ -411,8 +411,8 @@
     startDateInput.value = startDate.toISOString().split("T")[0];
     endDateInput.value = endDate.toISOString().split("T")[0];
 
-    localStorage.setItem("startDate", startDateInput.value);
-    localStorage.setItem("endDate", endDateInput.value);
+    localStorage.setItem("start-date", startDateInput.value);
+    localStorage.setItem("end-date", endDateInput.value);
 
     fetchAllInsights();
   }
@@ -420,10 +420,10 @@
   //  UTILITY FUNCTIONS
   function getFilterParams() {
     const startDate =
-      localStorage.getItem("startDate") ||
+      localStorage.getItem("start-date") ||
       new Date().toISOString().split("T")[0];
     const endDate =
-      localStorage.getItem("endDate") || new Date().toISOString().split("T")[0];
+      localStorage.getItem("end-date") || new Date().toISOString().split("T")[0];
     return new URLSearchParams({ start_date: startDate, end_date: endDate });
   }
 
