@@ -120,15 +120,6 @@ def parse_query_date(
             return None
 
 
-def parse_gps(gps) -> dict:
-    if isinstance(gps, str):
-        try:
-            return json.loads(gps)
-        except Exception as e:
-            logger.error("Error parsing gps data: %s", e)
-            return {}
-    return gps
-
 
 async def get_trip_and_collection(
     trip_id: str, trip_type: Optional[str] = None
