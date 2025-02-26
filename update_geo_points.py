@@ -1,9 +1,16 @@
-import os
-import sys
+"""
+Utility to update missing geo-points in trip documents.
+
+This script analyzes trip documents in MongoDB collections and adds startGeoPoint
+and destinationGeoPoint fields by extracting the first and last coordinates from
+the GPS data. These geo-points enable geospatial queries on trip data.
+"""
+
 import json
 import asyncio
 import logging
-from motor.motor_asyncio import AsyncIOMotorClient
+from typing import List, Dict, Any
+from motor.motor_asyncio import AsyncIOMotorCollection
 
 logging.basicConfig(
     level=logging.INFO,
@@ -11,43 +18,56 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MONGO_URI = os.environ.get("MONGO_URI")
-DB_NAME = "every_street"
 
-client = AsyncIOMotorClient(MONGO_URI, tz_aware=True)
-db = client[DB_NAME]
-trips_collection = db["trips"]
-historical_trips_collection = db["historical_trips"]
-uploaded_trips_collection = db["uploaded_trips"]
-
-
-async def update_geo_points(collection):
+async def update_geo_points(collection: AsyncIOMotorCollection) -> int:
     """
-    Asynchronously update documents in the given collection to add startGeoPoint and
-    destinationGeoPoint.
+    Update documents in the given collection to add missing geo-points.
+
+    Analyzes all documents without startGeoPoint or destinationGeoPoint and adds
+    these fields using the first and last coordinates from the GPS data.
+
+    Args:
+        collection: MongoDB collection to process
+
+    Returns:
+        int: Number of documents updated
     """
     logger.info("Starting GeoPoint update for collection: %s", collection.name)
     updated_count = 0
+
     try:
-        cursor = collection.find(
-            {
-                "$or": [
-                    {"startGeoPoint": {"$exists": False}},
-                    {"destinationGeoPoint": {"$exists": False}},
-                ]
-            },
-            no_cursor_timeout=True,
-        )
-        async for doc in cursor:
+        # Find documents missing geo-points
+        query = {
+            "$or": [
+                {"startGeoPoint": {"$exists": False}},
+                {"destinationGeoPoint": {"$exists": False}},
+            ]
+        }
+
+        # Process each document
+        async for doc in collection.find(query, no_cursor_timeout=True):
             try:
+                # Parse GPS data if needed
                 gps_data = doc.get("gps")
+                if not gps_data:
+                    continue
+
                 if isinstance(gps_data, str):
                     gps_data = json.loads(gps_data)
+
                 coords = gps_data.get("coordinates", [])
-                if not coords:
+                if len(coords) < 2:
+                    logger.debug(
+                        "Skipping document %s: insufficient coordinates",
+                        doc.get("_id", "?"),
+                    )
                     continue
+
+                # Extract start and end coordinates
                 start_coord = coords[0]
                 end_coord = coords[-1]
+
+                # Prepare update
                 update_fields = {}
                 if "startGeoPoint" not in doc:
                     update_fields["startGeoPoint"] = {
@@ -59,63 +79,71 @@ async def update_geo_points(collection):
                         "type": "Point",
                         "coordinates": end_coord,
                     }
+
+                # Update document if needed
                 if update_fields:
                     await collection.update_one(
                         {"_id": doc["_id"]}, {"$set": update_fields}
                     )
                     updated_count += 1
-                    logger.debug(
-                        "Updated GeoPoints for document _id: %s",
-                        doc.get("_id", "?"),
-                    )
+
+                    if updated_count % 100 == 0:
+                        logger.info("Updated %d documents so far", updated_count)
+            except json.JSONDecodeError as e:
+                logger.error(
+                    "Invalid JSON in 'gps' for document %s: %s", doc.get("_id", "?"), e
+                )
             except (KeyError, IndexError) as e:
                 logger.warning(
                     "Skipping document %s: Incomplete GPS data - %s",
                     doc.get("_id", "?"),
                     e,
                 )
-            except json.JSONDecodeError as e:
-                logger.error(
-                    "Invalid JSON in 'gps' for document %s: %s",
-                    doc.get("_id", "?"),
-                    e,
-                    exc_info=True,
-                )
             except Exception as e:
-                logger.error(
-                    "Error updating document %s: %s",
-                    doc.get("_id", "?"),
-                    e,
-                    exc_info=True,
-                )
+                logger.error("Error updating document %s: %s", doc.get("_id", "?"), e)
+
     except Exception as e:
-        logger.error(
-            "Error iterating collection %s: %s",
-            collection.name,
-            e,
-            exc_info=True,
-        )
-    finally:
-        logger.info(
-            "GeoPoint update for collection %s completed. Updated %d documents.",
-            collection.name,
-            updated_count,
-        )
+        logger.error("Error iterating collection %s: %s", collection.name, e)
+
+    logger.info(
+        "GeoPoint update for collection %s completed. Updated %d documents.",
+        collection.name,
+        updated_count,
+    )
+
+    return updated_count
 
 
 if __name__ == "__main__":
+    import os
+    import sys
+    from motor.motor_asyncio import AsyncIOMotorClient
+
+    # Connect to database
+    MONGO_URI = os.environ.get("MONGO_URI")
+    if not MONGO_URI:
+        logger.error("MONGO_URI environment variable not set")
+        sys.exit(1)
+
+    client = AsyncIOMotorClient(MONGO_URI, tz_aware=True)
+    db = client["every_street"]
+
+    # Process command line argument
     if len(sys.argv) > 1:
         collection_name = sys.argv[1]
-        if collection_name == "trips":
-            coll = trips_collection
-        elif collection_name == "historical_trips":
-            coll = historical_trips_collection
-        elif collection_name == "uploaded_trips":
-            coll = uploaded_trips_collection
+        collections = {
+            "trips": db["trips"],
+            "historical_trips": db["historical_trips"],
+            "uploaded_trips": db["uploaded_trips"],
+        }
+
+        if collection_name in collections:
+            asyncio.run(update_geo_points(collections[collection_name]))
         else:
-            print("Invalid collection name")
+            logger.error("Invalid collection name: %s", collection_name)
+            print(f"Valid collection names: {', '.join(collections.keys())}")
             sys.exit(1)
-        # Run the async update_geo_points function using asyncio.run.
-        asyncio.run(update_geo_points(coll))
     else:
-        print("No collection name provided")
+        logger.error("No collection name provided")
+        print("Usage: python update_geo_points.py [collection_name]")
+        sys.exit(1)
