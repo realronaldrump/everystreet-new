@@ -54,7 +54,7 @@
       [this.elements.toggleButton, this.elements.collapseButton]
         .filter(Boolean)
         .forEach((btn) =>
-          btn?.addEventListener("click", () => this.toggleSidebar())
+          btn?.addEventListener("click", () => this.toggleSidebar()),
         );
 
       // Date inputs
@@ -76,26 +76,26 @@
         }
         localStorage.setItem(
           this.config.storageKeys.filtersCollapsed,
-          this.elements.filtersToggle.classList.contains("collapsed")
+          this.elements.filtersToggle.classList.contains("collapsed"),
         );
       });
 
       // Apply filters button
       this.elements.applyFiltersBtn?.addEventListener("click", () =>
-        this.applyFilters()
+        this.applyFilters(),
       );
 
       // Date preset buttons
       document.querySelectorAll(".date-preset").forEach((btn) => {
         btn.addEventListener("click", (e) =>
-          this.handleDatePreset(e.currentTarget.dataset.range)
+          this.handleDatePreset(e.currentTarget.dataset.range),
         );
       });
 
       // Responsive behavior
       window.addEventListener(
         "resize",
-        this.debounce(() => this.handleResponsiveLayout(), 250)
+        this.debounce(() => this.handleResponsiveLayout(), 250),
       );
 
       // Keyboard shortcut
@@ -189,7 +189,7 @@
       // Store state
       localStorage.setItem(
         this.config.storageKeys.sidebarState,
-        !isMobile && sidebar.classList.contains("collapsed")
+        !isMobile && sidebar.classList.contains("collapsed"),
       );
     }
 
@@ -313,14 +313,14 @@
         if (startDateInput) {
           localStorage.setItem(
             this.config.storageKeys.startDate,
-            startDateInput.value
+            startDateInput.value,
           );
         }
 
         if (endDateInput) {
           localStorage.setItem(
             this.config.storageKeys.endDate,
-            endDateInput.value
+            endDateInput.value,
           );
         }
 
@@ -331,7 +331,7 @@
               startDate: startDateInput?.value,
               endDate: endDateInput?.value,
             },
-          })
+          }),
         );
 
         // Reset button state
@@ -370,7 +370,7 @@
     // Load saved theme
     const savedTheme = localStorage.getItem("theme");
     const prefersDarkScheme = window.matchMedia(
-      "(prefers-color-scheme: dark)"
+      "(prefers-color-scheme: dark)",
     ).matches;
     const useLight =
       savedTheme === "light" || (!savedTheme && !prefersDarkScheme);
@@ -394,7 +394,7 @@
       document.dispatchEvent(
         new CustomEvent("themeChanged", {
           detail: { theme: themeToggle.checked ? "light" : "dark" },
-        })
+        }),
       );
     });
   });
