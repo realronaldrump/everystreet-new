@@ -76,7 +76,7 @@ This application is designed for local use.  While a Dockerfile is provided, spe
     *   `CLIENT_ID`, `CLIENT_SECRET`, `REDIRECT_URI`, `AUTHORIZATION_CODE`:  Your Bouncie API credentials.
     *   `MAPBOX_ACCESS_TOKEN`: Your Mapbox access token.
     *   `AUTHORIZED_DEVICES`: A comma-separated list of authorized Bouncie device IMEIs.
-4.  **Run the Application:** `uvicorn app:app --reload` (or use the Dockerfile).
+4.  **Run the Application:** `gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080 --workers 4` (or use the Dockerfile).
 
 ## Disclaimer
 This application is a personal project and comes with no guarantees.  Accuracy of map matching, street coverage calculations, and other features may vary. The code is provided as-is.  I eventually hope to switch to PostGIS for a database for better performance and more features, especially for street coverage calculations.  It would also be nice to switch to using a more modern frontend framework like React or Vue.
