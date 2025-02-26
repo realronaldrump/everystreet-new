@@ -7,7 +7,7 @@
     constructor() {
       this.validatedLocation = null;
       this.taskProgressModal = new bootstrap.Modal(
-        document.getElementById("taskProgressModal")
+        document.getElementById("taskProgressModal"),
       );
       this.activeTaskIds = new Set();
       this.currentProcessingLocation = null;
@@ -74,7 +74,7 @@
       if (!locInput?.value || !locType?.value) {
         notificationManager.show(
           "Please enter a location and select a location type.",
-          "danger"
+          "danger",
         );
         return;
       }
@@ -95,7 +95,7 @@
         if (!data) {
           notificationManager.show(
             "Location not found. Please check your input.",
-            "warning"
+            "warning",
           );
           return;
         }
@@ -107,7 +107,7 @@
         console.error("Error validating location:", error);
         notificationManager.show(
           "Failed to validate location. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -125,13 +125,13 @@
 
         const exists = areas.some(
           (area) =>
-            area.location.display_name === this.validatedLocation.display_name
+            area.location.display_name === this.validatedLocation.display_name,
         );
 
         if (exists) {
           notificationManager.show(
             "This area is already being tracked.",
-            "warning"
+            "warning",
           );
           return;
         }
@@ -168,7 +168,7 @@
 
         notificationManager.show(
           "Coverage area processing started. You can check the status in the table.",
-          "success"
+          "success",
         );
 
         // Reset input and validated state.
@@ -179,7 +179,7 @@
         console.error("Error adding coverage area:", error);
         notificationManager.show(
           "Failed to add coverage area. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         this.hideProgressModal();
@@ -204,7 +204,7 @@
 
         notificationManager.show(
           "Processing cancelled successfully.",
-          "success"
+          "success",
         );
         this.hideProgressModal();
         await this.loadCoverageAreas();
@@ -212,7 +212,7 @@
         console.error("Error cancelling processing:", error);
         notificationManager.show(
           "Failed to cancel processing. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -252,7 +252,7 @@
         console.error("Error loading coverage areas:", error);
         notificationManager.show(
           "Failed to load coverage areas. Please refresh the page.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -303,16 +303,16 @@
               ${
                 isProcessing
                   ? `<button class="btn btn-danger cancel-processing" data-location='${JSON.stringify(
-                      area.location
+                      area.location,
                     )}' title="Cancel Processing"><i class="fas fa-stop-circle"></i></button>`
                   : `<button class="btn btn-primary update-coverage" data-location='${JSON.stringify(
-                      area.location
+                      area.location,
                     )}' title="Update Coverage"><i class="fas fa-sync-alt"></i></button>
                      <button class="btn btn-info view-on-map" data-location='${JSON.stringify(
-                       area.location
+                       area.location,
                      )}' title="View on Map"><i class="fas fa-map-marked-alt"></i></button>
                      <button class="btn btn-danger delete-area" data-location='${JSON.stringify(
-                       area.location
+                       area.location,
                      )}' title="Delete Area"><i class="fas fa-trash"></i></button>`
               }
             </div>
@@ -342,7 +342,7 @@
         console.error("Error updating coverage:", error);
         notificationManager.show(
           "Failed to update coverage. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         this.currentProcessingLocation = null;
@@ -376,13 +376,13 @@
         await this.loadCoverageAreas();
         notificationManager.show(
           "Coverage area deleted successfully!",
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error deleting coverage area:", error);
         notificationManager.show(
           "Failed to delete coverage area. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -438,7 +438,7 @@
       // Update elapsed time.
       if (this.processingStartTime) {
         const elapsedSeconds = Math.floor(
-          (Date.now() - this.processingStartTime) / 1000
+          (Date.now() - this.processingStartTime) / 1000,
         );
         const minutes = Math.floor(elapsedSeconds / 60);
         const seconds = elapsedSeconds % 60;
