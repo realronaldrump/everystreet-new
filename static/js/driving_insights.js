@@ -320,7 +320,7 @@
                   const value = context.raw || 0;
                   const total = context.dataset.data.reduce(
                     (sum, val) => sum + val,
-                    0
+                    0,
                   );
                   const percentage = total
                     ? Math.round((value / total) * 100)
@@ -338,18 +338,19 @@
   function initializeEventListeners() {
     // Initialize date filter inputs with localStorage values or defaults
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = today.toISOString().split("T")[0];
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-    const oneMonthAgoStr = oneMonthAgo.toISOString().split('T')[0];
+    const oneMonthAgoStr = oneMonthAgo.toISOString().split("T")[0];
 
     const startDateInput = document.getElementById("start-date");
     const endDateInput = document.getElementById("end-date");
 
     if (startDateInput && endDateInput) {
       // Set initial values from localStorage or use defaults
-      startDateInput.value = localStorage.getItem('start-date') || oneMonthAgoStr;
-      endDateInput.value = localStorage.getItem('end-date') || todayStr;
+      startDateInput.value =
+        localStorage.getItem("start-date") || oneMonthAgoStr;
+      endDateInput.value = localStorage.getItem("end-date") || todayStr;
 
       // Save values to localStorage when changed
       startDateInput.addEventListener("change", () => {
@@ -423,7 +424,8 @@
       localStorage.getItem("start-date") ||
       new Date().toISOString().split("T")[0];
     const endDate =
-      localStorage.getItem("end-date") || new Date().toISOString().split("T")[0];
+      localStorage.getItem("end-date") ||
+      new Date().toISOString().split("T")[0];
     return new URLSearchParams({ start_date: startDate, end_date: endDate });
   }
 
@@ -473,7 +475,7 @@
 
     // Sort daily distances by date
     const dailyDistances = Object.values(dateMap).sort((a, b) =>
-      a.date.localeCompare(b.date)
+      a.date.localeCompare(b.date),
     );
 
     return {
@@ -517,7 +519,7 @@
 
       // Generate speed distribution data
       const speedDistribution = calculateSpeedDistribution(
-        tripsData.features || []
+        tripsData.features || [],
       );
       updateSpeedDistributionChart(speedDistribution);
 
