@@ -22,14 +22,9 @@ from fastapi import FastAPI, Request, WebSocket, HTTPException, UploadFile, File
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.websockets import WebSocketDisconnect
-
-from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinates
-from update_geo_points import update_geo_points
-from utils import validate_location_osm, reverse_geocode_nominatim, cleanup_session
+from utils import validate_location_osm, reverse_geocode_nominatim
 from map_matching import process_and_map_match_trip
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
-from preprocess_streets import preprocess_streets as async_preprocess_streets
 from tasks import task_manager
 from db import (
     trips_collection,
@@ -40,18 +35,13 @@ from db import (
     archived_live_trips_collection,
     task_config_collection,
     osm_data_collection,
-    streets_collection,
     coverage_metadata_collection,
     places_collection,
     task_history_collection,
-    init_task_history_collection,
     progress_collection,
-    ensure_street_coverage_indexes,
-    db_manager,
     db,
 )
-from trip_processing import format_idle_time, process_trip_data
-from export_helpers import create_geojson, create_gpx
+from trip_processing import format_idle_time
 from street_coverage_calculation import compute_coverage_for_location
 from live_trip_tracking import websocket_live_trip, get_active_trip
 
