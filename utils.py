@@ -207,3 +207,13 @@ def get_trip_timezone(trip: Dict[str, Any]) -> str:
     except Exception as e:
         logger.error("Error getting trip timezone: %s", e, exc_info=True)
         return "UTC"
+
+def parse_gps(gps) -> dict:
+    if isinstance(gps, str):
+        try:
+            return json.loads(gps)
+        except Exception as e:
+            logger.error("Error parsing gps data: %s", e)
+            return {}
+    return gps
+
