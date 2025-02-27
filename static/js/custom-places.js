@@ -96,7 +96,7 @@ class CustomPlacesManager {
 
     if (managePlacesBtn) {
       managePlacesBtn.addEventListener("click", () =>
-        this.showManagePlacesModal()
+        this.showManagePlacesModal(),
       );
     }
 
@@ -185,7 +185,7 @@ class CustomPlacesManager {
         this.resetDrawing();
         notificationManager.show(
           `Place "${placeName}" saved successfully`,
-          "success"
+          "success",
         );
       }
     } catch (error) {
@@ -307,7 +307,7 @@ class CustomPlacesManager {
             console.warn(`Failed to fetch stats for place ${placeId}:`, error);
             return { placeId, stats: { totalVisits: 0, lastVisit: null } };
           }
-        })
+        }),
       );
 
       // Update place data with statistics
@@ -353,7 +353,7 @@ class CustomPlacesManager {
             <p>Total Visits: ${stats.totalVisits || 0}</p>
             <p>Last Visit: ${lastVisitDate}</p>
           </div>
-        `
+        `,
         )
         .openOn(this.map);
     } catch (error) {
@@ -441,7 +441,7 @@ class CustomPlacesManager {
       console.error("Error deleting place:", error);
       notificationManager.show(
         error.message || "Error deleting place",
-        "danger"
+        "danger",
       );
     }
   }
