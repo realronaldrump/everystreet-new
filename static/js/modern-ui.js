@@ -116,10 +116,10 @@
     elements.header = document.querySelector(selectors.header);
     elements.loadingOverlay = document.querySelector(".loading-overlay");
     elements.progressBar = document.querySelector(
-      ".loading-overlay .progress-bar"
+      ".loading-overlay .progress-bar",
     );
     elements.loadingText = document.querySelector(
-      ".loading-overlay .loading-text"
+      ".loading-overlay .loading-text",
     );
   }
 
@@ -133,7 +133,7 @@
     // Check for saved theme preference or system preference
     const savedTheme = localStorage.getItem(CONFIG.storage.theme);
     const prefersDarkScheme = window.matchMedia(
-      "(prefers-color-scheme: dark)"
+      "(prefers-color-scheme: dark)",
     ).matches;
 
     // Apply theme
@@ -152,7 +152,7 @@
       localStorage.setItem(CONFIG.storage.theme, themeName);
 
       document.dispatchEvent(
-        new CustomEvent("themeChanged", { detail: { theme: themeName } })
+        new CustomEvent("themeChanged", { detail: { theme: themeName } }),
       );
     });
   }
@@ -203,7 +203,7 @@
 
     // Dispatch map theme change event
     document.dispatchEvent(
-      new CustomEvent("mapThemeChanged", { detail: { theme } })
+      new CustomEvent("mapThemeChanged", { detail: { theme } }),
     );
   }
 
@@ -303,7 +303,7 @@
 
           // Update active button state
           quickSelectBtns.forEach((b) =>
-            b.classList.remove(CONFIG.classes.active)
+            b.classList.remove(CONFIG.classes.active),
           );
           btn.classList.add(CONFIG.classes.active);
         });
@@ -508,7 +508,7 @@
             startDate: startDateInput.value,
             endDate: endDateInput.value,
           },
-        })
+        }),
       );
 
       // Show confirmation
@@ -534,7 +534,7 @@
     // Remove active class from quick select buttons
     if (quickSelectBtns) {
       quickSelectBtns.forEach((btn) =>
-        btn.classList.remove(CONFIG.classes.active)
+        btn.classList.remove(CONFIG.classes.active),
       );
     }
 

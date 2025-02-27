@@ -293,7 +293,7 @@
     document.dispatchEvent(
       new CustomEvent("appError", {
         detail: { context, error: error.message },
-      })
+      }),
     );
   }
 
@@ -330,14 +330,14 @@
         if (isNaN(dateObj.getTime())) {
           console.warn(
             `Invalid date value: ${dateValue}`,
-            "Using current date instead"
+            "Using current date instead",
           );
           return getCurrentDate();
         }
       } else {
         console.warn(
           `Unexpected date type: ${typeof dateValue}`,
-          "Using current date instead"
+          "Using current date instead",
         );
         return getCurrentDate();
       }
@@ -534,7 +534,7 @@
 
             // Update the style based on current selection
             featureLayer.setStyle(
-              getTripFeatureStyle(featureLayer.feature, layerInfo)
+              getTripFeatureStyle(featureLayer.feature, layerInfo),
             );
 
             // Bring selected trips to front
@@ -839,7 +839,7 @@
     document.dispatchEvent(
       new CustomEvent("layerVisibilityChanged", {
         detail: { layer: name, visible },
-      })
+      }),
     );
   }
 
@@ -982,7 +982,7 @@
     operationId,
     totalWeight = 100,
     operation,
-    subOperations = {}
+    subOperations = {},
   ) {
     // Get loading manager or create fallback
     const loadingManager = window.loadingManager || {
@@ -1035,10 +1035,10 @@
 
         // Get dates and ensure they're properly formatted
         const startDate = DateUtils.formatDate(
-          getStorageItem(CONFIG.STORAGE_KEYS.startDate)
+          getStorageItem(CONFIG.STORAGE_KEYS.startDate),
         );
         const endDate = DateUtils.formatDate(
-          getStorageItem(CONFIG.STORAGE_KEYS.endDate)
+          getStorageItem(CONFIG.STORAGE_KEYS.endDate),
         );
 
         if (!startDate || !endDate) {
@@ -1099,9 +1099,9 @@
         document.dispatchEvent(
           new CustomEvent("tripsLoaded", {
             detail: { count: geojson.features.length },
-          })
+          }),
         );
-      }
+      },
     );
   }
 
@@ -1120,12 +1120,12 @@
         // Format dates
         const startTimeFormatted = DateUtils.formatForDisplay(
           trip.properties.startTime,
-          { dateStyle: "short", timeStyle: "short" }
+          { dateStyle: "short", timeStyle: "short" },
         );
 
         const endTimeFormatted = DateUtils.formatForDisplay(
           trip.properties.endTime,
-          { dateStyle: "short", timeStyle: "short" }
+          { dateStyle: "short", timeStyle: "short" },
         );
 
         return {
@@ -1160,14 +1160,14 @@
     AppState.mapLayers.trips.layer = {
       type: "FeatureCollection",
       features: geojson.features.filter(
-        (f) => f.properties.imei !== "HISTORICAL"
+        (f) => f.properties.imei !== "HISTORICAL",
       ),
     };
 
     AppState.mapLayers.historicalTrips.layer = {
       type: "FeatureCollection",
       features: geojson.features.filter(
-        (f) => f.properties.imei === "HISTORICAL"
+        (f) => f.properties.imei === "HISTORICAL",
       ),
     };
 
@@ -1182,10 +1182,10 @@
   async function fetchMatchedTrips() {
     // Get and properly format dates
     const startDate = DateUtils.formatDate(
-      getStorageItem(CONFIG.STORAGE_KEYS.startDate)
+      getStorageItem(CONFIG.STORAGE_KEYS.startDate),
     );
     const endDate = DateUtils.formatDate(
-      getStorageItem(CONFIG.STORAGE_KEYS.endDate)
+      getStorageItem(CONFIG.STORAGE_KEYS.endDate),
     );
 
     if (!startDate || !endDate) {
@@ -1250,12 +1250,12 @@
 
               // Add click handler
               layer.on("click", (e) =>
-                handleTripClick(e, feature, layer, info, name)
+                handleTripClick(e, feature, layer, info, name),
               );
 
               // Setup popup event listeners when opened
               layer.on("popupopen", () =>
-                setupPopupEventListeners(layer, feature)
+                setupPopupEventListeners(layer, feature),
               );
             },
           });
@@ -1267,7 +1267,7 @@
             .setStyle({ color: info.color, opacity: info.opacity })
             .addTo(AppState.layerGroup);
         }
-      })
+      }),
     );
 
     // Bring selected trip to front
@@ -1329,7 +1329,7 @@
           id: wasSelected ? null : clickedId,
           tripData: wasSelected ? null : feature.properties,
         },
-      })
+      }),
     );
   }
 
@@ -1493,7 +1493,7 @@
     if (!window.confirmationDialog) {
       // Fallback to regular confirm
       confirmed = confirm(
-        "Delete this trip? This will also delete its corresponding matched trip."
+        "Delete this trip? This will also delete its corresponding matched trip.",
       );
     } else {
       confirmed = await window.confirmationDialog.show({
@@ -1545,7 +1545,7 @@
     if (!window.confirmationDialog) {
       // Fallback to regular confirm
       confirmed = confirm(
-        "Re-match this trip? This will delete the existing matched trip and create a new one."
+        "Re-match this trip? This will delete the existing matched trip and create a new one.",
       );
     } else {
       confirmed = await window.confirmationDialog.show({
@@ -1643,7 +1643,7 @@
     if (!locInput || !locType || !locInput.value || !locType.value) {
       showNotification(
         "Please enter a location and select a location type.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -1664,7 +1664,7 @@
       if (!data) {
         showNotification(
           CONFIG.ERROR_MESSAGES.locationValidationFailed,
-          "warning"
+          "warning",
         );
         return;
       }
@@ -1689,7 +1689,7 @@
     locInput.setAttribute("data-location", JSON.stringify(data));
     locInput.setAttribute(
       "data-display-name",
-      data.display_name || data.name || locInput.value
+      data.display_name || data.name || locInput.value,
     );
 
     // Enable relevant buttons
@@ -1707,7 +1707,7 @@
     document.dispatchEvent(
       new CustomEvent("locationValidated", {
         detail: { location: data },
-      })
+      }),
     );
   }
 
@@ -1770,7 +1770,7 @@
       document.dispatchEvent(
         new CustomEvent("osmDataGenerated", {
           detail: { type: streetsOnly ? "streets" : "boundary" },
-        })
+        }),
       );
     } catch (err) {
       handleError(err, "Generating OSM Data");
@@ -1816,7 +1816,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ start_date: startDate, end_date: endDate }),
-        })
+        }),
       );
     }
 
@@ -1829,7 +1829,8 @@
       if (errorResponses.length > 0) {
         const errorData = await errorResponses[0].json();
         throw new Error(
-          errorData.message || `HTTP error! status: ${errorResponses[0].status}`
+          errorData.message ||
+            `HTTP error! status: ${errorResponses[0].status}`,
         );
       }
 
@@ -1848,7 +1849,7 @@
             isHistorical,
             results,
           },
-        })
+        }),
       );
     } catch (err) {
       handleError(err, "Map Matching");
@@ -1919,7 +1920,7 @@
 
     try {
       const response = await fetch(
-        `/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`
+        `/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`,
       );
 
       if (!response.ok) {
@@ -1949,7 +1950,7 @@
       document.dispatchEvent(
         new CustomEvent("metricsUpdated", {
           detail: { metrics },
-        })
+        }),
       );
     } catch (err) {
       handleError(err, "Fetching Metrics");
@@ -2005,7 +2006,7 @@
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Failed to start coverage calculation"
+          errorData.message || "Failed to start coverage calculation",
         );
       }
 
@@ -2089,7 +2090,7 @@
 
           if (elapsed < CONFIG.REFRESH.minPollingInterval) {
             await new Promise((resolve) =>
-              setTimeout(resolve, CONFIG.REFRESH.minPollingInterval - elapsed)
+              setTimeout(resolve, CONFIG.REFRESH.minPollingInterval - elapsed),
             );
           }
 
@@ -2121,14 +2122,14 @@
           if (statusResponse.status === 500) {
             const errorData = await statusResponse.json();
             throw new Error(
-              errorData.detail || "Error in coverage calculation"
+              errorData.detail || "Error in coverage calculation",
             );
           }
 
           // Handle other errors
           if (!statusResponse.ok) {
             throw new Error(
-              `Server returned ${statusResponse.status}: ${statusResponse.statusText}`
+              `Server returned ${statusResponse.status}: ${statusResponse.statusText}`,
             );
           }
 
@@ -2173,7 +2174,7 @@
           // Check for error
           else if (statusData.stage === "error") {
             throw new Error(
-              statusData.message || "Error in coverage calculation"
+              statusData.message || "Error in coverage calculation",
             );
           }
 
@@ -2198,7 +2199,7 @@
                 message: statusData.message || `Progress: ${progress}%`,
                 stage: statusData.stage,
               },
-            })
+            }),
           );
 
           // Wait before next poll
@@ -2357,7 +2358,7 @@
               AppState.mapLayers.streetCoverage.layer.resetStyle(e.target),
           });
         },
-      }
+      },
     );
 
     // Add to map
@@ -2375,7 +2376,7 @@
         detail: {
           metadata: coverageData.streets_data.metadata,
         },
-      })
+      }),
     );
   }
 
@@ -2388,7 +2389,7 @@
     try {
       // Fetch coverage data
       const response = await fetch(
-        `/api/street_coverage/${location.display_name}`
+        `/api/street_coverage/${location.display_name}`,
       );
 
       if (!response.ok) {
@@ -2433,7 +2434,7 @@
 
         if (!response.ok) {
           throw new Error(
-            `Failed to fetch first trip date: ${response.status}`
+            `Failed to fetch first trip date: ${response.status}`,
           );
         }
 
@@ -2450,7 +2451,7 @@
         handleError(err, "Fetching First Trip Date");
         showNotification(
           "Error fetching first trip date. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         if (window.loadingManager) {
@@ -2472,7 +2473,7 @@
           startDate: DateUtils.formatDate(startDate),
           endDate: DateUtils.formatDate(endDate),
         },
-      })
+      }),
     );
   }
 
@@ -2503,7 +2504,7 @@
 
       if (controlsContent) {
         controlsContent.style.display = mapControls?.classList.contains(
-          "minimized"
+          "minimized",
         )
           ? "none"
           : "block";
@@ -2513,23 +2514,23 @@
     // Location validation and OSM buttons
     addSingleEventListener("validate-location", "click", validateLocation);
     addSingleEventListener("generate-boundary", "click", () =>
-      generateOSMData(false)
+      generateOSMData(false),
     );
     addSingleEventListener("generate-streets", "click", () =>
-      generateOSMData(true)
+      generateOSMData(true),
     );
 
     // Trip processing buttons
     addSingleEventListener("map-match-trips", "click", () =>
-      mapMatchTrips(false)
+      mapMatchTrips(false),
     );
     addSingleEventListener("map-match-historical-trips", "click", () =>
-      mapMatchTrips(true)
+      mapMatchTrips(true),
     );
     addSingleEventListener(
       "generate-coverage",
       "click",
-      generateStreetCoverage
+      generateStreetCoverage,
     );
     addSingleEventListener("fetch-trips-range", "click", fetchTripsInRange);
 
@@ -2546,7 +2547,7 @@
 
     // Streets preprocessing button
     addSingleEventListener("preprocess-streets", "click", () =>
-      preprocessStreets()
+      preprocessStreets(),
     );
 
     // Cancel coverage polling button (if exists)
@@ -2590,7 +2591,7 @@
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
+          errorData.message || `HTTP error! status: ${response.status}`,
         );
       }
 
@@ -2598,14 +2599,14 @@
 
       showNotification(
         data.message || "Streets preprocessed successfully for route matching.",
-        "success"
+        "success",
       );
 
       // Dispatch event for streets preprocessing
       document.dispatchEvent(
         new CustomEvent("streetsPreprocessed", {
           detail: { location },
-        })
+        }),
       );
     } catch (error) {
       handleError(error, "Preprocessing Streets");
@@ -2654,7 +2655,7 @@
     AppState.dom.generateCoverageBtn = getElement("generate-coverage");
     AppState.dom.mapMatchTripsBtn = getElement("map-match-trips");
     AppState.dom.mapMatchHistoricalBtn = getElement(
-      "map-match-historical-trips"
+      "map-match-historical-trips",
     );
     AppState.dom.preprocessStreetsBtn = getElement("preprocess-streets");
     AppState.dom.highlightRecentTrips = getElement("highlight-recent-trips");
@@ -2717,7 +2718,7 @@
               input.id === "start-date"
                 ? CONFIG.STORAGE_KEYS.startDate
                 : CONFIG.STORAGE_KEYS.endDate,
-              formattedDate
+              formattedDate,
             );
           }
         }
@@ -2768,7 +2769,7 @@
 
         // Load selected location from storage if exists
         const selectedLocationStr = getStorageItem(
-          CONFIG.STORAGE_KEYS.selectedLocation
+          CONFIG.STORAGE_KEYS.selectedLocation,
         );
         if (selectedLocationStr) {
           try {

@@ -19,7 +19,7 @@ class LiveTripTracker {
     this.polyline = L.polyline([], {
       color: "#00FF00",
       weight: 3,
-      opacity: 0.8
+      opacity: 0.8,
     });
     if (window.AppState && AppState.liveTrackerLayer) {
       this.polyline.addTo(AppState.liveTrackerLayer);
@@ -31,8 +31,8 @@ class LiveTripTracker {
       icon: L.divIcon({
         className: "vehicle-marker",
         iconSize: [12, 12],
-        iconAnchor: [6, 6]
-      })
+        iconAnchor: [6, 6],
+      }),
     });
     if (window.AppState && AppState.liveTrackerLayer) {
       this.marker.addTo(AppState.liveTrackerLayer);
@@ -143,7 +143,7 @@ class LiveTripTracker {
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
 
       console.log(
-        `WebSocket reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+        `WebSocket reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
       );
 
       this.reconnectTimeout = setTimeout(() => {
@@ -166,7 +166,7 @@ class LiveTripTracker {
       this.statusIndicator.classList.toggle("disconnected", !connected);
       this.statusIndicator.setAttribute(
         "aria-label",
-        connected ? "Connected" : "Disconnected"
+        connected ? "Connected" : "Disconnected",
       );
     }
 
@@ -223,7 +223,7 @@ class LiveTripTracker {
 
     // Sort coordinates by timestamp for proper path
     trip.coordinates.sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
     );
 
     // Update polyline path
@@ -266,7 +266,7 @@ class LiveTripTracker {
       this.activeTripsCountElem.textContent = count;
       this.activeTripsCountElem.setAttribute(
         "aria-label",
-        `${count} active trips`
+        `${count} active trips`,
       );
     }
   }
