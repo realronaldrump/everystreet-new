@@ -2,9 +2,9 @@
  * Modern UI - Main UI controller for the application
  * Handles theme, navigation, notifications, and interactive components
  */
-(function () {
-  "use strict";
+"use strict";
 
+(function () {
   // Configuration constants
   const CONFIG = {
     selectors: {
@@ -48,6 +48,12 @@
   // DOM elements cache
   const elements = {};
 
+  // Global Leaflet reference check
+  const hasLeaflet = () => typeof window.L !== "undefined";
+
+  // Global Bootstrap reference check
+  const hasBootstrap = () => typeof window.bootstrap !== "undefined";
+
   /**
    * Initialize the UI system
    */
@@ -66,8 +72,14 @@
       window.addEventListener("resize", debounce(handleResize, 250));
       handleResize();
 
-      console.log("Modern UI initialized");
+      // Log initialization in development only
+      if (process.env.NODE_ENV === "development") {
+        // eslint-disable-next-line no-console
+        console.log("Modern UI initialized");
+      }
     } catch (error) {
+      // Critical errors should still be logged
+      // eslint-disable-next-line no-console
       console.error("Error initializing Modern UI:", error);
     }
   }
@@ -165,7 +177,7 @@
    * @param {string} theme - Theme name ('light' or 'dark')
    */
   function updateMapTheme(theme) {
-    if (!window.map) return;
+    if (!window.map || !hasLeaflet()) return;
 
     // Container background
     document.querySelectorAll(".leaflet-container").forEach((container) => {
@@ -174,14 +186,14 @@
 
     // Remove existing tile layers
     window.map.eachLayer((layer) => {
-      if (layer instanceof L.TileLayer) {
+      if (layer instanceof window.L.TileLayer) {
         window.map.removeLayer(layer);
       }
     });
 
     // Add new tile layer
     const tileUrl = CONFIG.selectors.mapTileUrl[theme];
-    L.tileLayer(tileUrl, {
+    window.L.tileLayer(tileUrl, {
       maxZoom: 19,
       attribution: "",
     }).addTo(window.map);
@@ -431,6 +443,7 @@
         startDate.setFullYear(startDate.getFullYear() - 10); // Approximate "all time"
         break;
       default:
+        // No change for unknown ranges
         return;
     }
 
@@ -614,6 +627,9 @@
       case "new-place":
         handleAddPlace();
         break;
+      default:
+        // No action for unknown types
+        break;
     }
   }
 
@@ -708,6 +724,9 @@
         break;
       case "warning":
         icon = "exclamation-triangle";
+        break;
+      default:
+        // Default is already set
         break;
     }
 
@@ -907,19 +926,21 @@
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const responseData = await response.json();
       hideLoading();
 
       // Show notification with actual data
       showNotification({
         title: "Trips Fetched",
-        message: `Successfully fetched ${data.trips_count || 0} trips.`,
+        message: `Successfully fetched ${responseData.trips_count || 0} trips.`,
         type: "success",
       });
 
       // Reload map data if applicable
       refreshMapData();
     } catch (error) {
+      // Critical errors should still be logged
+      // eslint-disable-next-line no-console
       console.error("Error fetching trips:", error);
       hideLoading();
 
@@ -964,19 +985,21 @@
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const responseData = await response.json();
       hideLoading();
 
       // Show notification with actual data
       showNotification({
         title: "Map Matching Complete",
-        message: `Successfully matched ${data.matched_count || 0} trips to the road network.`,
+        message: `Successfully matched ${responseData.matched_count || 0} trips to the road network.`,
         type: "success",
       });
 
       // Reload map data if applicable
       refreshMapData();
     } catch (error) {
+      // Critical errors should still be logged
+      // eslint-disable-next-line no-console
       console.error("Error map matching trips:", error);
       hideLoading();
 
@@ -1016,208 +1039,134 @@
 
       // Alternative - check for existing place management modal
       const manageModal = document.getElementById("manage-places-modal");
-      if (manageModal && window.bootstrap?.Modal) {
-        const modalInstance = new bootstrap.Modal(manageModal);
+      if (manageModal && hasBootstrap()) {
+        const modalInstance = new window.bootstrap.Modal(manageModal);
         modalInstance.show();
         return;
       }
     }
 
-    // Fallback to simple location prompt
-    handleAddPlaceFallback();
+    // Fallback to simple location form
+    handleAddPlaceForm();
   }
 
   /**
-   * Fallback for adding a place without modal
+   * Show a proper form for adding a place (avoiding prompts)
    */
-  function handleAddPlaceFallback() {
-    // Show form dialog using built-in prompt as fallback
-    const placeName = prompt("Enter place name:");
-    if (!placeName) return;
+  function handleAddPlaceForm() {
+    // Create a modal dialog for entering place information
+    const modalEl = document.createElement("div");
+    modalEl.className = "modal fade";
+    modalEl.id = "add-place-modal";
 
-    const latitude = prompt("Enter latitude (e.g. 34.0522):");
-    const longitude = prompt("Enter longitude (e.g. -118.2437):");
+    modalEl.innerHTML = `
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Add New Place</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="add-place-form">
+              <div class="mb-3">
+                <label for="place-name" class="form-label">Place Name</label>
+                <input type="text" class="form-control" id="place-name" required>
+              </div>
+              <div class="mb-3">
+                <label for="place-latitude" class="form-label">Latitude</label>
+                <input type="number" step="any" class="form-control" id="place-latitude" required>
+              </div>
+              <div class="mb-3">
+                <label for="place-longitude" class="form-label">Longitude</label>
+                <input type="number" step="any" class="form-control" id="place-longitude" required>
+              </div>
+              <div class="mb-3">
+                <label for="place-radius" class="form-label">Radius (meters)</label>
+                <input type="number" class="form-control" id="place-radius" value="100">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="save-place-btn">Save Place</button>
+          </div>
+        </div>
+      </div>
+    `;
 
-    if (!latitude || !longitude) return;
+    document.body.appendChild(modalEl);
 
-    // Validate inputs
-    const lat = parseFloat(latitude);
-    const lng = parseFloat(longitude);
-
-    if (isNaN(lat) || isNaN(lng)) {
-      showNotification({
-        title: "Invalid Coordinates",
-        message: "Please enter valid latitude and longitude values.",
-        type: "error",
-      });
-      return;
+    // Initialize modal
+    let modal;
+    if (hasBootstrap()) {
+      modal = new window.bootstrap.Modal(modalEl);
+      modal.show();
+    } else {
+      // Fallback if bootstrap is not available
+      modalEl.style.display = "block";
+      modalEl.style.position = "fixed";
+      modalEl.style.top = "0";
+      modalEl.style.left = "0";
+      modalEl.style.width = "100%";
+      modalEl.style.height = "100%";
+      modalEl.style.backgroundColor = "rgba(0,0,0,0.5)";
+      modalEl.style.zIndex = "1050";
     }
 
-    submitPlaceData({
-      name: placeName,
-      latitude: lat,
-      longitude: lng,
-      radius: 100,
-      type: "custom",
-    });
-  }
+    // Handle save button click
+    const saveBtn = document.getElementById("save-place-btn");
+    saveBtn.addEventListener("click", () => {
+      const placeNameInput = document.getElementById("place-name");
+      const latInput = document.getElementById("place-latitude");
+      const lngInput = document.getElementById("place-longitude");
+      const radiusInput = document.getElementById("place-radius");
 
-  /**
-   * Submit place data to API
-   * @param {Object} placeData - Place data
-   */
-  async function submitPlaceData(placeData) {
-    showLoading("Adding place...");
-
-    try {
-      const response = await fetch("/api/places/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(placeData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to add place");
-      }
-
-      const data = await response.json();
-      hideLoading();
-
-      showNotification({
-        title: "Place Added",
-        message: `Successfully added place: ${placeData.name}`,
-        type: "success",
-      });
-
-      // Refresh the places list or map
-      refreshPlacesData();
-    } catch (error) {
-      console.error("Error adding place:", error);
-      hideLoading();
-
-      showNotification({
-        title: "Error Adding Place",
-        message: `There was an error: ${error.message}`,
-        type: "error",
-      });
-    }
-  }
-
-  /**
-   * Refresh map data by calling appropriate functions
-   */
-  function refreshMapData() {
-    if (window.map) {
-      // Try different refresh methods
-      if (typeof window.refreshMapData === "function") {
-        window.refreshMapData();
-      } else if (typeof window.EveryStreet?.App?.fetchTrips === "function") {
-        window.EveryStreet.App.fetchTrips();
-      } else if (typeof window.fetchTrips === "function") {
-        window.fetchTrips();
-      }
-    }
-  }
-
-  /**
-   * Refresh places data by calling appropriate functions
-   */
-  function refreshPlacesData() {
-    if (typeof window.refreshPlaces === "function") {
-      window.refreshPlaces();
-    } else if (
-      window.customPlaces &&
-      typeof window.customPlaces.loadPlaces === "function"
-    ) {
-      window.customPlaces.loadPlaces();
-    } else if (window.map) {
-      // If no refresh function exists but map does, add a marker
-      const marker = L.marker([placeData.latitude, placeData.longitude])
-        .addTo(window.map)
-        .bindPopup(`<strong>${placeData.name}</strong><br>New place added`)
-        .openPopup();
-    }
-  }
-
-  /**
-   * Simple debounce function
-   * @param {Function} func - Function to debounce
-   * @param {number} wait - Wait time in ms
-   * @returns {Function} Debounced function
-   */
-  function debounce(func, wait) {
-    let timeout;
-    return function (...args) {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(this, args), wait);
-    };
-  }
-
-  /**
-   * Setup bridge between Modern UI filters and legacy code
-   */
-  function setupLegacyCodeBridge() {
-    // Expose key methods to global scope for legacy code to call
-    window.modernUI = {
-      showNotification,
-      showLoading,
-      updateProgress,
-      hideLoading,
-      updateFilterIndicator,
-    };
-
-    // Backward compatibility layer for loadingManager reference
-    window.loadingManager = createCompatibilityLoadingManager();
-  }
-
-  /**
-   * Create a compatibility layer for legacy loadingManager
-   * @returns {Object} Compatible loadingManager interface
-   */
-  function createCompatibilityLoadingManager() {
-    return {
-      showLoading,
-      updateProgress,
-      hideLoading,
-
-      // Operations tracking system (compatibility with app.js)
-      operations: new Map(),
-
-      startOperation: (operationName, totalSteps = 100) => {
-        console.log(`Starting operation: ${operationName}`);
-        showLoading(`Starting ${operationName}...`);
-        return operationName;
-      },
-
-      addSubOperation: () => {},
-
-      updateSubOperation: (
-        parentOperation,
-        subOperationName,
-        progress,
-        message
-      ) => {
-        if (message) {
-          updateProgress(progress, message);
-        }
-      },
-
-      finish: () => {
-        hideLoading();
-      },
-
-      error: (message) => {
-        hideLoading();
+      // Basic validation
+      if (!placeNameInput.value || !latInput.value || !lngInput.value) {
         showNotification({
-          title: "Error",
-          message,
+          title: "Validation Error",
+          message: "Please fill in all required fields",
           type: "error",
         });
-      },
-    };
-  }
+        return;
+      }
 
-  // Initialize on DOM content loaded
-  document.addEventListener("DOMContentLoaded", init);
+      const placeData = {
+        name: placeNameInput.value,
+        latitude: parseFloat(latInput.value),
+        longitude: parseFloat(lngInput.value),
+        radius: parseInt(radiusInput.value, 10) || 100,
+        type: "custom",
+      };
+
+      // Close modal
+      if (hasBootstrap()) {
+        modal.hide();
+      } else {
+        modalEl.style.display = "none";
+      }
+
+      // Submit the place data
+      submitPlaceData(placeData);
+
+      // Clean up modal
+      setTimeout(() => {
+        modalEl.remove();
+      }, 300);
+    });
+
+    // Handle close button
+    const closeBtn = modalEl.querySelector(".btn-close, .btn-secondary");
+    closeBtn.addEventListener("click", () => {
+      if (hasBootstrap()) {
+        modal.hide();
+      } else {
+        modalEl.style.display = "none";
+      }
+      // Clean up modal
+      setTimeout(() => {
+        modalEl.remove();
+      }, 300);
+    });
+  }
 })();

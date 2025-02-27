@@ -604,6 +604,7 @@
 
       // Initialize layer groups
       AppState.layerGroup = L.layerGroup().addTo(AppState.map);
+      AppState.liveTrackerLayer = L.layerGroup().addTo(AppState.map);
       AppState.mapLayers.customPlaces.layer = L.layerGroup();
 
       // Add map click handler to clear trip selection when clicking outside of any trip

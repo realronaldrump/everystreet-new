@@ -19,16 +19,26 @@ class LiveTripTracker {
     this.polyline = L.polyline([], {
       color: "#00FF00",
       weight: 3,
-      opacity: 0.8,
-    }).addTo(this.map);
+      opacity: 0.8
+    });
+    if (window.AppState && AppState.liveTrackerLayer) {
+      this.polyline.addTo(AppState.liveTrackerLayer);
+    } else {
+      this.polyline.addTo(this.map);
+    }
 
     this.marker = L.marker([0, 0], {
       icon: L.divIcon({
         className: "vehicle-marker",
         iconSize: [12, 12],
-        iconAnchor: [6, 6],
-      }),
+        iconAnchor: [6, 6]
+      })
     });
+    if (window.AppState && AppState.liveTrackerLayer) {
+      this.marker.addTo(AppState.liveTrackerLayer);
+    } else {
+      this.marker.addTo(this.map);
+    }
 
     // WebSocket state
     this.websocket = null;
