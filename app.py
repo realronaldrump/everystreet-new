@@ -730,6 +730,17 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                     }
                 },
             )
+        else:
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "error",
+                        "error": "No result returned from coverage calculation",
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
     except Exception as e:
         logger.exception("Error in background coverage calculation.")
         await progress_collection.update_one(

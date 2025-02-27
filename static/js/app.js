@@ -149,6 +149,24 @@
   }
 
   /**
+   * Safely shows a notification if notification manager exists
+   * @param {string} message - Notification message
+   * @param {string} [type="info"] - Notification type (success, info, warning, danger)
+   * @returns {boolean} - Whether notification was shown
+   */
+  function showNotification(message, type = "info") {
+    if (
+      window.notificationManager &&
+      typeof window.notificationManager.show === "function"
+    ) {
+      window.notificationManager.show(message, type);
+      return true;
+    }
+    console.log(`${type.toUpperCase()}: ${message}`);
+    return false;
+  }
+
+  /**
    * Returns a debounced version of the provided function
    * @param {Function} func - Function to debounce
    * @param {number} delay - Delay in ms
@@ -174,16 +192,62 @@
     const el = typeof element === "string" ? getElement(element) : element;
     if (!el) return false;
 
+    // Element data store for tracking attached listeners
+    if (!el._eventHandlers) {
+      el._eventHandlers = {};
+    }
+
     // Generate unique key based on event type and handler toString
-    const handlerKey = `__${eventType}_${handler.toString().slice(0, 100)}`;
+    const handlerFunction = handler.toString();
+    const handlerKey = `${eventType}_${handlerFunction.substring(0, 50).replace(/\s+/g, "")}`;
 
-    // Check if handler already exists
-    if (el[handlerKey]) return false;
+    // Check if same handler already attached for this event type
+    if (el._eventHandlers[handlerKey]) {
+      console.debug("Event listener already attached, skipping duplicate", {
+        element,
+        eventType,
+      });
+      return false;
+    }
 
-    // Add handler and mark as added
+    // Add handler and track it
     el.addEventListener(eventType, handler);
-    el[handlerKey] = true;
+    el._eventHandlers[handlerKey] = handler;
+
     return true;
+  }
+
+  /**
+   * Removes a previously attached event listener
+   * @param {string|Element} element - Element or selector
+   * @param {string} eventType - Event type
+   * @param {Function} handler - Event handler
+   * @returns {boolean} - Whether listener was removed
+   */
+  function removeSingleEventListener(element, eventType, handler) {
+    const el = typeof element === "string" ? getElement(element) : element;
+    if (!el || !el._eventHandlers) return false;
+
+    // Find the handler by string comparison if direct reference isn't available
+    const handlerFunction = handler.toString();
+    const handlerKey = Object.keys(el._eventHandlers).find((key) => {
+      return (
+        key.startsWith(`${eventType}_`) &&
+        el._eventHandlers[key]
+          .toString()
+          .substring(0, 50)
+          .replace(/\s+/g, "") ===
+          handlerFunction.substring(0, 50).replace(/\s+/g, "")
+      );
+    });
+
+    if (handlerKey) {
+      el.removeEventListener(eventType, el._eventHandlers[handlerKey]);
+      delete el._eventHandlers[handlerKey];
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -223,12 +287,7 @@
   function handleError(error, context) {
     console.error(`Error in ${context}:`, error);
 
-    if (window.notificationManager) {
-      window.notificationManager.show(
-        `Error in ${context}: ${error.message}`,
-        "danger"
-      );
-    }
+    showNotification(`Error in ${context}: ${error.message}`, "danger");
 
     // Trigger custom event for error tracking
     document.dispatchEvent(
@@ -246,16 +305,71 @@
   // ==============================
 
   /**
+   * Normalizes a date value to YYYY-MM-DD format
+   * @param {string|Date} dateValue - Input date value
+   * @returns {string} - Normalized date string
+   */
+  function normalizeDate(dateValue) {
+    if (!dateValue) return getCurrentDate();
+
+    try {
+      // Handle different date formats
+      let dateObj;
+      if (dateValue instanceof Date) {
+        dateObj = dateValue;
+      } else if (typeof dateValue === "string") {
+        // Check if it's already in YYYY-MM-DD format
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+          return dateValue;
+        }
+
+        // Try to parse ISO date, UTC date, or other formats
+        dateObj = new Date(dateValue);
+
+        // Check if date is valid
+        if (isNaN(dateObj.getTime())) {
+          console.warn(
+            `Invalid date value: ${dateValue}`,
+            "Using current date instead"
+          );
+          return getCurrentDate();
+        }
+      } else {
+        console.warn(
+          `Unexpected date type: ${typeof dateValue}`,
+          "Using current date instead"
+        );
+        return getCurrentDate();
+      }
+
+      // Convert to YYYY-MM-DD format
+      return dateObj.toISOString().split("T")[0];
+    } catch (error) {
+      console.error("Error normalizing date:", error);
+      return getCurrentDate();
+    }
+  }
+
+  /**
    * Gets the start date from input or localStorage
    * @returns {string} The start date in YYYY-MM-DD format
    */
   function getStartDate() {
-    return (
-      AppState.dom.startDateInput?.value ||
-      document.getElementById("start-date")?.value ||
-      getStorageItem(CONFIG.STORAGE_KEYS.startDate) ||
-      getCurrentDate()
-    );
+    // Check input element first
+    const startDateInput =
+      AppState.dom.startDateInput || document.getElementById("start-date");
+    if (startDateInput?.value) {
+      return DateUtils.formatDate(startDateInput.value);
+    }
+
+    // Then check localStorage
+    const storedDate = getStorageItem(CONFIG.STORAGE_KEYS.startDate);
+    if (storedDate) {
+      return DateUtils.formatDate(storedDate);
+    }
+
+    // Fallback to current date
+    return DateUtils.getCurrentDate();
   }
 
   /**
@@ -263,12 +377,21 @@
    * @returns {string} The end date in YYYY-MM-DD format
    */
   function getEndDate() {
-    return (
-      AppState.dom.endDateInput?.value ||
-      document.getElementById("end-date")?.value ||
-      getStorageItem(CONFIG.STORAGE_KEYS.endDate) ||
-      getCurrentDate()
-    );
+    // Check input element first
+    const endDateInput =
+      AppState.dom.endDateInput || document.getElementById("end-date");
+    if (endDateInput?.value) {
+      return DateUtils.formatDate(endDateInput.value);
+    }
+
+    // Then check localStorage
+    const storedDate = getStorageItem(CONFIG.STORAGE_KEYS.endDate);
+    if (storedDate) {
+      return DateUtils.formatDate(storedDate);
+    }
+
+    // Fallback to current date
+    return DateUtils.getCurrentDate();
   }
 
   /**
@@ -276,7 +399,7 @@
    * @returns {string} The current date
    */
   function getCurrentDate() {
-    return new Date().toISOString().split("T")[0];
+    return DateUtils.getCurrentDate();
   }
 
   /**
@@ -292,22 +415,27 @@
 
   /**
    * Updates the date pickers and stores in localStorage
-   * @param {Date} startDate - Start date
-   * @param {Date} endDate - End date
+   * @param {Date|string} startDate - Start date
+   * @param {Date|string} endDate - End date
    */
   function updateDatePickersAndStore(startDate, endDate) {
-    const startDateString = startDate.toISOString().split("T")[0];
-    const endDateString = endDate.toISOString().split("T")[0];
+    const startDateString = DateUtils.formatDate(startDate);
+    const endDateString = DateUtils.formatDate(endDate);
+
+    if (!startDateString || !endDateString) {
+      console.warn("Invalid date values provided to updateDatePickersAndStore");
+      return;
+    }
 
     // Update flatpickr instances if available
     if (AppState.dom.startDateInput?._flatpickr) {
-      AppState.dom.startDateInput._flatpickr.setDate(startDate);
+      AppState.dom.startDateInput._flatpickr.setDate(startDateString);
     } else if (AppState.dom.startDateInput) {
       AppState.dom.startDateInput.value = startDateString;
     }
 
     if (AppState.dom.endDateInput?._flatpickr) {
-      AppState.dom.endDateInput._flatpickr.setDate(endDate);
+      AppState.dom.endDateInput._flatpickr.setDate(endDateString);
     } else if (AppState.dom.endDateInput) {
       AppState.dom.endDateInput.value = endDateString;
     }
@@ -425,6 +553,14 @@
   // ==============================
   // Map Initialization & Controls
   // ==============================
+
+  /**
+   * Checks if the map is ready for operations
+   * @returns {boolean} - Whether the map is ready
+   */
+  function isMapReady() {
+    return AppState.map && AppState.mapInitialized && AppState.layerGroup;
+  }
 
   /**
    * Initializes the map and base layers
@@ -834,10 +970,20 @@
   // ==============================
 
   /**
-   * Fetches trips data and updates the map
-   * @returns {Promise<void>}
+   * Safely uses the loading manager with proper cleanup in all cases
+   * @param {string} operationId - Unique operation identifier
+   * @param {number} [totalWeight=100] - Total progress weight
+   * @param {Function} operation - Async operation to perform
+   * @param {Object} [subOperations={}] - Sub-operations with weights
+   * @returns {Promise<any>} - Operation result
    */
-  async function fetchTrips() {
+  async function withLoading(
+    operationId,
+    totalWeight = 100,
+    operation,
+    subOperations = {}
+  ) {
+    // Get loading manager or create fallback
     const loadingManager = window.loadingManager || {
       startOperation: () => {},
       addSubOperation: () => {},
@@ -845,111 +991,117 @@
       finish: () => {},
     };
 
-    loadingManager.startOperation("Fetching and Displaying Trips", 100);
-    loadingManager.addSubOperation(
-      "Fetching and Displaying Trips",
-      "Fetching Data",
-      50
-    );
-    loadingManager.addSubOperation(
-      "Fetching and Displaying Trips",
-      "Processing Data",
-      30
-    );
-    loadingManager.addSubOperation(
-      "Fetching and Displaying Trips",
-      "Displaying Data",
-      20
-    );
-
     try {
-      const startDate = getStorageItem(CONFIG.STORAGE_KEYS.startDate);
-      const endDate = getStorageItem(CONFIG.STORAGE_KEYS.endDate);
+      // Start the loading operation
+      loadingManager.startOperation(operationId, totalWeight);
 
-      if (!startDate || !endDate) {
-        console.warn("No dates selected for fetching trips.");
-        return;
-      }
+      // Add sub-operations if provided
+      Object.entries(subOperations).forEach(([name, weight]) => {
+        loadingManager.addSubOperation(operationId, name, weight);
+      });
 
-      // Update date inputs if they exist
-      if (AppState.dom.startDateInput) {
-        AppState.dom.startDateInput.value = startDate;
-      }
-      if (AppState.dom.endDateInput) {
-        AppState.dom.endDateInput.value = endDate;
-      }
+      // Execute the operation
+      return await operation(loadingManager, operationId);
+    } catch (error) {
+      // Handle operation error
+      handleError(error, operationId);
+      throw error;
+    } finally {
+      // Always finish the loading operation
+      loadingManager.finish(operationId);
+    }
+  }
 
-      // Update progress
-      loadingManager.updateSubOperation(
-        "Fetching and Displaying Trips",
-        "Fetching Data",
-        25
-      );
+  /**
+   * Fetches trips data and updates the map
+   * @returns {Promise<void>}
+   */
+  async function fetchTrips() {
+    return withLoading(
+      "Fetching and Displaying Trips",
+      100,
+      async (loadingManager, opId) => {
+        const subOps = {
+          "Fetching Data": 50,
+          "Processing Data": 30,
+          "Displaying Data": 20,
+        };
 
-      // Fetch trip data
-      const params = getFilterParams();
-      const response = await fetch(`/api/trips?${params.toString()}`);
+        // Add sub-operations
+        Object.entries(subOps).forEach(([name, weight]) => {
+          loadingManager.addSubOperation(opId, name, weight);
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        // Get dates and ensure they're properly formatted
+        const startDate = DateUtils.formatDate(
+          getStorageItem(CONFIG.STORAGE_KEYS.startDate)
+        );
+        const endDate = DateUtils.formatDate(
+          getStorageItem(CONFIG.STORAGE_KEYS.endDate)
+        );
 
-      const geojson = await response.json();
+        if (!startDate || !endDate) {
+          showNotification("Invalid date range for fetching trips.", "warning");
+          console.warn("Invalid dates selected for fetching trips.");
+          return;
+        }
 
-      // Update progress
-      loadingManager.updateSubOperation(
-        "Fetching and Displaying Trips",
-        "Fetching Data",
-        50
-      );
-      loadingManager.updateSubOperation(
-        "Fetching and Displaying Trips",
-        "Processing Data",
-        15
-      );
+        // Update date inputs if they exist
+        if (AppState.dom.startDateInput) {
+          AppState.dom.startDateInput.value = startDate;
+        }
+        if (AppState.dom.endDateInput) {
+          AppState.dom.endDateInput.value = endDate;
+        }
 
-      // Update trips table and map
-      await Promise.all([
-        updateTripsTable(geojson),
-        updateMapWithTrips(geojson),
-      ]);
+        // Update progress
+        loadingManager.updateSubOperation(opId, "Fetching Data", 25);
 
-      // Update progress
-      loadingManager.updateSubOperation(
-        "Fetching and Displaying Trips",
-        "Processing Data",
-        30
-      );
-      loadingManager.updateSubOperation(
-        "Fetching and Displaying Trips",
-        "Displaying Data",
-        10
-      );
+        // Fetch trip data
+        const params = new URLSearchParams({
+          start_date: startDate,
+          end_date: endDate,
+        });
 
-      // Also fetch matched trips
-      try {
-        await fetchMatchedTrips();
-      } catch (err) {
-        handleError(err, "Fetching Matched Trips");
-      } finally {
-        loadingManager.updateSubOperation(
-          "Fetching and Displaying Trips",
-          "Displaying Data",
-          20
+        const response = await fetch(`/api/trips?${params.toString()}`);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const geojson = await response.json();
+
+        // Update progress
+        loadingManager.updateSubOperation(opId, "Fetching Data", 50);
+        loadingManager.updateSubOperation(opId, "Processing Data", 15);
+
+        // Update trips table and map
+        await Promise.all([
+          updateTripsTable(geojson),
+          updateMapWithTrips(geojson),
+        ]);
+
+        // Update progress
+        loadingManager.updateSubOperation(opId, "Processing Data", 30);
+        loadingManager.updateSubOperation(opId, "Displaying Data", 10);
+
+        // Also fetch matched trips
+        try {
+          await fetchMatchedTrips();
+        } catch (err) {
+          handleError(err, "Fetching Matched Trips");
+        } finally {
+          loadingManager.updateSubOperation(opId, "Displaying Data", 20);
+        }
+
+        // Dispatch event that trips are loaded
+        document.dispatchEvent(
+          new CustomEvent("tripsLoaded", {
+            detail: { count: geojson.features.length },
+          })
         );
       }
-
-      // Dispatch event that trips are loaded
-      document.dispatchEvent(
-        new CustomEvent("tripsLoaded", {
-          detail: { count: geojson.features.length },
-        })
-      );
-    } catch (error) {
-      handleError(error, "Fetching Trips");
-    } finally {
-      loadingManager.finish("Fetching and Displaying Trips");
-    }
+    );
   }
 
   /**
@@ -963,13 +1115,30 @@
     // Format trips for DataTable
     const formattedTrips = geojson.features
       .filter((trip) => trip.properties.imei !== "HISTORICAL")
-      .map((trip) => ({
-        ...trip.properties,
-        gps: trip.geometry,
-        destination: trip.properties.destination || "N/A",
-        startLocation: trip.properties.startLocation || "N/A",
-        distance: Number(trip.properties.distance).toFixed(2),
-      }));
+      .map((trip) => {
+        // Format dates
+        const startTimeFormatted = DateUtils.formatForDisplay(
+          trip.properties.startTime,
+          { dateStyle: "short", timeStyle: "short" }
+        );
+
+        const endTimeFormatted = DateUtils.formatForDisplay(
+          trip.properties.endTime,
+          { dateStyle: "short", timeStyle: "short" }
+        );
+
+        return {
+          ...trip.properties,
+          gps: trip.geometry,
+          startTimeFormatted, // Add formatted date for display
+          endTimeFormatted, // Add formatted date for display
+          startTimeRaw: trip.properties.startTime, // Keep raw date for sorting
+          endTimeRaw: trip.properties.endTime, // Keep raw date for sorting
+          destination: trip.properties.destination || "N/A",
+          startLocation: trip.properties.startLocation || "N/A",
+          distance: Number(trip.properties.distance).toFixed(2),
+        };
+      });
 
     // Update the table
     return new Promise((resolve) => {
@@ -1010,7 +1179,24 @@
    * @returns {Promise<void>}
    */
   async function fetchMatchedTrips() {
-    const params = getFilterParams();
+    // Get and properly format dates
+    const startDate = DateUtils.formatDate(
+      getStorageItem(CONFIG.STORAGE_KEYS.startDate)
+    );
+    const endDate = DateUtils.formatDate(
+      getStorageItem(CONFIG.STORAGE_KEYS.endDate)
+    );
+
+    if (!startDate || !endDate) {
+      console.warn("Invalid date range for fetching matched trips");
+      return;
+    }
+
+    const params = new URLSearchParams({
+      start_date: startDate,
+      end_date: endDate,
+    });
+
     const url = `/api/matched_trips?${params.toString()}`;
 
     const response = await fetch(url);
@@ -1029,7 +1215,10 @@
    * @returns {Promise<void>}
    */
   async function updateMap(fitBounds = false) {
-    if (!AppState.layerGroup) return;
+    if (!isMapReady()) {
+      console.warn("Map not ready for update. Operation deferred.");
+      return;
+    }
 
     // Clear all current layers
     AppState.layerGroup.clearLayers();
@@ -1164,16 +1353,20 @@
       transactionId,
     } = properties;
 
-    // Format dates
-    const formatter = new Intl.DateTimeFormat("en-US", {
+    // Format dates using DateUtils
+    const formattedStart = DateUtils.formatForDisplay(startTime, {
       dateStyle: "short",
       timeStyle: "short",
       timeZone: timezone,
       hour12: true,
     });
 
-    const formattedStart = formatter.format(new Date(startTime));
-    const formattedEnd = formatter.format(new Date(endTime));
+    const formattedEnd = DateUtils.formatForDisplay(endTime, {
+      dateStyle: "short",
+      timeStyle: "short",
+      timeZone: timezone,
+      hour12: true,
+    });
 
     // Create popup content
     return `
@@ -1281,9 +1474,7 @@
       layer.closePopup();
       await fetchTrips();
 
-      if (window.notificationManager) {
-        window.notificationManager.show("Trip deleted", "success");
-      }
+      showNotification("Trip deleted", "success");
     } catch (error) {
       handleError(error, "Deleting Matched Trip");
     }
@@ -1334,12 +1525,7 @@
       layer.closePopup();
       await fetchTrips();
 
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Trip and its matched trip deleted",
-          "success"
-        );
-      }
+      showNotification("Trip and its matched trip deleted", "success");
     } catch (error) {
       handleError(error, "Deleting Trip and Matched Trip");
     }
@@ -1382,13 +1568,17 @@
         throw new Error("Failed to delete existing matched trip");
       }
 
+      // Format dates consistently for API
+      const startTime = DateUtils.formatDate(feature.properties.startTime);
+      const endTime = DateUtils.formatDate(feature.properties.endTime);
+
       // Create new matched trip
       const rematchRes = await fetch("/api/map_match_trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          start_date: feature.properties.startTime,
-          end_date: feature.properties.endTime,
+          start_date: startTime,
+          end_date: endTime,
           trip_id: tripId,
         }),
       });
@@ -1398,12 +1588,7 @@
       layer.closePopup();
       await fetchTrips();
 
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Trip successfully re-matched",
-          "success"
-        );
-      }
+      showNotification("Trip successfully re-matched", "success");
     } catch (error) {
       handleError(error, "Re-matching Trip");
     }
@@ -1455,12 +1640,10 @@
     const locType = getElement("location-type");
 
     if (!locInput || !locType || !locInput.value || !locType.value) {
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Please enter a location and select a location type.",
-          "warning"
-        );
-      }
+      showNotification(
+        "Please enter a location and select a location type.",
+        "warning"
+      );
       return;
     }
 
@@ -1478,23 +1661,15 @@
 
       const data = await res.json();
       if (!data) {
-        if (window.notificationManager) {
-          window.notificationManager.show(
-            CONFIG.ERROR_MESSAGES.locationValidationFailed,
-            "warning"
-          );
-        }
+        showNotification(
+          CONFIG.ERROR_MESSAGES.locationValidationFailed,
+          "warning"
+        );
         return;
       }
 
       handleLocationValidationSuccess(data, locInput);
-
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Location validated successfully!",
-          "success"
-        );
-      }
+      showNotification("Location validated successfully!", "success");
     } catch (err) {
       handleError(err, "Validating Location");
     }
@@ -1542,12 +1717,7 @@
    */
   async function generateOSMData(streetsOnly) {
     if (!window.validatedLocation) {
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Please validate a location first.",
-          "warning"
-        );
-      }
+      showNotification("Please validate a location first.", "warning");
       return;
     }
 
@@ -1593,12 +1763,7 @@
       debouncedUpdateMap();
       updateLayerOrderUI();
 
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "OSM data generated successfully!",
-          "success"
-        );
-      }
+      showNotification("OSM data generated successfully!", "success");
 
       // Dispatch event for OSM data generation
       document.dispatchEvent(
@@ -1621,16 +1786,12 @@
    * @returns {Promise<void>}
    */
   async function mapMatchTrips(isHistorical = false) {
-    const startDate = getStartDate();
-    const endDate = getEndDate();
+    // Get and properly format dates
+    const startDate = DateUtils.formatDate(getStartDate());
+    const endDate = DateUtils.formatDate(getEndDate());
 
     if (!startDate || !endDate) {
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Select start and end dates.",
-          "warning"
-        );
-      }
+      showNotification("Select valid start and end dates.", "warning");
       return;
     }
 
@@ -1674,12 +1835,7 @@
       // Process results
       const results = await Promise.all(responses.map((r) => r.json()));
 
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Map matching completed for selected trips.",
-          "success"
-        );
-      }
+      showNotification("Map matching completed for selected trips.", "success");
 
       // Fetch updated trips
       await fetchTrips();
@@ -1707,16 +1863,12 @@
    * @returns {Promise<void>}
    */
   async function fetchTripsInRange() {
-    const startDate = getStartDate();
-    const endDate = getEndDate();
+    // Get and properly format dates
+    const startDate = DateUtils.formatDate(getStartDate());
+    const endDate = DateUtils.formatDate(getEndDate());
 
     if (!startDate || !endDate) {
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Select start and end dates.",
-          "warning"
-        );
-      }
+      showNotification("Select valid start and end dates.", "warning");
       return;
     }
 
@@ -1738,9 +1890,7 @@
       const data = await response.json();
 
       if (data.status === "success") {
-        if (window.notificationManager) {
-          window.notificationManager.show(data.message, "success");
-        }
+        showNotification(data.message, "success");
         await fetchTrips();
       } else {
         throw new Error(data.message || "Error fetching trips");
@@ -1759,8 +1909,9 @@
    * @returns {Promise<void>}
    */
   async function fetchMetrics() {
-    const startDate = getStartDate();
-    const endDate = getEndDate();
+    // Get and properly format dates
+    const startDate = DateUtils.formatDate(getStartDate());
+    const endDate = DateUtils.formatDate(getEndDate());
     const imei = getElement("imei")?.value || "";
 
     if (!startDate || !endDate) return;
@@ -1814,12 +1965,7 @@
    */
   async function generateStreetCoverage() {
     if (!window.validatedLocation) {
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Validate a location first.",
-          "warning"
-        );
-      }
+      showNotification("Validate a location first.", "warning");
       return;
     }
 
@@ -1902,153 +2048,194 @@
     let pollDelay = 1000;
     const maxRetries = 3;
     const maxPollDelay = CONFIG.REFRESH.maxPollDelay;
+    let pollAborted = false;
 
     // Clear any existing polling interval
     if (AppState.polling.timers.coverageStatus) {
       clearTimeout(AppState.polling.timers.coverageStatus);
+      AppState.polling.timers.coverageStatus = null;
     }
 
     AppState.polling.active = true;
 
-    while (AppState.polling.active) {
-      try {
-        // Control polling rate to avoid too many requests
-        const now = Date.now();
-        const elapsed = now - AppState.lastPollingTimestamp;
-
-        if (elapsed < CONFIG.REFRESH.minPollingInterval) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, CONFIG.REFRESH.minPollingInterval - elapsed)
-          );
-        }
-
-        AppState.lastPollingTimestamp = Date.now();
-
-        // Get status
-        const statusResponse = await fetch(`/api/street_coverage/${taskId}`);
-
-        // Handle 404 with retries
-        if (statusResponse.status === 404) {
-          retryCount++;
-          if (retryCount > maxRetries) {
-            throw new Error("Task not found after multiple retries");
-          }
-
-          AppState.polling.timers.coverageStatus = setTimeout(() => {
-            AppState.polling.active = true;
-          }, pollDelay);
-
-          AppState.polling.active = false;
-          pollDelay = Math.min(pollDelay * 2, maxPollDelay);
-          continue;
-        }
-
-        // Reset retry count if we got a response
-        retryCount = 0;
-
-        // Handle server error
-        if (statusResponse.status === 500) {
-          const errorData = await statusResponse.json();
-          throw new Error(errorData.detail || "Error in coverage calculation");
-        }
-
-        // Handle other errors
-        if (!statusResponse.ok) {
-          throw new Error(
-            `Server returned ${statusResponse.status}: ${statusResponse.statusText}`
-          );
-        }
-
-        // Process response
-        const statusData = await statusResponse.json();
-
-        // Handle empty response
-        if (!statusData) {
-          console.warn("Received empty status data");
-
-          AppState.polling.timers.coverageStatus = setTimeout(() => {
-            AppState.polling.active = true;
-          }, pollDelay);
-
-          AppState.polling.active = false;
-          continue;
-        }
-
-        // If streets data is directly available
-        if (statusData.streets_data) {
-          visualizeStreetCoverage(statusData);
-          break;
-        }
-
-        // Handle invalid data
-        if (!statusData.stage) {
-          console.warn("Invalid progress data received:", statusData);
-
-          AppState.polling.timers.coverageStatus = setTimeout(() => {
-            AppState.polling.active = true;
-          }, pollDelay);
-
-          AppState.polling.active = false;
-          continue;
-        }
-
-        // Check for completion
-        if (statusData.stage === "complete" && statusData.result) {
-          visualizeStreetCoverage(statusData.result);
-          break;
-        }
-        // Check for error
-        else if (statusData.stage === "error") {
-          throw new Error(
-            statusData.message || "Error in coverage calculation"
-          );
-        }
-
-        // Update progress
-        const progress = statusData.progress || 0;
-        requestAnimationFrame(() => {
-          if (progressBar) {
-            progressBar.style.width = `${progress}%`;
-            progressBar.setAttribute("aria-valuenow", progress);
-          }
-          if (progressText) {
-            progressText.textContent =
-              statusData.message || `Progress: ${progress}%`;
-          }
-        });
-
-        // Dispatch event for coverage calculation progress
-        document.dispatchEvent(
-          new CustomEvent("coverageCalculationProgress", {
-            detail: {
-              progress,
-              message: statusData.message || `Progress: ${progress}%`,
-              stage: statusData.stage,
-            },
-          })
-        );
-
-        // Wait before next poll
-        AppState.polling.timers.coverageStatus = setTimeout(() => {
-          AppState.polling.active = true;
-        }, pollDelay);
-
+    // Add cancel button if it doesn't exist
+    const cancelButton = getElement("cancel-coverage-polling", false);
+    if (!cancelButton && progressText?.parentElement) {
+      const cancelBtn = document.createElement("button");
+      cancelBtn.id = "cancel-coverage-polling";
+      cancelBtn.className = "btn btn-sm btn-danger mt-2";
+      cancelBtn.textContent = "Cancel";
+      cancelBtn.addEventListener("click", () => {
+        pollAborted = true;
         AppState.polling.active = false;
-      } catch (error) {
-        // Special case for too many retries
-        if (error.message === "Task not found after multiple retries") {
-          AppState.polling.active = false;
-          throw error;
+        if (AppState.polling.timers.coverageStatus) {
+          clearTimeout(AppState.polling.timers.coverageStatus);
+          AppState.polling.timers.coverageStatus = null;
         }
+        if (progressText) {
+          progressText.textContent = "Coverage calculation cancelled.";
+        }
+      });
+      progressText.parentElement.appendChild(cancelBtn);
+    }
 
-        // Log and continue for other errors
-        console.warn("Error polling progress:", error);
+    try {
+      while (AppState.polling.active && !pollAborted) {
+        try {
+          // Control polling rate to avoid too many requests
+          const now = Date.now();
+          const elapsed = now - AppState.lastPollingTimestamp;
 
-        AppState.polling.timers.coverageStatus = setTimeout(() => {
-          AppState.polling.active = true;
-        }, pollDelay);
+          if (elapsed < CONFIG.REFRESH.minPollingInterval) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, CONFIG.REFRESH.minPollingInterval - elapsed)
+            );
+          }
 
-        AppState.polling.active = false;
+          AppState.lastPollingTimestamp = Date.now();
+
+          // Get status
+          const statusResponse = await fetch(`/api/street_coverage/${taskId}`);
+
+          // Handle 404 with retries
+          if (statusResponse.status === 404) {
+            retryCount++;
+            if (retryCount > maxRetries) {
+              throw new Error("Task not found after multiple retries");
+            }
+
+            AppState.polling.timers.coverageStatus = setTimeout(() => {
+              AppState.polling.active = true;
+            }, pollDelay);
+
+            AppState.polling.active = false;
+            pollDelay = Math.min(pollDelay * 2, maxPollDelay);
+            continue;
+          }
+
+          // Reset retry count if we got a response
+          retryCount = 0;
+
+          // Handle server error
+          if (statusResponse.status === 500) {
+            const errorData = await statusResponse.json();
+            throw new Error(
+              errorData.detail || "Error in coverage calculation"
+            );
+          }
+
+          // Handle other errors
+          if (!statusResponse.ok) {
+            throw new Error(
+              `Server returned ${statusResponse.status}: ${statusResponse.statusText}`
+            );
+          }
+
+          // Process response
+          const statusData = await statusResponse.json();
+
+          // Handle empty response
+          if (!statusData) {
+            console.warn("Received empty status data");
+
+            AppState.polling.timers.coverageStatus = setTimeout(() => {
+              AppState.polling.active = true;
+            }, pollDelay);
+
+            AppState.polling.active = false;
+            continue;
+          }
+
+          // If streets data is directly available
+          if (statusData.streets_data) {
+            visualizeStreetCoverage(statusData);
+            break;
+          }
+
+          // Handle invalid data
+          if (!statusData.stage) {
+            console.warn("Invalid progress data received:", statusData);
+
+            AppState.polling.timers.coverageStatus = setTimeout(() => {
+              AppState.polling.active = true;
+            }, pollDelay);
+
+            AppState.polling.active = false;
+            continue;
+          }
+
+          // Check for completion
+          if (statusData.stage === "complete" && statusData.result) {
+            visualizeStreetCoverage(statusData.result);
+            break;
+          }
+          // Check for error
+          else if (statusData.stage === "error") {
+            throw new Error(
+              statusData.message || "Error in coverage calculation"
+            );
+          }
+
+          // Update progress
+          const progress = statusData.progress || 0;
+          requestAnimationFrame(() => {
+            if (progressBar) {
+              progressBar.style.width = `${progress}%`;
+              progressBar.setAttribute("aria-valuenow", progress);
+            }
+            if (progressText) {
+              progressText.textContent =
+                statusData.message || `Progress: ${progress}%`;
+            }
+          });
+
+          // Dispatch event for coverage calculation progress
+          document.dispatchEvent(
+            new CustomEvent("coverageCalculationProgress", {
+              detail: {
+                progress,
+                message: statusData.message || `Progress: ${progress}%`,
+                stage: statusData.stage,
+              },
+            })
+          );
+
+          // Wait before next poll
+          AppState.polling.timers.coverageStatus = setTimeout(() => {
+            AppState.polling.active = true;
+          }, pollDelay);
+
+          AppState.polling.active = false;
+        } catch (error) {
+          // Special case for too many retries
+          if (error.message === "Task not found after multiple retries") {
+            AppState.polling.active = false;
+            throw error;
+          }
+
+          // Log and continue for other errors
+          console.warn("Error polling progress:", error);
+
+          AppState.polling.timers.coverageStatus = setTimeout(() => {
+            AppState.polling.active = true;
+          }, pollDelay);
+
+          AppState.polling.active = false;
+        }
+      }
+    } finally {
+      // Clean up polling resources
+      AppState.polling.active = false;
+
+      if (AppState.polling.timers.coverageStatus) {
+        clearTimeout(AppState.polling.timers.coverageStatus);
+        AppState.polling.timers.coverageStatus = null;
+      }
+
+      // Remove cancel button
+      const cancelBtn = getElement("cancel-coverage-polling", false);
+      if (cancelBtn) {
+        cancelBtn.remove();
       }
     }
   }
@@ -2218,12 +2405,7 @@
       }
     } catch (error) {
       handleError(error, "Showing Coverage for Location");
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Error loading coverage data",
-          "danger"
-        );
-      }
+      showNotification("Error loading coverage data", "danger");
     }
   }
 
@@ -2238,11 +2420,6 @@
   async function handleDatePresetClick() {
     const range = this.dataset.range;
     if (!range) return;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let startDate = new Date(today);
-    let endDate = new Date(today);
 
     // Special case for all-time
     if (range === "all-time") {
@@ -2260,15 +2437,20 @@
         }
 
         const data = await response.json();
-        updateDatePickersAndStore(new Date(data.first_trip_date), endDate);
+        const firstTripDate = DateUtils.parseDate(data.first_trip_date);
+        const today = DateUtils.parseDate(new Date());
+
+        if (firstTripDate && today) {
+          updateDatePickersAndStore(firstTripDate, today);
+        } else {
+          showNotification("Invalid date returned from server", "warning");
+        }
       } catch (err) {
         handleError(err, "Fetching First Trip Date");
-        if (window.notificationManager) {
-          window.notificationManager.show(
-            "Error fetching first trip date. Please try again.",
-            "danger"
-          );
-        }
+        showNotification(
+          "Error fetching first trip date. Please try again.",
+          "danger"
+        );
       } finally {
         if (window.loadingManager) {
           window.loadingManager.finish("AllTimeDatePreset");
@@ -2277,26 +2459,8 @@
       return;
     }
 
-    // Calculate date range based on preset
-    switch (range) {
-      case "yesterday":
-        startDate.setDate(startDate.getDate() - 1);
-        endDate.setDate(endDate.getDate() - 1);
-        break;
-      case "last-week":
-        startDate.setDate(startDate.getDate() - 7);
-        break;
-      case "last-month":
-        startDate.setDate(startDate.getDate() - 30);
-        break;
-      case "last-6-months":
-        startDate.setMonth(startDate.getMonth() - 6);
-        break;
-      case "last-year":
-        startDate.setFullYear(startDate.getFullYear() - 1);
-        break;
-    }
-
+    // Use DateUtils for date range presets
+    const { startDate, endDate } = DateUtils.getDateRangeForPreset(range);
     updateDatePickersAndStore(startDate, endDate);
 
     // Dispatch event for date preset selection
@@ -2304,8 +2468,8 @@
       new CustomEvent("datePresetSelected", {
         detail: {
           preset: range,
-          startDate: startDate.toISOString().split("T")[0],
-          endDate: endDate.toISOString().split("T")[0],
+          startDate: DateUtils.formatDate(startDate),
+          endDate: DateUtils.formatDate(endDate),
         },
       })
     );
@@ -2400,12 +2564,7 @@
    */
   async function preprocessStreets(location = window.validatedLocation) {
     if (!location) {
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Please validate a location first.",
-          "warning"
-        );
-      }
+      showNotification("Please validate a location first.", "warning");
       return;
     }
 
@@ -2436,13 +2595,10 @@
 
       const data = await response.json();
 
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          data.message ||
-            "Streets preprocessed successfully for route matching.",
-          "success"
-        );
-      }
+      showNotification(
+        data.message || "Streets preprocessed successfully for route matching.",
+        "success"
+      );
 
       // Dispatch event for streets preprocessing
       document.dispatchEvent(
@@ -2528,6 +2684,14 @@
     // Skip if flatpickr is not available
     if (typeof flatpickr !== "function") return;
 
+    // Get stored dates or use current date
+    const storedStartDate =
+      getStorageItem(CONFIG.STORAGE_KEYS.startDate) ||
+      DateUtils.getCurrentDate();
+    const storedEndDate =
+      getStorageItem(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate();
+
+    // Use tomorrow as max date
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
@@ -2537,6 +2701,7 @@
       maxDate: tomorrow,
       enableTime: false,
       static: false,
+      defaultDate: null, // Will be set below for each specific picker
       appendTo: document.body,
       theme: document.body.classList.contains("light-mode") ? "light" : "dark",
       position: "auto",
@@ -2544,25 +2709,33 @@
       onChange: function (selectedDates, dateStr) {
         const input = this.input;
         if (input) {
-          setStorageItem(
-            input.id === "start-date"
-              ? CONFIG.STORAGE_KEYS.startDate
-              : CONFIG.STORAGE_KEYS.endDate,
-            dateStr
-          );
+          // Validate and normalize the date
+          const formattedDate = DateUtils.formatDate(dateStr);
+          if (formattedDate) {
+            setStorageItem(
+              input.id === "start-date"
+                ? CONFIG.STORAGE_KEYS.startDate
+                : CONFIG.STORAGE_KEYS.endDate,
+              formattedDate
+            );
+          }
         }
       },
     };
 
     // Initialize flatpickr on both inputs if they exist
-    [AppState.dom.startDateInput, AppState.dom.endDateInput].forEach(
-      (element) => {
-        // Skip initialization if element is already initialized with flatpickr
-        if (element && !element._flatpickr) {
-          flatpickr(element, config);
-        }
-      }
-    );
+    if (
+      AppState.dom.startDateInput &&
+      !AppState.dom.startDateInput._flatpickr
+    ) {
+      const startConfig = { ...config, defaultDate: storedStartDate };
+      flatpickr(AppState.dom.startDateInput, startConfig);
+    }
+
+    if (AppState.dom.endDateInput && !AppState.dom.endDateInput._flatpickr) {
+      const endConfig = { ...config, defaultDate: storedEndDate };
+      flatpickr(AppState.dom.endDateInput, endConfig);
+    }
   }
 
   /**
@@ -2580,12 +2753,7 @@
         if (!AppState.map || !AppState.layerGroup) {
           console.error("Failed to initialize map components");
 
-          if (window.notificationManager) {
-            window.notificationManager.show(
-              CONFIG.ERROR_MESSAGES.mapInitFailed,
-              "danger"
-            );
-          }
+          showNotification(CONFIG.ERROR_MESSAGES.mapInitFailed, "danger");
           return;
         }
 

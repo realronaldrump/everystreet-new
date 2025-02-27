@@ -3,6 +3,253 @@
  */
 
 /**
+ * DateUtils: Centralized utilities for consistent date handling
+ */
+const DateUtils = {
+  /**
+   * Default date format for the application (ISO format YYYY-MM-DD)
+   */
+  DEFAULT_FORMAT: "YYYY-MM-DD",
+
+  /**
+   * Application timezone - defaults to user's local timezone
+   * This can be changed based on application requirements
+   */
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+
+  /**
+   * Parse a date string into a Date object
+   * @param {string|Date|null} dateValue - Date to parse
+   * @param {boolean} [endOfDay=false] - If true, set time to end of day (23:59:59.999)
+   * @returns {Date|null} - JavaScript Date object or null if invalid
+   */
+  parseDate(dateValue, endOfDay = false) {
+    if (!dateValue) return null;
+
+    // Already a Date object
+    if (dateValue instanceof Date) {
+      return new Date(dateValue); // Create a copy to avoid mutating the original
+    }
+
+    let date;
+    try {
+      if (typeof dateValue === "string") {
+        // Handle ISO format (YYYY-MM-DD)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+          date = new Date(dateValue);
+        }
+        // Handle other date formats
+        else {
+          date = new Date(dateValue);
+        }
+      } else {
+        // Handle unexpected types
+        console.warn(`Unexpected date type: ${typeof dateValue}`);
+        return null;
+      }
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn(`Invalid date value: ${dateValue}`);
+        return null;
+      }
+
+      // Set to end of day if requested
+      if (endOfDay) {
+        date.setHours(23, 59, 59, 999);
+      }
+
+      return date;
+    } catch (error) {
+      console.error("Error parsing date:", error);
+      return null;
+    }
+  },
+
+  /**
+   * Format a date to a standardized string
+   * @param {Date|string} date - Date to format
+   * @param {string} [format=DEFAULT_FORMAT] - Output format
+   * @returns {string|null} - Formatted date string or null if invalid
+   */
+  formatDate(date, format = this.DEFAULT_FORMAT) {
+    const parsedDate = this.parseDate(date);
+    if (!parsedDate) return null;
+
+    // Default format is ISO date (YYYY-MM-DD)
+    if (format === this.DEFAULT_FORMAT) {
+      return parsedDate.toISOString().split("T")[0];
+    }
+
+    // For more complex formatting, you could use a library like date-fns
+    // or implement custom formatting logic here
+
+    return parsedDate.toISOString();
+  },
+
+  /**
+   * Get current date as a string in the specified format
+   * @param {string} [format=DEFAULT_FORMAT] - Output format
+   * @returns {string} - Current date as a string
+   */
+  getCurrentDate(format = this.DEFAULT_FORMAT) {
+    return this.formatDate(new Date(), format);
+  },
+
+  /**
+   * Get date range for a preset period
+   * @param {string} preset - Preset name ('yesterday', 'last-week', 'last-month', etc.)
+   * @returns {Object} - Object with startDate and endDate as Date objects
+   */
+  getDateRangeForPreset(preset) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(today);
+    let startDate = new Date(today);
+
+    switch (preset) {
+      case "today":
+        break;
+      case "yesterday":
+        startDate.setDate(startDate.getDate() - 1);
+        endDate.setDate(endDate.getDate() - 1);
+        endDate.setHours(23, 59, 59, 999);
+        break;
+      case "last-week":
+        startDate.setDate(startDate.getDate() - 7);
+        endDate.setHours(23, 59, 59, 999);
+        break;
+      case "last-month":
+        startDate.setDate(startDate.getDate() - 30);
+        endDate.setHours(23, 59, 59, 999);
+        break;
+      case "last-6-months":
+        startDate.setMonth(startDate.getMonth() - 6);
+        endDate.setHours(23, 59, 59, 999);
+        break;
+      case "last-year":
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        endDate.setHours(23, 59, 59, 999);
+        break;
+      case "all-time":
+        // We'll use a very early date
+        startDate = new Date("2000-01-01");
+        endDate.setHours(23, 59, 59, 999);
+        break;
+      default:
+        console.warn(`Unknown date preset: ${preset}`);
+    }
+
+    return { startDate, endDate };
+  },
+
+  /**
+   * Check if a date is between two other dates (inclusive)
+   * @param {Date|string} date - Date to check
+   * @param {Date|string} startDate - Start of range
+   * @param {Date|string} endDate - End of range
+   * @returns {boolean} - True if date is within range
+   */
+  isDateInRange(date, startDate, endDate) {
+    const dateObj = this.parseDate(date);
+    const startObj = this.parseDate(startDate);
+    const endObj = this.parseDate(endDate, true); // End of day
+
+    if (!dateObj || !startObj || !endObj) return false;
+
+    return dateObj >= startObj && dateObj <= endObj;
+  },
+
+  /**
+   * Format a date for display to users
+   * @param {Date|string} date - Date to format
+   * @param {Object} [options] - Intl.DateTimeFormat options
+   * @returns {string} - Formatted date string
+   */
+  formatForDisplay(date, options = {}) {
+    const dateObj = this.parseDate(date);
+    if (!dateObj) return "";
+
+    const defaultOptions = {
+      dateStyle: "medium",
+      timeZone: this.timezone,
+    };
+
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      ...defaultOptions,
+      ...options,
+    });
+
+    return formatter.format(dateObj);
+  },
+
+  /**
+   * Safely extracts and parses a date from an API response
+   * @param {Object} data - API response data
+   * @param {string} key - Key to extract
+   * @param {boolean} [endOfDay=false] - If true, set time to end of day
+   * @returns {string|null} - Formatted date or null
+   */
+  getDateFromResponse(data, key, endOfDay = false) {
+    if (!data || !(key in data)) return null;
+
+    const dateValue = data[key];
+    if (!dateValue) return null;
+
+    const parsedDate = this.parseDate(dateValue, endOfDay);
+    return parsedDate ? this.formatDate(parsedDate) : null;
+  },
+
+  /**
+   * Validates a date range
+   * @param {string|Date} startDate - Start date
+   * @param {string|Date} endDate - End date
+   * @returns {boolean} - True if range is valid
+   */
+  isValidDateRange(startDate, endDate) {
+    const start = this.parseDate(startDate);
+    const end = this.parseDate(endDate);
+
+    if (!start || !end) return false;
+
+    // Ensure start date is not after end date
+    return start <= end;
+  },
+
+  /**
+   * Calculates duration between two dates in a human-readable format
+   * @param {string|Date} startDate - Start date
+   * @param {string|Date} endDate - End date
+   * @returns {string} - Formatted duration (e.g., "2 days 3 hours")
+   */
+  getDuration(startDate, endDate) {
+    const start = this.parseDate(startDate);
+    const end = this.parseDate(endDate);
+
+    if (!start || !end) return "Unknown";
+
+    const diffMs = end.getTime() - start.getTime();
+
+    if (diffMs < 0) return "Invalid duration";
+
+    // Calculate days, hours, minutes
+    const diffSec = Math.floor(diffMs / 1000);
+    const days = Math.floor(diffSec / 86400);
+    const hours = Math.floor((diffSec % 86400) / 3600);
+    const minutes = Math.floor((diffSec % 3600) / 60);
+
+    let result = [];
+    if (days > 0) result.push(`${days} day${days > 1 ? "s" : ""}`);
+    if (hours > 0) result.push(`${hours} hour${hours > 1 ? "s" : ""}`);
+    if (minutes > 0 && days === 0)
+      result.push(`${minutes} minute${minutes > 1 ? "s" : ""}`);
+
+    return result.join(" ") || "Less than a minute";
+  },
+};
+
+/**
  * Centralized error handler for consistent error handling
  * @param {Error|string} error - Error object or message
  * @param {string} context - Context where the error occurred
@@ -537,3 +784,6 @@ window.confirmationDialog = new ConfirmationDialog();
 window.utils = Utils;
 window.dom = DOM;
 window.handleError = handleError;
+
+// Export the DateUtils object to make it available globally
+window.DateUtils = DateUtils;
