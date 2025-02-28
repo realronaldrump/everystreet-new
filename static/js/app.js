@@ -2086,11 +2086,7 @@
     addSingleEventListener("map-match-historical-trips", "click", () =>
       mapMatchTrips(true)
     );
-    addSingleEventListener(
-      "generate-coverage",
-      "click",
-      generateStreetCoverage
-    );
+
     addSingleEventListener("fetch-trips-range", "click", fetchTripsInRange);
 
     // Date preset buttons
@@ -2328,9 +2324,7 @@
           try {
             const location = JSON.parse(selectedLocationStr);
             window.validatedLocation = location;
-            showCoverageForLocation(location).then(() => {
-              localStorage.removeItem(CONFIG.STORAGE_KEYS.selectedLocation);
-            });
+            localStorage.removeItem(CONFIG.STORAGE_KEYS.selectedLocation);
           } catch (error) {
             console.error("Error loading selected location:", error);
           }
@@ -2382,9 +2376,7 @@
     getEndDate,
     getFilterParams,
     updateDatePickersAndStore,
-    generateStreetCoverage,
     fitMapBounds,
-    showCoverageForLocation,
     preprocessStreets,
     validateLocation,
     generateOSMData,
