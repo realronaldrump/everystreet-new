@@ -1014,7 +1014,7 @@
     };
 
     try {
-      const response = await fetch("/api/trips/map_match", {
+      const response = await fetch("/api/map_match_trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestData),
