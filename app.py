@@ -1479,6 +1479,11 @@ async def export_single_trip(trip_id: str, request: Request):
     t = await trips_collection.find_one({"transactionId": trip_id})
     if not t:
         raise HTTPException(status_code=404, detail="Trip not found")
+
+    start_date = t.get("startTime")
+    date_str = start_date.strftime("%Y%m%d") if start_date else "unknown_date"
+    filename_base = f"trip_{trip_id}_{date_str}"
+
     if fmt == "geojson":
         gps_data = t["gps"]
         if isinstance(gps_data, str):
@@ -1500,7 +1505,7 @@ async def export_single_trip(trip_id: str, request: Request):
             io.BytesIO(content.encode()),
             media_type="application/geo+json",
             headers={
-                "Content-Disposition": f'attachment; filename="trip_{trip_id}.geojson"'
+                "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
             },
         )
     elif fmt == "gpx":
@@ -1522,7 +1527,7 @@ async def export_single_trip(trip_id: str, request: Request):
             io.BytesIO(gpx_xml.encode()),
             media_type="application/gpx+xml",
             headers={
-                "Content-Disposition": f'attachment; filename="trip_{trip_id}.gpx"'
+                "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
             },
         )
     else:
@@ -1559,19 +1564,27 @@ async def fetch_all_trips_no_filter() -> List[dict]:
 async def export_all_trips(request: Request):
     fmt = request.query_params.get("format", "geojson").lower()
     all_trips = await fetch_all_trips_no_filter()
+
+    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename_base = f"all_trips_{current_time}"
+
     if fmt == "geojson":
         geojson_data = await create_geojson(all_trips)
         return StreamingResponse(
             io.BytesIO(geojson_data.encode()),
             media_type="application/geo+json",
-            headers={"Content-Disposition": 'attachment; filename="all_trips.geojson"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
+            },
         )
     elif fmt == "gpx":
         gpx_data = await create_gpx(all_trips)
         return StreamingResponse(
             io.BytesIO(gpx_data.encode()),
             media_type="application/gpx+xml",
-            headers={"Content-Disposition": 'attachment; filename="all_trips.gpx"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
+            },
         )
     elif fmt == "json":
         return JSONResponse(content=all_trips)
@@ -1596,19 +1609,27 @@ async def export_trips_within_range(request: Request):
         trips_future, uploaded_future, historical_future
     )
     all_trips = trips_data + ups_data + hist_data
+
+    date_range = f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
+    filename_base = f"trips_{date_range}"
+
     if fmt == "geojson":
         geojson_data = await create_geojson(all_trips)
         return StreamingResponse(
             io.BytesIO(geojson_data.encode()),
             media_type="application/geo+json",
-            headers={"Content-Disposition": 'attachment; filename="all_trips.geojson"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
+            },
         )
     elif fmt == "gpx":
         gpx_data = await create_gpx(all_trips)
         return StreamingResponse(
             io.BytesIO(gpx_data.encode()),
             media_type="application/gpx+xml",
-            headers={"Content-Disposition": 'attachment; filename="all_trips.gpx"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
+            },
         )
     else:
         raise HTTPException(status_code=400, detail="Invalid export format")
@@ -1625,13 +1646,17 @@ async def export_matched_trips_within_range(request: Request):
         raise HTTPException(status_code=400, detail="Invalid or missing date range")
     query = {"startTime": {"$gte": start_date, "$lte": end_date}}
     matched = await matched_trips_collection.find(query).to_list(length=None)
+
+    date_range = f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
+    filename_base = f"matched_trips_{date_range}"
+
     if fmt == "geojson":
         geojson_data = await create_geojson(matched)
         return StreamingResponse(
             io.BytesIO(json.dumps(geojson_data).encode()),
             media_type="application/geo+json",
             headers={
-                "Content-Disposition": 'attachment; filename="matched_trips.geojson"'
+                "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
             },
         )
     elif fmt == "gpx":
@@ -1639,7 +1664,9 @@ async def export_matched_trips_within_range(request: Request):
         return StreamingResponse(
             io.BytesIO(gpx_data.encode()),
             media_type="application/gpx+xml",
-            headers={"Content-Disposition": 'attachment; filename="matched_trips.gpx"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
+            },
         )
     else:
         raise HTTPException(status_code=400, detail="Invalid export format")
@@ -1655,11 +1682,19 @@ async def export_streets(request: Request):
     data, _ = await generate_geojson_osm(loc, streets_only=True)
     if not data:
         raise HTTPException(status_code=500, detail="No data returned from Overpass")
+
+    location_name = (
+        loc.get("display_name", "").split(",")[0].strip().replace(" ", "_").lower()
+    )
+    filename_base = f"streets_{location_name}"
+
     if fmt == "geojson":
         return StreamingResponse(
             io.BytesIO(json.dumps(data).encode()),
             media_type="application/geo+json",
-            headers={"Content-Disposition": 'attachment; filename="streets.geojson"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
+            },
         )
     elif fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
@@ -1670,12 +1705,14 @@ async def export_streets(request: Request):
             with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
                 for f in os.listdir(tmp_dir):
                     with open(os.path.join(tmp_dir, f), "rb") as fh:
-                        zf.writestr(f"streets/{f}", fh.read())
+                        zf.writestr(f"{filename_base}/{f}", fh.read())
             buf.seek(0)
             return StreamingResponse(
                 buf,
                 media_type="application/zip",
-                headers={"Content-Disposition": 'attachment; filename="streets.zip"'},
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.zip"'
+                },
             )
     else:
         raise HTTPException(status_code=400, detail="Invalid export format")
@@ -1691,11 +1728,19 @@ async def export_boundary(request: Request):
     data, _ = await generate_geojson_osm(loc, streets_only=False)
     if not data:
         raise HTTPException(status_code=500, detail="No boundary data from Overpass")
+
+    location_name = (
+        loc.get("display_name", "").split(",")[0].strip().replace(" ", "_").lower()
+    )
+    filename_base = f"boundary_{location_name}"
+
     if fmt == "geojson":
         return StreamingResponse(
             io.BytesIO(json.dumps(data).encode()),
             media_type="application/geo+json",
-            headers={"Content-Disposition": 'attachment; filename="boundary.geojson"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
+            },
         )
     elif fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
@@ -1706,12 +1751,14 @@ async def export_boundary(request: Request):
             with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
                 for f in os.listdir(tmp_dir):
                     with open(os.path.join(tmp_dir, f), "rb") as fh:
-                        zf.writestr(f"boundary/{f}", fh.read())
+                        zf.writestr(f"{filename_base}/{f}", fh.read())
             buf.seek(0)
             return StreamingResponse(
                 buf,
                 media_type="application/zip",
-                headers={"Content-Disposition": 'attachment; filename="boundary.zip"'},
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.zip"'
+                },
             )
     else:
         raise HTTPException(status_code=400, detail="Invalid export format")

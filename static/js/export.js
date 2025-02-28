@@ -145,8 +145,7 @@
         url = `${config.endpoint}?format=${format}`;
       }
 
-      const filename = `${formType}.${elements[config.format].value}`;
-      await downloadFile(url, filename);
+      await downloadFile(url);
     } catch (error) {
       handleError(error, `exporting ${formType}`);
     }
@@ -237,9 +236,8 @@
   /**
    * Download a file from a URL
    * @param {string} url - URL to download from
-   * @param {string} filename - Filename for downloaded file
    */
-  async function downloadFile(url, filename) {
+  async function downloadFile(url) {
     try {
       const response = await fetch(url);
 
@@ -248,6 +246,11 @@
           `Server returned ${response.status}: ${response.statusText}`
         );
       }
+
+      // Get filename from Content-Disposition header
+      const contentDisposition = response.headers.get("Content-Disposition");
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch ? filenameMatch[1] : "export.file";
 
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
@@ -268,7 +271,7 @@
 
       showNotification(`Successfully exported ${filename}`, "success");
     } catch (error) {
-      handleError(error, `downloading ${filename}`);
+      handleError(error, "downloading file");
     }
   }
 
