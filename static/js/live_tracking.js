@@ -270,23 +270,139 @@ class LiveTripTracker {
   updateTripMetrics(trip) {
     if (!this.tripMetricsElem || !trip) return;
 
-    const startTime = trip.startTime
-      ? new Date(trip.startTime).toLocaleString()
-      : "N/A";
-    const duration = trip.duration || "N/A";
-    const distance = trip.distance
-      ? `${trip.distance.toFixed(2)} miles`
-      : "N/A";
-    const speed = trip.currentSpeed
-      ? `${trip.currentSpeed.toFixed(1)} mph`
-      : "N/A";
+    // Calculate duration
+    const startTime = trip.startTime ? new Date(trip.startTime) : null;
+    const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
+    const duration =
+      startTime && lastUpdate ? Math.floor((lastUpdate - startTime) / 1000) : 0;
+    const hours = Math.floor(duration / 3600);
+    const minutes = Math.floor((duration % 3600) / 60);
+    const seconds = duration % 60;
+    const durationStr = `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 
-    this.tripMetricsElem.innerHTML = `
-      <div>Start Time: ${startTime}</div>
-      <div>Duration: ${duration}</div>
-      <div>Distance: ${distance}</div>
-      <div>Current Speed: ${speed}</div>
-    `;
+    // Calculate distance and speeds
+    const coordinates = trip.coordinates || [];
+    const distance = this.calculateTripDistance(coordinates);
+    const currentSpeed = this.calculateCurrentSpeed(coordinates);
+    const avgSpeed = duration > 0 ? distance / (duration / 3600) : 0;
+    const maxSpeed = this.calculateMaxSpeed(coordinates);
+
+    // Format metrics for display
+    const metrics = {
+      "Start Time": startTime ? startTime.toLocaleString() : "N/A",
+      Duration: durationStr,
+      Distance: `${distance.toFixed(2)} miles`,
+      "Current Speed": `${currentSpeed.toFixed(1)} mph`,
+      "Average Speed": `${avgSpeed.toFixed(1)} mph`,
+      "Max Speed": `${maxSpeed.toFixed(1)} mph`,
+      "Points Recorded": coordinates.length,
+    };
+
+    // Update the UI
+    this.tripMetricsElem.innerHTML = Object.entries(metrics)
+      .map(
+        ([label, value]) => `<div class="metric-row">
+        <span class="metric-label">${label}:</span>
+        <span class="metric-value">${value}</span>
+      </div>`
+      )
+      .join("");
+  }
+
+  /**
+   * Calculate total trip distance from coordinates
+   * @param {Array} coordinates - Array of coordinate objects
+   * @returns {number} - Distance in miles
+   */
+  calculateTripDistance(coordinates) {
+    if (!coordinates || coordinates.length < 2) return 0;
+
+    let totalDistance = 0;
+    for (let i = 1; i < coordinates.length; i++) {
+      const prev = coordinates[i - 1];
+      const curr = coordinates[i];
+      totalDistance += this.calculateDistance(
+        prev.lat,
+        prev.lon,
+        curr.lat,
+        curr.lon
+      );
+    }
+    return totalDistance;
+  }
+
+  /**
+   * Calculate distance between two points using Haversine formula
+   * @param {number} lat1 - Latitude of point 1
+   * @param {number} lon1 - Longitude of point 1
+   * @param {number} lat2 - Latitude of point 2
+   * @param {number} lon2 - Longitude of point 2
+   * @returns {number} - Distance in miles
+   */
+  calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 3959; // Earth's radius in miles
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  /**
+   * Calculate current speed from recent coordinates
+   * @param {Array} coordinates - Array of coordinate objects
+   * @returns {number} - Speed in mph
+   */
+  calculateCurrentSpeed(coordinates) {
+    if (!coordinates || coordinates.length < 2) return 0;
+
+    // Use last two points to calculate current speed
+    const last = coordinates[coordinates.length - 1];
+    const prev = coordinates[coordinates.length - 2];
+
+    const distance = this.calculateDistance(
+      prev.lat,
+      prev.lon,
+      last.lat,
+      last.lon
+    );
+
+    const timeDiff =
+      (new Date(last.timestamp) - new Date(prev.timestamp)) / 1000 / 3600;
+    return timeDiff > 0 ? distance / timeDiff : 0;
+  }
+
+  /**
+   * Calculate maximum speed from coordinates
+   * @param {Array} coordinates - Array of coordinate objects
+   * @returns {number} - Speed in mph
+   */
+  calculateMaxSpeed(coordinates) {
+    if (!coordinates || coordinates.length < 2) return 0;
+
+    let maxSpeed = 0;
+    for (let i = 1; i < coordinates.length; i++) {
+      const prev = coordinates[i - 1];
+      const curr = coordinates[i];
+
+      const distance = this.calculateDistance(
+        prev.lat,
+        prev.lon,
+        curr.lat,
+        curr.lon
+      );
+
+      const timeDiff =
+        (new Date(curr.timestamp) - new Date(prev.timestamp)) / 1000 / 3600;
+      const speed = timeDiff > 0 ? distance / timeDiff : 0;
+      maxSpeed = Math.max(maxSpeed, speed);
+    }
+    return maxSpeed;
   }
 
   /**

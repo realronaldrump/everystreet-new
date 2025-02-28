@@ -401,6 +401,30 @@ body.light-mode .live-trip-metrics {
   color: var(--light-text-secondary);
 }
 
+.live-trip-metrics .metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.live-trip-metrics .metric-row:last-child {
+  border-bottom: none;
+}
+
+.live-trip-metrics .metric-label {
+  font-weight: 500;
+}
+
+.live-trip-metrics .metric-value {
+  font-family: var(--font-mono);
+}
+
+body.light-mode .live-trip-metrics .metric-row {
+  border-color: var(--light-border-color);
+}
+
 .connection-status {
   font-size: var(--font-size-sm);
   display: flex;
