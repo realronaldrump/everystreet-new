@@ -1,7 +1,6 @@
+"use strict";
 /* global L, Chart, $ */
 (() => {
-  "use strict";
-
   class VisitsManager {
     constructor() {
       this.map = null;

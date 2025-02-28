@@ -4,7 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const refreshStorageBtn = document.getElementById("refresh-storage");
   const optimizeAllBtn = document.getElementById("optimize-all");
   const repairIndexesBtn = document.getElementById("repair-indexes");
-  const confirmActionBtn = document.getElementById("confirmAction"); // No longer need to init modal here
   const progressBar = document.querySelector(".progress-bar");
   const storageText = document.querySelector(".storage-text");
 

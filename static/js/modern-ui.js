@@ -1,4 +1,5 @@
-/** global L, flatpickr, bootstrap */
+/* global L, flatpickr, notificationManager, bootstrap, $ */
+
 /**
  * Modern UI - Main UI controller for the application
  * Handles theme, navigation, notifications, and interactive components
@@ -1226,7 +1227,7 @@
       // Operations tracking system (compatibility with app.js)
       operations: new Map(),
 
-      startOperation: (operationName, totalSteps = 100) => {
+      startOperation: (operationName, _totalSteps = 100) => {
         showLoading(`Starting ${operationName}...`);
         return operationName;
       },
@@ -1234,8 +1235,8 @@
       addSubOperation: () => {},
 
       updateSubOperation: (
-        parentOperation,
-        subOperationName,
+        _parentOperation,
+        _subOperationName,
         progress,
         message
       ) => {

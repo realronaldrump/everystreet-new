@@ -216,7 +216,10 @@
 
       // Check if element already has flatpickr initialized by Modern UI
       if (startDateEl._flatpickr || endDateEl._flatpickr) {
-        console.log("Using existing flatpickr instances from Modern UI");
+        notificationManager.show(
+          "Using existing flatpickr instances from Modern UI",
+          "info"
+        );
         // Store references to the existing flatpickr instances
         datepickers.startDate = startDateEl._flatpickr;
         datepickers.endDate = endDateEl._flatpickr;
@@ -409,7 +412,10 @@
     // Listen for Modern UI filter changes
     document.addEventListener("filtersApplied", (event) => {
       if (event.detail && event.detail.startDate && event.detail.endDate) {
-        console.log("ModernUI filters applied, updating driving insights");
+        notificationManager.show(
+          "ModernUI filters applied, updating driving insights",
+          "info"
+        );
         fetchDrivingInsights();
       }
     });

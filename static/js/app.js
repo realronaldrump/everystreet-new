@@ -1,4 +1,5 @@
-/** global L, DateUtils, flatpickr */
+/* global L, flatpickr, notificationManager, bootstrap, $, DateUtils */
+
 /**
  * Main application module for Every Street mapping functionality
  */
@@ -164,7 +165,10 @@
     }
     // Removed console.log and replaced with notification manager
     if (window.notificationManager) {
-      window.notificationManager.show(`${type.toUpperCase()}: ${message}`, type);
+      window.notificationManager.show(
+        `${type.toUpperCase()}: ${message}`,
+        type
+      );
     }
     return false;
   }
@@ -2012,17 +2016,18 @@
           // Handle 404 with retries
           if (statusResponse.status === 404) {
             retryCount++;
-            if (retryCount > maxRetries) {
-              throw new Error("Task not found after multiple retries");
+            if (retryCount > CONFIG.REFRESH.maxRetries) {
+              pollAborted = true;
+              throw new Error("Task not found after maximum retries");
             }
-
-            AppState.polling.timers.coverageStatus = setTimeout(() => {
-              AppState.polling.active = true;
-            }, pollDelay);
-
-            AppState.polling.active = false;
-            pollDelay = Math.min(pollDelay * 2, maxPollDelay);
             continue;
+          }
+
+          const status = await statusResponse.json();
+
+          // Set pollAborted when task is complete or failed
+          if (status.state === "SUCCESS" || status.state === "FAILURE") {
+            pollAborted = true;
           }
 
           // Reset retry count if we got a response

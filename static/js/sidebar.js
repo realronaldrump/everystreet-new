@@ -18,8 +18,6 @@
   // Cache DOM elements once on initialization
   const elements = {};
 
-  let timeout = null;
-
   /**
    * Initialize the sidebar functionality
    */

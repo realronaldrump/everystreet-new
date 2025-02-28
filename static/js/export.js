@@ -1,12 +1,10 @@
 /**
  * Export functionality - Handles exporting data in various formats
  */
+"use strict";
 (() => {
-  "use strict";
-
   // Cache DOM elements and state
   const elements = {};
-  let locationValidations = {};
 
   // Configuration for export forms
   const EXPORT_CONFIG = {
@@ -281,9 +279,12 @@
    */
   function showNotification(message, type) {
     if (window.notificationManager) {
-      window.notificationManager.show(message, type);
+      window.notificationManager.show(
+        `${type.toUpperCase()}: ${message}`,
+        type
+      );
     } else {
-      console.log(`${type.toUpperCase()}: ${message}`);
+      alert(`${type.toUpperCase()}: ${message}`);
     }
   }
 

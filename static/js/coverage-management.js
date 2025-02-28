@@ -1,8 +1,7 @@
 /* global bootstrap, notificationManager, confirmationDialog */
+"use strict";
 
 (() => {
-  "use strict";
-
   class CoverageManager {
     constructor() {
       this.validatedLocation = null;

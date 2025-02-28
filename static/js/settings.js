@@ -1,8 +1,8 @@
 /* global showLoadingOverlay, hideLoadingOverlay, bootstrap, flatpickr, taskManager, settingsManager */
 
-(() => {
-  "use strict";
+"use strict";
 
+(() => {
   class TaskManager {
     constructor() {
       this.toastManager = new ToastManager();
@@ -669,7 +669,7 @@
           .then(() =>
             settingsManager.show("Success", "Global disable toggled", "success")
           )
-          .catch((err) =>
+          .catch(() =>
             settingsManager.show(
               "Error",
               "Failed to toggle global disable",

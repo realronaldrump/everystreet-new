@@ -359,7 +359,7 @@ class NotificationManager {
 
     // Trigger reflow for animation to work
     if (this.config.animations) {
-      notification.offsetHeight; // Force reflow
+      const _ = notification.offsetHeight; // Force reflow to apply animation classes
     }
 
     // Track notification
@@ -542,6 +542,8 @@ class ConfirmationDialog {
       }
 
       // Event handlers
+      let cleanup; // Declare cleanup here
+
       const handleConfirm = () => {
         cleanup();
         this.activeModal?.hide();
@@ -555,7 +557,8 @@ class ConfirmationDialog {
         resolve(false);
       };
 
-      const cleanup = () => {
+      cleanup = () => {
+        // Define cleanup here, before it's used
         confirmBtn?.removeEventListener("click", handleConfirm);
         modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
       };

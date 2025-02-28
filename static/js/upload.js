@@ -791,4 +791,4 @@ class UploadManager {
 }
 
 // Initialize the upload manager
-const uploadManager = new UploadManager();
+// const uploadManager = new UploadManager();

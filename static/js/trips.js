@@ -1,3 +1,5 @@
+"use strict";
+
 /* global L, flatpickr, notificationManager, bootstrap, EveryStreet, confirmationDialog, $ */
 
 /**
@@ -43,8 +45,6 @@ function createEditableCell(data, type, field, inputType = "text") {
 }
 
 (() => {
-  "use strict";
-
   /**
    * TripsManager - Manages trips data and UI interactions
    */
