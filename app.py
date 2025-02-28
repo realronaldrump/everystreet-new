@@ -1030,10 +1030,18 @@ async def get_metrics(request: Request):
 
 @app.post("/api/fetch_trips")
 async def api_fetch_trips():
-    start_date = datetime.now(timezone.utc) - timedelta(days=4 * 365)
+    # Find the most recent trip in the database
+    last_trip = await trips_collection.find_one(sort=[("endTime", -1)])
+    start_date = (
+        last_trip["endTime"]
+        if last_trip and last_trip.get("endTime")
+        else datetime.now(timezone.utc)
+        - timedelta(days=7)  # get last 7 days as backup if no recent trip
+    )
     end_date = datetime.now(timezone.utc)
+    logger.info("Fetching trips from %s to %s", start_date, end_date)
     await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=False)
-    return {"status": "success", "message": "Trips fetched & stored."}
+    return {"status": "success", "message": "New trips fetched & stored."}
 
 
 @app.post("/api/fetch_trips_range")

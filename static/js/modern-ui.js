@@ -957,7 +957,7 @@
     };
 
     try {
-      const response = await fetch("/api/trips/fetch", {
+      const response = await fetch("/api/fetch_trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestData),
