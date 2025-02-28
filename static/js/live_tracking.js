@@ -135,7 +135,7 @@ class LiveTripTracker {
 
       window.notificationManager.show(
         `WebSocket reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
-        "info"
+        "info",
       );
 
       this.reconnectTimeout = setTimeout(() => {
@@ -158,7 +158,7 @@ class LiveTripTracker {
       this.statusIndicator.classList.toggle("disconnected", !connected);
       this.statusIndicator.setAttribute(
         "aria-label",
-        connected ? "Connected" : "Disconnected"
+        connected ? "Connected" : "Disconnected",
       );
     }
 
@@ -215,7 +215,7 @@ class LiveTripTracker {
 
     // Sort coordinates by timestamp for proper path
     trip.coordinates.sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
     );
 
     // Update polyline path
@@ -258,7 +258,7 @@ class LiveTripTracker {
       this.activeTripsCountElem.textContent = count;
       this.activeTripsCountElem.setAttribute(
         "aria-label",
-        `${count} active trips`
+        `${count} active trips`,
       );
     }
   }
