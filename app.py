@@ -1508,7 +1508,7 @@ async def export_single_trip(trip_id: str, request: Request):
                 "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
             },
         )
-    elif fmt == "gpx":
+    if fmt == "gpx":
         gpx_obj = gpxpy.gpx.GPX()
         track = gpxpy.gpx.GPXTrack()
         gpx_obj.tracks.append(track)
@@ -1530,8 +1530,7 @@ async def export_single_trip(trip_id: str, request: Request):
                 "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
             },
         )
-    else:
-        raise HTTPException(status_code=400, detail="Unsupported format")
+    raise HTTPException(status_code=400, detail="Unsupported format")
 
 
 @app.delete("/api/matched_trips/{trip_id}")
@@ -1577,7 +1576,7 @@ async def export_all_trips(request: Request):
                 "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
             },
         )
-    elif fmt == "gpx":
+    if fmt == "gpx":
         gpx_data = await create_gpx(all_trips)
         return StreamingResponse(
             io.BytesIO(gpx_data.encode()),
@@ -1586,10 +1585,9 @@ async def export_all_trips(request: Request):
                 "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
             },
         )
-    elif fmt == "json":
+    if fmt == "json":
         return JSONResponse(content=all_trips)
-    else:
-        raise HTTPException(status_code=400, detail="Invalid export format")
+    raise HTTPException(status_code=400, detail="Invalid export format")
 
 
 @app.get("/api/export/trips")
@@ -1622,7 +1620,7 @@ async def export_trips_within_range(request: Request):
                 "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
             },
         )
-    elif fmt == "gpx":
+    if fmt == "gpx":
         gpx_data = await create_gpx(all_trips)
         return StreamingResponse(
             io.BytesIO(gpx_data.encode()),
@@ -1631,8 +1629,7 @@ async def export_trips_within_range(request: Request):
                 "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
             },
         )
-    else:
-        raise HTTPException(status_code=400, detail="Invalid export format")
+    raise HTTPException(status_code=400, detail="Invalid export format")
 
 
 @app.get("/api/export/matched_trips")
@@ -1659,7 +1656,7 @@ async def export_matched_trips_within_range(request: Request):
                 "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
             },
         )
-    elif fmt == "gpx":
+    if fmt == "gpx":
         gpx_data = await create_gpx(matched)
         return StreamingResponse(
             io.BytesIO(gpx_data.encode()),
@@ -1668,8 +1665,7 @@ async def export_matched_trips_within_range(request: Request):
                 "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
             },
         )
-    else:
-        raise HTTPException(status_code=400, detail="Invalid export format")
+    raise HTTPException(status_code=400, detail="Invalid export format")
 
 
 @app.get("/api/export/streets")
@@ -1696,7 +1692,7 @@ async def export_streets(request: Request):
                 "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
             },
         )
-    elif fmt == "shapefile":
+    if fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
         with tempfile.TemporaryDirectory() as tmp_dir:
             out_path = os.path.join(tmp_dir, "streets.shp")
@@ -1742,7 +1738,7 @@ async def export_boundary(request: Request):
                 "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
             },
         )
-    elif fmt == "shapefile":
+    if fmt == "shapefile":
         gdf = gpd.GeoDataFrame.from_features(data["features"])
         with tempfile.TemporaryDirectory() as tmp_dir:
             out_path = os.path.join(tmp_dir, "boundary.shp")
@@ -2389,11 +2385,10 @@ async def handle_places(request: Request):
         return [
             {"_id": str(p["_id"]), **CustomPlace.from_dict(p).to_dict()} for p in pls
         ]
-    else:
-        data = await request.json()
-        place = CustomPlace(data["name"], data["geometry"])
-        r = await places_collection.insert_one(place.to_dict())
-        return {"_id": str(r.inserted_id), **place.to_dict()}
+    data = await request.json()
+    place = CustomPlace(data["name"], data["geometry"])
+    r = await places_collection.insert_one(place.to_dict())
+    return {"_id": str(r.inserted_id), **place.to_dict()}
 
 
 @app.delete("/api/places/{place_id}")

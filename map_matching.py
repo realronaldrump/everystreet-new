@@ -135,9 +135,8 @@ async def map_match_coordinates(
                 data = await call_mapbox_api(chunk_coords)
                 if data.get("code") == "Ok" and data.get("matchings"):
                     return data["matchings"][0]["geometry"]["coordinates"]
-                else:
-                    msg = data.get("message", "Mapbox API error (code != Ok)")
-                    logger.warning("Mapbox chunk error: %s", msg)
+                msg = data.get("message", "Mapbox API error (code != Ok)")
+                logger.warning("Mapbox chunk error: %s", msg)
             except ClientResponseError as cre:
                 if cre.status == 429:
                     logger.error(
