@@ -81,7 +81,7 @@
     // Date preset buttons
     elements.datePresetButtons.forEach((btn) => {
       btn.addEventListener("click", (e) =>
-        handleDatePreset(e.currentTarget.dataset.range)
+        handleDatePreset(e.currentTarget.dataset.range),
       );
     });
 
@@ -207,7 +207,7 @@
     if (!isMobile) {
       setStorage(
         CONFIG.storageKeys.sidebarState,
-        elements.sidebar.classList.contains("collapsed")
+        elements.sidebar.classList.contains("collapsed"),
       );
     }
   }
@@ -347,7 +347,7 @@
           startDate: elements.startDateInput?.value,
           endDate: elements.endDateInput?.value,
         },
-      })
+      }),
     );
   }
 
@@ -409,7 +409,7 @@
     // Load saved theme
     const savedTheme = getStorage("theme");
     const prefersDarkScheme = window.matchMedia(
-      "(prefers-color-scheme: dark)"
+      "(prefers-color-scheme: dark)",
     ).matches;
     const useLight =
       savedTheme === "light" || (!savedTheme && !prefersDarkScheme);
@@ -433,7 +433,7 @@
       document.dispatchEvent(
         new CustomEvent("themeChanged", {
           detail: { theme: themeToggle.checked ? "light" : "dark" },
-        })
+        }),
       );
     });
   }
