@@ -227,14 +227,14 @@
           datepickers.startDate.config.onChange = function (
             selectedDates,
             dateStr,
-            instance
+            instance,
           ) {
             // Call original handler if it exists
             if (Array.isArray(originalOnChange)) {
               originalOnChange.forEach(
                 (fn) =>
                   typeof fn === "function" &&
-                  fn(selectedDates, dateStr, instance)
+                  fn(selectedDates, dateStr, instance),
               );
             } else if (typeof originalOnChange === "function") {
               originalOnChange(selectedDates, dateStr, instance);
@@ -250,14 +250,14 @@
           datepickers.endDate.config.onChange = function (
             selectedDates,
             dateStr,
-            instance
+            instance,
           ) {
             // Call original handler if it exists
             if (Array.isArray(originalOnChange)) {
               originalOnChange.forEach(
                 (fn) =>
                   typeof fn === "function" &&
-                  fn(selectedDates, dateStr, instance)
+                  fn(selectedDates, dateStr, instance),
               );
             } else if (typeof originalOnChange === "function") {
               originalOnChange(selectedDates, dateStr, instance);
@@ -452,7 +452,7 @@
           datepickers.startDate.setDate(startDateStr);
         } else {
           console.warn(
-            "startDate flatpickr instance doesn't have setDate method"
+            "startDate flatpickr instance doesn't have setDate method",
           );
         }
       }
@@ -466,7 +466,7 @@
           datepickers.endDate.setDate(endDateStr);
         } else {
           console.warn(
-            "endDate flatpickr instance doesn't have setDate method"
+            "endDate flatpickr instance doesn't have setDate method",
           );
         }
       }
@@ -505,7 +505,7 @@
         fetch(`/api/driving-insights?${params}`).then((res) => {
           if (!res.ok) {
             throw new Error(
-              `Failed to fetch insights: ${res.status} ${res.statusText}`
+              `Failed to fetch insights: ${res.status} ${res.statusText}`,
             );
           }
           return res.json();
@@ -513,7 +513,7 @@
         fetch(`/api/trip-analytics?${params}`).then((res) => {
           if (!res.ok) {
             throw new Error(
-              `Failed to fetch analytics: ${res.status} ${res.statusText}`
+              `Failed to fetch analytics: ${res.status} ${res.statusText}`,
             );
           }
           return res.json();
@@ -649,7 +649,7 @@
     document.getElementById("max-speed").textContent =
       `${data.max_speed || 0} mph`;
     document.getElementById("total-idle").textContent = formatIdleDuration(
-      data.total_idle_duration || 0
+      data.total_idle_duration || 0,
     );
     document.getElementById("longest-trip").textContent =
       `${(data.longest_trip_distance || 0).toFixed(2)} miles`;
