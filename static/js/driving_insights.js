@@ -36,7 +36,7 @@
     initializeDataTable();
     initializeCharts();
     initializeDatepickers();
-    
+
     // Auto-load insights on page load
     fetchDrivingInsights();
   });
@@ -198,82 +198,105 @@
   function initializeDatepickers() {
     const startDateEl = document.getElementById("start-date");
     const endDateEl = document.getElementById("end-date");
-    
+
     if (startDateEl && endDateEl) {
       // Set default dates if not in localStorage
       const today = new Date();
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(today.getDate() - 30);
-      
+
       // Get saved dates from localStorage or use defaults
-      const savedStartDate = localStorage.getItem("startDate") || formatDate(thirtyDaysAgo);
+      const savedStartDate =
+        localStorage.getItem("startDate") || formatDate(thirtyDaysAgo);
       const savedEndDate = localStorage.getItem("endDate") || formatDate(today);
-      
+
       // Set initial values
       startDateEl.value = savedStartDate;
       endDateEl.value = savedEndDate;
-      
+
       // Check if element already has flatpickr initialized by Modern UI
       if (startDateEl._flatpickr || endDateEl._flatpickr) {
         console.log("Using existing flatpickr instances from Modern UI");
         // Store references to the existing flatpickr instances
         datepickers.startDate = startDateEl._flatpickr;
         datepickers.endDate = endDateEl._flatpickr;
-        
+
         // Add custom onChange handlers to update our localStorage values
         if (datepickers.startDate) {
           const originalOnChange = datepickers.startDate.config.onChange;
-          datepickers.startDate.config.onChange = function(selectedDates, dateStr, instance) {
+          datepickers.startDate.config.onChange = function (
+            selectedDates,
+            dateStr,
+            instance
+          ) {
             // Call original handler if it exists
             if (Array.isArray(originalOnChange)) {
-              originalOnChange.forEach(fn => typeof fn === 'function' && fn(selectedDates, dateStr, instance));
-            } else if (typeof originalOnChange === 'function') {
+              originalOnChange.forEach(
+                (fn) =>
+                  typeof fn === "function" &&
+                  fn(selectedDates, dateStr, instance)
+              );
+            } else if (typeof originalOnChange === "function") {
               originalOnChange(selectedDates, dateStr, instance);
             }
-            
+
             // Add our own logic
             localStorage.setItem("startDate", dateStr);
           };
         }
-        
+
         if (datepickers.endDate) {
           const originalOnChange = datepickers.endDate.config.onChange;
-          datepickers.endDate.config.onChange = function(selectedDates, dateStr, instance) {
+          datepickers.endDate.config.onChange = function (
+            selectedDates,
+            dateStr,
+            instance
+          ) {
             // Call original handler if it exists
             if (Array.isArray(originalOnChange)) {
-              originalOnChange.forEach(fn => typeof fn === 'function' && fn(selectedDates, dateStr, instance));
-            } else if (typeof originalOnChange === 'function') {
+              originalOnChange.forEach(
+                (fn) =>
+                  typeof fn === "function" &&
+                  fn(selectedDates, dateStr, instance)
+              );
+            } else if (typeof originalOnChange === "function") {
               originalOnChange(selectedDates, dateStr, instance);
             }
-            
+
             // Add our own logic
             localStorage.setItem("endDate", dateStr);
           };
         }
-      } else if (typeof flatpickr === 'function') {
+      } else if (typeof flatpickr === "function") {
         try {
           // Initialize flatpickr for date inputs
           datepickers.startDate = flatpickr(startDateEl, {
             dateFormat: "Y-m-d",
             maxDate: endDateEl.value,
-            onChange: function(selectedDates, dateStr) {
+            onChange: function (selectedDates, dateStr) {
               localStorage.setItem("startDate", dateStr);
-              if (datepickers.endDate && typeof datepickers.endDate.set === 'function') {
+              if (
+                datepickers.endDate &&
+                typeof datepickers.endDate.set === "function"
+              ) {
                 datepickers.endDate.set("minDate", dateStr);
               }
-            }
+            },
           });
-          
+
           datepickers.endDate = flatpickr(endDateEl, {
             dateFormat: "Y-m-d",
             minDate: startDateEl.value,
             maxDate: "today",
-            onChange: function(selectedDates, dateStr) {
+            onChange: function (selectedDates, dateStr) {
               localStorage.setItem("endDate", dateStr);
-              if (datepickers.startDate && typeof datepickers.startDate.set === 'function') {
+              if (
+                datepickers.startDate &&
+                typeof datepickers.startDate.set === "function"
+              ) {
                 datepickers.startDate.set("maxDate", dateStr);
               }
-            }
+            },
           });
         } catch (error) {
           console.error("Error initializing flatpickr:", error);
@@ -283,11 +306,11 @@
       } else {
         console.warn("Flatpickr not available, using standard date inputs");
         // Handle onChange events manually for standard date inputs
-        startDateEl.addEventListener('change', function() {
+        startDateEl.addEventListener("change", function () {
           localStorage.setItem("startDate", this.value);
         });
-        
-        endDateEl.addEventListener('change', function() {
+
+        endDateEl.addEventListener("change", function () {
           localStorage.setItem("endDate", this.value);
         });
       }
@@ -298,7 +321,7 @@
     document
       .getElementById("apply-filters")
       ?.addEventListener("click", fetchDrivingInsights);
-      
+
     // Add quick filter buttons listeners with try/catch for error handling
     try {
       document.getElementById("filter-7days")?.addEventListener("click", () => {
@@ -310,75 +333,79 @@
           const endDate = new Date();
           const startDate = new Date();
           startDate.setDate(endDate.getDate() - 7);
-          
+
           const startDateEl = document.getElementById("start-date");
           const endDateEl = document.getElementById("end-date");
-          
+
           if (startDateEl && endDateEl) {
             startDateEl.value = formatDate(startDate);
             endDateEl.value = formatDate(endDate);
-            
+
             localStorage.setItem("startDate", startDateEl.value);
             localStorage.setItem("endDate", endDateEl.value);
-            
+
             fetchDrivingInsights();
           }
         }
       });
-      
-      document.getElementById("filter-30days")?.addEventListener("click", () => {
-        try {
-          setDateRange(30);
-        } catch (error) {
-          console.error("Error setting 30 day range:", error);
-          // Fallback method: update inputs manually and fetch
-          const endDate = new Date();
-          const startDate = new Date();
-          startDate.setDate(endDate.getDate() - 30);
-          
-          const startDateEl = document.getElementById("start-date");
-          const endDateEl = document.getElementById("end-date");
-          
-          if (startDateEl && endDateEl) {
-            startDateEl.value = formatDate(startDate);
-            endDateEl.value = formatDate(endDate);
-            
-            localStorage.setItem("startDate", startDateEl.value);
-            localStorage.setItem("endDate", endDateEl.value);
-            
-            fetchDrivingInsights();
+
+      document
+        .getElementById("filter-30days")
+        ?.addEventListener("click", () => {
+          try {
+            setDateRange(30);
+          } catch (error) {
+            console.error("Error setting 30 day range:", error);
+            // Fallback method: update inputs manually and fetch
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - 30);
+
+            const startDateEl = document.getElementById("start-date");
+            const endDateEl = document.getElementById("end-date");
+
+            if (startDateEl && endDateEl) {
+              startDateEl.value = formatDate(startDate);
+              endDateEl.value = formatDate(endDate);
+
+              localStorage.setItem("startDate", startDateEl.value);
+              localStorage.setItem("endDate", endDateEl.value);
+
+              fetchDrivingInsights();
+            }
           }
-        }
-      });
-      
-      document.getElementById("filter-90days")?.addEventListener("click", () => {
-        try {
-          setDateRange(90);
-        } catch (error) {
-          console.error("Error setting 90 day range:", error);
-          // Fallback method: update inputs manually and fetch
-          const endDate = new Date();
-          const startDate = new Date();
-          startDate.setDate(endDate.getDate() - 90);
-          
-          const startDateEl = document.getElementById("start-date");
-          const endDateEl = document.getElementById("end-date");
-          
-          if (startDateEl && endDateEl) {
-            startDateEl.value = formatDate(startDate);
-            endDateEl.value = formatDate(endDate);
-            
-            localStorage.setItem("startDate", startDateEl.value);
-            localStorage.setItem("endDate", endDateEl.value);
-            
-            fetchDrivingInsights();
+        });
+
+      document
+        .getElementById("filter-90days")
+        ?.addEventListener("click", () => {
+          try {
+            setDateRange(90);
+          } catch (error) {
+            console.error("Error setting 90 day range:", error);
+            // Fallback method: update inputs manually and fetch
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - 90);
+
+            const startDateEl = document.getElementById("start-date");
+            const endDateEl = document.getElementById("end-date");
+
+            if (startDateEl && endDateEl) {
+              startDateEl.value = formatDate(startDate);
+              endDateEl.value = formatDate(endDate);
+
+              localStorage.setItem("startDate", startDateEl.value);
+              localStorage.setItem("endDate", endDateEl.value);
+
+              fetchDrivingInsights();
+            }
           }
-        }
-      });
+        });
     } catch (error) {
       console.error("Error setting up quick filter buttons:", error);
     }
-    
+
     // Listen for Modern UI filter changes
     document.addEventListener("filtersApplied", (event) => {
       if (event.detail && event.detail.startDate && event.detail.endDate) {
@@ -392,55 +419,59 @@
   function formatDate(date) {
     return date.toISOString().split("T")[0];
   }
-  
+
   function setDateRange(days) {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - days);
-    
+
     // Update datepickers
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(endDate);
-    
+
     // Update localStorage
     localStorage.setItem("startDate", startDateStr);
     localStorage.setItem("endDate", endDateStr);
-    
+
     // Update datepicker inputs
     const startDateEl = document.getElementById("start-date");
     const endDateEl = document.getElementById("end-date");
-    
+
     if (startDateEl && endDateEl) {
       // Update the input values directly
       startDateEl.value = startDateStr;
       endDateEl.value = endDateStr;
-      
+
       // Try different approaches to update flatpickr
       if (startDateEl._flatpickr) {
         // Use the direct flatpickr instance on the element (Modern UI style)
         startDateEl._flatpickr.setDate(startDateStr);
       } else if (datepickers.startDate) {
-        if (typeof datepickers.startDate.setDate === 'function') {
+        if (typeof datepickers.startDate.setDate === "function") {
           // Our own flatpickr instance
           datepickers.startDate.setDate(startDateStr);
         } else {
-          console.warn("startDate flatpickr instance doesn't have setDate method");
+          console.warn(
+            "startDate flatpickr instance doesn't have setDate method"
+          );
         }
       }
-      
+
       if (endDateEl._flatpickr) {
         // Use the direct flatpickr instance on the element (Modern UI style)
         endDateEl._flatpickr.setDate(endDateStr);
       } else if (datepickers.endDate) {
-        if (typeof datepickers.endDate.setDate === 'function') {
+        if (typeof datepickers.endDate.setDate === "function") {
           // Our own flatpickr instance
           datepickers.endDate.setDate(endDateStr);
         } else {
-          console.warn("endDate flatpickr instance doesn't have setDate method");
+          console.warn(
+            "endDate flatpickr instance doesn't have setDate method"
+          );
         }
       }
     }
-    
+
     // Fetch new data
     fetchDrivingInsights();
   }
@@ -449,17 +480,16 @@
     const startDate =
       localStorage.getItem("startDate") ||
       formatDate(new Date(new Date().setDate(new Date().getDate() - 30)));
-    const endDate =
-      localStorage.getItem("endDate") || formatDate(new Date());
+    const endDate = localStorage.getItem("endDate") || formatDate(new Date());
     return new URLSearchParams({ start_date: startDate, end_date: endDate });
   }
 
   function formatIdleDuration(seconds) {
     if (!seconds) return "0m 0s";
-    
+
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
-    
+
     return `${minutes}m ${remainingSeconds}s`;
   }
 
@@ -472,20 +502,22 @@
       loadingManager.addSubOperation("analytics", 50);
 
       const [generalData, analyticsData] = await Promise.all([
-        fetch(`/api/driving-insights?${params}`)
-          .then(res => {
-            if (!res.ok) {
-              throw new Error(`Failed to fetch insights: ${res.status} ${res.statusText}`);
-            }
-            return res.json();
-          }),
-        fetch(`/api/trip-analytics?${params}`)
-          .then(res => {
-            if (!res.ok) {
-              throw new Error(`Failed to fetch analytics: ${res.status} ${res.statusText}`);
-            }
-            return res.json();
-          })
+        fetch(`/api/driving-insights?${params}`).then((res) => {
+          if (!res.ok) {
+            throw new Error(
+              `Failed to fetch insights: ${res.status} ${res.statusText}`
+            );
+          }
+          return res.json();
+        }),
+        fetch(`/api/trip-analytics?${params}`).then((res) => {
+          if (!res.ok) {
+            throw new Error(
+              `Failed to fetch analytics: ${res.status} ${res.statusText}`
+            );
+          }
+          return res.json();
+        }),
       ]);
 
       // Update the UI
@@ -498,44 +530,44 @@
       updateTimeDistributionChart(analyticsData.time_distribution);
       updateFuelChart(generalData);
       loadingManager.updateSubOperation("analytics", 100);
-      
+
       // Show success message
       notificationManager.show("Insights data loaded successfully", "success");
     } catch (error) {
       console.error("Error fetching driving insights:", error);
       showError(`Error loading driving insights: ${error.message}`);
-      
+
       // Reset charts to empty state
       resetCharts();
     } finally {
       loadingManager.finish();
     }
   }
-  
+
   function resetCharts() {
     if (tripCountsChart) {
       tripCountsChart.data.datasets = [];
       tripCountsChart.update();
     }
-    
+
     if (distanceChart) {
       distanceChart.data.datasets = [];
       distanceChart.update();
     }
-    
+
     if (timeDistributionChart) {
       timeDistributionChart.data.datasets[0].data = [0, 0, 0, 0, 0, 0];
       timeDistributionChart.update();
     }
-    
+
     if (fuelConsumptionChart) {
       fuelConsumptionChart.data.datasets[0].data = [0];
       fuelConsumptionChart.update();
     }
-    
+
     // Reset table
     insightsTable?.clear().draw();
-    
+
     // Reset summary metrics
     document.getElementById("total-trips").textContent = "0";
     document.getElementById("total-distance").textContent = "0 miles";
@@ -616,8 +648,9 @@
       `${(data.total_fuel_consumed || 0).toFixed(2)} gallons`;
     document.getElementById("max-speed").textContent =
       `${data.max_speed || 0} mph`;
-    document.getElementById("total-idle").textContent =
-      formatIdleDuration(data.total_idle_duration || 0);
+    document.getElementById("total-idle").textContent = formatIdleDuration(
+      data.total_idle_duration || 0
+    );
     document.getElementById("longest-trip").textContent =
       `${(data.longest_trip_distance || 0).toFixed(2)} miles`;
 
@@ -633,9 +666,9 @@
 
   function updateDataTable(data) {
     if (!insightsTable) return;
-    
+
     insightsTable.clear();
-    
+
     // Check if most_visited exists and add it to the table
     if (data.most_visited) {
       const visitedPlace = {
@@ -645,10 +678,10 @@
       };
       insightsTable.row.add(visitedPlace);
     }
-    
+
     // Add frequently visited places if available
     if (data.frequent_places && Array.isArray(data.frequent_places)) {
-      data.frequent_places.forEach(place => {
+      data.frequent_places.forEach((place) => {
         const placeData = {
           destination: place._id,
           count: place.count,
@@ -657,7 +690,7 @@
         insightsTable.row.add(placeData);
       });
     }
-    
+
     insightsTable.draw();
   }
 
