@@ -1,8 +1,5 @@
-{% extends "base.html" %}
-
-{% block title %}Every Street - Map{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Every Street - Map{% endblock %} {%
+block content %}
 <div class="d-flex flex-column h-100">
   <!-- Map Container -->
   <div id="map" class="flex-grow-1 position-relative">
@@ -103,36 +100,6 @@
                 <strong id="max-speed">0 mph</strong>
               </li>
             </ul>
-          </div>
-        </div>
-        <!-- Coverage Stats Section -->
-        <div class="col-12 col-md-4">
-          <div class="card bg-dark border-secondary">
-            <div class="card-header border-secondary">
-              <h3 class="h6 mb-0">Coverage Statistics</h3>
-            </div>
-            <div class="card-body">
-              <div id="coverage-stats" class="d-none">
-                <div class="progress mb-2">
-                  <div
-                    id="coverage-progress"
-                    class="progress-bar"
-                    role="progressbar"
-                  ></div>
-                </div>
-                <div class="small text-muted">
-                  Coverage: <span id="coverage-percentage"></span>%<br />
-                  Total Street Length:
-                  <span id="total-street-length"></span> miles<br />
-                  Miles Driven: <span id="miles-driven"></span>
-                </div>
-              </div>
-              <div class="text-center mt-3">
-                <a href="/coverage-management" class="btn btn-primary">
-                  <i class="fas fa-map-marked-alt"></i> Manage Coverage Areas
-                </a>
-              </div>
-            </div>
           </div>
         </div>
         <!-- Layer Controls Section -->
