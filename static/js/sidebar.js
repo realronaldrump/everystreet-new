@@ -1,9 +1,9 @@
+"use strict";
+
 /**
  * Sidebar Management - Handles sidebar UI component and related functionality
  */
 (() => {
-  "use strict";
-
   // Configuration constants
   const CONFIG = {
     mobileBreakpoint: 992,
@@ -17,6 +17,8 @@
 
   // Cache DOM elements once on initialization
   const elements = {};
+
+  let timeout = null;
 
   /**
    * Initialize the sidebar functionality
@@ -247,7 +249,7 @@
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     let startDate = new Date(today);
-    let endDate = new Date(today);
+    const endDate = new Date(today);
 
     // Handle different range presets
     switch (range) {

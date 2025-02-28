@@ -1,10 +1,10 @@
+/** global L, DateUtils, flatpickr */
 /**
  * Main application module for Every Street mapping functionality
- * Refactored for improved performance, maintainability, and error handling
  */
-(function () {
-  "use strict";
+"use strict";
 
+(function () {
   // ==============================
   // Configuration & Constants
   // ==============================
@@ -218,39 +218,6 @@
   }
 
   /**
-   * Removes a previously attached event listener
-   * @param {string|Element} element - Element or selector
-   * @param {string} eventType - Event type
-   * @param {Function} handler - Event handler
-   * @returns {boolean} - Whether listener was removed
-   */
-  function removeSingleEventListener(element, eventType, handler) {
-    const el = typeof element === "string" ? getElement(element) : element;
-    if (!el || !el._eventHandlers) return false;
-
-    // Find the handler by string comparison if direct reference isn't available
-    const handlerFunction = handler.toString();
-    const handlerKey = Object.keys(el._eventHandlers).find((key) => {
-      return (
-        key.startsWith(`${eventType}_`) &&
-        el._eventHandlers[key]
-          .toString()
-          .substring(0, 50)
-          .replace(/\s+/g, "") ===
-          handlerFunction.substring(0, 50).replace(/\s+/g, "")
-      );
-    });
-
-    if (handlerKey) {
-      el.removeEventListener(eventType, el._eventHandlers[handlerKey]);
-      delete el._eventHandlers[handlerKey];
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
    * Gets a value from localStorage with fallback
    * @param {string} key - Storage key
    * @param {*} [defaultValue=null] - Default value
@@ -303,52 +270,6 @@
   // ==============================
   // Date & Filter Functions
   // ==============================
-
-  /**
-   * Normalizes a date value to YYYY-MM-DD format
-   * @param {string|Date} dateValue - Input date value
-   * @returns {string} - Normalized date string
-   */
-  function normalizeDate(dateValue) {
-    if (!dateValue) return getCurrentDate();
-
-    try {
-      // Handle different date formats
-      let dateObj;
-      if (dateValue instanceof Date) {
-        dateObj = dateValue;
-      } else if (typeof dateValue === "string") {
-        // Check if it's already in YYYY-MM-DD format
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
-          return dateValue;
-        }
-
-        // Try to parse ISO date, UTC date, or other formats
-        dateObj = new Date(dateValue);
-
-        // Check if date is valid
-        if (isNaN(dateObj.getTime())) {
-          console.warn(
-            `Invalid date value: ${dateValue}`,
-            "Using current date instead"
-          );
-          return getCurrentDate();
-        }
-      } else {
-        console.warn(
-          `Unexpected date type: ${typeof dateValue}`,
-          "Using current date instead"
-        );
-        return getCurrentDate();
-      }
-
-      // Convert to YYYY-MM-DD format
-      return dateObj.toISOString().split("T")[0];
-    } catch (error) {
-      console.error("Error normalizing date:", error);
-      return getCurrentDate();
-    }
-  }
 
   /**
    * Gets the start date from input or localStorage

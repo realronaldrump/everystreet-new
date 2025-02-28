@@ -1,3 +1,5 @@
+/** global flatpickr, moment, $, Chart, $, bootstrap */
+
 /**
  * @file Application utilities for error handling, notifications, and UI components
  */
@@ -31,7 +33,7 @@ const DateUtils = {
       return new Date(dateValue); // Create a copy to avoid mutating the original
     }
 
-    let date;
+    let date = null;
     try {
       if (typeof dateValue === "string") {
         // Handle ISO format (YYYY-MM-DD)
@@ -673,7 +675,7 @@ const Utils = {
    * @returns {Function} Debounced function
    */
   debounce(func, wait = 300) {
-    let timeout;
+    let timeout = null;
     return function (...args) {
       clearTimeout(timeout);
       timeout = setTimeout(() => func.apply(this, args), wait);
@@ -687,7 +689,7 @@ const Utils = {
    * @returns {Function} Throttled function
    */
   throttle(func, limit = 300) {
-    let inThrottle;
+    let inThrottle = false;
     return function (...args) {
       if (!inThrottle) {
         func.apply(this, args);

@@ -1,10 +1,10 @@
+/** global L, flatpickr, bootstrap */
 /**
  * Modern UI - Main UI controller for the application
  * Handles theme, navigation, notifications, and interactive components
  */
+"use strict";
 (function () {
-  "use strict";
-
   // Configuration constants
   const CONFIG = {
     selectors: {
@@ -1081,7 +1081,6 @@
         throw new Error(errorData.message || "Failed to add place");
       }
 
-      const data = await response.json();
       hideLoading();
 
       showNotification({
@@ -1133,10 +1132,6 @@
       window.customPlaces.loadPlaces();
     } else if (window.map) {
       // If no refresh function exists but map does, add a marker
-      const marker = L.marker([placeData.latitude, placeData.longitude])
-        .addTo(window.map)
-        .bindPopup(`<strong>${placeData.name}</strong><br>New place added`)
-        .openPopup();
     }
   }
 
