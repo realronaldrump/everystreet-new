@@ -23,7 +23,7 @@ function createEditableCell(data, type, field, inputType = "text") {
     // Convert date to datetime-local format for input
     const datetime = value ? new Date(value) : new Date();
     const localDatetime = new Date(
-      datetime.getTime() - datetime.getTimezoneOffset() * 60000
+      datetime.getTime() - datetime.getTimezoneOffset() * 60000,
     )
       .toISOString()
       .slice(0, 16);
@@ -104,7 +104,7 @@ function createEditableCell(data, type, field, inputType = "text") {
       const applyFiltersButton = document.getElementById("apply-filters");
       if (applyFiltersButton) {
         applyFiltersButton.addEventListener("click", () =>
-          this.handleApplyFilters()
+          this.handleApplyFilters(),
         );
       }
 
@@ -190,11 +190,11 @@ function createEditableCell(data, type, field, inputType = "text") {
       }
 
       const refreshGeocodingBtn = document.getElementById(
-        "refresh-geocoding-btn"
+        "refresh-geocoding-btn",
       );
       if (refreshGeocodingBtn) {
         refreshGeocodingBtn.addEventListener("click", () =>
-          this.refreshGeocoding()
+          this.refreshGeocoding(),
         );
       }
     }
@@ -307,7 +307,7 @@ function createEditableCell(data, type, field, inputType = "text") {
         console.error("Error updating trip:", error);
         notificationManager.show(
           error.message || "Failed to update trip",
-          "danger"
+          "danger",
         );
       }
     }
@@ -444,7 +444,7 @@ function createEditableCell(data, type, field, inputType = "text") {
                 value,
                 type,
                 "totalIdleDuration",
-                "number"
+                "number",
               );
             },
           },
@@ -499,7 +499,7 @@ function createEditableCell(data, type, field, inputType = "text") {
           formatter.format(date),
           type,
           field,
-          "datetime-local"
+          "datetime-local",
         );
       }
       return data;
@@ -576,13 +576,13 @@ function createEditableCell(data, type, field, inputType = "text") {
           if (data.status === "success") {
             notificationManager.show(
               `Successfully deleted ${data.deleted_count} trip(s).`,
-              "success"
+              "success",
             );
             this.fetchTrips();
           } else {
             notificationManager.show(
               `Error deleting trip(s): ${data.message}`,
-              "danger"
+              "danger",
             );
             console.error("Error deleting trip(s):", data.message);
           }
@@ -591,7 +591,7 @@ function createEditableCell(data, type, field, inputType = "text") {
         console.error("Error deleting trips:", error);
         notificationManager.show(
           "Error deleting trip(s). Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -636,7 +636,7 @@ function createEditableCell(data, type, field, inputType = "text") {
           const data = await response.json();
           notificationManager.show(
             `Successfully refreshed geocoding for ${data.updated_count} trip(s).`,
-            "success"
+            "success",
           );
           this.fetchTrips();
         }
@@ -644,7 +644,7 @@ function createEditableCell(data, type, field, inputType = "text") {
         console.error("Error refreshing geocoding:", error);
         notificationManager.show(
           error.message || "Error refreshing geocoding. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -693,7 +693,7 @@ function createEditableCell(data, type, field, inputType = "text") {
         }
 
         const formattedTrips = data.features.map((trip) =>
-          this.formatTripData(trip)
+          this.formatTripData(trip),
         );
 
         // Update the DataTable
@@ -705,7 +705,7 @@ function createEditableCell(data, type, field, inputType = "text") {
         console.error("Error fetching trips:", error);
         notificationManager.show(
           "Error loading trips. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -765,7 +765,7 @@ function createEditableCell(data, type, field, inputType = "text") {
         console.error("Error deleting trip:", error);
         notificationManager.show(
           "Error deleting trip. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -800,7 +800,7 @@ function createEditableCell(data, type, field, inputType = "text") {
           console.error("Error exporting trip:", error);
           notificationManager.show(
             "Error exporting trip. Please try again.",
-            "danger"
+            "danger",
           );
         });
     }

@@ -75,7 +75,7 @@
 
     // Cache validate buttons
     elements.validateButtons = document.querySelectorAll(
-      ".validate-location-btn"
+      ".validate-location-btn",
     );
   }
 
@@ -201,7 +201,7 @@
 
       if (!response.ok) {
         throw new Error(
-          `Server returned ${response.status}: ${response.statusText}`
+          `Server returned ${response.status}: ${response.statusText}`,
         );
       }
 
@@ -212,7 +212,7 @@
         locationInput.setAttribute("data-location", JSON.stringify(data));
         locationInput.setAttribute(
           "data-display-name",
-          data.display_name || data.name || locationInput.value
+          data.display_name || data.name || locationInput.value,
         );
 
         // Enable submit button in parent form
@@ -226,7 +226,7 @@
       } else {
         showNotification(
           "Location not found. Please try a different search term",
-          "warning"
+          "warning",
         );
       }
     } catch (error) {
@@ -245,7 +245,7 @@
 
       if (!response.ok) {
         throw new Error(
-          `Server returned ${response.status}: ${response.statusText}`
+          `Server returned ${response.status}: ${response.statusText}`,
         );
       }
 
@@ -281,7 +281,7 @@
     if (window.notificationManager) {
       window.notificationManager.show(
         `${type.toUpperCase()}: ${message}`,
-        type
+        type,
       );
     } else {
       alert(`${type.toUpperCase()}: ${message}`);
