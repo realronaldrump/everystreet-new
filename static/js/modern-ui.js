@@ -5,7 +5,9 @@
  */
 "use strict";
 (function () {
-  // Configuration constants
+  // ==============================
+  // Configuration
+  // ==============================
   const CONFIG = {
     selectors: {
       themeToggle: "#theme-toggle-checkbox",
@@ -45,8 +47,15 @@
     mobileBreakpoint: 768,
   };
 
-  // DOM elements cache
+  // ==============================
+  // Application State
+  // ==============================
   const elements = {};
+  let timeout = null;
+
+  // ==============================
+  // Main Initialization
+  // ==============================
 
   /**
    * Initialize the UI system
@@ -66,7 +75,10 @@
       window.addEventListener("resize", debounce(handleResize, 250));
       handleResize();
 
-      console.log("Modern UI initialized");
+      // Removed console.log and replaced with notification manager
+      if (window.notificationManager) {
+        window.notificationManager.show("Modern UI initialized", "info");
+      }
     } catch (error) {
       console.error("Error initializing Modern UI:", error);
     }
@@ -110,6 +122,10 @@
       ".loading-overlay .loading-text"
     );
   }
+
+  // ==============================
+  // Theme Toggle Functionality
+  // ==============================
 
   /**
    * Initialize theme toggle functionality
@@ -195,6 +211,10 @@
     );
   }
 
+  // ==============================
+  // Mobile Drawer Functionality
+  // ==============================
+
   /**
    * Initialize mobile navigation drawer
    */
@@ -232,6 +252,10 @@
       }
     });
   }
+
+  // ==============================
+  // Filters Panel Functionality
+  // ==============================
 
   /**
    * Initialize filters panel
@@ -428,7 +452,7 @@
         startDate.setDate(startDate.getDate() - 30);
         break;
       case "all-time":
-        startDate.setFullYear(startDate.getFullYear() - 10); // Approximate "all time"
+        startDate.setFullYear(startDate.getFullYear() - 10);
         break;
       default:
         return;
@@ -533,6 +557,10 @@
       duration: 3000,
     });
   }
+
+  // ==============================
+  // Floating Action Button Functionality
+  // ==============================
 
   /**
    * Initialize floating action button
@@ -639,6 +667,10 @@
     scrollHandler();
   }
 
+  // ==============================
+  // Notification Management
+  // ==============================
+
   /**
    * Initialize notifications system
    */
@@ -717,7 +749,7 @@
         <i class="fas fa-${icon}"></i>
       </div>
       <div class="notification-content">
-        <div class="notification-title">${title}</div>
+        <div class="notification-title">${title || "Notification"}</div>
         <div class="notification-message">${message}</div>
       </div>
       <button type="button" class="notification-close">
@@ -758,9 +790,15 @@
 
     // Remove after animation completes
     setTimeout(() => {
-      notification.remove();
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
     }, 300);
   }
+
+  // ==============================
+  // Loading Overlay Functions
+  // ==============================
 
   /**
    * Show loading overlay
@@ -859,6 +897,10 @@
     }
   }
 
+  // ==============================
+  // Utility Functions
+  // ==============================
+
   /**
    * Handle window resize
    */
@@ -874,6 +916,23 @@
       }
     }
   }
+
+  /**
+   * Simple debounce function
+   * @param {Function} func - Function to debounce
+   * @param {number} wait - Wait time in ms
+   * @returns {Function} Debounced function
+   */
+  function debounce(func, wait) {
+    return function (...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
+
+  // ==============================
+  // Action Handlers
+  // ==============================
 
   /**
    * Handle fetch trips action
@@ -1130,27 +1189,15 @@
       typeof window.customPlaces.loadPlaces === "function"
     ) {
       window.customPlaces.loadPlaces();
-    } else if (window.map) {
-      // If no refresh function exists but map does, add a marker
     }
   }
 
-  /**
-   * Simple debounce function
-   * @param {Function} func - Function to debounce
-   * @param {number} wait - Wait time in ms
-   * @returns {Function} Debounced function
-   */
-  function debounce(func, wait) {
-    let timeout;
-    return function (...args) {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(this, args), wait);
-    };
-  }
+  // ==============================
+  // Legacy Code Bridge
+  // ==============================
 
   /**
-   * Setup bridge between Modern UI filters and legacy code
+   * Setup bridge between Modern UI and legacy code
    */
   function setupLegacyCodeBridge() {
     // Expose key methods to global scope for legacy code to call
@@ -1180,7 +1227,6 @@
       operations: new Map(),
 
       startOperation: (operationName, totalSteps = 100) => {
-        console.log(`Starting operation: ${operationName}`);
         showLoading(`Starting ${operationName}...`);
         return operationName;
       },

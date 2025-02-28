@@ -126,16 +126,16 @@
    * @returns {Element|null} - Found element or null
    */
   function getElement(selector, useCache = true, context = document) {
+    // Check cache first if requested
+    if (useCache && AppState.dom[selector]) {
+      return AppState.dom[selector];
+    }
+
     // Normalize selector to add # if it's an ID without one
     const normalizedSelector =
       selector.startsWith("#") || selector.includes(" ")
         ? selector
         : `#${selector}`;
-
-    // Try cache first
-    if (useCache && AppState.dom[selector]) {
-      return AppState.dom[selector];
-    }
 
     // Query the element
     const element = context.querySelector(normalizedSelector);
@@ -162,7 +162,10 @@
       window.notificationManager.show(message, type);
       return true;
     }
-    console.log(`${type.toUpperCase()}: ${message}`);
+    // Removed console.log and replaced with notification manager
+    if (window.notificationManager) {
+      window.notificationManager.show(`${type.toUpperCase()}: ${message}`, type);
+    }
     return false;
   }
 
@@ -203,10 +206,6 @@
 
     // Check if same handler already attached for this event type
     if (el._eventHandlers[handlerKey]) {
-      console.debug("Event listener already attached, skipping duplicate", {
-        element,
-        eventType,
-      });
       return false;
     }
 
@@ -253,7 +252,6 @@
    */
   function handleError(error, context) {
     console.error(`Error in ${context}:`, error);
-
     showNotification(`Error in ${context}: ${error.message}`, "danger");
 
     // Trigger custom event for error tracking
@@ -276,9 +274,10 @@
    * @returns {string} The start date in YYYY-MM-DD format
    */
   function getStartDate() {
-    // Check input element first
     const startDateInput =
-      AppState.dom.startDateInput || document.getElementById("start-date");
+      AppState.dom.startDateInput || getElement("start-date");
+
+    // Check input element first
     if (startDateInput?.value) {
       return DateUtils.formatDate(startDateInput.value);
     }
@@ -298,9 +297,9 @@
    * @returns {string} The end date in YYYY-MM-DD format
    */
   function getEndDate() {
+    const endDateInput = AppState.dom.endDateInput || getElement("end-date");
+
     // Check input element first
-    const endDateInput =
-      AppState.dom.endDateInput || document.getElementById("end-date");
     if (endDateInput?.value) {
       return DateUtils.formatDate(endDateInput.value);
     }
@@ -312,14 +311,6 @@
     }
 
     // Fallback to current date
-    return DateUtils.getCurrentDate();
-  }
-
-  /**
-   * Get current date in YYYY-MM-DD format
-   * @returns {string} The current date
-   */
-  function getCurrentDate() {
     return DateUtils.getCurrentDate();
   }
 
@@ -566,7 +557,6 @@
         document.dispatchEvent(new CustomEvent("mapInitialized"));
       }
     } catch (error) {
-      console.error("Error initializing map:", error);
       handleError(error, "Map Initialization");
     }
   }
@@ -1716,9 +1706,12 @@
       return;
     }
 
-    if (window.loadingManager) {
-      window.loadingManager.startOperation("MapMatching", 100);
-    }
+    const loadingManager = window.loadingManager || {
+      startOperation: () => {},
+      finish: () => {},
+    };
+
+    loadingManager.startOperation("MapMatching", 100);
 
     // Create tasks array
     const tasks = [
@@ -1773,9 +1766,7 @@
     } catch (err) {
       handleError(err, "Map Matching");
     } finally {
-      if (window.loadingManager) {
-        window.loadingManager.finish("MapMatching");
-      }
+      loadingManager.finish("MapMatching");
     }
   }
 
@@ -2099,16 +2090,14 @@
 
           // Update progress
           const progress = statusData.progress || 0;
-          requestAnimationFrame(() => {
-            if (progressBar) {
-              progressBar.style.width = `${progress}%`;
-              progressBar.setAttribute("aria-valuenow", progress);
-            }
-            if (progressText) {
-              progressText.textContent =
-                statusData.message || `Progress: ${progress}%`;
-            }
-          });
+          if (progressBar) {
+            progressBar.style.width = `${progress}%`;
+            progressBar.setAttribute("aria-valuenow", progress);
+          }
+          if (progressText) {
+            progressText.textContent =
+              statusData.message || `Progress: ${progress}%`;
+          }
 
           // Dispatch event for coverage calculation progress
           document.dispatchEvent(
@@ -2344,9 +2333,12 @@
 
     // Special case for all-time
     if (range === "all-time") {
-      if (window.loadingManager) {
-        window.loadingManager.startOperation("AllTimeDatePreset", 100);
-      }
+      const loadingManager = window.loadingManager || {
+        startOperation: () => {},
+        finish: () => {},
+      };
+
+      loadingManager.startOperation("AllTimeDatePreset", 100);
 
       try {
         const response = await fetch("/api/first_trip_date");
@@ -2373,9 +2365,7 @@
           "danger"
         );
       } finally {
-        if (window.loadingManager) {
-          window.loadingManager.finish("AllTimeDatePreset");
-        }
+        loadingManager.finish("AllTimeDatePreset");
       }
       return;
     }
@@ -2584,7 +2574,7 @@
    * Sets default dates in localStorage if not present
    */
   function setInitialDates() {
-    const today = getCurrentDate();
+    const today = DateUtils.getCurrentDate();
 
     if (!getStorageItem(CONFIG.STORAGE_KEYS.startDate)) {
       setStorageItem(CONFIG.STORAGE_KEYS.startDate, today);
@@ -2599,11 +2589,14 @@
    * Initializes date picker inputs
    */
   function initializeDatePickers() {
-    AppState.dom.startDateInput = getElement("start-date");
-    AppState.dom.endDateInput = getElement("end-date");
-
     // Skip if flatpickr is not available
     if (typeof flatpickr !== "function") return;
+
+    // Ensure DOM elements are cached
+    AppState.dom.startDateInput =
+      AppState.dom.startDateInput || getElement("start-date");
+    AppState.dom.endDateInput =
+      AppState.dom.endDateInput || getElement("end-date");
 
     // Get stored dates or use current date
     const storedStartDate =
@@ -2622,7 +2615,6 @@
       maxDate: tomorrow,
       enableTime: false,
       static: false,
-      defaultDate: null, // Will be set below for each specific picker
       appendTo: document.body,
       theme: document.body.classList.contains("light-mode") ? "light" : "dark",
       position: "auto",
@@ -2644,7 +2636,7 @@
       },
     };
 
-    // Initialize flatpickr on both inputs if they exist
+    // Initialize flatpickr on both inputs if they exist and aren't already initialized
     if (
       AppState.dom.startDateInput &&
       !AppState.dom.startDateInput._flatpickr
@@ -2673,7 +2665,6 @@
       initializeMap().then(() => {
         if (!AppState.map || !AppState.layerGroup) {
           console.error("Failed to initialize map components");
-
           showNotification(CONFIG.ERROR_MESSAGES.mapInitFailed, "danger");
           return;
         }
