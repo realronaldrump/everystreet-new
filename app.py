@@ -2810,6 +2810,9 @@ async def bouncie_webhook(request: Request):
                         "startTime": now,
                         "coordinates": [],
                         "lastUpdate": now,
+                        "distance": 0,
+                        "currentSpeed": 0,
+                        "maxSpeed": 0,
                     }
                 )
                 trip_doc = await live_trips_collection.find_one(
@@ -2819,6 +2822,49 @@ async def bouncie_webhook(request: Request):
                 new_coords = sort_and_filter_trip_coordinates(data["data"])
                 all_coords = trip_doc.get("coordinates", []) + new_coords
                 all_coords.sort(key=lambda c: c["timestamp"])
+
+                # Calculate current speed and distance
+                current_speed = 0
+                if len(all_coords) >= 2:
+                    last_point = all_coords[-1]
+                    prev_point = all_coords[-2]
+
+                    # Calculate distance between last two points
+                    distance = haversine(
+                        prev_point["lon"],
+                        prev_point["lat"],
+                        last_point["lon"],
+                        last_point["lat"],
+                    )
+
+                    # Calculate time difference in hours
+                    time_diff = (
+                        dateutil_parser.isoparse(last_point["timestamp"])
+                        - dateutil_parser.isoparse(prev_point["timestamp"])
+                    ).total_seconds() / 3600
+
+                    if time_diff > 0:
+                        current_speed = distance / time_diff
+
+                # Calculate total distance
+                total_distance = trip_doc.get("distance", 0)
+                if len(new_coords) >= 2:
+                    for i in range(1, len(new_coords)):
+                        prev = new_coords[i - 1]
+                        curr = new_coords[i]
+                        total_distance += haversine(
+                            prev["lon"], prev["lat"], curr["lon"], curr["lat"]
+                        )
+
+                # Update max speed if needed
+                max_speed = max(trip_doc.get("maxSpeed", 0), current_speed)
+
+                # Calculate duration
+                duration = (
+                    dateutil_parser.isoparse(all_coords[-1]["timestamp"])
+                    - dateutil_parser.isoparse(trip_doc["startTime"])
+                ).total_seconds()
+
                 await live_trips_collection.update_one(
                     {"_id": trip_doc["_id"]},
                     {
@@ -2829,9 +2875,33 @@ async def bouncie_webhook(request: Request):
                                 if all_coords
                                 else trip_doc["startTime"]
                             ),
+                            "distance": total_distance,
+                            "currentSpeed": current_speed,
+                            "maxSpeed": max_speed,
+                            "duration": duration,
                         }
                     },
                 )
+
+                # Update the active trip for broadcasting
+                active_trip = await live_trips_collection.find_one({"status": "active"})
+                if active_trip:
+                    for key in ("startTime", "lastUpdate", "endTime"):
+                        if key in active_trip and isinstance(
+                            active_trip[key], datetime
+                        ):
+                            active_trip[key] = active_trip[key].isoformat()
+                    if "_id" in active_trip:
+                        active_trip["_id"] = str(active_trip["_id"])
+                    if "coordinates" in active_trip:
+                        for coord in active_trip["coordinates"]:
+                            ts = coord.get("timestamp")
+                            if isinstance(ts, datetime):
+                                coord["timestamp"] = ts.isoformat()
+                    message = {"type": "trip_update", "data": active_trip}
+                else:
+                    message = {"type": "heartbeat"}
+                await manager.broadcast(json.dumps(message))
         elif event_type == "tripEnd":
             start_time, end_time = get_trip_timestamps(data)
             trip = await live_trips_collection.find_one(
@@ -2872,13 +2942,31 @@ async def get_active_trip():
     try:
         active_trip = await live_trips_collection.find_one({"status": "active"})
         if active_trip:
+            # Convert datetime objects to ISO format strings
             for key in ("startTime", "lastUpdate", "endTime"):
                 if key in active_trip and isinstance(active_trip[key], datetime):
                     active_trip[key] = active_trip[key].isoformat()
+
+            # Ensure all required fields are present
+            active_trip.setdefault("distance", 0)
+            active_trip.setdefault("currentSpeed", 0)
+            active_trip.setdefault("maxSpeed", 0)
+            active_trip.setdefault("duration", 0)
+
+            # Convert ObjectId to string
             active_trip["_id"] = str(active_trip["_id"])
+
+            # Convert timestamps in coordinates
+            if "coordinates" in active_trip:
+                for coord in active_trip["coordinates"]:
+                    ts = coord.get("timestamp")
+                    if isinstance(ts, datetime):
+                        coord["timestamp"] = ts.isoformat()
+
             return active_trip
         raise HTTPException(status_code=404, detail="No active trip")
     except Exception as e:
+        logger.exception("Error in get_active_trip")
         raise HTTPException(status_code=500, detail=str(e))
 
 
