@@ -4,9 +4,9 @@ from typing import Optional, Any, Dict
 from datetime import timezone
 
 from dateutil import parser
-from shapely.geometry import shape, Point
+from shapely.geometry import Point
 from db import places_collection
-from utils import reverse_geocode_nominatim, get_session
+from utils import reverse_geocode_nominatim
 
 logger = logging.getLogger(__name__)
 

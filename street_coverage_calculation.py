@@ -157,8 +157,9 @@ class CoverageCalculator:
             await asyncio.sleep(0)
         return box(*bounds) if bounds else box(0, 0, 0, 0)
 
+    @staticmethod
     def _process_boundary_chunk(
-        self, streets: List[Dict[str, Any]]
+        streets: List[Dict[str, Any]],
     ) -> Optional[Tuple[float, float, float, float]]:
         bounds: Optional[List[float]] = None
         for street in streets:

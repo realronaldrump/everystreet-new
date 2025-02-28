@@ -1,4 +1,4 @@
-/** global flatpickr, moment, $, Chart, $, bootstrap */
+/** global bootsrap, flatpickr, moment, $, Chart, $ */
 
 /**
  * @file Application utilities for error handling, notifications, and UI components
