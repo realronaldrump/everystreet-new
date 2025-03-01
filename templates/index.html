@@ -30,7 +30,7 @@ block content %}
         </div>
       </div>
     </div>
-    
+
     <!-- Live Coverage Status Panel -->
     <div
       class="live-coverage-status card bg-dark border-secondary position-absolute top-0 start-0 m-3"
@@ -46,7 +46,9 @@ block content %}
       </div>
       <div class="card-body">
         <div class="mb-3">
-          <label for="coverage-area-select" class="form-label">Coverage Area:</label>
+          <label for="coverage-area-select" class="form-label"
+            >Coverage Area:</label
+          >
           <select id="coverage-area-select" class="form-select form-select-sm">
             <option value="" disabled selected>Loading areas...</option>
           </select>
@@ -189,23 +191,23 @@ block content %}
   .map-container {
     height: 500px;
   }
-  
+
   /* Coverage status panel styles */
   .live-coverage-status {
     width: 350px;
   }
-  
+
   .coverage-percent {
     font-size: 1.1rem;
   }
-  
+
   /* Covered streets styling */
   .covered-street {
-    stroke: #00FF00;
+    stroke: #00ff00;
     stroke-width: 3;
     stroke-opacity: 0.8;
   }
-  
+
   .uncovered-street {
     stroke: #555555;
     stroke-width: 2;

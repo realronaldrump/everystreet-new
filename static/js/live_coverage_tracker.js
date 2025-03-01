@@ -58,7 +58,7 @@ class LiveCoverageTracker {
       // Set up event listeners
       if (this.coverageToggleBtn) {
         this.coverageToggleBtn.addEventListener("click", () =>
-          this.toggleCoverage()
+          this.toggleCoverage(),
         );
       }
 
@@ -73,7 +73,7 @@ class LiveCoverageTracker {
     } catch (error) {
       window.notificationManager.show(
         "Error initializing live coverage tracker: " + error.message,
-        "danger"
+        "danger",
       );
     }
   }
@@ -104,7 +104,7 @@ class LiveCoverageTracker {
 
           // Add a message and link to coverage management
           const statusCard = document.querySelector(
-            ".live-coverage-status .card-body"
+            ".live-coverage-status .card-body",
           );
           if (statusCard) {
             const messageDiv = document.createElement("div");
@@ -135,7 +135,7 @@ class LiveCoverageTracker {
 
           // Remove any existing message
           const existingMessage = document.querySelector(
-            ".live-coverage-status .alert"
+            ".live-coverage-status .alert",
           );
           if (existingMessage) {
             existingMessage.remove();
@@ -148,7 +148,7 @@ class LiveCoverageTracker {
     } catch (error) {
       window.notificationManager.show(
         "Error fetching coverage areas: " + error.message,
-        "warning"
+        "warning",
       );
 
       // Create empty select if it doesn't exist
@@ -164,7 +164,7 @@ class LiveCoverageTracker {
   createAreaSelectUI() {
     // Find the coverage status card
     const statusCard = document.querySelector(
-      ".live-coverage-status .card-body"
+      ".live-coverage-status .card-body",
     );
     if (!statusCard) return;
 
@@ -238,7 +238,7 @@ class LiveCoverageTracker {
       if (!this.areaSelectElem || !this.areaSelectElem.value) {
         window.notificationManager.show(
           "Please select a coverage area first.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -253,7 +253,7 @@ class LiveCoverageTracker {
       } catch (e) {
         // If parsing fails, try to find the location in availableAreas
         const area = this.availableAreas.find(
-          (a) => a.location.display_name === this.areaSelectElem.value
+          (a) => a.location.display_name === this.areaSelectElem.value,
         );
         if (area) {
           location = area.location;
@@ -265,7 +265,7 @@ class LiveCoverageTracker {
       if (!location) {
         window.notificationManager.show(
           "Could not determine selected location. Please try again.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -300,7 +300,7 @@ class LiveCoverageTracker {
 
         window.notificationManager.show(
           `Live coverage tracking enabled for ${location.display_name}`,
-          "success"
+          "success",
         );
 
         // Add streets layer to map
@@ -315,7 +315,7 @@ class LiveCoverageTracker {
           // Streets are being processed, set up a retry mechanism
           window.notificationManager.show(
             "Streets are being processed. Will automatically retry in 5 seconds...",
-            "info"
+            "info",
           );
 
           if (this.coverageToggleBtn) {
@@ -330,7 +330,7 @@ class LiveCoverageTracker {
             }
             window.notificationManager.show(
               "Please try enabling coverage again in a few moments.",
-              "info"
+              "info",
             );
           }, 5000);
         } else {
@@ -345,7 +345,7 @@ class LiveCoverageTracker {
     } catch (error) {
       window.notificationManager.show(
         "Error activating coverage tracking: " + error.message,
-        "danger"
+        "danger",
       );
 
       // Reset UI
@@ -416,7 +416,7 @@ class LiveCoverageTracker {
     try {
       window.notificationManager.show(
         "Loading streets for coverage tracking...",
-        "info"
+        "info",
       );
 
       const response = await fetch("/api/streets_for_coverage", {
@@ -477,7 +477,7 @@ class LiveCoverageTracker {
       try {
         const encodedName = encodeURIComponent(location.display_name);
         const statusResponse = await fetch(
-          `/api/coverage_status/${encodedName}`
+          `/api/coverage_status/${encodedName}`,
         );
         if (statusResponse.ok) {
           const statusData = await statusResponse.json();
@@ -486,7 +486,7 @@ class LiveCoverageTracker {
             this.updateCoverageStats(
               statusData.driven_length || 0,
               this.totalLength,
-              statusData.coverage_percentage || 0
+              statusData.coverage_percentage || 0,
             );
           } else {
             // No existing coverage, start at 0
@@ -503,7 +503,7 @@ class LiveCoverageTracker {
 
       window.notificationManager.show(
         `Loaded ${this.totalSegments} street segments for coverage tracking`,
-        "success"
+        "success",
       );
     } catch (error) {
       // If it's the "Streets are being processed" error, propagate it
@@ -513,7 +513,7 @@ class LiveCoverageTracker {
 
       window.notificationManager.show(
         "Error loading streets: " + error.message,
-        "danger"
+        "danger",
       );
       this.deactivate();
     }
@@ -545,7 +545,7 @@ class LiveCoverageTracker {
           JSON.stringify({
             type: "subscribe",
             location: this.currentLocation,
-          })
+          }),
         );
       }
     });
@@ -580,7 +580,7 @@ class LiveCoverageTracker {
 
       window.notificationManager.show(
         `Coverage WebSocket reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
-        "info"
+        "info",
       );
 
       this.reconnectTimeout = setTimeout(() => {
@@ -589,7 +589,7 @@ class LiveCoverageTracker {
     } else {
       window.notificationManager.show(
         "Maximum WebSocket reconnect attempts reached. Coverage updates paused.",
-        "warning"
+        "warning",
       );
     }
   }
@@ -616,7 +616,7 @@ class LiveCoverageTracker {
           this.updateCoverageStats(
             message.data.covered_length || 0,
             message.data.total_length || this.totalLength,
-            message.data.coverage_percentage || 0
+            message.data.coverage_percentage || 0,
           );
         }
         break;
@@ -624,14 +624,14 @@ class LiveCoverageTracker {
       case "info":
         window.notificationManager.show(
           message.message || "Info from server",
-          "info"
+          "info",
         );
         break;
 
       case "error":
         window.notificationManager.show(
           "Coverage error: " + message.message,
-          "danger"
+          "danger",
         );
         break;
 
@@ -659,7 +659,7 @@ class LiveCoverageTracker {
           type: "process_coordinates",
           coordinates: formattedCoords,
           location: this.currentLocation,
-        })
+        }),
       );
     }
   }
@@ -717,12 +717,12 @@ class LiveCoverageTracker {
         if (newlyCovered.length > 0 && !isInitialLoad) {
           window.notificationManager.show(
             `Covered ${newlyCovered.length} new street segments!`,
-            "success"
+            "success",
           );
         } else if (isInitialLoad && newlyCovered.length > 0) {
           window.notificationManager.show(
             `Loaded ${newlyCovered.length} previously covered street segments`,
-            "info"
+            "info",
           );
         }
       }
@@ -766,7 +766,7 @@ class LiveCoverageTracker {
           coveredSegments: this.coveredSegments.size,
           totalSegments: this.totalSegments,
         },
-      })
+      }),
     );
   }
 
@@ -778,7 +778,7 @@ class LiveCoverageTracker {
 
     if (this.coverageToggleBtn) {
       this.coverageToggleBtn.removeEventListener("click", () =>
-        this.toggleCoverage()
+        this.toggleCoverage(),
       );
     }
 
