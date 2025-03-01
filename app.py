@@ -22,7 +22,15 @@ import bson
 from dateutil import parser as dateutil_parser
 from dotenv import load_dotenv
 from shapely.geometry import LineString, Polygon, shape
-from fastapi import FastAPI, Request, WebSocket, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import (
+    FastAPI,
+    Request,
+    WebSocket,
+    HTTPException,
+    UploadFile,
+    File,
+    BackgroundTasks,
+)
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -3091,7 +3099,7 @@ async def get_coverage_areas():
                 "coverage_percentage": area.get("coverage_percentage", 0),
                 "last_updated": area.get("last_updated"),
                 "status": area.get("status", "completed"),
-                "location": area.get("location", {})
+                "location": area.get("location", {}),
             }
             result.append(area_data)
         return result
@@ -3255,86 +3263,95 @@ async def get_coverage_data(location_id: str):
     try:
         # Convert string ID to ObjectId
         location_oid = ObjectId(location_id)
-        
+
         # Get coverage metadata
         metadata = await coverage_metadata_collection.find_one({"_id": location_oid})
         if not metadata:
             raise HTTPException(status_code=404, detail="Location not found")
-        
+
         # Get recent trip data for this location
         now = datetime.now(timezone.utc)
         week_ago = now - timedelta(days=7)
         month_ago = now - timedelta(days=30)
-        
+
         # Get coverage history to calculate progress
-        history = await progress_collection.find(
-            {"location_id": location_oid}
-        ).sort("timestamp", -1).to_list(length=100)
-        
+        history = (
+            await progress_collection.find({"location_id": location_oid})
+            .sort("timestamp", -1)
+            .to_list(length=100)
+        )
+
         # Calculate progress over last week and month
         last_week_progress = 0
         last_month_progress = 0
         new_streets_count = 0
         last_trip_date = None
         recent_daily_average = 0
-        
+
         if history:
             # Get the most recent entry
             latest = history[0]
-            
+
             # Find entry from a week ago
             week_ago_entry = next(
-                (h for h in history if h["timestamp"] < week_ago), 
-                None
+                (h for h in history if h["timestamp"] < week_ago), None
             )
-            
+
             # Find entry from a month ago
             month_ago_entry = next(
-                (h for h in history if h["timestamp"] < month_ago), 
-                None
+                (h for h in history if h["timestamp"] < month_ago), None
             )
-            
+
             if week_ago_entry:
                 last_week_progress = round(
-                    latest["coverage_percentage"] - week_ago_entry["coverage_percentage"], 
-                    1
+                    latest["coverage_percentage"]
+                    - week_ago_entry["coverage_percentage"],
+                    1,
                 )
-            
+
             if month_ago_entry:
                 last_month_progress = round(
-                    latest["coverage_percentage"] - month_ago_entry["coverage_percentage"], 
-                    1
+                    latest["coverage_percentage"]
+                    - month_ago_entry["coverage_percentage"],
+                    1,
                 )
-            
+
             # Calculate recent daily average (miles per day)
             if len(history) > 1:
-                recent_entries = history[:min(30, len(history))]
+                recent_entries = history[: min(30, len(history))]
                 if len(recent_entries) >= 2:
                     oldest_recent = recent_entries[-1]
                     newest_recent = recent_entries[0]
-                    days_diff = (newest_recent["timestamp"] - oldest_recent["timestamp"]).days
+                    days_diff = (
+                        newest_recent["timestamp"] - oldest_recent["timestamp"]
+                    ).days
                     if days_diff > 0:
-                        miles_diff = (newest_recent["driven_length"] - oldest_recent["driven_length"]) / 1609.34
+                        miles_diff = (
+                            newest_recent["driven_length"]
+                            - oldest_recent["driven_length"]
+                        ) / 1609.34
                         recent_daily_average = miles_diff / days_diff
-            
+
             # Get last trip date
-            trips = await trips_collection.find(
-                {"location_id": location_oid}
-            ).sort("startTime", -1).limit(1).to_list(length=1)
-            
+            trips = (
+                await trips_collection.find({"location_id": location_oid})
+                .sort("startTime", -1)
+                .limit(1)
+                .to_list(length=1)
+            )
+
             if trips:
                 last_trip_date = trips[0]["startTime"].strftime("%Y-%m-%d")
-                
+
             # Count new streets in the last week
-            new_streets = await streets_collection.count_documents({
-                "location_id": location_oid,
-                "last_driven": {"$gte": week_ago}
-            })
+            new_streets = await streets_collection.count_documents(
+                {"location_id": location_oid, "last_driven": {"$gte": week_ago}}
+            )
             new_streets_count = new_streets
-        
+
         # Prepare response
         display_name = metadata.get("location", {}).get("display_name", "Unknown")
-        
+
         response = {
             "id": str(metadata["_id"]),
             "display_name": display_name,
@@ -3346,9 +3363,9 @@ async def get_coverage_data(location_id: str):
             "last_month_progress": last_month_progress,
             "new_streets_count": new_streets_count,
             "last_trip_date": last_trip_date,
-            "recent_daily_average": recent_daily_average
+            "recent_daily_average": recent_daily_average,
         }
-        
+
         return response
     except Exception as e:
         logger.error(f"Error fetching coverage data: {e}")
@@ -3361,15 +3378,15 @@ async def get_streets(location_id: str, search: Optional[str] = None):
     try:
         # Convert string ID to ObjectId
         location_oid = ObjectId(location_id)
-        
+
         # Build query
         query = {"location_id": location_oid}
         if search:
             query["name"] = {"$regex": search, "$options": "i"}
-        
+
         # Get streets
         streets = await streets_collection.find(query).to_list(length=None)
-        
+
         # Process streets
         result = []
         for street in streets:
@@ -3380,12 +3397,12 @@ async def get_streets(location_id: str, search: Optional[str] = None):
                 "coverage": street.get("coverage", 0),
                 "geometry": street.get("geometry"),
             }
-            
+
             if "last_driven" in street and street["last_driven"]:
                 street_data["last_driven"] = street["last_driven"].strftime("%Y-%m-%d")
-            
+
             result.append(street_data)
-        
+
         return result
     except Exception as e:
         logger.error(f"Error fetching streets: {e}")
@@ -3398,12 +3415,14 @@ async def get_coverage_history(location_id: str):
     try:
         # Convert string ID to ObjectId
         location_oid = ObjectId(location_id)
-        
+
         # Get progress history
-        history = await progress_collection.find(
-            {"location_id": location_oid}
-        ).sort("timestamp", 1).to_list(length=None)
-        
+        history = (
+            await progress_collection.find({"location_id": location_oid})
+            .sort("timestamp", 1)
+            .to_list(length=None)
+        )
+
         # Process history for weekly data points
         weekly_data = []
         if history:
@@ -3412,30 +3431,33 @@ async def get_coverage_history(location_id: str):
             for entry in history:
                 if "timestamp" not in entry:
                     continue
-                    
+
                 week_start = entry["timestamp"].replace(
                     hour=0, minute=0, second=0, microsecond=0
                 )
                 week_start = week_start - timedelta(days=week_start.weekday())
                 week_key = week_start.strftime("%Y-%m-%d")
-                
-                if week_key not in weeks or entry["timestamp"] > weeks[week_key]["timestamp"]:
+
+                if (
+                    week_key not in weeks
+                    or entry["timestamp"] > weeks[week_key]["timestamp"]
+                ):
                     weeks[week_key] = {
                         "date": week_key,
                         "coverage_percentage": entry.get("coverage_percentage", 0),
                         "driven_length": entry.get("driven_length", 0),
-                        "timestamp": entry["timestamp"]
+                        "timestamp": entry["timestamp"],
                     }
-            
+
             # Convert to list and sort
             weekly_data = list(weeks.values())
             weekly_data.sort(key=lambda x: x["date"])
-            
+
             # Remove timestamp from response
             for entry in weekly_data:
                 if "timestamp" in entry:
                     del entry["timestamp"]
-        
+
         return {"weekly": weekly_data}
     except Exception as e:
         logger.error(f"Error fetching coverage history: {e}")
@@ -3447,18 +3469,18 @@ async def update_coverage(location_id: str, background_tasks: BackgroundTasks):
     """Update coverage for a specific location."""
     try:
         location_oid = ObjectId(location_id)
-        
+
         # Get location data
         location = await coverage_metadata_collection.find_one({"_id": location_oid})
         if not location:
             raise HTTPException(status_code=404, detail="Location not found")
-        
+
         # Create a unique task ID for this update
         task_id = str(uuid.uuid4())
-        
+
         # Start the coverage calculation in the background
         background_tasks.add_task(process_coverage_calculation, location, task_id)
-        
+
         return {"task_id": task_id, "message": "Coverage update started"}
     except Exception as e:
         logger.error(f"Error updating coverage: {e}")
@@ -3473,37 +3495,34 @@ async def suggest_route(request: Request):
         location_id = data.get("location_id")
         route_type = data.get("route_type", "uncovered")
         length_miles = float(data.get("length_miles", 5))
-        
+
         if not location_id:
             raise HTTPException(status_code=400, detail="Location ID is required")
-        
+
         # Convert string ID to ObjectId
         location_oid = ObjectId(location_id)
-        
+
         # Get location data
         location = await coverage_metadata_collection.find_one({"_id": location_oid})
         if not location:
             raise HTTPException(status_code=404, detail="Location not found")
-        
+
         # Get uncovered streets
         query = {"location_id": location_oid}
         if route_type == "uncovered":
             query["coverage"] = {"$lt": 100}
-        
+
         streets = await streets_collection.find(query).to_list(length=None)
-        
+
         if not streets:
             # Return empty route if no streets found
             return {
-                "route": {
-                    "type": "FeatureCollection",
-                    "features": []
-                },
+                "route": {"type": "FeatureCollection", "features": []},
                 "total_length_miles": 0,
                 "street_count": 0,
-                "message": "No suitable streets found for route generation"
+                "message": "No suitable streets found for route generation",
             }
-        
+
         # Sort streets by various criteria based on route type
         if route_type == "efficient":
             # Sort by length (shortest first) for efficient routes
@@ -3512,28 +3531,29 @@ async def suggest_route(request: Request):
             # For nearby streets, we'd need a reference point
             # For now, just use a random selection
             import random
+
             random.shuffle(streets)
         else:
             # For uncovered streets, prioritize those with least coverage
             streets.sort(key=lambda s: s.get("coverage", 0))
-        
+
         # Select streets up to the requested length
         selected_streets = []
         total_length = 0
         length_limit = length_miles * 1609.34  # Convert miles to meters
-        
+
         for street in streets:
             if "length" not in street:
                 continue
-                
+
             street_length = street.get("length", 0)
             if total_length + street_length <= length_limit:
                 selected_streets.append(street)
                 total_length += street_length
-            
+
             if total_length >= length_limit:
                 break
-        
+
         if not selected_streets and streets:
             # If we couldn't find enough streets, just return the first valid one
             for street in streets:
@@ -3541,19 +3561,16 @@ async def suggest_route(request: Request):
                     selected_streets = [street]
                     total_length = street.get("length", 0)
                     break
-        
+
         if not selected_streets:
             # Return empty route if still no valid streets
             return {
-                "route": {
-                    "type": "FeatureCollection",
-                    "features": []
-                },
+                "route": {"type": "FeatureCollection", "features": []},
                 "total_length_miles": 0,
                 "street_count": 0,
-                "message": "No valid streets found for route generation"
+                "message": "No valid streets found for route generation",
             }
-        
+
         # Create a GeoJSON route from the selected streets
         features = []
         for street in selected_streets:
@@ -3564,16 +3581,13 @@ async def suggest_route(request: Request):
                     "properties": {
                         "name": street.get("name", "Unknown"),
                         "length": street.get("length", 0),
-                        "coverage": street.get("coverage", 0)
-                    }
+                        "coverage": street.get("coverage", 0),
+                    },
                 }
                 features.append(feature)
-        
-        route = {
-            "type": "FeatureCollection",
-            "features": features
-        }
-        
+
+        route = {"type": "FeatureCollection", "features": features}
+
         # If we have multiple streets, create a single LineString for the route
         if len(features) > 1:
             try:
@@ -3581,26 +3595,23 @@ async def suggest_route(request: Request):
                 for feature in features:
                     if feature["geometry"]["type"] == "LineString":
                         coordinates.extend(feature["geometry"]["coordinates"])
-                
+
                 route = {
                     "type": "Feature",
-                    "geometry": {
-                        "type": "LineString",
-                        "coordinates": coordinates
-                    },
+                    "geometry": {"type": "LineString", "coordinates": coordinates},
                     "properties": {
                         "length": total_length,
-                        "street_count": len(selected_streets)
-                    }
+                        "street_count": len(selected_streets),
+                    },
                 }
             except Exception as e:
                 # If combining fails, just return the feature collection
                 logger.error(f"Error combining route features: {e}")
-        
+
         return {
             "route": route,
             "total_length_miles": total_length / 1609.34,
-            "street_count": len(selected_streets)
+            "street_count": len(selected_streets),
         }
     except Exception as e:
         logger.error(f"Error generating route suggestion: {e}")
@@ -3612,7 +3623,7 @@ async def export_route(
     location_id: str,
     route_type: str = "uncovered",
     length_miles: float = 5,
-    format: str = "gpx"
+    format: str = "gpx",
 ):
     """Export a suggested route in GPX or GeoJSON format."""
     try:
@@ -3622,26 +3633,26 @@ async def export_route(
                 return {
                     "location_id": location_id,
                     "route_type": route_type,
-                    "length_miles": float(length_miles)
+                    "length_miles": float(length_miles),
                 }
-        
+
         # Generate the route using the mock request
         route_data = await suggest_route(MockRequest())
         route = route_data["route"]
-        
+
         if format.lower() == "gpx":
             # Convert to GPX
             gpx_content = create_gpx(
                 route, f"Suggested Route - {route_type.capitalize()}"
             )
-            
+
             # Return as downloadable file
             return StreamingResponse(
                 io.StringIO(gpx_content),
                 media_type="application/gpx+xml",
                 headers={
                     "Content-Disposition": f"attachment; filename=suggested_route_{route_type}.gpx"
-                }
+                },
             )
         else:
             # Return GeoJSON
@@ -3650,7 +3661,7 @@ async def export_route(
                 media_type="application/geo+json",
                 headers={
                     "Content-Disposition": f"attachment; filename=suggested_route_{route_type}.geojson"
-                }
+                },
             )
     except Exception as e:
         logger.error(f"Error exporting route: {e}")
