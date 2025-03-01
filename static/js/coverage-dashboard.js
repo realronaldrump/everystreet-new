@@ -69,7 +69,7 @@
     // Display elements
     overallProgressCircle: document.getElementById("overall-progress-circle"),
     overallProgressPercentage: document.getElementById(
-      "overall-progress-percentage"
+      "overall-progress-percentage",
     ),
     drivenMiles: document.getElementById("driven-miles"),
     totalMiles: document.getElementById("total-miles"),
@@ -120,7 +120,7 @@
   function loadSavedState() {
     // Load selected location from localStorage
     const savedLocation = localStorage.getItem(
-      CONFIG.STORAGE_KEYS.selectedLocation
+      CONFIG.STORAGE_KEYS.selectedLocation,
     );
     if (savedLocation) {
       try {
@@ -174,13 +174,13 @@
     try {
       const response = await fetch("/api/coverage_areas");
       if (!response.ok) throw new Error("Failed to load coverage areas");
-      
+
       const data = await response.json();
       state.locations = data; // API now returns an array directly
-      
+
       // Populate dropdown
       renderLocationDropdown();
-      
+
       // If we have a saved location, select it
       if (state.selectedLocation) {
         selectLocation(state.selectedLocation);
@@ -191,7 +191,7 @@
     } catch (error) {
       notificationManager.show(
         "Failed to load coverage areas: " + error.message,
-        "danger"
+        "danger",
       );
     }
   }
@@ -212,7 +212,7 @@
     } catch (error) {
       notificationManager.show(
         "Failed to load coverage data: " + error.message,
-        "danger"
+        "danger",
       );
     }
   }
@@ -221,29 +221,29 @@
     try {
       const response = await fetch(`/api/streets/${location.id}`);
       if (!response.ok) throw new Error("Failed to load street data");
-      
+
       const data = await response.json();
-      
+
       // Ensure each street has the required properties
-      const processedStreets = data.map(street => ({
+      const processedStreets = data.map((street) => ({
         id: street.id,
         name: street.name || "Unknown Street",
         length: street.length || 0,
         coverage: street.coverage || 0,
         last_driven: street.last_driven || null,
-        geometry: street.geometry
+        geometry: street.geometry,
       }));
-      
+
       state.streetData.streets = processedStreets;
       state.streetData.filteredStreets = [...processedStreets];
       state.streetData.currentPage = 0;
-      
+
       // Update street table
       renderStreetTable();
     } catch (error) {
       notificationManager.show(
         "Failed to load street data: " + error.message,
-        "danger"
+        "danger",
       );
     }
   }
@@ -260,7 +260,7 @@
     } catch (error) {
       notificationManager.show(
         "Failed to load progress history: " + error.message,
-        "danger"
+        "danger",
       );
     }
   }
@@ -270,22 +270,26 @@
   // ==============================
   function renderLocationDropdown() {
     const { locations } = state;
-    
+
     if (!locations || locations.length === 0) {
       elements.locationDropdown.innerHTML = `
         <li><span class="dropdown-item-text text-muted">No locations available</span></li>
       `;
       return;
     }
-    
-    const locationItems = locations.map(location => `
+
+    const locationItems = locations
+      .map(
+        (location) => `
       <li>
         <a class="dropdown-item" href="#" data-location-id="${location.id}">
           ${location.display_name || "Unknown Location"}
         </a>
       </li>
-    `).join("");
-    
+    `,
+      )
+      .join("");
+
     elements.locationDropdown.innerHTML = locationItems;
   }
 
@@ -423,7 +427,7 @@
     const daysToCompletion = remainingMiles / recentDailyAverage;
     const estimatedCompletionDate = new Date();
     estimatedCompletionDate.setDate(
-      today.getDate() + Math.ceil(daysToCompletion)
+      today.getDate() + Math.ceil(daysToCompletion),
     );
 
     const options = { year: "numeric", month: "short", day: "numeric" };
@@ -595,7 +599,7 @@
     // Save to localStorage
     localStorage.setItem(
       CONFIG.STORAGE_KEYS.selectedLocation,
-      JSON.stringify(location)
+      JSON.stringify(location),
     );
 
     // Update UI
@@ -623,7 +627,7 @@
       state.streetData.filteredStreets = [...state.streetData.streets];
     } else {
       state.streetData.filteredStreets = state.streetData.streets.filter(
-        (street) => street.name.toLowerCase().includes(searchTerm)
+        (street) => street.name.toLowerCase().includes(searchTerm),
       );
     }
 
@@ -695,7 +699,7 @@
       .then((data) => {
         notificationManager.show(
           "Coverage update started. This may take a few minutes.",
-          "success"
+          "success",
         );
 
         // Poll for completion
@@ -707,14 +711,14 @@
                 clearInterval(checkInterval);
                 notificationManager.show(
                   "Coverage update completed!",
-                  "success"
+                  "success",
                 );
                 refreshDashboard();
               } else if (statusData.status === "failed") {
                 clearInterval(checkInterval);
                 notificationManager.show(
                   "Coverage update failed: " + statusData.error,
-                  "danger"
+                  "danger",
                 );
               }
             })
@@ -722,7 +726,7 @@
               clearInterval(checkInterval);
               notificationManager.show(
                 "Error checking task status: " + error.message,
-                "danger"
+                "danger",
               );
             });
         }, 5000);
@@ -730,7 +734,7 @@
       .catch((error) => {
         notificationManager.show(
           "Failed to update coverage: " + error.message,
-          "danger"
+          "danger",
         );
       });
   }
@@ -758,7 +762,7 @@
     // Create map
     state.routeSuggestion.map = L.map(elements.routeMapContainer).setView(
       [0, 0],
-      13
+      13,
     );
 
     // Add tile layer
@@ -768,12 +772,12 @@
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
-      }
+      },
     ).addTo(state.routeSuggestion.map);
 
     // Create route layer
     state.routeSuggestion.routeLayer = L.layerGroup().addTo(
-      state.routeSuggestion.map
+      state.routeSuggestion.map,
     );
 
     // Add event listeners for route type and length changes
@@ -822,7 +826,7 @@
       .catch((error) => {
         notificationManager.show(
           "Failed to generate route: " + error.message,
-          "danger"
+          "danger",
         );
       });
   }
