@@ -23,6 +23,7 @@ SESSION_TIMEOUT = aiohttp.ClientTimeout(
 class SessionManager:
     _instance = None
     _session: Optional[aiohttp.ClientSession] = None
+    _lock = asyncio.Lock()
 
     def __new__(cls):
         if cls._instance is None:
@@ -30,28 +31,40 @@ class SessionManager:
         return cls._instance
 
     async def get_session(self) -> aiohttp.ClientSession:
-        """Get or create a shared aiohttp ClientSession."""
-        if self._session is None or self._session.closed:
-            # Create the TCPConnector lazily, inside the running event loop.
-            connector = TCPConnector(
-                limit=10, force_close=True, enable_cleanup_closed=True
-            )
-            self._session = aiohttp.ClientSession(
-                connector=connector,
-                timeout=SESSION_TIMEOUT,
-                headers={
-                    "User-Agent": "EveryStreet/1.0 (myapp@example.com)",
-                    "Accept": "application/json",
-                    "Accept-Encoding": "gzip, deflate",
-                },
-            )
+        """Get or create a shared aiohttp ClientSession with connection pooling."""
+        async with self._lock:
+            if self._session is None or self._session.closed:
+                # Create the TCPConnector with optimized settings
+                connector = TCPConnector(
+                    limit=20,  # Increased connection limit
+                    ttl_dns_cache=300,  # Cache DNS results for 5 minutes
+                    force_close=False,  # Keep connections alive
+                    enable_cleanup_closed=True,
+                )
+                self._session = aiohttp.ClientSession(
+                    connector=connector,
+                    timeout=SESSION_TIMEOUT,
+                    headers={
+                        "User-Agent": "EveryStreet/1.0 (myapp@example.com)",
+                        "Accept": "application/json",
+                        "Accept-Encoding": "gzip, deflate",
+                    },
+                    raise_for_status=True,  # Automatically raise for 4xx/5xx responses
+                )
         return self._session
 
     async def cleanup(self):
-        """Cleanup the session."""
-        if self._session and not self._session.closed:
-            await self._session.close()
-        self._session = None
+        """Close the session if it exists and is open."""
+        async with self._lock:
+            if self._session and not self._session.closed:
+                try:
+                    await self._session.close()
+                    # Allow time for the session to close properly
+                    await asyncio.sleep(0.25)
+                except Exception as e:
+                    logger.error(f"Error closing session: {e}")
+                finally:
+                    self._session = None
 
 
 # Create a singleton instance

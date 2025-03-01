@@ -57,7 +57,10 @@ from db import (
 )
 from trip_processing import format_idle_time, process_trip_data
 from export_helpers import create_geojson, create_gpx
-from street_coverage_calculation import compute_coverage_for_location
+from street_coverage_calculation import (
+    compute_coverage_for_location,
+    CoverageCalculator,
+)
 
 load_dotenv()
 
@@ -97,14 +100,32 @@ def serialize_datetime(dt: Optional[datetime]) -> Optional[str]:
     return dt.isoformat() if dt else None
 
 
+def serialize_mongodb_doc(doc: dict) -> dict:
+    """Convert MongoDB document with ObjectId and datetime fields to JSON serializable format."""
+    if not doc:
+        return doc
+
+    result = {}
+    for key, value in doc.items():
+        if isinstance(value, ObjectId):
+            result[key] = str(value)
+        elif isinstance(value, datetime):
+            result[key] = value.isoformat()
+        elif isinstance(value, dict):
+            result[key] = serialize_mongodb_doc(value)
+        elif isinstance(value, list):
+            result[key] = [
+                serialize_mongodb_doc(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+        else:
+            result[key] = value
+    return result
+
+
 def serialize_trip(trip: dict) -> dict:
     """Convert ObjectId and datetime fields in a trip dict to serializable types."""
-    if "_id" in trip:
-        trip["_id"] = str(trip["_id"])
-    for key in ("startTime", "endTime"):
-        if key in trip and isinstance(trip[key], datetime):
-            trip[key] = trip[key].isoformat()
-    return trip
+    return serialize_mongodb_doc(trip)
 
 
 def parse_query_date(
@@ -168,6 +189,9 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+# Create a separate connection manager for coverage WebSockets
+coverage_manager = ConnectionManager()
 
 
 # ------------------------------------------------------------------------------
@@ -702,11 +726,33 @@ async def get_street_coverage(request: Request):
 
 
 async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
+    display_name = location.get("display_name", "Unknown")
+
     try:
+        # Initialize progress tracking
+        await progress_collection.update_one(
+            {"_id": task_id},
+            {
+                "$set": {
+                    "location": location,
+                    "stage": "initializing",
+                    "progress": 0,
+                    "created_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+            upsert=True,
+        )
+
+        # Perform the coverage calculation
         result = await compute_coverage_for_location(location, task_id)
-        if result:
-            display_name = location.get("display_name", "Unknown")
-            await coverage_metadata_collection.update_one(
+
+        if not result:
+            raise ValueError("No result returned from coverage calculation")
+
+        # Update both collections in parallel
+        update_tasks = [
+            coverage_metadata_collection.update_one(
                 {"location.display_name": display_name},
                 {
                     "$set": {
@@ -714,12 +760,14 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                         "total_length": result["total_length"],
                         "driven_length": result["driven_length"],
                         "coverage_percentage": result["coverage_percentage"],
+                        "status": "completed",
+                        "task_id": task_id,
                         "last_updated": datetime.now(timezone.utc),
                     }
                 },
                 upsert=True,
-            )
-            await progress_collection.update_one(
+            ),
+            progress_collection.update_one(
                 {"_id": task_id},
                 {
                     "$set": {
@@ -729,48 +777,80 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                         "updated_at": datetime.now(timezone.utc),
                     }
                 },
-            )
-        else:
-            await progress_collection.update_one(
+            ),
+        ]
+
+        await asyncio.gather(*update_tasks)
+
+    except Exception as e:
+        error_message = str(e)
+        logger.exception(
+            f"Error in coverage calculation for {display_name}: {error_message}"
+        )
+
+        # Update both collections to reflect the error
+        update_tasks = [
+            coverage_metadata_collection.update_one(
+                {"location.display_name": display_name},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": error_message,
+                        "last_updated": datetime.now(timezone.utc),
+                    }
+                },
+                upsert=True,
+            ),
+            progress_collection.update_one(
                 {"_id": task_id},
                 {
                     "$set": {
                         "stage": "error",
-                        "error": "No result returned from coverage calculation",
+                        "error": error_message,
                         "updated_at": datetime.now(timezone.utc),
                     }
                 },
-            )
-    except Exception as e:
-        logger.exception("Error in background coverage calculation.")
-        await progress_collection.update_one(
-            {"_id": task_id},
-            {
-                "$set": {
-                    "stage": "error",
-                    "error": str(e),
-                    "updated_at": datetime.now(timezone.utc),
-                }
-            },
-        )
+            ),
+        ]
+
+        await asyncio.gather(*update_tasks)
 
 
 @app.get("/api/street_coverage/{task_id}")
 async def get_coverage_status(task_id: str):
-    progress = await progress_collection.find_one({"_id": task_id})
-    if not progress:
-        raise HTTPException(status_code=404, detail="Task not found")
-    if progress.get("stage") == "error":
-        raise HTTPException(
-            status_code=500, detail=progress.get("error", "Unknown error")
-        )
-    if progress.get("stage") == "complete":
-        return progress.get("result")
-    return {
-        "stage": progress.get("stage", "unknown"),
-        "progress": progress.get("progress", 0),
-        "message": progress.get("message", ""),
-    }
+    try:
+        progress = await progress_collection.find_one({"_id": task_id})
+
+        if not progress:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        # Serialize the MongoDB document
+        progress = serialize_mongodb_doc(progress)
+
+        if progress.get("stage") == "error":
+            return JSONResponse(
+                status_code=200,  # Return 200 with error details in the response
+                content={
+                    "status": "error",
+                    "error": progress.get("error", "Unknown error"),
+                    "progress": progress.get("progress", 0),
+                },
+            )
+
+        if progress.get("stage") == "complete":
+            return progress.get("result", {})
+
+        # For in-progress tasks
+        return {
+            "status": "in_progress",
+            "stage": progress.get("stage", "unknown"),
+            "progress": progress.get("progress", 0),
+            "message": progress.get("message", ""),
+            "updated_at": progress.get("updated_at"),
+        }
+    except Exception as e:
+        logger.exception(f"Error retrieving coverage status for task {task_id}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ------------------------------------------------------------------------------
@@ -2556,36 +2636,38 @@ async def get_trips_for_place(place_id: str):
                     ):
                         if shape(p["geometry"]).contains(shape(start_pt)):
                             same_place = True
-                if same_place:
-                    next_start = next_trip.get("startTime")
-                    if isinstance(next_start, str):
-                        next_start = dateutil_parser.isoparse(next_start)
-                    if next_start and next_start.tzinfo is None:
-                        next_start = next_start.replace(tzinfo=timezone.utc)
-                    if next_start and next_start > end_time:
-                        duration_minutes = (
-                            next_start - end_time
-                        ).total_seconds() / 60.0
-                        hh = int(duration_minutes // 60)
-                        mm = int(duration_minutes % 60)
-                        duration_str = f"{hh}h {mm:02d}m"
-            if i > 0:
-                prev_trip_end = valid_trips[i - 1].get("endTime")
-                if isinstance(prev_trip_end, str):
-                    prev_trip_end = dateutil_parser.isoparse(prev_trip_end)
-                if prev_trip_end and prev_trip_end.tzinfo is None:
-                    prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
-                if prev_trip_end and end_time > prev_trip_end:
-                    hrs_since_last = (end_time - prev_trip_end).total_seconds() / 3600.0
-                    time_since_last_str = f"{hrs_since_last:.2f} hours"
-            trips_data.append(
-                {
-                    "transactionId": trip["transactionId"],
-                    "endTime": end_time.isoformat(),
-                    "duration": duration_str,
-                    "timeSinceLastVisit": time_since_last_str,
-                }
-            )
+                    if same_place:
+                        next_start = next_trip.get("startTime")
+                        if isinstance(next_start, str):
+                            next_start = dateutil_parser.isoparse(next_start)
+                        if next_start and next_start.tzinfo is None:
+                            next_start = next_start.replace(tzinfo=timezone.utc)
+                        if next_start and next_start > end_time:
+                            duration_minutes = (
+                                next_start - end_time
+                            ).total_seconds() / 60.0
+                            hh = int(duration_minutes // 60)
+                            mm = int(duration_minutes % 60)
+                            duration_str = f"{hh}h {mm:02d}m"
+                if i > 0:
+                    prev_trip_end = valid_trips[i - 1].get("endTime")
+                    if isinstance(prev_trip_end, str):
+                        prev_trip_end = dateutil_parser.isoparse(prev_trip_end)
+                    if prev_trip_end and prev_trip_end.tzinfo is None:
+                        prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
+                    if prev_trip_end and end_time > prev_trip_end:
+                        hrs_since_last = (
+                            end_time - prev_trip_end
+                        ).total_seconds() / 3600.0
+                        time_since_last_str = f"{hrs_since_last:.2f} hours"
+                trips_data.append(
+                    {
+                        "transactionId": trip["transactionId"],
+                        "endTime": end_time.isoformat(),
+                        "duration": duration_str,
+                        "timeSinceLastVisit": time_since_last_str,
+                    }
+                )
         return JSONResponse(content=trips_data)
     except Exception as e:
         logger.exception("Error fetching trips for place %s", place_id)
@@ -3080,24 +3162,13 @@ async def repair_indexes():
 async def get_coverage_areas():
     try:
         areas = await coverage_metadata_collection.find().to_list(length=None)
-        return {
-            "areas": [
-                {
-                    "location": area["location"],
-                    "total_length": area.get("total_length", 0),
-                    "driven_length": area.get("driven_length", 0),
-                    "coverage_percentage": area.get("coverage_percentage", 0),
-                    "last_updated": area.get("last_updated"),
-                    "total_segments": area.get("total_segments", 0),
-                    "status": area.get("status", "completed"),
-                    "last_error": area.get("last_error"),
-                }
-                for area in areas
-            ]
-        }
+        return {"areas": [serialize_mongodb_doc(area) for area in areas]}
     except Exception as e:
-        logger.exception("Error fetching coverage areas")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error getting coverage areas: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to get coverage areas: {str(e)}"},
+        )
 
 
 @app.post("/api/coverage_areas/delete")
@@ -3105,22 +3176,35 @@ async def delete_coverage_area(request: Request):
     try:
         data = await request.json()
         location = data.get("location")
+
         if not location or not isinstance(location, dict):
             raise HTTPException(status_code=400, detail="Invalid location data")
+
         display_name = location.get("display_name")
         if not display_name:
             raise HTTPException(status_code=400, detail="Invalid location display name")
-        delete_result = await coverage_metadata_collection.delete_one(
-            {"location.display_name": display_name}
-        )
-        await streets_collection.delete_many({"properties.location": display_name})
-        if delete_result.deleted_count == 0:
-            raise HTTPException(status_code=404, detail="Coverage area not found")
+
+        # Use a transaction to ensure both operations succeed or fail together
+        async with await db.client.start_session() as session:
+            async with session.start_transaction():
+                delete_result = await coverage_metadata_collection.delete_one(
+                    {"location.display_name": display_name}, session=session
+                )
+
+                if delete_result.deleted_count == 0:
+                    raise HTTPException(
+                        status_code=404, detail="Coverage area not found"
+                    )
+
+                await streets_collection.delete_many(
+                    {"properties.location": display_name}, session=session
+                )
+
         return {"status": "success", "message": "Coverage area deleted successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Error deleting coverage area")
-        if isinstance(e, HTTPException):
-            raise
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -3129,10 +3213,28 @@ async def retry_coverage_area(request: Request):
     try:
         data = await request.json()
         location = data.get("location")
+
         if not location or not isinstance(location, dict):
             raise HTTPException(status_code=400, detail="Invalid location data")
+
+        # Generate a task ID and start the calculation in the background
         task_id = str(uuid.uuid4())
+
+        # Update the status in the database first
+        await coverage_metadata_collection.update_one(
+            {"location.display_name": location.get("display_name")},
+            {
+                "$set": {
+                    "status": "processing",
+                    "task_id": task_id,
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+        )
+
+        # Start the calculation task
         asyncio.create_task(process_coverage_calculation(location, task_id))
+
         return {"status": "success", "task_id": task_id}
     except Exception as e:
         logger.exception("Error retrying coverage area")
@@ -3144,21 +3246,37 @@ async def cancel_coverage_area(request: Request):
     try:
         data = await request.json()
         location = data.get("location")
+
         if not location or not isinstance(location, dict):
             raise HTTPException(status_code=400, detail="Invalid location data")
+
         display_name = location.get("display_name")
         if not display_name:
             raise HTTPException(status_code=400, detail="Invalid location display name")
-        await coverage_metadata_collection.update_one(
+
+        update_result = await coverage_metadata_collection.update_one(
             {"location.display_name": display_name},
             {
                 "$set": {
                     "status": "canceled",
                     "last_error": "Task was canceled by user.",
+                    "updated_at": datetime.now(timezone.utc),
                 }
             },
         )
-        return {"status": "success", "message": "Coverage area processing canceled"}
+
+        if update_result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Coverage area not found")
+
+        # Also update any progress records
+        await progress_collection.update_many(
+            {"location.display_name": display_name, "status": "processing"},
+            {"$set": {"status": "canceled"}},
+        )
+
+        return {"status": "success", "message": "Coverage area calculation canceled"}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Error canceling coverage area")
         raise HTTPException(status_code=500, detail=str(e))
@@ -3222,6 +3340,365 @@ async def not_found_handler(request: Request, exc):
 @app.exception_handler(500)
 async def internal_error_handler(request: Request, exc):
     return JSONResponse(status_code=500, content={"error": "Internal server error"})
+
+
+@app.post("/api/streets_for_coverage")
+async def get_streets_for_coverage(request: Request):
+    """
+    Get streets for a specific location for real-time coverage tracking.
+    """
+    try:
+        data = await request.json()
+        location = data.get("location")
+
+        if not location:
+            return JSONResponse(
+                status_code=400, content={"error": "Location is required"}
+            )
+
+        # Get streets from the database using improved query logic
+        display_name = location.get("display_name")
+        logger.info(f"API: Looking for streets with location: {display_name}")
+
+        # First check if this is a valid coverage area
+        coverage_area = await coverage_metadata_collection.find_one(
+            {"location.display_name": display_name}
+        )
+
+        if not coverage_area:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": f"'{display_name}' is not a valid coverage area. Please add it in the Coverage Management section first."
+                },
+            )
+
+        # Try different query approaches to find streets
+        streets = []
+        # First try with properties.location
+        query1 = {"properties.location": display_name}
+        streets = await streets_collection.find(query1).to_list(length=None)
+
+        # If no streets found, try with location.display_name
+        if not streets:
+            query2 = {"location.display_name": display_name}
+            streets = await streets_collection.find(query2).to_list(length=None)
+
+        # If still no streets, try preprocessing
+        if not streets:
+            logger.info(f"API: No streets found for {display_name}, preprocessing...")
+            task_id = str(uuid.uuid4())
+            asyncio.create_task(process_area(location, task_id))
+
+            return JSONResponse(
+                status_code=202,
+                content={
+                    "message": "Streets are being processed. Try again in a few moments.",
+                    "task_id": task_id,
+                },
+            )
+
+        logger.info(f"API: Found {len(streets)} streets for {display_name}")
+
+        # Calculate total length
+        total_length = 0
+        serialized_streets = []
+
+        # Process streets in batches to avoid memory issues
+        batch_size = 1000
+        for i in range(0, len(streets), batch_size):
+            batch = streets[i : i + batch_size]
+            for street in batch:
+                # Convert ObjectId to string
+                if "_id" in street:
+                    street["_id"] = str(street["_id"])
+
+                # Calculate length
+                segment_length = street.get("properties", {}).get("segment_length", 0)
+                total_length += segment_length
+
+                # Add to serialized streets
+                serialized_streets.append(street)
+
+        return JSONResponse(
+            content={
+                "streets": serialized_streets,
+                "total_length": total_length,
+                "count": len(serialized_streets),
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error getting streets for coverage: {str(e)}")
+        return JSONResponse(
+            status_code=500, content={"error": f"Failed to get streets: {str(e)}"}
+        )
+
+
+@app.websocket("/ws/live_coverage")
+async def ws_live_coverage(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time coverage updates.
+    """
+    await coverage_manager.connect(websocket)
+    active_location = None
+    coverage_calculator = None
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+            try:
+                message = json.loads(data)
+                message_type = message.get("type")
+
+                if message_type == "subscribe":
+                    # Subscribe to coverage updates for a location
+                    location = message.get("location")
+                    if not location:
+                        await websocket.send_json(
+                            {"type": "error", "message": "Location is required"}
+                        )
+                        continue
+
+                    active_location = location
+                    display_name = location.get("display_name")
+
+                    logger.info(
+                        f"Processing coverage subscription for location: {display_name}"
+                    )
+
+                    # Check if this is a valid coverage area
+                    coverage_area = await coverage_metadata_collection.find_one(
+                        {"location.display_name": display_name}
+                    )
+
+                    if not coverage_area:
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "message": f"'{display_name}' is not a valid coverage area. Please add it in the Coverage Management section first.",
+                            }
+                        )
+                        continue
+
+                    # Fetch streets with a single efficient query
+                    streets = await streets_collection.find(
+                        {"properties.location": display_name}
+                    ).to_list(length=None)
+
+                    if not streets:
+                        logger.info(
+                            f"No streets found for {display_name}, initiating preprocessing"
+                        )
+
+                        # Generate task ID and send it to client
+                        task_id = str(uuid.uuid4())
+                        await websocket.send_json(
+                            {
+                                "type": "processing",
+                                "task_id": task_id,
+                                "message": "Streets are being processed. You'll be notified when ready.",
+                            }
+                        )
+
+                        # Trigger preprocessing in the background
+                        asyncio.create_task(process_area(location, task_id))
+                        continue
+
+                    logger.info(f"Found {len(streets)} streets for {display_name}")
+
+                    # Initialize coverage calculator with a single task ID
+                    task_id = str(uuid.uuid4())
+                    coverage_calculator = CoverageCalculator(location, task_id)
+
+                    # Process streets and build spatial index
+                    await asyncio.gather(
+                        coverage_calculator.initialize(),
+                        websocket.send_json(
+                            {
+                                "type": "info",
+                                "message": f"Processing {len(streets)} street segments...",
+                            }
+                        ),
+                    )
+
+                    # Build spatial index and calculate boundary
+                    await coverage_calculator.build_spatial_index(streets)
+                    coverage_calculator.boundary_box = (
+                        await coverage_calculator.calculate_boundary_box(streets)
+                    )
+
+                    # Load previously covered segments efficiently
+                    if coverage_area and "driven_segments" in coverage_area:
+                        coverage_calculator.covered_segments.update(
+                            coverage_area["driven_segments"]
+                        )
+                        for segment_id in coverage_area["driven_segments"]:
+                            coverage_calculator.segment_coverage[segment_id] += 1
+
+                    # Calculate covered length in a more efficient way
+                    covered_length = sum(
+                        street["properties"].get("length", 0)
+                        for idx, street in coverage_calculator.streets_lookup.items()
+                        if street["properties"].get("segment_id")
+                        in coverage_calculator.covered_segments
+                    )
+
+                    # Calculate coverage percentage
+                    coverage_percentage = 0
+                    if coverage_calculator.total_length > 0:
+                        coverage_percentage = (
+                            covered_length / coverage_calculator.total_length
+                        ) * 100
+
+                    # Send initial coverage data with existing covered segments
+                    await websocket.send_json(
+                        {
+                            "type": "coverage_data",
+                            "data": {
+                                "covered_segments": list(
+                                    coverage_calculator.covered_segments
+                                ),
+                                "covered_length": covered_length,
+                                "total_length": coverage_calculator.total_length,
+                                "coverage_percentage": coverage_percentage,
+                            },
+                        }
+                    )
+
+                elif message_type == "process_coordinates":
+                    # Process new coordinates for coverage calculation
+                    if not active_location or not coverage_calculator:
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "message": "No active location. Please subscribe first.",
+                            }
+                        )
+                        continue
+
+                    coordinates = message.get("coordinates")
+                    if not coordinates or len(coordinates) < 2:
+                        continue
+
+                    # Process coordinates for coverage
+                    covered_segments = await asyncio.to_thread(
+                        coverage_calculator._process_trip_sync, coordinates
+                    )
+
+                    # Update covered segments
+                    newly_covered = []
+                    for seg in covered_segments:
+                        if seg not in coverage_calculator.covered_segments:
+                            newly_covered.append(seg)
+                            coverage_calculator.covered_segments.add(seg)
+                            coverage_calculator.segment_coverage[seg] += 1
+
+                    # Calculate covered length
+                    covered_length = 0
+                    for idx, street in coverage_calculator.streets_lookup.items():
+                        segment_id = street["properties"].get("segment_id")
+                        if segment_id in coverage_calculator.covered_segments:
+                            segment_length = street["properties"].get(
+                                "segment_length", 0
+                            )
+                            covered_length += segment_length
+
+                    # Calculate coverage percentage
+                    coverage_percentage = 0
+                    if coverage_calculator.total_length > 0:
+                        coverage_percentage = (
+                            covered_length / coverage_calculator.total_length
+                        ) * 100
+
+                    # Save newly covered segments to the database if there are any
+                    if newly_covered:
+                        display_name = active_location.get("display_name")
+                        await coverage_metadata_collection.update_one(
+                            {"location.display_name": display_name},
+                            {
+                                "$set": {
+                                    "covered_length": covered_length,
+                                    "coverage_percentage": coverage_percentage,
+                                    "last_updated": datetime.now(timezone.utc),
+                                },
+                                "$addToSet": {
+                                    "driven_segments": {"$each": list(newly_covered)}
+                                },
+                            },
+                        )
+
+                    # Send coverage update with only newly covered segments
+                    await websocket.send_json(
+                        {
+                            "type": "coverage_update",
+                            "data": {
+                                "covered_segments": newly_covered,  # Only send newly covered segments
+                                "covered_length": covered_length,
+                                "total_length": coverage_calculator.total_length,
+                                "coverage_percentage": coverage_percentage,
+                            },
+                        }
+                    )
+
+            except json.JSONDecodeError:
+                await websocket.send_json(
+                    {"type": "error", "message": "Invalid JSON message"}
+                )
+            except Exception as e:
+                logger.error(f"Error processing WebSocket message: {str(e)}")
+                await websocket.send_json(
+                    {"type": "error", "message": f"Error processing message: {str(e)}"}
+                )
+
+    except WebSocketDisconnect:
+        coverage_manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}")
+        coverage_manager.disconnect(websocket)
+
+
+@app.get("/api/coverage_status/{area_name}")
+async def get_coverage_status(area_name: str):
+    """
+    Get the current coverage status for a specific area.
+    """
+    try:
+        # URL decode the area name
+        area_name = area_name.replace("%20", " ")
+
+        # Find the coverage area
+        coverage_area = await coverage_metadata_collection.find_one(
+            {"location.display_name": area_name}
+        )
+
+        if not coverage_area:
+            return JSONResponse(
+                status_code=404,
+                content={"error": f"Coverage area '{area_name}' not found"},
+            )
+
+        # Serialize the coverage area
+        serialized_area = serialize_mongodb_doc(coverage_area)
+
+        # Get the streets for this area
+        query = {"properties.location": area_name}
+        streets_count = await streets_collection.count_documents(query)
+
+        # If no streets found with properties.location, try with location.display_name
+        if streets_count == 0:
+            query = {"location.display_name": area_name}
+            streets_count = await streets_collection.count_documents(query)
+
+        # Add streets count to the response
+        serialized_area["streets_count"] = streets_count
+
+        return JSONResponse(content=serialized_area)
+    except Exception as e:
+        logger.error(f"Error getting coverage status: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to get coverage status: {str(e)}"},
+        )
 
 
 if __name__ == "__main__":

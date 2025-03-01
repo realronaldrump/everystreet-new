@@ -429,14 +429,27 @@
   }
 
   function initializeLiveTracker() {
-    if (!window.LiveTripTracker || !AppState.map) return;
+    if (!AppState.map) {
+      console.error("Cannot initialize live tracker: Map not ready");
+      return;
+    }
+
     try {
-      if (!window.liveTracker) {
+      // Initialize live trip tracker
+      if (window.LiveTripTracker) {
         AppState.liveTracker = new window.LiveTripTracker(AppState.map);
         window.liveTracker = AppState.liveTracker;
       }
+
+      // Initialize live coverage tracker
+      if (window.LiveCoverageTracker) {
+        AppState.liveCoverageTracker = new window.LiveCoverageTracker(
+          AppState.map,
+          AppState.liveTracker
+        );
+      }
     } catch (error) {
-      handleError(error, "LiveTripTracker Initialization");
+      handleError(error, "live tracker initialization");
     }
   }
 
@@ -1578,6 +1591,8 @@
           return;
         }
         initializeLayerControls();
+        initializeDragAndDrop();
+        initializeLiveTracker();
         Promise.all([fetchTrips(), fetchMetrics()]).then(() => {
           document.dispatchEvent(new CustomEvent("initialDataLoaded"));
         });

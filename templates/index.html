@@ -30,6 +30,39 @@ block content %}
         </div>
       </div>
     </div>
+    
+    <!-- Live Coverage Status Panel -->
+    <div
+      class="live-coverage-status card bg-dark border-secondary position-absolute top-0 start-0 m-3"
+      style="z-index: 1000"
+    >
+      <div
+        class="card-header border-secondary d-flex justify-content-between align-items-center"
+      >
+        <h5 class="mb-0">Coverage Tracking</h5>
+        <button id="toggle-live-coverage" class="btn btn-sm btn-success">
+          Enable Live Coverage
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label for="coverage-area-select" class="form-label">Coverage Area:</label>
+          <select id="coverage-area-select" class="form-select form-select-sm">
+            <option value="" disabled selected>Loading areas...</option>
+          </select>
+        </div>
+        <div class="coverage-stats">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span>Coverage:</span>
+            <span class="coverage-percent badge bg-primary">0.0%</span>
+          </div>
+          <div class="d-flex align-items-center justify-content-between">
+            <span>Distance:</span>
+            <span class="coverage-miles">0.00 / 0.00 miles</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Controls Panel -->
@@ -156,8 +189,31 @@ block content %}
   .map-container {
     height: 500px;
   }
+  
+  /* Coverage status panel styles */
+  .live-coverage-status {
+    width: 350px;
+  }
+  
+  .coverage-percent {
+    font-size: 1.1rem;
+  }
+  
+  /* Covered streets styling */
+  .covered-street {
+    stroke: #00FF00;
+    stroke-width: 3;
+    stroke-opacity: 0.8;
+  }
+  
+  .uncovered-street {
+    stroke: #555555;
+    stroke-width: 2;
+    stroke-opacity: 0.7;
+  }
 </style>
 {% endblock %} {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script src="{{ url_for('static', path='js/custom-places.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/live_coverage_tracker.js') | replace('http://', '//') }}"></script>
 {% endblock %}

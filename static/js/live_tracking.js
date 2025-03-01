@@ -10,7 +10,10 @@ class LiveTripTracker {
    */
   constructor(map) {
     if (!map) {
-      console.error("LiveTripTracker: Map is required");
+      window.notificationManager.show(
+        "LiveTripTracker: Map is required",
+        "danger"
+      );
       return;
     }
 
@@ -235,6 +238,16 @@ class LiveTripTracker {
     if (trip.autoCenter) {
       this.map.panTo(lastPoint);
     }
+
+    // Dispatch event for coverage tracking
+    document.dispatchEvent(
+      new CustomEvent("liveTripUpdate", {
+        detail: {
+          coordinates: trip.coordinates,
+          tripId: trip.id,
+        },
+      })
+    );
   }
 
   /**

@@ -114,29 +114,68 @@ class CoverageCalculator:
         await asyncio.to_thread(self.initialize_projections)
 
     async def build_spatial_index(self, streets: List[Dict[str, Any]]) -> None:
+        """Build a spatial index for the streets to enable efficient spatial queries."""
         logger.info("Building spatial index for %d streets...", len(streets))
+
+        # Use a larger chunk size for better performance
+        self.street_chunk_size = min(
+            2000, len(streets) // (multiprocessing.cpu_count() * 2) + 1
+        )
+
+        # Pre-calculate total length to avoid recalculation
+        self.total_length = 0.0
+
+        # Process streets in chunks to avoid blocking the event loop
         for i in range(0, len(streets), self.street_chunk_size):
             chunk = streets[i : i + self.street_chunk_size]
-            await asyncio.to_thread(self._process_street_chunk, chunk)
+
+            # Process chunk in a separate thread
+            processed_chunk = await asyncio.to_thread(self._process_street_chunk, chunk)
+
+            # Update total length
+            self.total_length += processed_chunk["total_length"]
+
+            # Allow other tasks to run
             await asyncio.sleep(0)
 
-    def _process_street_chunk(self, streets: List[Dict[str, Any]]) -> None:
+        logger.info(
+            "Spatial index built with %d streets, total length: %.2f meters",
+            len(self.streets_lookup),
+            self.total_length,
+        )
+
+    def _process_street_chunk(self, streets: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Process a chunk of streets to add to the spatial index."""
+        chunk_total_length = 0.0
+
         for street in streets:
             try:
+                # Get geometry
                 geom = shape(street["geometry"])
                 bounds = geom.bounds
+
+                # Add to spatial index
                 current_idx = len(self.streets_lookup)
                 self.streets_index.insert(current_idx, bounds)
                 self.streets_lookup[current_idx] = street
+
+                # Calculate length in UTM coordinates for accuracy
                 street_utm = transform(self.project_to_utm, geom)
-                street["properties"]["segment_length"] = street_utm.length
-                self.total_length += street_utm.length
+                length = street_utm.length
+
+                # Store length in street properties
+                street["properties"]["segment_length"] = length
+
+                # Add to total length
+                chunk_total_length += length
             except Exception as e:
                 logger.error(
                     "Error indexing street (ID %s): %s",
                     street.get("properties", {}).get("segment_id"),
                     e,
                 )
+
+        return {"total_length": chunk_total_length}
 
     async def calculate_boundary_box(self, streets: List[Dict[str, Any]]) -> box:
         bounds: Optional[Tuple[float, float, float, float]] = None
@@ -202,26 +241,58 @@ class CoverageCalculator:
     def _process_trip_sync(self, coords: List[Any]) -> Set[str]:
         covered: Set[str] = set()
         try:
-            trip_line = LineString(coords)
-            if len(trip_line.coords) < 2:
+            # Skip processing if we have less than 2 coordinates
+            if len(coords) < 2:
                 return covered
+
+            # Create LineString from coordinates
+            trip_line = LineString(coords)
+
+            # Transform to UTM for accurate distance calculations
             trip_line_utm = transform(self.project_to_utm, trip_line)
+
+            # Create buffer around the trip line
             trip_buffer = trip_line_utm.buffer(self.match_buffer)
+
+            # Transform buffer back to WGS84 for spatial index query
             trip_buffer_wgs84 = transform(self.project_to_wgs84, trip_buffer)
-            for idx in list(self.streets_index.intersection(trip_buffer_wgs84.bounds)):
-                street = self.streets_lookup[idx]
-                street_geom = shape(street["geometry"])
-                street_utm = transform(self.project_to_utm, street_geom)
-                intersection = trip_buffer.intersection(street_utm)
-                if (
-                    not intersection.is_empty
-                    and intersection.length >= self.min_match_length
-                ):
-                    seg_id = street["properties"].get("segment_id")
-                    if seg_id:
-                        covered.add(seg_id)
+
+            # Get candidate streets from spatial index
+            candidate_indices = list(
+                self.streets_index.intersection(trip_buffer_wgs84.bounds)
+            )
+
+            # Process in batches to avoid memory issues
+            batch_size = 100
+            for i in range(0, len(candidate_indices), batch_size):
+                batch_indices = candidate_indices[i : i + batch_size]
+
+                for idx in batch_indices:
+                    street = self.streets_lookup[idx]
+
+                    # Skip if we've already processed this segment
+                    segment_id = street["properties"].get("segment_id")
+                    if not segment_id or segment_id in covered:
+                        continue
+
+                    # Get street geometry
+                    street_geom = shape(street["geometry"])
+
+                    # Transform to UTM
+                    street_utm = transform(self.project_to_utm, street_geom)
+
+                    # Calculate intersection
+                    intersection = trip_buffer.intersection(street_utm)
+
+                    # Add to covered segments if intersection is significant
+                    if (
+                        not intersection.is_empty
+                        and intersection.length >= self.min_match_length
+                    ):
+                        covered.add(segment_id)
         except Exception as e:
             logger.error("Error processing trip synchronously: %s", e, exc_info=True)
+
         return covered
 
     async def process_trip_batch(self, trips: List[Dict[str, Any]]) -> None:
@@ -372,7 +443,29 @@ async def compute_coverage_for_location(
     location: Dict[str, Any], task_id: str
 ) -> Optional[Dict[str, Any]]:
     calc = CoverageCalculator(location, task_id)
-    return await calc.compute_coverage()
+    result = await calc.compute_coverage()
+
+    # Store the covered segments in the database
+    if result:
+        display_name = location.get("display_name", "Unknown")
+        await coverage_metadata_collection.update_one(
+            {"location.display_name": display_name},
+            {
+                "$set": {
+                    "location": location,
+                    "total_length": result["total_length"],
+                    "driven_length": result["driven_length"],
+                    "coverage_percentage": result["coverage_percentage"],
+                    "last_updated": datetime.now(timezone.utc),
+                },
+                "$addToSet": {
+                    "driven_segments": {"$each": list(calc.covered_segments)}
+                },
+            },
+            upsert=True,
+        )
+
+    return result
 
 
 async def update_coverage_for_all_locations() -> None:
