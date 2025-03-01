@@ -180,6 +180,18 @@
               <li class="nav-item {% if request.path == '/driving-insights' %}active{% endif %}">
                 <a href="/driving-insights" title="Insights"><i class="fas fa-chart-line"></i> <span>Insights</span></a>
               </li>
+              <li class="nav-item">
+                <a href="/coverage-management" class="nav-link">
+                  <i class="fas fa-map-marked-alt"></i>
+                  <span>Coverage Management</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="/coverage-dashboard" class="nav-link">
+                  <i class="fas fa-tachometer-alt"></i>
+                  <span>Coverage Dashboard</span>
+                </a>
+              </li>
               <li class="nav-item dropdown">
                 <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                   <i class="fas fa-ellipsis-h"></i> <span>More</span>
@@ -187,7 +199,6 @@
                 <ul class="dropdown-menu dropdown-menu-end">
                   <li><a class="dropdown-item" href="/edit_trips"><i class="fas fa-edit"></i> Edit Trips</a></li>
                   <li><a class="dropdown-item" href="/visits"><i class="fas fa-map-marker-alt"></i> Visits</a></li>
-                  <li><a class="dropdown-item" href="/coverage-management"><i class="fas fa-map-marked-alt"></i> Coverage Areas</a></li>
                   <li><a class="dropdown-item" href="/export"><i class="fas fa-file-export"></i> Export Data</a></li>
                   <li><a class="dropdown-item" href="/upload"><i class="fas fa-upload"></i> Upload GPX</a></li>
                   <li><hr class="dropdown-divider"></li>
@@ -230,6 +241,7 @@
             <li><a href="/driving-insights" class="{% if request.path == '/driving-insights' %}active{% endif %}"><i class="fas fa-chart-line"></i> Driving Insights</a></li>
             <li><a href="/export" class="{% if request.path == '/export' %}active{% endif %}"><i class="fas fa-file-export"></i> Export Data</a></li>
             <li><a href="/coverage-management" class="{% if request.path == '/coverage-management' %}active{% endif %}"><i class="fas fa-map-marked-alt"></i> Coverage Areas</a></li>
+            <li><a href="/coverage-dashboard" class="{% if request.path == '/coverage-dashboard' %}active{% endif %}"><i class="fas fa-tachometer-alt"></i> Coverage Dashboard</a></li>
             <li><a href="/upload" class="{% if request.path == '/upload' %}active{% endif %}"><i class="fas fa-upload"></i> Upload GPX</a></li>
             <li><a href="/visits" class="{% if request.path == '/visits' %}active{% endif %}"><i class="fas fa-map-marker-alt"></i> Visits</a></li>
             <li><a href="/database-management" class="{% if request.path == '/database-management' %}active{% endif %}"><i class="fas fa-database"></i> Database</a></li>

@@ -79,6 +79,23 @@
       opacity: 0.7,
       visible: false,
       name: "OSM Streets",
+      coverageStyles: {
+        uncovered: {
+          color: "#FF0266",
+          weight: 3,
+          opacity: 0.8,
+        },
+        partial: {
+          color: "#FFA500",
+          weight: 3,
+          opacity: 0.8,
+        },
+        covered: {
+          color: "#00FF66",
+          weight: 3,
+          opacity: 0.8,
+        },
+      },
     },
     customPlaces: {
       order: 7,
@@ -1638,4 +1655,268 @@
     mapMatchTrips,
     fetchTripsInRange,
   };
+
+  // Helper function for color interpolation
+  function interpolateColor(color1, color2, ratio) {
+    // Convert hex to RGB
+    const hex2rgb = (hex) => {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return [r, g, b];
+    };
+
+    // Convert RGB to hex
+    const rgb2hex = (rgb) => {
+      return (
+        "#" +
+        rgb
+          .map((v) => {
+            const hex = Math.round(v).toString(16);
+            return hex.length === 1 ? "0" + hex : hex;
+          })
+          .join("")
+      );
+    };
+
+    const rgb1 = hex2rgb(color1);
+    const rgb2 = hex2rgb(color2);
+
+    // Interpolate between the colors
+    const result = rgb1.map((v, i) => {
+      return v + (rgb2[i] - v) * ratio;
+    });
+
+    return rgb2hex(result);
+  }
+
+  // Function to show street details
+  function showStreetDetails(feature) {
+    // Create a modal to show street details
+    const modalId = "street-details-modal";
+    let modal = document.getElementById(modalId);
+
+    // If modal doesn't exist, create it
+    if (!modal) {
+      const modalHTML = `
+        <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}-label" aria-hidden="true">
+          <div class="modal-dialog">
+            <div class="modal-content bg-dark text-white">
+              <div class="modal-header">
+                <h5 class="modal-title" id="${modalId}-label">Street Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div id="${modalId}-content"></div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="${modalId}-center">Center on Map</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML("beforeend", modalHTML);
+      modal = document.getElementById(modalId);
+
+      // Add event listener for the center button
+      document
+        .getElementById(`${modalId}-center`)
+        .addEventListener("click", function () {
+          const featureId = this.dataset.featureId;
+          const feature = AppState.layers.osmStreets
+            .getLayers()
+            .find(
+              (layer) =>
+                layer.feature && layer.feature.properties.id === featureId
+            );
+
+          if (feature) {
+            AppState.map.fitBounds(feature.getBounds());
+          }
+        });
+    }
+
+    // Update modal content
+    const content = document.getElementById(`${modalId}-content`);
+    const props = feature.properties;
+    const coverage = props.coverage || 0;
+    const length = props.length
+      ? (props.length / 1609.34).toFixed(2) + " miles"
+      : "Unknown";
+    const lastDriven = props.last_driven || "Never";
+
+    // Create coverage progress bar
+    const coverageClass =
+      coverage >= 95
+        ? "bg-success"
+        : coverage > 50
+          ? "bg-warning"
+          : coverage > 0
+            ? "bg-info"
+            : "bg-danger";
+
+    content.innerHTML = `
+      <h4>${props.name || "Unnamed Street"}</h4>
+      <div class="mb-3">
+        <div class="d-flex justify-content-between mb-1">
+          <span>Coverage:</span>
+          <span>${Math.round(coverage)}%</span>
+        </div>
+        <div class="progress">
+          <div class="progress-bar ${coverageClass}" role="progressbar" 
+               style="width: ${coverage}%" aria-valuenow="${coverage}" 
+               aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="d-flex justify-content-between">
+          <span>Length:</span>
+          <span>${length}</span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="d-flex justify-content-between">
+          <span>Last Driven:</span>
+          <span>${lastDriven}</span>
+        </div>
+      </div>
+    `;
+
+    // Set feature ID for the center button
+    document.getElementById(`${modalId}-center`).dataset.featureId = props.id;
+
+    // Show the modal
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+  }
+
+  // Replace the existing loadOsmStreets function with this enhanced version
+  async function loadOsmStreets(location) {
+    if (!location) return;
+
+    try {
+      // Show loading indicator
+      showLoading("Loading streets...");
+
+      // Clear existing streets layer
+      if (AppState.layers.osmStreets) {
+        AppState.layerGroup.removeLayer(AppState.layers.osmStreets);
+        AppState.layers.osmStreets = null;
+      }
+
+      // Fetch streets data with coverage information
+      const response = await fetch(`/api/streets/${location.id}`);
+      if (!response.ok) throw new Error("Failed to load streets data");
+
+      const streets = await response.json();
+
+      // Create GeoJSON layer with custom styling based on coverage
+      const streetsLayer = L.geoJSON([], {
+        style: function (feature) {
+          const coverage = feature.properties.coverage || 0;
+          const styles = LAYER_DEFAULTS.osmStreets.coverageStyles;
+
+          if (coverage >= 95) {
+            return styles.covered;
+          } else if (coverage > 0) {
+            // Gradient color for partial coverage
+            const partialStyle = { ...styles.partial };
+
+            // Create color gradient from red to green based on coverage percentage
+            if (coverage < 50) {
+              // Red to orange gradient (0-50%)
+              const ratio = coverage / 50;
+              partialStyle.color = interpolateColor(
+                "#FF0266",
+                "#FFA500",
+                ratio
+              );
+            } else {
+              // Orange to green gradient (50-95%)
+              const ratio = (coverage - 50) / 45;
+              partialStyle.color = interpolateColor(
+                "#FFA500",
+                "#00FF66",
+                ratio
+              );
+            }
+
+            return partialStyle;
+          } else {
+            return styles.uncovered;
+          }
+        },
+        onEachFeature: function (feature, layer) {
+          if (feature.properties) {
+            const coverage = feature.properties.coverage || 0;
+            const length = feature.properties.length
+              ? (feature.properties.length / 1609.34).toFixed(2) + " miles"
+              : "Unknown length";
+
+            layer.bindTooltip(
+              `<strong>${feature.properties.name || "Unnamed Street"}</strong><br>
+               Coverage: ${Math.round(coverage)}%<br>
+               Length: ${length}`,
+              { sticky: true }
+            );
+
+            // Add click handler to show street details
+            layer.on("click", function () {
+              showStreetDetails(feature);
+            });
+          }
+        },
+      });
+
+      // Add streets to the layer
+      streets.forEach((street) => {
+        if (street.geometry) {
+          // Create a GeoJSON feature
+          const feature = {
+            type: "Feature",
+            geometry: street.geometry,
+            properties: {
+              id: street.id,
+              name: street.name,
+              length: street.length,
+              coverage: street.coverage || 0,
+              last_driven: street.last_driven,
+            },
+          };
+
+          streetsLayer.addData(feature);
+        }
+      });
+
+      // Add to map and store reference
+      AppState.layers.osmStreets = streetsLayer;
+      AppState.layerGroup.addLayer(streetsLayer);
+
+      // Update layer controls
+      updateLayerControls();
+
+      // Hide loading indicator
+      hideLoading();
+
+      // If the layer should be visible, ensure it's shown
+      if (LAYER_DEFAULTS.osmStreets.visible) {
+        toggleLayer("osmStreets", true);
+      } else {
+        toggleLayer("osmStreets", false);
+      }
+
+      return streetsLayer;
+    } catch (error) {
+      hideLoading();
+      notificationManager.show(
+        CONFIG.ERROR_MESSAGES.streetCoverageFailed + ": " + error.message,
+        "danger"
+      );
+      console.error("Error loading OSM streets:", error);
+      return null;
+    }
+  }
 })();

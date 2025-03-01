@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% block title %}Coverage Dashboard{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center">
+        <h2 class="mb-0">Coverage Dashboard</h2>
+        <div class="d-flex gap-2">
+          <button id="refresh-dashboard" class="btn btn-primary">
+            <i class="fas fa-sync-alt"></i> Refresh
+          </button>
+          <div class="dropdown">
+            <button class="btn btn-secondary dropdown-toggle" type="button" id="location-selector" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="fas fa-map-marker-alt"></i> Select Location
+            </button>
+            <ul class="dropdown-menu dropdown-menu-dark" id="location-dropdown" aria-labelledby="location-selector">
+              <!-- Locations will be populated dynamically -->
+              <li><span class="dropdown-item-text text-muted">No locations available</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Dashboard Cards -->
+  <div class="row mb-4">
+    <!-- Overall Progress Card -->
+    <div class="col-12 col-md-6 col-lg-3 mb-4">
+      <div class="card bg-dark text-white h-100">
+        <div class="card-body text-center">
+          <h3 class="h5 mb-3">Overall Progress</h3>
+          <div class="progress-circle-container mb-3">
+            <div class="progress-circle" id="overall-progress-circle">
+              <div class="progress-circle-inner">
+                <span id="overall-progress-percentage">0%</span>
+              </div>
+            </div>
+          </div>
+          <div class="text-muted">
+            <span id="driven-miles">0</span> of <span id="total-miles">0</span> miles driven
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Activity Card -->
+    <div class="col-12 col-md-6 col-lg-3 mb-4">
+      <div class="card bg-dark text-white h-100">
+        <div class="card-body">
+          <h3 class="h5 mb-3">Recent Activity</h3>
+          <div class="d-flex justify-content-between mb-2">
+            <span>Last Trip:</span>
+            <span id="last-trip-date">--</span>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span>New Streets:</span>
+            <span id="new-streets-count">0</span>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span>Last 7 Days:</span>
+            <span id="last-week-progress">+0%</span>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span>Last 30 Days:</span>
+            <span id="last-month-progress">+0%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Goal Tracking Card -->
+    <div class="col-12 col-md-6 col-lg-3 mb-4">
+      <div class="card bg-dark text-white h-100">
+        <div class="card-body">
+          <h3 class="h5 mb-3">Goal Tracking</h3>
+          <div class="mb-3">
+            <label for="goal-date" class="form-label">Target Completion Date</label>
+            <input type="date" class="form-control" id="goal-date">
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span>Daily Goal:</span>
+            <span id="daily-goal-miles">0 miles</span>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span>Estimated Completion:</span>
+            <span id="estimated-completion">--</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions Card -->
+    <div class="col-12 col-md-6 col-lg-3 mb-4">
+      <div class="card bg-dark text-white h-100">
+        <div class="card-body">
+          <h3 class="h5 mb-3">Quick Actions</h3>
+          <div class="d-grid gap-2">
+            <button id="view-on-map" class="btn btn-outline-primary">
+              <i class="fas fa-map"></i> View on Map
+            </button>
+            <button id="suggest-route" class="btn btn-outline-success">
+              <i class="fas fa-route"></i> Suggest Route
+            </button>
+            <button id="update-coverage" class="btn btn-outline-info">
+              <i class="fas fa-sync"></i> Update Coverage
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress Charts Row -->
+  <div class="row mb-4">
+    <!-- Weekly Progress Chart -->
+    <div class="col-12 col-md-6 mb-4">
+      <div class="card bg-dark text-white">
+        <div class="card-body">
+          <h3 class="h5 mb-3">Weekly Progress</h3>
+          <div class="chart-container" style="position: relative; height: 250px;">
+            <canvas id="weekly-progress-chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coverage by Area Chart -->
+    <div class="col-12 col-md-6 mb-4">
+      <div class="card bg-dark text-white">
+        <div class="card-body">
+          <h3 class="h5 mb-3">Coverage by Area</h3>
+          <div class="chart-container" style="position: relative; height: 250px;">
+            <canvas id="area-coverage-chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Street Coverage Table -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card bg-dark text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="h5 mb-0">Street Coverage Details</h3>
+            <div class="input-group" style="max-width: 300px;">
+              <input type="text" class="form-control" id="street-search" placeholder="Search streets...">
+              <button class="btn btn-outline-secondary" type="button" id="street-search-btn">
+                <i class="fas fa-search"></i>
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-dark table-hover" id="streets-table">
+              <thead>
+                <tr>
+                  <th>Street Name</th>
+                  <th>Length (miles)</th>
+                  <th>Coverage</th>
+                  <th>Last Driven</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Street data will be populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <div id="pagination-controls" class="d-flex justify-content-between align-items-center mt-3">
+            <div class="pagination-info">Showing <span id="showing-start">0</span>-<span id="showing-end">0</span> of <span id="total-streets">0</span> streets</div>
+            <div class="btn-group">
+              <button id="prev-page" class="btn btn-outline-secondary">
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <button id="next-page" class="btn btn-outline-secondary">
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Route Suggestion Modal -->
+<div class="modal fade" id="route-suggestion-modal" tabindex="-1" aria-labelledby="route-suggestion-modal-label" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title" id="route-suggestion-modal-label">Suggested Route</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="route-type" class="form-label">Route Type</label>
+          <select class="form-select" id="route-type">
+            <option value="uncovered">Uncovered Streets</option>
+            <option value="efficient">Most Efficient</option>
+            <option value="nearby">Nearby Streets</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="route-length" class="form-label">Approximate Length (miles)</label>
+          <input type="range" class="form-range" id="route-length" min="1" max="20" value="5">
+          <div class="d-flex justify-content-between">
+            <span>1 mile</span>
+            <span id="route-length-value">5 miles</span>
+            <span>20 miles</span>
+          </div>
+        </div>
+        <div id="route-map-container" style="height: 400px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="export-route">Export Route</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Custom styles for the dashboard -->
+<style>
+  .progress-circle-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .progress-circle {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: conic-gradient(var(--bs-primary) 0%, var(--bs-primary) 0%, #2c3034 0%);
+  }
+  
+  .progress-circle-inner {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    background: #212529;
+    border-radius: 50%;
+    top: 15px;
+    left: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+  }
+  
+  .table-dark {
+    --bs-table-bg: transparent;
+  }
+  
+  .coverage-bar {
+    height: 8px;
+    border-radius: 4px;
+    background-color: #2c3034;
+    overflow: hidden;
+  }
+  
+  .coverage-progress {
+    height: 100%;
+    background-color: var(--bs-primary);
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+<script src="{{ url_for('static', path='js/coverage-dashboard.js') | replace('http://', '//') }}"></script>
+{% endblock %} 
