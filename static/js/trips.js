@@ -432,8 +432,16 @@ function createEditableCell(data, type, field, inputType = "text") {
           {
             data: "maxSpeed",
             title: "Max Speed (mph)",
-            render: (data, type) =>
-              createEditableCell(data, type, "maxSpeed", "number"),
+            render: (data, type) => {
+              const formattedValue =
+                data != null ? parseFloat(data).toFixed(2) : data;
+              return createEditableCell(
+                formattedValue,
+                type,
+                "maxSpeed",
+                "number"
+              );
+            },
           },
           {
             data: "totalIdleDuration",
