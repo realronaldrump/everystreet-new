@@ -406,6 +406,31 @@ class LiveTripTracker {
   }
 
   /**
+   * Update the polyline style based on user settings
+   * @param {string} color - Hex color value
+   * @param {number} opacity - Opacity value between 0 and 1
+   */
+  updatePolylineStyle(color, opacity) {
+    if (!this.polyline) return;
+
+    // Apply new style to the polyline
+    this.polyline.setStyle({
+      color: color || "#00FF00",
+      opacity: parseFloat(opacity) || 0.8,
+    });
+
+    // If we have an active trip, ensure the polyline is visible
+    if (
+      this.activeTrip &&
+      this.activeTrip.coordinates &&
+      this.activeTrip.coordinates.length > 0
+    ) {
+      // Make sure changes are visible
+      this.polyline.redraw();
+    }
+  }
+
+  /**
    * Clean up resources when tracker is no longer needed
    */
   destroy() {

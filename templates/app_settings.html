@@ -1,0 +1,227 @@
+{% extends "base.html" %} {% block title %}Every Street - App Settings{%
+endblock %} {% block content %}
+<div class="container py-4">
+  <h1 class="mb-4">Application Settings</h1>
+
+  <div class="row">
+    <div class="col-md-8">
+      <div class="card bg-dark border-secondary mb-4">
+        <div class="card-header border-secondary">
+          <h2 class="h5 mb-0">General Settings</h2>
+        </div>
+        <div class="card-body">
+          <form id="app-settings-form">
+            <!-- Theme Setting -->
+            <div class="mb-4">
+              <h3 class="h6">Theme</h3>
+              <div class="form-check form-switch">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="dark-mode-toggle"
+                  checked
+                />
+                <label class="form-check-label" for="dark-mode-toggle"
+                  >Dark Mode</label
+                >
+              </div>
+            </div>
+
+            <!-- Map Settings -->
+            <div class="mb-4">
+              <h3 class="h6">Map Settings</h3>
+
+              <div class="form-check form-switch mb-2">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="highlight-recent-trips"
+                  checked
+                />
+                <label class="form-check-label" for="highlight-recent-trips"
+                  >Highlight Recent Trips</label
+                >
+              </div>
+
+              <div class="form-check form-switch mb-2">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="auto-center-toggle"
+                  checked
+                />
+                <label class="form-check-label" for="auto-center-toggle"
+                  >Auto-Center on Live Location</label
+                >
+                <small class="form-text text-muted d-block mt-1"
+                  >When enabled, the map will automatically center on your
+                  current location during live tracking.</small
+                >
+              </div>
+            </div>
+
+            <!-- Live Tracking Settings -->
+            <div class="mb-4">
+              <h3 class="h6">Live Tracking</h3>
+
+              <div class="form-check form-switch mb-2">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="show-live-tracking"
+                  checked
+                />
+                <label class="form-check-label" for="show-live-tracking"
+                  >Show Live Tracking Panel</label
+                >
+              </div>
+
+              <div class="form-group mb-2">
+                <label for="polyline-color" class="form-label"
+                  >Tracking Path Color</label
+                >
+                <div class="d-flex align-items-center">
+                  <input
+                    type="color"
+                    class="form-control form-control-color me-2"
+                    id="polyline-color"
+                    value="#00FF00"
+                  />
+                  <span class="opacity-label">Opacity:</span>
+                  <input
+                    type="range"
+                    class="form-range ms-2"
+                    min="0.1"
+                    max="1"
+                    step="0.1"
+                    id="polyline-opacity"
+                    value="0.8"
+                  />
+                  <span id="opacity-value" class="ms-2">0.8</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+              <button type="submit" class="btn btn-primary">
+                Save Settings
+              </button>
+              <button type="reset" class="btn btn-outline-secondary">
+                Reset
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card bg-dark border-secondary mb-4">
+        <div class="card-header border-secondary">
+          <h2 class="h5 mb-0">About</h2>
+        </div>
+        <div class="card-body">
+          <h3 class="h6">Every Street</h3>
+          <p>Version: 1.0.0</p>
+          <p>A personal application to track and visualize street coverage.</p>
+
+          <h3 class="h6 mt-4">Live Tracking</h3>
+          <p>
+            This application uses Bouncie webhooks to provide real-time location
+            tracking. Data is sent from your vehicle to Bouncie servers, then
+            forwarded to this application.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // Initialize form with stored settings
+    const darkModeToggle = document.getElementById("dark-mode-toggle");
+    const highlightRecentTrips = document.getElementById(
+      "highlight-recent-trips"
+    );
+    const autoCenterToggle = document.getElementById("auto-center-toggle");
+    const showLiveTracking = document.getElementById("show-live-tracking");
+    const polylineColor = document.getElementById("polyline-color");
+    const polylineOpacity = document.getElementById("polyline-opacity");
+    const opacityValue = document.getElementById("opacity-value");
+    const form = document.getElementById("app-settings-form");
+
+    // Load settings from localStorage
+    darkModeToggle.checked =
+      document.documentElement.getAttribute("data-bs-theme") === "dark";
+    highlightRecentTrips.checked =
+      localStorage.getItem("highlightRecentTrips") !== "false";
+    autoCenterToggle.checked = localStorage.getItem("autoCenter") !== "false";
+    showLiveTracking.checked =
+      localStorage.getItem("showLiveTracking") !== "false";
+
+    // Load polyline settings
+    polylineColor.value = localStorage.getItem("polylineColor") || "#00FF00";
+    polylineOpacity.value = localStorage.getItem("polylineOpacity") || "0.8";
+    opacityValue.textContent = polylineOpacity.value;
+
+    // Update opacity value display when slider changes
+    polylineOpacity.addEventListener("input", function () {
+      opacityValue.textContent = this.value;
+    });
+
+    // Handle form submission
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      // Save theme setting
+      const theme = darkModeToggle.checked ? "dark" : "light";
+      document.documentElement.setAttribute("data-bs-theme", theme);
+      localStorage.setItem("theme", theme);
+
+      // Save other settings
+      localStorage.setItem(
+        "highlightRecentTrips",
+        highlightRecentTrips.checked
+      );
+      localStorage.setItem("autoCenter", autoCenterToggle.checked);
+      localStorage.setItem("showLiveTracking", showLiveTracking.checked);
+      localStorage.setItem("polylineColor", polylineColor.value);
+      localStorage.setItem("polylineOpacity", polylineOpacity.value);
+
+      // Show success notification
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          "Settings saved successfully",
+          "success"
+        );
+      } else {
+        alert("Settings saved successfully");
+      }
+
+      // Update any active elements
+      if (window.liveTracker) {
+        try {
+          window.liveTracker.updatePolylineStyle(
+            polylineColor.value,
+            polylineOpacity.value
+          );
+        } catch (err) {
+          console.error("Error updating live tracker style:", err);
+        }
+      }
+    });
+
+    // Handle dark mode toggle directly
+    darkModeToggle.addEventListener("change", function () {
+      const theme = this.checked ? "dark" : "light";
+      document.documentElement.setAttribute("data-bs-theme", theme);
+      document.body.classList.toggle("light-mode", !this.checked);
+    });
+  });
+</script>
+{% endblock %}
