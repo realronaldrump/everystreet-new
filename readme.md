@@ -31,9 +31,6 @@
     *   [Live Trip Tracking](#live-trip-tracking)
 7.  [API Endpoints](#api-endpoints)
 8.  [Background Tasks](#background-tasks)
-9.  [Contributing](#contributing)
-10. [License](#license)
-11. [Acknowledgements](#acknowledgements)
 
 ## Features
 
