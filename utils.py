@@ -20,14 +20,23 @@ SESSION_TIMEOUT = aiohttp.ClientTimeout(
 )
 
 
-class SessionManager:
+class BaseConnectionManager:
+    """Base class for all connection/session management classes"""
+
     _instance = None
-    _session: Optional[aiohttp.ClientSession] = None
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
+
+    async def cleanup(self):
+        """Method to cleanup resources - to be implemented by subclasses"""
+        pass
+
+
+class SessionManager(BaseConnectionManager):
+    _session: Optional[aiohttp.ClientSession] = None
 
     async def get_session(self) -> aiohttp.ClientSession:
         """Get or create a shared aiohttp ClientSession."""

@@ -31,7 +31,12 @@ from starlette.websockets import WebSocketDisconnect
 # Local module imports
 from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinates
 from update_geo_points import update_geo_points
-from utils import validate_location_osm, reverse_geocode_nominatim, cleanup_session
+from utils import (
+    validate_location_osm,
+    reverse_geocode_nominatim,
+    cleanup_session,
+    BaseConnectionManager,
+)
 from map_matching import process_and_map_match_trip
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from preprocess_streets import preprocess_streets as async_preprocess_streets
@@ -143,7 +148,7 @@ def parse_query_date(
 # ------------------------------------------------------------------------------
 
 
-class ConnectionManager:
+class ConnectionManager(BaseConnectionManager):
     """
     Manages WebSocket connections and broadcast messages.
     Tracks connection count and ensures proper cleanup of disconnected clients.
@@ -197,7 +202,7 @@ class ConnectionManager:
 
         # Make a copy of the connections to avoid modification during iteration
         connections = list(self.active_connections)
-        
+
         for websocket in connections:
             try:
                 await websocket.send_text(message)
@@ -205,12 +210,28 @@ class ConnectionManager:
             except Exception as e:
                 logger.warning(f"Error sending message to client: {str(e)}")
                 disconnected.append(websocket)
-        
+
         # Remove any disconnected clients
         for websocket in disconnected:
             await self.disconnect(websocket)
-                
+
         return delivered_count
+
+    async def cleanup(self):
+        """Close all WebSocket connections and reset state."""
+        logger.info(f"Closing {self.connection_count} active WebSocket connections")
+        connections = list(self.active_connections)
+        for websocket in connections:
+            try:
+                await websocket.close(code=1000, reason="Server shutdown")
+            except Exception as e:
+                logger.warning(f"Error closing WebSocket connection: {str(e)}")
+
+        # Reset the manager state
+        self.active_connections = []
+        self.connection_count = 0
+        logger.info("All WebSocket connections closed")
+
 
 # Create a global instance of the ConnectionManager
 manager = ConnectionManager()
@@ -3336,19 +3357,8 @@ async def shutdown_event():
     await task_manager.stop()
     await cleanup_session()
 
-    # Add this code to close all WebSocket connections
-    logger.info(f"Closing {manager.connection_count} active WebSocket connections")
-    connections = list(manager.active_connections)
-    for websocket in connections:
-        try:
-            await websocket.close(code=1000, reason="Server shutdown")
-        except Exception as e:
-            logger.warning(f"Error closing WebSocket connection: {str(e)}")
-
-    # Reset the manager state
-    manager.active_connections = []
-    manager.connection_count = 0
-    logger.info("All WebSocket connections closed")
+    # Use the manager's cleanup method
+    await manager.cleanup()
 
 
 # ------------------------------------------------------------------------------
