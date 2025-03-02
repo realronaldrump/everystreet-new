@@ -167,7 +167,19 @@ class BackgroundTaskManager:
                 else event.job_id
             )
             self.task_status[task_id] = TaskStatus.COMPLETED
+
+            # Ensure runtime is captured correctly in milliseconds
             runtime = getattr(event, "runtime", None)
+            if (
+                runtime is None
+                and hasattr(event, "scheduled_run_time")
+                and event.scheduled_run_time
+            ):
+                # Calculate runtime if not provided but we have scheduled run time
+                runtime = (
+                    datetime.now(timezone.utc) - event.scheduled_run_time
+                ).total_seconds() * 1000
+
             now = datetime.now(timezone.utc)
             history_entry = {
                 "task_id": task_id,
@@ -201,7 +213,19 @@ class BackgroundTaskManager:
             )
             self.task_status[task_id] = TaskStatus.FAILED
             error_msg = str(event.exception)
+
+            # Ensure runtime is captured correctly in milliseconds
             runtime = getattr(event, "runtime", None)
+            if (
+                runtime is None
+                and hasattr(event, "scheduled_run_time")
+                and event.scheduled_run_time
+            ):
+                # Calculate runtime if not provided but we have scheduled run time
+                runtime = (
+                    datetime.now(timezone.utc) - event.scheduled_run_time
+                ).total_seconds() * 1000
+
             now = datetime.now(timezone.utc)
             history_entry = {
                 "task_id": task_id,

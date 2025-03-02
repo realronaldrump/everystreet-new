@@ -310,6 +310,32 @@
 
       history.forEach((entry) => {
         const row = document.createElement("tr");
+
+        // Handle duration properly - runtime should be in milliseconds
+        let durationText = "Unknown";
+        if (entry.runtime !== null && entry.runtime !== undefined) {
+          // Handle numbers and strings
+          const runtimeMs = parseFloat(entry.runtime);
+          if (!isNaN(runtimeMs)) {
+            durationText = this.formatDuration(runtimeMs);
+          }
+        }
+
+        // Better details content based on status
+        let detailsContent = "N/A";
+        if (entry.error) {
+          detailsContent = `<button class="btn btn-sm btn-danger view-error-btn"
+                    data-error="${entry.error}">
+                    <i class="fas fa-exclamation-circle"></i> View Error
+                  </button>`;
+        } else if (entry.status === "COMPLETED") {
+          detailsContent = `<span class="text-success"><i class="fas fa-check-circle"></i> Completed successfully</span>`;
+        } else if (entry.status === "RUNNING") {
+          detailsContent = `<span class="text-info"><i class="fas fa-spinner fa-spin"></i> In progress</span>`;
+        } else if (entry.status === "FAILED") {
+          detailsContent = `<span class="text-danger"><i class="fas fa-times-circle"></i> Failed</span>`;
+        }
+
         row.innerHTML = `
             <td>${entry.task_id}</td>
             <td>
@@ -318,20 +344,9 @@
               </span>
             </td>
             <td>${this.formatDateTime(entry.timestamp)}</td>
-            <td>${entry.runtime !== null ? this.formatDuration(entry.runtime) : "N/A"}</td>
+            <td>${durationText}</td>
             <td>${entry.result ? "Success" : "Failed"}</td>
-            <td>
-              ${
-                entry.error
-                  ? `<button class="btn btn-sm btn-danger view-error-btn"
-                    data-error="${entry.error}">
-                    <i class="fas fa-exclamation-circle"></i> View Error
-                  </button>`
-                  : entry.status === "COMPLETED"
-                    ? "Success"
-                    : "N/A"
-              }
-            </td>
+            <td>${detailsContent}</td>
           `;
         tbody.appendChild(row);
       });
