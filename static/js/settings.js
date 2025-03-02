@@ -318,7 +318,7 @@
               </span>
             </td>
             <td>${this.formatDateTime(entry.timestamp)}</td>
-            <td>${entry.runtime ? this.formatDuration(entry.runtime) : "-"}</td>
+            <td>${entry.runtime !== null ? this.formatDuration(entry.runtime) : "N/A"}</td>
             <td>${entry.result ? "Success" : "Failed"}</td>
             <td>
               ${
@@ -327,7 +327,9 @@
                     data-error="${entry.error}">
                     <i class="fas fa-exclamation-circle"></i> View Error
                   </button>`
-                  : "-"
+                  : entry.status === "COMPLETED"
+                    ? "Success"
+                    : "N/A"
               }
             </td>
           `;
