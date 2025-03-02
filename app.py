@@ -161,7 +161,9 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-            logger.info(f"Client disconnected. Remaining connections: {len(self.active_connections)}")
+            logger.info(
+                f"Client disconnected. Remaining connections: {len(self.active_connections)}"
+            )
 
     async def broadcast(self, message: str):
         disconnected = []
@@ -173,14 +175,16 @@ class ConnectionManager:
             except Exception as e:
                 logger.warning(f"Error sending message to client {i}: {str(e)}")
                 disconnected.append(connection)
-        
+
         # Clean up any disconnected clients
         for connection in disconnected:
             if connection in self.active_connections:
                 self.active_connections.remove(connection)
-        
+
         if disconnected:
-            logger.info(f"Removed {len(disconnected)} disconnected clients. Remaining: {len(self.active_connections)}")
+            logger.info(
+                f"Removed {len(disconnected)} disconnected clients. Remaining: {len(self.active_connections)}"
+            )
 
 
 manager = ConnectionManager()
@@ -2803,12 +2807,12 @@ async def bouncie_webhook(request: Request):
         if not event_type:
             logger.error("Missing eventType in webhook data")
             return {"status": "success", "message": "Event processed"}
-        
+
         transaction_id = data.get("transactionId")
         if event_type in ("tripStart", "tripData", "tripEnd") and not transaction_id:
             logger.error("Missing transactionId for trip event")
             return {"status": "success", "message": "Event processed"}
-        
+
         # Handle trip events
         if event_type == "tripStart":
             start_time, _ = get_trip_timestamps(data)
@@ -2830,7 +2834,7 @@ async def bouncie_webhook(request: Request):
                 }
             )
             logger.info(f"Trip started: {transaction_id}")
-            
+
         elif event_type == "tripData":
             # Get or create trip document
             trip_doc = await live_trips_collection.find_one(
@@ -2854,8 +2858,10 @@ async def bouncie_webhook(request: Request):
                 trip_doc = await live_trips_collection.find_one(
                     {"transactionId": transaction_id, "status": "active"}
                 )
-                logger.info(f"Created new trip for existing trip data: {transaction_id}")
-                
+                logger.info(
+                    f"Created new trip for existing trip data: {transaction_id}"
+                )
+
             # Process trip data
             if "data" in data:
                 new_coords = sort_and_filter_trip_coordinates(data["data"])
@@ -2922,8 +2928,10 @@ async def bouncie_webhook(request: Request):
                         }
                     },
                 )
-                logger.debug(f"Updated trip data: {transaction_id} with {len(new_coords)} new points")
-                
+                logger.debug(
+                    f"Updated trip data: {transaction_id} with {len(new_coords)} new points"
+                )
+
         elif event_type == "tripEnd":
             start_time, end_time = get_trip_timestamps(data)
             trip = await live_trips_collection.find_one(
@@ -2935,7 +2943,7 @@ async def bouncie_webhook(request: Request):
                 await archived_live_trips_collection.insert_one(trip)
                 await live_trips_collection.delete_one({"_id": trip["_id"]})
                 logger.info(f"Trip ended: {transaction_id}")
-        
+
         # Broadcast updates to all connected clients
         try:
             active_trip = await live_trips_collection.find_one({"status": "active"})
@@ -2944,11 +2952,13 @@ async def bouncie_webhook(request: Request):
                 message = {"type": "trip_update", "data": serialized_trip}
             else:
                 message = {"type": "heartbeat"}
-                
+
             await manager.broadcast(json.dumps(message))
         except Exception as broadcast_error:
-            logger.exception(f"Error broadcasting webhook update: {str(broadcast_error)}")
-        
+            logger.exception(
+                f"Error broadcasting webhook update: {str(broadcast_error)}"
+            )
+
         return {"status": "success", "message": "Event processed"}
     except Exception as e:
         logger.exception(f"Error in bouncie_webhook: {str(e)}")
@@ -2986,7 +2996,7 @@ async def ws_live_trip(websocket: WebSocket):
             await websocket.send_json({"type": "trip_update", "data": serialized_trip})
         else:
             await websocket.send_json({"type": "heartbeat"})
-            
+
         # Keep the connection alive by handling ping/pong
         while True:
             data = await websocket.receive_text()
@@ -3000,33 +3010,34 @@ async def ws_live_trip(websocket: WebSocket):
         logger.exception(f"WebSocket error: {str(e)}")
         manager.disconnect(websocket)
 
+
 # Add helper function to serialize live trip data
 async def serialize_live_trip(trip_data):
     """Convert MongoDB document to JSON-serializable dict for live trips"""
     serialized = dict(trip_data)
-    
+
     # Convert ObjectId to string
     if "_id" in serialized:
         serialized["_id"] = str(serialized["_id"])
-    
+
     # Convert datetime objects to ISO format strings
     for key in ("startTime", "lastUpdate", "endTime"):
         if key in serialized and isinstance(serialized[key], datetime):
             serialized[key] = serialized[key].isoformat()
-    
+
     # Convert timestamps in coordinates
     if "coordinates" in serialized and serialized["coordinates"]:
         for coord in serialized["coordinates"]:
             ts = coord.get("timestamp")
             if isinstance(ts, datetime):
                 coord["timestamp"] = ts.isoformat()
-    
+
     # Ensure all required fields are present
     serialized.setdefault("distance", 0)
     serialized.setdefault("currentSpeed", 0)
     serialized.setdefault("maxSpeed", 0)
     serialized.setdefault("duration", 0)
-    
+
     return serialized
 
 

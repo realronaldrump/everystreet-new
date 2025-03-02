@@ -146,7 +146,7 @@ endblock %} {% block content %}
     // Initialize form with stored settings
     const darkModeToggle = document.getElementById("dark-mode-toggle");
     const highlightRecentTrips = document.getElementById(
-      "highlight-recent-trips"
+      "highlight-recent-trips",
     );
     const autoCenterToggle = document.getElementById("auto-center-toggle");
     const showLiveTracking = document.getElementById("show-live-tracking");
@@ -186,7 +186,7 @@ endblock %} {% block content %}
       // Save other settings
       localStorage.setItem(
         "highlightRecentTrips",
-        highlightRecentTrips.checked
+        highlightRecentTrips.checked,
       );
       localStorage.setItem("autoCenter", autoCenterToggle.checked);
       localStorage.setItem("showLiveTracking", showLiveTracking.checked);
@@ -197,7 +197,7 @@ endblock %} {% block content %}
       if (window.notificationManager) {
         window.notificationManager.show(
           "Settings saved successfully",
-          "success"
+          "success",
         );
       } else {
         alert("Settings saved successfully");
@@ -208,7 +208,7 @@ endblock %} {% block content %}
         try {
           window.liveTracker.updatePolylineStyle(
             polylineColor.value,
-            polylineOpacity.value
+            polylineOpacity.value,
           );
         } catch (err) {
           console.error("Error updating live tracker style:", err);
