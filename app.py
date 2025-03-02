@@ -197,7 +197,7 @@ class ConnectionManager:
 
         # Make a copy of the connections to avoid modification during iteration
         connections = list(self.active_connections)
-        
+
         for websocket in connections:
             try:
                 await websocket.send_text(message)
@@ -205,12 +205,13 @@ class ConnectionManager:
             except Exception as e:
                 logger.warning(f"Error sending message to client: {str(e)}")
                 disconnected.append(websocket)
-        
+
         # Remove any disconnected clients
         for websocket in disconnected:
             await self.disconnect(websocket)
-                
+
         return delivered_count
+
 
 # Create a global instance of the ConnectionManager
 manager = ConnectionManager()
