@@ -18,6 +18,9 @@
         { value: 720, label: "12 hours" },
         { value: 1440, label: "24 hours" },
       ];
+      this.currentHistoryPage = 1;
+      this.historyLimit = 10;
+      this.historyTotalPages = 1;
       this.initializeWebSocket();
       this.setupPolling();
     }
@@ -271,12 +274,16 @@
 
     async updateTaskHistory() {
       try {
-        const response = await fetch("/api/background_tasks/history");
+        const response = await fetch(
+          `/api/background_tasks/history?page=${this.currentHistoryPage}&limit=${this.historyLimit}`
+        );
         if (!response.ok) {
           throw new Error("Failed to fetch task history");
         }
-        const history = await response.json();
-        this.updateTaskHistoryTable(history);
+        const data = await response.json();
+        this.historyTotalPages = data.total_pages;
+        this.updateTaskHistoryTable(data.history);
+        this.updateHistoryPagination();
       } catch (error) {
         console.error("Error updating task history:", error);
         this.toastManager.show(
@@ -292,6 +299,14 @@
       if (!tbody) return;
 
       tbody.innerHTML = "";
+
+      if (history.length === 0) {
+        const row = document.createElement("tr");
+        row.innerHTML =
+          '<td colspan="6" class="text-center">No task history available</td>';
+        tbody.appendChild(row);
+        return;
+      }
 
       history.forEach((entry) => {
         const row = document.createElement("tr");
@@ -317,6 +332,58 @@
             </td>
           `;
         tbody.appendChild(row);
+      });
+    }
+
+    updateHistoryPagination() {
+      const paginationContainer = document.querySelector(
+        "#taskHistoryPagination"
+      );
+      if (!paginationContainer) return;
+
+      paginationContainer.innerHTML = "";
+
+      if (this.historyTotalPages <= 1) return;
+
+      const pagination = document.createElement("ul");
+      pagination.className = "pagination justify-content-center";
+
+      // Previous button
+      const prevLi = document.createElement("li");
+      prevLi.className = `page-item ${this.currentHistoryPage === 1 ? "disabled" : ""}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" data-page="${this.currentHistoryPage - 1}">Previous</a>`;
+      pagination.appendChild(prevLi);
+
+      // Page numbers (show up to 5 pages with current page in the middle)
+      const startPage = Math.max(1, this.currentHistoryPage - 2);
+      const endPage = Math.min(this.historyTotalPages, startPage + 4);
+
+      for (let i = startPage; i <= endPage; i++) {
+        const pageLi = document.createElement("li");
+        pageLi.className = `page-item ${i === this.currentHistoryPage ? "active" : ""}`;
+        pageLi.innerHTML = `<a class="page-link" href="#" data-page="${i}">${i}</a>`;
+        pagination.appendChild(pageLi);
+      }
+
+      // Next button
+      const nextLi = document.createElement("li");
+      nextLi.className = `page-item ${this.currentHistoryPage === this.historyTotalPages ? "disabled" : ""}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" data-page="${this.currentHistoryPage + 1}">Next</a>`;
+      pagination.appendChild(nextLi);
+
+      paginationContainer.appendChild(pagination);
+
+      // Add event listeners to pagination links
+      const pageLinks = paginationContainer.querySelectorAll(".page-link");
+      pageLinks.forEach((link) => {
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+          const page = parseInt(e.target.dataset.page, 10);
+          if (page && page !== this.currentHistoryPage) {
+            this.currentHistoryPage = page;
+            this.updateTaskHistory();
+          }
+        });
       });
     }
 
@@ -456,7 +523,18 @@
 
         const tbody = document.querySelector("#taskHistoryTable tbody");
         if (tbody) {
-          tbody.innerHTML = "";
+          tbody.innerHTML =
+            '<tr><td colspan="6" class="text-center">No task history available</td></tr>';
+        }
+
+        // Reset pagination
+        this.currentHistoryPage = 1;
+        this.historyTotalPages = 1;
+        const paginationContainer = document.querySelector(
+          "#taskHistoryPagination"
+        );
+        if (paginationContainer) {
+          paginationContainer.innerHTML = "";
         }
 
         this.task_history = [];

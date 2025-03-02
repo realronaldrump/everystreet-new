@@ -8,7 +8,7 @@ import io
 import uuid
 import tempfile
 from datetime import datetime, timedelta, timezone
-from math import radians, cos, sin, sqrt, atan2
+from math import radians, cos, sin, sqrt, atan2, ceil
 from typing import List, Dict, Any, Optional, Union
 
 # Third-party imports
@@ -529,10 +529,12 @@ async def manually_run_tasks(request: Request):
 
 
 @app.get("/api/background_tasks/history")
-async def get_task_history():
+async def get_task_history(page: int = 1, limit: int = 10):
     try:
         history = []
-        cursor = task_history_collection.find({}).sort("timestamp", -1).limit(100)
+        total_count = await task_history_collection.count_documents({})
+        skip = (page - 1) * limit
+        cursor = task_history_collection.find({}).sort("timestamp", -1).skip(skip).limit(limit)
         entries = await cursor.to_list(length=None)
         for entry in entries:
             entry["_id"] = str(entry["_id"])
@@ -540,7 +542,13 @@ async def get_task_history():
             if "runtime" in entry:
                 entry["runtime"] = float(entry["runtime"]) if entry["runtime"] else None
             history.append(entry)
-        return history
+        return {
+            "history": history,
+            "total": total_count,
+            "page": page,
+            "limit": limit,
+            "total_pages": ceil(total_count / limit)
+        }
     except Exception as e:
         logger.exception("Error fetching task history.")
         raise HTTPException(status_code=500, detail=str(e))
