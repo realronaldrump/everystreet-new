@@ -12,6 +12,7 @@ from math import radians, cos, sin, sqrt, atan2, ceil
 from typing import List, Dict, Any, Optional, Union
 
 # Third-party imports
+import time
 import aiohttp
 import geopandas as gpd
 import geojson as geojson_module
@@ -27,6 +28,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocketDisconnect
+from starlette.websockets import WebSocketState
 
 # Local module imports
 from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinates
@@ -152,12 +154,16 @@ class ConnectionManager(BaseConnectionManager):
     """
     Manages WebSocket connections and broadcast messages.
     Tracks connection count and ensures proper cleanup of disconnected clients.
+    Includes heartbeat mechanism to detect and clean up stale connections.
     """
 
     def __init__(self):
         self.active_connections: List[WebSocket] = []
         self.connection_count = 0
         self._lock = asyncio.Lock()  # Add a lock for thread safety
+        self._heartbeat_task = None
+        self._connection_metadata = {}  # Store metadata about connections
+        self.heartbeat_interval = 30  # seconds
 
     async def connect(self, websocket: WebSocket) -> None:
         """
@@ -167,10 +173,28 @@ class ConnectionManager(BaseConnectionManager):
             websocket (WebSocket): The WebSocket connection to add
         """
         await websocket.accept()
+        client_id = str(uuid.uuid4())
+
         async with self._lock:
             self.active_connections.append(websocket)
             self.connection_count += 1
-            logger.info(f"Client connected. Total connections: {self.connection_count}")
+            # Store connection metadata
+            self._connection_metadata[id(websocket)] = {
+                "client_id": client_id,
+                "connected_at": datetime.now(timezone.utc),
+                "last_activity": time.time(),
+                "client_info": websocket.client,
+            }
+            logger.info(
+                f"Client {client_id} connected. Total connections: {self.connection_count}"
+            )
+
+        # Start heartbeat task if not already running
+        if not self._heartbeat_task or self._heartbeat_task.done():
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_monitor())
+            self._heartbeat_task.add_done_callback(self._handle_task_done)
+
+        return client_id
 
     async def disconnect(self, websocket: WebSocket) -> None:
         """
@@ -181,11 +205,58 @@ class ConnectionManager(BaseConnectionManager):
         """
         async with self._lock:
             if websocket in self.active_connections:
-                self.active_connections.remove(websocket)
-                self.connection_count -= 1  # Fix: Decrement connection count
-                logger.info(
-                    f"Client disconnected. Remaining connections: {self.connection_count}"
+                client_id = self._connection_metadata.get(id(websocket), {}).get(
+                    "client_id", "Unknown"
                 )
+                self.active_connections.remove(websocket)
+                if id(websocket) in self._connection_metadata:
+                    del self._connection_metadata[id(websocket)]
+                self.connection_count -= 1
+                logger.info(
+                    f"Client {client_id} disconnected. Remaining connections: {self.connection_count}"
+                )
+
+    def _handle_task_done(self, future):
+        """Handle completed tasks to catch any exceptions."""
+        try:
+            future.result()
+        except Exception as e:
+            logger.error(f"WebSocket task failed: {e}", exc_info=True)
+
+    async def _heartbeat_monitor(self):
+        """
+        Monitor connections and remove stale ones.
+        """
+        try:
+            while True:
+                await asyncio.sleep(self.heartbeat_interval)
+                await self._check_connections()
+        except asyncio.CancelledError:
+            logger.info("Heartbeat monitor cancelled")
+        except Exception as e:
+            logger.error(f"Error in heartbeat monitor: {e}", exc_info=True)
+            raise
+
+    async def _check_connections(self):
+        """Check all connections and remove stale ones."""
+        now = time.time()
+        stale_threshold = now - (self.heartbeat_interval * 3)  # 3x heartbeat interval
+
+        # Copy to avoid modification during iteration
+        connections = list(self.active_connections)
+        for ws in connections:
+            metadata = self._connection_metadata.get(id(ws), {})
+            last_activity = metadata.get("last_activity", 0)
+
+            if last_activity < stale_threshold:
+                client_id = metadata.get("client_id", "Unknown")
+                logger.warning(f"Closing stale connection from client {client_id}")
+                try:
+                    await ws.close(code=1000, reason="Connection timeout")
+                except Exception as e:
+                    logger.warning(f"Error closing stale connection: {e}")
+                finally:
+                    await self.disconnect(ws)
 
     async def broadcast(self, message: str) -> int:
         """
@@ -207,6 +278,12 @@ class ConnectionManager(BaseConnectionManager):
             try:
                 await websocket.send_text(message)
                 delivered_count += 1
+
+                # Update last activity time
+                if id(websocket) in self._connection_metadata:
+                    self._connection_metadata[id(websocket)][
+                        "last_activity"
+                    ] = time.time()
             except Exception as e:
                 logger.warning(f"Error sending message to client: {str(e)}")
                 disconnected.append(websocket)
@@ -217,8 +294,47 @@ class ConnectionManager(BaseConnectionManager):
 
         return delivered_count
 
+    async def send_to_client(self, client_id: str, message: str) -> bool:
+        """
+        Send a message to a specific client by client_id.
+
+        Args:
+            client_id: The client ID to send to
+            message: The message to send
+
+        Returns:
+            bool: True if message was sent, False otherwise
+        """
+        # Find the websocket for this client_id
+        target_ws = None
+        for ws in self.active_connections:
+            if self._connection_metadata.get(id(ws), {}).get("client_id") == client_id:
+                target_ws = ws
+                break
+
+        if not target_ws:
+            return False
+
+        try:
+            await target_ws.send_text(message)
+            # Update last activity time
+            if id(target_ws) in self._connection_metadata:
+                self._connection_metadata[id(target_ws)]["last_activity"] = time.time()
+            return True
+        except Exception as e:
+            logger.warning(f"Error sending message to client {client_id}: {e}")
+            await self.disconnect(target_ws)
+            return False
+
     async def cleanup(self):
         """Close all WebSocket connections and reset state."""
+        if self._heartbeat_task and not self._heartbeat_task.done():
+            self._heartbeat_task.cancel()
+            try:
+                await self._heartbeat_task
+            except asyncio.CancelledError:
+                pass
+
         logger.info(f"Closing {self.connection_count} active WebSocket connections")
         connections = list(self.active_connections)
         for websocket in connections:
@@ -229,6 +345,7 @@ class ConnectionManager(BaseConnectionManager):
 
         # Reset the manager state
         self.active_connections = []
+        self._connection_metadata = {}
         self.connection_count = 0
         logger.info("All WebSocket connections closed")
 
@@ -522,48 +639,34 @@ async def manually_run_tasks(request: Request):
         data = await request.json()
         tasks_to_run = data.get("tasks", [])
         results = []
-        config = await task_manager.get_config()
+
         for task_id in tasks_to_run:
             if task_id == "ALL":
+                config = await task_manager.get_config()
                 for t_id in task_manager.tasks:
                     if config["tasks"].get(t_id, {}).get("enabled", True):
-                        try:
-                            task_manager.scheduler.add_job(
-                                task_manager.get_task_function(t_id),
-                                id=f"{t_id}_manual_{datetime.now(timezone.utc).timestamp()}",
-                                trigger="date",
-                                run_date=datetime.now(timezone.utc),
-                                max_instances=1,
-                                coalesce=True,
-                                misfire_grace_time=None,
-                            )
-                            results.append({"task": t_id, "success": True})
-                        except Exception as ex:
-                            logger.exception("Error scheduling task %s", t_id)
-                            results.append(
-                                {"task": t_id, "success": False, "error": str(ex)}
-                            )
+                        result = await task_manager.execute_task(t_id, is_manual=True)
+                        results.append(
+                            {
+                                "task": t_id,
+                                "success": result["success"],
+                                "message": result["message"],
+                            }
+                        )
             elif task_id in task_manager.tasks:
-                try:
-                    task_manager.scheduler.add_job(
-                        task_manager.get_task_function(task_id),
-                        id=f"{task_id}_manual_{datetime.now(timezone.utc).timestamp()}",
-                        trigger="date",
-                        run_date=datetime.now(timezone.utc),
-                        max_instances=1,
-                        coalesce=True,
-                        misfire_grace_time=None,
-                    )
-                    results.append({"task": task_id, "success": True})
-                except Exception as ex:
-                    logger.exception("Error scheduling task %s", task_id)
-                    results.append(
-                        {"task": task_id, "success": False, "error": str(ex)}
-                    )
+                result = await task_manager.execute_task(task_id, is_manual=True)
+                results.append(
+                    {
+                        "task": task_id,
+                        "success": result["success"],
+                        "message": result["message"],
+                    }
+                )
             else:
                 results.append(
                     {"task": task_id, "success": False, "error": "Unknown task"}
                 )
+
         return {
             "status": "success",
             "message": f"Triggered {len(results)} tasks",
@@ -787,10 +890,32 @@ async def get_street_coverage(request: Request):
 
 
 async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
+    """
+    Process coverage calculation in the background with proper error handling.
+    Updates progress information and handles failures.
+    """
     try:
+        # Initialize progress tracking
+        await progress_collection.update_one(
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "initializing",
+                    "progress": 0,
+                    "message": "Starting coverage calculation...",
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+            upsert=True,
+        )
+
+        # Run the calculation
         result = await compute_coverage_for_location(location, task_id)
+
         if result:
             display_name = location.get("display_name", "Unknown")
+
+            # Update coverage metadata
             await coverage_metadata_collection.update_one(
                 {"location.display_name": display_name},
                 {
@@ -800,10 +925,13 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                         "driven_length": result["driven_length"],
                         "coverage_percentage": result["coverage_percentage"],
                         "last_updated": datetime.now(timezone.utc),
+                        "status": "completed",
                     }
                 },
                 upsert=True,
             )
+
+            # Update progress status
             await progress_collection.update_one(
                 {"_id": task_id},
                 {
@@ -815,29 +943,66 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                     }
                 },
             )
+
+            logger.info(f"Coverage calculation completed for {display_name}")
         else:
+            error_msg = "No result returned from coverage calculation"
+            logger.error(f"Coverage calculation error: {error_msg}")
+
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": location["display_name"]},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": error_msg,
+                        "last_updated": datetime.now(timezone.utc),
+                    }
+                },
+            )
+
             await progress_collection.update_one(
                 {"_id": task_id},
                 {
                     "$set": {
                         "stage": "error",
-                        "error": "No result returned from coverage calculation",
+                        "error": error_msg,
                         "updated_at": datetime.now(timezone.utc),
                     }
                 },
             )
     except Exception as e:
-        logger.exception("Error in background coverage calculation.")
-        await progress_collection.update_one(
-            {"_id": task_id},
-            {
-                "$set": {
-                    "stage": "error",
-                    "error": str(e),
-                    "updated_at": datetime.now(timezone.utc),
-                }
-            },
+        logger.exception(
+            f"Error in background coverage calculation for {location.get('display_name', 'Unknown')}"
         )
+
+        # Update both collections with error information
+        try:
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": location["display_name"]},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": str(e),
+                        "last_updated": datetime.now(timezone.utc),
+                    }
+                },
+            )
+        except Exception as update_error:
+            logger.error(f"Failed to update coverage metadata: {update_error}")
+
+        try:
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "error",
+                        "error": str(e),
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+        except Exception as update_error:
+            logger.error(f"Failed to update progress collection: {update_error}")
 
 
 @app.get("/api/street_coverage/{task_id}")
@@ -1904,12 +2069,62 @@ async def preprocess_streets_route(request: Request):
 
 
 async def process_area(location: Dict[str, Any], task_id: str):
+    """
+    Process an area by preprocessing streets and calculating coverage.
+    Handles errors properly and updates status.
+    """
     try:
+        # Initialize progress
+        await progress_collection.update_one(
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "preprocessing",
+                    "progress": 0,
+                    "message": "Preprocessing streets...",
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+            upsert=True,
+        )
+
+        # Update metadata to show processing status
+        display_name = location.get("display_name", "Unknown")
+        await coverage_metadata_collection.update_one(
+            {"location.display_name": display_name},
+            {
+                "$set": {
+                    "location": location,
+                    "status": "processing",
+                    "last_updated": datetime.now(timezone.utc),
+                }
+            },
+            upsert=True,
+        )
+
+        # Preprocess streets
         await async_preprocess_streets(location)
+
+        # Update progress
+        await progress_collection.update_one(
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "calculating",
+                    "progress": 50,
+                    "message": "Calculating coverage...",
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+        )
+
+        # Calculate coverage
         result = await compute_coverage_for_location(location, task_id)
+
         if result:
+            # Update with results
             await coverage_metadata_collection.update_one(
-                {"location.display_name": location["display_name"]},
+                {"location.display_name": display_name},
                 {
                     "$set": {
                         "status": "completed",
@@ -1920,29 +2135,75 @@ async def process_area(location: Dict[str, Any], task_id: str):
                     }
                 },
             )
+
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "complete",
+                        "progress": 100,
+                        "result": result,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+
+            logger.info(f"Area processing completed for {display_name}")
         else:
+            error_msg = "Failed to calculate coverage"
+            logger.error(f"{error_msg} for {display_name}")
+
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": display_name},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": error_msg,
+                        "last_updated": datetime.now(timezone.utc),
+                    }
+                },
+            )
+
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "error",
+                        "error": error_msg,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+    except Exception as e:
+        logger.exception(
+            f"Error processing area {location.get('display_name', 'Unknown')}"
+        )
+
+        try:
+            # Update both collections with error information
             await coverage_metadata_collection.update_one(
                 {"location.display_name": location["display_name"]},
                 {
                     "$set": {
                         "status": "error",
-                        "last_error": "Failed to calculate coverage",
+                        "last_error": str(e),
                         "last_updated": datetime.now(timezone.utc),
                     }
                 },
             )
-    except Exception as e:
-        logger.exception("Error processing area")
-        await coverage_metadata_collection.update_one(
-            {"location.display_name": location["display_name"]},
-            {
-                "$set": {
-                    "status": "error",
-                    "last_error": str(e),
-                    "last_updated": datetime.now(timezone.utc),
-                }
-            },
-        )
+
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "error",
+                        "error": str(e),
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+        except Exception as update_error:
+            logger.error(f"Failed to update status after error: {update_error}")
 
 
 @app.get("/api/street_segment/{segment_id}")
@@ -3054,19 +3315,29 @@ async def ws_live_trip(websocket: WebSocket):
     """
     WebSocket endpoint for live trip updates.
     Handles connection, initial data sending, and ping/pong for keepalive.
+    Improved with proper error handling and resource cleanup.
     """
-    # Connect the WebSocket
-    await manager.connect(websocket)
+    client_id = None
 
     try:
+        # Connect the WebSocket and get a client ID
+        client_id = await manager.connect(websocket)
+
         # Send initial trip data when client connects
-        active_trip = await live_trips_collection.find_one({"status": "active"})
+        active_trip = await trips_collection.find_one({"status": "active"})
         if active_trip:
             # Serialize the active trip
             serialized_trip = await serialize_live_trip(active_trip)
             await websocket.send_json({"type": "trip_update", "data": serialized_trip})
         else:
-            await websocket.send_json({"type": "heartbeat"})
+            # Only send heartbeat if the connection is still open
+            if websocket.client_state != WebSocketState.DISCONNECTED:
+                await websocket.send_json({"type": "heartbeat"})
+            else:
+                logger.info(
+                    f"Client {client_id} connection already closed before initial heartbeat"
+                )
+                return
 
         # Keep the connection alive by handling ping/pong
         heartbeat_interval = 30  # seconds
@@ -3080,7 +3351,19 @@ async def ws_live_trip(websocket: WebSocket):
                 )
 
                 if data == "ping":
-                    await websocket.send_text("pong")
+                    # Check if the connection is still open before sending pong
+                    if websocket.client_state != WebSocketState.DISCONNECTED:
+                        await websocket.send_text("pong")
+                        last_heartbeat = datetime.now(timezone.utc)
+                    else:
+                        logger.info(
+                            f"Client {client_id} connection already closed, breaking loop"
+                        )
+                        break
+                elif data:  # Handle any other messages
+                    logger.debug(
+                        f"Received message from client {client_id}: {data[:100]}"
+                    )
                     last_heartbeat = datetime.now(timezone.utc)
 
             except asyncio.TimeoutError:
@@ -3090,27 +3373,44 @@ async def ws_live_trip(websocket: WebSocket):
                     current_time - last_heartbeat
                 ).total_seconds() >= heartbeat_interval:
                     try:
-                        await websocket.send_json({"type": "heartbeat"})
-                        last_heartbeat = current_time
+                        # Check if the connection is still open before sending the heartbeat
+                        if websocket.client_state != WebSocketState.DISCONNECTED:
+                            await websocket.send_json({"type": "heartbeat"})
+                            last_heartbeat = current_time
+                        else:
+                            logger.info(
+                                f"Client {client_id} connection already closed, breaking loop"
+                            )
+                            break
                     except Exception as e:
-                        logger.warning(f"Failed to send heartbeat: {str(e)}")
+                        logger.warning(
+                            f"Failed to send heartbeat to {client_id}: {str(e)}"
+                        )
                         # Connection is probably dead
                         break
 
             except WebSocketDisconnect:
-                logger.info("Client disconnected during receive operation")
+                logger.info(f"Client {client_id} disconnected during receive operation")
+                break
+
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error in WebSocket connection for {client_id}: {e}",
+                    exc_info=True,
+                )
                 break
 
             # Small sleep to prevent tight CPU loop
             await asyncio.sleep(0.1)
 
     except WebSocketDisconnect:
-        logger.info("WebSocket client disconnected")
+        logger.info(f"WebSocket client {client_id} disconnected")
     except Exception as e:
         logger.exception(f"WebSocket error: {str(e)}")
     finally:
         # Always make sure to disconnect properly
-        await manager.disconnect(websocket)
+        if client_id:
+            await manager.disconnect(websocket)
 
 
 # Add helper function to serialize live trip data

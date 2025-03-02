@@ -9,7 +9,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Set
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.base import JobLookupError
@@ -41,6 +41,7 @@ class TaskStatus(Enum):
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     PAUSED = "PAUSED"
+    PENDING = "PENDING"
 
 
 @dataclass
@@ -62,9 +63,11 @@ class BackgroundTaskManager:
         self.scheduler = AsyncIOScheduler()
         self.tasks: Dict[str, TaskDefinition] = self._initialize_tasks()
         self.task_status: Dict[str, TaskStatus] = {}
+        self.running_tasks: Set[str] = set()
         self.task_history: List[Dict[str, Any]] = []
         self.db = db
         self._setup_event_listeners()
+        self._lock = asyncio.Lock()
 
     @staticmethod
     def _initialize_tasks() -> Dict[str, TaskDefinition]:
@@ -166,7 +169,11 @@ class BackgroundTaskManager:
                 if "_manual_" in event.job_id
                 else event.job_id
             )
-            self.task_status[task_id] = TaskStatus.COMPLETED
+
+            async with self._lock:
+                self.task_status[task_id] = TaskStatus.COMPLETED
+                if task_id in self.running_tasks:
+                    self.running_tasks.remove(task_id)
 
             # Ensure runtime is captured correctly in milliseconds
             runtime = getattr(event, "runtime", None)
@@ -189,6 +196,7 @@ class BackgroundTaskManager:
                 "result": True,
             }
             await self.db["task_history"].insert_one(history_entry)
+
             job = self.scheduler.get_job(event.job_id)
             next_run = job.next_run_time if job else None
             await self._update_task_config(
@@ -200,6 +208,10 @@ class BackgroundTaskManager:
                 },
             )
             self._update_in_memory_history(history_entry)
+
+            # Check if any dependent tasks are pending
+            await self._process_pending_tasks(task_id)
+
         except Exception as e:
             logger.error("Error in _handle_job_executed: %s", e, exc_info=True)
             raise
@@ -211,7 +223,12 @@ class BackgroundTaskManager:
                 if "_manual_" in event.job_id
                 else event.job_id
             )
-            self.task_status[task_id] = TaskStatus.FAILED
+
+            async with self._lock:
+                self.task_status[task_id] = TaskStatus.FAILED
+                if task_id in self.running_tasks:
+                    self.running_tasks.remove(task_id)
+
             error_msg = str(event.exception)
 
             # Ensure runtime is captured correctly in milliseconds
@@ -386,6 +403,109 @@ class BackgroundTaskManager:
             }
             await self.db["task_config"].insert_one(cfg)
         return cfg
+
+    async def validate_dependencies(self, task_id: str) -> bool:
+        """
+        Check if all dependencies for a task are satisfied.
+
+        Returns:
+            bool: True if dependencies are satisfied or no dependencies exist,
+                 False otherwise
+        """
+        task_def = self.tasks.get(task_id)
+        if not task_def or not task_def.dependencies:
+            return True
+
+        for dependency in task_def.dependencies:
+            # Check if dependency is currently running
+            if dependency in self.running_tasks:
+                logger.info(
+                    f"Task {task_id} waiting for dependency {dependency} to complete"
+                )
+                return False
+
+            # Check if dependency exists and has been completed successfully
+            dependency_status = self.task_status.get(dependency)
+            if not dependency_status or dependency_status != TaskStatus.COMPLETED:
+                logger.info(f"Dependency {dependency} for task {task_id} not satisfied")
+                return False
+
+        return True
+
+    async def execute_task(
+        self, task_id: str, is_manual: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Execute a task with dependency validation
+
+        Args:
+            task_id: The ID of the task to execute
+            is_manual: Whether this is a manual execution
+
+        Returns:
+            Dict with status and message
+        """
+        try:
+            task_def = self.tasks.get(task_id)
+            if not task_def:
+                return {"success": False, "message": f"Unknown task: {task_id}"}
+
+            # Check dependencies
+            if not await self.validate_dependencies(task_id):
+                # Set as pending for automatic execution when dependencies complete
+                async with self._lock:
+                    self.task_status[task_id] = TaskStatus.PENDING
+                return {
+                    "success": False,
+                    "message": f"Task {task_id} dependencies not satisfied. Task marked as pending.",
+                }
+
+            # Mark task as running
+            async with self._lock:
+                self.task_status[task_id] = TaskStatus.RUNNING
+                self.running_tasks.add(task_id)
+
+            # Create job ID with timestamp for uniqueness
+            job_id = f"{task_id}_{'manual' if is_manual else 'auto'}_{datetime.now(timezone.utc).timestamp()}"
+
+            # Schedule for immediate execution
+            self.scheduler.add_job(
+                self.get_task_function(task_id),
+                id=job_id,
+                trigger="date",
+                run_date=datetime.now(timezone.utc),
+                max_instances=1,
+                coalesce=True,
+                misfire_grace_time=None,
+            )
+
+            return {
+                "success": True,
+                "message": f"Task {task_id} scheduled for execution",
+            }
+
+        except Exception as e:
+            logger.error(f"Error executing task {task_id}: {e}", exc_info=True)
+            return {"success": False, "message": f"Error: {str(e)}"}
+
+    async def _process_pending_tasks(self, completed_task_id: str) -> None:
+        """
+        Process tasks that were pending on the just-completed task
+        """
+        pending_tasks = []
+
+        # Find tasks that depend on the completed task
+        for task_id, task_def in self.tasks.items():
+            if (
+                completed_task_id in task_def.dependencies
+                and self.task_status.get(task_id) == TaskStatus.PENDING
+            ):
+                pending_tasks.append(task_id)
+
+        # Try to execute pending tasks
+        for task_id in pending_tasks:
+            if await self.validate_dependencies(task_id):
+                await self.execute_task(task_id)
 
     # --- Task Implementations ---
 
@@ -646,7 +766,13 @@ class BackgroundTaskManager:
     async def _update_task_status(
         self, task_id: str, status: TaskStatus, error: Optional[str] = None
     ) -> None:
-        self.task_status[task_id] = status
+        async with self._lock:
+            self.task_status[task_id] = status
+            if status == TaskStatus.RUNNING:
+                self.running_tasks.add(task_id)
+            elif status in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
+                self.running_tasks.discard(task_id)
+
         now = datetime.now(timezone.utc)
         update_data = {
             f"tasks.{task_id}.status": status.value,
@@ -660,11 +786,6 @@ class BackgroundTaskManager:
             update_data[f"tasks.{task_id}.last_error"] = error
 
         await self._update_task_config(task_id, update_data)
-
-    async def _update_task_config(self, task_id: str, updates: Dict[str, Any]) -> None:
-        await self.db["task_config"].update_one(
-            {"_id": "global_background_task_config"}, {"$set": updates}
-        )
 
 
 task_manager = BackgroundTaskManager()

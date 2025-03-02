@@ -10,14 +10,15 @@ import math
 import logging
 import asyncio
 import aiohttp
-from aiohttp import ClientResponseError, ClientConnectorError
+import time
+from aiohttp import ClientResponseError, ClientConnectorError, ClientSession
 from geojson import loads as geojson_loads
 from dotenv import load_dotenv
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from utils import validate_trip_data, reverse_geocode_nominatim
-from db import matched_trips_collection
+from db import matched_trips_collection, db_manager
 
 load_dotenv()
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
@@ -29,6 +30,13 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Rate limiting configuration
+MAX_REQUESTS_PER_MINUTE = 60  # Mapbox free tier limit
+RATE_LIMIT_WINDOW = 60  # seconds
+MAPBOX_REQUEST_COUNT = 0
+MAPBOX_WINDOW_START = time.time()
+RATE_LIMIT_LOCK = asyncio.Lock()
 
 
 def haversine_single(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
@@ -45,11 +53,39 @@ def haversine_single(lon1: float, lat1: float, lon2: float, lat2: float) -> floa
     return R * c
 
 
+async def check_rate_limit() -> Tuple[bool, float]:
+    """
+    Check if we're about to exceed the rate limit.
+    Returns (True, wait_time) if we need to wait, (False, 0) otherwise.
+    """
+    global MAPBOX_REQUEST_COUNT, MAPBOX_WINDOW_START
+
+    async with RATE_LIMIT_LOCK:
+        current_time = time.time()
+        elapsed = current_time - MAPBOX_WINDOW_START
+
+        # Reset window if it's been longer than the window duration
+        if elapsed > RATE_LIMIT_WINDOW:
+            MAPBOX_REQUEST_COUNT = 0
+            MAPBOX_WINDOW_START = current_time
+            return False, 0
+
+        # Check if we're about to exceed the rate limit
+        if MAPBOX_REQUEST_COUNT >= MAX_REQUESTS_PER_MINUTE:
+            # Calculate time to wait until the window resets
+            wait_time = RATE_LIMIT_WINDOW - elapsed
+            return True, max(0.1, wait_time)
+
+        # Increment the request count
+        MAPBOX_REQUEST_COUNT += 1
+        return False, 0
+
+
 async def map_match_coordinates(
     coordinates: List[List[float]],
     chunk_size: int = 100,
     overlap: int = 10,
-    max_retries: int = 2,
+    max_retries: int = 3,
     min_sub_chunk: int = 20,
     jump_threshold_m: float = 200.0,
 ) -> Dict[str, Any]:
@@ -59,8 +95,13 @@ async def map_match_coordinates(
             "code": "Error",
             "message": "At least two coordinates are required for map matching.",
         }
-    semaphore = asyncio.Semaphore(2)
-    async with aiohttp.ClientSession() as session:
+
+    # Use a smaller semaphore to limit concurrent API calls
+    semaphore = asyncio.Semaphore(3)
+
+    # Create a session with proper configuration
+    timeout = aiohttp.ClientTimeout(total=30, connect=10, sock_connect=10, sock_read=20)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
 
         async def call_mapbox_api(
             coords: List[List[float]], attempt: int = 1
@@ -73,37 +114,47 @@ async def map_match_coordinates(
                 "geometries": "geojson",
                 "radiuses": ";".join("25" for _ in coords),
             }
+
             max_attempts_for_429 = 5
-            backoff_seconds = 2
+            min_backoff_seconds = 2
+
             async with semaphore:
-                while True:
+                for retry_attempt in range(1, max_attempts_for_429 + 1):
+                    # Check rate limiting before making request
+                    should_wait, wait_time = await check_rate_limit()
+                    if should_wait:
+                        logger.info(
+                            f"Rate limit approaching - waiting {wait_time:.2f}s before API call"
+                        )
+                        await asyncio.sleep(wait_time)
+
                     try:
                         async with session.get(url, params=params) as response:
                             if response.status == 429:
                                 logger.warning(
                                     "Received 429 Too Many Requests. Attempt=%d",
-                                    attempt,
+                                    retry_attempt,
                                 )
                                 retry_after = response.headers.get("Retry-After")
                                 wait_time = (
                                     float(retry_after)
                                     if retry_after is not None
-                                    else backoff_seconds * attempt
+                                    else min_backoff_seconds
+                                    * (2 ** (retry_attempt - 1))
                                 )
-                                if attempt < max_attempts_for_429:
+                                if retry_attempt < max_attempts_for_429:
                                     logger.info(
                                         "Sleeping %.1f sec before retry... (attempt %d/%d)",
                                         wait_time,
-                                        attempt,
+                                        retry_attempt,
                                         max_attempts_for_429,
                                     )
                                     await asyncio.sleep(wait_time)
-                                    attempt += 1
                                     continue
                                 else:
                                     logger.error(
                                         "Gave up after %d attempts for 429 errors.",
-                                        attempt,
+                                        retry_attempt,
                                     )
                                     raise ClientResponseError(
                                         response.request_info,
@@ -111,17 +162,72 @@ async def map_match_coordinates(
                                         status=429,
                                         message="Too Many Requests (exceeded max attempts)",
                                     )
+
+                            # Check for other error responses
+                            if 400 <= response.status < 500:
+                                error_text = await response.text()
+                                logger.warning(
+                                    f"Mapbox API client error: {response.status} - {error_text}"
+                                )
+                                return {
+                                    "code": "Error",
+                                    "message": f"Mapbox API error: {response.status}",
+                                    "details": error_text,
+                                }
+
+                            # Handle server errors with retries
+                            if response.status >= 500:
+                                if retry_attempt < max_attempts_for_429:
+                                    wait_time = min_backoff_seconds * (
+                                        2 ** (retry_attempt - 1)
+                                    )
+                                    logger.warning(
+                                        f"Mapbox server error {response.status}, retrying in {wait_time}s"
+                                    )
+                                    await asyncio.sleep(wait_time)
+                                    continue
+                                else:
+                                    error_text = await response.text()
+                                    return {
+                                        "code": "Error",
+                                        "message": f"Mapbox server error: {response.status}",
+                                        "details": error_text,
+                                    }
+
                             response.raise_for_status()
                             data = await response.json()
                             return data
+
                     except ClientResponseError as e:
                         if e.status != 429:
+                            if retry_attempt < max_attempts_for_429 and e.status >= 500:
+                                # Retry on server errors
+                                wait_time = min_backoff_seconds * (
+                                    2 ** (retry_attempt - 1)
+                                )
+                                logger.warning(
+                                    f"Mapbox server error {e.status}, retrying in {wait_time}s"
+                                )
+                                await asyncio.sleep(wait_time)
+                                continue
+                            logger.error(f"Mapbox API error: {e}")
                             raise
                         else:
-                            raise
+                            # Continue the retry loop for 429 errors
+                            continue
                     except (ClientConnectorError, asyncio.TimeoutError) as e:
                         logger.warning("Mapbox network error for chunk: %s", str(e))
+                        if retry_attempt < max_attempts_for_429:
+                            wait_time = min_backoff_seconds * (2 ** (retry_attempt - 1))
+                            logger.warning(
+                                f"Network error, retrying in {wait_time}s (attempt {retry_attempt}/{max_attempts_for_429})"
+                            )
+                            await asyncio.sleep(wait_time)
+                            continue
                         raise
+
+                # This should only be reached if all retry attempts failed but no exception was raised
+                return {"code": "Error", "message": "All retry attempts failed"}
 
         async def match_chunk(
             chunk_coords: List[List[float]], depth: int = 0
@@ -135,8 +241,23 @@ async def map_match_coordinates(
                 data = await call_mapbox_api(chunk_coords)
                 if data.get("code") == "Ok" and data.get("matchings"):
                     return data["matchings"][0]["geometry"]["coordinates"]
+
+                # Handle different types of errors
                 msg = data.get("message", "Mapbox API error (code != Ok)")
                 logger.warning("Mapbox chunk error: %s", msg)
+
+                # Special handling for invalid input
+                if "invalid coordinates" in msg.lower():
+                    # Try to clean up coordinates
+                    filtered_coords = filter_invalid_coordinates(chunk_coords)
+                    if len(filtered_coords) >= 2 and len(filtered_coords) < len(
+                        chunk_coords
+                    ):
+                        logger.info(
+                            f"Retrying with {len(filtered_coords)} filtered coordinates"
+                        )
+                        return await match_chunk(filtered_coords, depth)
+
             except ClientResponseError as cre:
                 if cre.status == 429:
                     logger.error(
@@ -147,6 +268,8 @@ async def map_match_coordinates(
                     logger.warning("Mapbox HTTP error for chunk: %s", str(cre))
             except Exception as exc:
                 logger.warning("Unexpected error in mapbox chunk: %s", str(exc))
+
+            # Fallback to splitting if needed and allowed
             if depth < max_retries and len(chunk_coords) > min_sub_chunk:
                 mid = len(chunk_coords) // 2
                 first_half = chunk_coords[:mid]
@@ -168,12 +291,29 @@ async def map_match_coordinates(
                     ):
                         matched_second = matched_second[1:]
                     return matched_first + matched_second
+
             logger.error(
                 "Chunk of size %d failed after %d retries, giving up.",
                 len(chunk_coords),
                 depth,
             )
             return None
+
+        def filter_invalid_coordinates(coords: List[List[float]]) -> List[List[float]]:
+            """Filter out potentially invalid coordinates."""
+            valid_coords = []
+            for coord in coords:
+                # Check for basic validity
+                if (
+                    len(coord) >= 2
+                    and isinstance(coord[0], (int, float))
+                    and isinstance(coord[1], (int, float))
+                    and -180 <= coord[0] <= 180
+                    and -90 <= coord[1] <= 90
+                ):
+                    valid_coords.append(coord)
+
+            return valid_coords
 
         n = len(coordinates)
         chunk_indices = []
@@ -225,7 +365,8 @@ async def map_match_coordinates(
             for i in range(len(coords) - 1):
                 lon1, lat1 = coords[i]
                 lon2, lat2 = coords[i + 1]
-                if haversine_single(lon1, lat1, lon2, lat2) > threshold_m:
+                distance = haversine_single(lon1, lat1, lon2, lat2)
+                if distance > threshold_m:
                     suspicious_indices.append(i)
             return suspicious_indices
 
@@ -289,44 +430,89 @@ async def process_and_map_match_trip(trip: Dict[str, Any]) -> None:
     and store the matched trip.
     """
     try:
+        transaction_id = trip.get("transactionId", "?")
+
+        # Skip if already processed
+        async def check_existing():
+            return await matched_trips_collection.find_one(
+                {"transactionId": transaction_id}, {"_id": 1}
+            )
+
+        existing = await db_manager.execute_with_retry(
+            check_existing,
+            operation_name=f"check for existing matched trip {transaction_id}",
+        )
+
+        if existing:
+            logger.info("Trip %s is already matched; skipping.", transaction_id)
+            return
+
+        # Validate trip data
         is_valid, error_message = validate_trip_data(trip)
         if not is_valid:
             logger.error(
                 "Trip %s failed validation: %s",
-                trip.get("transactionId", "?"),
+                transaction_id,
                 error_message,
             )
             return
-        existing = await matched_trips_collection.find_one(
-            {"transactionId": trip["transactionId"]}
-        )
-        if existing:
-            logger.info("Trip %s is already matched; skipping.", trip["transactionId"])
-            return
+
+        # Extract GPS data
         if isinstance(trip["gps"], dict):
             gps_data = trip["gps"]
         else:
-            gps_data = geojson_loads(trip["gps"])
+            try:
+                gps_data = geojson_loads(trip["gps"])
+            except Exception as e:
+                logger.error(f"Error parsing GPS data for trip {transaction_id}: {e}")
+                return
+
         coords = gps_data.get("coordinates", [])
         if not coords or len(coords) < 2:
             logger.warning(
-                "Trip %s has insufficient coords for map matching",
-                trip.get("transactionId"),
+                "Trip %s has insufficient coords for map matching", transaction_id
             )
             return
+
+        # Perform map matching with retries
         match_result = await map_match_coordinates(coords)
         if match_result.get("code") != "Ok":
             logger.error(
                 "Map matching failed for trip %s: %s",
-                trip.get("transactionId"),
+                transaction_id,
                 match_result.get("message", "Unknown error"),
             )
+
+            # Store the failure reason
+            error_info = {
+                "map_matching_failed": True,
+                "error_message": match_result.get("message", "Unknown error"),
+                "attempted_at": time.time(),
+            }
+
+            async def update_trip_with_error():
+                return await matched_trips_collection.update_one(
+                    {"transactionId": transaction_id}, {"$set": error_info}, upsert=True
+                )
+
+            await db_manager.execute_with_retry(
+                update_trip_with_error,
+                operation_name=f"update trip {transaction_id} with error info",
+            )
+
             return
+
+        # Create matched trip document
         matched_trip = trip.copy()
         matched_trip.pop("_id", None)
+
         if not isinstance(matched_trip["gps"], str):
             matched_trip["gps"] = json.dumps(matched_trip["gps"])
+
         matched_trip["matchedGps"] = match_result["matchings"][0]["geometry"]
+        matched_trip["matched_at"] = time.time()
+
+        # Reverse geocode if needed
         try:
             first_lon, first_lat = match_result["matchings"][0]["geometry"][
                 "coordinates"
@@ -337,13 +523,21 @@ async def process_and_map_match_trip(trip: Dict[str, Any]) -> None:
         except Exception as ge_err:
             logger.warning(
                 "Reverse geocode error for trip %s: %s",
-                trip.get("transactionId", "?"),
+                transaction_id,
                 ge_err,
             )
-        await matched_trips_collection.insert_one(matched_trip)
+
+        # Store matched trip
+        async def insert_matched_trip():
+            return await matched_trips_collection.insert_one(matched_trip)
+
+        await db_manager.execute_with_retry(
+            insert_matched_trip, operation_name=f"insert matched trip {transaction_id}"
+        )
+
         logger.info(
             "Stored map–matched trip %s with %d coords in matched_trips.",
-            trip["transactionId"],
+            transaction_id,
             len(match_result["matchings"][0]["geometry"]["coordinates"]),
         )
     except Exception as e:
