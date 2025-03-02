@@ -146,47 +146,73 @@ def parse_query_date(
 class ConnectionManager:
     """
     Manages WebSocket connections and broadcast messages.
+    Tracks connection count and ensures proper cleanup of disconnected clients.
     """
 
     def __init__(self):
         self.active_connections: List[WebSocket] = []
         self.connection_count = 0
+        self._lock = asyncio.Lock()  # Add a lock for thread safety
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket) -> None:
+        """
+        Accept a new WebSocket connection and add it to the active connections list.
+
+        Args:
+            websocket (WebSocket): The WebSocket connection to add
+        """
         await websocket.accept()
-        self.active_connections.append(websocket)
-        self.connection_count += 1
-        logger.info(f"Client connected. Total connections: {self.connection_count}")
+        async with self._lock:
+            self.active_connections.append(websocket)
+            self.connection_count += 1
+            logger.info(f"Client connected. Total connections: {self.connection_count}")
 
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-            logger.info(
-                f"Client disconnected. Remaining connections: {len(self.active_connections)}"
-            )
+    async def disconnect(self, websocket: WebSocket) -> None:
+        """
+        Remove a WebSocket connection from the active connections list.
 
-    async def broadcast(self, message: str):
+        Args:
+            websocket (WebSocket): The WebSocket connection to remove
+        """
+        async with self._lock:
+            if websocket in self.active_connections:
+                self.active_connections.remove(websocket)
+                self.connection_count -= 1  # Fix: Decrement connection count
+                logger.info(
+                    f"Client disconnected. Remaining connections: {self.connection_count}"
+                )
+
+    async def broadcast(self, message: str) -> int:
+        """
+        Broadcast a message to all connected clients.
+
+        Args:
+            message (str): The message to broadcast
+
+        Returns:
+            int: The number of clients that received the message
+        """
+        delivered_count = 0
         disconnected = []
-        for i, connection in enumerate(self.active_connections):
+
+        # Make a copy of the connections to avoid modification during iteration
+        connections = list(self.active_connections)
+        
+        for websocket in connections:
             try:
-                await connection.send_text(message)
-            except WebSocketDisconnect:
-                disconnected.append(connection)
+                await websocket.send_text(message)
+                delivered_count += 1
             except Exception as e:
-                logger.warning(f"Error sending message to client {i}: {str(e)}")
-                disconnected.append(connection)
+                logger.warning(f"Error sending message to client: {str(e)}")
+                disconnected.append(websocket)
+        
+        # Remove any disconnected clients
+        for websocket in disconnected:
+            await self.disconnect(websocket)
+                
+        return delivered_count
 
-        # Clean up any disconnected clients
-        for connection in disconnected:
-            if connection in self.active_connections:
-                self.active_connections.remove(connection)
-
-        if disconnected:
-            logger.info(
-                f"Removed {len(disconnected)} disconnected clients. Remaining: {len(self.active_connections)}"
-            )
-
-
+# Create a global instance of the ConnectionManager
 manager = ConnectionManager()
 
 
@@ -2966,7 +2992,12 @@ async def bouncie_webhook(request: Request):
             else:
                 message = {"type": "heartbeat"}
 
-            await manager.broadcast(json.dumps(message))
+            # Use the return value to check how many clients received the message
+            clients_received = await manager.broadcast(json.dumps(message))
+            if clients_received > 0:
+                logger.debug(f"Successfully broadcast to {clients_received} clients")
+            else:
+                logger.debug("No active clients to receive broadcast")
         except Exception as broadcast_error:
             logger.exception(
                 f"Error broadcasting webhook update: {str(broadcast_error)}"
@@ -2999,7 +3030,13 @@ async def get_active_trip():
 
 @app.websocket("/ws/live_trip")
 async def ws_live_trip(websocket: WebSocket):
+    """
+    WebSocket endpoint for live trip updates.
+    Handles connection, initial data sending, and ping/pong for keepalive.
+    """
+    # Connect the WebSocket
     await manager.connect(websocket)
+
     try:
         # Send initial trip data when client connects
         active_trip = await live_trips_collection.find_one({"status": "active"})
@@ -3011,17 +3048,48 @@ async def ws_live_trip(websocket: WebSocket):
             await websocket.send_json({"type": "heartbeat"})
 
         # Keep the connection alive by handling ping/pong
+        heartbeat_interval = 30  # seconds
+        last_heartbeat = datetime.now(timezone.utc)
+
         while True:
-            data = await websocket.receive_text()
-            if data == "ping":
-                await websocket.send_text("pong")
-            await asyncio.sleep(1)
+            try:
+                # Set a timeout so we can periodically send heartbeats
+                data = await asyncio.wait_for(
+                    websocket.receive_text(), timeout=heartbeat_interval
+                )
+
+                if data == "ping":
+                    await websocket.send_text("pong")
+                    last_heartbeat = datetime.now(timezone.utc)
+
+            except asyncio.TimeoutError:
+                # Time to send a heartbeat
+                current_time = datetime.now(timezone.utc)
+                if (
+                    current_time - last_heartbeat
+                ).total_seconds() >= heartbeat_interval:
+                    try:
+                        await websocket.send_json({"type": "heartbeat"})
+                        last_heartbeat = current_time
+                    except Exception as e:
+                        logger.warning(f"Failed to send heartbeat: {str(e)}")
+                        # Connection is probably dead
+                        break
+
+            except WebSocketDisconnect:
+                logger.info("Client disconnected during receive operation")
+                break
+
+            # Small sleep to prevent tight CPU loop
+            await asyncio.sleep(0.1)
+
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected")
-        manager.disconnect(websocket)
     except Exception as e:
         logger.exception(f"WebSocket error: {str(e)}")
-        manager.disconnect(websocket)
+    finally:
+        # Always make sure to disconnect properly
+        await manager.disconnect(websocket)
 
 
 # Add helper function to serialize live trip data
@@ -3267,6 +3335,20 @@ async def startup_event():
 async def shutdown_event():
     await task_manager.stop()
     await cleanup_session()
+
+    # Add this code to close all WebSocket connections
+    logger.info(f"Closing {manager.connection_count} active WebSocket connections")
+    connections = list(manager.active_connections)
+    for websocket in connections:
+        try:
+            await websocket.close(code=1000, reason="Server shutdown")
+        except Exception as e:
+            logger.warning(f"Error closing WebSocket connection: {str(e)}")
+
+    # Reset the manager state
+    manager.active_connections = []
+    manager.connection_count = 0
+    logger.info("All WebSocket connections closed")
 
 
 # ------------------------------------------------------------------------------
