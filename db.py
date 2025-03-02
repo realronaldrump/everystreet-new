@@ -168,33 +168,6 @@ async def init_task_history_collection() -> None:
         raise
 
 
-async def get_trip_from_db(trip_id: str) -> Optional[Dict[str, Any]]:
-    """
-    Retrieve a trip document by its transactionId from trips_collection.
-    Ensures the trip contains the 'gps' field.
-    """
-    try:
-        trip = await trips_collection.find_one({"transactionId": trip_id})
-        if not trip:
-            logger.warning("Trip %s not found in DB", trip_id)
-            return None
-        if "gps" not in trip:
-            logger.error("Trip %s missing 'gps' field", trip_id)
-            return None
-        if isinstance(trip["gps"], str):
-            try:
-                trip["gps"] = json.loads(trip["gps"])
-            except Exception as e:
-                logger.error(
-                    "Failed to parse gps for %s: %s", trip_id, e, exc_info=True
-                )
-                return None
-        return trip
-    except Exception as e:
-        logger.error("Error retrieving trip %s: %s", trip_id, e, exc_info=True)
-        return None
-
-
 async def ensure_street_coverage_indexes() -> None:
     """
     Create indexes for collections used in street coverage concurrently.

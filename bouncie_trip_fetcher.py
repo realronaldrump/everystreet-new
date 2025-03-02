@@ -27,9 +27,7 @@ from utils import (
     validate_trip_data,
 )
 from map_matching import process_and_map_match_trip
-from trip_processing import (
-    process_trip_data,
-)  # <-- was previously from app import ...
+from trip_processing import process_trip_data
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,9 +35,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Progress data (if you want to track in a global dictionary)
+# Progress data for tracking (used by tasks that call fetch_bouncie_trips_in_range)
 progress_data = {
-    "periodic_fetch_trips": {
+    "fetch_and_store_trips": {
         "status": "idle",
         "progress": 0,
         "message": "",
@@ -63,7 +61,6 @@ AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 
 # For demonstration, we create a short-lived client here; in practice, you
 # might want to use a shared session from `utils.py` or a central session manager.
-# We'll keep it straightforward here.
 async def get_access_token(client_session: aiohttp.ClientSession) -> str:
     """
     Retrieves an access token from the Bouncie API using OAuth.
@@ -142,7 +139,7 @@ async def fetch_trips_for_device(
                             tzinfo=timezone.utc
                         )
                     else:
-                        # Possibly the trip is in progress
+                        # Possibly the trip is in progress; ignore if incomplete.
                         logger.debug(
                             "Trip %s missing endTime - ignoring incomplete trip",
                             trip.get("transactionId", "?"),
@@ -185,10 +182,9 @@ async def store_trip(trip: dict) -> bool:
         return False
     logger.debug("Trip data validation passed for %s.", transaction_id)
 
-    # 2) Run our main "process_trip_data" function (async) to handle custom places, geocoding, etc.
+    # 2) Process the trip data (e.g. reverse geocoding, custom place lookup)
     trip = await process_trip_data(trip)
     if not trip:
-        # If process_trip_data returns None for some reason
         logger.error("Trip %s could not be fully processed.", transaction_id)
         return False
 
@@ -245,7 +241,7 @@ async def fetch_bouncie_trips_in_range(
                     session, token, imei, current_start, current_end
                 )
 
-                # Validate + store each trip
+                # Validate and store each trip
                 for raw_trip in raw_trips:
                     if await store_trip(raw_trip):
                         device_new_trips.append(raw_trip)
@@ -281,99 +277,3 @@ async def fetch_bouncie_trips_in_range(
             task_progress["fetch_and_store_trips"]["status"] = "completed"
 
     return all_new_trips
-
-
-async def get_trips_from_api(
-    client_session: aiohttp.ClientSession,
-    access_token: str,
-    imei: str,
-    start_date: datetime,
-    end_date: datetime,
-) -> list:
-    """
-    Pull trips from Bouncie's /trips endpoint for a single device + date range.
-    Also localizes times to a time zone determined by get_trip_timezone().
-    """
-    headers = {
-        "Authorization": access_token,
-        "Content-Type": "application/json",
-    }
-    params = {
-        "imei": imei,
-        "gps-format": "geojson",
-        "starts-after": start_date.isoformat(),
-        "ends-before": end_date.isoformat(),
-    }
-    url = f"{API_BASE_URL}/trips"
-    try:
-        async with client_session.get(url, headers=headers, params=params) as response:
-            response.raise_for_status()
-            trips = await response.json()
-            # Localize times
-            for trip in trips:
-                tz_str = get_trip_timezone(trip)
-                timezone_obj = pytz.timezone(tz_str)
-                if "startTime" in trip and isinstance(trip["startTime"], str):
-                    parsed = date_parser.isoparse(trip["startTime"])
-                    if parsed.tzinfo is None:
-                        parsed = parsed.replace(tzinfo=pytz.UTC)
-                    trip["startTime"] = parsed.astimezone(timezone_obj)
-                    trip["timeZone"] = tz_str
-                if "endTime" in trip and isinstance(trip["endTime"], str):
-                    parsed = date_parser.isoparse(trip["endTime"])
-                    if parsed.tzinfo is None:
-                        parsed = parsed.replace(tzinfo=pytz.UTC)
-                    trip["endTime"] = parsed.astimezone(timezone_obj)
-
-            logger.info(
-                "Fetched %d trips from Bouncie API for IMEI=%s, range=%s to %s",
-                len(trips),
-                imei,
-                start_date,
-                end_date,
-            )
-            return trips
-    except (ClientResponseError, ClientConnectorError) as e:
-        logger.error(
-            "Error fetching trips from API: IMEI=%s, status=%s",
-            imei,
-            e,
-            exc_info=True,
-        )
-        return []
-    except Exception as e:
-        logger.error("Unexpected error fetching trips: %s", e, exc_info=True)
-        return []
-
-
-async def fetch_trips_in_intervals(
-    main_session: aiohttp.ClientSession,
-    access_token: str,
-    imei: str,
-    start_date: datetime,
-    end_date: datetime,
-) -> list:
-    """
-    Breaks the given date range into 7-day intervals to avoid Bouncie API restrictions
-    and fetch trips for each interval.
-    """
-    all_trips = []
-    current_start = start_date.replace(tzinfo=timezone.utc)
-    end_date = end_date.replace(tzinfo=timezone.utc)
-    while current_start < end_date:
-        current_end = min(current_start + timedelta(days=7), end_date)
-        try:
-            chunk_trips = await get_trips_from_api(
-                main_session, access_token, imei, current_start, current_end
-            )
-            all_trips.extend(chunk_trips)
-        except Exception as e:
-            logger.error(
-                "Error fetching intervals %s to %s: %s",
-                current_start,
-                current_end,
-                e,
-                exc_info=True,
-            )
-        current_start = current_end
-    return all_trips
