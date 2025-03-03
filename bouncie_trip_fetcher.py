@@ -217,18 +217,30 @@ async def fetch_bouncie_trips_in_range(
     all_new_trips = []
     total_devices = len(AUTHORIZED_DEVICES)
 
+    # Use the global progress_data if no task_progress is provided
+    progress_tracker = task_progress if task_progress is not None else progress_data
+
+    # Update progress status to "running"
+    if progress_tracker is not None:
+        progress_tracker["fetch_and_store_trips"]["status"] = "running"
+        progress_tracker["fetch_and_store_trips"]["progress"] = 0
+        progress_tracker["fetch_and_store_trips"]["message"] = "Starting trip fetch"
+
     async with aiohttp.ClientSession() as session:
         token = await get_access_token(session)
         if not token:
             logger.error("Failed to obtain access token; aborting fetch.")
-            if task_progress is not None:
-                task_progress["fetch_and_store_trips"]["status"] = "failed"
+            if progress_tracker is not None:
+                progress_tracker["fetch_and_store_trips"]["status"] = "failed"
+                progress_tracker["fetch_and_store_trips"][
+                    "message"
+                ] = "Failed to obtain access token"
             return all_new_trips
 
         # For each device, break up the date range into 7-day slices
         for device_index, imei in enumerate(AUTHORIZED_DEVICES, start=1):
-            if task_progress is not None:
-                task_progress["fetch_and_store_trips"][
+            if progress_tracker is not None:
+                progress_tracker["fetch_and_store_trips"][
                     "message"
                 ] = f"Fetching trips for device {device_index} of {total_devices}"
 
@@ -245,8 +257,8 @@ async def fetch_bouncie_trips_in_range(
                     if await store_trip(raw_trip):
                         device_new_trips.append(raw_trip)
 
-                if task_progress is not None:
-                    task_progress["fetch_and_store_trips"]["progress"] = int(
+                if progress_tracker is not None:
+                    progress_tracker["fetch_and_store_trips"]["progress"] = int(
                         (device_index / total_devices) * 50
                     )
                 current_start = current_end
@@ -259,6 +271,12 @@ async def fetch_bouncie_trips_in_range(
             )
 
         if do_map_match and all_new_trips:
+            if progress_tracker is not None:
+                progress_tracker["fetch_and_store_trips"][
+                    "message"
+                ] = f"Map matching {len(all_new_trips)} new trips"
+                progress_tracker["fetch_and_store_trips"]["progress"] = 50
+
             logger.info(
                 "Starting map matching for %d new trips...",
                 len(all_new_trips),
@@ -270,9 +288,16 @@ async def fetch_bouncie_trips_in_range(
                 logger.info("Map matching completed for new trips.")
             except Exception as e:
                 logger.error("Error during map matching: %s", e, exc_info=True)
+                if progress_tracker is not None:
+                    progress_tracker["fetch_and_store_trips"][
+                        "message"
+                    ] = f"Error during map matching: {str(e)}"
 
-        if task_progress is not None:
-            task_progress["fetch_and_store_trips"]["progress"] = 100
-            task_progress["fetch_and_store_trips"]["status"] = "completed"
+        if progress_tracker is not None:
+            progress_tracker["fetch_and_store_trips"]["progress"] = 100
+            progress_tracker["fetch_and_store_trips"]["status"] = "completed"
+            progress_tracker["fetch_and_store_trips"][
+                "message"
+            ] = f"Completed. Found {len(all_new_trips)} new trips."
 
     return all_new_trips
