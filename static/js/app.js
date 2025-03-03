@@ -364,7 +364,7 @@
         center: CONFIG.MAP.defaultCenter,
         zoom: CONFIG.MAP.defaultZoom,
         zoomControl: true,
-        attributionControl: true,
+        attributionControl: false,
         maxBounds: [
           [-90, -180],
           [90, 180],
@@ -1390,18 +1390,33 @@
     addSingleEventListener("controls-toggle", "click", function () {
       const mapControls = getElement("map-controls");
       const controlsContent = getElement("controls-content");
-      if (mapControls) mapControls.classList.toggle("minimized");
+
+      if (mapControls) {
+        mapControls.classList.toggle("minimized");
+
+        // Animate the height transition for smoother UI
+        if (controlsContent) {
+          const bootstrap = window.bootstrap || {};
+          if (bootstrap.Collapse) {
+            const bsCollapse = bootstrap.Collapse.getInstance(controlsContent);
+            if (bsCollapse) {
+              mapControls.classList.contains("minimized")
+                ? bsCollapse.hide()
+                : bsCollapse.show();
+            } else {
+              new bootstrap.Collapse(controlsContent, {
+                toggle: !mapControls.classList.contains("minimized"),
+              });
+            }
+          }
+        }
+      }
+
+      // Toggle the icon
       const icon = this.querySelector("i");
       if (icon) {
         icon.classList.toggle("fa-chevron-up");
         icon.classList.toggle("fa-chevron-down");
-      }
-      if (controlsContent) {
-        controlsContent.style.display = mapControls?.classList.contains(
-          "minimized"
-        )
-          ? "none"
-          : "block";
       }
     });
 
