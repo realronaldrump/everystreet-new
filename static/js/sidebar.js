@@ -1,3 +1,5 @@
+/* global DateUtils */
+
 "use strict";
 
 /**
