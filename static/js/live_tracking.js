@@ -136,7 +136,7 @@ class LiveTripTracker {
       if (window.notificationManager) {
         window.notificationManager.show(
           `WebSocket reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
-          "info"
+          "info",
         );
       }
 
@@ -160,7 +160,7 @@ class LiveTripTracker {
       this.statusIndicator.classList.toggle("disconnected", !connected);
       this.statusIndicator.setAttribute(
         "aria-label",
-        connected ? "Connected" : "Disconnected"
+        connected ? "Connected" : "Disconnected",
       );
     }
 
@@ -217,7 +217,7 @@ class LiveTripTracker {
 
     // Sort coordinates by timestamp for proper path
     trip.coordinates.sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
     );
 
     // Update polyline path
@@ -260,7 +260,7 @@ class LiveTripTracker {
       this.activeTripsCountElem.textContent = count;
       this.activeTripsCountElem.setAttribute(
         "aria-label",
-        `${count} active trips`
+        `${count} active trips`,
       );
     }
   }
@@ -306,7 +306,7 @@ class LiveTripTracker {
         ([label, value]) => `<div class="metric-row">
         <span class="metric-label">${label}:</span>
         <span class="metric-value">${value}</span>
-      </div>`
+      </div>`,
       )
       .join("");
   }
@@ -327,7 +327,7 @@ class LiveTripTracker {
         prev.lat,
         prev.lon,
         curr.lat,
-        curr.lon
+        curr.lon,
       );
     }
     return totalDistance;
@@ -371,7 +371,7 @@ class LiveTripTracker {
       prev.lat,
       prev.lon,
       last.lat,
-      last.lon
+      last.lon,
     );
 
     const timeDiff =
@@ -396,7 +396,7 @@ class LiveTripTracker {
         prev.lat,
         prev.lon,
         curr.lat,
-        curr.lon
+        curr.lon,
       );
 
       const timeDiff =

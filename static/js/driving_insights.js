@@ -162,7 +162,7 @@
       const savedStartDate =
         localStorage.getItem("startDate") ||
         DateUtils.formatDate(
-          DateUtils.getDateRangeForPreset("30days").startDate
+          DateUtils.getDateRangeForPreset("30days").startDate,
         );
       const savedEndDate =
         localStorage.getItem("endDate") || DateUtils.getCurrentDate();
@@ -236,7 +236,7 @@
             startDateInput,
             endDateInput,
             DateUtils.formatDate(startDate),
-            endDate
+            endDate,
           );
           return;
       }
@@ -278,7 +278,7 @@
     const startDate =
       localStorage.getItem("startDate") ||
       DateUtils.formatDate(
-        new Date(new Date().setDate(new Date().getDate() - 30))
+        new Date(new Date().setDate(new Date().getDate() - 30)),
       );
     const endDate =
       localStorage.getItem("endDate") || DateUtils.formatDate(new Date());
@@ -303,7 +303,7 @@
         fetch(`/api/driving-insights?${params}`).then((res) => {
           if (!res.ok) {
             throw new Error(
-              `Failed to fetch insights: ${res.status} ${res.statusText}`
+              `Failed to fetch insights: ${res.status} ${res.statusText}`,
             );
           }
           return res.json();
@@ -311,7 +311,7 @@
         fetch(`/api/trip-analytics?${params}`).then((res) => {
           if (!res.ok) {
             throw new Error(
-              `Failed to fetch analytics: ${res.status} ${res.statusText}`
+              `Failed to fetch analytics: ${res.status} ${res.statusText}`,
             );
           }
           return res.json();
@@ -328,7 +328,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Insights data loaded successfully",
-          "success"
+          "success",
         );
       }
     } catch (error) {
@@ -336,7 +336,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           `Error loading driving insights: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
       // Reset charts to empty state
@@ -450,7 +450,7 @@
     if (maxSpeedEl) maxSpeedEl.textContent = `${data.max_speed || 0} mph`;
     if (totalIdleEl)
       totalIdleEl.textContent = formatIdleDuration(
-        data.total_idle_duration || 0
+        data.total_idle_duration || 0,
       );
     if (longestTripEl)
       longestTripEl.textContent = `${(data.longest_trip_distance || 0).toFixed(2)} miles`;

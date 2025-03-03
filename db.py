@@ -179,7 +179,11 @@ class DatabaseManager:
                 # Execute the operation
                 return await operation()
 
-            except (ConnectionFailure, ServerSelectionTimeoutError, NetworkTimeout) as e:
+            except (
+                ConnectionFailure,
+                ServerSelectionTimeoutError,
+                NetworkTimeout,
+            ) as e:
                 last_error = e
                 logger.warning(
                     "Attempt %d/%d for %s failed with connection error: %s",
@@ -192,18 +196,18 @@ class DatabaseManager:
                 if attempts < max_attempts:
                     await asyncio.sleep(retry_delay)
                     retry_delay *= 2  # Exponential backoff
-            
+
             except OSError as e:
                 # Handle memory allocation errors specifically
                 if "Cannot allocate memory" in str(e):
                     logger.warning(
                         "Memory allocation error during %s: %s. Attempting to recover...",
                         operation_name,
-                        str(e)
+                        str(e),
                     )
                     # Use our specialized memory error handler
                     recovery_successful = await self.handle_memory_error()
-                    
+
                     if recovery_successful and attempts < max_attempts:
                         continue
                     else:
@@ -211,12 +215,8 @@ class DatabaseManager:
                 else:
                     # Other OS errors
                     last_error = e
-                    logger.warning(
-                        "OS error during %s: %s",
-                        operation_name,
-                        str(e)
-                    )
-                
+                    logger.warning("OS error during %s: %s", operation_name, str(e))
+
                 if attempts < max_attempts:
                     await asyncio.sleep(retry_delay)
                     retry_delay *= 2  # Exponential backoff
@@ -380,19 +380,20 @@ class DatabaseManager:
         2. Close existing client
         3. Reduce connection pool size temporarily
         4. Reinitialize the client
-        
+
         Returns:
             bool: True if recovery was successful, False otherwise
         """
         import gc
+
         logger.warning("Attempting to recover from memory allocation error...")
-        
+
         # Remember original pool size for logging
         original_pool_size = self._max_pool_size
-        
+
         # Mark connection as unhealthy
         self._connection_healthy = False
-        
+
         # Close existing connections
         if self._client:
             try:
@@ -400,16 +401,16 @@ class DatabaseManager:
                 self._client = None
             except Exception as e:
                 logger.error("Error closing client during memory error recovery: %s", e)
-                
+
         # Force garbage collection
         gc.collect()
-        
+
         # Give the system time to reclaim memory
         await asyncio.sleep(1)
-        
+
         # Reduce pool size temporarily
         self._max_pool_size = max(1, self._max_pool_size // 2)
-        
+
         # Attempt to reinitialize with smaller pool
         try:
             self._initialize_client()
@@ -417,14 +418,11 @@ class DatabaseManager:
             logger.info(
                 "Successfully recovered from memory error with reduced pool size (%d -> %d)",
                 original_pool_size,
-                self._max_pool_size
+                self._max_pool_size,
             )
             return True
         except Exception as e:
-            logger.error(
-                "Failed to reinitialize client after memory error: %s",
-                str(e)
-            )
+            logger.error("Failed to reinitialize client after memory error: %s", str(e))
             return False
 
 

@@ -221,19 +221,19 @@ class LoadingManager {
     const totalWeight = operations.reduce((sum, op) => sum + op.total, 0);
     const weightedProgress = operations.reduce(
       (sum, op) => sum + (op.progress / op.total) * op.total,
-      0
+      0,
     );
 
     const overallPercentage = Math.min(
       Math.round((weightedProgress / totalWeight) * 100),
-      100
+      100,
     );
 
     // Get latest message from most recently updated operation
     const latestOp = operations.reduce(
       (latest, op) =>
         !latest || op.startTime > latest.startTime ? op : latest,
-      null
+      null,
     );
 
     const message = latestOp?.message || "Loading...";
@@ -258,7 +258,7 @@ class LoadingManager {
     const totalSubWeight = subOps.reduce((sum, sub) => sum + sub.total, 0);
     const subProgress = subOps.reduce(
       (sum, sub) => sum + (sub.progress / sub.total) * sub.total,
-      0
+      0,
     );
 
     // Get message from the sub-operation with the lowest completion percentage
