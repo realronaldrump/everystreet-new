@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Optional, Any, Dict, Tuple
+from typing import Optional, Any, Dict
 from datetime import timezone
 
 from dateutil import parser

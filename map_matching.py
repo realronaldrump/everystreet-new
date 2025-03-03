@@ -6,12 +6,11 @@ and stores the matched trip.
 """
 
 import json
-import math
 import logging
 import asyncio
 import aiohttp
 import time
-from aiohttp import ClientResponseError, ClientConnectorError, ClientSession
+from aiohttp import ClientResponseError, ClientConnectorError
 from geojson import loads as geojson_loads
 from dotenv import load_dotenv
 import os

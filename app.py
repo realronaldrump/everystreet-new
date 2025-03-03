@@ -222,7 +222,7 @@ class ConnectionManager(BaseConnectionManager):
         try:
             future.result()
         except Exception as e:
-            logger.error(f"WebSocket task failed: {e}", exc_info=True)
+            logger.error("WebSocket task failed: %s", e, exc_info=True)
 
     async def _heartbeat_monitor(self):
         """
@@ -235,7 +235,7 @@ class ConnectionManager(BaseConnectionManager):
         except asyncio.CancelledError:
             logger.info("Heartbeat monitor cancelled")
         except Exception as e:
-            logger.error(f"Error in heartbeat monitor: {e}", exc_info=True)
+            logger.error("Error in heartbeat monitor: %s", e, exc_info=True)
             raise
 
     async def _check_connections(self):
@@ -251,11 +251,11 @@ class ConnectionManager(BaseConnectionManager):
 
             if last_activity < stale_threshold:
                 client_id = metadata.get("client_id", "Unknown")
-                logger.warning(f"Closing stale connection from client {client_id}")
+                logger.warning("Closing stale connection from client %s", client_id)
                 try:
                     await ws.close(code=1000, reason="Connection timeout")
                 except Exception as e:
-                    logger.warning(f"Error closing stale connection: {e}")
+                    logger.warning("Error closing stale connection: %s", e)
                 finally:
                     await self.disconnect(ws)
 
@@ -286,7 +286,7 @@ class ConnectionManager(BaseConnectionManager):
                         "last_activity"
                     ] = time.time()
             except Exception as e:
-                logger.warning(f"Error sending message to client: {str(e)}")
+                logger.warning("Error sending message to client: %s", str(e))
                 disconnected.append(websocket)
 
         # Remove any disconnected clients
@@ -323,7 +323,7 @@ class ConnectionManager(BaseConnectionManager):
                 self._connection_metadata[id(target_ws)]["last_activity"] = time.time()
             return True
         except Exception as e:
-            logger.warning(f"Error sending message to client {client_id}: {e}")
+            logger.warning("Error sending message to client %s: %s", client_id, e)
             await self.disconnect(target_ws)
             return False
 
@@ -336,13 +336,13 @@ class ConnectionManager(BaseConnectionManager):
             except asyncio.CancelledError:
                 pass
 
-        logger.info(f"Closing {self.connection_count} active WebSocket connections")
+        logger.info("Closing %d active WebSocket connections", self.connection_count)
         connections = list(self.active_connections)
         for websocket in connections:
             try:
                 await websocket.close(code=1000, reason="Server shutdown")
             except Exception as e:
-                logger.warning(f"Error closing WebSocket connection: {str(e)}")
+                logger.warning("Error closing WebSocket connection: %s", str(e))
 
         # Reset the manager state
         self.active_connections = []
@@ -945,10 +945,10 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                 },
             )
 
-            logger.info(f"Coverage calculation completed for {display_name}")
+            logger.info("Coverage calculation completed for %s", display_name)
         else:
             error_msg = "No result returned from coverage calculation"
-            logger.error(f"Coverage calculation error: {error_msg}")
+            logger.error("Coverage calculation error: %s", error_msg)
 
             await coverage_metadata_collection.update_one(
                 {"location.display_name": location["display_name"]},
@@ -989,7 +989,7 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                 },
             )
         except Exception as update_error:
-            logger.error(f"Failed to update coverage metadata: {update_error}")
+            logger.error("Failed to update coverage metadata: %s", update_error)
 
         try:
             await progress_collection.update_one(
@@ -1003,7 +1003,7 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                 },
             )
         except Exception as update_error:
-            logger.error(f"Failed to update progress collection: {update_error}")
+            logger.error("Failed to update progress collection: %s", update_error)
 
 
 @app.get("/api/street_coverage/{task_id}")
@@ -2149,10 +2149,10 @@ async def process_area(location: Dict[str, Any], task_id: str):
                 },
             )
 
-            logger.info(f"Area processing completed for {display_name}")
+            logger.info("Coverage calculation completed for %s", display_name)
         else:
             error_msg = "Failed to calculate coverage"
-            logger.error(f"{error_msg} for {display_name}")
+            logger.error("Coverage calculation error: %s", error_msg)
 
             await coverage_metadata_collection.update_one(
                 {"location.display_name": display_name},
@@ -2204,7 +2204,7 @@ async def process_area(location: Dict[str, Any], task_id: str):
                 },
             )
         except Exception as update_error:
-            logger.error(f"Failed to update status after error: {update_error}")
+            logger.error("Failed to update status after error: %s", update_error)
 
 
 @app.get("/api/street_segment/{segment_id}")
@@ -3142,7 +3142,7 @@ async def bouncie_webhook(request: Request):
                     "maxSpeed": 0,
                 }
             )
-            logger.info(f"Trip started: {transaction_id}")
+            logger.info("Trip started: %s", transaction_id)
 
         elif event_type == "tripData":
             # Get or create trip document
@@ -3256,7 +3256,7 @@ async def bouncie_webhook(request: Request):
                 trip["status"] = "completed"
                 await archived_live_trips_collection.insert_one(trip)
                 await live_trips_collection.delete_one({"_id": trip["_id"]})
-                logger.info(f"Trip ended: {transaction_id}")
+                logger.info("Trip ended: %s", transaction_id)
 
         # Broadcast updates to all connected clients
         try:
@@ -3270,7 +3270,7 @@ async def bouncie_webhook(request: Request):
             # Use the return value to check how many clients received the message
             clients_received = await manager.broadcast(json.dumps(message))
             if clients_received > 0:
-                logger.debug(f"Successfully broadcast to {clients_received} clients")
+                logger.debug("Successfully broadcast to %d clients", clients_received)
             else:
                 logger.debug("No active clients to receive broadcast")
         except Exception as broadcast_error:

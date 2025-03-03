@@ -1,12 +1,11 @@
 import os
-import json
 import certifi
 import logging
 import asyncio
 import threading
 import time
-from datetime import timezone, datetime, timedelta
-from typing import Optional, Any, Dict, Tuple, List, Callable, TypeVar, Awaitable
+from datetime import timezone
+from typing import Optional, Any, Dict, Tuple, Callable, TypeVar, Awaitable
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 import pymongo
