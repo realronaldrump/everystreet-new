@@ -33,7 +33,6 @@
   // Initialize everything once DOM is ready
   document.addEventListener("DOMContentLoaded", () => {
     initializeEventListeners();
-    initializeDataTable();
     initializeCharts();
     initializeDatepickers();
 
@@ -111,43 +110,6 @@
       },
     });
 
-    // Trip Time Distribution Chart (Radar Chart)
-    const timeDistributionCtx = document
-      .getElementById("timeDistributionChart")
-      .getContext("2d");
-    timeDistributionChart = new Chart(timeDistributionCtx, {
-      type: "radar",
-      data: {
-        labels: [
-          "12am-4am",
-          "4am-8am",
-          "8am-12pm",
-          "12pm-4pm",
-          "4pm-8pm",
-          "8pm-12am",
-        ],
-        datasets: [
-          {
-            label: "Trip Start Times",
-            data: [0, 0, 0, 0, 0, 0],
-            backgroundColor: "rgba(187, 134, 252, 0.2)",
-            borderColor: "#BB86FC",
-            pointBackgroundColor: "#BB86FC",
-          },
-        ],
-      },
-      options: {
-        ...defaultChartOptions,
-        scales: {
-          r: {
-            beginAtZero: true,
-            ticks: { stepSize: 1, color: "#bb86fc" },
-            grid: { color: "rgba(187, 134, 252, 0.2)" },
-          },
-        },
-      },
-    });
-
     // Fuel Consumption Chart (Bar Chart)
     const fuelConsumptionCtx = document
       .getElementById("fuelConsumptionChart")
@@ -175,23 +137,6 @@
           },
         },
       },
-    });
-  }
-
-  function initializeDataTable() {
-    insightsTable = $("#insights-table").DataTable({
-      responsive: true,
-      order: [[1, "desc"]],
-      columns: [
-        { data: "destination", title: "Destination" },
-        { data: "count", title: "Visit Count" },
-        {
-          data: "lastVisit",
-          title: "Last Visit",
-          render: (data) =>
-            data ? new Date(data).toLocaleDateString() : "N/A",
-        },
-      ],
     });
   }
 
@@ -528,7 +473,6 @@
 
       // Update the UI
       updateSummaryMetrics(generalData);
-      updateDataTable(generalData);
       updateTripCountsChart(analyticsData);
       loadingManager.updateSubOperation("general", 100);
 
@@ -669,37 +613,6 @@
     }
     updateFuelChart(data);
   }
-
-  function updateDataTable(data) {
-    if (!insightsTable) return;
-
-    insightsTable.clear();
-
-    // Check if most_visited exists and add it to the table
-    if (data.most_visited) {
-      const visitedPlace = {
-        destination: data.most_visited._id,
-        count: data.most_visited.count,
-        lastVisit: data.most_visited.lastVisit || null,
-      };
-      insightsTable.row.add(visitedPlace);
-    }
-
-    // Add frequently visited places if available
-    if (data.frequent_places && Array.isArray(data.frequent_places)) {
-      data.frequent_places.forEach((place) => {
-        const placeData = {
-          destination: place._id,
-          count: place.count,
-          lastVisit: place.lastVisit || null,
-        };
-        insightsTable.row.add(placeData);
-      });
-    }
-
-    insightsTable.draw();
-  }
-
   //  ERROR HANDLING
   function showError(message) {
     notificationManager.show(message, "danger");
