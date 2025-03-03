@@ -142,15 +142,14 @@
     const endDateEl = document.getElementById("end-date");
 
     if (startDateEl && endDateEl) {
-      // Set default dates if not in localStorage
-      const today = new Date();
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(today.getDate() - 30);
-
       // Get saved dates from localStorage or use defaults
       const savedStartDate =
-        localStorage.getItem("startDate") || formatDate(thirtyDaysAgo);
-      const savedEndDate = localStorage.getItem("endDate") || formatDate(today);
+        localStorage.getItem("startDate") ||
+        DateUtils.formatDate(
+          DateUtils.getDateRangeForPreset("30days").startDate
+        );
+      const savedEndDate =
+        localStorage.getItem("endDate") || DateUtils.getCurrentDate();
 
       // Set initial values
       startDateEl.value = savedStartDate;
@@ -365,63 +364,77 @@
 
   //  UTILITY FUNCTIONS
   function formatDate(date) {
-    return date.toISOString().split("T")[0];
+    return DateUtils.formatDate(date);
   }
 
   function setDateRange(days) {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - days);
+    try {
+      const startDateInput = document.getElementById("start-date");
+      const endDateInput = document.getElementById("end-date");
 
-    // Update datepickers
-    const startDateStr = formatDate(startDate);
-    const endDateStr = formatDate(endDate);
-
-    // Update localStorage
-    localStorage.setItem("startDate", startDateStr);
-    localStorage.setItem("endDate", endDateStr);
-
-    // Update datepicker inputs
-    const startDateEl = document.getElementById("start-date");
-    const endDateEl = document.getElementById("end-date");
-
-    if (startDateEl && endDateEl) {
-      // Update the input values directly
-      startDateEl.value = startDateStr;
-      endDateEl.value = endDateStr;
-
-      // Try different approaches to update flatpickr
-      if (startDateEl._flatpickr) {
-        // Use the direct flatpickr instance on the element (Modern UI style)
-        startDateEl._flatpickr.setDate(startDateStr);
-      } else if (datepickers.startDate) {
-        if (typeof datepickers.startDate.setDate === "function") {
-          // Our own flatpickr instance
-          datepickers.startDate.setDate(startDateStr);
-        } else {
-          console.warn(
-            "startDate flatpickr instance doesn't have setDate method"
-          );
-        }
+      if (!startDateInput || !endDateInput) {
+        console.warn("Date inputs not found");
+        return;
       }
 
-      if (endDateEl._flatpickr) {
-        // Use the direct flatpickr instance on the element (Modern UI style)
-        endDateEl._flatpickr.setDate(endDateStr);
-      } else if (datepickers.endDate) {
-        if (typeof datepickers.endDate.setDate === "function") {
-          // Our own flatpickr instance
-          datepickers.endDate.setDate(endDateStr);
-        } else {
-          console.warn(
-            "endDate flatpickr instance doesn't have setDate method"
+      // Map to preset names used by DateUtils
+      let preset;
+      switch (days) {
+        case 7:
+          preset = "7days";
+          break;
+        case 30:
+          preset = "30days";
+          break;
+        case 90:
+          preset = "90days";
+          break;
+        default:
+          // Handle custom days
+          const endDate = DateUtils.getCurrentDate();
+          const startDate = new Date();
+          startDate.setDate(startDate.getDate() - days);
+
+          // Update inputs directly
+          updateDateInputs(
+            startDateInput,
+            endDateInput,
+            DateUtils.formatDate(startDate),
+            endDate
           );
-        }
+          return;
       }
+
+      // Use DateUtils to get the range
+      DateUtils.getDateRangePreset(preset)
+        .then(({ startDate, endDate }) => {
+          updateDateInputs(startDateInput, endDateInput, startDate, endDate);
+        })
+        .catch((error) => {
+          console.error("Error setting date range:", error);
+        });
+    } catch (error) {
+      console.error("Error in setDateRange:", error);
+    }
+  }
+
+  function updateDateInputs(startInput, endInput, startDate, endDate) {
+    // Update inputs
+    if (startInput._flatpickr) {
+      startInput._flatpickr.setDate(startDate);
+    } else {
+      startInput.value = startDate;
     }
 
-    // Fetch new data
-    fetchDrivingInsights();
+    if (endInput._flatpickr) {
+      endInput._flatpickr.setDate(endDate);
+    } else {
+      endInput.value = endDate;
+    }
+
+    // Store in localStorage
+    localStorage.setItem("startDate", startDate);
+    localStorage.setItem("endDate", endDate);
   }
 
   function getFilterParams() {

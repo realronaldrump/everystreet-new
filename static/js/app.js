@@ -866,69 +866,86 @@
   }
 
   function createTripPopupContent(feature, layerName) {
-    const { properties } = feature;
-    const {
-      startTime,
-      endTime,
-      timezone = "America/Chicago",
-      distance,
-      startLocation,
-      destination,
-      maxSpeed,
-      averageSpeed,
-      totalIdleDurationFormatted,
-      transactionId,
-    } = properties;
-    const formattedStart = DateUtils.formatForDisplay(startTime, {
-      dateStyle: "short",
-      timeStyle: "short",
-      timeZone: timezone,
-      hour12: true,
-    });
-    const formattedEnd = DateUtils.formatForDisplay(endTime, {
-      dateStyle: "short",
-      timeStyle: "short",
-      timeZone: timezone,
-      hour12: true,
-    });
-    return `
+    if (!feature.properties) return "Trip data unavailable";
+
+    const props = feature.properties;
+    const isMatched = layerName === "matchedTrips";
+    const isHistorical = layerName === "historicalTrips";
+
+    let startTime = props.startTime;
+    let endTime = props.endTime;
+
+    // Convert to display format using DateUtils
+    const startTimeDisplay = startTime
+      ? DateUtils.formatForDisplay(startTime, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        })
+      : "Unknown";
+    const endTimeDisplay = endTime
+      ? DateUtils.formatForDisplay(endTime, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        })
+      : "Unknown";
+
+    // Format distance
+    const distance = props.distance
+      ? `${(props.distance / 1609.34).toFixed(2)} mi`
+      : "Unknown";
+
+    // Create popup content with data
+    let html = `
       <div class="trip-popup">
-        <h4>Trip Details</h4>
-        <p><strong>Start:</strong> ${formattedStart}</p>
-        <p><strong>End:</strong> ${formattedEnd}</p>
-        <p><strong>Distance:</strong> ${Number(distance).toFixed(2)} miles</p>
-        <p><strong>From:</strong> ${startLocation || "Unknown"}</p>
-        <p><strong>To:</strong> ${destination || "Unknown"}</p>
-        ${
-          maxSpeed
-            ? `<p><strong>Max Speed:</strong> ${Number(maxSpeed).toFixed(1)} mph</p>`
-            : ""
-        }
-        ${
-          averageSpeed
-            ? `<p><strong>Avg Speed:</strong> ${Number(averageSpeed).toFixed(1)} mph</p>`
-            : ""
-        }
-        ${
-          totalIdleDurationFormatted
-            ? `<p><strong>Idle Time:</strong> ${totalIdleDurationFormatted}</p>`
-            : ""
-        }
-        <div class="mt-2">
-          ${
-            layerName === "trips"
-              ? `<button class="btn btn-danger btn-sm me-2 delete-trip" data-trip-id="${transactionId}">Delete Trip</button>`
-              : ""
-          }
-          ${
-            layerName === "matchedTrips"
-              ? `<button class="btn btn-danger btn-sm me-2 delete-matched-trip" data-trip-id="${transactionId}">Delete Matched Trip</button>
-             <button class="btn btn-warning btn-sm rematch-trip" data-trip-id="${transactionId}">Re-match Trip</button>`
-              : ""
-          }
+        <h4>${isMatched ? "Matched Trip" : isHistorical ? "Historical Trip" : "Trip"}</h4>
+        <table class="popup-data">
+          <tr>
+            <th>Start Time:</th>
+            <td>${startTimeDisplay}</td>
+          </tr>
+          <tr>
+            <th>End Time:</th>
+            <td>${endTimeDisplay}</td>
+          </tr>
+          <tr>
+            <th>Distance:</th>
+            <td>${distance}</td>
+          </tr>
+    `;
+
+    // Add matched/OSM street coverage if available
+    if (isMatched && props.osmCoverage !== undefined) {
+      const coverage = `${(props.osmCoverage * 100).toFixed(2)}%`;
+      html += `
+        <tr>
+          <th>OSM Coverage:</th>
+          <td>${coverage}</td>
+        </tr>
+      `;
+    }
+
+    // Add trip ID for actions
+    html += `
+        </table>
+        <div class="trip-actions" data-trip-id="${props.tripId || props.id}">
+    `;
+
+    // Add appropriate action buttons
+    if (isMatched) {
+      html += `<button class="btn btn-sm btn-danger delete-matched-trip">Delete Match</button>`;
+    } else if (!isHistorical) {
+      html += `
+          <button class="btn btn-sm btn-primary rematch-trip">Rematch</button>
+          <button class="btn btn-sm btn-danger delete-trip">Delete</button>
+      `;
+    }
+
+    html += `
         </div>
       </div>
     `;
+
+    return html;
   }
 
   function setupPopupEventListeners(layer, feature) {
@@ -1332,51 +1349,68 @@
   function handleDatePresetClick() {
     const range = this.dataset.range;
     if (!range) return;
-    if (range === "all-time") {
-      const loadingManager = window.loadingManager || {
-        startOperation: () => {},
-        finish: () => {},
-      };
-      loadingManager.startOperation("AllTimeDatePreset", 100);
-      fetch("/api/first_trip_date")
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error(`Failed to fetch first trip date: ${res.status}`);
+
+    // Show loading indicator
+    const loadingManager = window.loadingManager || {
+      startOperation: () => {},
+      finish: () => {},
+    };
+    loadingManager.startOperation("DatePreset", 100);
+
+    // Use the unified DateUtils.getDateRangePreset for all presets including "all-time"
+    DateUtils.getDateRangePreset(range)
+      .then(({ startDate, endDate }) => {
+        // These are already formatted as strings from the getDateRangePreset function
+        if (startDate && endDate) {
+          // Update date pickers directly with string values
+          const startInput = getElement("#start-date");
+          const endInput = getElement("#end-date");
+
+          if (startInput && endInput) {
+            if (startInput._flatpickr) {
+              startInput._flatpickr.setDate(startDate);
+            } else {
+              startInput.value = startDate;
+            }
+
+            if (endInput._flatpickr) {
+              endInput._flatpickr.setDate(endDate);
+            } else {
+              endInput.value = endDate;
+            }
           }
-          return res.json();
-        })
-        .then((data) => {
-          const firstTripDate = DateUtils.parseDate(data.first_trip_date);
-          const today = DateUtils.parseDate(new Date());
-          if (firstTripDate && today) {
-            updateDatePickersAndStore(firstTripDate, today);
-          } else {
-            showNotification("Invalid date returned from server", "warning");
-          }
-        })
-        .catch((err) => {
-          handleError(err, "Fetching First Trip Date");
-          showNotification(
-            "Error fetching first trip date. Please try again.",
-            "danger"
+
+          // Store in localStorage
+          setStorageItem(CONFIG.STORAGE_KEYS.startDate, startDate);
+          setStorageItem(CONFIG.STORAGE_KEYS.endDate, endDate);
+
+          // Dispatch event to notify other components
+          document.dispatchEvent(
+            new CustomEvent("datePresetSelected", {
+              detail: {
+                preset: range,
+                startDate,
+                endDate,
+              },
+            })
           );
-        })
-        .finally(() => {
-          loadingManager.finish("AllTimeDatePreset");
-        });
-      return;
-    }
-    const { startDate, endDate } = DateUtils.getDateRangeForPreset(range);
-    updateDatePickersAndStore(startDate, endDate);
-    document.dispatchEvent(
-      new CustomEvent("datePresetSelected", {
-        detail: {
-          preset: range,
-          startDate: DateUtils.formatDate(startDate),
-          endDate: DateUtils.formatDate(endDate),
-        },
+
+          // Fetch updated data with new date range
+          fetchTripsInRange();
+        } else {
+          showNotification("Invalid date range returned", "warning");
+        }
       })
-    );
+      .catch((err) => {
+        handleError(err, "Setting Date Preset");
+        showNotification(
+          "Error setting date range. Please try again.",
+          "danger"
+        );
+      })
+      .finally(() => {
+        loadingManager.finish("DatePreset");
+      });
   }
 
   function initializeEventListeners() {

@@ -238,89 +238,49 @@
   }
 
   /**
-   * Handle date preset selection
-   * @param {string} range - Preset range identifier
+   * Handle date preset button clicks
+   * @param {string} range - Range identifier
    */
   async function handleDatePreset(range) {
     if (!range) return;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let startDate = new Date(today);
-    const endDate = new Date(today);
+    try {
+      // Use the unified DateUtils function to get date range
+      const { startDate, endDate } = await DateUtils.getDateRangePreset(range);
 
-    // Handle different range presets
-    switch (range) {
-      case "today":
-        // Keep default values
-        break;
-      case "yesterday":
-        startDate.setDate(startDate.getDate() - 1);
-        endDate.setDate(endDate.getDate() - 1);
-        break;
-      case "last-week":
-        startDate.setDate(startDate.getDate() - 7);
-        break;
-      case "last-month":
-        startDate.setDate(startDate.getDate() - 30);
-        break;
-      case "last-6-months":
-        startDate.setMonth(startDate.getMonth() - 6);
-        break;
-      case "last-year":
-        startDate.setFullYear(startDate.getFullYear() - 1);
-        break;
-      case "all-time":
-        try {
-          const response = await fetch("/api/first_trip_date");
-          if (response.ok) {
-            const data = await response.json();
-            startDate = new Date(data.first_trip_date);
+      if (startDate && endDate) {
+        // Update inputs directly with string values
+        if (elements.startDateInput && elements.endDateInput) {
+          if (elements.startDateInput._flatpickr) {
+            elements.startDateInput._flatpickr.setDate(startDate);
           } else {
-            // Fallback if API fails
-            startDate = new Date(2020, 0, 1);
+            elements.startDateInput.value = startDate;
           }
-        } catch (error) {
-          console.warn("Error fetching first trip date:", error);
-          startDate = new Date(2020, 0, 1); // Fallback date
+
+          if (elements.endDateInput._flatpickr) {
+            elements.endDateInput._flatpickr.setDate(endDate);
+          } else {
+            elements.endDateInput.value = endDate;
+          }
         }
-        break;
-      default:
-        return;
-    }
 
-    updateDates(startDate, endDate);
-    applyFilters();
-  }
+        // Store in localStorage
+        setStorage(CONFIG.storageKeys.startDate, startDate);
+        setStorage(CONFIG.storageKeys.endDate, endDate);
 
-  /**
-   * Update date inputs and storage
-   * @param {Date} startDate - Start date
-   * @param {Date} endDate - End date
-   */
-  function updateDates(startDate, endDate) {
-    const formatDate = (date) => date.toISOString().split("T")[0];
-    const startDateStr = formatDate(startDate);
-    const endDateStr = formatDate(endDate);
-
-    // Update DOM
-    if (elements.startDateInput) {
-      elements.startDateInput.value = startDateStr;
-      if (elements.startDateInput._flatpickr) {
-        elements.startDateInput._flatpickr.setDate(startDate);
+        // Apply filters
+        applyFilters();
+      }
+    } catch (error) {
+      console.error("Error setting date range:", error);
+      // Show notification if available
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          "Error setting date range. Please try again.",
+          "error"
+        );
       }
     }
-
-    if (elements.endDateInput) {
-      elements.endDateInput.value = endDateStr;
-      if (elements.endDateInput._flatpickr) {
-        elements.endDateInput._flatpickr.setDate(endDate);
-      }
-    }
-
-    // Update storage
-    setStorage(CONFIG.storageKeys.startDate, startDateStr);
-    setStorage(CONFIG.storageKeys.endDate, endDateStr);
   }
 
   /**

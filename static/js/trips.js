@@ -133,51 +133,47 @@ function createEditableCell(data, type, field, inputType = "text") {
      */
     handleDatePresetClick(e) {
       const range = e.currentTarget.dataset.range;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      let startDate = new Date(today);
-      let endDate = new Date(today);
-
-      switch (range) {
-        case "today":
-          break;
-        case "yesterday":
-          startDate.setDate(startDate.getDate() - 1);
-          break;
-        case "last-week":
-          startDate.setDate(startDate.getDate() - 7);
-          break;
-        case "last-month":
-          startDate.setDate(startDate.getDate() - 30);
-          break;
-        case "last-6-months":
-          startDate.setMonth(startDate.getMonth() - 6);
-          break;
-        case "last-year":
-          startDate.setFullYear(startDate.getFullYear() - 1);
-          break;
-        case "all-time":
-          this.fetchFirstTripDate(endDate);
-          return;
-      }
-
-      this.updateDatesAndFetch(startDate, endDate);
+      this.setDateRange(range);
     }
 
     /**
-     * Fetch the date of the first trip
-     * @param {Date} endDate - End date for range
+     * Set date range based on preset
+     * @param {string} preset - Date preset
      */
-    async fetchFirstTripDate(endDate) {
-      try {
-        const response = await fetch("/api/first_trip_date");
-        const data = await response.json();
-        const startDate = new Date(data.first_trip_date);
-        this.updateDatesAndFetch(startDate, endDate);
-      } catch (error) {
-        console.error("Error fetching first trip date:", error);
-        notificationManager.show("Failed to fetch first trip date", "danger");
-      }
+    setDateRange(preset) {
+      if (!preset) return;
+
+      DateUtils.getDateRangePreset(preset)
+        .then(({ startDate, endDate }) => {
+          // Update date inputs
+          const startDateInput = document.getElementById("start-date");
+          const endDateInput = document.getElementById("end-date");
+
+          if (startDateInput && endDateInput) {
+            if (startDateInput._flatpickr) {
+              startDateInput._flatpickr.setDate(startDate);
+            } else {
+              startDateInput.value = startDate;
+            }
+
+            if (endDateInput._flatpickr) {
+              endDateInput._flatpickr.setDate(endDate);
+            } else {
+              endDateInput.value = endDate;
+            }
+          }
+
+          // Store in localStorage
+          localStorage.setItem("startDate", startDate);
+          localStorage.setItem("endDate", endDate);
+
+          // Refresh trip list
+          this.fetchTrips();
+        })
+        .catch((error) => {
+          console.error("Error setting date range:", error);
+          notificationManager.show("Error setting date range", "error");
+        });
     }
 
     /**
@@ -488,27 +484,22 @@ function createEditableCell(data, type, field, inputType = "text") {
     }
 
     /**
-     * Render date and time in proper format
-     * @param {string} data - ISO date string
+     * Render a date/time field
+     * @param {string} data - Field data
      * @param {string} type - Render type
      * @param {Object} row - Row data
      * @param {string} field - Field name
      * @returns {string} Formatted date or original data
      */
     renderDateTime(data, type, row, field) {
-      if (type === "display") {
-        const date = new Date(data);
-        const timezone = row.timeZone || "America/Chicago";
-        const formatter = new Intl.DateTimeFormat("en-US", {
-          ...this.config.dateFormats.display,
-          timeZone: timezone,
+      if (type === "display" && data) {
+        // Use DateUtils for consistent date formatting
+        const formattedDate = DateUtils.formatForDisplay(data, {
+          dateStyle: "medium",
+          timeStyle: "short",
         });
-        return createEditableCell(
-          formatter.format(date),
-          type,
-          field,
-          "datetime-local"
-        );
+
+        return createEditableCell(formattedDate, type, field, "datetime-local");
       }
       return data;
     }

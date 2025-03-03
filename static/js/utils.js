@@ -100,14 +100,16 @@ const DateUtils = {
 
   /**
    * Get date range for a preset period
-   * @param {string} preset - Preset name ('yesterday', 'last-week', 'last-month', etc.)
-   * @returns {Object} - Object with startDate and endDate as Date objects
+   * @param {string} preset - Preset name ('today', '7days', '30days', 'all-time', etc.)
+   * @returns {Object} - Object with startDate and endDate as formatted strings in DEFAULT_FORMAT
    */
-  getDateRangeForPreset(preset) {
+  async getDateRangePreset(preset) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const endDate = new Date(today);
+    endDate.setHours(23, 59, 59, 999);
+
     let startDate = new Date(today);
 
     switch (preset) {
@@ -116,28 +118,105 @@ const DateUtils = {
       case "yesterday":
         startDate.setDate(startDate.getDate() - 1);
         endDate.setDate(endDate.getDate() - 1);
-        endDate.setHours(23, 59, 59, 999);
         break;
+      case "7days":
       case "last-week":
         startDate.setDate(startDate.getDate() - 7);
-        endDate.setHours(23, 59, 59, 999);
         break;
+      case "30days":
       case "last-month":
         startDate.setDate(startDate.getDate() - 30);
-        endDate.setHours(23, 59, 59, 999);
         break;
+      case "90days":
+      case "last-quarter":
+        startDate.setDate(startDate.getDate() - 90);
+        break;
+      case "180days":
       case "last-6-months":
         startDate.setMonth(startDate.getMonth() - 6);
-        endDate.setHours(23, 59, 59, 999);
         break;
+      case "365days":
       case "last-year":
         startDate.setFullYear(startDate.getFullYear() - 1);
-        endDate.setHours(23, 59, 59, 999);
         break;
       case "all-time":
-        // We'll use a very early date
+        try {
+          const response = await fetch("/api/first_trip_date");
+          if (response.ok) {
+            const data = await response.json();
+            startDate = this.parseDate(data.first_trip_date);
+            if (!startDate) {
+              // Fallback if API returns invalid date
+              startDate = new Date("2000-01-01");
+            }
+          } else {
+            // Fallback if API fails
+            startDate = new Date("2000-01-01");
+          }
+        } catch (error) {
+          console.warn("Error fetching first trip date:", error);
+          startDate = new Date("2000-01-01"); // Fallback date
+        }
+        break;
+      default:
+        console.warn(`Unknown date preset: ${preset}`);
+        return {
+          startDate: this.formatDate(startDate),
+          endDate: this.formatDate(endDate),
+        };
+    }
+
+    return {
+      startDate: this.formatDate(startDate),
+      endDate: this.formatDate(endDate),
+    };
+  },
+
+  /**
+   * Get date range for a preset period (synchronous version)
+   * This version doesn't call APIs for the all-time case
+   * @param {string} preset - Preset name
+   * @returns {Object} - Object with startDate and endDate as Date objects
+   */
+  getDateRangeForPreset(preset) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(today);
+    endDate.setHours(23, 59, 59, 999);
+
+    let startDate = new Date(today);
+
+    switch (preset) {
+      case "today":
+        break;
+      case "yesterday":
+        startDate.setDate(startDate.getDate() - 1);
+        endDate.setDate(endDate.getDate() - 1);
+        break;
+      case "7days":
+      case "last-week":
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case "30days":
+      case "last-month":
+        startDate.setDate(startDate.getDate() - 30);
+        break;
+      case "90days":
+      case "last-quarter":
+        startDate.setDate(startDate.getDate() - 90);
+        break;
+      case "180days":
+      case "last-6-months":
+        startDate.setMonth(startDate.getMonth() - 6);
+        break;
+      case "365days":
+      case "last-year":
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      case "all-time":
+        // We'll use a very early date for immediate fallback
         startDate = new Date("2000-01-01");
-        endDate.setHours(23, 59, 59, 999);
         break;
       default:
         console.warn(`Unknown date preset: ${preset}`);
@@ -175,7 +254,6 @@ const DateUtils = {
 
     const defaultOptions = {
       dateStyle: "medium",
-      timeZone: this.timezone,
     };
 
     const formatter = new Intl.DateTimeFormat("en-US", {

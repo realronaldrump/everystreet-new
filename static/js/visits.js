@@ -201,17 +201,19 @@
             data: "endTime",
             render: (data, type) =>
               type === "display" || type === "filter"
-                ? new Date(data).toLocaleDateString("en-US")
+                ? DateUtils.formatForDisplay(data, {
+                    dateStyle: "medium",
+                    timeStyle: null,
+                  })
                 : data,
           },
           {
             data: "endTime",
             render: (data, type, row) =>
               type === "display" || type === "filter"
-                ? new Date(data).toLocaleTimeString("en-US", {
-                    timeZone: row.timeZone || "America/Chicago",
-                    hour: "2-digit",
-                    minute: "2-digit",
+                ? DateUtils.formatForDisplay(data, {
+                    dateStyle: null,
+                    timeStyle: "short",
                   })
                 : data,
           },

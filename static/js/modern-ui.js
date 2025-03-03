@@ -433,40 +433,45 @@
    * @param {HTMLElement} endInput - End date input
    */
   function setDateRange(range, startInput, endInput) {
-    const today = new Date();
-    const startDate = new Date(today);
-    const endDate = new Date(today);
-
-    // Calculate dates based on range
-    switch (range) {
-      case "today":
-        // Keep default
-        break;
-      case "yesterday":
-        startDate.setDate(startDate.getDate() - 1);
-        endDate.setDate(endDate.getDate() - 1);
-        break;
-      case "last-week":
-        startDate.setDate(startDate.getDate() - 7);
-        break;
-      case "last-month":
-        startDate.setDate(startDate.getDate() - 30);
-        break;
-      case "all-time":
-        startDate.setFullYear(startDate.getFullYear() - 10);
-        break;
-      default:
-        return;
+    if (!startInput || !endInput) {
+      console.warn("Date inputs not found");
+      return;
     }
 
-    // Format dates as strings
-    const startDateStr = startDate.toISOString().split("T")[0];
-    const endDateStr = endDate.toISOString().split("T")[0];
+    // Show loading indicator if available
+    if (window.loadingManager) {
+      window.loadingManager.startOperation("DateRangeSet", 100);
+    }
 
-    // Update inputs and localStorage
-    updateDateInputs(startInput, endInput, startDateStr, endDateStr);
-    localStorage.setItem(CONFIG.storage.startDate, startDateStr);
-    localStorage.setItem(CONFIG.storage.endDate, endDateStr);
+    // Use the unified DateUtils.getDateRangePreset
+    DateUtils.getDateRangePreset(range)
+      .then(({ startDate, endDate }) => {
+        if (startDate && endDate) {
+          // Update inputs and localStorage
+          updateDateInputs(startInput, endInput, startDate, endDate);
+          localStorage.setItem(CONFIG.storage.startDate, startDate);
+          localStorage.setItem(CONFIG.storage.endDate, endDate);
+
+          // Update filter indicator if available
+          if (typeof updateFilterIndicator === "function") {
+            updateFilterIndicator();
+          }
+        }
+      })
+      .catch((error) => {
+        console.error("Error setting date range:", error);
+        if (window.notificationManager) {
+          window.notificationManager.show(
+            "Error setting date range. Please try again.",
+            "error"
+          );
+        }
+      })
+      .finally(() => {
+        if (window.loadingManager) {
+          window.loadingManager.finish("DateRangeSet");
+        }
+      });
   }
 
   /**
