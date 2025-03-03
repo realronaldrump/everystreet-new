@@ -425,32 +425,3 @@ async def reverse_geocode_nominatim(lat: float, lon: float) -> Optional[Dict[str
                     f"Unexpected status code in reverse_geocode_nominatim: {response.status}"
                 )
                 return None
-
-
-# Background task helper functions
-async def run_background_task(coro, task_name="background_task"):
-    """
-    Run a coroutine as a background task with proper error handling.
-
-    Args:
-        coro: The coroutine to run
-        task_name: Name for logging purposes
-    """
-    try:
-        task = asyncio.create_task(coro, name=task_name)
-
-        def handle_task_result(task):
-            try:
-                task.result()
-            except asyncio.CancelledError:
-                logger.info(f"Background task {task_name} was cancelled")
-            except Exception as e:
-                logger.error(f"Background task {task_name} failed: {e}", exc_info=True)
-
-        task.add_done_callback(handle_task_result)
-        return task
-    except Exception as e:
-        logger.error(
-            f"Failed to create background task {task_name}: {e}", exc_info=True
-        )
-        return None
