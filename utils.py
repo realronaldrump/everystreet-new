@@ -165,7 +165,6 @@ async def get_session_ctx():
             async with session.get(...) as response:
                 ...
     """
-    session_manager = SessionManager()
     try:
         session = await session_manager.get_session()
         yield session
