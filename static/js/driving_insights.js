@@ -1,4 +1,4 @@
-/* global Chart */
+/* global DateUtils, Chart */
 
 "use strict";
 

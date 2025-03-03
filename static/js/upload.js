@@ -1,4 +1,4 @@
-/* global notificationManager, bootstrap, confirmationDialog */
+/* global L, notificationManager, bootstrap, confirmationDialog */
 
 /**
  * UploadManager - Manages file uploads and processing

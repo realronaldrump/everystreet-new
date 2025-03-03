@@ -1,6 +1,6 @@
 "use strict";
 
-/* global L, flatpickr, notificationManager, bootstrap, EveryStreet, confirmationDialog, $ */
+/* global L, flatpickr, notificationManager, bootstrap, DateUtils, EveryStreet, confirmationDialog, $ */
 
 /**
  * Creates an editable cell for the DataTable

@@ -1,4 +1,4 @@
-/* global L, flatpickr, notificationManager, bootstrap, $ */
+/* global L, flatpickr, notificationManager, bootstrap, DateUtils, $ */
 
 /**
  * Modern UI - Main UI controller for the application

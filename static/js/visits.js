@@ -1,5 +1,5 @@
 "use strict";
-/* global L, Chart */
+/* global L, Chart, DateUtils, $ */
 (() => {
   class VisitsManager {
     constructor() {

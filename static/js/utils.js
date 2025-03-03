@@ -1,3 +1,5 @@
+/** global bootstrap */
+
 /**
  * @file Application utilities for error handling, notifications, and UI components
  */
