@@ -4,10 +4,7 @@
 
 (() => {
   // Global chart and table variables
-  let tripCountsChart,
-    distanceChart,
-    timeDistributionChart,
-    fuelConsumptionChart;
+  let tripCountsChart, distanceChart, fuelConsumptionChart;
   let insightsTable;
   let datepickers = {};
   const defaultChartOptions = {
@@ -477,7 +474,6 @@
       loadingManager.updateSubOperation("general", 100);
 
       updateDistanceChart(analyticsData.daily_distances);
-      updateTimeDistributionChart(analyticsData.time_distribution);
       updateFuelChart(generalData);
       loadingManager.updateSubOperation("analytics", 100);
 
@@ -503,11 +499,6 @@
     if (distanceChart) {
       distanceChart.data.datasets = [];
       distanceChart.update();
-    }
-
-    if (timeDistributionChart) {
-      timeDistributionChart.data.datasets[0].data = [0, 0, 0, 0, 0, 0];
-      timeDistributionChart.update();
     }
 
     if (fuelConsumptionChart) {
@@ -567,16 +558,6 @@
       borderWidth: 1,
     };
     distanceChart.update();
-  }
-
-  function updateTimeDistributionChart(data) {
-    if (!timeDistributionChart || !Array.isArray(data)) return;
-    const timeSlots = Array(6).fill(0);
-    data.forEach((d) => {
-      timeSlots[Math.floor(d.hour / 4)] += d.count;
-    });
-    timeDistributionChart.data.datasets[0].data = timeSlots;
-    timeDistributionChart.update();
   }
 
   function updateFuelChart(data) {
