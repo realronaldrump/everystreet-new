@@ -1,7 +1,9 @@
 /* global L, flatpickr, notificationManager, bootstrap, $ */
 
 document.addEventListener("DOMContentLoaded", () => {
-  let editMap, tripsLayerGroup, editableLayers;
+  let editMap = null,
+    tripsLayerGroup = null,
+    editableLayers = null;
   let currentTrip = null;
   let editMode = false;
 
@@ -86,9 +88,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Helper: Return yesterday's date in YYYY-MM-DD format.
   function getFallbackDate() {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split("T")[0];
+    const dateObj = new Date();
+    dateObj.setDate(dateObj.getDate() - 1);
+    return dateObj.toISOString().split("T")[0];
   }
 
   async function loadTrips() {

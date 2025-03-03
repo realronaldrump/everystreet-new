@@ -14,11 +14,28 @@
       this.drawingEnabled = false;
       this.customPlacesLayer = null;
       this.loadingManager = window.loadingManager || {
-        startOperation: () => {},
-        addSubOperation: () => {},
-        updateSubOperation: () => {},
-        finish: () => {},
-        error: () => {},
+        startOperation: (name) => {
+          console.log(`LoadingManager not available: ${name}`);
+        },
+        addSubOperation: (opName, subName) => {
+          console.log(`LoadingManager not available: ${opName}.${subName}`);
+        },
+        updateSubOperation: (opName, subName, progress) => {
+          console.log(
+            `LoadingManager not available: ${opName}.${subName} (${progress}%)`
+          );
+        },
+        finish: (name) => {
+          console.log(
+            `LoadingManager not available: finished ${name || "all"}`
+          );
+        },
+        error: (message) => {
+          console.error(`LoadingManager not available: Error - ${message}`);
+          if (window.notificationManager) {
+            window.notificationManager.show(message, "danger");
+          }
+        },
       };
       this.isDetailedView = false;
       this.initialize();

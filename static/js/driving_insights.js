@@ -4,7 +4,9 @@
 
 (() => {
   // Global chart variables
-  let tripCountsChart, distanceChart, fuelConsumptionChart;
+  let tripCountsChart = null,
+    distanceChart = null,
+    fuelConsumptionChart = null;
   let insightsTable;
 
   const loadingManager = window.loadingManager || {
