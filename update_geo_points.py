@@ -250,7 +250,7 @@ async def update_geo_points_with_indexing(collection: AsyncIOMotorCollection) ->
         updated_count = await update_geo_points(collection)
 
         if updated_count > 0:
-            logger.info(f"Creating geospatial indexes for {collection.name}")
+            logger.info("Creating geospatial indexes for %s", collection.name)
 
             # Create indexes for geo-queries for better performance
             await db_manager.safe_create_index(
@@ -261,11 +261,11 @@ async def update_geo_points_with_indexing(collection: AsyncIOMotorCollection) ->
                 collection.name, [("destinationGeoPoint", "2dsphere")], background=True
             )
 
-            logger.info(f"Geospatial indexes created for {collection.name}")
+            logger.info("Geospatial indexes created for %s", collection.name)
 
         return updated_count
     except Exception as e:
-        logger.error(f"Error in update_geo_points_with_indexing: {e}", exc_info=True)
+        logger.error("Error in update_geo_points_with_indexing: %s", e, exc_info=True)
         return 0
 
 
@@ -292,12 +292,12 @@ async def update_all_collections_geo_points() -> Dict[str, int]:
 
     for name, collection in collections.items():
         try:
-            logger.info(f"Updating geo-points for {name} collection")
+            logger.info("Updating geo-points for %s collection", name)
             count = await update_geo_points_with_indexing(collection)
             results[name] = count
-            logger.info(f"Updated {count} documents in {name} collection")
+            logger.info("Updated %d documents in %s collection", count, name)
         except Exception as e:
-            logger.error(f"Error updating geo-points for {name}: {e}", exc_info=True)
+            logger.error("Error updating geo-points for %s: %s", name, e, exc_info=True)
             results[name] = 0
 
     return results

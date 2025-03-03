@@ -427,7 +427,9 @@ class BackgroundTaskManager:
             # Check if dependency exists and has been completed successfully
             dependency_status = self.task_status.get(dependency)
             if not dependency_status or dependency_status != TaskStatus.COMPLETED:
-                logger.info(f"Dependency {dependency} for task {task_id} not satisfied")
+                logger.info(
+                    "Dependency %s for task %s not satisfied", dependency, task_id
+                )
                 return False
 
         return True
@@ -485,7 +487,7 @@ class BackgroundTaskManager:
             }
 
         except Exception as e:
-            logger.error(f"Error executing task {task_id}: {e}", exc_info=True)
+            logger.error("Error executing task %s: %s", task_id, e, exc_info=True)
             return {"success": False, "message": f"Error: {str(e)}"}
 
     async def _process_pending_tasks(self, completed_task_id: str) -> None:

@@ -99,7 +99,7 @@ class SessionManager(BaseConnectionManager):
         try:
             future.result()
         except Exception as e:
-            logger.error(f"Session maintenance task failed: {e}", exc_info=True)
+            logger.error("Session maintenance task failed: %s", e, exc_info=True)
 
     async def _session_maintenance(self):
         """
@@ -119,7 +119,7 @@ class SessionManager(BaseConnectionManager):
         except asyncio.CancelledError:
             logger.debug("Session maintenance task cancelled")
         except Exception as e:
-            logger.error(f"Error in session maintenance: {e}", exc_info=True)
+            logger.error("Error in session maintenance: %s", e, exc_info=True)
             raise
 
     async def cleanup(self, reason="Manual cleanup"):
@@ -128,7 +128,7 @@ class SessionManager(BaseConnectionManager):
         """
         async with self._lock:
             if self._session and not self._session.closed:
-                logger.info(f"Closing aiohttp ClientSession. Reason: {reason}")
+                logger.info("Closing aiohttp ClientSession. Reason: %s", reason)
 
                 # Cancel the maintenance task first
                 if self._maintenance_task and not self._maintenance_task.done():
@@ -144,7 +144,7 @@ class SessionManager(BaseConnectionManager):
                     # Wait a short time for connections to actually close
                     await asyncio.sleep(0.25)
                 except Exception as e:
-                    logger.error(f"Error closing session: {e}", exc_info=True)
+                    logger.error("Error closing session: %s", e, exc_info=True)
 
                 self._session = None
 
