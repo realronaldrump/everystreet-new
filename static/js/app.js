@@ -1460,32 +1460,29 @@
     initializeDOMCache();
     initializeDatePickers();
     initializeEventListeners();
+
     if (AppState.dom.map && !document.getElementById("visits-page")) {
-      initializeMap().then(() => {
-        if (!AppState.map || !AppState.layerGroup) {
-          console.error("Failed to initialize map components");
-          showNotification(CONFIG.ERROR_MESSAGES.mapInitFailed, "danger");
-          return;
-        }
-        initializeLayerControls();
-        Promise.all([fetchTrips(), fetchMetrics()]).then(() => {
-          document.dispatchEvent(new CustomEvent("initialDataLoaded"));
-        });
-        const selectedLocationStr = getStorageItem(
-          CONFIG.STORAGE_KEYS.selectedLocation
-        );
-        if (selectedLocationStr) {
-          try {
-            const location = JSON.parse(selectedLocationStr);
-            window.validatedLocation = location;
-            localStorage.removeItem(CONFIG.STORAGE_KEYS.selectedLocation);
-          } catch (error) {
-            console.error("Error loading selected location:", error);
+      initializeMap()
+        .then(() => {
+          if (!isMapReady()) {
+            console.error("Failed to initialize map components");
+            showNotification(CONFIG.ERROR_MESSAGES.mapInitFailed, "danger");
+            return;
           }
-        }
-      });
-    } else {
-      fetchMetrics();
+
+          initializeLayerControls();
+
+          // Fetch data after map is fully initialized
+          return Promise.all([fetchTrips(), fetchMetrics()]);
+        })
+        .then((results) => {
+          if (results) {
+            document.dispatchEvent(new CustomEvent("initialDataLoaded"));
+          }
+        })
+        .catch((error) => {
+          handleError(error, "Initialization");
+        });
     }
   }
   document.addEventListener("DOMContentLoaded", initialize);
