@@ -363,13 +363,26 @@
     }
 
     // Reset summary metrics
-    document.getElementById("total-trips")?.textContent = "0";
-    document.getElementById("total-distance")?.textContent = "0 miles";
-    document.getElementById("total-fuel")?.textContent = "0 gallons";
-    document.getElementById("max-speed")?.textContent = "0 mph";
-    document.getElementById("total-idle")?.textContent = "0m 0s";
-    document.getElementById("longest-trip")?.textContent = "0 miles";
-    document.getElementById("most-visited")?.textContent = "-";
+    const totalTripsEl = document.getElementById("total-trips");
+    if (totalTripsEl) totalTripsEl.textContent = "0";
+
+    const totalDistanceEl = document.getElementById("total-distance");
+    if (totalDistanceEl) totalDistanceEl.textContent = "0 miles";
+
+    const totalFuelEl = document.getElementById("total-fuel");
+    if (totalFuelEl) totalFuelEl.textContent = "0 gallons";
+
+    const maxSpeedEl = document.getElementById("max-speed");
+    if (maxSpeedEl) maxSpeedEl.textContent = "0 mph";
+
+    const totalIdleEl = document.getElementById("total-idle");
+    if (totalIdleEl) totalIdleEl.textContent = "0m 0s";
+
+    const longestTripEl = document.getElementById("longest-trip");
+    if (longestTripEl) longestTripEl.textContent = "0 miles";
+
+    const mostVisitedEl = document.getElementById("most-visited");
+    if (mostVisitedEl) mostVisitedEl.textContent = "-";
   }
 
   //  CHART UPDATE FUNCTIONS
