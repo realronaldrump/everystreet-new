@@ -47,7 +47,6 @@ from tasks import task_manager
 from db import (
     trips_collection,
     matched_trips_collection,
-    historical_trips_collection,
     uploaded_trips_collection,
     live_trips_collection,
     archived_live_trips_collection,
@@ -1025,7 +1024,7 @@ async def get_coverage_status(task_id: str):
 
 
 # ------------------------------------------------------------------------------
-# TRIPS (REGULAR, UPLOADED, HISTORICAL)
+# TRIPS (REGULAR, UPLOADED)
 # ------------------------------------------------------------------------------
 
 
@@ -1037,18 +1036,15 @@ async def get_trips(request: Request):
         imei = request.query_params.get("imei")
         start_date = parse_query_date(start_date_str)
         end_date = parse_query_date(end_date_str, end_of_day=True)
-        query: Dict[str, Any] = {}
+        query = {}
         if start_date and end_date:
             query["startTime"] = {"$gte": start_date, "$lte": end_date}
         if imei:
             query["imei"] = imei
         regular_future = trips_collection.find(query).to_list(None)
         uploaded_future = uploaded_trips_collection.find(query).to_list(None)
-        historical_future = historical_trips_collection.find(query).to_list(None)
-        regular, uploaded, historical = await asyncio.gather(
-            regular_future, uploaded_future, historical_future
-        )
-        all_trips = regular + uploaded + historical
+        regular, uploaded = await asyncio.gather(regular_future, uploaded_future)
+        all_trips = regular + uploaded
         features = []
         for trip in all_trips:
             try:
@@ -1116,7 +1112,7 @@ async def get_driving_insights(request: Request):
         imei = request.query_params.get("imei")
         start_date = parse_query_date(start_date_str)
         end_date = parse_query_date(end_date_str, end_of_day=True)
-        query = {"source": {"$ne": "historical"}}
+        query = {}
         if start_date and end_date:
             query["startTime"] = {"$gte": start_date, "$lte": end_date}
         if imei:
@@ -1200,18 +1196,14 @@ async def get_metrics(request: Request):
         imei = request.query_params.get("imei")
         start_date = parse_query_date(start_date_str)
         end_date = parse_query_date(end_date_str, end_of_day=True)
-        query: Dict[str, Any] = {}
+        query = {}
         if start_date and end_date:
             query["startTime"] = {"$gte": start_date, "$lte": end_date}
         if imei:
             query["imei"] = imei
         trips_cursor_future = trips_collection.find(query).to_list(None)
-        hist_cursor_future = historical_trips_collection.find(query).to_list(None)
-        trips_data, hist_data = await asyncio.gather(
-            trips_cursor_future, hist_cursor_future
-        )
-        all_trips = trips_data + hist_data
-        total_trips = len(all_trips)
+        trips_data = await trips_cursor_future
+        total_trips = len(trips_data)
         if not total_trips:
             empty_data = {
                 "total_trips": 0,
@@ -1223,10 +1215,10 @@ async def get_metrics(request: Request):
                 "max_speed": "0.00",
             }
             return JSONResponse(content=empty_data)
-        total_distance = sum(t.get("distance", 0) for t in all_trips)
+        total_distance = sum(t.get("distance", 0) for t in trips_data)
         avg_distance_val = (total_distance / total_trips) if total_trips > 0 else 0.0
         start_times = []
-        for t in all_trips:
+        for t in trips_data:
             st = t.get("startTime")
             if isinstance(st, str):
                 st = dateutil_parser.isoparse(st)
@@ -1244,7 +1236,7 @@ async def get_metrics(request: Request):
         elif hour > 12:
             hour -= 12
         driving_times = []
-        for t in all_trips:
+        for t in trips_data:
             s = t.get("startTime")
             e = t.get("endTime")
             if isinstance(s, str):
@@ -1262,7 +1254,7 @@ async def get_metrics(request: Request):
         avg_speed_val = (
             total_distance / total_driving_hours if total_driving_hours else 0
         )
-        max_speed_val = max((t.get("maxSpeed", 0) for t in all_trips), default=0)
+        max_speed_val = max((t.get("maxSpeed", 0) for t in trips_data), default=0)
         return JSONResponse(
             content={
                 "total_trips": total_trips,
@@ -1327,7 +1319,7 @@ async def export_geojson(request: Request):
         imei = request.query_params.get("imei")
         start_date = parse_query_date(start_date_str)
         end_date = parse_query_date(end_date_str, end_of_day=True)
-        query: Dict[str, Any] = {}
+        query = {}
         if start_date:
             query["startTime"] = {"$gte": start_date}
         if end_date:
@@ -1373,7 +1365,7 @@ async def export_gpx(request: Request):
         imei = request.query_params.get("imei")
         start_date = parse_query_date(start_date_str)
         end_date = parse_query_date(end_date_str, end_of_day=True)
-        query: Dict[str, Any] = {}
+        query = {}
         if start_date:
             query["startTime"] = {"$gte": start_date}
         if end_date:
@@ -1577,7 +1569,7 @@ async def map_match_trips_endpoint(request: Request):
         start_date = parse_query_date(data.get("start_date"))
         end_date = parse_query_date(data.get("end_date"), end_of_day=True)
         trip_id = data.get("trip_id")
-        query: Dict[str, Any] = {}
+        query = {}
         if trip_id:
             query["transactionId"] = trip_id
         elif start_date and end_date:
@@ -1603,28 +1595,6 @@ async def map_match_trips_endpoint(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/map_match_historical_trips")
-async def map_match_historical_trips_endpoint(request: Request):
-    try:
-        data = await request.json()
-        start_date = parse_query_date(data.get("start_date"))
-        end_date = parse_query_date(data.get("end_date"), end_of_day=True)
-        query: Dict[str, Any] = {}
-        if start_date and end_date:
-            query["startTime"] = {"$gte": start_date, "$lte": end_date}
-        cursor = historical_trips_collection.find(query)
-        trips_list = await cursor.to_list(length=None)
-        for trip in trips_list:
-            await process_and_map_match_trip(trip)
-        return {
-            "status": "success",
-            "message": "Map matching for historical trips started.",
-        }
-    except Exception as e:
-        logger.exception("Error in map_match_historical_trips endpoint")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.get("/api/matched_trips")
 async def get_matched_trips(request: Request):
     start_date_str = request.query_params.get("start_date")
@@ -1632,7 +1602,7 @@ async def get_matched_trips(request: Request):
     imei = request.query_params.get("imei")
     start_date = parse_query_date(start_date_str)
     end_date = parse_query_date(end_date_str, end_of_day=True)
-    query: Dict[str, Any] = {}
+    query = {}
     if start_date and end_date:
         query["startTime"] = {"$gte": start_date, "$lte": end_date}
     if imei:
@@ -1814,8 +1784,7 @@ async def delete_matched_trip(trip_id: str):
 async def fetch_all_trips_no_filter() -> List[dict]:
     trips = await trips_collection.find().to_list(length=None)
     uploaded = await uploaded_trips_collection.find().to_list(length=None)
-    historical = await historical_trips_collection.find().to_list(length=None)
-    return trips + uploaded + historical
+    return trips + uploaded
 
 
 @app.get("/api/export/all_trips")
@@ -1861,11 +1830,8 @@ async def export_trips_within_range(request: Request):
     query = {"startTime": {"$gte": start_date, "$lte": end_date}}
     trips_future = trips_collection.find(query).to_list(length=None)
     uploaded_future = uploaded_trips_collection.find(query).to_list(length=None)
-    historical_future = historical_trips_collection.find(query).to_list(length=None)
-    trips_data, ups_data, hist_data = await asyncio.gather(
-        trips_future, uploaded_future, historical_future
-    )
-    all_trips = trips_data + ups_data + hist_data
+    trips_data, ups_data = await asyncio.gather(trips_future, uploaded_future)
+    all_trips = trips_data + ups_data
 
     date_range = f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
     filename_base = f"trips_{date_range}"
@@ -2222,74 +2188,6 @@ async def get_street_segment_details(segment_id: str):
 
 
 # ------------------------------------------------------------------------------
-# LOADING HISTORICAL DATA
-# ------------------------------------------------------------------------------
-
-
-async def process_historical_trip(trip: dict) -> dict:
-    if isinstance(trip["startTime"], str):
-        trip["startTime"] = dateutil_parser.isoparse(trip["startTime"])
-    if isinstance(trip["endTime"], str):
-        trip["endTime"] = dateutil_parser.isoparse(trip["endTime"])
-    gps_data = geojson_module.loads(trip["gps"])
-    trip["startGeoPoint"] = gps_data["coordinates"][0]
-    trip["destinationGeoPoint"] = gps_data["coordinates"][-1]
-    return trip
-
-
-async def load_historical_data(start_date_str=None, end_date_str=None):
-    all_trips = []
-    for filename in glob.glob("olddrivingdata/*.geojson"):
-        with open(filename, "r") as f:
-            try:
-                geojson_data = json.load(f)
-                for feature in geojson_data["features"]:
-                    trip = feature["properties"]
-                    trip["gps"] = json.dumps(feature["geometry"])
-                    trip["startTime"] = datetime.fromisoformat(
-                        trip["timestamp"]
-                    ).replace(tzinfo=timezone.utc)
-                    trip["endTime"] = datetime.fromisoformat(
-                        trip["end_timestamp"]
-                    ).replace(tzinfo=timezone.utc)
-                    trip["imei"] = "HISTORICAL"
-                    trip["transactionId"] = f"HISTORICAL-{trip['timestamp']}"
-                    if start_date_str:
-                        sdt = parse_query_date(start_date_str)
-                        if trip["startTime"] < sdt:
-                            continue
-                    if end_date_str:
-                        edt = parse_query_date(end_date_str, end_of_day=True)
-                        if trip["endTime"] > edt:
-                            continue
-                    all_trips.append(trip)
-            except Exception as e:
-                logger.error("Error reading %s: %s", filename, e)
-    processed = await asyncio.gather(*(process_historical_trip(t) for t in all_trips))
-    inserted_count = 0
-    for trip in processed:
-        try:
-            exists = await historical_trips_collection.find_one(
-                {"transactionId": trip["transactionId"]}
-            )
-            if not exists:
-                await historical_trips_collection.insert_one(trip)
-                inserted_count += 1
-        except Exception as e:
-            logger.exception("Error inserting historical trip")
-    return inserted_count
-
-
-@app.post("/load_historical_data")
-async def load_historical_data_endpoint(request: Request):
-    data = await request.json()
-    start_date = data.get("start_date")
-    end_date = data.get("end_date")
-    inserted_count = await load_historical_data(start_date, end_date)
-    return {"message": f"Loaded historical data. Inserted {inserted_count} new trips."}
-
-
-# ------------------------------------------------------------------------------
 # LAST TRIP POINT
 # ------------------------------------------------------------------------------
 
@@ -2392,16 +2290,11 @@ async def get_first_trip_date():
         uploaded_trip = await uploaded_trips_collection.find_one(
             {}, sort=[("startTime", 1)]
         )
-        historical_trip = await historical_trips_collection.find_one(
-            {}, sort=[("startTime", 1)]
-        )
         candidates = []
         if regular_trip and regular_trip.get("startTime"):
             candidates.append(regular_trip["startTime"])
         if uploaded_trip and uploaded_trip.get("startTime"):
             candidates.append(uploaded_trip["startTime"])
-        if historical_trip and historical_trip.get("startTime"):
-            candidates.append(historical_trip["startTime"])
         if not candidates:
             now = datetime.now(timezone.utc)
             return {"first_trip_date": now.isoformat()}
@@ -2501,7 +2394,7 @@ def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
                     "endTime": etime_parsed,
                     "gps": json.dumps(trip_geo),
                     "distance": dist_miles,
-                    "imei": "HISTORICAL",
+                    "imei": "UPLOADED",
                 }
             )
         return trips
@@ -2586,7 +2479,7 @@ async def upload_gpx_endpoint(request: Request):
                             "distance": round(dist_miles, 2),
                             "source": "upload",
                             "filename": f.filename,
-                            "imei": "HISTORICAL",
+                            "imei": "UPLOADED",
                         }
                         await process_and_store_trip(trip_data)
                         success_count += 1
@@ -2634,7 +2527,7 @@ async def upload_files(request: Request, files: List[UploadFile] = File(...)):
                             "gps": json.dumps(
                                 {"type": "LineString", "coordinates": coords}
                             ),
-                            "imei": "HISTORICAL",
+                            "imei": "UPLOADED",
                             "distance": calculate_distance(coords),
                         }
                         await process_and_store_trip(trip_dict)
@@ -2755,7 +2648,6 @@ async def get_place_statistics(place_id: str):
         valid_trips = []
         for coll in [
             trips_collection,
-            historical_trips_collection,
             uploaded_trips_collection,
         ]:
             trips_list = await coll.find(query).to_list(length=None)
@@ -2861,7 +2753,6 @@ async def get_trips_for_place(place_id: str):
         valid_trips = []
         for coll in [
             trips_collection,
-            historical_trips_collection,
             uploaded_trips_collection,
         ]:
             trips_list = await coll.find(query).to_list(length=None)
@@ -2948,13 +2839,10 @@ async def get_non_custom_places_visits():
             {"$sort": {"totalVisits": -1}},
         ]
         trips_results = await trips_collection.aggregate(pipeline).to_list(None)
-        historical_results = await historical_trips_collection.aggregate(
-            pipeline
-        ).to_list(None)
         uploaded_results = await uploaded_trips_collection.aggregate(pipeline).to_list(
             None
         )
-        combined_results = trips_results + historical_results + uploaded_results
+        combined_results = trips_results + uploaded_results
         visits_data = []
         for doc in combined_results:
             visits_data.append(
@@ -3048,11 +2936,10 @@ async def get_trip_analytics(request: Request):
 async def update_geo_points_route(request: Request):
     data = await request.json()
     collection_name = data.get("collection")
-    if collection_name not in ["trips", "historical_trips", "uploaded_trips"]:
+    if collection_name not in ["trips", "uploaded_trips"]:
         raise HTTPException(status_code=400, detail="Invalid collection name")
     coll_map = {
         "trips": trips_collection,
-        "historical_trips": historical_trips_collection,
         "uploaded_trips": uploaded_trips_collection,
     }
     collection = coll_map[collection_name]
@@ -3069,7 +2956,6 @@ async def regeocode_all_trips():
     try:
         for collection in [
             trips_collection,
-            historical_trips_collection,
             uploaded_trips_collection,
         ]:
             trips_list = await collection.find({}).to_list(length=None)

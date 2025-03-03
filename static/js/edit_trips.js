@@ -152,7 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const coordsLatLng = gps.coordinates.map(([lon, lat]) => [lat, lon]);
         const poly = L.polyline(coordsLatLng, {
-          color: trip.properties?.imei === "HISTORICAL" ? "#CF6679" : "#BB86FC",
+          color: "#BB86FC",
           weight: 3,
           opacity: 0.8,
         });
@@ -182,7 +182,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function resetTripStyle(layer, tripData) {
     layer.setStyle({
-      color: tripData.properties?.imei === "HISTORICAL" ? "#CF6679" : "#BB86FC",
+      color: "#BB86FC",
       weight: 3,
       opacity: 0.6,
     });

@@ -89,7 +89,7 @@ class UploadManager {
       totalPointsSpan: document.getElementById("totalPoints"),
       previewMapElement: document.getElementById("previewMap"),
       mapMatchCheckbox: document.getElementById("mapMatchOnUpload"),
-      historicalTripsBody: document.getElementById("historicalTripsBody"),
+      uploadedTripsBody: document.getElementById("uploadedTripsBody"),
       selectAllCheckbox: document.getElementById("select-all"),
       bulkDeleteBtn: document.getElementById("bulk-delete-btn"),
     };
@@ -610,13 +610,13 @@ class UploadManager {
    * @param {Array} trips - Uploaded trips data
    */
   displayUploadedTrips(trips) {
-    const { historicalTripsBody } = this.elements;
+    const { uploadedTripsBody } = this.elements;
 
-    if (!historicalTripsBody) return;
+    if (!uploadedTripsBody) return;
 
     this.loadingManager.startOperation("Displaying Uploaded Trips");
 
-    historicalTripsBody.innerHTML = "";
+    uploadedTripsBody.innerHTML = "";
 
     trips.forEach((trip) => {
       const row = document.createElement("tr");
@@ -644,7 +644,7 @@ class UploadManager {
         </td>
       `;
 
-      historicalTripsBody.appendChild(row);
+      uploadedTripsBody.appendChild(row);
     });
 
     this.bindDeleteTripButtons();

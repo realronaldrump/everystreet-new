@@ -609,7 +609,6 @@
     window.taskManager = new TaskManager();
 
     setupTaskConfigEventListeners();
-    setupHistoricalData();
     setupGeoPointsUpdate();
     setupRegeocode();
     setupRemapMatchedTrips();
@@ -821,34 +820,6 @@
         });
     }
   }
-
-  // function setupHistoricalData() {
-  //   const btn = document.getElementById("load-historical-data");
-  //   if (!btn) return;
-
-  //   btn.addEventListener("click", async () => {
-  //     showLoadingOverlay();
-  //     try {
-  //       const response = await fetch("/load_historical_data", {
-  //         method: "POST",
-  //       });
-  //       const data = await response.json();
-
-  //       document.getElementById("historical-data-status").textContent =
-  //         data.message;
-  //       settingsManager.show("Success", data.message, "success");
-  //     } catch (err) {
-  //       console.error("Error loading historical data:", err);
-  //       settingsManager.show(
-  //         "Error",
-  //         "Failed to load historical data",
-  //         "danger"
-  //       );
-  //     } finally {
-  //       hideLoadingOverlay();
-  //     }
-  //   });
-  // }
 
   function setupGeoPointsUpdate() {
     const btn = document.getElementById("update-geo-points");

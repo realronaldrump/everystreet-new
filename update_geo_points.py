@@ -278,13 +278,11 @@ async def update_all_collections_geo_points() -> Dict[str, int]:
     """
     from db import (
         trips_collection,
-        historical_trips_collection,
         uploaded_trips_collection,
     )
 
     collections = {
         "trips": trips_collection,
-        "historical_trips": historical_trips_collection,
         "uploaded_trips": uploaded_trips_collection,
     }
 
@@ -322,7 +320,6 @@ if __name__ == "__main__":
         collection_name = sys.argv[1]
         collections = {
             "trips": db["trips"],
-            "historical_trips": db["historical_trips"],
             "uploaded_trips": db["uploaded_trips"],
         }
 

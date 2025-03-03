@@ -34,7 +34,7 @@
 
 ## Features
 
-- **Trip Data Integration:** Retrieves driving data directly from a Bouncie device via the Bouncie API. Supports historical trip data and (with a websocket connection) near real-time updates.
+- **Trip Data Integration:** Retrieves driving data directly from a Bouncie device via the Bouncie API. Supports trip data retrieval and (with a websocket connection) near real-time updates.
 - **Map Visualization:** Displays trips on an interactive map using Leaflet. Different layers can be toggled, including individual trips, matched trips (after map-matching), OSM boundaries, and OSM streets. Recent trips can be highlighted.
 - **Street Coverage Calculation:** Determines the percentage of streets driven within a user-defined area.
 - **Map Matching:** Integrates with the Mapbox Map Matching API to snap GPS traces to the road network, improving data accuracy and visualization.
@@ -42,7 +42,7 @@
 - **Driving Insights:** Presents key driving metrics, such as total distance, average speed, fuel consumption, and trip frequency. Includes charts for daily trips, and distance.
 - **Custom Places:** Users can define custom areas (places) on the map and track visit statistics.
 - **Data Export:** Supports exporting trip data in GeoJSON and GPX formats. Also supports exporting street data in GeoJSON and Shapefile formats. Raw JSON export is also available.
-- **Data Upload:** Supports uploading historical trip data from GPX and GeoJSON files.
+- **Data Upload:** Supports uploading trip data from GPX and GeoJSON files.
 - **Database Management:** Includes basic database management functions (optimize, clear collections).
 - **Settings:** Configuration options for background task management, including scheduling intervals and enabling/disabling tasks.
 - **Live Trip Tracking:** Provides near real-time updates of the current vehicle location, speed, and trip statistics, via a WebSocket connection.
@@ -309,7 +309,7 @@ This script does the following:
 ### Upload Data
 
 - Accessible via the `/upload` route.
-- Allows uploading historical trip data in GPX or GeoJSON format.
+- Allows uploading trip data in GPX or GeoJSON format.
 - Provides a drag-and-drop zone or a file input for selection.
 - Displays a preview of uploaded files before saving.
 - Optionally performs map matching on uploaded trips.
@@ -321,7 +321,7 @@ This script does the following:
   - **Global Disable:** Enables/disables all background tasks.
   - **Task Configuration:** Allows adjusting the interval, enabling/disabling, and viewing the status of individual tasks.
   - **Task History:** Shows a log of task executions, including start time, duration, status, and any errors.
-- Allows loading historical trip data from older GeoJSON files (specific to the developer's setup).
+- Allows uploading trip data in GPX or GeoJSON format.
 - Provides options to update GeoPoints and refresh geocoding.
 - Allows remapping of matched trips within a specified date range or interval.
 

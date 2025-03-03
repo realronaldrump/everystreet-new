@@ -49,14 +49,6 @@
       highlightColor: "#FFD700",
       name: "Trips",
     },
-    historicalTrips: {
-      order: 2,
-      color: "#03DAC6",
-      opacity: 0.4,
-      visible: false,
-      highlightColor: "#FFD700",
-      name: "Historical Trips",
-    },
     matchedTrips: {
       order: 3,
       color: "#CF6679",
@@ -78,19 +70,22 @@
   // Application State
   // ==============================
   const AppState = {
-    dom: {}, // Cached DOM elements
     map: null,
     layerGroup: null,
-    liveTracker: null,
+    mapLayers: { ...LAYER_DEFAULTS },
     mapInitialized: false,
+    mapSettings: {
+      highlightRecentTrips: true,
+    },
+    trips: [],
     selectedTripId: null,
     lastPollingTimestamp: 0,
-    mapLayers: { ...LAYER_DEFAULTS },
-    mapSettings: { highlightRecentTrips: true },
     polling: {
+      active: true,
+      interval: 5000,
       timers: {},
-      active: false,
     },
+    dom: {},
   };
 
   // ==============================
@@ -295,11 +290,7 @@
       if (layer.eachLayer) {
         layer.eachLayer((featureLayer) => {
           if (featureLayer.feature?.properties && featureLayer.setStyle) {
-            const isHistorical =
-              featureLayer.feature.properties.imei === "HISTORICAL";
-            let layerInfo = isHistorical
-              ? AppState.mapLayers.historicalTrips
-              : AppState.mapLayers.trips;
+            let layerInfo = AppState.mapLayers.trips;
             if (featureLayer.feature.properties.isMatched) {
               layerInfo = AppState.mapLayers.matchedTrips;
             }
@@ -327,11 +318,12 @@
   }
 
   async function initializeMap() {
-    const mapContainer = getElement("map");
-    if (!mapContainer || AppState.mapInitialized) return;
-
     try {
-      mapContainer.style.display = "block";
+      const mapContainer = document.getElementById("map");
+      if (!mapContainer) {
+        console.warn("Map container not found");
+        return;
+      }
       mapContainer.style.height = "500px";
       mapContainer.style.position = "relative";
 
@@ -358,7 +350,18 @@
       }).addTo(AppState.map);
 
       AppState.layerGroup = L.layerGroup().addTo(AppState.map);
-      AppState.mapLayers.customPlaces.layer = L.layerGroup();
+
+      // Initialize layer containers for each map layer
+      Object.keys(AppState.mapLayers).forEach((layerName) => {
+        if (layerName === "customPlaces") {
+          AppState.mapLayers[layerName].layer = L.layerGroup();
+        } else {
+          AppState.mapLayers[layerName].layer = {
+            type: "FeatureCollection",
+            features: [],
+          };
+        }
+      });
 
       AppState.map.on("click", (e) => {
         if (AppState.selectedTripId && !e.originalEvent._stopped) {
@@ -698,29 +701,27 @@
 
   async function updateTripsTable(geojson) {
     if (!window.tripsTable) return;
-    const formattedTrips = geojson.features
-      .filter((trip) => trip.properties.imei !== "HISTORICAL")
-      .map((trip) => {
-        const startTimeFormatted = DateUtils.formatForDisplay(
-          trip.properties.startTime,
-          { dateStyle: "short", timeStyle: "short" }
-        );
-        const endTimeFormatted = DateUtils.formatForDisplay(
-          trip.properties.endTime,
-          { dateStyle: "short", timeStyle: "short" }
-        );
-        return {
-          ...trip.properties,
-          gps: trip.geometry,
-          startTimeFormatted,
-          endTimeFormatted,
-          startTimeRaw: trip.properties.startTime,
-          endTimeRaw: trip.properties.endTime,
-          destination: trip.properties.destination || "N/A",
-          startLocation: trip.properties.startLocation || "N/A",
-          distance: Number(trip.properties.distance).toFixed(2),
-        };
-      });
+    const formattedTrips = geojson.features.map((trip) => {
+      const startTimeFormatted = DateUtils.formatForDisplay(
+        trip.properties.startTime,
+        { dateStyle: "short", timeStyle: "short" }
+      );
+      const endTimeFormatted = DateUtils.formatForDisplay(
+        trip.properties.endTime,
+        { dateStyle: "short", timeStyle: "short" }
+      );
+      return {
+        ...trip.properties,
+        gps: trip.geometry,
+        startTimeFormatted,
+        endTimeFormatted,
+        startTimeRaw: trip.properties.startTime,
+        endTimeRaw: trip.properties.endTime,
+        destination: trip.properties.destination || "N/A",
+        startLocation: trip.properties.startLocation || "N/A",
+        distance: Number(trip.properties.distance).toFixed(2),
+      };
+    });
     return new Promise((resolve) => {
       window.tripsTable.clear().rows.add(formattedTrips).draw();
       setTimeout(resolve, 100);
@@ -728,20 +729,14 @@
   }
 
   async function updateMapWithTrips(geojson) {
-    if (!getElement("map") || !AppState.map || !AppState.layerGroup) return;
+    if (!geojson || !geojson.features) return;
+
     AppState.mapLayers.trips.layer = {
       type: "FeatureCollection",
-      features: geojson.features.filter(
-        (f) => f.properties.imei !== "HISTORICAL"
-      ),
+      features: geojson.features,
     };
-    AppState.mapLayers.historicalTrips.layer = {
-      type: "FeatureCollection",
-      features: geojson.features.filter(
-        (f) => f.properties.imei === "HISTORICAL"
-      ),
-    };
-    return updateMap();
+
+    await updateMap();
   }
 
   async function fetchMatchedTrips() {
@@ -782,9 +777,7 @@
       visibleLayers.map(async ([name, info]) => {
         if (["customPlaces"].includes(name)) {
           info.layer.addTo(AppState.layerGroup);
-        } else if (
-          ["trips", "historicalTrips", "matchedTrips"].includes(name)
-        ) {
+        } else if (["trips", "matchedTrips"].includes(name)) {
           const geoJsonLayer = L.geoJSON(info.layer, {
             style: (feature) => getTripFeatureStyle(feature, info),
             onEachFeature: (feature, layer) => {
@@ -839,11 +832,8 @@
   }
 
   function createTripPopupContent(feature, layerName) {
-    if (!feature.properties) return "Trip data unavailable";
-
     const props = feature.properties;
     const isMatched = layerName === "matchedTrips";
-    const isHistorical = layerName === "historicalTrips";
 
     let startTime = props.startTime;
     let endTime = props.endTime;
@@ -895,7 +885,7 @@
     // Create popup content with data
     let html = `
       <div class="trip-popup">
-        <h4>${isMatched ? "Matched Trip" : isHistorical ? "Historical Trip" : "Trip"}</h4>
+        <h4>${isMatched ? "Matched Trip" : "Trip"}</h4>
         <table class="popup-data">
           <tr>
             <th>Start Time:</th>
@@ -984,7 +974,7 @@
     // Add appropriate action buttons
     if (isMatched) {
       html += `<button class="btn btn-sm btn-danger delete-matched-trip">Delete Match</button>`;
-    } else if (!isHistorical) {
+    } else {
       html += `
           <button class="btn btn-sm btn-primary rematch-trip">Rematch</button>
           <button class="btn btn-sm btn-danger delete-trip">Delete</button>
@@ -1156,7 +1146,7 @@
   // Map Matching & Metrics
   // ==============================
 
-  async function mapMatchTrips(isHistorical = false) {
+  async function mapMatchTrips() {
     const startDate = DateUtils.formatDate(getStartDate());
     const endDate = DateUtils.formatDate(getEndDate());
     if (!startDate || !endDate) {
@@ -1168,38 +1158,25 @@
       finish: () => {},
     };
     loadingManager.startOperation("MapMatching", 100);
-    const tasks = [
-      fetch("/api/map_match_trips", {
+    try {
+      const response = await fetch("/api/map_match_trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ start_date: startDate, end_date: endDate }),
-      }),
-    ];
-    if (isHistorical) {
-      tasks.push(
-        fetch("/api/map_match_historical_trips", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ start_date: startDate, end_date: endDate }),
-        })
-      );
-    }
-    try {
-      const responses = await Promise.all(tasks);
-      const errorResponses = responses.filter((response) => !response.ok);
-      if (errorResponses.length > 0) {
-        const errorData = await errorResponses[0].json();
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
         throw new Error(
-          errorData.message || `HTTP error! status: ${errorResponses[0].status}`
+          errorData.message || `HTTP error! status: ${response.status}`
         );
       }
-      const results = await Promise.all(responses.map((r) => r.json()));
+      const results = await response.json();
       showNotification("Map matching completed for selected trips.", "success");
       await fetchTrips();
       document.dispatchEvent(
         new CustomEvent("mapMatchingCompleted", {
           detail: {
-            isHistorical,
             results,
           },
         })
@@ -1394,13 +1371,7 @@
       }
     });
 
-    addSingleEventListener("map-match-trips", "click", () =>
-      mapMatchTrips(false)
-    );
-    addSingleEventListener("map-match-historical-trips", "click", () =>
-      mapMatchTrips(true)
-    );
-    addSingleEventListener("fetch-trips-range", "click", fetchTripsInRange);
+    addSingleEventListener("map-match-trips", "click", () => mapMatchTrips());
     document.querySelectorAll(".date-preset").forEach((btn) => {
       addSingleEventListener(btn, "click", handleDatePresetClick);
     });
@@ -1420,9 +1391,6 @@
     AppState.dom.endDateInput = getElement("end-date");
     AppState.dom.applyFiltersBtn = getElement("apply-filters");
     AppState.dom.mapMatchTripsBtn = getElement("map-match-trips");
-    AppState.dom.mapMatchHistoricalBtn = getElement(
-      "map-match-historical-trips"
-    );
     AppState.dom.highlightRecentTrips = getElement("highlight-recent-trips");
   }
 
@@ -1520,7 +1488,6 @@
       fetchMetrics();
     }
   }
-
   document.addEventListener("DOMContentLoaded", initialize);
 
   window.addEventListener("beforeunload", () => {

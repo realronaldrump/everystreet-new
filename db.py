@@ -432,7 +432,6 @@ db: AsyncIOMotorDatabase = db_manager.db
 # Define collections
 trips_collection = db["trips"]
 matched_trips_collection = db["matched_trips"]
-historical_trips_collection = db["historical_trips"]
 uploaded_trips_collection = db["uploaded_trips"]
 places_collection = db["places"]
 osm_data_collection = db["osm_data"]
