@@ -383,7 +383,7 @@ class DatabaseManager:
                 logger.info("MongoDB client connections closed successfully")
             except Exception as e:
                 logger.error("Error closing MongoDB connections: %s", e, exc_info=True)
-                
+
     def __del__(self) -> None:
         """
         Destructor to ensure connections are closed when the manager is garbage collected.

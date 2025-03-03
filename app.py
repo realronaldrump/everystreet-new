@@ -3446,7 +3446,7 @@ async def get_storage_info():
     try:
         # Use the check_quota method which is already designed to be reliable
         used_mb, limit_mb = await db_manager.check_quota()
-        
+
         if used_mb is None or limit_mb is None:
             # Fallback values if we couldn't get the data
             used_mb = 0
@@ -3454,7 +3454,7 @@ async def get_storage_info():
             storage_usage_percent = 0
         else:
             storage_usage_percent = round((used_mb / limit_mb) * 100, 2)
-            
+
         return {
             "used_mb": used_mb,
             "limit_mb": limit_mb,
@@ -3463,12 +3463,7 @@ async def get_storage_info():
     except Exception as e:
         logger.exception("Error getting storage info")
         # Return a sensible fallback value rather than raising an error
-        return {
-            "used_mb": 0,
-            "limit_mb": 512,
-            "usage_percent": 0,
-            "error": str(e)
-        }
+        return {"used_mb": 0, "limit_mb": 512, "usage_percent": 0, "error": str(e)}
 
 
 @app.post("/api/database/optimize-collection")
@@ -3659,16 +3654,16 @@ async def startup_event():
 async def shutdown_event():
     # First shutdown task manager
     await task_manager.stop()
-    
+
     # Close database connections to free memory
     await db_manager.cleanup_connections()
-    
+
     # Clean up HTTP sessions
     await cleanup_session()
 
     # Clean up WebSocket connections
     await manager.cleanup()
-    
+
     logger.info("Application shutdown completed successfully")
 
 
