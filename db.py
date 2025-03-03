@@ -44,9 +44,9 @@ class DatabaseManager:
     _connection_check_interval: int = 60  # seconds
 
     # Connection pooling and retry configuration
-    _max_pool_size: int = 25
-    _min_pool_size: int = 3
-    _max_idle_time_ms: int = 30000
+    _max_pool_size: int = 10
+    _min_pool_size: int = 1
+    _max_idle_time_ms: int = 10000
     _connect_timeout_ms: int = 5000
     _server_selection_timeout_ms: int = 10000
     _socket_timeout_ms: int = 30000
@@ -160,102 +160,79 @@ class DatabaseManager:
         operation_name: str = "database operation",
     ) -> T:
         """
-        Execute a database operation with retry logic for transient errors.
-
-        Args:
-            operation: Async callable that performs the database operation
-            max_attempts: Maximum number of retry attempts (defaults to class setting)
-            operation_name: Name of the operation for logging
-
-        Returns:
-            The result of the database operation
-
-        Raises:
-            Exception: If all retry attempts fail
+        Execute a database operation with retry logic in case of connection failures.
         """
         if max_attempts is None:
             max_attempts = self._max_retry_attempts
 
-        # Check connection health before attempting operation
-        await self.check_connection_health()
+        attempts = 0
+        last_error = None
+        retry_delay = self._retry_delay_ms / 1000.0  # convert to seconds
 
-        # Use semaphore to limit concurrent operations
-        async with self._db_semaphore:
-            last_error = None
+        while attempts < max_attempts:
+            attempts += 1
+            try:
+                if not self._client or not self._connection_healthy:
+                    # Re-initialize client if needed
+                    self._initialize_client()
 
-            for attempt in range(1, max_attempts + 1):
-                try:
-                    return await operation()
-                except (
-                    ConnectionFailure,
-                    ServerSelectionTimeoutError,
-                    NetworkTimeout,
-                ) as e:
-                    # These are transient connection errors
-                    last_error = e
-                    if attempt < max_attempts:
-                        # Exponential backoff with jitter
-                        delay = (2 ** (attempt - 1)) * (self._retry_delay_ms / 1000)
-                        jitter = delay * 0.2 * (2 * (0.5 - 0.5))  # Add up to 20% jitter
-                        wait_time = delay + jitter
+                # Execute the operation
+                return await operation()
 
-                        logger.warning(
-                            "%s failed (attempt %d/%d): %s. Retrying in %.2f seconds...",
-                            operation_name,
-                            attempt,
-                            max_attempts,
-                            e,
-                            wait_time,
-                        )
-
-                        # Check connection health before next attempt
-                        self._connection_healthy = False
-                        await asyncio.sleep(wait_time)
-                        await self.check_connection_health()
+            except (ConnectionFailure, ServerSelectionTimeoutError, NetworkTimeout) as e:
+                last_error = e
+                logger.warning(
+                    "Attempt %d/%d for %s failed with connection error: %s",
+                    attempts,
+                    max_attempts,
+                    operation_name,
+                    str(e),
+                )
+                self._connection_healthy = False
+                if attempts < max_attempts:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+            
+            except OSError as e:
+                # Handle memory allocation errors specifically
+                if "Cannot allocate memory" in str(e):
+                    logger.warning(
+                        "Memory allocation error during %s: %s. Attempting to recover...",
+                        operation_name,
+                        str(e)
+                    )
+                    # Use our specialized memory error handler
+                    recovery_successful = await self.handle_memory_error()
+                    
+                    if recovery_successful and attempts < max_attempts:
+                        continue
                     else:
-                        logger.error(
-                            "%s failed after %d attempts: %s",
-                            operation_name,
-                            max_attempts,
-                            e,
-                        )
-                        raise
-                except OperationFailure as e:
-                    # Some operational errors are also retryable
-                    if e.code in (
-                        11600,
-                        11602,
-                        13435,
-                        13436,
-                        189,
-                        91,
-                    ):  # Retryable error codes
                         last_error = e
-                        if attempt < max_attempts:
-                            delay = (2 ** (attempt - 1)) * (self._retry_delay_ms / 1000)
-                            logger.warning(
-                                "%s failed with retryable error (attempt %d/%d): %s. Retrying in %.2f seconds...",
-                                operation_name,
-                                attempt,
-                                max_attempts,
-                                e,
-                                delay,
-                            )
-                            await asyncio.sleep(delay)
-                        else:
-                            logger.error(
-                                "%s failed with retryable error after %d attempts: %s",
-                                operation_name,
-                                max_attempts,
-                                e,
-                            )
-                            raise
-                    else:
-                        # Non-retryable operation errors
-                        logger.error(
-                            "%s failed with non-retryable error: %s", operation_name, e
-                        )
-                        raise
+                else:
+                    # Other OS errors
+                    last_error = e
+                    logger.warning(
+                        "OS error during %s: %s",
+                        operation_name,
+                        str(e)
+                    )
+                
+                if attempts < max_attempts:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    "Attempt %d/%d for %s failed with error: %s",
+                    attempts,
+                    max_attempts,
+                    operation_name,
+                    str(e),
+                )
+                if attempts < max_attempts:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
 
             # This should only be reached if all retries failed but no exception was raised
             if last_error:
@@ -380,6 +357,7 @@ class DatabaseManager:
             try:
                 logger.info("Closing MongoDB client connections...")
                 self._client.close()
+                self._client = None  # Set to None to avoid reuse after closing
                 logger.info("MongoDB client connections closed successfully")
             except Exception as e:
                 logger.error("Error closing MongoDB connections: %s", e, exc_info=True)
@@ -394,6 +372,60 @@ class DatabaseManager:
             except Exception as e:
                 # Just log, as we're in a destructor
                 logger.error("Error in DatabaseManager destructor: %s", e)
+
+    async def handle_memory_error(self) -> bool:
+        """
+        Handle memory allocation errors by:
+        1. Force garbage collection
+        2. Close existing client
+        3. Reduce connection pool size temporarily
+        4. Reinitialize the client
+        
+        Returns:
+            bool: True if recovery was successful, False otherwise
+        """
+        import gc
+        logger.warning("Attempting to recover from memory allocation error...")
+        
+        # Remember original pool size for logging
+        original_pool_size = self._max_pool_size
+        
+        # Mark connection as unhealthy
+        self._connection_healthy = False
+        
+        # Close existing connections
+        if self._client:
+            try:
+                self._client.close()
+                self._client = None
+            except Exception as e:
+                logger.error("Error closing client during memory error recovery: %s", e)
+                
+        # Force garbage collection
+        gc.collect()
+        
+        # Give the system time to reclaim memory
+        await asyncio.sleep(1)
+        
+        # Reduce pool size temporarily
+        self._max_pool_size = max(1, self._max_pool_size // 2)
+        
+        # Attempt to reinitialize with smaller pool
+        try:
+            self._initialize_client()
+            self._connection_healthy = True
+            logger.info(
+                "Successfully recovered from memory error with reduced pool size (%d -> %d)",
+                original_pool_size,
+                self._max_pool_size
+            )
+            return True
+        except Exception as e:
+            logger.error(
+                "Failed to reinitialize client after memory error: %s",
+                str(e)
+            )
+            return False
 
 
 db_manager = DatabaseManager()

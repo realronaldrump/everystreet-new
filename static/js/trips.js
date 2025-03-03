@@ -52,19 +52,8 @@ function createEditableCell(data, type, field, inputType = "text") {
     constructor() {
       // Initialize properties
       this.tripsTable = null;
-      this.map = null;
-      this.tripsLayer = L.layerGroup();
       this.selectedTripId = null;
       this.tripsCache = new Map();
-
-      // Use global loadingManager
-      this.loadingManager = window.loadingManager || {
-        startOperation: () => {},
-        addSubOperation: () => {},
-        updateSubOperation: () => {},
-        finish: () => {},
-        error: () => {},
-      };
 
       // Configuration
       this.config = {
@@ -347,27 +336,6 @@ function createEditableCell(data, type, field, inputType = "text") {
     }
 
     /**
-     * Update date inputs and fetch trips
-     * @param {Date} startDate - Start date
-     * @param {Date} endDate - End date
-     */
-    updateDatesAndFetch(startDate, endDate) {
-      const startDateStr = startDate.toISOString().split("T")[0];
-      const endDateStr = endDate.toISOString().split("T")[0];
-
-      // Update DOM inputs
-      const startInput = document.getElementById("start-date");
-      const endInput = document.getElementById("end-date");
-
-      if (startInput) startInput.value = startDateStr;
-      if (endInput) endInput.value = endDateStr;
-
-      // Store and fetch
-      this.storeDates(startDateStr, endDateStr);
-      this.fetchTrips();
-    }
-
-    /**
      * Initialize the trips DataTable
      */
     initializeTripsTable() {
@@ -583,15 +551,11 @@ function createEditableCell(data, type, field, inputType = "text") {
               `Error deleting trip(s): ${data.message}`,
               "danger"
             );
-            console.error("Error deleting trip(s):", data.message);
           }
         }
       } catch (error) {
         console.error("Error deleting trips:", error);
-        notificationManager.show(
-          "Error deleting trip(s). Please try again.",
-          "danger"
-        );
+        notificationManager.show("Error deleting trip(s).", "danger");
       }
     }
 
@@ -642,7 +606,7 @@ function createEditableCell(data, type, field, inputType = "text") {
       } catch (error) {
         console.error("Error refreshing geocoding:", error);
         notificationManager.show(
-          error.message || "Error refreshing geocoding. Please try again.",
+          error.message || "Error refreshing geocoding.",
           "danger"
         );
       }
@@ -676,6 +640,10 @@ function createEditableCell(data, type, field, inputType = "text") {
      */
     async fetchTrips() {
       try {
+        if (window.loadingManager) {
+          window.loadingManager.startOperation("Fetching Trips");
+        }
+
         const params = this.getFilterParams();
         const url = `/api/trips?${params.toString()}`;
 
@@ -696,16 +664,21 @@ function createEditableCell(data, type, field, inputType = "text") {
         );
 
         // Update the DataTable
-        await new Promise((resolve) => {
-          this.tripsTable.clear().rows.add(formattedTrips).draw();
-          setTimeout(resolve, 100);
-        });
+        this.tripsTable.clear().rows.add(formattedTrips).draw();
+
+        if (window.loadingManager) {
+          window.loadingManager.finish();
+        }
       } catch (error) {
         console.error("Error fetching trips:", error);
         notificationManager.show(
           "Error loading trips. Please try again.",
           "danger"
         );
+
+        if (window.loadingManager) {
+          window.loadingManager.error("Error loading trips: " + error.message);
+        }
       }
     }
 
@@ -813,9 +786,6 @@ function createEditableCell(data, type, field, inputType = "text") {
     window.EveryStreet = window.EveryStreet || {};
     window.EveryStreet.Trips = {
       fetchTrips: () => tripsManager.fetchTrips(),
-      updateDatesAndFetch: (startDate, endDate) =>
-        tripsManager.updateDatesAndFetch(startDate, endDate),
-      getFilterParams: () => tripsManager.getFilterParams(),
       deleteTrip: (tripId) => tripsManager.deleteTrip(tripId),
       exportTrip: (tripId, format) => tripsManager.exportTrip(tripId, format),
     };

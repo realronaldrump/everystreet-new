@@ -133,10 +133,12 @@ class LiveTripTracker {
       this.reconnectAttempts++;
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
 
-      window.notificationManager.show(
-        `WebSocket reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
-        "info"
-      );
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          `WebSocket reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
+          "info"
+        );
+      }
 
       this.reconnectTimeout = setTimeout(() => {
         this.connectWebSocket();

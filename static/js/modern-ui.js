@@ -44,7 +44,6 @@
       startDate: "startDate",
       endDate: "endDate",
     },
-    notificationDuration: 5000,
     mobileBreakpoint: 768,
   };
 
@@ -69,19 +68,19 @@
       initFilterPanel();
       initFloatingActionButton();
       initScrollEffects();
-      initNotifications();
       setupLegacyCodeBridge();
 
       // Handle resize events
       window.addEventListener("resize", debounce(handleResize, 250));
       handleResize();
-
-      // Removed console.log and replaced with notification manager
-      if (window.notificationManager) {
-        window.notificationManager.show("Modern UI initialized", "info");
-      }
     } catch (error) {
       console.error("Error initializing Modern UI:", error);
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          "Error initializing UI: " + error.message,
+          "danger"
+        );
+      }
     }
   }
 
@@ -452,10 +451,8 @@
           localStorage.setItem(CONFIG.storage.startDate, startDate);
           localStorage.setItem(CONFIG.storage.endDate, endDate);
 
-          // Update filter indicator if available
-          if (typeof updateFilterIndicator === "function") {
-            updateFilterIndicator();
-          }
+          // Update filter indicator
+          updateFilterIndicator();
         }
       })
       .catch((error) => {
@@ -529,12 +526,12 @@
       );
 
       // Show confirmation
-      showNotification({
-        title: "Filters Applied",
-        message: `Date range: ${startDateInput.value} to ${endDateInput.value}`,
-        type: "success",
-        duration: 3000,
-      });
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          `Filters applied: ${startDateInput.value} to ${endDateInput.value}`,
+          "success"
+        );
+      }
     }
   }
 
@@ -556,12 +553,12 @@
     }
 
     // Show notification
-    showNotification({
-      title: "Filters Reset",
-      message: "Date filters have been reset to today",
-      type: "info",
-      duration: 3000,
-    });
+    if (window.notificationManager) {
+      window.notificationManager.show(
+        "Date filters have been reset to today",
+        "info"
+      );
+    }
   }
 
   // ==============================
@@ -674,236 +671,6 @@
   }
 
   // ==============================
-  // Notification Management
-  // ==============================
-
-  /**
-   * Initialize notifications system
-   */
-  function initNotifications() {
-    // Find container or create if needed
-    let container = document.querySelector(".notification-container");
-    if (!container) {
-      container = document.createElement("div");
-      container.className = "notification-container";
-      document.body.appendChild(container);
-    }
-
-    // Find existing notifications and add close handlers
-    const notifications = container.querySelectorAll(".notification");
-    notifications.forEach((notification) => {
-      const closeBtn = notification.querySelector(".notification-close");
-      if (closeBtn) {
-        closeBtn.addEventListener("click", () => {
-          removeNotification(notification);
-        });
-      }
-    });
-
-    // Set up event listener for custom notification events
-    document.addEventListener("showNotification", (e) => {
-      if (e.detail) {
-        showNotification(e.detail);
-      }
-    });
-  }
-
-  /**
-   * Show notification
-   * @param {Object} options - Notification options
-   * @param {string} options.title - Notification title
-   * @param {string} options.message - Notification message
-   * @param {string} options.type - Notification type (success, error, warning, info)
-   * @param {number} options.duration - Duration in ms (default: 5000)
-   * @returns {HTMLElement} The notification element
-   */
-  function showNotification({
-    title,
-    message,
-    type = "info",
-    duration = CONFIG.notificationDuration,
-  }) {
-    // Find container or create it
-    let container = document.querySelector(".notification-container");
-    if (!container) {
-      container = document.createElement("div");
-      container.className = "notification-container";
-      document.body.appendChild(container);
-    }
-
-    // Create notification element
-    const notification = document.createElement("div");
-    notification.className = `notification notification-${type}`;
-
-    // Define icon based on type
-    let icon = "info-circle";
-    switch (type) {
-      case "success":
-        icon = "check-circle";
-        break;
-      case "error":
-        icon = "exclamation-circle";
-        break;
-      case "warning":
-        icon = "exclamation-triangle";
-        break;
-    }
-
-    // Set notification content
-    notification.innerHTML = `
-      <div class="notification-icon">
-        <i class="fas fa-${icon}"></i>
-      </div>
-      <div class="notification-content">
-        <div class="notification-title">${title || "Notification"}</div>
-        <div class="notification-message">${message}</div>
-      </div>
-      <button type="button" class="notification-close">
-        <i class="fas fa-times"></i>
-      </button>
-    `;
-
-    // Add to container
-    container.appendChild(notification);
-
-    // Show notification (add with delay to trigger animation)
-    setTimeout(() => {
-      notification.classList.add(CONFIG.classes.show);
-    }, 10);
-
-    // Attach close button handler
-    const closeBtn = notification.querySelector(".notification-close");
-    if (closeBtn) {
-      closeBtn.addEventListener("click", () => {
-        removeNotification(notification);
-      });
-    }
-
-    // Auto remove after duration
-    setTimeout(() => {
-      removeNotification(notification);
-    }, duration);
-
-    return notification;
-  }
-
-  /**
-   * Remove notification with animation
-   * @param {HTMLElement} notification - Notification element
-   */
-  function removeNotification(notification) {
-    notification.classList.remove(CONFIG.classes.show);
-
-    // Remove after animation completes
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.parentNode.removeChild(notification);
-      }
-    }, 300);
-  }
-
-  // ==============================
-  // Loading Overlay Functions
-  // ==============================
-
-  /**
-   * Show loading overlay
-   * @param {string} message - Loading message
-   */
-  function showLoading(message = "Loading...") {
-    const { loadingOverlay, loadingText, progressBar } = elements;
-    if (!loadingOverlay) return;
-
-    // Set loading message
-    if (loadingText) {
-      loadingText.textContent = message;
-    }
-
-    // Reset progress bar
-    if (progressBar) {
-      progressBar.style.width = "0%";
-    }
-
-    // Show loading overlay
-    loadingOverlay.style.display = "flex";
-
-    // Simulate progress (replace with actual progress updates)
-    simulateLoadingProgress();
-  }
-
-  /**
-   * Hide loading overlay
-   */
-  function hideLoading() {
-    const { loadingOverlay, progressBar } = elements;
-    if (!loadingOverlay) return;
-
-    // Finish progress animation
-    if (progressBar) {
-      progressBar.style.width = "100%";
-    }
-
-    // Hide with small delay for smooth animation
-    setTimeout(() => {
-      loadingOverlay.style.display = "none";
-    }, 400);
-
-    // Clear any progress simulation
-    if (window.loadingInterval) {
-      clearInterval(window.loadingInterval);
-      window.loadingInterval = null;
-    }
-  }
-
-  /**
-   * Simulate loading progress
-   */
-  function simulateLoadingProgress() {
-    const { progressBar } = elements;
-    if (!progressBar) return;
-
-    // Clear any existing interval
-    if (window.loadingInterval) {
-      clearInterval(window.loadingInterval);
-    }
-
-    let progress = 0;
-
-    // Update progress bar every 100ms
-    window.loadingInterval = setInterval(() => {
-      // Increment progress
-      progress += Math.random() * 3;
-
-      // Cap at 95% (100% will be set when actually complete)
-      if (progress > 95) {
-        progress = 95;
-        clearInterval(window.loadingInterval);
-        window.loadingInterval = null;
-      }
-
-      // Update progress bar
-      progressBar.style.width = `${progress}%`;
-    }, 100);
-  }
-
-  /**
-   * Update progress in the loading overlay
-   * @param {number} percent - Progress percentage (0-100)
-   * @param {string} message - Optional message to display
-   */
-  function updateProgress(percent, message) {
-    const { progressBar, loadingText } = elements;
-
-    if (progressBar) {
-      progressBar.style.width = `${percent}%`;
-    }
-
-    if (loadingText && message) {
-      loadingText.textContent = message;
-    }
-  }
-
-  // ==============================
   // Utility Functions
   // ==============================
 
@@ -976,11 +743,12 @@
       hideLoading();
 
       // Show notification with actual data
-      showNotification({
-        title: "Trips Fetched",
-        message: `Successfully fetched ${data.trips_count || 0} trips.`,
-        type: "success",
-      });
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          `Successfully fetched ${data.trips_count || 0} trips.`,
+          "success"
+        );
+      }
 
       // Reload map data if applicable
       refreshMapData();
@@ -988,12 +756,12 @@
       console.error("Error fetching trips:", error);
       hideLoading();
 
-      showNotification({
-        title: "Error Fetching Trips",
-        message: `There was an error: ${error.message}`,
-        type: "error",
-        duration: 8000,
-      });
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          `Error fetching trips: ${error.message}`,
+          "danger"
+        );
+      }
     }
   }
 
@@ -1033,11 +801,12 @@
       hideLoading();
 
       // Show notification with actual data
-      showNotification({
-        title: "Map Matching Complete",
-        message: `Successfully matched ${data.matched_count || 0} trips to the road network.`,
-        type: "success",
-      });
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          `Successfully matched ${data.matched_count || 0} trips to the road network.`,
+          "success"
+        );
+      }
 
       // Reload map data if applicable
       refreshMapData();
@@ -1045,12 +814,12 @@
       console.error("Error map matching trips:", error);
       hideLoading();
 
-      showNotification({
-        title: "Error Map Matching",
-        message: `There was an error: ${error.message}`,
-        type: "error",
-        duration: 8000,
-      });
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          `Error map matching: ${error.message}`,
+          "danger"
+        );
+      }
     }
   }
 
@@ -1066,11 +835,12 @@
         startDrawingBtn.click();
 
         // Show a notification with instructions
-        showNotification({
-          title: "Draw Mode Activated",
-          message: "Draw a polygon on the map to create a new place",
-          type: "info",
-        });
+        if (window.notificationManager) {
+          window.notificationManager.show(
+            "Draw a polygon on the map to create a new place",
+            "info"
+          );
+        }
 
         // Focus the map if possible
         if (window.map) {
@@ -1110,11 +880,12 @@
     const lng = parseFloat(longitude);
 
     if (isNaN(lat) || isNaN(lng)) {
-      showNotification({
-        title: "Invalid Coordinates",
-        message: "Please enter valid latitude and longitude values.",
-        type: "error",
-      });
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          "Please enter valid latitude and longitude values.",
+          "warning"
+        );
+      }
       return;
     }
 
@@ -1148,11 +919,12 @@
 
       hideLoading();
 
-      showNotification({
-        title: "Place Added",
-        message: `Successfully added place: ${placeData.name}`,
-        type: "success",
-      });
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          `Successfully added place: ${placeData.name}`,
+          "success"
+        );
+      }
 
       // Refresh the places list or map
       refreshPlacesData();
@@ -1160,11 +932,12 @@
       console.error("Error adding place:", error);
       hideLoading();
 
-      showNotification({
-        title: "Error Adding Place",
-        message: `There was an error: ${error.message}`,
-        type: "error",
-      });
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          `Error adding place: ${error.message}`,
+          "danger"
+        );
+      }
     }
   }
 
@@ -1174,9 +947,7 @@
   function refreshMapData() {
     if (window.map) {
       // Try different refresh methods
-      if (typeof window.refreshMapData === "function") {
-        window.refreshMapData();
-      } else if (typeof window.EveryStreet?.App?.fetchTrips === "function") {
+      if (typeof window.EveryStreet?.App?.fetchTrips === "function") {
         window.EveryStreet.App.fetchTrips();
       } else if (typeof window.fetchTrips === "function") {
         window.fetchTrips();
@@ -1188,13 +959,72 @@
    * Refresh places data by calling appropriate functions
    */
   function refreshPlacesData() {
-    if (typeof window.refreshPlaces === "function") {
-      window.refreshPlaces();
-    } else if (
+    if (
       window.customPlaces &&
       typeof window.customPlaces.loadPlaces === "function"
     ) {
       window.customPlaces.loadPlaces();
+    }
+  }
+
+  // ==============================
+  // Loading Overlay Functions
+  // ==============================
+
+  /**
+   * Show loading overlay
+   * @param {string} message - Loading message
+   */
+  function showLoading(message = "Loading...") {
+    const { loadingOverlay, loadingText, progressBar } = elements;
+    if (!loadingOverlay) return;
+
+    // Set loading message
+    if (loadingText) {
+      loadingText.textContent = message;
+    }
+
+    // Reset progress bar
+    if (progressBar) {
+      progressBar.style.width = "0%";
+    }
+
+    // Show loading overlay
+    loadingOverlay.style.display = "flex";
+  }
+
+  /**
+   * Hide loading overlay
+   */
+  function hideLoading() {
+    const { loadingOverlay, progressBar } = elements;
+    if (!loadingOverlay) return;
+
+    // Finish progress animation
+    if (progressBar) {
+      progressBar.style.width = "100%";
+    }
+
+    // Hide with small delay for smooth animation
+    setTimeout(() => {
+      loadingOverlay.style.display = "none";
+    }, 400);
+  }
+
+  /**
+   * Update progress in the loading overlay
+   * @param {number} percent - Progress percentage (0-100)
+   * @param {string} message - Optional message to display
+   */
+  function updateProgress(percent, message) {
+    const { progressBar, loadingText } = elements;
+
+    if (progressBar) {
+      progressBar.style.width = `${percent}%`;
+    }
+
+    if (loadingText && message) {
+      loadingText.textContent = message;
     }
   }
 
@@ -1208,7 +1038,11 @@
   function setupLegacyCodeBridge() {
     // Expose key methods to global scope for legacy code to call
     window.modernUI = {
-      showNotification,
+      showNotification: (message, type) => {
+        if (window.notificationManager) {
+          window.notificationManager.show(message, type);
+        }
+      },
       showLoading,
       updateProgress,
       hideLoading,
@@ -1216,7 +1050,9 @@
     };
 
     // Backward compatibility layer for loadingManager reference
-    window.loadingManager = createCompatibilityLoadingManager();
+    if (!window.loadingManager) {
+      window.loadingManager = createCompatibilityLoadingManager();
+    }
   }
 
   /**
@@ -1232,7 +1068,7 @@
       // Operations tracking system (compatibility with app.js)
       operations: new Map(),
 
-      startOperation: (operationName, _totalSteps = 100) => {
+      startOperation: (operationName) => {
         showLoading(`Starting ${operationName}...`);
         return operationName;
       },
@@ -1256,11 +1092,9 @@
 
       error: (message) => {
         hideLoading();
-        showNotification({
-          title: "Error",
-          message,
-          type: "error",
-        });
+        if (window.notificationManager) {
+          window.notificationManager.show(message, "danger");
+        }
       },
     };
   }

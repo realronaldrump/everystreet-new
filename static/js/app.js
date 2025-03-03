@@ -35,7 +35,6 @@
       mapInitFailed:
         "Failed to initialize map components. Please refresh the page.",
       fetchTripsFailed: "Error loading trips. Please try again.",
-      streetCoverageFailed: "Error calculating street coverage",
       locationValidationFailed: "Location not found. Please check your input.",
     },
   };
@@ -65,20 +64,6 @@
       visible: false,
       highlightColor: "#40E0D0",
       name: "Matched Trips",
-    },
-    osmBoundary: {
-      order: 4,
-      color: "#03DAC6",
-      opacity: 0.7,
-      visible: false,
-      name: "OSM Boundary",
-    },
-    osmStreets: {
-      order: 5,
-      color: "#FF0266",
-      opacity: 0.7,
-      visible: false,
-      name: "OSM Streets",
     },
     customPlaces: {
       order: 7,
@@ -136,12 +121,7 @@
       return true;
     }
     // Fallback if no notification manager
-    if (window.notificationManager) {
-      window.notificationManager.show(
-        `${type.toUpperCase()}: ${message}`,
-        type
-      );
-    }
+    console.log(`${type.toUpperCase()}: ${message}`);
     return false;
   }
 
@@ -821,10 +801,6 @@
             },
           });
           geoJsonLayer.addTo(AppState.layerGroup);
-        } else if (["osmBoundary", "osmStreets"].includes(name)) {
-          info.layer
-            .setStyle({ color: info.color, opacity: info.opacity })
-            .addTo(AppState.layerGroup);
         }
       })
     );
@@ -1102,117 +1078,6 @@
   }
 
   // ==============================
-  // Location Validation & OSM Data
-  // ==============================
-
-  async function validateLocation() {
-    const locInput = getElement("location-input");
-    const locType = getElement("location-type");
-    if (!locInput || !locType || !locInput.value || !locType.value) {
-      showNotification(
-        "Please enter a location and select a location type.",
-        "warning"
-      );
-      return;
-    }
-    try {
-      const res = await fetch("/api/validate_location", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: locInput.value,
-          locationType: locType.value,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to validate location");
-      const data = await res.json();
-      if (!data) {
-        showNotification(
-          CONFIG.ERROR_MESSAGES.locationValidationFailed,
-          "warning"
-        );
-        return;
-      }
-      handleLocationValidationSuccess(data, locInput);
-      showNotification("Location validated successfully!", "success");
-    } catch (err) {
-      handleError(err, "Validating Location");
-    }
-  }
-
-  function handleLocationValidationSuccess(data, locInput) {
-    window.validatedLocation = data;
-    locInput.setAttribute("data-location", JSON.stringify(data));
-    locInput.setAttribute(
-      "data-display-name",
-      data.display_name || data.name || locInput.value
-    );
-    [
-      "generate-boundary",
-      "generate-streets",
-      "generate-coverage",
-      "preprocess-streets",
-    ].forEach((id) => {
-      const btn = getElement(id);
-      if (btn) btn.disabled = false;
-    });
-    document.dispatchEvent(
-      new CustomEvent("locationValidated", {
-        detail: { location: data },
-      })
-    );
-  }
-
-  async function generateOSMData(streetsOnly) {
-    if (!window.validatedLocation) {
-      showNotification("Please validate a location first.", "warning");
-      return;
-    }
-    try {
-      const res = await fetch("/api/generate_geojson", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: window.validatedLocation,
-          streetsOnly,
-        }),
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Unknown error generating OSM data");
-      }
-      const geojson = await res.json();
-      if (!geojson || geojson.type !== "FeatureCollection") {
-        throw new Error("Invalid GeoJSON data from Overpass");
-      }
-      const layer = L.geoJSON(geojson, {
-        style: {
-          color: streetsOnly
-            ? AppState.mapLayers.osmStreets.color
-            : AppState.mapLayers.osmBoundary.color,
-          weight: 2,
-          opacity: 0.7,
-        },
-      });
-      if (streetsOnly) {
-        AppState.mapLayers.osmStreets.layer = layer;
-      } else {
-        AppState.mapLayers.osmBoundary.layer = layer;
-      }
-      debouncedUpdateMap();
-      updateLayerOrderUI();
-      showNotification("OSM data generated successfully!", "success");
-      document.dispatchEvent(
-        new CustomEvent("osmDataGenerated", {
-          detail: { type: streetsOnly ? "streets" : "boundary" },
-        })
-      );
-    } catch (err) {
-      handleError(err, "Generating OSM Data");
-    }
-  }
-
-  // ==============================
   // Map Matching & Metrics
   // ==============================
 
@@ -1454,13 +1319,6 @@
       }
     });
 
-    addSingleEventListener("validate-location", "click", validateLocation);
-    addSingleEventListener("generate-boundary", "click", () =>
-      generateOSMData(false)
-    );
-    addSingleEventListener("generate-streets", "click", () =>
-      generateOSMData(true)
-    );
     addSingleEventListener("map-match-trips", "click", () =>
       mapMatchTrips(false)
     );
@@ -1475,59 +1333,6 @@
       AppState.mapSettings.highlightRecentTrips = this.checked;
       debouncedUpdateMap();
     });
-    addSingleEventListener("preprocess-streets", "click", () =>
-      preprocessStreets()
-    );
-    addSingleEventListener("cancel-coverage-polling", "click", () => {
-      AppState.polling.active = false;
-      if (AppState.polling.timers.coverageStatus) {
-        clearTimeout(AppState.polling.timers.coverageStatus);
-      }
-    });
-  }
-
-  async function preprocessStreets(location = window.validatedLocation) {
-    if (!location) {
-      showNotification("Please validate a location first.", "warning");
-      return;
-    }
-    const button = getElement("preprocess-streets");
-    const originalText = button?.innerHTML || "Preprocess Streets";
-    try {
-      if (button) {
-        button.disabled = true;
-        button.innerHTML =
-          '<span class="spinner-border spinner-border-sm me-1"></span> Processing...';
-      }
-      const response = await fetch("/api/preprocess_streets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ location }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
-        );
-      }
-      const data = await response.json();
-      showNotification(
-        data.message || "Streets preprocessed successfully for route matching.",
-        "success"
-      );
-      document.dispatchEvent(
-        new CustomEvent("streetsPreprocessed", {
-          detail: { location },
-        })
-      );
-    } catch (error) {
-      handleError(error, "Preprocessing Streets");
-    } finally {
-      if (button) {
-        button.disabled = false;
-        button.innerHTML = originalText;
-      }
-    }
   }
 
   function initializeDOMCache() {
@@ -1539,17 +1344,10 @@
     AppState.dom.startDateInput = getElement("start-date");
     AppState.dom.endDateInput = getElement("end-date");
     AppState.dom.applyFiltersBtn = getElement("apply-filters");
-    AppState.dom.locationInput = getElement("location-input");
-    AppState.dom.locationType = getElement("location-type");
-    AppState.dom.validateLocationBtn = getElement("validate-location");
-    AppState.dom.generateBoundaryBtn = getElement("generate-boundary");
-    AppState.dom.generateStreetsBtn = getElement("generate-streets");
-    AppState.dom.generateCoverageBtn = getElement("generate-coverage");
     AppState.dom.mapMatchTripsBtn = getElement("map-match-trips");
     AppState.dom.mapMatchHistoricalBtn = getElement(
       "map-match-historical-trips"
     );
-    AppState.dom.preprocessStreetsBtn = getElement("preprocess-streets");
     AppState.dom.highlightRecentTrips = getElement("highlight-recent-trips");
   }
 
@@ -1646,15 +1444,6 @@
     } else {
       fetchMetrics();
     }
-    [
-      "generate-boundary",
-      "generate-streets",
-      "generate-coverage",
-      "preprocess-streets",
-    ].forEach((id) => {
-      const btn = getElement(id, false);
-      if (btn) btn.disabled = true;
-    });
   }
 
   document.addEventListener("DOMContentLoaded", initialize);
@@ -1681,9 +1470,6 @@
     getFilterParams,
     updateDatePickersAndStore,
     fitMapBounds,
-    preprocessStreets,
-    validateLocation,
-    generateOSMData,
     mapMatchTrips,
     fetchTripsInRange,
   };

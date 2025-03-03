@@ -1,4 +1,4 @@
-/* global L, uploadFiles, parseFiles, notificationManager, bootstrap, confirmationDialog */
+/* global notificationManager, bootstrap, confirmationDialog */
 
 /**
  * UploadManager - Manages file uploads and processing
@@ -12,22 +12,6 @@ class UploadManager {
     this.droppedFiles = [];
     this.parsedFiles = [];
     this.selectedFiles = [];
-    this.selectedRows = new Set();
-    this.map = null;
-    this.fileTable = null;
-    this.tripTable = null;
-    this.uploadedTripsLayer = null;
-
-    // Use global loadingManager
-    this.loadingManager = window.loadingManager || {
-      startOperation: () => {},
-      addSubOperation: () => {},
-      updateSubOperation: () => {},
-      finish: () => {},
-      error: () => {},
-    };
-
-    // Component state
     this.state = {
       selectedFiles: [],
       previewMap: null,
@@ -68,10 +52,27 @@ class UploadManager {
    * Initialize the upload manager
    */
   init() {
-    this.cacheElements();
-    this.initializePreviewMap();
-    this.initializeEventListeners();
-    this.loadUploadedTrips();
+    this.loadingManager = window.loadingManager || {
+      startOperation: () => {},
+      addSubOperation: () => {},
+      updateSubOperation: () => {},
+      finish: () => {},
+      error: () => {},
+    };
+
+    this.loadingManager.startOperation("Initializing Upload Manager");
+
+    try {
+      this.cacheElements();
+      this.initializePreviewMap();
+      this.initializeEventListeners();
+      this.loadUploadedTrips();
+
+      this.loadingManager.finish();
+    } catch (error) {
+      console.error("Error initializing upload manager:", error);
+      this.loadingManager.error("Failed to initialize upload manager");
+    }
   }
 
   /**
@@ -791,4 +792,4 @@ class UploadManager {
 }
 
 // Initialize the upload manager
-// const uploadManager = new UploadManager();
+const uploadManager = new UploadManager();

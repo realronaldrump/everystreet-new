@@ -1,5 +1,3 @@
-/** global bootstrap, flatpickr, moment, $, Chart, $ */
-
 /**
  * @file Application utilities for error handling, notifications, and UI components
  */
@@ -82,9 +80,6 @@ const DateUtils = {
     if (format === this.DEFAULT_FORMAT) {
       return parsedDate.toISOString().split("T")[0];
     }
-
-    // For more complex formatting, you could use a library like date-fns
-    // or implement custom formatting logic here
 
     return parsedDate.toISOString();
   },
@@ -226,23 +221,6 @@ const DateUtils = {
   },
 
   /**
-   * Check if a date is between two other dates (inclusive)
-   * @param {Date|string} date - Date to check
-   * @param {Date|string} startDate - Start of range
-   * @param {Date|string} endDate - End of range
-   * @returns {boolean} - True if date is within range
-   */
-  isDateInRange(date, startDate, endDate) {
-    const dateObj = this.parseDate(date);
-    const startObj = this.parseDate(startDate);
-    const endObj = this.parseDate(endDate, true); // End of day
-
-    if (!dateObj || !startObj || !endObj) return false;
-
-    return dateObj >= startObj && dateObj <= endObj;
-  },
-
-  /**
    * Format a date for display to users
    * @param {Date|string} date - Date to format
    * @param {Object} [options] - Intl.DateTimeFormat options
@@ -265,20 +243,20 @@ const DateUtils = {
   },
 
   /**
-   * Safely extracts and parses a date from an API response
-   * @param {Object} data - API response data
-   * @param {string} key - Key to extract
-   * @param {boolean} [endOfDay=false] - If true, set time to end of day
-   * @returns {string|null} - Formatted date or null
+   * Check if a date is between two other dates (inclusive)
+   * @param {Date|string} date - Date to check
+   * @param {Date|string} startDate - Start of range
+   * @param {Date|string} endDate - End of range
+   * @returns {boolean} - True if date is within range
    */
-  getDateFromResponse(data, key, endOfDay = false) {
-    if (!data || !(key in data)) return null;
+  isDateInRange(date, startDate, endDate) {
+    const dateObj = this.parseDate(date);
+    const startObj = this.parseDate(startDate);
+    const endObj = this.parseDate(endDate, true); // End of day
 
-    const dateValue = data[key];
-    if (!dateValue) return null;
+    if (!dateObj || !startObj || !endObj) return false;
 
-    const parsedDate = this.parseDate(dateValue, endOfDay);
-    return parsedDate ? this.formatDate(parsedDate) : null;
+    return dateObj >= startObj && dateObj <= endObj;
   },
 
   /**
@@ -636,7 +614,6 @@ class ConfirmationDialog {
       };
 
       cleanup = () => {
-        // Define cleanup here, before it's used
         confirmBtn?.removeEventListener("click", handleConfirm);
         modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
       };
@@ -668,10 +645,105 @@ class ConfirmationDialog {
   }
 }
 
-/**
- * DOM utility functions
- */
-const DOM = {
+// Initialize and expose utility instances
+window.notificationManager =
+  window.notificationManager || new NotificationManager();
+window.confirmationDialog =
+  window.confirmationDialog || new ConfirmationDialog();
+
+// Export utilities as namespaces
+window.utils = {
+  /**
+   * Debounce a function
+   * @param {Function} func - Function to debounce
+   * @param {number} [wait=300] - Wait time in milliseconds
+   * @returns {Function} Debounced function
+   */
+  debounce(func, wait = 300) {
+    let timeout = null;
+    return function (...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  },
+
+  /**
+   * Throttle a function
+   * @param {Function} func - Function to throttle
+   * @param {number} [limit=300] - Limit in milliseconds
+   * @returns {Function} Throttled function
+   */
+  throttle(func, limit = 300) {
+    let inThrottle = false;
+    return function (...args) {
+      if (!inThrottle) {
+        func.apply(this, args);
+        inThrottle = true;
+        setTimeout(() => {
+          inThrottle = false;
+        }, limit);
+      }
+    };
+  },
+
+  /**
+   * Safely access localStorage with error handling
+   * @param {string} key - Storage key
+   * @param {*} [defaultValue=null] - Default value if key doesn't exist
+   * @returns {*} The stored value or default value
+   */
+  getStorage(key, defaultValue = null) {
+    try {
+      const item = localStorage.getItem(key);
+      if (item === null) return defaultValue;
+
+      // Try to parse JSON, return original string if parsing fails
+      try {
+        return JSON.parse(item);
+      } catch (e) {
+        return item;
+      }
+    } catch (error) {
+      console.warn(`Error accessing localStorage for key ${key}:`, error);
+      return defaultValue;
+    }
+  },
+
+  /**
+   * Safely set localStorage with error handling
+   * @param {string} key - Storage key
+   * @param {*} value - Value to store
+   * @returns {boolean} Success status
+   */
+  setStorage(key, value) {
+    try {
+      const valueToStore =
+        typeof value === "object" ? JSON.stringify(value) : String(value);
+      localStorage.setItem(key, valueToStore);
+      return true;
+    } catch (error) {
+      console.warn(`Error setting localStorage for key ${key}:`, error);
+      return false;
+    }
+  },
+
+  /**
+   * Remove item from localStorage with error handling
+   * @param {string} key - Storage key
+   * @returns {boolean} Success status
+   */
+  removeStorage(key) {
+    try {
+      localStorage.removeItem(key);
+      return true;
+    } catch (error) {
+      console.warn(`Error removing localStorage for key ${key}:`, error);
+      return false;
+    }
+  },
+};
+
+window.dom = {
   /**
    * Get element by ID with type checking
    * @param {string} id - Element ID
@@ -745,127 +817,6 @@ const DOM = {
   },
 };
 
-/**
- * Common utility functions
- */
-const Utils = {
-  /**
-   * Debounce a function
-   * @param {Function} func - Function to debounce
-   * @param {number} [wait=300] - Wait time in milliseconds
-   * @returns {Function} Debounced function
-   */
-  debounce(func, wait = 300) {
-    let timeout = null;
-    return function (...args) {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(this, args), wait);
-    };
-  },
-
-  /**
-   * Throttle a function
-   * @param {Function} func - Function to throttle
-   * @param {number} [limit=300] - Limit in milliseconds
-   * @returns {Function} Throttled function
-   */
-  throttle(func, limit = 300) {
-    let inThrottle = false;
-    return function (...args) {
-      if (!inThrottle) {
-        func.apply(this, args);
-        inThrottle = true;
-        setTimeout(() => {
-          inThrottle = false;
-        }, limit);
-      }
-    };
-  },
-
-  /**
-   * Format a date using Intl.DateTimeFormat
-   * @param {Date|string|number} date - Date to format
-   * @param {string} [locale] - Locale code (defaults to browser locale)
-   * @param {Object} [options] - Intl.DateTimeFormat options
-   * @returns {string} Formatted date string
-   */
-  formatDate(date, locale, options = {}) {
-    const dateObj = date instanceof Date ? date : new Date(date);
-    const defaultOptions = {
-      dateStyle: "medium",
-      timeStyle: "short",
-    };
-
-    return new Intl.DateTimeFormat(locale, {
-      ...defaultOptions,
-      ...options,
-    }).format(dateObj);
-  },
-
-  /**
-   * Safely access localStorage with error handling
-   * @param {string} key - Storage key
-   * @param {*} [defaultValue=null] - Default value if key doesn't exist
-   * @returns {*} The stored value or default value
-   */
-  getStorage(key, defaultValue = null) {
-    try {
-      const item = localStorage.getItem(key);
-      if (item === null) return defaultValue;
-
-      // Try to parse JSON, return original string if parsing fails
-      try {
-        return JSON.parse(item);
-      } catch (e) {
-        return item;
-      }
-    } catch (error) {
-      console.warn(`Error accessing localStorage for key ${key}:`, error);
-      return defaultValue;
-    }
-  },
-
-  /**
-   * Safely set localStorage with error handling
-   * @param {string} key - Storage key
-   * @param {*} value - Value to store
-   * @returns {boolean} Success status
-   */
-  setStorage(key, value) {
-    try {
-      const valueToStore =
-        typeof value === "object" ? JSON.stringify(value) : String(value);
-      localStorage.setItem(key, valueToStore);
-      return true;
-    } catch (error) {
-      console.warn(`Error setting localStorage for key ${key}:`, error);
-      return false;
-    }
-  },
-
-  /**
-   * Remove item from localStorage with error handling
-   * @param {string} key - Storage key
-   * @returns {boolean} Success status
-   */
-  removeStorage(key) {
-    try {
-      localStorage.removeItem(key);
-      return true;
-    } catch (error) {
-      console.warn(`Error removing localStorage for key ${key}:`, error);
-      return false;
-    }
-  },
-};
-
-// Initialize and expose utility instances
-window.notificationManager = new NotificationManager();
-window.confirmationDialog = new ConfirmationDialog();
-
-// Export utilities as namespaces
-window.utils = Utils;
-window.dom = DOM;
 window.handleError = handleError;
 
 // Export the DateUtils object to make it available globally

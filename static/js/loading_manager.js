@@ -302,7 +302,7 @@ class LoadingManager {
       this.isVisible = true;
 
       // Force reflow for animation
-      const _ = overlay.offsetHeight;
+      overlay.offsetHeight;
     }
 
     if (text) {

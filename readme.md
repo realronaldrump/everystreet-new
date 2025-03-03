@@ -207,7 +207,17 @@ python -c "import asyncio; from db import init_task_history_collection; asyncio.
 
 ### Running the Application (Locally)
 
-You can start the application locally using Gunicorn with a Uvicorn worker. The provided command uses 4 workers and binds to all interfaces (`0.0.0.0`) on port 8080. You can modify these settings as needed.
+You can start the application locally using one of the provided scripts.
+
+For local development with reduced resource usage:
+
+```bash
+./start_local.sh
+```
+
+This uses 2 workers instead of 4 to reduce memory consumption.
+
+Alternatively, if you need more workers:
 
 ```bash
 gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080 --workers 4
@@ -217,16 +227,17 @@ Once the server is running, you can access the application in your web browser a
 
 ## Deployment (Railway)
 
-The application is currently deployed on Railway. The following start command is used:
+The application is currently deployed on Railway. You can use the production startup script:
 
 ```bash
-sh -c 'UVICORN_CMD_ARGS="--proxy-headers --forwarded-allow-ips=*" gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8080} --workers 4'
+./start_production.sh
 ```
 
-This command does the following:
+This script does the following:
 
 - Sets the `UVICORN_CMD_ARGS` environment variable, enabling proxy headers and allowing all forwarded IPs.
-- Starts the `app:app` using gunicorn with 4 uvicorn workers, binding to port 8080, using railway's dynamic port assigning through `${PORT:-8080}`
+- Starts the `app:app` using gunicorn with 4 uvicorn workers, binding to Railway's dynamic port through `${PORT:-8080}`.
+- Configures optimal settings for a production environment (keep-alive, max requests, timeouts, etc.)
 
 ## Usage
 
