@@ -146,7 +146,7 @@
       const savedStartDate =
         localStorage.getItem("startDate") ||
         DateUtils.formatDate(
-          DateUtils.getDateRangeForPreset("30days").startDate
+          DateUtils.getDateRangeForPreset("30days").startDate,
         );
       const savedEndDate =
         localStorage.getItem("endDate") || DateUtils.getCurrentDate();
@@ -159,7 +159,7 @@
       if (startDateEl._flatpickr || endDateEl._flatpickr) {
         notificationManager.show(
           "Using existing flatpickr instances from Modern UI",
-          "info"
+          "info",
         );
         // Store references to the existing flatpickr instances
         datepickers.startDate = startDateEl._flatpickr;
@@ -171,14 +171,14 @@
           datepickers.startDate.config.onChange = function (
             selectedDates,
             dateStr,
-            instance
+            instance,
           ) {
             // Call original handler if it exists
             if (Array.isArray(originalOnChange)) {
               originalOnChange.forEach(
                 (fn) =>
                   typeof fn === "function" &&
-                  fn(selectedDates, dateStr, instance)
+                  fn(selectedDates, dateStr, instance),
               );
             } else if (typeof originalOnChange === "function") {
               originalOnChange(selectedDates, dateStr, instance);
@@ -194,14 +194,14 @@
           datepickers.endDate.config.onChange = function (
             selectedDates,
             dateStr,
-            instance
+            instance,
           ) {
             // Call original handler if it exists
             if (Array.isArray(originalOnChange)) {
               originalOnChange.forEach(
                 (fn) =>
                   typeof fn === "function" &&
-                  fn(selectedDates, dateStr, instance)
+                  fn(selectedDates, dateStr, instance),
               );
             } else if (typeof originalOnChange === "function") {
               originalOnChange(selectedDates, dateStr, instance);
@@ -355,7 +355,7 @@
       if (event.detail && event.detail.startDate && event.detail.endDate) {
         notificationManager.show(
           "ModernUI filters applied, updating driving insights",
-          "info"
+          "info",
         );
         fetchDrivingInsights();
       }
@@ -400,7 +400,7 @@
             startDateInput,
             endDateInput,
             DateUtils.formatDate(startDate),
-            endDate
+            endDate,
           );
           return;
       }
@@ -466,7 +466,7 @@
         fetch(`/api/driving-insights?${params}`).then((res) => {
           if (!res.ok) {
             throw new Error(
-              `Failed to fetch insights: ${res.status} ${res.statusText}`
+              `Failed to fetch insights: ${res.status} ${res.statusText}`,
             );
           }
           return res.json();
@@ -474,7 +474,7 @@
         fetch(`/api/trip-analytics?${params}`).then((res) => {
           if (!res.ok) {
             throw new Error(
-              `Failed to fetch analytics: ${res.status} ${res.statusText}`
+              `Failed to fetch analytics: ${res.status} ${res.statusText}`,
             );
           }
           return res.json();
@@ -593,7 +593,7 @@
     document.getElementById("max-speed").textContent =
       `${data.max_speed || 0} mph`;
     document.getElementById("total-idle").textContent = formatIdleDuration(
-      data.total_idle_duration || 0
+      data.total_idle_duration || 0,
     );
     document.getElementById("longest-trip").textContent =
       `${(data.longest_trip_distance || 0).toFixed(2)} miles`;

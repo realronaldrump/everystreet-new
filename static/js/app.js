@@ -139,7 +139,7 @@
     if (window.notificationManager) {
       window.notificationManager.show(
         `${type.toUpperCase()}: ${message}`,
-        type
+        type,
       );
     }
     return false;
@@ -193,7 +193,7 @@
     document.dispatchEvent(
       new CustomEvent("appError", {
         detail: { context, error: error.message },
-      })
+      }),
     );
   }
 
@@ -324,7 +324,7 @@
               layerInfo = AppState.mapLayers.matchedTrips;
             }
             featureLayer.setStyle(
-              getTripFeatureStyle(featureLayer.feature, layerInfo)
+              getTripFeatureStyle(featureLayer.feature, layerInfo),
             );
             if (
               featureLayer.feature.properties.transactionId ===
@@ -541,7 +541,7 @@
     document.dispatchEvent(
       new CustomEvent("layerVisibilityChanged", {
         detail: { layer: name, visible },
-      })
+      }),
     );
   }
 
@@ -633,7 +633,7 @@
     operationId,
     totalWeight = 100,
     operation,
-    subOperations = {}
+    subOperations = {},
   ) {
     const loadingManager = window.loadingManager || {
       startOperation: () => {},
@@ -669,10 +669,10 @@
           lm.addSubOperation(opId, name, weight);
         });
         const startDate = DateUtils.formatDate(
-          getStorageItem(CONFIG.STORAGE_KEYS.startDate)
+          getStorageItem(CONFIG.STORAGE_KEYS.startDate),
         );
         const endDate = DateUtils.formatDate(
-          getStorageItem(CONFIG.STORAGE_KEYS.endDate)
+          getStorageItem(CONFIG.STORAGE_KEYS.endDate),
         );
         if (!startDate || !endDate) {
           showNotification("Invalid date range for fetching trips.", "warning");
@@ -713,9 +713,9 @@
         document.dispatchEvent(
           new CustomEvent("tripsLoaded", {
             detail: { count: geojson.features.length },
-          })
+          }),
         );
-      }
+      },
     );
   }
 
@@ -726,11 +726,11 @@
       .map((trip) => {
         const startTimeFormatted = DateUtils.formatForDisplay(
           trip.properties.startTime,
-          { dateStyle: "short", timeStyle: "short" }
+          { dateStyle: "short", timeStyle: "short" },
         );
         const endTimeFormatted = DateUtils.formatForDisplay(
           trip.properties.endTime,
-          { dateStyle: "short", timeStyle: "short" }
+          { dateStyle: "short", timeStyle: "short" },
         );
         return {
           ...trip.properties,
@@ -755,13 +755,13 @@
     AppState.mapLayers.trips.layer = {
       type: "FeatureCollection",
       features: geojson.features.filter(
-        (f) => f.properties.imei !== "HISTORICAL"
+        (f) => f.properties.imei !== "HISTORICAL",
       ),
     };
     AppState.mapLayers.historicalTrips.layer = {
       type: "FeatureCollection",
       features: geojson.features.filter(
-        (f) => f.properties.imei === "HISTORICAL"
+        (f) => f.properties.imei === "HISTORICAL",
       ),
     };
     return updateMap();
@@ -769,10 +769,10 @@
 
   async function fetchMatchedTrips() {
     const startDate = DateUtils.formatDate(
-      getStorageItem(CONFIG.STORAGE_KEYS.startDate)
+      getStorageItem(CONFIG.STORAGE_KEYS.startDate),
     );
     const endDate = DateUtils.formatDate(
-      getStorageItem(CONFIG.STORAGE_KEYS.endDate)
+      getStorageItem(CONFIG.STORAGE_KEYS.endDate),
     );
     if (!startDate || !endDate) {
       console.warn("Invalid date range for fetching matched trips");
@@ -813,10 +813,10 @@
             onEachFeature: (feature, layer) => {
               tripLayers.set(feature.properties.transactionId, layer);
               layer.on("click", (e) =>
-                handleTripClick(e, feature, layer, info, name)
+                handleTripClick(e, feature, layer, info, name),
               );
               layer.on("popupopen", () =>
-                setupPopupEventListeners(layer, feature)
+                setupPopupEventListeners(layer, feature),
               );
             },
           });
@@ -826,7 +826,7 @@
             .setStyle({ color: info.color, opacity: info.opacity })
             .addTo(AppState.layerGroup);
         }
-      })
+      }),
     );
     if (AppState.selectedTripId && tripLayers.has(AppState.selectedTripId)) {
       tripLayers.get(AppState.selectedTripId)?.bringToFront();
@@ -861,7 +861,7 @@
           id: wasSelected ? null : clickedId,
           tripData: wasSelected ? null : feature.properties,
         },
-      })
+      }),
     );
   }
 
@@ -1006,7 +1006,7 @@
     let confirmed = false;
     if (!window.confirmationDialog) {
       confirmed = confirm(
-        "Delete this trip? This will also delete its corresponding matched trip."
+        "Delete this trip? This will also delete its corresponding matched trip.",
       );
     } else {
       confirmed = await window.confirmationDialog.show({
@@ -1040,7 +1040,7 @@
     let confirmed = false;
     if (!window.confirmationDialog) {
       confirmed = confirm(
-        "Re-match this trip? This will delete the existing matched trip and create a new one."
+        "Re-match this trip? This will delete the existing matched trip and create a new one.",
       );
     } else {
       confirmed = await window.confirmationDialog.show({
@@ -1111,7 +1111,7 @@
     if (!locInput || !locType || !locInput.value || !locType.value) {
       showNotification(
         "Please enter a location and select a location type.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -1129,7 +1129,7 @@
       if (!data) {
         showNotification(
           CONFIG.ERROR_MESSAGES.locationValidationFailed,
-          "warning"
+          "warning",
         );
         return;
       }
@@ -1145,7 +1145,7 @@
     locInput.setAttribute("data-location", JSON.stringify(data));
     locInput.setAttribute(
       "data-display-name",
-      data.display_name || data.name || locInput.value
+      data.display_name || data.name || locInput.value,
     );
     [
       "generate-boundary",
@@ -1159,7 +1159,7 @@
     document.dispatchEvent(
       new CustomEvent("locationValidated", {
         detail: { location: data },
-      })
+      }),
     );
   }
 
@@ -1205,7 +1205,7 @@
       document.dispatchEvent(
         new CustomEvent("osmDataGenerated", {
           detail: { type: streetsOnly ? "streets" : "boundary" },
-        })
+        }),
       );
     } catch (err) {
       handleError(err, "Generating OSM Data");
@@ -1241,7 +1241,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ start_date: startDate, end_date: endDate }),
-        })
+        }),
       );
     }
     try {
@@ -1250,7 +1250,8 @@
       if (errorResponses.length > 0) {
         const errorData = await errorResponses[0].json();
         throw new Error(
-          errorData.message || `HTTP error! status: ${errorResponses[0].status}`
+          errorData.message ||
+            `HTTP error! status: ${errorResponses[0].status}`,
         );
       }
       const results = await Promise.all(responses.map((r) => r.json()));
@@ -1262,7 +1263,7 @@
             isHistorical,
             results,
           },
-        })
+        }),
       );
     } catch (err) {
       handleError(err, "Map Matching");
@@ -1313,7 +1314,7 @@
     if (!startDate || !endDate) return;
     try {
       const response = await fetch(
-        `/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`
+        `/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`,
       );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -1335,7 +1336,7 @@
       document.dispatchEvent(
         new CustomEvent("metricsUpdated", {
           detail: { metrics },
-        })
+        }),
       );
     } catch (err) {
       handleError(err, "Fetching Metrics");
@@ -1392,7 +1393,7 @@
                 startDate,
                 endDate,
               },
-            })
+            }),
           );
 
           // Fetch updated data with new date range
@@ -1405,7 +1406,7 @@
         handleError(err, "Setting Date Preset");
         showNotification(
           "Error setting date range. Please try again.",
-          "danger"
+          "danger",
         );
       })
       .finally(() => {
@@ -1456,16 +1457,16 @@
 
     addSingleEventListener("validate-location", "click", validateLocation);
     addSingleEventListener("generate-boundary", "click", () =>
-      generateOSMData(false)
+      generateOSMData(false),
     );
     addSingleEventListener("generate-streets", "click", () =>
-      generateOSMData(true)
+      generateOSMData(true),
     );
     addSingleEventListener("map-match-trips", "click", () =>
-      mapMatchTrips(false)
+      mapMatchTrips(false),
     );
     addSingleEventListener("map-match-historical-trips", "click", () =>
-      mapMatchTrips(true)
+      mapMatchTrips(true),
     );
     addSingleEventListener("fetch-trips-range", "click", fetchTripsInRange);
     document.querySelectorAll(".date-preset").forEach((btn) => {
@@ -1476,7 +1477,7 @@
       debouncedUpdateMap();
     });
     addSingleEventListener("preprocess-streets", "click", () =>
-      preprocessStreets()
+      preprocessStreets(),
     );
     addSingleEventListener("cancel-coverage-polling", "click", () => {
       AppState.polling.active = false;
@@ -1507,18 +1508,18 @@
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
+          errorData.message || `HTTP error! status: ${response.status}`,
         );
       }
       const data = await response.json();
       showNotification(
         data.message || "Streets preprocessed successfully for route matching.",
-        "success"
+        "success",
       );
       document.dispatchEvent(
         new CustomEvent("streetsPreprocessed", {
           detail: { location },
-        })
+        }),
       );
     } catch (error) {
       handleError(error, "Preprocessing Streets");
@@ -1547,7 +1548,7 @@
     AppState.dom.generateCoverageBtn = getElement("generate-coverage");
     AppState.dom.mapMatchTripsBtn = getElement("map-match-trips");
     AppState.dom.mapMatchHistoricalBtn = getElement(
-      "map-match-historical-trips"
+      "map-match-historical-trips",
     );
     AppState.dom.preprocessStreetsBtn = getElement("preprocess-streets");
     AppState.dom.highlightRecentTrips = getElement("highlight-recent-trips");
@@ -1595,7 +1596,7 @@
               input.id === "start-date"
                 ? CONFIG.STORAGE_KEYS.startDate
                 : CONFIG.STORAGE_KEYS.endDate,
-              formattedDate
+              formattedDate,
             );
           }
         }
@@ -1631,7 +1632,7 @@
           document.dispatchEvent(new CustomEvent("initialDataLoaded"));
         });
         const selectedLocationStr = getStorageItem(
-          CONFIG.STORAGE_KEYS.selectedLocation
+          CONFIG.STORAGE_KEYS.selectedLocation,
         );
         if (selectedLocationStr) {
           try {
