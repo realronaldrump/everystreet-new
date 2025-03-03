@@ -119,14 +119,14 @@
 
     if (fuelConsumptionCtx) {
       fuelConsumptionChart = new Chart(fuelConsumptionCtx, {
-        type: "bar",
+        type: "doughnut",
         data: {
-          labels: ["Fuel Consumed"],
+          labels: ["Fuel Consumed", "Estimated Efficiency"],
           datasets: [
             {
-              label: "Gallons",
-              data: [0],
-              backgroundColor: "#FF9800",
+              data: [0, 0],
+              backgroundColor: ["#FF9800", "#03DAC6"],
+              borderWidth: 1,
             },
           ],
         },
@@ -139,13 +139,19 @@
               position: "top",
               labels: { color: "#bb86fc" },
             },
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              title: { display: true, text: "Gallons", color: "#bb86fc" },
-              ticks: { color: "#bb86fc" },
-              grid: { color: "rgba(187, 134, 252, 0.2)" },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  const label = context.label || "";
+                  const value = context.raw || 0;
+                  if (label === "Fuel Consumed") {
+                    return `${label}: ${value.toFixed(2)} gallons`;
+                  } else if (label === "Estimated Efficiency") {
+                    return `${label}: ${value.toFixed(2)} MPG`;
+                  }
+                  return `${label}: ${value}`;
+                },
+              },
             },
           },
         },
@@ -358,7 +364,7 @@
     }
 
     if (fuelConsumptionChart) {
-      fuelConsumptionChart.data.datasets[0].data = [0];
+      fuelConsumptionChart.data.datasets[0].data = [0, 0];
       fuelConsumptionChart.update();
     }
 
@@ -441,7 +447,13 @@
       data &&
       data.total_fuel_consumed !== undefined
     ) {
-      fuelConsumptionChart.data.datasets[0].data = [data.total_fuel_consumed];
+      const fuelConsumed = data.total_fuel_consumed || 0;
+      const distance = data.total_distance || 0;
+
+      // Calculate miles per gallon (MPG)
+      const mpg = fuelConsumed > 0 ? distance / fuelConsumed : 0;
+
+      fuelConsumptionChart.data.datasets[0].data = [fuelConsumed, mpg];
       fuelConsumptionChart.update();
     }
   }
