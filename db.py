@@ -75,8 +75,8 @@ class DatabaseManager:
         return cls._instance
 
     def __init__(self) -> None:
+        # IMPORTANT:  DO NOT initialize the client here.  Delay it.
         if self._client is None:
-            self._initialize_client()
             self._db_semaphore = asyncio.Semaphore(self._max_concurrent_operations)
 
     def _initialize_client(self) -> None:
@@ -118,12 +118,18 @@ class DatabaseManager:
 
     @property
     def db(self) -> AsyncIOMotorDatabase:
+        # Initialize the client ONLY when .db is accessed for the first time.
+        if self._db is None:
+            self._initialize_client()  # This now happens lazily
         if self._db is None:
             raise RuntimeError("Database not initialized.")
         return self._db
 
     @property
     def client(self) -> AsyncIOMotorClient:
+        # Initialize on first access to .client as well
+        if self._client is None:
+            self._initialize_client()
         if self._client is None:
             raise RuntimeError("Client not initialized.")
         return self._client
@@ -444,8 +450,10 @@ class DatabaseManager:
             return False
 
 
-db: AsyncIOMotorDatabase
-db = DatabaseManager().db  # or simply db_manager.db
+# Corrected instantiation:
+db_manager = DatabaseManager()  # Instantiate the singleton, but don't connect yet
+db = db_manager.db
+
 
 # Define collections
 trips_collection = db["trips"]
@@ -468,11 +476,11 @@ async def init_task_history_collection() -> None:
     """
     try:
         tasks = [
-            DatabaseManager().safe_create_index(
+            db_manager.safe_create_index(
                 "task_history", [("task_id", pymongo.ASCENDING)]
             ),
-            DatabaseManager().safe_create_index("task_history", [("timestamp", -1)]),
-            DatabaseManager().safe_create_index(
+            db_manager.safe_create_index("task_history", [("timestamp", -1)]),
+            db_manager.safe_create_index(
                 "task_history",
                 [("task_id", pymongo.ASCENDING), ("timestamp", -1)],
             ),
@@ -490,7 +498,7 @@ async def ensure_street_coverage_indexes() -> None:
     """
     try:
         tasks = [
-            DatabaseManager().safe_create_index(
+            db_manager.safe_create_index(
                 "coverage_metadata",
                 [
                     ("location.display_name", pymongo.ASCENDING),
@@ -498,25 +506,21 @@ async def ensure_street_coverage_indexes() -> None:
                 ],
                 unique=True,
             ),
-            DatabaseManager().safe_create_index(
+            db_manager.safe_create_index(
                 "streets", [("properties.location", pymongo.ASCENDING)]
             ),
-            DatabaseManager().safe_create_index(
+            db_manager.safe_create_index(
                 "streets", [("properties.segment_id", pymongo.ASCENDING)]
             ),
-            DatabaseManager().safe_create_index("trips", [("gps", pymongo.ASCENDING)]),
-            DatabaseManager().safe_create_index(
-                "trips", [("startTime", pymongo.ASCENDING)]
-            ),
-            DatabaseManager().safe_create_index(
-                "trips", [("endTime", pymongo.ASCENDING)]
-            ),
-            DatabaseManager().safe_create_index(
+            db_manager.safe_create_index("trips", [("gps", pymongo.ASCENDING)]),
+            db_manager.safe_create_index("trips", [("startTime", pymongo.ASCENDING)]),
+            db_manager.safe_create_index("trips", [("endTime", pymongo.ASCENDING)]),
+            db_manager.safe_create_index(
                 "trips",
                 [("startTime", pymongo.ASCENDING), ("endTime", pymongo.ASCENDING)],
                 name="trips_date_range",
             ),
-            DatabaseManager().safe_create_index(
+            db_manager.safe_create_index(
                 "matched_trips",
                 [("startTime", pymongo.ASCENDING), ("endTime", pymongo.ASCENDING)],
                 name="matched_trips_date_range",
@@ -538,7 +542,7 @@ async def find_one_with_retry(collection, query, projection=None):
     async def _operation():
         return await collection.find_one(query, projection)
 
-    return await DatabaseManager().execute_with_retry(
+    return await db_manager.execute_with_retry(
         _operation, operation_name=f"find_one on {collection.name}"
     )
 
@@ -560,7 +564,7 @@ async def find_with_retry(
             cursor = cursor.limit(limit)
         return await cursor.to_list(length=None)
 
-    return await DatabaseManager().execute_with_retry(
+    return await db_manager.execute_with_retry(
         _operation, operation_name=f"find on {collection.name}"
     )
 
@@ -578,7 +582,7 @@ async def update_one_with_retry(
     async def _operation():
         return await collection.update_one(filter_query, update, upsert=upsert)
 
-    return await DatabaseManager().execute_with_retry(
+    return await db_manager.execute_with_retry(
         _operation, operation_name=f"update_one on {collection.name}"
     )
 
@@ -591,6 +595,6 @@ async def aggregate_with_retry(collection, pipeline):
     async def _operation():
         return await collection.aggregate(pipeline).to_list(None)
 
-    return await DatabaseManager().execute_with_retry(
+    return await db_manager.execute_with_retry(
         _operation, operation_name=f"aggregate on {collection.name}"
     )

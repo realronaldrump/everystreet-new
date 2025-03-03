@@ -44,22 +44,9 @@ from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from preprocess_streets import preprocess_streets as async_preprocess_streets
 from tasks import task_manager
 from db import (
-    trips_collection,
-    matched_trips_collection,
-    uploaded_trips_collection,
-    live_trips_collection,
-    archived_live_trips_collection,
-    task_config_collection,
-    osm_data_collection,
-    streets_collection,
-    coverage_metadata_collection,
-    places_collection,
-    task_history_collection,
-    init_task_history_collection,
-    progress_collection,
-    ensure_street_coverage_indexes,
     db_manager,
-    db,
+    ensure_street_coverage_indexes,
+    init_task_history_collection,
 )
 from trip_processing import format_idle_time, process_trip_data
 from export_helpers import create_geojson, create_gpx
@@ -92,6 +79,19 @@ AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
 OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
+# Database collections - using db_manager to access the database
+trips_collection = db_manager.db["trips"]
+matched_trips_collection = db_manager.db["matched_trips"]
+uploaded_trips_collection = db_manager.db["uploaded_trips"]
+places_collection = db_manager.db["places"]
+osm_data_collection = db_manager.db["osm_data"]
+streets_collection = db_manager.db["streets"]
+coverage_metadata_collection = db_manager.db["coverage_metadata"]
+live_trips_collection = db_manager.db["live_trips"]
+archived_live_trips_collection = db_manager.db["archived_live_trips"]
+task_config_collection = db_manager.db["task_config"]
+task_history_collection = db_manager.db["task_history"]
+progress_collection = db_manager.db["progress_status"]
 
 # ------------------------------------------------------------------------------
 # Helper Functions
@@ -448,13 +448,13 @@ async def coverage_management_page(request: Request):
 @app.get("/database-management")
 async def database_management_page(request: Request):
     try:
-        db_stats = await db.command("dbStats")
+        db_stats = await db_manager.db.command("dbStats")
         storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
         storage_limit_mb = 512  # Example free-tier limit
         storage_usage_percent = round((storage_used_mb / storage_limit_mb) * 100, 2)
         collections_info = []
-        for collection_name in await db.list_collection_names():
-            stats = await db.command("collStats", collection_name)
+        for collection_name in await db_manager.db.list_collection_names():
+            stats = await db_manager.db.command("collStats", collection_name)
             collections_info.append(
                 {
                     "name": collection_name,
@@ -3334,29 +3334,34 @@ async def serialize_live_trip(trip_data):
 # ------------------------------------------------------------------------------
 
 
-@app.get("/api/database/storage-info")
+@app.get("/api/storage-info")
 async def get_storage_info():
+    """Get information about database storage usage."""
     try:
-        # Use the check_quota method which is already designed to be reliable
-        used_mb, limit_mb = await db_manager.check_quota()
+        # Get overall database stats
+        db_stats = await db_manager.db.command("dbStats")
 
-        if used_mb is None or limit_mb is None:
-            # Fallback values if we couldn't get the data
-            used_mb = 0
-            limit_mb = 512
-            storage_usage_percent = 0
-        else:
-            storage_usage_percent = round((used_mb / limit_mb) * 100, 2)
-
-        return {
-            "used_mb": used_mb,
-            "limit_mb": limit_mb,
-            "usage_percent": storage_usage_percent,
+        # Format the response with storage info
+        storage_info = {
+            "total_size_mb": db_stats["dataSize"] / (1024 * 1024),
+            "total_size_bytes": db_stats["dataSize"],
+            "collections": [],
         }
+
+        # Get stats for each collection
+        for collection_name in await db_manager.db.list_collection_names():
+            stats = await db_manager.db.command("collStats", collection_name)
+            storage_info["collections"].append(
+                {
+                    "name": collection_name,
+                    "document_count": stats["count"],
+                    "size_mb": round(stats["size"] / (1024 * 1024), 2),
+                }
+            )
+        return storage_info
     except Exception as e:
         logger.exception("Error getting storage info")
-        # Return a sensible fallback value rather than raising an error
-        return {"used_mb": 0, "limit_mb": 512, "usage_percent": 0, "error": str(e)}
+        return {"error": str(e)}
 
 
 @app.post("/api/database/optimize-collection")
@@ -3365,12 +3370,12 @@ async def optimize_collection(collection: Dict[str, str]):
         name = collection.get("collection")
         if not name:
             raise HTTPException(status_code=400, detail="Missing 'collection' field")
-        await db.command({"compact": name})
-        await db[name].reindex()
+        await db_manager.db.command({"compact": name})
+        await db_manager.db[name].reindex()
         return {"message": f"Successfully optimized collection {name}"}
     except Exception as e:
         logger.exception("Error optimizing collection")
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"error": str(e)}
 
 
 @app.post("/api/database/clear-collection")
@@ -3379,8 +3384,11 @@ async def clear_collection(collection: Dict[str, str]):
         name = collection.get("collection")
         if not name:
             raise HTTPException(status_code=400, detail="Missing 'collection' field")
-        result = await db[name].delete_many({})
-        return {"message": f"Cleared {result.deleted_count} documents from {name}"}
+        result = await db_manager.db[name].delete_many({})
+        return {
+            "message": f"Successfully cleared collection {name}",
+            "deleted_count": result.deleted_count,
+        }
     except Exception as e:
         logger.exception("Error clearing collection")
         raise HTTPException(status_code=500, detail=str(e))
@@ -3389,10 +3397,10 @@ async def clear_collection(collection: Dict[str, str]):
 @app.post("/api/database/optimize-all")
 async def optimize_all_collections():
     try:
-        collection_names = await db.list_collection_names()
+        collection_names = await db_manager.db.list_collection_names()
         for coll_name in collection_names:
-            await db.command({"compact": coll_name})
-            await db[coll_name].reindex()
+            await db_manager.db.command({"compact": coll_name})
+            await db_manager.db[coll_name].reindex()
         return {"message": "Successfully optimized all collections"}
     except Exception as e:
         logger.exception("Error optimizing all collections")
@@ -3402,9 +3410,9 @@ async def optimize_all_collections():
 @app.post("/api/database/repair-indexes")
 async def repair_indexes():
     try:
-        collection_names = await db.list_collection_names()
+        collection_names = await db_manager.db.list_collection_names()
         for coll_name in collection_names:
-            await db[coll_name].reindex()
+            await db_manager.db[coll_name].reindex()
         return {"message": "Successfully repaired indexes for all collections"}
     except Exception as e:
         logger.exception("Error repairing indexes")
@@ -3511,7 +3519,15 @@ async def cancel_coverage_area(request: Request):
 
 @app.on_event("startup")
 async def startup_event():
+    """
+    Initialize database indexes on application startup.
+    """
     try:
+        await ensure_street_coverage_indexes()  # From db.py
+        await init_task_history_collection()  # From db.py
+        logger.info("Database indexes initialized successfully.")
+
+        # Additional initialization
         used_mb, limit_mb = await db_manager.check_quota()
         if not db_manager.quota_exceeded:
             await db_manager.safe_create_index(
@@ -3529,8 +3545,6 @@ async def startup_event():
                 "coverage_metadata", [("location", 1)], unique=True
             )
             await task_manager.start()
-            await init_task_history_collection()
-            await ensure_street_coverage_indexes()
             logger.info("Application startup completed successfully")
         else:
             logger.warning(
@@ -3539,8 +3553,8 @@ async def startup_event():
                 limit_mb,
             )
     except Exception as e:
-        logger.exception("Error during application startup")
-        # Start in degraded mode if something fails.
+        logger.exception("Failed to initialize database indexes.")
+        raise  # Crash the application; we can't continue without indexes.
 
 
 @app.on_event("shutdown")
@@ -3573,6 +3587,31 @@ async def not_found_handler(request: Request, exc):
 @app.exception_handler(500)
 async def internal_error_handler(request: Request, exc):
     return JSONResponse(status_code=500, content={"error": "Internal server error"})
+
+
+@app.get("/api/database/storage-info")
+async def get_storage_info():
+    try:
+        # Use the check_quota method which is already designed to be reliable
+        used_mb, limit_mb = await db_manager.check_quota()
+
+        if used_mb is None or limit_mb is None:
+            # Fallback values if we couldn't get the data
+            used_mb = 0
+            limit_mb = 512
+            storage_usage_percent = 0
+        else:
+            storage_usage_percent = round((used_mb / limit_mb) * 100, 2)
+
+        return {
+            "used_mb": used_mb,
+            "limit_mb": limit_mb,
+            "usage_percent": storage_usage_percent,
+        }
+    except Exception as e:
+        logger.exception("Error getting storage info")
+        # Return a sensible fallback value rather than raising an error
+        return {"used_mb": 0, "limit_mb": 512, "usage_percent": 0, "error": str(e)}
 
 
 if __name__ == "__main__":
