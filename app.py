@@ -3166,7 +3166,7 @@ async def bouncie_webhook(request: Request):
 
         return {"status": "success", "message": "Event processed"}
     except Exception as e:
-        logger.exception(f"Error in bouncie_webhook: {str(e)}")
+        logger.exception("Error in bouncie_webhook: %s", str(e))
         return {"status": "success", "message": "Event processed with errors"}
 
 
@@ -3180,7 +3180,7 @@ async def get_active_trip():
             return serialized_trip
         raise HTTPException(status_code=404, detail="No active trip")
     except Exception as e:
-        logger.exception(f"Error in get_active_trip: {str(e)}")
+        logger.exception("Error in get_active_trip: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -3269,12 +3269,16 @@ async def ws_live_trip(websocket: WebSocket):
                         break
 
             except WebSocketDisconnect:
-                logger.info(f"Client {client_id} disconnected during receive operation")
+                logger.info(
+                    "Client %s disconnected during receive operation", client_id
+                )
                 break
 
             except Exception as e:
                 logger.error(
-                    f"Unexpected error in WebSocket connection for {client_id}: {e}",
+                    "Unexpected error in WebSocket connection for %s: %s",
+                    client_id,
+                    e,
                     exc_info=True,
                 )
                 break
@@ -3283,9 +3287,9 @@ async def ws_live_trip(websocket: WebSocket):
             await asyncio.sleep(0.1)
 
     except WebSocketDisconnect:
-        logger.info(f"WebSocket client {client_id} disconnected")
+        logger.info("WebSocket client %s disconnected", client_id)
     except Exception as e:
-        logger.exception(f"WebSocket error: {str(e)}")
+        logger.exception("WebSocket error: %s", str(e))
     finally:
         # Always make sure to disconnect properly
         if client_id:
