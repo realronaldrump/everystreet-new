@@ -230,15 +230,37 @@ const DateUtils = {
     const dateObj = this.parseDate(date);
     if (!dateObj) return "";
 
-    const defaultOptions = {
-      dateStyle: "medium",
-    };
+    // Create a clean options object without any null values
+    const formatterOptions = {};
 
-    const formatter = new Intl.DateTimeFormat("en-US", {
-      ...defaultOptions,
-      ...options,
+    // Apply default dateStyle if not explicitly set to null
+    if (options.dateStyle !== null) {
+      formatterOptions.dateStyle = options.dateStyle || "medium";
+    }
+
+    // Only include timeStyle if explicitly provided and not null
+    if (options.timeStyle !== null && options.timeStyle !== undefined) {
+      formatterOptions.timeStyle = options.timeStyle;
+    }
+
+    // Add any other options
+    Object.entries(options).forEach(([key, value]) => {
+      if (
+        key !== "dateStyle" &&
+        key !== "timeStyle" &&
+        value !== null &&
+        value !== undefined
+      ) {
+        formatterOptions[key] = value;
+      }
     });
 
+    // Ensure at least one formatting option is present
+    if (Object.keys(formatterOptions).length === 0) {
+      formatterOptions.dateStyle = "medium";
+    }
+
+    const formatter = new Intl.DateTimeFormat("en-US", formatterOptions);
     return formatter.format(dateObj);
   },
 

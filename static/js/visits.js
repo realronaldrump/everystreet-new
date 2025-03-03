@@ -84,6 +84,10 @@
       const ctx = document.getElementById("visitsChart")?.getContext("2d");
       if (!ctx) return;
 
+      Chart.defaults.color = "rgba(255, 255, 255, 0.8)";
+      Chart.defaults.font.family =
+        "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
       this.visitsChart = new Chart(ctx, {
         type: "bar",
         data: {
@@ -93,6 +97,8 @@
               label: "Visits per Place",
               data: [],
               backgroundColor: "#BB86FC",
+              borderColor: "#9965EB",
+              borderWidth: 1,
             },
           ],
         },
@@ -101,7 +107,54 @@
           scales: {
             y: {
               beginAtZero: true,
-              ticks: { stepSize: 1 },
+              ticks: {
+                stepSize: 1,
+                color: "rgba(255, 255, 255, 0.75)",
+                font: {
+                  weight: "400",
+                },
+              },
+              grid: {
+                color: "rgba(255, 255, 255, 0.1)",
+              },
+            },
+            x: {
+              ticks: {
+                color: "rgba(255, 255, 255, 0.8)",
+                font: {
+                  weight: "500",
+                },
+              },
+              grid: {
+                color: "rgba(255, 255, 255, 0.1)",
+              },
+            },
+          },
+          plugins: {
+            legend: {
+              labels: {
+                color: "rgba(255, 255, 255, 0.9)",
+                font: {
+                  weight: "500",
+                },
+                boxWidth: 12,
+                padding: 15,
+              },
+            },
+            tooltip: {
+              backgroundColor: "rgba(30, 30, 30, 0.9)",
+              titleColor: "#BB86FC",
+              bodyColor: "rgba(255, 255, 255, 0.9)",
+              borderColor: "#BB86FC",
+              borderWidth: 1,
+              padding: 10,
+              cornerRadius: 4,
+              titleFont: {
+                weight: "600",
+              },
+              bodyFont: {
+                weight: "400",
+              },
             },
           },
         },
@@ -122,9 +175,14 @@
                   ? `<a href="#" class="place-link" data-place-id="${row._id}">${data}</a>`
                   : data,
             },
-            { data: "totalVisits" },
+            {
+              data: "totalVisits",
+              className: "numeric-cell",
+              render: (data) => data || "0",
+            },
             {
               data: "firstVisit",
+              className: "date-cell",
               render: (data, type) =>
                 type === "display" || type === "filter"
                   ? data
@@ -134,6 +192,7 @@
             },
             {
               data: "lastVisit",
+              className: "date-cell",
               render: (data, type) =>
                 type === "display" || type === "filter"
                   ? data
@@ -141,9 +200,27 @@
                     : "N/A"
                   : data,
             },
-            { data: "avgTimeSpent", render: (data) => data || "N/A" },
+            {
+              data: "avgTimeSpent",
+              className: "numeric-cell",
+              render: (data) => data || "N/A",
+            },
           ],
-          language: { emptyTable: "No visits recorded for custom places" },
+          language: {
+            emptyTable: "No visits recorded for custom places",
+            info: "_START_ to _END_ of _TOTAL_ places",
+            search: "Filter places:",
+            paginate: {
+              first: "First",
+              last: "Last",
+              next: "Next",
+              previous: "Prev",
+            },
+          },
+          dom:
+            "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+            "<'row'<'col-sm-12'tr>>" +
+            "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
         });
       }
 
@@ -156,9 +233,13 @@
           order: [[3, "desc"]],
           columns: [
             { data: "name" },
-            { data: "totalVisits" },
+            {
+              data: "totalVisits",
+              className: "numeric-cell",
+            },
             {
               data: "firstVisit",
+              className: "date-cell",
               render: (data, type) =>
                 type === "display" || type === "filter"
                   ? data
@@ -168,6 +249,7 @@
             },
             {
               data: "lastVisit",
+              className: "date-cell",
               render: (data, type) =>
                 type === "display" || type === "filter"
                   ? data
@@ -176,7 +258,21 @@
                   : data,
             },
           ],
-          language: { emptyTable: "No visits recorded for non-custom places" },
+          language: {
+            emptyTable: "No visits recorded for non-custom places",
+            info: "_START_ to _END_ of _TOTAL_ places",
+            search: "Filter places:",
+            paginate: {
+              first: "First",
+              last: "Last",
+              next: "Next",
+              previous: "Prev",
+            },
+          },
+          dom:
+            "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+            "<'row'<'col-sm-12'tr>>" +
+            "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
         });
       }
 
@@ -189,28 +285,48 @@
             { data: "transactionId" },
             {
               data: "endTime",
+              className: "date-cell",
               render: (data, type) =>
                 type === "display" || type === "filter"
                   ? DateUtils.formatForDisplay(data, {
                       dateStyle: "medium",
-                      timeStyle: null,
                     })
                   : data,
             },
             {
               data: "endTime",
+              className: "date-cell",
               render: (data, type, row) =>
                 type === "display" || type === "filter"
                   ? DateUtils.formatForDisplay(data, {
-                      dateStyle: null,
                       timeStyle: "short",
                     })
                   : data,
             },
-            { data: "duration" },
-            { data: "timeSinceLastVisit" },
+            {
+              data: "duration",
+              className: "numeric-cell",
+            },
+            {
+              data: "timeSinceLastVisit",
+              className: "numeric-cell",
+            },
           ],
-          language: { emptyTable: "No trips found for this place" },
+          language: {
+            emptyTable: "No trips found for this place",
+            info: "_START_ to _END_ of _TOTAL_ trips",
+            search: "Filter trips:",
+            paginate: {
+              first: "First",
+              last: "Last",
+              next: "Next",
+              previous: "Prev",
+            },
+          },
+          dom:
+            "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+            "<'row'<'col-sm-12'tr>>" +
+            "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
         });
       }
     }
