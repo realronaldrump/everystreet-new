@@ -8,7 +8,6 @@ the newly inserted trips.
 """
 
 import os
-import pytz
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
