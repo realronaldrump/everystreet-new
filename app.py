@@ -185,7 +185,9 @@ class ConnectionManager(BaseConnectionManager):
                 "client_info": websocket.client,
             }
             logger.info(
-                "Client %s connected. Total connections: %s", client_id, self.connection_count
+                "Client %s connected. Total connections: %s",
+                client_id,
+                self.connection_count,
             )
 
         # Start heartbeat task if not already running
