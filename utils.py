@@ -427,36 +427,6 @@ async def reverse_geocode_nominatim(lat: float, lon: float) -> Optional[Dict[str
                 return None
 
 
-def get_trip_timezone(trip: Dict[str, Any]) -> str:
-    """
-    Attempts to determine the timezone for a trip by examining its gps data.
-
-    If the gps field is a JSON string, it is parsed into a dict. Then the function looks
-    at the "coordinates" property. For a Point geometry, the coordinate is
-    used directly; for other types, the first coordinate is used.
-
-    Returns the timezone as a string (or 'UTC' if not found or in case of an error).
-    """
-    try:
-        gps_data = trip.get("gps")
-        if isinstance(gps_data, str):
-            gps_data = geojson_loads(gps_data)
-        coords = gps_data.get("coordinates", [])
-        if not coords:
-            return "UTC"
-        # For a Point geometry, use the single coordinate; otherwise, use the first
-        # coordinate.
-        if gps_data.get("type") == "Point":
-            lon, lat = coords
-        else:
-            lon, lat = coords[0]
-        tz = tf.timezone_at(lng=lon, lat=lat)
-        return tz or "UTC"
-    except Exception as e:
-        logger.error("Error getting trip timezone: %s", e, exc_info=True)
-        return "UTC"
-
-
 # Background task helper functions
 async def run_background_task(coro, task_name="background_task"):
     """

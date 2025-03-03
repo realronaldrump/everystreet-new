@@ -23,7 +23,6 @@ from aiohttp.client_exceptions import (
 # Local imports
 from db import trips_collection
 from utils import (
-    get_trip_timezone,
     validate_trip_data,
 )
 from map_matching import process_and_map_match_trip
