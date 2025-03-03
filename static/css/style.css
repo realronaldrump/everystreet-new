@@ -1634,10 +1634,11 @@ body.light-mode .leaflet-container {
 }
 
 .leaflet-popup-content-wrapper {
-  background-color: var(--surface-1);
-  color: var(--text-primary);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
+  background: var(--card-bg);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+  padding: 5px;
+  max-width: fit-content;
 }
 
 body.light-mode .leaflet-popup-content-wrapper {
@@ -1656,7 +1657,7 @@ body.light-mode .leaflet-popup-tip {
 .trip-popup h4 {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
   color: var(--text-primary);
 }
 
@@ -1685,22 +1686,25 @@ body.light-mode .trip-popup p strong {
 /* New popup table styles */
 .trip-popup table.popup-data {
   width: 100%;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
   border-collapse: collapse;
 }
 
 .trip-popup table.popup-data th {
   text-align: left;
-  padding: var(--space-1) var(--space-2);
+  padding: 2px var(--space-2);
   color: var(--text-primary);
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
+  font-size: 0.85rem;
 }
 
 .trip-popup table.popup-data td {
-  padding: var(--space-1) var(--space-2);
+  padding: 2px var(--space-2);
   color: var(--text-secondary);
   word-break: break-word;
+  font-size: 0.85rem;
+  max-width: 190px;
 }
 
 body.light-mode .trip-popup table.popup-data th {
@@ -1717,9 +1721,11 @@ body.light-mode .trip-popup table.popup-data td {
   margin-top: var(--space-2);
 }
 
+/* Remove the scrolling behavior for the popup content */
 .leaflet-popup-content {
-  max-height: 300px;
-  overflow-y: auto;
+  margin: 8px;
+  line-height: 1.3;
+  max-width: 300px;
 }
 
 .leaflet-control-layers,

@@ -959,8 +959,8 @@
       `;
     }
 
-    // Add driving behavior metrics if available
-    if (props.hardBrakingCount !== undefined) {
+    // Only add driving behavior metrics if greater than 0
+    if (props.hardBrakingCount > 0) {
       html += `
         <tr>
           <th>Hard Braking:</th>
@@ -969,22 +969,11 @@
       `;
     }
 
-    if (props.hardAccelerationCount !== undefined) {
+    if (props.hardAccelerationCount > 0) {
       html += `
         <tr>
           <th>Hard Accel:</th>
           <td>${props.hardAccelerationCount}</td>
-        </tr>
-      `;
-    }
-
-    // Add matched/OSM street coverage if available
-    if (isMatched && props.osmCoverage !== undefined) {
-      const coverage = `${(props.osmCoverage * 100).toFixed(2)}%`;
-      html += `
-        <tr>
-          <th>OSM Coverage:</th>
-          <td>${coverage}</td>
         </tr>
       `;
     }
