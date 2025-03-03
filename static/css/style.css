@@ -1682,6 +1682,46 @@ body.light-mode .trip-popup p strong {
   color: var(--light-text-primary);
 }
 
+/* New popup table styles */
+.trip-popup table.popup-data {
+  width: 100%;
+  margin-bottom: var(--space-3);
+  border-collapse: collapse;
+}
+
+.trip-popup table.popup-data th {
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.trip-popup table.popup-data td {
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+body.light-mode .trip-popup table.popup-data th {
+  color: var(--light-text-primary);
+}
+
+body.light-mode .trip-popup table.popup-data td {
+  color: var(--light-text-secondary);
+}
+
+.trip-popup .trip-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.leaflet-popup-content {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
 .leaflet-control-layers,
 .leaflet-bar {
   border-radius: var(--radius-md) !important;

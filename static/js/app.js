@@ -867,7 +867,32 @@
 
     // Format distance
     const distance = props.distance
-      ? `${(props.distance / 1609.34).toFixed(2)} mi`
+      ? `${props.distance.toFixed(2)} mi`
+      : "Unknown";
+
+    // Calculate duration if both start and end times are available
+    let durationDisplay = "Unknown";
+    if (startTime && endTime) {
+      try {
+        const start = new Date(startTime);
+        const end = new Date(endTime);
+        const durationMs = end - start;
+        const hours = Math.floor(durationMs / (1000 * 60 * 60));
+        const minutes = Math.floor(
+          (durationMs % (1000 * 60 * 60)) / (1000 * 60)
+        );
+        durationDisplay = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+      } catch (e) {
+        console.log("Error calculating duration", e);
+      }
+    }
+
+    // Format speed values
+    const maxSpeed = props.maxSpeed
+      ? `${(props.maxSpeed * 0.621371).toFixed(1)} mph`
+      : "Unknown";
+    const avgSpeed = props.averageSpeed
+      ? `${(props.averageSpeed * 0.621371).toFixed(1)} mph`
       : "Unknown";
 
     // Create popup content with data
@@ -884,10 +909,74 @@
             <td>${endTimeDisplay}</td>
           </tr>
           <tr>
+            <th>Duration:</th>
+            <td>${durationDisplay}</td>
+          </tr>
+          <tr>
             <th>Distance:</th>
             <td>${distance}</td>
           </tr>
     `;
+
+    // Add location information if available
+    if (props.startLocation) {
+      html += `
+        <tr>
+          <th>Start Location:</th>
+          <td>${props.startLocation}</td>
+        </tr>
+      `;
+    }
+
+    if (props.destination) {
+      html += `
+        <tr>
+          <th>Destination:</th>
+          <td>${props.destination}</td>
+        </tr>
+      `;
+    }
+
+    // Add speed information
+    html += `
+      <tr>
+        <th>Max Speed:</th>
+        <td>${maxSpeed}</td>
+      </tr>
+      <tr>
+        <th>Avg Speed:</th>
+        <td>${avgSpeed}</td>
+      </tr>
+    `;
+
+    // Add idle time if available
+    if (props.totalIdleDurationFormatted) {
+      html += `
+        <tr>
+          <th>Idle Time:</th>
+          <td>${props.totalIdleDurationFormatted}</td>
+        </tr>
+      `;
+    }
+
+    // Add driving behavior metrics if available
+    if (props.hardBrakingCount !== undefined) {
+      html += `
+        <tr>
+          <th>Hard Braking:</th>
+          <td>${props.hardBrakingCount}</td>
+        </tr>
+      `;
+    }
+
+    if (props.hardAccelerationCount !== undefined) {
+      html += `
+        <tr>
+          <th>Hard Accel:</th>
+          <td>${props.hardAccelerationCount}</td>
+        </tr>
+      `;
+    }
 
     // Add matched/OSM street coverage if available
     if (isMatched && props.osmCoverage !== undefined) {
@@ -903,7 +992,7 @@
     // Add trip ID for actions
     html += `
         </table>
-        <div class="trip-actions" data-trip-id="${props.tripId || props.id}">
+        <div class="trip-actions" data-trip-id="${props.tripId || props.id || props.transactionId}">
     `;
 
     // Add appropriate action buttons
