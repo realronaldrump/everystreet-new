@@ -246,9 +246,9 @@
         const response = await fetch("/api/coverage_areas");
         if (!response.ok) throw new Error("Failed to fetch coverage areas");
         const data = await response.json();
-        CoverageManager.updateCoverageTable(data.areas);
+        this.constructor.updateCoverageTable(data.areas);
       } catch (error) {
-        console.error("Error loading coverage areas:", error);
+        console.error("Error loading coverage areas: %s", error);
         notificationManager.show(
           "Failed to load coverage areas. Please refresh the page.",
           "danger"
