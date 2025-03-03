@@ -28,7 +28,7 @@
     initializeWebSocket() {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       this.ws = new WebSocket(
-        `${protocol}//${window.location.host}/ws/live_trip`
+        `${protocol}//${window.location.host}/ws/live_trip`,
       );
 
       this.ws.onmessage = (event) => {
@@ -130,7 +130,7 @@
           this.toastManager.show(
             "Error",
             "Failed to run all tasks: " + error.message,
-            "danger"
+            "danger",
           );
         }
       } else {
@@ -156,7 +156,7 @@
           this.toastManager.show(
             "Task Started",
             `Task ${taskId} has been started`,
-            "info"
+            "info",
           );
 
           const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
@@ -179,7 +179,7 @@
         this.toastManager.show(
           "Error",
           `Failed to start task ${taskId}: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -204,7 +204,7 @@
         this.toastManager.show(
           "Error",
           "Failed to load task configuration: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -231,7 +231,7 @@
                   }>
                     ${opt.label}
                   </option>
-                `
+                `,
                   )
                   .join("")}
               </select>
@@ -245,7 +245,7 @@
             </td>
             <td>${task.priority || "MEDIUM"}</td>
             <td class="task-status">${this.getStatusHTML(
-              task.status || "IDLE"
+              task.status || "IDLE",
             )}</td>
             <td class="task-last-run">${
               task.last_run ? this.formatDateTime(task.last_run) : "Never"
@@ -275,7 +275,7 @@
     async updateTaskHistory() {
       try {
         const response = await fetch(
-          `/api/background_tasks/history?page=${this.currentHistoryPage}&limit=${this.historyLimit}`
+          `/api/background_tasks/history?page=${this.currentHistoryPage}&limit=${this.historyLimit}`,
         );
         if (!response.ok) {
           throw new Error("Failed to fetch task history");
@@ -289,7 +289,7 @@
         this.toastManager.show(
           "Error",
           "Failed to update task history: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -354,7 +354,7 @@
 
     updateHistoryPagination() {
       const paginationContainer = document.querySelector(
-        "#taskHistoryPagination"
+        "#taskHistoryPagination",
       );
       if (!paginationContainer) return;
 
@@ -483,7 +483,7 @@
               <h6>Interval</h6>
               <p>${
                 this.intervalOptions.find(
-                  (opt) => opt.value === taskDetails.interval_minutes
+                  (opt) => opt.value === taskDetails.interval_minutes,
                 )?.label || taskDetails.interval_minutes + " minutes"
               }</p>
             </div>
@@ -523,7 +523,7 @@
         this.toastManager.show(
           "Error",
           "Failed to fetch task details: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -548,7 +548,7 @@
         this.currentHistoryPage = 1;
         this.historyTotalPages = 1;
         const paginationContainer = document.querySelector(
-          "#taskHistoryPagination"
+          "#taskHistoryPagination",
         );
         if (paginationContainer) {
           paginationContainer.innerHTML = "";
@@ -558,14 +558,14 @@
         this.toastManager.show(
           "Success",
           "Task history cleared successfully",
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error clearing task history:", error);
         this.toastManager.show(
           "Error",
           `Failed to clear task history: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -637,7 +637,7 @@
             settingsManager.show(
               "Success",
               "Task configuration saved",
-              "success"
+              "success",
             );
             taskManager.loadTaskConfig();
           })
@@ -646,7 +646,7 @@
             settingsManager.show(
               "Error",
               "Failed to save configuration",
-              "danger"
+              "danger",
             );
           });
       });
@@ -656,7 +656,7 @@
       confirmPauseBtn.addEventListener("click", async () => {
         const mins = parseInt(
           document.getElementById("pauseDuration").value,
-          10
+          10,
         );
         try {
           const response = await fetch("/api/background_tasks/pause", {
@@ -667,12 +667,12 @@
           if (!response.ok) throw new Error("Failed to pause tasks");
 
           bootstrap.Modal.getInstance(
-            document.getElementById("pauseModal")
+            document.getElementById("pauseModal"),
           ).hide();
           settingsManager.show(
             "Success",
             `Tasks paused for ${mins} minutes`,
-            "success"
+            "success",
           );
           taskManager.loadTaskConfig();
         } catch (error) {
@@ -752,7 +752,7 @@
 
     if (manualRunAllBtn) {
       manualRunAllBtn.addEventListener("click", () =>
-        taskManager.runTask("ALL")
+        taskManager.runTask("ALL"),
       );
     }
 
@@ -762,14 +762,18 @@
         taskManager
           .submitTaskConfigUpdate(config)
           .then(() =>
-            settingsManager.show("Success", "Global disable toggled", "success")
+            settingsManager.show(
+              "Success",
+              "Global disable toggled",
+              "success",
+            ),
           )
           .catch(() =>
             settingsManager.show(
               "Error",
               "Failed to toggle global disable",
-              "danger"
-            )
+              "danger",
+            ),
           );
       });
     }
@@ -777,7 +781,7 @@
     if (clearHistoryBtn) {
       clearHistoryBtn.addEventListener("click", () => {
         const modal = new bootstrap.Modal(
-          document.getElementById("clearHistoryModal")
+          document.getElementById("clearHistoryModal"),
         );
         modal.show();
       });
@@ -788,7 +792,7 @@
       confirmClearHistory.addEventListener("click", async () => {
         await taskManager.clearTaskHistory();
         const modal = bootstrap.Modal.getInstance(
-          document.getElementById("clearHistoryModal")
+          document.getElementById("clearHistoryModal"),
         );
         modal.hide();
       });
@@ -931,14 +935,14 @@
           settingsManager.show(
             "Error",
             "Please select both start and end dates",
-            "danger"
+            "danger",
           );
           return;
         }
       } else {
         interval_days = parseInt(
           document.getElementById("remap-interval-select").value,
-          10
+          10,
         );
         start_date = new Date();
         start_date.setDate(start_date.getDate() - interval_days);
