@@ -12,7 +12,7 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from motor.motor_asyncio import AsyncIOMotorCollection
-from pymongo import UpdateOne, UpdateMany
+from pymongo import UpdateOne
 
 from db import db_manager
 

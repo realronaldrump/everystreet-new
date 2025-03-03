@@ -10,10 +10,7 @@ import math
 import aiohttp
 from aiohttp import ClientConnectorError, ClientResponseError, TCPConnector
 from geojson import loads as geojson_loads
-from timezonefinder import TimezoneFinder
 
-# Initialize the TimezoneFinder instance.
-tf = TimezoneFinder()
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)

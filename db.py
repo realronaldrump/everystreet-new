@@ -372,25 +372,6 @@ class DatabaseManager:
             )
             return None
 
-    async def ping(self) -> bool:
-        """
-        Ping the database to check connectivity.
-
-        Returns:
-            True if connected, False otherwise
-        """
-        try:
-
-            async def _do_ping():
-                await self.db.command("ping")
-                return True
-
-            return await self.execute_with_retry(
-                _do_ping, operation_name="database ping"
-            )
-        except Exception:
-            return False
-
 
 db_manager = DatabaseManager()
 db: AsyncIOMotorDatabase = db_manager.db
@@ -402,7 +383,6 @@ historical_trips_collection = db["historical_trips"]
 uploaded_trips_collection = db["uploaded_trips"]
 places_collection = db["places"]
 osm_data_collection = db["osm_data"]
-realtime_data_collection = db["realtime_data"]
 streets_collection = db["streets"]
 coverage_metadata_collection = db["coverage_metadata"]
 live_trips_collection = db["live_trips"]

@@ -9,7 +9,7 @@ with other mapping tools and applications.
 import json
 import logging
 from datetime import datetime
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any
 from bson import ObjectId
 import gpxpy
 import gpxpy.gpx

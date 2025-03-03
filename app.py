@@ -8,8 +8,8 @@ import io
 import uuid
 import tempfile
 from datetime import datetime, timedelta, timezone
-from math import radians, cos, sin, sqrt, atan2, ceil
-from typing import List, Dict, Any, Optional, Union
+from math import ceil
+from typing import List, Dict, Any, Optional
 
 # Third-party imports
 import time
@@ -35,7 +35,6 @@ from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinate
 from update_geo_points import update_geo_points
 from utils import (
     validate_location_osm,
-    validate_trip_data,
     reverse_geocode_nominatim,
     cleanup_session,
     BaseConnectionManager,
