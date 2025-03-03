@@ -176,8 +176,16 @@
     <!-- Trips for Selected Place -->
     <div class="col-12" id="trips-for-place-container" style="display: none">
       <div class="card bg-dark border-secondary">
-        <div class="card-header border-secondary">
+        <div
+          class="card-header border-secondary d-flex justify-content-between align-items-center"
+        >
           <h3 class="h5 mb-0">Trips for Selected Place</h3>
+          <button
+            id="back-to-places-btn"
+            class="btn btn-sm btn-outline-secondary"
+          >
+            <i class="fas fa-arrow-left me-1"></i> Back to Places
+          </button>
         </div>
         <div class="card-body">
           <div class="table-responsive">

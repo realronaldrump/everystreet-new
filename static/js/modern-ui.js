@@ -63,6 +63,18 @@
   function init() {
     try {
       cacheElements();
+
+      // Check if we're on a page that should have a map
+      const shouldHaveMap = document.querySelector("#map") !== null;
+      if (
+        shouldHaveMap &&
+        (!window.map || typeof window.map.eachLayer !== "function")
+      ) {
+        console.warn(
+          "Map not properly initialized. Some features may not work correctly."
+        );
+      }
+
       initThemeToggle();
       initMobileDrawer();
       initFilterPanel();
@@ -187,6 +199,12 @@
     document.querySelectorAll(".leaflet-container").forEach((container) => {
       container.style.background = theme === "light" ? "#e0e0e0" : "#1a1a1a";
     });
+
+    // Make sure map is a valid Leaflet map with eachLayer method
+    if (!window.map || typeof window.map.eachLayer !== "function") {
+      console.warn("Map not fully initialized, skipping theme update");
+      return;
+    }
 
     // Remove existing tile layers
     window.map.eachLayer((layer) => {

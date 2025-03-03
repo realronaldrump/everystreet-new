@@ -347,6 +347,11 @@
         .getElementById("save-place")
         ?.addEventListener("click", () => this.savePlace());
 
+      // Add back button event listener
+      document
+        .getElementById("back-to-places-btn")
+        ?.addEventListener("click", () => this.toggleView());
+
       this.map.on(L.Draw.Event.CREATED, (e) => {
         this.currentPolygon = e.layer;
         this.map.addLayer(this.currentPolygon);
