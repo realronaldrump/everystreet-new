@@ -420,7 +420,7 @@ class BackgroundTaskManager:
             # Check if dependency is currently running
             if dependency in self.running_tasks:
                 logger.info(
-                    f"Task {task_id} waiting for dependency {dependency} to complete"
+                    "Task %s waiting for dependency %s to complete", task_id, dependency
                 )
                 return False
 

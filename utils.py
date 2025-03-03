@@ -222,13 +222,20 @@ def retry_async(
                         wait_time = delay + jitter
 
                         logger.warning(
-                            f"Retry {attempt+1}/{max_retries} for {func.__name__}: {e}. "
-                            f"Retrying in {wait_time:.2f}s"
+                            "Retry %d/%d for %s: %s. Retrying in %.2fs",
+                            attempt + 1,
+                            max_retries,
+                            func.__name__,
+                            e,
+                            wait_time,
                         )
                         await asyncio.sleep(wait_time)
                     else:
                         logger.error(
-                            f"Failed after {max_retries} retries: {func.__name__}: {e}"
+                            "Failed after %d retries: %s: %s",
+                            max_retries,
+                            func.__name__,
+                            e,
                         )
                         raise
 
@@ -414,7 +421,8 @@ async def reverse_geocode_nominatim(lat: float, lon: float) -> Optional[Dict[str
             elif response.status == 429:  # Too Many Requests
                 retry_after = int(response.headers.get("Retry-After", 5))
                 logger.warning(
-                    f"Rate limit exceeded for reverse geocoding. Retry-After: {retry_after}s"
+                    "Rate limit exceeded for reverse geocoding. Retry-After: %ds",
+                    retry_after,
                 )
                 raise ClientResponseError(
                     request_info=response.request_info,
@@ -424,7 +432,8 @@ async def reverse_geocode_nominatim(lat: float, lon: float) -> Optional[Dict[str
                 )
             else:
                 logger.warning(
-                    f"Unexpected status code in reverse_geocode_nominatim: {response.status}"
+                    "Unexpected status code in reverse_geocode_nominatim: %d",
+                    response.status,
                 )
                 return None
 
