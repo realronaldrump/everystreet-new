@@ -5,6 +5,7 @@ from typing import Optional, Tuple, Dict, Any, TypeVar, Callable, Awaitable
 import time
 import functools
 from contextlib import asynccontextmanager
+import math
 
 import aiohttp
 from aiohttp import ClientConnectorError, ClientResponseError, TCPConnector
@@ -24,6 +25,11 @@ SESSION_TIMEOUT = aiohttp.ClientTimeout(
 
 # Type for retry decorator
 T = TypeVar("T")
+
+# Constants for Earth radius in different units
+EARTH_RADIUS_METERS = 6371000.0
+EARTH_RADIUS_MILES = 3958.8
+EARTH_RADIUS_KM = 6371.0
 
 
 class BaseConnectionManager:
@@ -425,3 +431,45 @@ async def reverse_geocode_nominatim(lat: float, lon: float) -> Optional[Dict[str
                     f"Unexpected status code in reverse_geocode_nominatim: {response.status}"
                 )
                 return None
+
+
+def haversine(
+    lon1: float, lat1: float, lon2: float, lat2: float, unit: str = "meters"
+) -> float:
+    """
+    Calculate the great-circle distance between two points on Earth.
+
+    Args:
+        lon1: Longitude of the first point in degrees
+        lat1: Latitude of the first point in degrees
+        lon2: Longitude of the second point in degrees
+        lat2: Latitude of the second point in degrees
+        unit: Unit of distance ('meters', 'miles', or 'km')
+
+    Returns:
+        Distance between the points in the specified unit
+    """
+    # Convert decimal degrees to radians
+    lon1_rad = math.radians(lon1)
+    lat1_rad = math.radians(lat1)
+    lon2_rad = math.radians(lon2)
+    lat2_rad = math.radians(lat2)
+
+    # Haversine formula
+    dlon = lon2_rad - lon1_rad
+    dlat = lat2_rad - lat1_rad
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    # Choose the radius based on the requested unit
+    if unit == "miles":
+        radius = EARTH_RADIUS_MILES
+    elif unit == "km":
+        radius = EARTH_RADIUS_KM
+    else:  # Default to meters
+        radius = EARTH_RADIUS_METERS
+
+    return radius * c

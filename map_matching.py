@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 import os
 from typing import List, Dict, Any, Optional, Tuple
 
-from utils import validate_trip_data, reverse_geocode_nominatim
+from utils import validate_trip_data, reverse_geocode_nominatim, haversine
 from db import matched_trips_collection, db_manager
 
 load_dotenv()
@@ -37,20 +37,6 @@ RATE_LIMIT_WINDOW = 60  # seconds
 MAPBOX_REQUEST_COUNT = 0
 MAPBOX_WINDOW_START = time.time()
 RATE_LIMIT_LOCK = asyncio.Lock()
-
-
-def haversine_single(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-    R = 6371000.0  # Earth's radius in meters
-    d_lat = math.radians(lat2 - lat1)
-    d_lon = math.radians(lon2 - lon1)
-    a = (
-        math.sin(d_lat / 2) ** 2
-        + math.cos(math.radians(lat1))
-        * math.cos(math.radians(lat2))
-        * math.sin(d_lon / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
 
 
 async def check_rate_limit() -> Tuple[bool, float]:
@@ -365,7 +351,7 @@ async def map_match_coordinates(
             for i in range(len(coords) - 1):
                 lon1, lat1 = coords[i]
                 lon2, lat2 = coords[i + 1]
-                distance = haversine_single(lon1, lat1, lon2, lat2)
+                distance = haversine(lon1, lat1, lon2, lat2, unit="meters")
                 if distance > threshold_m:
                     suspicious_indices.append(i)
             return suspicious_indices

@@ -35,9 +35,11 @@ from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinate
 from update_geo_points import update_geo_points
 from utils import (
     validate_location_osm,
+    validate_trip_data,
     reverse_geocode_nominatim,
     cleanup_session,
     BaseConnectionManager,
+    haversine as haversine_util,
 )
 from map_matching import process_and_map_match_trip
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
@@ -2446,30 +2448,17 @@ async def delete_uploaded_trip(trip_id: str):
 
 
 def meters_to_miles(m: float) -> float:
-    return m * 0.000621371
-
-
-def haversine(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-    R = 3958.8
-    dlat = radians(lat2 - lat1)
-    dlon = radians(lon2 - lon1)
-    a = (
-        sin(dlat / 2) ** 2
-        + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
-    )
-    c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    return R * c
+    return m / 1609.34
 
 
 def calculate_distance(coordinates: List[List[float]]) -> float:
-    if not coordinates or len(coordinates) < 2:
-        return 0
-    dist = 0
+    """Calculate the total distance of a trip from a list of [lng, lat] coordinates."""
+    total_distance = 0.0
     for i in range(len(coordinates) - 1):
         lon1, lat1 = coordinates[i]
         lon2, lat2 = coordinates[i + 1]
-        dist += haversine(lon1, lat1, lon2, lat2)
-    return dist
+        total_distance += haversine_util(lon1, lat1, lon2, lat2, unit="miles")
+    return total_distance
 
 
 def calculate_gpx_distance(coords: List[List[float]]) -> float:
@@ -3196,11 +3185,12 @@ async def bouncie_webhook(request: Request):
                     prev_point = all_coords[-2]
 
                     # Calculate distance between last two points
-                    distance = haversine(
+                    distance = haversine_util(
                         prev_point["lon"],
                         prev_point["lat"],
                         last_point["lon"],
                         last_point["lat"],
+                        unit="miles",
                     )
 
                     # Calculate time difference in hours
@@ -3218,8 +3208,12 @@ async def bouncie_webhook(request: Request):
                     for i in range(1, len(new_coords)):
                         prev = new_coords[i - 1]
                         curr = new_coords[i]
-                        total_distance += haversine(
-                            prev["lon"], prev["lat"], curr["lon"], curr["lat"]
+                        total_distance += haversine_util(
+                            prev["lon"],
+                            prev["lat"],
+                            curr["lon"],
+                            curr["lat"],
+                            unit="miles",
                         )
 
                 # Update max speed if needed
