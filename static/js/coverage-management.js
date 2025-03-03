@@ -56,7 +56,7 @@
             this.updateCoverageForArea(location);
           } else if (viewBtn) {
             const location = JSON.parse(viewBtn.dataset.location);
-            this.viewAreaOnMap(location);
+            CoverageManager.viewAreaOnMap(location);
           } else if (deleteBtn) {
             const location = JSON.parse(deleteBtn.dataset.location);
             this.deleteArea(location);
@@ -145,7 +145,7 @@
           last_updated: null, // Indicates that processing is underway.
           status: "processing",
         };
-        this.updateCoverageTable([...areas, newArea]);
+        CoverageManager.updateCoverageTable([...areas, newArea]);
 
         this.showProgressModal("Starting background processing...", 0);
         const preprocessResponse = await fetch("/api/preprocess_streets", {
@@ -246,7 +246,7 @@
         const response = await fetch("/api/coverage_areas");
         if (!response.ok) throw new Error("Failed to fetch coverage areas");
         const data = await response.json();
-        this.updateCoverageTable(data.areas);
+        CoverageManager.updateCoverageTable(data.areas);
       } catch (error) {
         console.error("Error loading coverage areas:", error);
         notificationManager.show(
@@ -256,7 +256,7 @@
       }
     }
 
-    updateCoverageTable(areas) {
+    static updateCoverageTable(areas) {
       const tbody = document.querySelector("#coverage-areas-table tbody");
       if (!tbody) return;
 
@@ -350,7 +350,7 @@
       }
     }
 
-    viewAreaOnMap(location) {
+    static viewAreaOnMap(location) {
       localStorage.setItem("selectedLocation", JSON.stringify(location));
       window.location.href = "/";
     }
@@ -409,11 +409,11 @@
       messageEl.textContent = data.message || "Processing...";
 
       // Display the current stage with an appropriate icon.
-      const stageIcon = this.getStageIcon(data.stage);
+      const stageIcon = CoverageManager.getStageIcon(data.stage);
       stageInfoEl.innerHTML = `
         <span class="text-info">
           <i class="${stageIcon}"></i>
-          ${this.formatStageName(data.stage)}
+          ${CoverageManager.formatStageName(data.stage)}
         </span>
       `;
 
@@ -449,7 +449,7 @@
       }
     }
 
-    getStageIcon(stage) {
+    static getStageIcon(stage) {
       const icons = {
         initializing: "fas fa-cog fa-spin",
         loading_streets: "fas fa-map-marked-alt",
@@ -463,7 +463,7 @@
       return icons[stage] || "fas fa-circle-notch fa-spin";
     }
 
-    formatStageName(stage) {
+    static formatStageName(stage) {
       return stage
         .split("_")
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
