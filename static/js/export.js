@@ -114,7 +114,7 @@
     if (!config) return;
 
     try {
-      let url;
+      let url = "";
 
       // Build the URL based on form type
       if (formType === "trips" || formType === "matchedTrips") {
@@ -255,17 +255,17 @@
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
 
-      const a = document.createElement("a");
-      a.style.display = "none";
-      a.href = blobUrl;
-      a.download = filename;
+      const downloadLink = document.createElement("a");
+      downloadLink.style.display = "none";
+      downloadLink.href = blobUrl;
+      downloadLink.download = filename;
 
-      document.body.appendChild(a);
-      a.click();
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
 
       // Clean up
       setTimeout(() => {
-        document.body.removeChild(a);
+        document.body.removeChild(downloadLink);
         URL.revokeObjectURL(blobUrl);
       }, 100);
 
@@ -287,7 +287,7 @@
         type
       );
     } else {
-      alert(`${type.toUpperCase()}: ${message}`);
+      console.log(`${type.toUpperCase()}: ${message}`);
     }
   }
 

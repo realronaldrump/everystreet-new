@@ -450,7 +450,6 @@
     layerToggles.innerHTML = "";
 
     Object.entries(AppState.mapLayers).forEach(([name, info]) => {
-      // We skip coverage layers that were removed; only build toggles for actual ones:
       const displayName = info.name || name;
       const div = document.createElement("div");
       div.className = "layer-control";
