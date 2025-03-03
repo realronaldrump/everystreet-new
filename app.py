@@ -3,7 +3,6 @@ import json
 import logging
 import asyncio
 import zipfile
-import glob
 import io
 import uuid
 import tempfile
@@ -186,7 +185,7 @@ class ConnectionManager(BaseConnectionManager):
                 "client_info": websocket.client,
             }
             logger.info(
-                f"Client {client_id} connected. Total connections: {self.connection_count}"
+                "Client %s connected. Total connections: %s", client_id, self.connection_count
             )
 
         # Start heartbeat task if not already running
@@ -213,7 +212,9 @@ class ConnectionManager(BaseConnectionManager):
                     del self._connection_metadata[id(websocket)]
                 self.connection_count -= 1
                 logger.info(
-                    f"Client {client_id} disconnected. Remaining connections: {self.connection_count}"
+                    "Client %s disconnected. Remaining connections: %s",
+                    client_id,
+                    self.connection_count,
                 )
 
     def _handle_task_done(self, future):

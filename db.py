@@ -1,3 +1,7 @@
+# db.py
+
+from __future__ import annotations  # 1) Handle forward references cleanly
+
 import os
 import certifi
 import logging
@@ -5,7 +9,16 @@ import asyncio
 import threading
 import time
 from datetime import timezone
-from typing import Optional, Any, Dict, Tuple, Callable, TypeVar, Awaitable
+from typing import (
+    Optional,
+    Any,
+    Dict,
+    Tuple,
+    Callable,
+    TypeVar,
+    Awaitable,
+    ClassVar,
+)
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 import pymongo
@@ -32,13 +45,13 @@ class DatabaseManager:
     Provides helper methods for checking quota and safely creating indexes.
     """
 
-    _instance: Optional["DatabaseManager"] = None
-    _client: Optional[AsyncIOMotorClient] = None
-    _db: Optional[AsyncIOMotorDatabase] = None
+    _instance: ClassVar[DatabaseManager | None] = None
+    _client: AsyncIOMotorClient | None = None
+    _db: AsyncIOMotorDatabase | None = None
     _quota_exceeded: bool = False
     _lock = threading.Lock()
-    _db_semaphore: Optional[asyncio.Semaphore] = None
-    _last_connection_check: float = 0
+    _db_semaphore: asyncio.Semaphore | None = None
+    _last_connection_check: float = 0.0
     _connection_healthy: bool = True
     _max_concurrent_operations: int = 10
     _connection_check_interval: int = 60  # seconds
@@ -55,7 +68,7 @@ class DatabaseManager:
     _max_retry_attempts: int = 3
     _retry_delay_ms: int = 500
 
-    def __new__(cls) -> "DatabaseManager":
+    def __new__(cls) -> DatabaseManager:
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
@@ -69,11 +82,10 @@ class DatabaseManager:
     def _initialize_client(self) -> None:
         """Initialize the MongoDB client and database connection with proper pooling."""
         try:
-            mongo_uri: str = os.getenv("MONGO_URI")
+            mongo_uri: str = os.getenv("MONGO_URI") or ""
             if not mongo_uri:
                 raise ValueError("MONGO_URI environment variable not set")
 
-            # Configure connection pooling and timeouts
             self._client = AsyncIOMotorClient(
                 mongo_uri,
                 tls=True,
@@ -89,14 +101,15 @@ class DatabaseManager:
                 socketTimeoutMS=self._socket_timeout_ms,
                 retryWrites=self._retry_writes,
                 retryReads=self._retry_reads,
-                waitQueueTimeoutMS=10000,  # 10 seconds to wait for a connection from the pool
+                waitQueueTimeoutMS=10000,  # 10s to wait for a connection from the pool
                 appname="EveryStreet",
             )
             self._db = self._client["every_street"]
             self._connection_healthy = True
             self._last_connection_check = time.time()
+            # Wrapped to conform to 88 chars
             logger.info(
-                "MongoDB client initialized successfully with connection pooling."
+                "MongoDB client initialized successfully with " "connection pooling."
             )
         except Exception as e:
             self._connection_healthy = False
@@ -144,7 +157,8 @@ class DatabaseManager:
             try:
                 self._initialize_client()
                 logger.info(
-                    "Successfully reinitialized MongoDB client after connection failure"
+                    "Successfully reinitialized MongoDB client "
+                    "after connection failure"
                 )
                 self._connection_healthy = True
             except Exception as reinit_error:
@@ -156,7 +170,7 @@ class DatabaseManager:
     async def execute_with_retry(
         self,
         operation: Callable[[], Awaitable[T]],
-        max_attempts: int = None,
+        max_attempts: int | None = None,
         operation_name: str = "database operation",
     ) -> T:
         """
@@ -166,8 +180,8 @@ class DatabaseManager:
             max_attempts = self._max_retry_attempts
 
         attempts = 0
-        last_error = None
-        retry_delay = self._retry_delay_ms / 1000.0  # convert to seconds
+        last_error: Exception | None = None
+        retry_delay = self._retry_delay_ms / 1000.0  # convert ms to seconds
 
         while attempts < max_attempts:
             attempts += 1
@@ -185,6 +199,7 @@ class DatabaseManager:
                 NetworkTimeout,
             ) as e:
                 last_error = e
+                # Wrapped logger call
                 logger.warning(
                     "Attempt %d/%d for %s failed with connection error: %s",
                     attempts,
@@ -201,19 +216,17 @@ class DatabaseManager:
                 # Handle memory allocation errors specifically
                 if "Cannot allocate memory" in str(e):
                     logger.warning(
-                        "Memory allocation error during %s: %s. Attempting to recover...",
+                        "Memory allocation error during %s: %s. "
+                        "Attempting to recover...",
                         operation_name,
                         str(e),
                     )
-                    # Use our specialized memory error handler
                     recovery_successful = await self.handle_memory_error()
 
                     if recovery_successful and attempts < max_attempts:
                         continue
-                    else:
-                        last_error = e
+                    last_error = e
                 else:
-                    # Other OS errors
                     last_error = e
                     logger.warning("OS error during %s: %s", operation_name, str(e))
 
@@ -234,10 +247,10 @@ class DatabaseManager:
                     await asyncio.sleep(retry_delay)
                     retry_delay *= 2  # Exponential backoff
 
-            # This should only be reached if all retries failed but no exception was raised
-            if last_error:
-                raise last_error
-            raise RuntimeError(f"Unknown error executing {operation_name}")
+        # If we exit the loop, all retries failed
+        if last_error:
+            raise last_error
+        raise RuntimeError(f"Unknown error executing {operation_name}")
 
     async def check_quota(self) -> Tuple[Optional[float], Optional[float]]:
         """
@@ -258,6 +271,7 @@ class DatabaseManager:
                 limit_mb = 512  # Free-tier limit
                 self._quota_exceeded = used_mb > limit_mb
                 if self._quota_exceeded:
+                    # Wrapped logger
                     logger.warning(
                         "MongoDB quota exceeded: using %.2f MB of %d MB",
                         used_mb,
@@ -281,12 +295,13 @@ class DatabaseManager:
     ) -> None:
         """
         Create an index on a given collection if the quota is not exceeded.
-        Uses retry logic for transient errors. If the index already exists with a different name,
-        it logs a warning and continues.
+        Uses retry logic for transient errors. If the index already exists with
+        a different name, logs a warning and continues.
         """
         if self._quota_exceeded:
             logger.warning(
-                "Skipping index creation for %s due to quota exceeded", collection_name
+                "Skipping index creation for %s due to quota exceeded",
+                collection_name,
             )
             return
 
@@ -304,7 +319,8 @@ class DatabaseManager:
             # Check for the specific error code for IndexOptionsConflict (85)
             if e.code == 85:
                 logger.warning(
-                    "Index on %s with keys %s already exists with a different name, skipping creation.",
+                    "Index on %s with keys %s already exists with a different name. "
+                    "Skipping creation.",
                     collection_name,
                     keys,
                 )
@@ -332,7 +348,7 @@ class DatabaseManager:
             collection_name: Name of the collection
 
         Returns:
-            Dictionary of collection statistics or None on error
+            Dictionary of collection statistics or None on error.
         """
         try:
 
@@ -340,7 +356,8 @@ class DatabaseManager:
                 return await self.db.command("collStats", collection_name)
 
             return await self.execute_with_retry(
-                _do_get_stats, operation_name=f"get stats for {collection_name}"
+                _do_get_stats,
+                operation_name=f"get stats for {collection_name}",
             )
         except Exception as e:
             logger.error(
@@ -357,41 +374,39 @@ class DatabaseManager:
             try:
                 logger.info("Closing MongoDB client connections...")
                 self._client.close()
-                self._client = None  # Set to None to avoid reuse after closing
+                self._client = None  # Avoid reuse after closing
                 logger.info("MongoDB client connections closed successfully")
             except Exception as e:
                 logger.error("Error closing MongoDB connections: %s", e, exc_info=True)
 
     def __del__(self) -> None:
         """
-        Destructor to ensure connections are closed when the manager is garbage collected.
+        Destructor to ensure connections are closed when the manager is
+        garbage collected.
         """
         if self._client and asyncio.get_event_loop().is_running():
             try:
                 asyncio.create_task(self.cleanup_connections())
             except Exception as e:
-                # Just log, as we're in a destructor
+                # Just log; we're in a destructor
                 logger.error("Error in DatabaseManager destructor: %s", e)
 
     async def handle_memory_error(self) -> bool:
         """
         Handle memory allocation errors by:
-        1. Force garbage collection
-        2. Close existing client
-        3. Reduce connection pool size temporarily
-        4. Reinitialize the client
+          1. Forcing garbage collection
+          2. Closing the existing client
+          3. Reducing connection pool size temporarily
+          4. Reinitializing the client
 
         Returns:
-            bool: True if recovery was successful, False otherwise
+            bool: True if recovery was successful, False otherwise.
         """
         import gc
 
         logger.warning("Attempting to recover from memory allocation error...")
 
-        # Remember original pool size for logging
         original_pool_size = self._max_pool_size
-
-        # Mark connection as unhealthy
         self._connection_healthy = False
 
         # Close existing connections
@@ -400,11 +415,13 @@ class DatabaseManager:
                 self._client.close()
                 self._client = None
             except Exception as e:
-                logger.error("Error closing client during memory error recovery: %s", e)
+                logger.error(
+                    "Error closing client during memory error recovery: %s",
+                    e,
+                )
 
         # Force garbage collection
         gc.collect()
-
         # Give the system time to reclaim memory
         await asyncio.sleep(1)
 
@@ -416,7 +433,8 @@ class DatabaseManager:
             self._initialize_client()
             self._connection_healthy = True
             logger.info(
-                "Successfully recovered from memory error with reduced pool size (%d -> %d)",
+                "Successfully recovered from memory error with reduced "
+                "pool size (%d -> %d)",
                 original_pool_size,
                 self._max_pool_size,
             )
@@ -426,8 +444,8 @@ class DatabaseManager:
             return False
 
 
-db_manager = DatabaseManager()
-db: AsyncIOMotorDatabase = db_manager.db
+db: AsyncIOMotorDatabase
+db = DatabaseManager().db  # or simply db_manager.db
 
 # Define collections
 trips_collection = db["trips"]
@@ -450,12 +468,13 @@ async def init_task_history_collection() -> None:
     """
     try:
         tasks = [
-            db_manager.safe_create_index(
+            DatabaseManager().safe_create_index(
                 "task_history", [("task_id", pymongo.ASCENDING)]
             ),
-            db_manager.safe_create_index("task_history", [("timestamp", -1)]),
-            db_manager.safe_create_index(
-                "task_history", [("task_id", pymongo.ASCENDING), ("timestamp", -1)]
+            DatabaseManager().safe_create_index("task_history", [("timestamp", -1)]),
+            DatabaseManager().safe_create_index(
+                "task_history",
+                [("task_id", pymongo.ASCENDING), ("timestamp", -1)],
             ),
         ]
         await asyncio.gather(*tasks)
@@ -471,7 +490,7 @@ async def ensure_street_coverage_indexes() -> None:
     """
     try:
         tasks = [
-            db_manager.safe_create_index(
+            DatabaseManager().safe_create_index(
                 "coverage_metadata",
                 [
                     ("location.display_name", pymongo.ASCENDING),
@@ -479,21 +498,25 @@ async def ensure_street_coverage_indexes() -> None:
                 ],
                 unique=True,
             ),
-            db_manager.safe_create_index(
+            DatabaseManager().safe_create_index(
                 "streets", [("properties.location", pymongo.ASCENDING)]
             ),
-            db_manager.safe_create_index(
+            DatabaseManager().safe_create_index(
                 "streets", [("properties.segment_id", pymongo.ASCENDING)]
             ),
-            db_manager.safe_create_index("trips", [("gps", pymongo.ASCENDING)]),
-            db_manager.safe_create_index("trips", [("startTime", pymongo.ASCENDING)]),
-            db_manager.safe_create_index("trips", [("endTime", pymongo.ASCENDING)]),
-            db_manager.safe_create_index(
+            DatabaseManager().safe_create_index("trips", [("gps", pymongo.ASCENDING)]),
+            DatabaseManager().safe_create_index(
+                "trips", [("startTime", pymongo.ASCENDING)]
+            ),
+            DatabaseManager().safe_create_index(
+                "trips", [("endTime", pymongo.ASCENDING)]
+            ),
+            DatabaseManager().safe_create_index(
                 "trips",
                 [("startTime", pymongo.ASCENDING), ("endTime", pymongo.ASCENDING)],
                 name="trips_date_range",
             ),
-            db_manager.safe_create_index(
+            DatabaseManager().safe_create_index(
                 "matched_trips",
                 [("startTime", pymongo.ASCENDING), ("endTime", pymongo.ASCENDING)],
                 name="matched_trips_date_range",
@@ -515,7 +538,7 @@ async def find_one_with_retry(collection, query, projection=None):
     async def _operation():
         return await collection.find_one(query, projection)
 
-    return await db_manager.execute_with_retry(
+    return await DatabaseManager().execute_with_retry(
         _operation, operation_name=f"find_one on {collection.name}"
     )
 
@@ -529,30 +552,33 @@ async def find_with_retry(
 
     async def _operation():
         cursor = collection.find(query, projection)
-
         if sort:
             cursor = cursor.sort(sort)
         if skip:
             cursor = cursor.skip(skip)
         if limit:
             cursor = cursor.limit(limit)
-
         return await cursor.to_list(length=None)
 
-    return await db_manager.execute_with_retry(
+    return await DatabaseManager().execute_with_retry(
         _operation, operation_name=f"find on {collection.name}"
     )
 
 
-async def update_one_with_retry(collection, filter, update, upsert=False):
+async def update_one_with_retry(
+    collection,
+    filter_query,  # Renamed from 'filter' to avoid PYL-W0622
+    update,
+    upsert=False,
+):
     """
     Execute update_one with retry logic.
     """
 
     async def _operation():
-        return await collection.update_one(filter, update, upsert=upsert)
+        return await collection.update_one(filter_query, update, upsert=upsert)
 
-    return await db_manager.execute_with_retry(
+    return await DatabaseManager().execute_with_retry(
         _operation, operation_name=f"update_one on {collection.name}"
     )
 
@@ -565,6 +591,6 @@ async def aggregate_with_retry(collection, pipeline):
     async def _operation():
         return await collection.aggregate(pipeline).to_list(None)
 
-    return await db_manager.execute_with_retry(
+    return await DatabaseManager().execute_with_retry(
         _operation, operation_name=f"aggregate on {collection.name}"
     )

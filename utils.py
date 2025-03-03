@@ -9,7 +9,6 @@ import math
 
 import aiohttp
 from aiohttp import ClientConnectorError, ClientResponseError, TCPConnector
-from geojson import loads as geojson_loads
 
 
 logging.basicConfig(level=logging.DEBUG)

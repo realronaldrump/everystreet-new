@@ -459,7 +459,10 @@ class BackgroundTaskManager:
                     self.task_status[task_id] = TaskStatus.PENDING
                 return {
                     "success": False,
-                    "message": f"Task {task_id} dependencies not satisfied. Task marked as pending.",
+                    "message": (
+                        f"Task {task_id} dependencies not satisfied. "
+                        "Task marked as pending."
+                    ),
                 }
 
             # Mark task as running
@@ -468,7 +471,8 @@ class BackgroundTaskManager:
                 self.running_tasks.add(task_id)
 
             # Create job ID with timestamp for uniqueness
-            job_id = f"{task_id}_{'manual' if is_manual else 'auto'}_{datetime.now(timezone.utc).timestamp()}"
+            timestamp = datetime.now(timezone.utc).timestamp()
+            job_id = f"{task_id}_{'manual' if is_manual else 'auto'}_{timestamp}"
 
             # Schedule for immediate execution
             self.scheduler.add_job(
