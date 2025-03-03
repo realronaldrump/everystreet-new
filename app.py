@@ -2890,19 +2890,19 @@ async def get_trips_for_place(place_id: str):
                     ):
                         if shape(p["geometry"]).contains(shape(start_pt)):
                             same_place = True
-                if same_place:
-                    next_start = next_trip.get("startTime")
-                    if isinstance(next_start, str):
-                        next_start = dateutil_parser.isoparse(next_start)
-                    if next_start and next_start.tzinfo is None:
-                        next_start = next_start.replace(tzinfo=timezone.utc)
-                    if next_start and next_start > end_time:
-                        duration_minutes = (
-                            next_start - end_time
-                        ).total_seconds() / 60.0
-                        hh = int(duration_minutes // 60)
-                        mm = int(duration_minutes % 60)
-                        duration_str = f"{hh}h {mm:02d}m"
+                    if same_place:
+                        next_start = next_trip.get("startTime")
+                        if isinstance(next_start, str):
+                            next_start = dateutil_parser.isoparse(next_start)
+                        if next_start and next_start.tzinfo is None:
+                            next_start = next_start.replace(tzinfo=timezone.utc)
+                        if next_start and next_start > end_time:
+                            duration_minutes = (
+                                next_start - end_time
+                            ).total_seconds() / 60.0
+                            hh = int(duration_minutes // 60)
+                            mm = int(duration_minutes % 60)
+                            duration_str = f"{hh}h {mm:02d}m"
             if i > 0:
                 prev_trip_end = valid_trips[i - 1].get("endTime")
                 if isinstance(prev_trip_end, str):
@@ -3444,21 +3444,31 @@ async def serialize_live_trip(trip_data):
 @app.get("/api/database/storage-info")
 async def get_storage_info():
     try:
-        db_stats = await db.command("dbStats")
-        data_size = db_stats.get("dataSize")
-        if data_size is None:
-            raise ValueError("dbStats did not return 'dataSize'")
-        storage_used_mb = round(data_size / (1024 * 1024), 2)
-        storage_limit_mb = 512
-        storage_usage_percent = round((storage_used_mb / storage_limit_mb) * 100, 2)
+        # Use the check_quota method which is already designed to be reliable
+        used_mb, limit_mb = await db_manager.check_quota()
+        
+        if used_mb is None or limit_mb is None:
+            # Fallback values if we couldn't get the data
+            used_mb = 0
+            limit_mb = 512
+            storage_usage_percent = 0
+        else:
+            storage_usage_percent = round((used_mb / limit_mb) * 100, 2)
+            
         return {
-            "used_mb": storage_used_mb,
-            "limit_mb": storage_limit_mb,
+            "used_mb": used_mb,
+            "limit_mb": limit_mb,
             "usage_percent": storage_usage_percent,
         }
     except Exception as e:
         logger.exception("Error getting storage info")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return a sensible fallback value rather than raising an error
+        return {
+            "used_mb": 0,
+            "limit_mb": 512,
+            "usage_percent": 0,
+            "error": str(e)
+        }
 
 
 @app.post("/api/database/optimize-collection")
@@ -3647,11 +3657,19 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    # First shutdown task manager
     await task_manager.stop()
+    
+    # Close database connections to free memory
+    await db_manager.cleanup_connections()
+    
+    # Clean up HTTP sessions
     await cleanup_session()
 
-    # Use the manager's cleanup method
+    # Clean up WebSocket connections
     await manager.cleanup()
+    
+    logger.info("Application shutdown completed successfully")
 
 
 # ------------------------------------------------------------------------------

@@ -40,20 +40,20 @@ class DatabaseManager:
     _db_semaphore: Optional[asyncio.Semaphore] = None
     _last_connection_check: float = 0
     _connection_healthy: bool = True
-    _max_concurrent_operations: int = 20
+    _max_concurrent_operations: int = 10
     _connection_check_interval: int = 60  # seconds
 
     # Connection pooling and retry configuration
-    _max_pool_size: int = 50
-    _min_pool_size: int = 5
-    _max_idle_time_ms: int = 60000  # 1 minute
-    _connect_timeout_ms: int = 5000  # 5 seconds
-    _server_selection_timeout_ms: int = 10000  # 10 seconds
-    _socket_timeout_ms: int = 30000  # 30 seconds
+    _max_pool_size: int = 25
+    _min_pool_size: int = 3
+    _max_idle_time_ms: int = 30000
+    _connect_timeout_ms: int = 5000
+    _server_selection_timeout_ms: int = 10000
+    _socket_timeout_ms: int = 30000
     _retry_writes: bool = True
     _retry_reads: bool = True
     _max_retry_attempts: int = 3
-    _retry_delay_ms: int = 500  # 500 milliseconds base delay
+    _retry_delay_ms: int = 500
 
     def __new__(cls) -> "DatabaseManager":
         with cls._lock:
@@ -370,6 +370,30 @@ class DatabaseManager:
                 "Error getting stats for collection %s: %s", collection_name, e
             )
             return None
+
+    async def cleanup_connections(self) -> None:
+        """
+        Close all connections in the pool to release resources.
+        Call this during application shutdown.
+        """
+        if self._client:
+            try:
+                logger.info("Closing MongoDB client connections...")
+                self._client.close()
+                logger.info("MongoDB client connections closed successfully")
+            except Exception as e:
+                logger.error("Error closing MongoDB connections: %s", e, exc_info=True)
+                
+    def __del__(self) -> None:
+        """
+        Destructor to ensure connections are closed when the manager is garbage collected.
+        """
+        if self._client and asyncio.get_event_loop().is_running():
+            try:
+                asyncio.create_task(self.cleanup_connections())
+            except Exception as e:
+                # Just log, as we're in a destructor
+                logger.error("Error in DatabaseManager destructor: %s", e)
 
 
 db_manager = DatabaseManager()

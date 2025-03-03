@@ -71,13 +71,22 @@ document.addEventListener("DOMContentLoaded", () => {
    * @throws {Error} If the request fails or the response is not OK.
    */
   async function performDatabaseAction(endpoint, body = {}) {
-    const response = await fetch(endpoint, {
-      method: "POST",
+    // Use GET method for storage-info endpoint
+    const method = endpoint.includes("storage-info") ? "GET" : "POST";
+
+    const options = {
+      method,
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
-    });
+    };
+
+    // Only include body for POST requests
+    if (method === "POST") {
+      options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(endpoint, options);
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -119,12 +128,13 @@ document.addEventListener("DOMContentLoaded", () => {
   refreshStorageBtn?.addEventListener("click", async () => {
     try {
       setButtonLoading(refreshStorageBtn, true);
+      // Use absolute path for the endpoint
       const data = await performDatabaseAction("/api/database/storage-info");
       updateStorageDisplay(data);
       showNotification("Storage information updated successfully", "success");
     } catch (error) {
       showNotification("Failed to refresh storage information", "danger");
-      // Log the error to the *console* (server-side, presumably) for debugging.
+      // Log the error to the *console* for debugging.
       console.error("Error refreshing storage info:", error);
     } finally {
       setButtonLoading(refreshStorageBtn, false);
