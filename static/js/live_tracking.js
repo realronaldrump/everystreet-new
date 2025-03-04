@@ -308,6 +308,15 @@ class LiveTripTracker {
   setActiveTrip(trip) {
     if (!trip) return;
 
+    // If trip is marked as completed, clear it from the map
+    if (trip.status === "completed") {
+      console.log("Trip is completed, clearing from map");
+      this.clearActiveTrip();
+      this.updateActiveTripsCount(0);
+      this.updateStatus(true, "No active trips");
+      return;
+    }
+
     this.activeTrip = trip;
 
     if (!Array.isArray(trip.coordinates) || trip.coordinates.length === 0) {
@@ -377,15 +386,30 @@ class LiveTripTracker {
     // Get values from backend if available, otherwise calculate
     const startTime = trip.startTime ? new Date(trip.startTime) : null;
     const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
+    const endTime = trip.endTime ? new Date(trip.endTime) : null;
+    const tripStatus = trip.status || "active";
 
     // Display preformatted duration from backend or format it client-side
     let durationStr = trip.durationFormatted;
-    if (!durationStr && startTime && lastUpdate) {
-      const duration = Math.floor((lastUpdate - startTime) / 1000);
-      const hours = Math.floor(duration / 3600);
-      const minutes = Math.floor((duration % 3600) / 60);
-      const seconds = duration % 60;
-      durationStr = `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+    if (!durationStr && startTime) {
+      // If trip is completed, use endTime for duration calculation
+      // Otherwise use lastUpdate or current time
+      const endTimeToUse =
+        tripStatus === "completed" ? endTime : lastUpdate || new Date();
+
+      if (endTimeToUse) {
+        const duration = Math.floor((endTimeToUse - startTime) / 1000);
+        // Only show positive durations
+        if (duration >= 0) {
+          const hours = Math.floor(duration / 3600);
+          const minutes = Math.floor((duration % 3600) / 60);
+          const seconds = duration % 60;
+          durationStr = `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+        } else {
+          // If we somehow got a negative duration, show 0
+          durationStr = "0:00:00";
+        }
+      }
     }
 
     // Use backend-calculated values if available

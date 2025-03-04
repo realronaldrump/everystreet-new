@@ -478,8 +478,16 @@ async def cleanup_stale_trips():
         )
         if not trip:
             break
-        trip["status"] = "stale"
+
+        # Mark the trip as stale instead of active
+        trip["status"] = "completed"
         trip["endTime"] = now
+
+        # Calculate final duration before archiving
+        if "startTime" in trip and isinstance(trip["startTime"], datetime):
+            duration_seconds = (now - trip["startTime"]).total_seconds()
+            trip["duration"] = duration_seconds
+
         await archived_live_trips_collection.insert_one(trip)
         cleanup_count += 1
 

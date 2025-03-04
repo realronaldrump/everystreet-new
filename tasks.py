@@ -26,6 +26,7 @@ from street_coverage_calculation import update_coverage_for_all_locations
 from preprocess_streets import preprocess_streets as async_preprocess_streets
 
 from db import db, db_manager
+from live_tracking import cleanup_stale_trips
 
 logger = logging.getLogger(__name__)
 
@@ -741,27 +742,10 @@ class BackgroundTaskManager:
         # Check memory before running this task
         high_memory = await self._check_memory_usage()
 
-        now_utc = datetime.now(timezone.utc)
-        # Find trips that haven't been updated in the last 10 minutes
-        cutoff_time = now_utc - timedelta(minutes=10)
+        # Call the actual cleanup function that properly handles trip completion
+        cleanup_count = await cleanup_stale_trips()
 
-        query = {"lastUpdated": {"$lt": cutoff_time}}
-
-        # Find stale trips
-        stale_trips = []
-        async for trip in live_trips_collection.find(query):
-            stale_trips.append(trip)
-
-        if stale_trips:
-            # Archive the stale trips
-            if not high_memory:  # Only archive if memory isn't critical
-                await archived_live_trips_collection.insert_many(stale_trips)
-
-            # Delete the stale trips from live collection
-            result = await live_trips_collection.delete_many(query)
-            logger.info("Cleaned up %d stale trips", result.deleted_count)
-        else:
-            logger.info("No stale trips to clean up")
+        logger.info("Task manager: Cleaned up %d stale trips", cleanup_count)
 
     async def _cleanup_invalid_trips(self) -> None:
         task_id = "cleanup_invalid_trips"
