@@ -128,7 +128,7 @@ class LiveTripTracker {
     this.isPolling = true;
     this.poll();
     console.log(
-      `LiveTripTracker: Started polling (${this.pollingInterval}ms interval)`
+      `LiveTripTracker: Started polling (${this.pollingInterval}ms interval)`,
     );
   }
 
@@ -185,7 +185,7 @@ class LiveTripTracker {
    */
   async fetchTripUpdates() {
     const response = await fetch(
-      `/api/trip_updates?last_sequence=${this.lastSequence}`
+      `/api/trip_updates?last_sequence=${this.lastSequence}`,
     );
 
     if (!response.ok) {
@@ -223,10 +223,10 @@ class LiveTripTracker {
   increasePollingInterval() {
     this.pollingInterval = Math.min(
       this.pollingInterval * 1.5,
-      this.maxPollingInterval
+      this.maxPollingInterval,
     );
     console.log(
-      `LiveTripTracker: Increased polling interval to ${this.pollingInterval}ms`
+      `LiveTripTracker: Increased polling interval to ${this.pollingInterval}ms`,
     );
   }
 
@@ -236,10 +236,10 @@ class LiveTripTracker {
   decreasePollingInterval() {
     this.pollingInterval = Math.max(
       this.pollingInterval * 0.8,
-      this.minPollingInterval
+      this.minPollingInterval,
     );
     console.log(
-      `LiveTripTracker: Decreased polling interval to ${this.pollingInterval}ms`
+      `LiveTripTracker: Decreased polling interval to ${this.pollingInterval}ms`,
     );
   }
 
@@ -255,7 +255,7 @@ class LiveTripTracker {
     this.statusIndicator.classList.toggle("disconnected", !connected);
     this.statusIndicator.setAttribute(
       "aria-label",
-      connected ? "Connected" : "Disconnected"
+      connected ? "Connected" : "Disconnected",
     );
 
     this.statusText.textContent =
@@ -341,7 +341,7 @@ class LiveTripTracker {
       this.activeTripsCountElem.textContent = count;
       this.activeTripsCountElem.setAttribute(
         "aria-label",
-        `${count} active trips`
+        `${count} active trips`,
       );
     }
   }
@@ -388,7 +388,7 @@ class LiveTripTracker {
         ([label, value]) => `<div class="metric-row">
         <span class="metric-label">${label}:</span>
         <span class="metric-value">${value}</span>
-      </div>`
+      </div>`,
       )
       .join("");
   }
@@ -433,7 +433,7 @@ class LiveTripTracker {
         prev.lat,
         prev.lon,
         curr.lat,
-        curr.lon
+        curr.lon,
       );
     }
     return totalDistance;
@@ -477,7 +477,7 @@ class LiveTripTracker {
       prev.lat,
       prev.lon,
       last.lat,
-      last.lon
+      last.lon,
     );
 
     const timeDiff =
@@ -502,7 +502,7 @@ class LiveTripTracker {
         prev.lat,
         prev.lon,
         curr.lat,
-        curr.lon
+        curr.lon,
       );
 
       const timeDiff =
@@ -567,7 +567,7 @@ class LiveTripTracker {
     // Remove event listeners
     document.removeEventListener(
       "visibilitychange",
-      this.handleVisibilityChange
+      this.handleVisibilityChange,
     );
   }
 }
