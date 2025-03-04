@@ -57,7 +57,6 @@ AUTHORIZED_DEVICES = [d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") 
 AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 
 
-# For demonstration, we create a short-lived client here; in practice, you
 # might want to use a shared session from `utils.py` or a central session manager.
 async def get_access_token(client_session: aiohttp.ClientSession) -> str:
     """
