@@ -1878,13 +1878,15 @@ body.light-mode .text-tertiary {
   }
 
   .floating-action-btn {
-    bottom: var(--space-4);
-    right: var(--space-4);
+    bottom: var(
+      --space-12
+    ); /* Increased from space-4 to space-12 to move it higher */
+    right: var(--space-6); /* Slightly increased from space-4 to space-6 */
   }
 
   .main-content {
-    padding: calc(var(--header-height) + var(--space-3)) var(--space-3)
-      var(--space-3);
+    margin-left: 0;
+    padding: var(--space-4);
   }
 
   .table-responsive {
