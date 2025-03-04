@@ -6,7 +6,8 @@
   class TaskManager {
     constructor() {
       this.toastManager = new ToastManager();
-      this.ws = null;
+      // Remove the websocket initialization
+      // this.ws = null;
       this.activeTasksMap = new Map();
       this.intervalOptions = [
         { value: 1, label: "1 minute" },
@@ -21,33 +22,69 @@
       this.currentHistoryPage = 1;
       this.historyLimit = 10;
       this.historyTotalPages = 1;
-      this.initializeWebSocket();
+
+      // Enhance polling to handle all updates
       this.setupPolling();
     }
 
-    initializeWebSocket() {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      this.ws = new WebSocket(
-        `${protocol}//${window.location.host}/ws/live_trip`
-      );
-
-      this.ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === "task_update") {
-          this.handleTaskUpdate(data);
-        }
-      };
-
-      this.ws.onclose = () => {
-        setTimeout(() => this.initializeWebSocket(), 5000);
-      };
-    }
-
     setupPolling() {
+      // Increase polling frequency for better responsiveness
       setInterval(() => {
         this.loadTaskConfig();
         this.updateTaskHistory();
-      }, 30000);
+        // Check for active tasks status updates
+        this.checkActiveTasksStatus();
+      }, 10000); // Poll every 10 seconds instead of 30 seconds
+    }
+
+    // Add a method to check status of active tasks
+    async checkActiveTasksStatus() {
+      try {
+        const activeTaskIds = Array.from(this.activeTasksMap.keys());
+        if (activeTaskIds.length === 0) return;
+
+        // Fetch the current status of all active tasks
+        const configResponse = await fetch("/api/background_tasks/config");
+        if (!configResponse.ok) {
+          throw new Error("Failed to fetch task configuration");
+        }
+        const config = await configResponse.json();
+
+        // Update UI for each active task
+        for (const taskId of activeTaskIds) {
+          const taskConfig = config.tasks[taskId];
+          if (!taskConfig) continue;
+
+          const currentStatus = taskConfig.status;
+          const previousStatus = this.activeTasksMap.get(taskId);
+
+          if (currentStatus !== previousStatus) {
+            this.activeTasksMap.set(taskId, currentStatus);
+            this.handleTaskUpdate({
+              task_id: taskId,
+              status: currentStatus,
+              last_run: taskConfig.last_run,
+              next_run: taskConfig.next_run,
+            });
+
+            // If task completed or failed, show a notification
+            if (
+              previousStatus === "RUNNING" &&
+              (currentStatus === "COMPLETED" || currentStatus === "FAILED")
+            ) {
+              const statusType =
+                currentStatus === "COMPLETED" ? "success" : "danger";
+              this.toastManager.show(
+                "Task Update",
+                `Task ${taskId} ${currentStatus.toLowerCase()}`,
+                statusType
+              );
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error checking active tasks status:", error);
+      }
     }
 
     handleTaskUpdate(data) {
