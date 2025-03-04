@@ -372,34 +372,49 @@ class LiveTripTracker {
   updateTripMetrics(trip) {
     if (!this.tripMetricsElem || !trip) return;
 
-    // Calculate duration
+    console.log("Updating trip metrics with:", trip);
+
+    // Get values from backend if available, otherwise calculate
     const startTime = trip.startTime ? new Date(trip.startTime) : null;
     const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
-    const duration =
-      startTime && lastUpdate ? Math.floor((lastUpdate - startTime) / 1000) : 0;
-    const hours = Math.floor(duration / 3600);
-    const minutes = Math.floor((duration % 3600) / 60);
-    const seconds = duration % 60;
-    const durationStr = `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 
-    // Calculate distance and speeds
-    const coordinates = trip.coordinates || [];
-    const distance = this.calculateTripDistance(coordinates);
-    const currentSpeed = this.calculateCurrentSpeed(coordinates);
-    const avgSpeed = duration > 0 ? distance / (duration / 3600) : 0;
-    const maxSpeed = this.calculateMaxSpeed(coordinates);
+    // Display preformatted duration from backend or format it client-side
+    let durationStr = trip.durationFormatted;
+    if (!durationStr && startTime && lastUpdate) {
+      const duration = Math.floor((lastUpdate - startTime) / 1000);
+      const hours = Math.floor(duration / 3600);
+      const minutes = Math.floor((duration % 3600) / 60);
+      const seconds = duration % 60;
+      durationStr = `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+    }
+
+    // Use backend-calculated values if available
+    const distance = typeof trip.distance === "number" ? trip.distance : 0;
+    const currentSpeed =
+      typeof trip.currentSpeed === "number" ? trip.currentSpeed : 0;
+    const avgSpeed = typeof trip.avgSpeed === "number" ? trip.avgSpeed : 0;
+    const maxSpeed = typeof trip.maxSpeed === "number" ? trip.maxSpeed : 0;
+    const pointsRecorded = trip.pointsRecorded || trip.coordinates?.length || 0;
+
+    // Format start time for display
+    const startTimeFormatted =
+      trip.startTimeFormatted ||
+      (startTime ? startTime.toLocaleString() : "N/A");
 
     // Format metrics for display
     const metrics = {
-      "Start Time": startTime ? startTime.toLocaleString() : "N/A",
-      Duration: durationStr,
+      "Start Time": startTimeFormatted,
+      Duration: durationStr || "0:00:00",
       Distance: `${distance.toFixed(2)} miles`,
       "Current Speed": `${currentSpeed.toFixed(1)} mph`,
       "Average Speed": `${avgSpeed.toFixed(1)} mph`,
       "Max Speed": `${maxSpeed.toFixed(1)} mph`,
-      "Points Recorded": coordinates.length,
+      "Points Recorded": pointsRecorded,
       "Last Update": lastUpdate ? this.formatTimeAgo(lastUpdate) : "N/A",
     };
+
+    // Log metrics for debugging
+    console.log("Displaying metrics:", metrics);
 
     // Update the UI
     this.tripMetricsElem.innerHTML = Object.entries(metrics)

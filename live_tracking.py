@@ -80,11 +80,59 @@ async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
             if isinstance(ts, datetime):
                 coord["timestamp"] = ts.isoformat()
 
-    # Ensure all required fields are present
-    serialized.setdefault("distance", 0)
-    serialized.setdefault("currentSpeed", 0)
-    serialized.setdefault("maxSpeed", 0)
-    serialized.setdefault("duration", 0)
+    # Ensure all required fields are present with defaults
+    serialized.setdefault("distance", 0)  # miles
+    serialized.setdefault("currentSpeed", 0)  # mph
+    serialized.setdefault("maxSpeed", 0)  # mph
+    serialized.setdefault("avgSpeed", 0)  # mph
+    serialized.setdefault("duration", 0)  # seconds
+    serialized.setdefault("pointsRecorded", len(serialized.get("coordinates", [])))
+
+    # Calculate formatted duration for display
+    duration_seconds = serialized.get("duration", 0)
+    hours = int(duration_seconds // 3600)
+    minutes = int((duration_seconds % 3600) // 60)
+    seconds = int(duration_seconds % 60)
+    serialized["durationFormatted"] = f"{hours}:{minutes:02d}:{seconds:02d}"
+
+    # Format time values for display
+    if "startTime" in serialized:
+        try:
+            start_time = datetime.fromisoformat(
+                serialized["startTime"].replace("Z", "+00:00")
+            )
+            serialized["startTimeFormatted"] = start_time.strftime("%Y-%m-%d %H:%M:%S")
+        except (ValueError, AttributeError):
+            serialized["startTimeFormatted"] = "Unknown"
+
+    # If we have coordinates but missing metrics, recalculate them
+    if serialized.get("coordinates") and serialized.get("distance") == 0:
+        coordinates = serialized.get("coordinates", [])
+        if len(coordinates) >= 2:
+            # Recalculate distance if needed
+            total_distance = 0
+            for i in range(1, len(coordinates)):
+                prev = coordinates[i - 1]
+                curr = coordinates[i]
+                total_distance += haversine(
+                    prev["lon"], prev["lat"], curr["lon"], curr["lat"], unit="miles"
+                )
+            serialized["distance"] = total_distance
+
+            # Recalculate speeds if needed
+            if "startTime" in serialized and "lastUpdate" in serialized:
+                try:
+                    start = datetime.fromisoformat(
+                        serialized["startTime"].replace("Z", "+00:00")
+                    )
+                    last = datetime.fromisoformat(
+                        serialized["lastUpdate"].replace("Z", "+00:00")
+                    )
+                    duration_hours = (last - start).total_seconds() / 3600
+                    if duration_hours > 0:
+                        serialized["avgSpeed"] = total_distance / duration_hours
+                except (ValueError, AttributeError):
+                    pass
 
     # Add a sequence number for client tracking if not present
     if "sequence" not in serialized:
@@ -134,19 +182,23 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
     # Create new trip with a sequence number for tracking updates
     sequence = int(time.time() * 1000)  # Millisecond timestamp as sequence
 
-    result = await live_trips_collection.insert_one(
-        {
-            "transactionId": transaction_id,
-            "status": "active",
-            "startTime": start_time,
-            "coordinates": [],
-            "lastUpdate": start_time,
-            "distance": 0,
-            "currentSpeed": 0,
-            "maxSpeed": 0,
-            "sequence": sequence,
-        }
-    )
+    # Create initial trip document with all required fields
+    new_trip = {
+        "transactionId": transaction_id,
+        "status": "active",
+        "startTime": start_time,
+        "coordinates": [],
+        "lastUpdate": start_time,
+        "distance": 0,  # miles
+        "currentSpeed": 0,  # mph
+        "maxSpeed": 0,  # mph
+        "avgSpeed": 0,  # mph
+        "duration": 0,  # seconds
+        "pointsRecorded": 0,  # count
+        "sequence": sequence,
+    }
+
+    result = await live_trips_collection.insert_one(new_trip)
 
     # Verify the trip was actually inserted
     if result.inserted_id:
@@ -195,6 +247,7 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
                 "distance": 0,
                 "currentSpeed": 0,
                 "maxSpeed": 0,
+                "avgSpeed": 0,  # Initialize average speed
                 "sequence": sequence,
             }
         )
@@ -250,10 +303,28 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
         max_speed = max(trip_doc.get("maxSpeed", 0), current_speed)
 
         # Calculate duration
-        duration = (
+        duration_seconds = (
             (all_coords[-1]["timestamp"] - trip_doc["startTime"]).total_seconds()
             if all_coords
             else 0
+        )
+
+        # Calculate average speed (in mph)
+        avg_speed = 0
+        if duration_seconds > 0:
+            # Convert seconds to hours for mph calculation
+            duration_hours = duration_seconds / 3600
+            avg_speed = total_distance / duration_hours if duration_hours > 0 else 0
+
+        # Log metrics for debugging
+        logger.info(
+            "Trip metrics: id=%s, distance=%.2f mi, duration=%d sec, current=%.1f mph, avg=%.1f mph, max=%.1f mph",
+            transaction_id,
+            total_distance,
+            duration_seconds,
+            current_speed,
+            avg_speed,
+            max_speed,
         )
 
         # Generate a new sequence number for this update
@@ -273,13 +344,15 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
                     "distance": total_distance,
                     "currentSpeed": current_speed,
                     "maxSpeed": max_speed,
-                    "duration": duration,
+                    "avgSpeed": avg_speed,  # Add average speed
+                    "duration": duration_seconds,
                     "sequence": sequence,
+                    "pointsRecorded": len(all_coords),  # Add count of points for UI
                 }
             },
         )
-        logger.debug(
-            f"Updated trip data: {transaction_id} with {len(new_coords)} new points"
+        logger.info(
+            f"Updated trip data: {transaction_id} with {len(new_coords)} new points (total: {len(all_coords)})"
         )
 
 
