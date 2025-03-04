@@ -11,7 +11,7 @@ from math import ceil
 from typing import List, Dict, Any, Optional
 
 # Third-party imports
-import time
+
 import aiohttp
 import geopandas as gpd
 import geojson as geojson_module
@@ -2800,17 +2800,28 @@ async def bouncie_webhook(request: Request):
 @app.get("/api/active_trip")
 async def active_trip_endpoint():
     try:
+        logger.info("Fetching active trip data")
         active_trip = await get_active_trip()
+
         if not active_trip:
+            logger.info("No active trip found")
             return {
                 "status": "success",
                 "has_active_trip": False,
                 "message": "No active trip",
             }
+
+        logger.info(
+            "Returning active trip: %s", active_trip.get("transactionId", "unknown")
+        )
         return {"status": "success", "has_active_trip": True, "trip": active_trip}
     except Exception as e:
-        logger.exception("Error in get_active_trip: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Error in get_active_trip endpoint: %s", str(e))
+        return {
+            "status": "error",
+            "has_active_trip": False,
+            "message": f"Error retrieving active trip: {str(e)}",
+        }
 
 
 @app.get("/api/trip_updates")
@@ -2819,14 +2830,31 @@ async def trip_updates_endpoint(last_sequence: int = 0):
     Get trip updates since a specific sequence number
 
     Args:
-        last_sequence: The last sequence number the client has seen (query parameter)
+        last_sequence: Only return updates newer than this sequence
+
+    Returns:
+        Dict: Contains status, has_update flag, and trip data if available
     """
     try:
+        logger.info("Fetching trip updates since sequence %d", last_sequence)
         updates = await get_trip_updates(last_sequence)
+
+        if updates.get("has_update"):
+            logger.info(
+                "Returning trip update with sequence %d",
+                updates.get("trip", {}).get("sequence", 0),
+            )
+        else:
+            logger.info("No trip updates found since sequence %d", last_sequence)
+
         return updates
     except Exception as e:
-        logger.exception("Error in trip_updates_endpoint: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Error in trip_updates endpoint: %s", str(e))
+        return {
+            "status": "error",
+            "has_update": False,
+            "message": f"Error retrieving trip updates: {str(e)}",
+        }
 
 
 # ------------------------------------------------------------------------------

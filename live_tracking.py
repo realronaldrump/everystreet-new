@@ -105,15 +105,36 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
     transaction_id = data.get("transactionId")
     start_time, _ = get_trip_timestamps(data)
 
-    # Clear any existing active trips with this transaction ID
-    await live_trips_collection.delete_many(
+    # Check if there's already an active trip for this transaction ID
+    existing_trip = await live_trips_collection.find_one(
         {"transactionId": transaction_id, "status": "active"}
     )
+
+    if existing_trip:
+        logger.info(
+            "Updating existing active trip: %s, created at %s",
+            transaction_id,
+            existing_trip.get("startTime"),
+        )
+    else:
+        logger.info("Creating new active trip: %s", transaction_id)
+
+    # Clear any existing active trips with this transaction ID
+    delete_result = await live_trips_collection.delete_many(
+        {"transactionId": transaction_id, "status": "active"}
+    )
+
+    if delete_result.deleted_count > 0:
+        logger.info(
+            "Deleted %d existing active trip records for %s",
+            delete_result.deleted_count,
+            transaction_id,
+        )
 
     # Create new trip with a sequence number for tracking updates
     sequence = int(time.time() * 1000)  # Millisecond timestamp as sequence
 
-    await live_trips_collection.insert_one(
+    result = await live_trips_collection.insert_one(
         {
             "transactionId": transaction_id,
             "status": "active",
@@ -126,7 +147,24 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
             "sequence": sequence,
         }
     )
-    logger.info("Trip started: %s", transaction_id)
+
+    # Verify the trip was actually inserted
+    if result.inserted_id:
+        inserted_trip = await live_trips_collection.find_one(
+            {"_id": result.inserted_id}
+        )
+        if inserted_trip:
+            logger.info(
+                "Trip started: %s (verified in database with seq=%s)",
+                transaction_id,
+                sequence,
+            )
+        else:
+            logger.warning(
+                "Trip inserted but not found on verification: %s", transaction_id
+            )
+    else:
+        logger.error("Failed to insert trip: %s", transaction_id)
 
 
 async def process_trip_data(data: Dict[str, Any]) -> None:
@@ -321,9 +359,31 @@ async def get_active_trip(since_sequence: Optional[int] = None) -> Dict[str, Any
     if since_sequence is not None:
         query["sequence"] = {"$gt": since_sequence}
 
-    active_trip = await live_trips_collection.find_one(query)
+    # Try to find an active trip
+    active_trip = await live_trips_collection.find_one(query, sort=[("lastUpdate", -1)])
+
     if active_trip:
+        logger.info(
+            "Found active trip: %s with sequence %s",
+            active_trip.get("transactionId"),
+            active_trip.get("sequence"),
+        )
         return await serialize_live_trip(active_trip)
+
+    # If no active trip found with the current query, log this for debugging
+    logger.info("No active trip found with query: %s", query)
+
+    # If we're looking for updates (since_sequence is set), but didn't find any,
+    # check if there are any active trips at all regardless of sequence
+    if since_sequence is not None:
+        any_active_trip = await live_trips_collection.find_one({"status": "active"})
+        if any_active_trip:
+            logger.info(
+                "Found active trip but sequence isn't newer than %s. Trip has sequence %s",
+                since_sequence,
+                any_active_trip.get("sequence"),
+            )
+
     return None
 
 
@@ -356,54 +416,64 @@ async def cleanup_stale_trips():
 
 async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
     """
-    Get trip updates since a specific sequence number
+    Get updates about the currently active trip since a specified sequence number
 
     Args:
-        last_sequence: The last sequence number client has seen
+        last_sequence: Only return updates newer than this sequence
 
     Returns:
-        Dict: Contains active trip data if newer than provided sequence,
-              status information, and server timestamp
+        Dict: Contains status, has_update flag, and trip data if available
     """
     try:
-        # Get active trip only if newer than the provided sequence
-        active_trip = await get_active_trip(last_sequence)
+        logger.info("Getting trip updates since sequence: %d", last_sequence)
 
-        # Get current server time for synchronization
-        server_time = datetime.now(timezone.utc).isoformat()
-
-        if active_trip:
+        # First, check if there are ANY active trips at all
+        any_active = await live_trips_collection.find_one({"status": "active"})
+        if not any_active:
+            logger.info("No active trips found in the database")
             return {
                 "status": "success",
-                "has_update": True,
-                "trip": active_trip,
-                "server_time": server_time,
+                "has_update": False,
+                "message": "No active trips",
             }
-        else:
-            # Check if there's any active trip at all
-            any_active_trip = await live_trips_collection.find_one({"status": "active"})
 
-            if any_active_trip:
-                # There is an active trip, but no new updates since the last sequence
-                return {
-                    "status": "success",
-                    "has_update": False,
-                    "message": "No new updates",
-                    "server_time": server_time,
-                }
-            else:
-                # No active trips at all
-                return {
-                    "status": "success",
-                    "has_update": False,
-                    "message": "No active trips",
-                    "server_time": server_time,
-                }
+        # Now check for updates with sequence newer than last_sequence
+        active_trip = await get_active_trip(last_sequence)
 
+        if not active_trip:
+            # Check if there's an active trip but the sequence isn't newer
+            all_trips = await live_trips_collection.find({"status": "active"}).to_list(
+                10
+            )
+            sequences = [t.get("sequence", 0) for t in all_trips]
+            logger.info(
+                "No newer trip updates. Found %d active trips with sequences: %s. Client has sequence: %d",
+                len(all_trips),
+                sequences,
+                last_sequence,
+            )
+            return {
+                "status": "success",
+                "has_update": False,
+                "message": "No new updates since last check",
+            }
+
+        logger.info(
+            "Found trip update: %s with sequence %d (client had %d)",
+            active_trip.get("transactionId", "unknown"),
+            active_trip.get("sequence", 0),
+            last_sequence,
+        )
+
+        return {
+            "status": "success",
+            "has_update": True,
+            "trip": active_trip,
+        }
     except Exception as e:
-        logger.exception("Error in get_trip_updates: %s", str(e))
+        logger.exception("Error getting trip updates: %s", str(e))
         return {
             "status": "error",
-            "message": "Error retrieving trip updates",
-            "server_time": datetime.now(timezone.utc).isoformat(),
+            "has_update": False,
+            "message": f"Error: {str(e)}",
         }

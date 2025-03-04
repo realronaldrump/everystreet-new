@@ -57,7 +57,7 @@ def get_trip_timestamps(
 
 def sort_and_filter_trip_coordinates(trip_data: List[dict]) -> List[Dict]:
     """
-    Extract, sort, and deduplicate trip coordinates from 'tripData' Bouncie event chunks.
+    Extract, sort, and deduplicate trip coordinates from 'tripData' Bouncie event chunks
     Each point is a dict with 'timestamp', 'lat', 'lon'.
     """
     seen = set()

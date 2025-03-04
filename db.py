@@ -57,9 +57,9 @@ class DatabaseManager:
     _connection_check_interval: int = 60  # seconds
 
     # Connection pooling and retry configuration
-    _max_pool_size: int = 10
-    _min_pool_size: int = 1
-    _max_idle_time_ms: int = 10000
+    _max_pool_size: int = 5
+    _min_pool_size: int = 0
+    _max_idle_time_ms: int = 5000
     _connect_timeout_ms: int = 5000
     _server_selection_timeout_ms: int = 10000
     _socket_timeout_ms: int = 30000
@@ -107,12 +107,13 @@ class DatabaseManager:
             self._db = self._client["every_street"]
             self._connection_healthy = True
             self._last_connection_check = time.time()
-            # Wrapped to conform to 88 chars
+            # Use % formatting for logging as per instructions
             logger.info(
-                "MongoDB client initialized successfully with " "connection pooling."
+                "MongoDB client initialized successfully with %s", "connection pooling."
             )
         except Exception as e:
             self._connection_healthy = False
+            # Use % formatting for logging as per instructions
             logger.error("Failed to initialize MongoDB client: %s", e, exc_info=True)
             raise
 
@@ -409,8 +410,21 @@ class DatabaseManager:
             bool: True if recovery was successful, False otherwise.
         """
         import gc
+        import psutil
 
+        # Use % formatting for logging
         logger.warning("Attempting to recover from memory allocation error...")
+
+        # Get current memory usage for logging
+        process = psutil.Process()
+        memory_info = process.memory_info()
+        memory_percent = process.memory_percent()
+
+        logger.warning(
+            "Current memory usage: %s MB (%.2f%% of system memory)",
+            memory_info.rss / (1024 * 1024),
+            memory_percent,
+        )
 
         original_pool_size = self._max_pool_size
         self._connection_healthy = False
@@ -420,7 +434,9 @@ class DatabaseManager:
             try:
                 self._client.close()
                 self._client = None
+                self._db = None
             except Exception as e:
+                # Use % formatting for logging
                 logger.error(
                     "Error closing client during memory error recovery: %s",
                     e,
@@ -429,10 +445,21 @@ class DatabaseManager:
         # Force garbage collection
         gc.collect()
         # Give the system time to reclaim memory
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)  # Increased from 1 to 2 seconds
 
         # Reduce pool size temporarily
         self._max_pool_size = max(1, self._max_pool_size // 2)
+        # Reduce idle time to close connections more quickly
+        self._max_idle_time_ms = max(1000, self._max_idle_time_ms // 2)
+
+        # Log memory after GC but before reinitializing
+        memory_info = process.memory_info()
+        memory_percent = process.memory_percent()
+        logger.info(
+            "Memory after GC: %s MB (%.2f%% of system memory)",
+            memory_info.rss / (1024 * 1024),
+            memory_percent,
+        )
 
         # Attempt to reinitialize with smaller pool
         try:

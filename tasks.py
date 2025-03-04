@@ -6,6 +6,7 @@ Manages scheduling, execution, and history recording for periodic tasks.
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from dataclasses import dataclass
@@ -24,9 +25,22 @@ from utils import validate_trip_data, reverse_geocode_nominatim
 from street_coverage_calculation import update_coverage_for_all_locations
 from preprocess_streets import preprocess_streets as async_preprocess_streets
 
-from db import db
+from db import db, db_manager
 
 logger = logging.getLogger(__name__)
+
+# Added memory utilities
+try:
+    import psutil
+
+    HAVE_PSUTIL = True
+except ImportError:
+    HAVE_PSUTIL = False
+    logger.warning("psutil not installed, memory monitoring disabled")
+
+# Memory thresholds for task management
+MEMORY_WARN_THRESHOLD = 70.0  # Percentage of system memory that triggers a warning
+MEMORY_CRITICAL_THRESHOLD = 85.0  # Percentage that triggers critical actions
 
 
 class TaskPriority(Enum):
@@ -68,6 +82,9 @@ class BackgroundTaskManager:
         self.db = db
         self._setup_event_listeners()
         self._lock = asyncio.Lock()
+        self._memory_check_interval = 60  # Check memory every 60 seconds
+        self._memory_check_last_run = 0
+        self._high_memory_mode = False
 
     @staticmethod
     def _initialize_tasks() -> Dict[str, TaskDefinition]:
@@ -75,7 +92,9 @@ class BackgroundTaskManager:
             "periodic_fetch_trips": TaskDefinition(
                 id="periodic_fetch_trips",
                 display_name="Periodic Trip Fetch",
-                default_interval_minutes=60,
+                default_interval_minutes=int(
+                    os.environ.get("TRIP_FETCH_INTERVAL_MINUTES", "60")
+                ),
                 priority=TaskPriority.HIGH,
                 dependencies=[],
                 description="Fetches trips from the Bouncie API periodically",
@@ -515,24 +534,158 @@ class BackgroundTaskManager:
 
     # --- Task Implementations ---
 
-    async def _periodic_fetch_trips(self) -> None:
-        task_id = "periodic_fetch_trips"
+    async def _check_memory_usage(self) -> bool:
+        """
+        Check system memory usage and adjust task scheduling if necessary.
+        Returns True if memory usage is high, False otherwise.
+        """
+        if not HAVE_PSUTIL:
+            return False
+
         try:
-            await self._update_task_status(task_id, TaskStatus.RUNNING)
-            last_trip = await self.db["trips"].find_one(sort=[("endTime", -1)])
-            start_date = (
-                last_trip["endTime"]
-                if last_trip and last_trip.get("endTime")
-                else datetime.now(timezone.utc) - timedelta(days=7)
+            import time
+
+            current_time = time.time()
+
+            # Only check periodically to avoid overhead
+            if current_time - self._memory_check_last_run < self._memory_check_interval:
+                return self._high_memory_mode
+
+            self._memory_check_last_run = current_time
+
+            # Check memory usage
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            memory_percent = process.memory_percent()
+
+            logger.info(
+                "Memory usage: %s MB (%.2f%% of system memory)",
+                memory_info.rss / (1024 * 1024),
+                memory_percent,
             )
-            end_date = datetime.now(timezone.utc)
-            logger.info("Periodic fetch: from %s to %s", start_date, end_date)
-            await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=False)
-            await self._update_task_status(task_id, TaskStatus.COMPLETED)
+
+            # Determine memory status
+            previous_high_memory_mode = self._high_memory_mode
+
+            if memory_percent > MEMORY_CRITICAL_THRESHOLD:
+                # Critical memory usage
+                self._high_memory_mode = True
+                logger.warning(
+                    "Critical memory usage (%.2f%%) - activating memory conservation mode",
+                    memory_percent,
+                )
+
+                # Force garbage collection
+                import gc
+
+                gc.collect()
+
+                # Let MongoDB connections be cleaned up
+                await db_manager.handle_memory_error()
+
+            elif memory_percent > MEMORY_WARN_THRESHOLD:
+                # High memory usage
+                self._high_memory_mode = True
+                logger.warning(
+                    "High memory usage (%.2f%%) - optimizing task scheduling",
+                    memory_percent,
+                )
+
+            else:
+                # Normal memory usage
+                self._high_memory_mode = False
+
+            # If transitioning between modes, adjust task intervals
+            if previous_high_memory_mode != self._high_memory_mode:
+                await self._adjust_task_intervals(self._high_memory_mode)
+
+            return self._high_memory_mode
+
         except Exception as e:
-            await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
-            logger.error("Error in periodic_fetch_trips: %s", e, exc_info=True)
-            raise
+            logger.error("Error checking memory usage: %s", e)
+            return False
+
+    async def _adjust_task_intervals(self, high_memory_mode: bool) -> None:
+        """Adjust task intervals based on memory mode"""
+        try:
+            # Get the current scheduled jobs
+            jobs = self.scheduler.get_jobs()
+
+            for job in jobs:
+                task_id = job.id
+                if task_id == "periodic_fetch_trips":
+                    if high_memory_mode:
+                        # Increase interval in high memory mode (double it)
+                        normal_interval = self.tasks[task_id].default_interval_minutes
+                        new_interval = normal_interval * 2
+
+                        logger.info(
+                            "Increasing '%s' interval from %d to %d minutes due to high memory",
+                            task_id,
+                            normal_interval,
+                            new_interval,
+                        )
+
+                        # Modify the job
+                        job.reschedule("interval", minutes=new_interval)
+                    else:
+                        # Restore normal interval
+                        normal_interval = self.tasks[task_id].default_interval_minutes
+
+                        logger.info(
+                            "Restoring '%s' interval to normal %d minutes",
+                            task_id,
+                            normal_interval,
+                        )
+
+                        # Modify the job
+                        job.reschedule("interval", minutes=normal_interval)
+
+        except Exception as e:
+            logger.error("Error adjusting task intervals: %s", e)
+
+    async def _periodic_fetch_trips(self) -> None:
+        """Fetch trips from the Bouncie API periodically."""
+        # Check memory usage first
+        high_memory = await self._check_memory_usage()
+        if high_memory:
+            logger.warning(
+                "Memory usage is high before periodic fetch - proceeding with caution"
+            )
+
+        # Last successful fetch time is saved in task config
+        task_config = await self.db.task_config.find_one(
+            {"task_id": "periodic_fetch_trips"}
+        )
+
+        now_utc = datetime.now(timezone.utc)
+
+        if task_config and "last_success_time" in task_config:
+            start_date = task_config["last_success_time"]
+            # Don't go back more than 24 hours to avoid excessive data
+            min_start_date = now_utc - timedelta(hours=24)
+            start_date = max(start_date, min_start_date)
+        else:
+            # Default to 3 hours ago if no previous state
+            start_date = now_utc - timedelta(hours=3)
+
+        logger.info("Periodic fetch: from %s to %s", start_date, now_utc)
+
+        try:
+            # Fetch trips in the date range
+            await fetch_bouncie_trips_in_range(start_date, now_utc, do_map_match=True)
+
+            # Update the last success time
+            await self.db.task_config.update_one(
+                {"task_id": "periodic_fetch_trips"},
+                {"$set": {"last_success_time": now_utc}},
+                upsert=True,
+            )
+        except Exception as e:
+            logger.error("Error in periodic fetch: %s", e)
+            # If we have memory issues, try to recover
+            if "Cannot allocate memory" in str(e):
+                await db_manager.handle_memory_error()
 
     async def _update_coverage(self) -> None:
         task_id = "update_coverage_for_all_locations"
@@ -582,29 +735,33 @@ class BackgroundTaskManager:
             raise
 
     async def _cleanup_stale_trips(self) -> None:
-        task_id = "cleanup_stale_trips"
-        try:
-            await self._update_task_status(task_id, TaskStatus.RUNNING)
-            now = datetime.now(timezone.utc)
-            stale_threshold = now - timedelta(minutes=5)
-            cleanup_count = 0
-            while True:
-                trip = await self.db["live_trips"].find_one_and_delete(
-                    {"lastUpdate": {"$lt": stale_threshold}, "status": "active"},
-                    projection={"_id": False},
-                )
-                if not trip:
-                    break
-                trip["status"] = "stale"
-                trip["endTime"] = now
-                await self.db["archived_live_trips"].insert_one(trip)
-                cleanup_count += 1
-            logger.info("Cleaned up %d stale trips", cleanup_count)
-            await self._update_task_status(task_id, TaskStatus.COMPLETED)
-        except Exception as e:
-            await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
-            logger.error("Error in cleanup_stale_trips: %s", e, exc_info=True)
-            raise
+        """Clean up any stale trips from the live_trips collection."""
+        from db import live_trips_collection, archived_live_trips_collection
+
+        # Check memory before running this task
+        high_memory = await self._check_memory_usage()
+
+        now_utc = datetime.now(timezone.utc)
+        # Find trips that haven't been updated in the last 10 minutes
+        cutoff_time = now_utc - timedelta(minutes=10)
+
+        query = {"lastUpdated": {"$lt": cutoff_time}}
+
+        # Find stale trips
+        stale_trips = []
+        async for trip in live_trips_collection.find(query):
+            stale_trips.append(trip)
+
+        if stale_trips:
+            # Archive the stale trips
+            if not high_memory:  # Only archive if memory isn't critical
+                await archived_live_trips_collection.insert_many(stale_trips)
+
+            # Delete the stale trips from live collection
+            result = await live_trips_collection.delete_many(query)
+            logger.info("Cleaned up %d stale trips", result.deleted_count)
+        else:
+            logger.info("No stale trips to clean up")
 
     async def _cleanup_invalid_trips(self) -> None:
         task_id = "cleanup_invalid_trips"

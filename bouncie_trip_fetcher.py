@@ -18,9 +18,10 @@ from aiohttp.client_exceptions import (
     ClientConnectorError,
     ClientResponseError,
 )
+import sys
 
 # Local imports
-from db import trips_collection
+from db import trips_collection, db_manager
 from utils import (
     validate_trip_data,
 )
@@ -196,6 +197,42 @@ async def store_trip(trip: dict) -> bool:
         )
         logger.info("Stored trip %s successfully.", transaction_id)
         return True
+    except OSError as ose:
+        if "Cannot allocate memory" in str(ose):
+            logger.warning(
+                "Memory allocation error while storing trip %s. Attempting recovery...",
+                transaction_id,
+            )
+            # Try to recover from memory error
+            recovery_successful = await db_manager.handle_memory_error()
+            if recovery_successful:
+                # Retry after recovery
+                try:
+                    await trips_collection.update_one(
+                        {"transactionId": transaction_id}, {"$set": trip}, upsert=True
+                    )
+                    logger.info(
+                        "Successfully stored trip %s after memory recovery.",
+                        transaction_id,
+                    )
+                    return True
+                except Exception as retry_err:
+                    logger.error(
+                        "Failed to store trip %s after memory recovery: %s",
+                        transaction_id,
+                        retry_err,
+                    )
+                    return False
+            else:
+                logger.error(
+                    "Failed to recover from memory error for trip %s", transaction_id
+                )
+                return False
+        else:
+            logger.error(
+                "OS error when storing trip %s: %s", transaction_id, ose, exc_info=True
+            )
+            return False
     except Exception as e:
         logger.error("Error storing trip %s: %s", transaction_id, e, exc_info=True)
         return False
@@ -224,78 +261,139 @@ async def fetch_bouncie_trips_in_range(
         progress_tracker["fetch_and_store_trips"]["progress"] = 0
         progress_tracker["fetch_and_store_trips"]["message"] = "Starting trip fetch"
 
-    async with aiohttp.ClientSession() as session:
-        token = await get_access_token(session)
-        if not token:
-            logger.error("Failed to obtain access token; aborting fetch.")
-            if progress_tracker is not None:
-                progress_tracker["fetch_and_store_trips"]["status"] = "failed"
-                progress_tracker["fetch_and_store_trips"][
-                    "message"
-                ] = "Failed to obtain access token"
-            return all_new_trips
-
-        # For each device, break up the date range into 7-day slices
-        for device_index, imei in enumerate(AUTHORIZED_DEVICES, start=1):
-            if progress_tracker is not None:
-                progress_tracker["fetch_and_store_trips"][
-                    "message"
-                ] = f"Fetching trips for device {device_index} of {total_devices}"
-
-            device_new_trips = []
-            current_start = start_dt
-            while current_start < end_dt:
-                current_end = min(current_start + timedelta(days=7), end_dt)
-                raw_trips = await fetch_trips_for_device(
-                    session, token, imei, current_start, current_end
-                )
-
-                # Validate and store each trip
-                for raw_trip in raw_trips:
-                    if await store_trip(raw_trip):
-                        device_new_trips.append(raw_trip)
-
+    try:
+        async with aiohttp.ClientSession() as session:
+            token = await get_access_token(session)
+            if not token:
+                logger.error("Failed to obtain access token; aborting fetch.")
                 if progress_tracker is not None:
-                    progress_tracker["fetch_and_store_trips"]["progress"] = int(
-                        (device_index / total_devices) * 50
-                    )
-                current_start = current_end
+                    progress_tracker["fetch_and_store_trips"]["status"] = "failed"
+                    progress_tracker["fetch_and_store_trips"][
+                        "message"
+                    ] = "Failed to obtain access token"
+                return all_new_trips
 
-            all_new_trips.extend(device_new_trips)
-            logger.info(
-                "Device %s: Inserted %d new trips.",
-                imei,
-                len(device_new_trips),
-            )
-
-        if do_map_match and all_new_trips:
-            if progress_tracker is not None:
-                progress_tracker["fetch_and_store_trips"][
-                    "message"
-                ] = f"Map matching {len(all_new_trips)} new trips"
-                progress_tracker["fetch_and_store_trips"]["progress"] = 50
-
-            logger.info(
-                "Starting map matching for %d new trips...",
-                len(all_new_trips),
-            )
-            try:
-                await asyncio.gather(
-                    *(process_and_map_match_trip(t) for t in all_new_trips)
-                )
-                logger.info("Map matching completed for new trips.")
-            except Exception as e:
-                logger.error("Error during map matching: %s", e, exc_info=True)
+            # For each device, break up the date range into 7-day slices
+            for device_index, imei in enumerate(AUTHORIZED_DEVICES, start=1):
                 if progress_tracker is not None:
                     progress_tracker["fetch_and_store_trips"][
                         "message"
-                    ] = f"Error during map matching: {str(e)}"
+                    ] = f"Fetching trips for device {device_index} of {total_devices}"
 
+                device_new_trips = []
+                current_start = start_dt
+
+                # Add memory check before processing each device
+                try:
+                    import psutil
+
+                    process = psutil.Process()
+                    memory_percent = process.memory_percent()
+                    if memory_percent > 80:  # If memory usage is above 80%
+                        logger.warning(
+                            "Memory usage high (%.2f%%) before processing device %s, forcing garbage collection",
+                            memory_percent,
+                            imei,
+                        )
+                        import gc
+
+                        gc.collect()
+                        await asyncio.sleep(1)  # Give system time to reclaim memory
+                except ImportError:
+                    logger.warning("psutil not installed, skipping memory check")
+                except Exception as mem_check_err:
+                    logger.warning("Error checking memory usage: %s", mem_check_err)
+
+                while current_start < end_dt:
+                    current_end = min(current_start + timedelta(days=7), end_dt)
+                    raw_trips = await fetch_trips_for_device(
+                        session, token, imei, current_start, current_end
+                    )
+
+                    # Process each trip with memory error handling
+                    for trip in raw_trips:
+                        try:
+                            # Store the trip in the database
+                            success = await store_trip(trip)
+                            if success:
+                                device_new_trips.append(trip)
+                        except OSError as ose:
+                            if "Cannot allocate memory" in str(ose):
+                                logger.warning(
+                                    "Memory allocation error during trip processing. Attempting recovery..."
+                                )
+                                recovery_successful = (
+                                    await db_manager.handle_memory_error()
+                                )
+                                if not recovery_successful:
+                                    logger.error(
+                                        "Failed to recover from memory error, pausing trip processing"
+                                    )
+                                    # Update progress to show the error
+                                    if progress_tracker is not None:
+                                        progress_tracker["fetch_and_store_trips"][
+                                            "status"
+                                        ] = "failed"
+                                        progress_tracker["fetch_and_store_trips"][
+                                            "message"
+                                        ] = "Memory allocation error"
+                                    return all_new_trips
+                            else:
+                                logger.error("OS error processing trip: %s", ose)
+                        except Exception as e:
+                            logger.error("Error processing trip: %s", str(e))
+
+                    # Move to the next time slice
+                    current_start = current_end
+
+                # Optionally trigger map matching for new trips
+                if do_map_match and device_new_trips:
+                    logger.info(
+                        "Running map matching for %d new trips for device %s",
+                        len(device_new_trips),
+                        imei,
+                    )
+                    for trip in device_new_trips:
+                        try:
+                            await process_and_map_match_trip(trip)
+                        except OSError as ose:
+                            if "Cannot allocate memory" in str(ose):
+                                logger.warning(
+                                    "Memory allocation error during map matching. Attempting recovery..."
+                                )
+                                await db_manager.handle_memory_error()
+                                # Skip this trip's map matching and continue with the next
+                            else:
+                                logger.error("OS error during map matching: %s", ose)
+                        except Exception as e:
+                            logger.error("Error in map matching: %s", str(e))
+
+                all_new_trips.extend(device_new_trips)
+
+                # Update progress after each device is processed
+                if progress_tracker is not None:
+                    progress_tracker["fetch_and_store_trips"]["progress"] = (
+                        device_index / total_devices * 100
+                    )
+
+    except OSError as ose:
+        if "Cannot allocate memory" in str(ose):
+            logger.error(
+                "Memory allocation error in main fetch_bouncie_trips_in_range function"
+            )
+            await db_manager.handle_memory_error()
+        else:
+            logger.error("OS error in fetch_bouncie_trips_in_range: %s", ose)
+    except Exception as e:
+        logger.error("Error in fetch_bouncie_trips_in_range: %s", str(e))
+    finally:
+        # Update final progress
         if progress_tracker is not None:
-            progress_tracker["fetch_and_store_trips"]["progress"] = 100
-            progress_tracker["fetch_and_store_trips"]["status"] = "completed"
-            progress_tracker["fetch_and_store_trips"][
-                "message"
-            ] = f"Completed. Found {len(all_new_trips)} new trips."
+            if progress_tracker["fetch_and_store_trips"]["status"] != "failed":
+                progress_tracker["fetch_and_store_trips"]["status"] = "completed"
+                progress_tracker["fetch_and_store_trips"]["progress"] = 100
+                progress_tracker["fetch_and_store_trips"][
+                    "message"
+                ] = f"Completed with {len(all_new_trips)} new trips"
 
     return all_new_trips

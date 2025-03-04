@@ -88,6 +88,7 @@ class LiveTripTracker {
    */
   async loadInitialTripData() {
     try {
+      console.log("Loading initial trip data");
       const response = await fetch("/api/active_trip");
 
       if (!response.ok) {
@@ -95,26 +96,30 @@ class LiveTripTracker {
       }
 
       const data = await response.json();
+      console.log("Initial trip data response:", data);
 
       if (data.status === "success") {
         if (data.has_active_trip && data.trip) {
+          console.log(
+            `Found active trip: ${data.trip.transactionId} with sequence: ${data.trip.sequence}`
+          );
           this.setActiveTrip(data.trip);
           this.updateActiveTripsCount(1);
           this.updateTripMetrics(data.trip);
           this.lastSequence = data.trip.sequence || 0;
-          this.hideError();
+          this.updateStatus(true);
         } else {
+          console.log("No active trips found during initialization");
+          this.updateStatus(true, "No active trips");
           this.updateActiveTripsCount(0);
-          this.clearActiveTrip();
         }
-        this.updateStatus(true);
       } else {
-        throw new Error(data.message || "Unknown error fetching active trip");
+        throw new Error(data.message || "Error loading initial trip data");
       }
     } catch (error) {
-      console.error("Error loading initial trip data:", error.message);
-      this.updateActiveTripsCount(0);
-      this.showError(`Error: ${error.message}`);
+      console.error("Error loading initial trip data:", error);
+      this.updateStatus(false, "Failed to load trip data");
+      this.showError("Failed to load trip data: " + error.message);
       throw error;
     }
   }
@@ -145,27 +150,29 @@ class LiveTripTracker {
   }
 
   /**
-   * Poll for trip updates
+   * Poll the server for trip updates
    * @async
    */
   async poll() {
     if (!this.isPolling) return;
 
     try {
+      console.log(`Polling for updates since sequence: ${this.lastSequence}`);
       await this.fetchTripUpdates();
 
-      // Reset consecutive errors on success
+      // Success, reset error counter
       this.consecutiveErrors = 0;
 
-      // Potentially decrease interval for more responsive updates
+      // Speed up polling when we receive data
       if (this.activeTrip) {
         this.decreasePollingInterval();
       }
     } catch (error) {
-      console.error("Polling error:", error);
+      console.error("Error polling trip updates:", error);
       this.consecutiveErrors++;
 
       if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
+        // Too many consecutive errors, show status
         this.updateStatus(false, "Connection lost");
         this.showError("Connection lost. Retrying...");
         // Increase interval when facing errors
@@ -184,19 +191,28 @@ class LiveTripTracker {
    * @async
    */
   async fetchTripUpdates() {
+    console.log(
+      `Fetching trip updates with last_sequence=${this.lastSequence}`
+    );
+
     const response = await fetch(
       `/api/trip_updates?last_sequence=${this.lastSequence}`
     );
 
     if (!response.ok) {
+      console.error(`HTTP error: ${response.status}`);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
+    console.log("Trip update response:", data);
 
     if (data.status === "success") {
       if (data.has_update && data.trip) {
         // We have new trip data
+        console.log(
+          `Received trip update with sequence: ${data.trip.sequence}`
+        );
         this.setActiveTrip(data.trip);
         this.updateActiveTripsCount(1);
         this.updateTripMetrics(data.trip);
@@ -205,14 +221,17 @@ class LiveTripTracker {
         this.hideError();
       } else if (this.activeTrip && !data.has_update) {
         // No new updates for existing trip - keep current display
+        console.log("No new updates for current trip");
         this.updateStatus(true);
       } else if (!this.activeTrip && !data.has_update) {
         // No active trip at all
+        console.log("No active trips found");
         this.clearActiveTrip();
         this.updateActiveTripsCount(0);
         this.updateStatus(true, "No active trips");
       }
     } else {
+      console.error(`API error: ${data.message || "Unknown error"}`);
       throw new Error(data.message || "Unknown error fetching trip updates");
     }
   }
