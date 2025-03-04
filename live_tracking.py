@@ -1,28 +1,23 @@
 """
-Live tracking module for vehicle monitoring.
+Live tracking module for vehicle monitoring using polling instead of WebSockets.
 
 This module handles real-time tracking of vehicles using the Bouncie API.
-It manages WebSocket connections for delivering updates to clients and processes
-incoming webhook events from Bouncie related to trips in progress.
+It manages data storage and retrieval for real-time updates, processed via
+polling from clients rather than WebSocket connections.
 
 Key components:
-- ConnectionManager: Manages WebSocket connections with clients
-- Webhook handlers: Process tripStart, tripData, and tripEnd events
-- WebSocket endpoint: Provides real-time updates to clients
-- API endpoints: For querying active trip status
+- Trip data management: Store active and archived trip data
+- Data processing: Handle incoming webhook events from Bouncie
+- API endpoints: Provide data retrieval for polling clients
 """
 
 import os
 import uuid
 import logging
-import asyncio
 import json
 import time
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any
-
-from fastapi import WebSocket, WebSocketDisconnect
-from starlette.websockets import WebSocketState
+from typing import List, Dict, Any, Optional
 
 from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinates
 from utils import haversine
@@ -54,217 +49,6 @@ def initialize_db(db_live_trips, db_archived_live_trips):
     logger.info("Live tracking database collections initialized")
 
 
-class ConnectionManager:
-    """
-    Manages WebSocket connections and broadcast messages.
-    Tracks connection count and ensures proper cleanup of disconnected clients.
-    Includes heartbeat mechanism to detect and clean up stale connections.
-    """
-
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-        self.connection_count = 0
-        self._lock = asyncio.Lock()  # Add a lock for thread safety
-        self._heartbeat_task = None
-        self._connection_metadata = {}  # Store metadata about connections
-        self.heartbeat_interval = 30  # seconds
-
-    async def connect(self, websocket: WebSocket) -> str:
-        """
-        Accept a new WebSocket connection and add it to the active connections list.
-
-        Args:
-            websocket (WebSocket): The WebSocket connection to add
-
-        Returns:
-            str: A unique client ID for the connection
-        """
-        await websocket.accept()
-        client_id = str(uuid.uuid4())
-
-        async with self._lock:
-            self.active_connections.append(websocket)
-            self.connection_count += 1
-            # Store connection metadata
-            self._connection_metadata[id(websocket)] = {
-                "client_id": client_id,
-                "connected_at": datetime.now(timezone.utc),
-                "last_activity": time.time(),
-                "client_info": websocket.client,
-            }
-            logger.info(
-                "Client %s connected. Total connections: %s",
-                client_id,
-                self.connection_count,
-            )
-
-        # Start heartbeat task if not already running
-        if not self._heartbeat_task or self._heartbeat_task.done():
-            self._heartbeat_task = asyncio.create_task(self._heartbeat_monitor())
-            self._heartbeat_task.add_done_callback(self._handle_task_done)
-
-        return client_id
-
-    async def disconnect(self, websocket: WebSocket) -> None:
-        """
-        Remove a WebSocket connection from the active connections list.
-
-        Args:
-            websocket (WebSocket): The WebSocket connection to remove
-        """
-        async with self._lock:
-            if websocket in self.active_connections:
-                client_id = self._connection_metadata.get(id(websocket), {}).get(
-                    "client_id", "Unknown"
-                )
-                self.active_connections.remove(websocket)
-                if id(websocket) in self._connection_metadata:
-                    del self._connection_metadata[id(websocket)]
-                self.connection_count -= 1
-                logger.info(
-                    "Client %s disconnected. Remaining connections: %s",
-                    client_id,
-                    self.connection_count,
-                )
-
-    def _handle_task_done(self, future):
-        """Handle completed tasks to catch any exceptions."""
-        try:
-            future.result()
-        except Exception as e:
-            logger.error("WebSocket task failed: %s", e, exc_info=True)
-
-    async def _heartbeat_monitor(self):
-        """
-        Monitor connections and remove stale ones.
-        """
-        try:
-            while True:
-                await asyncio.sleep(self.heartbeat_interval)
-                await self._check_connections()
-        except asyncio.CancelledError:
-            logger.info("Heartbeat monitor cancelled")
-        except Exception as e:
-            logger.error("Error in heartbeat monitor: %s", e, exc_info=True)
-            raise
-
-    async def _check_connections(self):
-        """Check all connections and remove stale ones."""
-        now = time.time()
-        stale_threshold = now - (self.heartbeat_interval * 3)  # 3x heartbeat interval
-
-        # Copy to avoid modification during iteration
-        connections = list(self.active_connections)
-        for ws in connections:
-            metadata = self._connection_metadata.get(id(ws), {})
-            last_activity = metadata.get("last_activity", 0)
-
-            if last_activity < stale_threshold:
-                client_id = metadata.get("client_id", "Unknown")
-                logger.warning("Closing stale connection from client %s", client_id)
-                try:
-                    await ws.close(code=1000, reason="Connection timeout")
-                except Exception as e:
-                    logger.warning("Error closing stale connection: %s", e)
-                finally:
-                    await self.disconnect(ws)
-
-    async def broadcast(self, message: str) -> int:
-        """
-        Broadcast a message to all connected clients.
-
-        Args:
-            message (str): The message to broadcast
-
-        Returns:
-            int: The number of clients that received the message
-        """
-        delivered_count = 0
-        disconnected = []
-
-        # Make a copy of the connections to avoid modification during iteration
-        connections = list(self.active_connections)
-
-        for websocket in connections:
-            try:
-                await websocket.send_text(message)
-                delivered_count += 1
-
-                # Update last activity time
-                if id(websocket) in self._connection_metadata:
-                    self._connection_metadata[id(websocket)][
-                        "last_activity"
-                    ] = time.time()
-            except Exception as e:
-                logger.warning("Error sending message to client: %s", str(e))
-                disconnected.append(websocket)
-
-        # Remove any disconnected clients
-        for websocket in disconnected:
-            await self.disconnect(websocket)
-
-        return delivered_count
-
-    async def send_to_client(self, client_id: str, message: str) -> bool:
-        """
-        Send a message to a specific client by client_id.
-
-        Args:
-            client_id: The client ID to send to
-            message: The message to send
-
-        Returns:
-            bool: True if message was sent, False otherwise
-        """
-        # Find the websocket for this client_id
-        target_ws = None
-        for ws in self.active_connections:
-            if self._connection_metadata.get(id(ws), {}).get("client_id") == client_id:
-                target_ws = ws
-                break
-
-        if not target_ws:
-            return False
-
-        try:
-            await target_ws.send_text(message)
-            # Update last activity time
-            if id(target_ws) in self._connection_metadata:
-                self._connection_metadata[id(target_ws)]["last_activity"] = time.time()
-            return True
-        except Exception as e:
-            logger.warning("Error sending message to client %s: %s", client_id, e)
-            await self.disconnect(target_ws)
-            return False
-
-    async def cleanup(self):
-        """Close all WebSocket connections and reset state."""
-        if self._heartbeat_task and not self._heartbeat_task.done():
-            self._heartbeat_task.cancel()
-            try:
-                await self._heartbeat_task
-            except asyncio.CancelledError:
-                pass
-
-        logger.info("Closing %d active WebSocket connections", self.connection_count)
-        connections = list(self.active_connections)
-        for websocket in connections:
-            try:
-                await websocket.close(code=1000, reason="Server shutdown")
-            except Exception as e:
-                logger.warning("Error closing WebSocket connection: %s", str(e))
-
-        # Reset the manager state
-        self.active_connections = []
-        self._connection_metadata = {}
-        self.connection_count = 0
-        logger.info("All WebSocket connections closed")
-
-
-# Create a global instance of the ConnectionManager
-manager = ConnectionManager()
-
-
 async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Convert MongoDB document to JSON-serializable dict for live trips
@@ -275,6 +59,9 @@ async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Dict: A JSON-serializable representation of the trip
     """
+    if not trip_data:
+        return None
+
     serialized = dict(trip_data)
 
     # Convert ObjectId to string
@@ -299,6 +86,12 @@ async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
     serialized.setdefault("maxSpeed", 0)
     serialized.setdefault("duration", 0)
 
+    # Add a sequence number for client tracking if not present
+    if "sequence" not in serialized:
+        serialized["sequence"] = int(
+            time.time() * 1000
+        )  # Millisecond timestamp as sequence
+
     return serialized
 
 
@@ -317,7 +110,9 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
         {"transactionId": transaction_id, "status": "active"}
     )
 
-    # Create new trip
+    # Create new trip with a sequence number for tracking updates
+    sequence = int(time.time() * 1000)  # Millisecond timestamp as sequence
+
     await live_trips_collection.insert_one(
         {
             "transactionId": transaction_id,
@@ -328,6 +123,7 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
             "distance": 0,
             "currentSpeed": 0,
             "maxSpeed": 0,
+            "sequence": sequence,
         }
     )
     logger.info("Trip started: %s", transaction_id)
@@ -349,6 +145,8 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
     if not trip_doc:
         # If no active trip found, create one
         now = datetime.now(timezone.utc)
+        sequence = int(time.time() * 1000)  # Millisecond timestamp as sequence
+
         await live_trips_collection.insert_one(
             {
                 "transactionId": transaction_id,
@@ -359,6 +157,7 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
                 "distance": 0,
                 "currentSpeed": 0,
                 "maxSpeed": 0,
+                "sequence": sequence,
             }
         )
         trip_doc = await live_trips_collection.find_one(
@@ -419,6 +218,9 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
             else 0
         )
 
+        # Generate a new sequence number for this update
+        sequence = int(time.time() * 1000)
+
         # Update trip in database
         await live_trips_collection.update_one(
             {"_id": trip_doc["_id"]},
@@ -434,6 +236,7 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
                     "currentSpeed": current_speed,
                     "maxSpeed": max_speed,
                     "duration": duration,
+                    "sequence": sequence,
                 }
             },
         )
@@ -456,6 +259,9 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     if trip:
         trip["endTime"] = end_time
         trip["status"] = "completed"
+        # Set final sequence number before archiving
+        trip["sequence"] = int(time.time() * 1000)
+
         await archived_live_trips_collection.insert_one(trip)
         await live_trips_collection.delete_one({"_id": trip["_id"]})
         logger.info("Trip ended: %s", transaction_id)
@@ -490,154 +296,35 @@ async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
         elif event_type == "tripEnd":
             await process_trip_end(data)
 
-        # Broadcast updates to all connected clients
-        try:
-            active_trip = await live_trips_collection.find_one({"status": "active"})
-            if active_trip:
-                serialized_trip = await serialize_live_trip(active_trip)
-                message = {"type": "trip_update", "data": serialized_trip}
-            else:
-                message = {"type": "heartbeat"}
-
-            # Use the return value to check how many clients received the message
-            clients_received = await manager.broadcast(json.dumps(message))
-            if clients_received > 0:
-                logger.debug("Successfully broadcast to %d clients", clients_received)
-            else:
-                logger.debug("No active clients to receive broadcast")
-        except Exception as broadcast_error:
-            logger.exception(
-                f"Error broadcasting webhook update: {str(broadcast_error)}"
-            )
-
         return {"status": "success", "message": "Event processed"}
     except Exception as e:
         logger.exception("Error in bouncie_webhook: %s", str(e))
         return {"status": "success", "message": "Event processed with errors"}
 
 
-async def get_active_trip() -> Dict[str, Any]:
+async def get_active_trip(since_sequence: Optional[int] = None) -> Dict[str, Any]:
     """
-    Get the currently active trip
+    Get the currently active trip with optional filtering by sequence number
+
+    Args:
+        since_sequence: Only return trip if it's newer than this sequence number
 
     Returns:
-        Dict: The active trip data, serialized for JSON response
+        Dict: The active trip data, serialized for JSON response, or None if no update
 
     Raises:
         HTTPException: If no active trip is found
     """
-    active_trip = await live_trips_collection.find_one({"status": "active"})
+    query = {"status": "active"}
+
+    # If a sequence number is provided, only return newer data
+    if since_sequence is not None:
+        query["sequence"] = {"$gt": since_sequence}
+
+    active_trip = await live_trips_collection.find_one(query)
     if active_trip:
         return await serialize_live_trip(active_trip)
     return None
-
-
-async def handle_live_trip_websocket(websocket: WebSocket):
-    """
-    WebSocket endpoint for live trip updates.
-    Handles connection, initial data sending, and ping/pong for keepalive.
-
-    Args:
-        websocket: The WebSocket connection
-    """
-    client_id = None
-
-    try:
-        # Connect the WebSocket and get a client ID
-        client_id = await manager.connect(websocket)
-
-        # Send initial trip data when client connects
-        active_trip = await live_trips_collection.find_one({"status": "active"})
-        if active_trip:
-            # Serialize the active trip
-            serialized_trip = await serialize_live_trip(active_trip)
-            await websocket.send_json({"type": "trip_update", "data": serialized_trip})
-        else:
-            # Only send heartbeat if the connection is still open
-            if websocket.client_state != WebSocketState.DISCONNECTED:
-                await websocket.send_json({"type": "heartbeat"})
-            else:
-                logger.info(
-                    f"Client {client_id} connection already closed before initial heartbeat"
-                )
-                return
-
-        # Keep the connection alive by handling ping/pong
-        heartbeat_interval = 30  # seconds
-        last_heartbeat = datetime.now(timezone.utc)
-
-        while True:
-            try:
-                # Set a timeout so we can periodically send heartbeats
-                data = await asyncio.wait_for(
-                    websocket.receive_text(), timeout=heartbeat_interval
-                )
-
-                if data == "ping":
-                    # Check if the connection is still open before sending pong
-                    if websocket.client_state != WebSocketState.DISCONNECTED:
-                        await websocket.send_text("pong")
-                        last_heartbeat = datetime.now(timezone.utc)
-                    else:
-                        logger.info(
-                            f"Client {client_id} connection already closed, breaking loop"
-                        )
-                        break
-                elif data:  # Handle any other messages
-                    logger.debug(
-                        f"Received message from client {client_id}: {data[:100]}"
-                    )
-                    last_heartbeat = datetime.now(timezone.utc)
-
-            except asyncio.TimeoutError:
-                # Time to send a heartbeat
-                current_time = datetime.now(timezone.utc)
-                if (
-                    current_time - last_heartbeat
-                ).total_seconds() >= heartbeat_interval:
-                    try:
-                        # Check if the connection is still open before sending the heartbeat
-                        if websocket.client_state != WebSocketState.DISCONNECTED:
-                            await websocket.send_json({"type": "heartbeat"})
-                            last_heartbeat = current_time
-                        else:
-                            logger.info(
-                                f"Client {client_id} connection already closed, breaking loop"
-                            )
-                            break
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to send heartbeat to {client_id}: {str(e)}"
-                        )
-                        # Connection is probably dead
-                        break
-
-            except WebSocketDisconnect:
-                logger.info(
-                    "Client %s disconnected during receive operation", client_id
-                )
-                break
-
-            except Exception as e:
-                logger.error(
-                    "Unexpected error in WebSocket connection for %s: %s",
-                    client_id,
-                    e,
-                    exc_info=True,
-                )
-                break
-
-            # Small sleep to prevent tight CPU loop
-            await asyncio.sleep(0.1)
-
-    except WebSocketDisconnect:
-        logger.info("WebSocket client %s disconnected", client_id)
-    except Exception as e:
-        logger.exception("WebSocket error: %s", str(e))
-    finally:
-        # Always make sure to disconnect properly
-        if client_id:
-            await manager.disconnect(websocket)
 
 
 async def cleanup_stale_trips():
@@ -665,3 +352,58 @@ async def cleanup_stale_trips():
 
     logger.info("Cleaned up %d stale trips", cleanup_count)
     return cleanup_count
+
+
+async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
+    """
+    Get trip updates since a specific sequence number
+
+    Args:
+        last_sequence: The last sequence number client has seen
+
+    Returns:
+        Dict: Contains active trip data if newer than provided sequence,
+              status information, and server timestamp
+    """
+    try:
+        # Get active trip only if newer than the provided sequence
+        active_trip = await get_active_trip(last_sequence)
+
+        # Get current server time for synchronization
+        server_time = datetime.now(timezone.utc).isoformat()
+
+        if active_trip:
+            return {
+                "status": "success",
+                "has_update": True,
+                "trip": active_trip,
+                "server_time": server_time,
+            }
+        else:
+            # Check if there's any active trip at all
+            any_active_trip = await live_trips_collection.find_one({"status": "active"})
+
+            if any_active_trip:
+                # There is an active trip, but no new updates since the last sequence
+                return {
+                    "status": "success",
+                    "has_update": False,
+                    "message": "No new updates",
+                    "server_time": server_time,
+                }
+            else:
+                # No active trips at all
+                return {
+                    "status": "success",
+                    "has_update": False,
+                    "message": "No active trips",
+                    "server_time": server_time,
+                }
+
+    except Exception as e:
+        logger.exception("Error in get_trip_updates: %s", str(e))
+        return {
+            "status": "error",
+            "message": "Error retrieving trip updates",
+            "server_time": datetime.now(timezone.utc).isoformat(),
+        }

@@ -1,6 +1,6 @@
 /* global L */
 /**
- * LiveTripTracker - Tracks and visualizes real-time vehicle location
+ * LiveTripTracker - Tracks and visualizes real-time vehicle location using polling
  * @class
  */
 class LiveTripTracker {
@@ -31,17 +31,22 @@ class LiveTripTracker {
       }),
     });
 
-    // WebSocket state
-    this.websocket = null;
-    this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
-    this.reconnectTimeout = null;
+    // Polling state
+    this.lastSequence = 0;
+    this.pollingInterval = 2000; // Start with 2 seconds
+    this.maxPollingInterval = 10000; // Max 10 seconds
+    this.minPollingInterval = 1000; // Min 1 second
+    this.pollingTimerId = null;
+    this.consecutiveErrors = 0;
+    this.maxConsecutiveErrors = 5;
+    this.isPolling = false;
 
     // UI elements
     this.statusIndicator = document.querySelector(".status-indicator");
     this.statusText = document.querySelector(".status-text");
     this.activeTripsCountElem = document.querySelector("#active-trips-count");
     this.tripMetricsElem = document.querySelector(".live-trip-metrics");
+    this.errorMessageElem = document.querySelector(".error-message");
 
     // Initialize
     this.initialize();
@@ -54,10 +59,26 @@ class LiveTripTracker {
   async initialize() {
     try {
       await this.loadInitialTripData();
-      this.connectWebSocket();
+      this.startPolling();
+
+      // Handle page visibility changes to adjust polling
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+          this.decreasePollingInterval(); // Speed up polling when page is visible
+        } else {
+          this.increasePollingInterval(); // Slow down polling when page is hidden
+        }
+      });
+
+      // Cleanup on page unload
+      window.addEventListener("beforeunload", () => {
+        this.stopPolling();
+      });
     } catch (error) {
       console.error("LiveTripTracker initialization error:", error);
       this.updateStatus(false);
+      this.showError("Failed to initialize tracker. Will retry shortly.");
+      setTimeout(() => this.initialize(), 5000);
     }
   }
 
@@ -69,84 +90,157 @@ class LiveTripTracker {
     try {
       const response = await fetch("/api/active_trip");
 
-      if (response.ok) {
-        const trip = await response.json();
-        this.setActiveTrip(trip);
-        this.updateActiveTripsCount(1);
-        this.updateTripMetrics(trip);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.status === "success") {
+        if (data.has_active_trip && data.trip) {
+          this.setActiveTrip(data.trip);
+          this.updateActiveTripsCount(1);
+          this.updateTripMetrics(data.trip);
+          this.lastSequence = data.trip.sequence || 0;
+          this.hideError();
+        } else {
+          this.updateActiveTripsCount(0);
+          this.clearActiveTrip();
+        }
+        this.updateStatus(true);
       } else {
-        this.updateActiveTripsCount(0);
+        throw new Error(data.message || "Unknown error fetching active trip");
       }
     } catch (error) {
       console.error("Error loading initial trip data:", error.message);
       this.updateActiveTripsCount(0);
+      this.showError(`Error: ${error.message}`);
+      throw error;
     }
   }
 
   /**
-   * Connect to WebSocket for live updates
+   * Start polling for trip updates
    */
-  connectWebSocket() {
-    // Clear any existing reconnect timeout
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
+  startPolling() {
+    if (this.isPolling) return;
 
-    // Create new WebSocket connection
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const wsUrl = `${protocol}://${window.location.host}/ws/live_trip`;
-
-    this.websocket = new WebSocket(wsUrl);
-
-    // Set up event handlers
-    this.websocket.addEventListener("open", () => {
-      this.updateStatus(true);
-      this.reconnectAttempts = 0;
-    });
-
-    this.websocket.addEventListener("message", (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        this.handleWebSocketMessage(message);
-      } catch (err) {
-        console.error("Error parsing WebSocket message:", err);
-      }
-    });
-
-    this.websocket.addEventListener("error", (err) => {
-      console.error("WebSocket error:", err);
-      this.updateStatus(false);
-    });
-
-    this.websocket.addEventListener("close", () => {
-      this.updateStatus(false);
-      this.attemptReconnect();
-    });
+    this.isPolling = true;
+    this.poll();
+    console.log(
+      `LiveTripTracker: Started polling (${this.pollingInterval}ms interval)`
+    );
   }
 
   /**
-   * Attempt to reconnect to WebSocket
+   * Stop polling for trip updates
    */
-  attemptReconnect() {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+  stopPolling() {
+    if (this.pollingTimerId) {
+      clearTimeout(this.pollingTimerId);
+      this.pollingTimerId = null;
+    }
+    this.isPolling = false;
+    console.log("LiveTripTracker: Stopped polling");
+  }
 
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          `WebSocket reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
-          "info"
-        );
+  /**
+   * Poll for trip updates
+   * @async
+   */
+  async poll() {
+    if (!this.isPolling) return;
+
+    try {
+      await this.fetchTripUpdates();
+
+      // Reset consecutive errors on success
+      this.consecutiveErrors = 0;
+
+      // Potentially decrease interval for more responsive updates
+      if (this.activeTrip) {
+        this.decreasePollingInterval();
       }
+    } catch (error) {
+      console.error("Polling error:", error);
+      this.consecutiveErrors++;
 
-      this.reconnectTimeout = setTimeout(() => {
-        this.connectWebSocket();
-      }, delay);
+      if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
+        this.updateStatus(false, "Connection lost");
+        this.showError("Connection lost. Retrying...");
+        // Increase interval when facing errors
+        this.increasePollingInterval();
+      }
+    } finally {
+      // Schedule next poll with current interval
+      this.pollingTimerId = setTimeout(() => {
+        this.poll();
+      }, this.pollingInterval);
+    }
+  }
+
+  /**
+   * Fetch trip updates from the server
+   * @async
+   */
+  async fetchTripUpdates() {
+    const response = await fetch(
+      `/api/trip_updates?last_sequence=${this.lastSequence}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data.status === "success") {
+      if (data.has_update && data.trip) {
+        // We have new trip data
+        this.setActiveTrip(data.trip);
+        this.updateActiveTripsCount(1);
+        this.updateTripMetrics(data.trip);
+        this.lastSequence = data.trip.sequence || this.lastSequence;
+        this.updateStatus(true);
+        this.hideError();
+      } else if (this.activeTrip && !data.has_update) {
+        // No new updates for existing trip - keep current display
+        this.updateStatus(true);
+      } else if (!this.activeTrip && !data.has_update) {
+        // No active trip at all
+        this.clearActiveTrip();
+        this.updateActiveTripsCount(0);
+        this.updateStatus(true, "No active trips");
+      }
     } else {
-      console.error("Maximum WebSocket reconnect attempts reached");
-      this.updateStatus(false, "Connection failed");
+      throw new Error(data.message || "Unknown error fetching trip updates");
     }
+  }
+
+  /**
+   * Increase polling interval (slow down) with backoff
+   */
+  increasePollingInterval() {
+    this.pollingInterval = Math.min(
+      this.pollingInterval * 1.5,
+      this.maxPollingInterval
+    );
+    console.log(
+      `LiveTripTracker: Increased polling interval to ${this.pollingInterval}ms`
+    );
+  }
+
+  /**
+   * Decrease polling interval (speed up) for more responsive updates
+   */
+  decreasePollingInterval() {
+    this.pollingInterval = Math.max(
+      this.pollingInterval * 0.8,
+      this.minPollingInterval
+    );
+    console.log(
+      `LiveTripTracker: Decreased polling interval to ${this.pollingInterval}ms`
+    );
   }
 
   /**
@@ -155,50 +249,37 @@ class LiveTripTracker {
    * @param {string} [message] - Optional status message
    */
   updateStatus(connected, message) {
-    if (this.statusIndicator) {
-      this.statusIndicator.classList.toggle("connected", connected);
-      this.statusIndicator.classList.toggle("disconnected", !connected);
-      this.statusIndicator.setAttribute(
-        "aria-label",
-        connected ? "Connected" : "Disconnected"
-      );
-    }
+    if (!this.statusIndicator || !this.statusText) return;
 
-    if (this.statusText) {
-      this.statusText.textContent =
-        message || (connected ? "Connected" : "Disconnected");
-    }
+    this.statusIndicator.classList.toggle("connected", connected);
+    this.statusIndicator.classList.toggle("disconnected", !connected);
+    this.statusIndicator.setAttribute(
+      "aria-label",
+      connected ? "Connected" : "Disconnected"
+    );
+
+    this.statusText.textContent =
+      message || (connected ? "Connected" : "Disconnected");
   }
 
   /**
-   * Handle messages from WebSocket
-   * @param {Object} message - Message data
+   * Show error message
+   * @param {string} message - Error message to display
    */
-  handleWebSocketMessage(message) {
-    if (!message || !message.type) return;
+  showError(message) {
+    if (!this.errorMessageElem) return;
 
-    switch (message.type) {
-      case "trip_update":
-        if (message.data) {
-          this.setActiveTrip(message.data);
-          this.updateActiveTripsCount(1);
-          this.updateTripMetrics(message.data);
-        }
-        break;
+    this.errorMessageElem.textContent = message;
+    this.errorMessageElem.classList.remove("d-none");
+  }
 
-      case "heartbeat":
-        this.clearActiveTrip();
-        this.updateActiveTripsCount(0);
-        break;
+  /**
+   * Hide error message
+   */
+  hideError() {
+    if (!this.errorMessageElem) return;
 
-      case "error":
-        console.error("WebSocket error from server:", message.message);
-        this.updateStatus(false, "Error: " + message.message);
-        break;
-
-      default:
-        console.warn("Unhandled WebSocket message type:", message.type);
-    }
+    this.errorMessageElem.classList.add("d-none");
   }
 
   /**
@@ -216,12 +297,11 @@ class LiveTripTracker {
     }
 
     // Sort coordinates by timestamp for proper path
-    trip.coordinates.sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
-    );
+    const sortedCoords = [...trip.coordinates];
+    sortedCoords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
     // Update polyline path
-    const latLngs = trip.coordinates.map((coord) => [coord.lat, coord.lon]);
+    const latLngs = sortedCoords.map((coord) => [coord.lat, coord.lon]);
     this.polyline.setLatLngs(latLngs);
 
     // Update marker position to latest point
@@ -233,8 +313,9 @@ class LiveTripTracker {
     this.marker.setLatLng(lastPoint);
     this.marker.setOpacity(1);
 
-    // Center map on latest position if enabled in user settings
-    if (trip.autoCenter) {
+    // Pan to latest position if option is enabled
+    // This now depends on a user preference setting rather than automatic
+    if (localStorage.getItem("autoFollowVehicle") === "true") {
       this.map.panTo(lastPoint);
     }
   }
@@ -247,7 +328,7 @@ class LiveTripTracker {
     this.polyline.setLatLngs([]);
 
     if (this.map.hasLayer(this.marker)) {
-      this.map.removeLayer(this.marker);
+      this.marker.removeFrom(this.map);
     }
   }
 
@@ -298,6 +379,7 @@ class LiveTripTracker {
       "Average Speed": `${avgSpeed.toFixed(1)} mph`,
       "Max Speed": `${maxSpeed.toFixed(1)} mph`,
       "Points Recorded": coordinates.length,
+      "Last Update": lastUpdate ? this.formatTimeAgo(lastUpdate) : "N/A",
     };
 
     // Update the UI
@@ -309,6 +391,30 @@ class LiveTripTracker {
       </div>`
       )
       .join("");
+  }
+
+  /**
+   * Format a timestamp as "time ago" (e.g., "2 minutes ago")
+   * @param {Date|string} timestamp - The timestamp to format
+   * @returns {string} Formatted "time ago" string
+   */
+  formatTimeAgo(timestamp) {
+    const date =
+      typeof timestamp === "string" ? new Date(timestamp) : timestamp;
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+
+    if (seconds < 5) return "just now";
+    if (seconds < 60) return `${seconds} seconds ago`;
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
+
+    const days = Math.floor(hours / 24);
+    return `${days} day${days !== 1 ? "s" : ""} ago`;
   }
 
   /**
@@ -436,15 +542,8 @@ class LiveTripTracker {
    * Clean up resources when tracker is no longer needed
    */
   destroy() {
-    // Clean up WebSocket connection
-    if (this.websocket) {
-      this.websocket.close();
-    }
-
-    // Clear any pending reconnect timeout
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-    }
+    // Stop polling
+    this.stopPolling();
 
     // Remove map layers
     if (this.map) {
@@ -464,6 +563,12 @@ class LiveTripTracker {
     if (this.tripMetricsElem) {
       this.tripMetricsElem.innerHTML = "";
     }
+
+    // Remove event listeners
+    document.removeEventListener(
+      "visibilitychange",
+      this.handleVisibilityChange
+    );
   }
 }
 

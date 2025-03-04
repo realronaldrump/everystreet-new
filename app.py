@@ -22,12 +22,10 @@ import bson
 from dateutil import parser as dateutil_parser
 from dotenv import load_dotenv
 from shapely.geometry import LineString, Polygon, shape
-from fastapi import FastAPI, Request, WebSocket, HTTPException, UploadFile, File
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.websockets import WebSocketDisconnect
-from starlette.websockets import WebSocketState
 
 # Local module imports
 from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinates
@@ -52,11 +50,10 @@ from trip_processing import format_idle_time, process_trip_data
 from export_helpers import create_geojson, create_gpx
 from street_coverage_calculation import compute_coverage_for_location
 from live_tracking import (
-    manager,
     initialize_db,
     handle_bouncie_webhook,
     get_active_trip,
-    handle_live_trip_websocket,
+    get_trip_updates,
 )
 
 load_dotenv()
@@ -2805,16 +2802,31 @@ async def active_trip_endpoint():
     try:
         active_trip = await get_active_trip()
         if not active_trip:
-            raise HTTPException(status_code=404, detail="No active trip")
-        return active_trip
+            return {
+                "status": "success",
+                "has_active_trip": False,
+                "message": "No active trip",
+            }
+        return {"status": "success", "has_active_trip": True, "trip": active_trip}
     except Exception as e:
         logger.exception("Error in get_active_trip: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.websocket("/ws/live_trip")
-async def ws_live_trip(websocket: WebSocket):
-    await handle_live_trip_websocket(websocket)
+@app.get("/api/trip_updates")
+async def trip_updates_endpoint(last_sequence: int = 0):
+    """
+    Get trip updates since a specific sequence number
+
+    Args:
+        last_sequence: The last sequence number the client has seen (query parameter)
+    """
+    try:
+        updates = await get_trip_updates(last_sequence)
+        return updates
+    except Exception as e:
+        logger.exception("Error in trip_updates_endpoint: %s", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ------------------------------------------------------------------------------
@@ -3055,9 +3067,6 @@ async def shutdown_event():
 
     # Clean up HTTP sessions
     await cleanup_session()
-
-    # Clean up WebSocket connections
-    await manager.cleanup()
 
     logger.info("Application shutdown completed successfully")
 
