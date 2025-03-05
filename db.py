@@ -302,8 +302,8 @@ class DatabaseManager:
     ) -> None:
         """
         Create an index on a given collection if the quota is not exceeded.
-        Uses retry logic for transient errors. If the index already exists with
-        a different name, logs a warning and continues.
+        Uses retry logic for transient errors. Provides more robust handling of
+        existing indexes and conflicts.
         """
         if self._quota_exceeded:
             logger.warning(
@@ -313,6 +313,21 @@ class DatabaseManager:
             return
 
         try:
+            # First check if an index with the same name already exists
+            if "name" in kwargs:
+                index_name = kwargs["name"]
+
+                # Get existing indexes
+                existing_indexes = await self.db[collection_name].index_information()
+
+                # Skip if index already exists with this name
+                if index_name in existing_indexes:
+                    logger.info(
+                        "Index '%s' already exists on collection %s. Skipping creation.",
+                        index_name,
+                        collection_name,
+                    )
+                    return
 
             async def _do_create_index():
                 return await self.db[collection_name].create_index(keys, **kwargs)
@@ -323,13 +338,17 @@ class DatabaseManager:
 
             logger.info("Index created on %s with keys %s", collection_name, keys)
         except OperationFailure as e:
-            # Check for the specific error code for IndexOptionsConflict (85)
-            if e.code == 85:
+            # Check for known index-related error codes
+            if e.code in (
+                85,
+                86,
+                68,
+            ):  # IndexOptionsConflict, IndexKeySpecsConflict, DuplicateKey
                 logger.warning(
-                    "Index on %s with keys %s already exists with a different name. "
-                    "Skipping creation.",
+                    "Index conflict on %s with keys %s: %s",
                     collection_name,
                     keys,
+                    str(e),
                 )
             elif "you are over your space quota" in str(e).lower():
                 self._quota_exceeded = True
@@ -337,13 +356,13 @@ class DatabaseManager:
                     "Cannot create index on %s due to quota exceeded", collection_name
                 )
             else:
-                logger.error(
-                    "Error creating index on %s: %s", collection_name, e, exc_info=True
-                )
+                logger.error("Error creating index on %s: %s", collection_name, str(e))
+                raise
         except Exception as e:
             logger.error(
-                "Error creating index on %s: %s", collection_name, e, exc_info=True
+                "Unexpected error creating index on %s: %s", collection_name, str(e)
             )
+            raise
 
     async def get_collection_stats(
         self, collection_name: str
@@ -521,42 +540,101 @@ async def init_task_history_collection() -> None:
 
 async def ensure_street_coverage_indexes() -> None:
     """
-    Create indexes for collections used in street coverage concurrently.
+    Create indexes for the street coverage database collections.
     """
+    logger = logging.getLogger(__name__)
+    db_manager = DatabaseManager()
+
     try:
-        tasks = [
-            db_manager.safe_create_index(
+        # Coverage metadata indexes - use names to avoid conflicts with existing indexes
+        try:
+            await db_manager.safe_create_index(
                 "coverage_metadata",
                 [
                     ("location.display_name", pymongo.ASCENDING),
                     ("status", pymongo.ASCENDING),
                 ],
-                unique=True,
-            ),
-            db_manager.safe_create_index(
-                "streets", [("properties.location", pymongo.ASCENDING)]
-            ),
-            db_manager.safe_create_index(
-                "streets", [("properties.segment_id", pymongo.ASCENDING)]
-            ),
-            db_manager.safe_create_index("trips", [("gps", pymongo.ASCENDING)]),
-            db_manager.safe_create_index("trips", [("startTime", pymongo.ASCENDING)]),
-            db_manager.safe_create_index("trips", [("endTime", pymongo.ASCENDING)]),
-            db_manager.safe_create_index(
+                name="coverage_metadata_display_name_status_idx",
+                background=True,
+            )
+        except Exception as e:
+            logger.warning(
+                f"Could not create location.display_name/status index: {str(e)}"
+            )
+
+        try:
+            await db_manager.safe_create_index(
+                "coverage_metadata",
+                [("location", pymongo.ASCENDING)],
+                name="coverage_metadata_location_idx",
+                background=True,
+            )
+        except Exception as e:
+            logger.warning(f"Could not create location index: {str(e)}")
+
+        # Streets indexes
+        await db_manager.safe_create_index(
+            "streets",
+            [("properties.location", pymongo.ASCENDING)],
+            name="streets_properties_location_idx",
+            background=True,
+        )
+
+        await db_manager.safe_create_index(
+            "streets",
+            [("properties.segment_id", pymongo.ASCENDING)],
+            name="streets_properties_segment_id_idx",
+            background=True,
+        )
+
+        # Trip indexes for coverage calculation
+        await db_manager.safe_create_index(
+            "trips",
+            [("startTime", pymongo.ASCENDING)],
+            name="trips_start_time_idx",
+            background=True,
+        )
+
+        await db_manager.safe_create_index(
+            "trips",
+            [("endTime", pymongo.ASCENDING)],
+            name="trips_end_time_idx",
+            background=True,
+        )
+
+        # Try to create a compound index for easier querying
+        try:
+            await db_manager.safe_create_index(
                 "trips",
                 [("startTime", pymongo.ASCENDING), ("endTime", pymongo.ASCENDING)],
-                name="trips_date_range",
-            ),
-            db_manager.safe_create_index(
+                name="trips_start_end_time_idx",
+                background=True,
+            )
+        except Exception as e:
+            logger.warning(
+                f"Could not create startTime/endTime compound index: {str(e)}"
+            )
+
+        await db_manager.safe_create_index(
+            "trips", [("gps", pymongo.ASCENDING)], name="trips_gps_idx", background=True
+        )
+
+        # Matched trips index
+        try:
+            await db_manager.safe_create_index(
                 "matched_trips",
                 [("startTime", pymongo.ASCENDING), ("endTime", pymongo.ASCENDING)],
-                name="matched_trips_date_range",
-            ),
-        ]
-        await asyncio.gather(*tasks)
+                name="matched_trips_start_end_time_idx",
+                background=True,
+            )
+        except Exception as e:
+            logger.warning(
+                f"Could not create matched_trips startTime/endTime index: {str(e)}"
+            )
+
         logger.info("Street coverage indexes created successfully")
     except Exception as e:
-        logger.error("Error creating street coverage indexes: %s", e, exc_info=True)
+        logger.error("Error creating street coverage indexes: %s", e)
         raise
 
 

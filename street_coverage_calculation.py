@@ -322,14 +322,28 @@ class CoverageCalculator:
             )
             covered_length = 0.0
             features = []
+            # Collect street type statistics
+            street_type_stats = defaultdict(
+                lambda: {"total": 0, "covered": 0, "length": 0, "covered_length": 0}
+            )
+
             for street in streets:
                 seg_id = street["properties"].get("segment_id")
                 geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, geom)
                 seg_length = street_utm.length
                 is_covered = seg_id in self.covered_segments
+                street_type = street["properties"].get("highway", "unknown")
+
+                # Update street type statistics
+                street_type_stats[street_type]["total"] += 1
+                street_type_stats[street_type]["length"] += seg_length
                 if is_covered:
                     covered_length += seg_length
+                    street_type_stats[street_type]["covered"] += 1
+                    street_type_stats[street_type]["covered_length"] += seg_length
+
+                # Create enhanced feature for visualization
                 feature = {
                     "type": "Feature",
                     "geometry": street["geometry"],
@@ -339,28 +353,65 @@ class CoverageCalculator:
                         "coverage_count": self.segment_coverage.get(seg_id, 0),
                         "segment_length": seg_length,
                         "segment_id": seg_id,
+                        "street_type": street_type,
+                        "name": street["properties"].get("name", "Unnamed Street"),
                     },
                 }
                 features.append(feature)
+
+            # Calculate coverage percentage
             coverage_percentage = (
                 (covered_length / self.total_length * 100)
                 if self.total_length > 0
                 else 0
             )
+
+            # Prepare street type stats for output
+            street_types = []
+            for street_type, stats in street_type_stats.items():
+                coverage_pct = (
+                    (stats["covered_length"] / stats["length"] * 100)
+                    if stats["length"] > 0
+                    else 0
+                )
+                street_types.append(
+                    {
+                        "type": street_type,
+                        "total": stats["total"],
+                        "covered": stats["covered"],
+                        "length": stats["length"],
+                        "covered_length": stats["covered_length"],
+                        "coverage_percentage": coverage_pct,
+                    }
+                )
+
+            # Sort by total length
+            street_types.sort(key=lambda x: x["length"], reverse=True)
+
+            # Prepare GeoJSON output
+            streets_geojson = {
+                "type": "FeatureCollection",
+                "features": features,
+                "metadata": {
+                    "total_length": self.total_length,
+                    "total_length_miles": self.total_length * 0.000621371,
+                    "driven_length": covered_length,
+                    "driven_length_miles": covered_length * 0.000621371,
+                    "coverage_percentage": coverage_percentage,
+                    "street_types": street_types,
+                    "updated_at": datetime.now().isoformat(),
+                },
+            }
+
             await self.update_progress("complete", 100, "Coverage calculation complete")
+
             return {
                 "total_length": self.total_length,
                 "driven_length": covered_length,
                 "coverage_percentage": coverage_percentage,
-                "streets_data": {
-                    "type": "FeatureCollection",
-                    "features": features,
-                    "metadata": {
-                        "total_length_miles": self.total_length * 0.000621371,
-                        "driven_length_miles": covered_length * 0.000621371,
-                        "coverage_percentage": coverage_percentage,
-                    },
-                },
+                "streets_data": streets_geojson,
+                "total_segments": len(features),
+                "street_types": street_types,
             }
         except Exception as e:
             logger.error("Error computing coverage: %s", e, exc_info=True)

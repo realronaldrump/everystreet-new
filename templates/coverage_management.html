@@ -1,5 +1,33 @@
 {% extends "base.html" %} {% block title %}Coverage Management{% endblock %} {%
-block content %}
+block head_content %}
+<!-- Leaflet CSS -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+
+<style>
+  .processing-row {
+    background-color: rgba(0, 123, 255, 0.1) !important;
+  }
+  .progress-details {
+    font-size: 0.875rem;
+    color: #6c757d;
+  }
+  #coverage-areas-table .progress {
+    min-width: 100px;
+  }
+  .bg-darker {
+    background-color: #1e1e1e !important;
+    border: 1px solid #2d2d2d;
+  }
+  #coverage-map {
+    min-height: 400px;
+  }
+</style>
+{% endblock %} {% block content %}
 <div class="container-fluid">
   <div class="row">
     <div class="col-12">
@@ -68,6 +96,127 @@ block content %}
           </div>
         </div>
       </div>
+
+      <!-- Coverage Dashboard Section -->
+      <div
+        class="card bg-dark text-white mt-4"
+        id="coverage-dashboard"
+        style="display: none"
+      >
+        <div class="card-body">
+          <h3 class="h5 mb-3">
+            Coverage Dashboard:
+            <span id="dashboard-location-name">Select a location</span>
+          </h3>
+
+          <div class="row">
+            <!-- Stats Overview -->
+            <div class="col-md-4">
+              <div class="card bg-darker text-white mb-3">
+                <div class="card-body">
+                  <h4 class="h6">Coverage Statistics</h4>
+                  <div class="stats-container">
+                    <div class="d-flex justify-content-between mb-2">
+                      <span>Total Streets:</span>
+                      <span id="dashboard-total-streets">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                      <span>Total Length:</span>
+                      <span id="dashboard-total-length">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                      <span>Driven Length:</span>
+                      <span id="dashboard-driven-length">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                      <span>Coverage Percentage:</span>
+                      <span id="dashboard-coverage-percentage">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                      <span>Last Updated:</span>
+                      <span id="dashboard-last-updated">-</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Street Type Breakdown -->
+              <div class="card bg-darker text-white">
+                <div class="card-body">
+                  <h4 class="h6">Street Type Coverage</h4>
+                  <div id="street-type-chart" style="height: 200px"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Map View -->
+            <div class="col-md-8">
+              <div class="card bg-darker text-white">
+                <div class="card-body">
+                  <div
+                    class="d-flex justify-content-between align-items-center mb-2"
+                  >
+                    <h4 class="h6 mb-0">Coverage Map</h4>
+                    <div class="map-controls">
+                      <div class="btn-group btn-group-sm" role="group">
+                        <button
+                          id="show-all-streets"
+                          class="btn btn-outline-light active"
+                        >
+                          All
+                        </button>
+                        <button
+                          id="show-driven-streets"
+                          class="btn btn-outline-success"
+                        >
+                          Driven
+                        </button>
+                        <button
+                          id="show-undriven-streets"
+                          class="btn btn-outline-danger"
+                        >
+                          Undriven
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div id="coverage-map" style="height: 400px"></div>
+                  <div
+                    class="d-flex justify-content-between align-items-center mt-2"
+                  >
+                    <div class="map-legend d-flex align-items-center">
+                      <div
+                        style="
+                          width: 20px;
+                          height: 20px;
+                          background-color: #ff5252;
+                          margin-right: 5px;
+                        "
+                      ></div>
+                      <span class="me-3">Not Driven</span>
+                      <div
+                        style="
+                          width: 20px;
+                          height: 20px;
+                          background-color: #4caf50;
+                          margin-right: 5px;
+                        "
+                      ></div>
+                      <span>Driven</span>
+                    </div>
+                    <button
+                      id="export-coverage-map"
+                      class="btn btn-sm btn-outline-light"
+                    >
+                      <i class="fas fa-download"></i> Export
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -120,20 +269,19 @@ block content %}
     </div>
   </div>
 </div>
-
-<!-- Custom styles for highlighting processing rows -->
-<style>
-  .processing-row {
-    background-color: rgba(0, 123, 255, 0.1) !important;
-  }
-  .progress-details {
-    font-size: 0.875rem;
-    color: #6c757d;
-  }
-  #coverage-areas-table .progress {
-    min-width: 100px;
-  }
-</style>
 {% endblock %} {% block extra_js %}
+<!-- Leaflet JS -->
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- Leaflet-image for exporting maps (optional) -->
+<script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
+
 <script src="{{ url_for('static', path='js/coverage-management.js') | replace('http://', '//') }}"></script>
 {% endblock %}

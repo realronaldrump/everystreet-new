@@ -9,6 +9,7 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from math import ceil
 from typing import List, Dict, Any, Optional
+from collections import defaultdict
 
 # Third-party imports
 
@@ -708,11 +709,50 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
 
         # Run the calculation
         result = await compute_coverage_for_location(location, task_id)
+        display_name = location.get("display_name", "Unknown")
 
         if result:
-            display_name = location.get("display_name", "Unknown")
+            # Check if streets_data exists
+            if not result.get("streets_data") or not result["streets_data"].get(
+                "features"
+            ):
+                logger.error(
+                    f"No streets_data in calculation results for {display_name}"
+                )
+
+                # Update progress with error
+                await progress_collection.update_one(
+                    {"_id": task_id},
+                    {
+                        "$set": {
+                            "stage": "error",
+                            "progress": 0,
+                            "message": "No street data found for location",
+                            "updated_at": datetime.now(timezone.utc),
+                        }
+                    },
+                )
+
+                # Update coverage metadata with error status
+                await coverage_metadata_collection.update_one(
+                    {"location.display_name": display_name},
+                    {
+                        "$set": {
+                            "location": location,
+                            "status": "error",
+                            "last_error": "No street data found for location",
+                            "last_updated": datetime.now(timezone.utc),
+                        }
+                    },
+                    upsert=True,
+                )
+                return
 
             # Update coverage metadata
+            logger.info(
+                f"Saving coverage data for {display_name} with {len(result['streets_data'].get('features', []))} street features"
+            )
+
             await coverage_metadata_collection.update_one(
                 {"location.display_name": display_name},
                 {
@@ -723,6 +763,9 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                         "coverage_percentage": result["coverage_percentage"],
                         "last_updated": datetime.now(timezone.utc),
                         "status": "completed",
+                        "streets_data": result["streets_data"],
+                        "total_segments": result.get("total_segments", 0),
+                        "street_types": result.get("street_types", []),
                     }
                 },
                 upsert=True,
@@ -735,26 +778,33 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                     "$set": {
                         "stage": "complete",
                         "progress": 100,
-                        "result": result,
+                        "result": {
+                            "total_length": result["total_length"],
+                            "driven_length": result["driven_length"],
+                            "coverage_percentage": result["coverage_percentage"],
+                            "total_segments": result.get("total_segments", 0),
+                        },
                         "updated_at": datetime.now(timezone.utc),
                     }
                 },
             )
 
-            logger.info("Coverage calculation completed for %s", display_name)
+            logger.info(f"Coverage calculation completed for {display_name}")
         else:
             error_msg = "No result returned from coverage calculation"
-            logger.error("Coverage calculation error: %s", error_msg)
+            logger.error(f"Coverage calculation error: {error_msg}")
 
             await coverage_metadata_collection.update_one(
-                {"location.display_name": location["display_name"]},
+                {"location.display_name": display_name},
                 {
                     "$set": {
+                        "location": location,
                         "status": "error",
                         "last_error": error_msg,
                         "last_updated": datetime.now(timezone.utc),
                     }
                 },
+                upsert=True,
             )
 
             await progress_collection.update_one(
@@ -762,44 +812,48 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                 {
                     "$set": {
                         "stage": "error",
-                        "error": error_msg,
+                        "progress": 0,
+                        "message": error_msg,
                         "updated_at": datetime.now(timezone.utc),
                     }
                 },
             )
     except Exception as e:
-        logger.exception(
-            f"Error in background coverage calculation for {location.get('display_name', 'Unknown')}"
-        )
+        logger.exception(f"Error in coverage calculation for task {task_id}: {str(e)}")
 
-        # Update both collections with error information
         try:
+            display_name = location.get("display_name", "Unknown")
+
+            # Update coverage metadata with error
             await coverage_metadata_collection.update_one(
-                {"location.display_name": location["display_name"]},
+                {"location.display_name": display_name},
                 {
                     "$set": {
+                        "location": location,
                         "status": "error",
                         "last_error": str(e),
                         "last_updated": datetime.now(timezone.utc),
                     }
                 },
+                upsert=True,
             )
-        except Exception as update_error:
-            logger.error("Failed to update coverage metadata: %s", update_error)
 
-        try:
+            # Update progress with error
             await progress_collection.update_one(
                 {"_id": task_id},
                 {
                     "$set": {
                         "stage": "error",
-                        "error": str(e),
+                        "progress": 0,
+                        "message": f"Error: {str(e)}",
                         "updated_at": datetime.now(timezone.utc),
                     }
                 },
             )
-        except Exception as update_error:
-            logger.error("Failed to update progress collection: %s", update_error)
+        except Exception as inner_e:
+            logger.exception(
+                f"Error updating progress after calculation error: {str(inner_e)}"
+            )
 
 
 @app.get("/api/street_coverage/{task_id}")
@@ -1896,6 +1950,9 @@ async def process_area(location: Dict[str, Any], task_id: str):
                         "driven_length": result["driven_length"],
                         "coverage_percentage": result["coverage_percentage"],
                         "last_updated": datetime.now(timezone.utc),
+                        "streets_data": result["streets_data"],
+                        "total_segments": result.get("total_segments", 0),
+                        "street_types": result.get("street_types", []),
                     }
                 },
             )
@@ -2957,8 +3014,10 @@ async def get_coverage_areas():
     try:
         areas = await coverage_metadata_collection.find().to_list(length=None)
         return {
+            "success": True,
             "areas": [
                 {
+                    "_id": str(area["_id"]),
                     "location": area["location"],
                     "total_length": area.get("total_length", 0),
                     "driven_length": area.get("driven_length", 0),
@@ -2969,11 +3028,11 @@ async def get_coverage_areas():
                     "last_error": area.get("last_error"),
                 }
                 for area in areas
-            ]
+            ],
         }
     except Exception as e:
-        logger.exception("Error fetching coverage areas")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error fetching coverage areas: %s", e)
+        return {"success": False, "error": str(e)}
 
 
 @app.post("/api/coverage_areas/delete")
@@ -3137,6 +3196,152 @@ async def get_storage_info():
         logger.exception("Error getting storage info")
         # Return a sensible fallback value rather than raising an error
         return {"used_mb": 0, "limit_mb": 512, "usage_percent": 0, "error": str(e)}
+
+
+# New endpoint to get location coverage details for the dashboard
+@app.get("/api/coverage_areas/{location_id}")
+async def get_coverage_area_details(location_id: str):
+    try:
+        # Find the coverage data
+        coverage_doc = None
+
+        try:
+            # First try to find by ObjectId
+            coverage_doc = await coverage_metadata_collection.find_one(
+                {"_id": ObjectId(location_id)}
+            )
+        except Exception as e:
+            logger.warning(
+                f"Error looking up by ObjectId: {str(e)}, trying by display name"
+            )
+            # If that fails, try to find by display name (fallback)
+            coverage_doc = await coverage_metadata_collection.find_one(
+                {"location.display_name": location_id}
+            )
+
+        if not coverage_doc:
+            logger.error(f"Coverage area not found for id: {location_id}")
+            return {"success": False, "error": "Coverage area not found"}
+
+        # Extract basic info
+        location_name = coverage_doc.get("location", {}).get("display_name", "Unknown")
+        location_obj = coverage_doc.get("location", {})
+        last_updated = coverage_doc.get("last_updated")
+        total_length = coverage_doc.get("total_length", 0)
+        driven_length = coverage_doc.get("driven_length", 0)
+        coverage_percentage = coverage_doc.get("coverage_percentage", 0)
+
+        # Check if streets_data exists and is properly formed
+        streets_data = coverage_doc.get("streets_data", {})
+        has_valid_street_data = (
+            isinstance(streets_data, dict)
+            and isinstance(streets_data.get("features"), list)
+            and len(streets_data.get("features", [])) > 0
+        )
+
+        # If no valid street data, return a special response
+        if not has_valid_street_data:
+            logger.error(
+                f"No or invalid streets_data found for location: {location_name}"
+            )
+
+            # Get metadata about the coverage document for debugging
+            status = coverage_doc.get("status", "unknown")
+            last_error = coverage_doc.get("last_error", "No error message available")
+
+            return {
+                "success": True,
+                "coverage": {
+                    "location_name": location_name,
+                    "location": location_obj,
+                    "total_length": total_length,
+                    "driven_length": driven_length,
+                    "coverage_percentage": coverage_percentage,
+                    "last_updated": last_updated,
+                    "streets_geojson": {},
+                    "total_streets": 0,
+                    "street_types": [],
+                    "status": status,
+                    "has_error": status == "error",
+                    "error_message": last_error if status == "error" else None,
+                    "needs_reprocessing": True,
+                },
+            }
+
+        # Get street types from the document if they exist, otherwise compute them
+        street_types = coverage_doc.get("street_types", [])
+        if not street_types:
+            street_types = collect_street_type_stats(streets_data.get("features", []))
+
+        # Transform data for the dashboard with complete information
+        result = {
+            "success": True,
+            "coverage": {
+                "location_name": location_name,
+                "location": location_obj,
+                "total_length": total_length,
+                "driven_length": driven_length,
+                "coverage_percentage": coverage_percentage,
+                "last_updated": last_updated,
+                "total_streets": len(streets_data.get("features", [])),
+                "streets_geojson": streets_data,
+                "street_types": street_types,
+                "status": coverage_doc.get("status", "completed"),
+                "has_error": coverage_doc.get("status") == "error",
+                "error_message": (
+                    coverage_doc.get("last_error")
+                    if coverage_doc.get("status") == "error"
+                    else None
+                ),
+                "needs_reprocessing": False,
+            },
+        }
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching coverage area details: {str(e)}", exc_info=True)
+        return {"success": False, "error": str(e)}
+
+
+def collect_street_type_stats(features):
+    """Collect statistics about street types and their coverage"""
+    street_types = defaultdict(
+        lambda: {"total": 0, "covered": 0, "length": 0, "covered_length": 0}
+    )
+
+    for feature in features:
+        street_type = feature.get("properties", {}).get("highway", "unknown")
+        length = feature.get("properties", {}).get("segment_length", 0)
+        is_covered = feature.get("properties", {}).get("driven", False)
+
+        street_types[street_type]["total"] += 1
+        street_types[street_type]["length"] += length
+
+        if is_covered:
+            street_types[street_type]["covered"] += 1
+            street_types[street_type]["covered_length"] += length
+
+    # Convert to list format for easier consumption in frontend
+    result = []
+    for street_type, stats in street_types.items():
+        coverage_pct = (
+            (stats["covered_length"] / stats["length"] * 100)
+            if stats["length"] > 0
+            else 0
+        )
+        result.append(
+            {
+                "type": street_type,
+                "total": stats["total"],
+                "covered": stats["covered"],
+                "length": stats["length"],
+                "covered_length": stats["covered_length"],
+                "coverage_percentage": coverage_pct,
+            }
+        )
+
+    # Sort by total length descending
+    result.sort(key=lambda x: x["length"], reverse=True)
+    return result
 
 
 if __name__ == "__main__":
