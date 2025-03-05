@@ -841,7 +841,21 @@ window.dom = {
   },
 };
 
+// Initialize global utility instances
 window.handleError = handleError;
-
-// Export the DateUtils object to make it available globally
 window.DateUtils = DateUtils;
+
+// Initialize and export notification manager
+window.notificationManager = new NotificationManager({
+  position: "bottom-end",
+  defaultDuration: 5000,
+  maxNotifications: 3,
+});
+
+// Initialize and export confirmation dialog
+window.confirmationDialog = new ConfirmationDialog({
+  backdropClickDismisses: false,
+});
+
+// Initialize DOM helper
+window.DOMHelper = DOMHelper;

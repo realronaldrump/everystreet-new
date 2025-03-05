@@ -15,6 +15,64 @@
       this.activeTaskIds = new Set();
       this.validatedLocation = null;
 
+      // Check for notification manager
+      if (typeof window.notificationManager === "undefined") {
+        console.warn("notificationManager not found, creating local instance");
+        // Create a simple fallback notification handler using Bootstrap toasts
+        window.notificationManager = {
+          show: (message, type = "info", duration = 5000) => {
+            const toastId = `toast-${Date.now()}`;
+            const toastHtml = `
+              <div id="${toastId}" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                  <div class="toast-body ${
+                    type === "success"
+                      ? "text-success"
+                      : type === "danger"
+                      ? "text-danger"
+                      : "text-info"
+                  }">
+                    <i class="fas ${
+                      type === "success"
+                        ? "fa-check-circle"
+                        : type === "danger"
+                        ? "fa-exclamation-circle"
+                        : "fa-info-circle"
+                    } me-2"></i>
+                    ${message}
+                  </div>
+                  <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+              </div>
+            `;
+
+            let toastContainer = document.querySelector(".toast-container");
+            if (!toastContainer) {
+              toastContainer = document.createElement("div");
+              toastContainer.className =
+                "toast-container position-fixed bottom-0 end-0 p-3";
+              document.body.appendChild(toastContainer);
+            }
+
+            toastContainer.insertAdjacentHTML("beforeend", toastHtml);
+
+            const toastElement = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastElement, {
+              autohide: duration > 0,
+              delay: duration,
+            });
+
+            toast.show();
+
+            toastElement.addEventListener("hidden.bs.toast", () => {
+              toastElement.remove();
+            });
+
+            return toastElement;
+          },
+        };
+      }
+
       // Initialize modals once DOM is ready
       document.addEventListener("DOMContentLoaded", () => {
         // Bootstrap will handle the modal instances
@@ -662,7 +720,7 @@
       if (!location) return;
 
       try {
-        // Store the current location being processed
+        // Store the current location being processing
         this.currentProcessingLocation = location;
 
         // Capture the current location ID if we're viewing it in the dashboard
@@ -683,7 +741,7 @@
         );
 
         // Show notification that we're starting
-        this.showToast(
+        notificationManager.show(
           `Starting coverage calculation for ${location.display_name}...`,
           "info"
         );
@@ -723,16 +781,15 @@
         }
 
         // Show success notification
-        this.showToast(
+        notificationManager.show(
           `Coverage updated successfully for ${location.display_name}`,
           "success"
         );
       } catch (error) {
         console.error("Error updating coverage: ", error);
-        this.showToast(
+        notificationManager.show(
           `Error updating coverage: ${error.message}`,
-          "error",
-          false,
+          "danger",
           0
         );
       } finally {
@@ -756,7 +813,7 @@
       }
 
       try {
-        this.showToast(
+        notificationManager.show(
           `Deleting coverage area for ${location.display_name}...`,
           "info"
         );
@@ -786,12 +843,15 @@
           this.selectedLocation = null;
         }
 
-        this.showToast(`Coverage area deleted successfully`, "success");
+        notificationManager.show(
+          `Coverage area deleted successfully`,
+          "success"
+        );
       } catch (error) {
         console.error("Error deleting coverage area:", error);
-        this.showToast(
+        notificationManager.show(
           `Error deleting coverage area: ${error.message}`,
-          "error"
+          "danger"
         );
       }
     }
@@ -921,14 +981,14 @@
 
           // Show a toast notification
           if (hasError) {
-            this.showToast(
+            notificationManager.show(
               `Error in coverage calculation for ${data.coverage.location_name}`,
-              "error"
+              "danger"
             );
           } else {
-            this.showToast(
+            notificationManager.show(
               `No street data available for ${data.coverage.location_name}. Try updating the coverage.`,
-              "info"
+              "warning"
             );
           }
 
@@ -940,7 +1000,7 @@
         }
 
         // Show success toast
-        this.showToast(
+        notificationManager.show(
           `Loaded coverage data for ${data.coverage.location_name}`,
           "success"
         );
@@ -967,9 +1027,9 @@
             <p>Please try refreshing the page or select a different location.</p>
           </div>`;
 
-        this.showToast(
+        notificationManager.show(
           `Error loading coverage data: ${error.message}`,
-          "error"
+          "danger"
         );
       }
     }
@@ -1091,8 +1151,7 @@
       L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         {
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          attribution: "",
           subdomains: "abcd",
           maxZoom: 19,
         }
@@ -1638,52 +1697,6 @@
 
       // Add active class to clicked button
       clickedButton.classList.add("active");
-    }
-
-    // Add toast notification helper method
-    showToast(message, type = "info", autoHide = true, delay = 5000) {
-      const toastId = `toast-${Date.now()}`;
-      const toastHtml = `
-        <div id="${toastId}" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
-          <div class="d-flex">
-            <div class="toast-body ${
-              type === "success"
-                ? "text-success"
-                : type === "error"
-                ? "text-danger"
-                : "text-info"
-            }">
-              <i class="fas ${
-                type === "success"
-                  ? "fa-check-circle"
-                  : type === "error"
-                  ? "fa-exclamation-circle"
-                  : "fa-info-circle"
-              } me-2"></i>
-              ${message}
-            </div>
-            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-          </div>
-        </div>
-      `;
-
-      const toastContainer = document.querySelector(".toast-container");
-      toastContainer.insertAdjacentHTML("beforeend", toastHtml);
-
-      const toastElement = document.getElementById(toastId);
-      const toast = new bootstrap.Toast(toastElement, {
-        autohide: autoHide,
-        delay: delay,
-      });
-
-      toast.show();
-
-      // Remove toast from DOM after it's hidden
-      toastElement.addEventListener("hidden.bs.toast", () => {
-        toastElement.remove();
-      });
-
-      return toastElement;
     }
   }
 
