@@ -110,7 +110,7 @@
       // Dashboard event delegation for the coverage map area
       document.addEventListener("click", (e) => {
         const updateMissingDataBtn = e.target.closest(
-          ".update-missing-data-btn"
+          ".update-missing-data-btn",
         );
         if (updateMissingDataBtn) {
           e.preventDefault();
@@ -161,7 +161,7 @@
       if (!locInput?.value || !locType?.value) {
         notificationManager.show(
           "Please enter a location and select a location type.",
-          "danger"
+          "danger",
         );
         return;
       }
@@ -182,7 +182,7 @@
         if (!data) {
           notificationManager.show(
             "Location not found. Please check your input.",
-            "warning"
+            "warning",
           );
           return;
         }
@@ -194,7 +194,7 @@
         console.error("Error validating location:", error);
         notificationManager.show(
           "Failed to validate location. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -212,13 +212,13 @@
 
         const exists = areas.some(
           (area) =>
-            area.location.display_name === this.validatedLocation.display_name
+            area.location.display_name === this.validatedLocation.display_name,
         );
 
         if (exists) {
           notificationManager.show(
             "This area is already being tracked.",
-            "warning"
+            "warning",
           );
           return;
         }
@@ -255,7 +255,7 @@
 
         notificationManager.show(
           "Coverage area processing started. You can check the status in the table.",
-          "success"
+          "success",
         );
 
         // Reset input and validated state.
@@ -266,7 +266,7 @@
         console.error("Error adding coverage area:", error);
         notificationManager.show(
           "Failed to add coverage area. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         this.hideProgressModal();
@@ -291,7 +291,7 @@
 
         notificationManager.show(
           "Processing cancelled successfully.",
-          "success"
+          "success",
         );
         this.hideProgressModal();
         await this.loadCoverageAreas();
@@ -299,14 +299,14 @@
         console.error("Error cancelling processing:", error);
         notificationManager.show(
           "Failed to cancel processing. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
 
     showProgressModal(message = "Processing...", progress = 0) {
       const modal = new bootstrap.Modal(
-        document.getElementById("taskProgressModal")
+        document.getElementById("taskProgressModal"),
       );
       document.querySelector(".progress-message").textContent = message;
       document.querySelector(".progress-bar").style.width = `${progress}%`;
@@ -370,7 +370,7 @@
       const progressBar = document.querySelector(".progress-bar");
       const currentProgress = parseInt(
         progressBar.getAttribute("aria-valuenow"),
-        10
+        10,
       );
 
       if (
@@ -386,7 +386,7 @@
           const progressPerSecond = progressDelta / timeDelta;
           const remainingProgress = 100 - currentProgress;
           const estimatedRemainingSeconds = Math.ceil(
-            remainingProgress / progressPerSecond
+            remainingProgress / progressPerSecond,
           );
 
           // Format estimated time
@@ -409,12 +409,10 @@
       }
 
       // Update time display
-      document.querySelector(
-        ".elapsed-time"
-      ).textContent = `Elapsed: ${elapsedText}`;
-      document.querySelector(
-        ".estimated-time"
-      ).textContent = `Est. remaining: ${estimatedText}`;
+      document.querySelector(".elapsed-time").textContent =
+        `Elapsed: ${elapsedText}`;
+      document.querySelector(".estimated-time").textContent =
+        `Est. remaining: ${estimatedText}`;
     }
 
     updateModalContent(data) {
@@ -580,7 +578,7 @@
         console.error("Error loading coverage areas: %s", error);
         notificationManager.show(
           "Failed to load coverage areas. Please refresh the page.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -637,17 +635,17 @@
           <td>
             <div class="btn-group" role="group">
               <button class="btn btn-sm btn-primary view-area-btn" data-location='${JSON.stringify(
-                area.location
+                area.location,
               ).replace(/'/g, "&#39;")}'>
                 <i class="fas fa-map-marked-alt"></i>
               </button>
               <button class="btn btn-sm btn-success update-coverage-btn" data-location='${JSON.stringify(
-                area.location
+                area.location,
               ).replace(/'/g, "&#39;")}'>
                 <i class="fas fa-sync-alt"></i>
               </button>
               <button class="btn btn-sm btn-danger delete-area-btn" data-location='${JSON.stringify(
-                area.location
+                area.location,
               ).replace(/'/g, "&#39;")}'>
                 <i class="fas fa-trash-alt"></i>
               </button>
@@ -679,13 +677,13 @@
         // Show progress modal
         this.showProgressModal(
           "Updating coverage for " + location.display_name,
-          0
+          0,
         );
 
         // Show notification that we're starting
         this.showToast(
           `Starting coverage calculation for ${location.display_name}...`,
-          "info"
+          "info",
         );
 
         // Start coverage calculation
@@ -725,7 +723,7 @@
         // Show success notification
         this.showToast(
           `Coverage updated successfully for ${location.display_name}`,
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error updating coverage: ", error);
@@ -733,7 +731,7 @@
           `Error updating coverage: ${error.message}`,
           "error",
           false,
-          0
+          0,
         );
       } finally {
         this.hideProgressModal();
@@ -749,7 +747,7 @@
     async deleteArea(location) {
       if (
         !confirm(
-          `Are you sure you want to delete coverage for ${location.display_name}?`
+          `Are you sure you want to delete coverage for ${location.display_name}?`,
         )
       ) {
         return;
@@ -758,7 +756,7 @@
       try {
         this.showToast(
           `Deleting coverage area for ${location.display_name}...`,
-          "info"
+          "info",
         );
 
         const response = await fetch("/api/coverage_areas/delete", {
@@ -791,7 +789,7 @@
         console.error("Error deleting coverage area:", error);
         this.showToast(
           `Error deleting coverage area: ${error.message}`,
-          "error"
+          "error",
         );
       }
     }
@@ -900,7 +898,7 @@
               ${statusMessage}
               <p>Try updating the coverage for this location:</p>
               <button class="update-missing-data-btn btn btn-primary" data-location='${JSON.stringify(
-                data.coverage.location || {}
+                data.coverage.location || {},
               ).replace(/'/g, "&#39;")}'>
                 <i class="fas fa-sync-alt me-1"></i> Update Coverage Data
               </button>
@@ -923,12 +921,12 @@
           if (hasError) {
             this.showToast(
               `Error in coverage calculation for ${data.coverage.location_name}`,
-              "error"
+              "error",
             );
           } else {
             this.showToast(
               `No street data available for ${data.coverage.location_name}. Try updating the coverage.`,
-              "info"
+              "info",
             );
           }
 
@@ -942,7 +940,7 @@
         // Show success toast
         this.showToast(
           `Loaded coverage data for ${data.coverage.location_name}`,
-          "success"
+          "success",
         );
 
         // Initialize and populate the map
@@ -959,9 +957,8 @@
         console.error("Error displaying coverage dashboard:", error);
         document.getElementById("dashboard-location-name").textContent =
           "Error loading data";
-        document.getElementById(
-          "coverage-map"
-        ).innerHTML = `<div class="alert alert-danger">
+        document.getElementById("coverage-map").innerHTML =
+          `<div class="alert alert-danger">
             <h5><i class="fas fa-exclamation-circle me-2"></i>Error loading coverage data</h5>
             <p>${error.message}</p>
             <p>Please try refreshing the page or select a different location.</p>
@@ -969,7 +966,7 @@
 
         this.showToast(
           `Error loading coverage data: ${error.message}`,
-          "error"
+          "error",
         );
       }
     }
@@ -989,7 +986,7 @@
       coverageBar.style.width = `${coveragePercentage}%`;
       coverageBar.setAttribute("aria-valuenow", coveragePercentage);
       document.getElementById(
-        "dashboard-coverage-percentage-text"
+        "dashboard-coverage-percentage-text",
       ).textContent = `${coveragePercentage}%`;
 
       // Set bar color based on coverage level
@@ -1007,12 +1004,10 @@
       // Update the stats
       document.getElementById("dashboard-total-streets").textContent =
         coverage.total_streets;
-      document.getElementById(
-        "dashboard-total-length"
-      ).textContent = `${totalMiles} miles`;
-      document.getElementById(
-        "dashboard-driven-length"
-      ).textContent = `${drivenMiles} miles`;
+      document.getElementById("dashboard-total-length").textContent =
+        `${totalMiles} miles`;
+      document.getElementById("dashboard-driven-length").textContent =
+        `${drivenMiles} miles`;
 
       // Format the last updated date
       const lastUpdated = coverage.last_updated
@@ -1095,7 +1090,7 @@
             '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
           subdomains: "abcd",
           maxZoom: 19,
-        }
+        },
       ).addTo(this.coverageMap);
 
       // Add scale control
@@ -1302,7 +1297,7 @@
         onAdd: (map) => {
           const container = L.DomUtil.create(
             "div",
-            "coverage-summary-control leaflet-bar"
+            "coverage-summary-control leaflet-bar",
           );
 
           const coveragePercentage = coverage.coverage_percentage.toFixed(1);
@@ -1380,10 +1375,10 @@
       // Prepare data for the chart
       const labels = topTypes.map((t) => this.formatStreetType(t.type));
       const totalLengths = topTypes.map((t) =>
-        (t.length * 0.000621371).toFixed(2)
+        (t.length * 0.000621371).toFixed(2),
       );
       const drivenLengths = topTypes.map((t) =>
-        (t.covered_length * 0.000621371).toFixed(2)
+        (t.covered_length * 0.000621371).toFixed(2),
       );
 
       // Check if Chart.js is loaded
@@ -1419,7 +1414,7 @@
             {
               label: "Not Driven (miles)",
               data: totalLengths.map((total, i) =>
-                (total - drivenLengths[i]).toFixed(2)
+                (total - drivenLengths[i]).toFixed(2),
               ),
               backgroundColor: notDrivenColor,
               borderColor: "rgba(211, 47, 47, 1)",
@@ -1650,15 +1645,15 @@
               type === "success"
                 ? "text-success"
                 : type === "error"
-                ? "text-danger"
-                : "text-info"
+                  ? "text-danger"
+                  : "text-info"
             }">
               <i class="fas ${
                 type === "success"
                   ? "fa-check-circle"
                   : type === "error"
-                  ? "fa-exclamation-circle"
-                  : "fa-info-circle"
+                    ? "fa-exclamation-circle"
+                    : "fa-info-circle"
               } me-2"></i>
               ${message}
             </div>
