@@ -2949,20 +2949,6 @@ async def get_storage_info():
         return {"error": str(e)}
 
 
-@app.post("/api/database/optimize-collection")
-async def optimize_collection(collection: Dict[str, str]):
-    try:
-        name = collection.get("collection")
-        if not name:
-            raise HTTPException(status_code=400, detail="Missing 'collection' field")
-        await db_manager.db.command({"compact": name})
-        await db_manager.db[name].reindex()
-        return {"message": f"Successfully optimized collection {name}"}
-    except Exception as e:
-        logger.exception("Error optimizing collection")
-        return {"error": str(e)}
-
-
 @app.post("/api/database/clear-collection")
 async def clear_collection(collection: Dict[str, str]):
     try:
@@ -2976,31 +2962,6 @@ async def clear_collection(collection: Dict[str, str]):
         }
     except Exception as e:
         logger.exception("Error clearing collection")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/database/optimize-all")
-async def optimize_all_collections():
-    try:
-        collection_names = await db_manager.db.list_collection_names()
-        for coll_name in collection_names:
-            await db_manager.db.command({"compact": coll_name})
-            await db_manager.db[coll_name].reindex()
-        return {"message": "Successfully optimized all collections"}
-    except Exception as e:
-        logger.exception("Error optimizing all collections")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/database/repair-indexes")
-async def repair_indexes():
-    try:
-        collection_names = await db_manager.db.list_collection_names()
-        for coll_name in collection_names:
-            await db_manager.db[coll_name].reindex()
-        return {"message": "Successfully repaired indexes for all collections"}
-    except Exception as e:
-        logger.exception("Error repairing indexes")
         raise HTTPException(status_code=500, detail=str(e))
 
 

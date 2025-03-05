@@ -16,7 +16,7 @@ block content %}
     <hr />
     <p class="mb-0">
       Please use the collection management tools below to reduce storage usage
-      by clearing unnecessary data or optimizing collections.
+      by clearing unnecessary data.
     </p>
   </div>
   {% elif storage_usage_percent > 90 %}
@@ -30,8 +30,7 @@ block content %}
     </p>
     <hr />
     <p class="mb-0">
-      Consider optimizing your collections or clearing unnecessary data to
-      prevent service disruption.
+      Consider clearing unnecessary data to prevent service disruption.
     </p>
   </div>
   {% endif %}
@@ -48,7 +47,7 @@ block content %}
             <div
               class="progress-bar {% if storage_usage_percent > 95 %}bg-danger{% elif storage_usage_percent > 80 %}bg-warning{% else %}bg-success{% endif %}"
               role="progressbar"
-              style="width: {{ storage_usage_percent }}%"
+              style="width: {{ storage_usage_percent }}%;"
               aria-valuenow="{{ storage_usage_percent }}"
               aria-valuemin="0"
               aria-valuemax="100"
@@ -94,12 +93,6 @@ block content %}
               <td>
                 <div class="btn-group">
                   <button
-                    class="btn btn-sm btn-warning optimize-collection"
-                    data-collection="{{ collection.name }}"
-                  >
-                    <i class="fas fa-compress-arrows-alt"></i> Optimize
-                  </button>
-                  <button
                     class="btn btn-sm btn-danger clear-collection"
                     data-collection="{{ collection.name }}"
                   >
@@ -111,25 +104,6 @@ block content %}
             {% endfor %}
           </tbody>
         </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- Database Actions -->
-  <div class="card">
-    <div class="card-header">
-      <h2 class="h5 mb-0">Database Actions</h2>
-    </div>
-    <div class="card-body">
-      <div class="row">
-        <div class="col-md-6">
-          <button id="optimize-all" class="btn btn-warning mb-2 me-2">
-            <i class="fas fa-compress-arrows-alt"></i> Optimize All Collections
-          </button>
-          <button id="repair-indexes" class="btn btn-info mb-2">
-            <i class="fas fa-tools"></i> Repair Indexes
-          </button>
-        </div>
       </div>
     </div>
   </div>

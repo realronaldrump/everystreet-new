@@ -140,14 +140,6 @@ class BackgroundTaskManager:
                 dependencies=[],
                 description="Updates reverse geocoding for trips missing location data",
             ),
-            "optimize_database": TaskDefinition(
-                id="optimize_database",
-                display_name="Optimize Database",
-                default_interval_minutes=1440,
-                priority=TaskPriority.LOW,
-                dependencies=[],
-                description="Performs database maintenance and optimization",
-            ),
             "remap_unmatched_trips": TaskDefinition(
                 id="remap_unmatched_trips",
                 display_name="Remap Unmatched Trips",
@@ -395,7 +387,6 @@ class BackgroundTaskManager:
             "cleanup_stale_trips": self._cleanup_stale_trips,
             "cleanup_invalid_trips": self._cleanup_invalid_trips,
             "update_geocoding": self._update_geocoding,
-            "optimize_database": self._optimize_database,
             "remap_unmatched_trips": self._remap_unmatched_trips,
             "validate_trip_data": self._validate_trip_data,
         }
@@ -832,25 +823,6 @@ class BackgroundTaskManager:
         except Exception as e:
             await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
             logger.error("Error in update_geocoding: %s", e, exc_info=True)
-            raise
-
-    async def _optimize_database(self) -> None:
-        task_id = "optimize_database"
-        try:
-            await self._update_task_status(task_id, TaskStatus.RUNNING)
-            collections = [
-                self.db["trips"],
-                self.db["live_trips"],
-                self.db["archived_live_trips"],
-                self.db["matched_trips"],
-            ]
-            for coll in collections:
-                await coll.reindex()
-            logger.info("Database optimization completed")
-            await self._update_task_status(task_id, TaskStatus.COMPLETED)
-        except Exception as e:
-            await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
-            logger.error("Error in optimize_database: %s", e, exc_info=True)
             raise
 
     async def _remap_unmatched_trips(self) -> None:

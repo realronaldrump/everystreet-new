@@ -2,8 +2,6 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   const refreshStorageBtn = document.getElementById("refresh-storage");
-  const optimizeAllBtn = document.getElementById("optimize-all");
-  const repairIndexesBtn = document.getElementById("repair-indexes");
   const progressBar = document.querySelector(".progress-bar");
   const storageText = document.querySelector(".storage-text");
 
@@ -42,17 +40,6 @@ document.addEventListener("DOMContentLoaded", () => {
       button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
     } else {
       switch (action) {
-        case "optimize-all":
-          button.innerHTML =
-            '<i class="fas fa-compress-arrows-alt"></i> Optimize All Collections';
-          break;
-        case "repair-indexes":
-          button.innerHTML = '<i class="fas fa-tools"></i> Repair Indexes';
-          break;
-        case "optimize":
-          button.innerHTML =
-            '<i class="fas fa-compress-arrows-alt"></i> Optimize';
-          break;
         case "clear":
           button.innerHTML = '<i class="fas fa-trash"></i> Clear';
           break;
@@ -141,22 +128,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Optimize/Clear collection buttons (using event delegation)
+  // Clear collection buttons (using event delegation)
   document.body.addEventListener("click", async (event) => {
-    const optimizeButton = event.target.closest(".optimize-collection");
     const clearButton = event.target.closest(".clear-collection");
 
-    if (optimizeButton) {
-      currentAction = "optimize";
-      currentCollection = optimizeButton.dataset.collection;
-      currentButton = optimizeButton;
-      const confirmed = await confirmationDialog.show({
-        message: `Are you sure you want to optimize the ${currentCollection} collection?`,
-      });
-      if (confirmed) {
-        handleConfirmedAction();
-      }
-    } else if (clearButton) {
+    if (clearButton) {
       currentAction = "clear";
       currentCollection = clearButton.dataset.collection;
       currentButton = clearButton;
@@ -170,53 +146,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Optimize all collections
-  optimizeAllBtn?.addEventListener("click", async () => {
-    currentAction = "optimize-all";
-    currentButton = optimizeAllBtn;
-    const confirmed = await confirmationDialog.show({
-      message:
-        "Are you sure you want to optimize all collections? This may take a while.",
-    });
-    if (confirmed) {
-      handleConfirmedAction();
-    }
-  });
-
-  // Repair indexes
-  repairIndexesBtn?.addEventListener("click", async () => {
-    currentAction = "repair-indexes";
-    currentButton = repairIndexesBtn;
-    const confirmed = await confirmationDialog.show({
-      message: "Are you sure you want to repair all database indexes?",
-    });
-    if (confirmed) {
-      handleConfirmedAction();
-    }
-  });
-
   async function handleConfirmedAction() {
     try {
       let endpoint = "";
       let body = {};
 
-      switch (currentAction) {
-        case "optimize":
-          endpoint = "/api/database/optimize-collection";
-          body = { collection: currentCollection };
-          break;
-        case "clear":
-          endpoint = "/api/database/clear-collection";
-          body = { collection: currentCollection };
-          break;
-        case "optimize-all":
-          endpoint = "/api/database/optimize-all";
-          break;
-        case "repair-indexes":
-          endpoint = "/api/database/repair-indexes";
-          break;
-        default:
-          throw new Error("Invalid action");
+      if (currentAction === "clear") {
+        endpoint = "/api/database/clear-collection";
+        body = { collection: currentCollection };
+      } else {
+        throw new Error("Invalid action");
       }
 
       setButtonLoading(currentButton, true, currentAction);
