@@ -1,11 +1,19 @@
-/* global showLoadingOverlay, hideLoadingOverlay, bootstrap, flatpickr, taskManager, settingsManager */
+/* global showLoadingOverlay, hideLoadingOverlay, bootstrap, flatpickr, taskManager */
 
 "use strict";
 
 (() => {
   class TaskManager {
     constructor() {
-      this.toastManager = new ToastManager();
+      this.toastManager = {
+        show: (title, message, type = "info") => {
+          if (window.notificationManager) {
+            window.notificationManager.show(`${title}: ${message}`, type);
+          } else {
+            console.log(`${type.toUpperCase()}: ${title} - ${message}`);
+          }
+        },
+      };
       // Remove the websocket initialization
       // this.ws = null;
       this.activeTasksMap = new Map();
@@ -618,41 +626,7 @@
     }
   }
 
-  class ToastManager {
-    constructor() {
-      this.container = document.querySelector(".toast-container");
-      this.template = document.getElementById("toast-template");
-    }
-
-    show(title, message, type = "info") {
-      if (!this.container || !this.template) {
-        console.error("Toast container or template not found");
-        return;
-      }
-
-      const toast = this.template.content
-        .cloneNode(true)
-        .querySelector(".toast");
-
-      toast.querySelector(".toast-title").textContent = title;
-      toast.querySelector(".toast-body").textContent = message;
-
-      const icon = toast.querySelector(".toast-icon");
-      icon.className = `rounded me-2 toast-icon bg-${type}`;
-
-      this.container.appendChild(toast);
-
-      const bsToast = new bootstrap.Toast(toast);
-      bsToast.show();
-
-      toast.addEventListener("hidden.bs.toast", () => {
-        toast.remove();
-      });
-    }
-  }
-
   document.addEventListener("DOMContentLoaded", () => {
-    window.settingsManager = new ToastManager();
     window.taskManager = new TaskManager();
 
     setupTaskConfigEventListeners();
@@ -680,18 +654,16 @@
         taskManager
           .submitTaskConfigUpdate(config)
           .then(() => {
-            settingsManager.show(
-              "Success",
-              "Task configuration saved",
+            window.notificationManager.show(
+              "Task configuration updated successfully",
               "success"
             );
             taskManager.loadTaskConfig();
           })
-          .catch((err) => {
-            console.error("Error saving config:", err);
-            settingsManager.show(
-              "Error",
-              "Failed to save configuration",
+          .catch((error) => {
+            console.error("Error updating task config:", error);
+            window.notificationManager.show(
+              `Error updating task config: ${error.message}`,
               "danger"
             );
           });
@@ -715,7 +687,7 @@
           bootstrap.Modal.getInstance(
             document.getElementById("pauseModal")
           ).hide();
-          settingsManager.show(
+          window.notificationManager.show(
             "Success",
             `Tasks paused for ${mins} minutes`,
             "success"
@@ -723,7 +695,11 @@
           taskManager.loadTaskConfig();
         } catch (error) {
           console.error("Error pausing tasks:", error);
-          settingsManager.show("Error", "Failed to pause tasks", "danger");
+          window.notificationManager.show(
+            "Error",
+            "Failed to pause tasks",
+            "danger"
+          );
         }
       });
     }
@@ -736,11 +712,19 @@
           });
           if (!response.ok) throw new Error("Failed to resume tasks");
 
-          settingsManager.show("Success", "Tasks resumed", "success");
+          window.notificationManager.show(
+            "Success",
+            "Tasks resumed",
+            "success"
+          );
           taskManager.loadTaskConfig();
         } catch (error) {
           console.error("Error resuming tasks:", error);
-          settingsManager.show("Error", "Failed to resume tasks", "danger");
+          window.notificationManager.show(
+            "Error",
+            "Failed to resume tasks",
+            "danger"
+          );
         }
       });
     }
@@ -753,11 +737,19 @@
           });
           if (!response.ok) throw new Error("Failed to stop tasks");
 
-          settingsManager.show("Success", "All tasks stopped", "success");
+          window.notificationManager.show(
+            "Success",
+            "All tasks stopped",
+            "success"
+          );
           taskManager.loadTaskConfig();
         } catch (error) {
           console.error("Error stopping tasks:", error);
-          settingsManager.show("Error", "Failed to stop tasks", "danger");
+          window.notificationManager.show(
+            "Error",
+            "Failed to stop tasks",
+            "danger"
+          );
         }
       });
     }
@@ -770,11 +762,19 @@
           });
           if (!response.ok) throw new Error("Failed to enable all tasks");
 
-          settingsManager.show("Success", "All tasks enabled", "success");
+          window.notificationManager.show(
+            "Success",
+            "All tasks enabled",
+            "success"
+          );
           taskManager.loadTaskConfig();
         } catch (error) {
           console.error("Error enabling tasks:", error);
-          settingsManager.show("Error", "Failed to enable tasks", "danger");
+          window.notificationManager.show(
+            "Error",
+            "Failed to enable tasks",
+            "danger"
+          );
         }
       });
     }
@@ -787,11 +787,19 @@
           });
           if (!response.ok) throw new Error("Failed to disable all tasks");
 
-          settingsManager.show("Success", "All tasks disabled", "success");
+          window.notificationManager.show(
+            "Success",
+            "All tasks disabled",
+            "success"
+          );
           taskManager.loadTaskConfig();
         } catch (error) {
           console.error("Error disabling tasks:", error);
-          settingsManager.show("Error", "Failed to disable tasks", "danger");
+          window.notificationManager.show(
+            "Error",
+            "Failed to disable tasks",
+            "danger"
+          );
         }
       });
     }
@@ -808,10 +816,14 @@
         taskManager
           .submitTaskConfigUpdate(config)
           .then(() =>
-            settingsManager.show("Success", "Global disable toggled", "success")
+            window.notificationManager.show(
+              "Success",
+              "Global disable toggled",
+              "success"
+            )
           )
           .catch(() =>
-            settingsManager.show(
+            window.notificationManager.show(
               "Error",
               "Failed to toggle global disable",
               "danger"
@@ -888,10 +900,14 @@
 
         document.getElementById("update-geo-points-status").textContent =
           data.message;
-        settingsManager.show("Success", data.message, "success");
+        window.notificationManager.show("Success", data.message, "success");
       } catch (err) {
         console.error("Error updating GeoPoints:", err);
-        settingsManager.show("Error", "Failed to update GeoPoints", "danger");
+        window.notificationManager.show(
+          "Error",
+          "Failed to update GeoPoints",
+          "danger"
+        );
       }
     });
   }
@@ -912,12 +928,16 @@
 
         document.getElementById("re-geocode-all-trips-status").textContent =
           "All trips have been re-geocoded.";
-        settingsManager.show("Success", data.message, "success");
+        window.notificationManager.show("Success", data.message, "success");
       } catch (err) {
         console.error("Error re-geocoding trips:", err);
         document.getElementById("re-geocode-all-trips-status").textContent =
           "Error re-geocoding trips. See console.";
-        settingsManager.show("Error", "Failed to re-geocode trips", "danger");
+        window.notificationManager.show(
+          "Error",
+          "Failed to re-geocode trips",
+          "danger"
+        );
       }
     });
   }
@@ -946,7 +966,7 @@
         start_date = document.getElementById("remap-start").value;
         end_date = document.getElementById("remap-end").value;
         if (!start_date || !end_date) {
-          settingsManager.show(
+          window.notificationManager.show(
             "Error",
             "Please select both start and end dates",
             "danger"
@@ -973,12 +993,16 @@
         const data = await response.json();
 
         document.getElementById("remap-status").textContent = data.message;
-        settingsManager.show("Success", data.message, "success");
+        window.notificationManager.show("Success", data.message, "success");
       } catch (error) {
         console.error("Error re-matching trips:", error);
         document.getElementById("remap-status").textContent =
           "Error re-matching trips.";
-        settingsManager.show("Error", "Failed to re-match trips", "danger");
+        window.notificationManager.show(
+          "Error",
+          "Failed to re-match trips",
+          "danger"
+        );
       }
     });
 

@@ -408,7 +408,9 @@ class UploadManager {
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${entry.filename}</td>
-        <td>${entry.startTime ? entry.startTime.toLocaleString() : "-"} - ${entry.endTime ? entry.endTime.toLocaleString() : "-"}</td>
+        <td>${entry.startTime ? entry.startTime.toLocaleString() : "-"} - ${
+        entry.endTime ? entry.endTime.toLocaleString() : "-"
+      }</td>
         <td>${entry.points}</td>
         <td>Pending</td>
         <td><button class="btn btn-sm btn-danger" onclick="removeFile(${index})">Remove</button></td>
@@ -516,7 +518,7 @@ class UploadManager {
     const { uploadButton, mapMatchCheckbox } = this.elements;
 
     if (selectedFiles.length === 0) {
-      notificationManager.show("No files selected to upload", "warning");
+      window.notificationManager.show("No files selected to upload", "warning");
       return;
     }
 
@@ -550,7 +552,7 @@ class UploadManager {
       const data = await response.json();
 
       if (data.status === "success") {
-        notificationManager.show(data.message, "success");
+        window.notificationManager.show(data.message, "success");
         this.state.selectedFiles = [];
         this.updateFileList();
         this.updatePreviewMap();
@@ -561,7 +563,7 @@ class UploadManager {
       }
     } catch (error) {
       console.error("Error uploading files:", error);
-      notificationManager.show(
+      window.notificationManager.show(
         "Error uploading files: " + error.message,
         "danger"
       );
@@ -596,7 +598,7 @@ class UploadManager {
       }
     } catch (error) {
       console.error("Error fetching uploaded trips:", error);
-      notificationManager.show("Error loading uploaded trips", "danger");
+      window.notificationManager.show("Error loading uploaded trips", "danger");
       this.loadingManager.error(
         "Error fetching uploaded trips: " + error.message
       );
@@ -634,11 +636,15 @@ class UploadManager {
       row.innerHTML += `
         <td>${trip.transactionId || "N/A"}</td>
         <td>${trip.filename || "N/A"}</td>
-        <td>${trip.startTime ? new Date(trip.startTime).toLocaleString() : "-"}</td>
+        <td>${
+          trip.startTime ? new Date(trip.startTime).toLocaleString() : "-"
+        }</td>
         <td>${trip.endTime ? new Date(trip.endTime).toLocaleString() : "-"}</td>
         <td>${trip.source || "upload"}</td>
         <td>
-          <button class="btn btn-sm btn-danger delete-trip" data-trip-id="${trip._id}">
+          <button class="btn btn-sm btn-danger delete-trip" data-trip-id="${
+            trip._id
+          }">
             Delete
           </button>
         </td>
@@ -692,7 +698,10 @@ class UploadManager {
     const tripIds = Array.from(selectedCheckboxes).map((cb) => cb.value);
 
     if (tripIds.length === 0) {
-      notificationManager.show("No trips selected for deletion.", "warning");
+      window.notificationManager.show(
+        "No trips selected for deletion.",
+        "warning"
+      );
       this.loadingManager.finish();
       return;
     }
@@ -719,7 +728,7 @@ class UploadManager {
         const data = await response.json();
 
         if (data.status === "success") {
-          notificationManager.show(
+          window.notificationManager.show(
             `${data.deleted_uploaded_trips} uploaded trips and ${data.deleted_matched_trips} matched trips deleted successfully.`,
             "success"
           );
@@ -730,7 +739,7 @@ class UploadManager {
       }
     } catch (error) {
       console.error("Error deleting trips:", error);
-      notificationManager.show(
+      window.notificationManager.show(
         "Error deleting trips: " + error.message,
         "danger"
       );
@@ -769,7 +778,7 @@ class UploadManager {
         const data = await response.json();
 
         if (data.status === "success") {
-          notificationManager.show(
+          window.notificationManager.show(
             `Trip deleted successfully. Matched trips deleted: ${data.deleted_matched_trips}`,
             "success"
           );
@@ -780,7 +789,7 @@ class UploadManager {
       }
     } catch (error) {
       console.error("Error deleting trip:", error);
-      notificationManager.show(
+      window.notificationManager.show(
         "Error deleting trip: " + error.message,
         "danger"
       );

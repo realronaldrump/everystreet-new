@@ -15,12 +15,11 @@ document.addEventListener("DOMContentLoaded", () => {
    * @param {string} message The message to display.
    * @param {'success' | 'danger' | 'info' | 'warning'} type The type of notification (success, danger, info, warning).
    */
-  function showNotification(message, type) {
-    if (notificationManager) {
-      notificationManager.show(message, type);
+  function showNotification(message, type = "info") {
+    if (window.notificationManager) {
+      window.notificationManager.show(message, type);
     } else {
-      // Extremely unlikely to happen, but keeping a fallback for completeness.
-      console.error(`Notification Manager not available.  ${type}: ${message}`);
+      console.log(`${type.toUpperCase()}: ${message}`);
     }
   }
 

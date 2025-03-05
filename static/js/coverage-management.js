@@ -17,60 +17,9 @@
 
       // Check for notification manager
       if (typeof window.notificationManager === "undefined") {
-        console.warn("notificationManager not found, creating local instance");
-        // Create a simple fallback notification handler using Bootstrap toasts
-        window.notificationManager = {
-          show: (message, type = "info", duration = 5000) => {
-            const toastId = `toast-${Date.now()}`;
-            const toastHtml = `
-              <div id="${toastId}" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="d-flex">
-                  <div class="toast-body ${
-                    type === "success"
-                      ? "text-success"
-                      : type === "danger"
-                      ? "text-danger"
-                      : "text-info"
-                  }">
-                    <i class="fas ${
-                      type === "success"
-                        ? "fa-check-circle"
-                        : type === "danger"
-                        ? "fa-exclamation-circle"
-                        : "fa-info-circle"
-                    } me-2"></i>
-                    ${message}
-                  </div>
-                  <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-              </div>
-            `;
-
-            let toastContainer = document.querySelector(".toast-container");
-            if (!toastContainer) {
-              toastContainer = document.createElement("div");
-              toastContainer.className =
-                "toast-container position-fixed bottom-0 end-0 p-3";
-              document.body.appendChild(toastContainer);
-            }
-
-            toastContainer.insertAdjacentHTML("beforeend", toastHtml);
-
-            const toastElement = document.getElementById(toastId);
-            const toast = new bootstrap.Toast(toastElement, {
-              autohide: duration > 0,
-              delay: duration,
-            });
-
-            toast.show();
-
-            toastElement.addEventListener("hidden.bs.toast", () => {
-              toastElement.remove();
-            });
-
-            return toastElement;
-          },
-        };
+        console.warn(
+          "notificationManager not found, fallbacks will use console.log"
+        );
       }
 
       // Initialize modals once DOM is ready
@@ -214,12 +163,22 @@
     }
 
     async validateLocation() {
-      const locInput = document.getElementById("location-input");
+      const locationInput = document
+        .getElementById("location-input")
+        .value.trim();
+      if (!locationInput) {
+        window.notificationManager.show(
+          "Please enter a location to validate.",
+          "warning"
+        );
+        return;
+      }
+
       const locType = document.getElementById("location-type");
-      if (!locInput?.value || !locType?.value) {
-        notificationManager.show(
-          "Please enter a location and select a location type.",
-          "danger"
+      if (!locType?.value) {
+        window.notificationManager.show(
+          "Please select a location type.",
+          "warning"
         );
         return;
       }
@@ -229,7 +188,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            location: locInput.value,
+            location: locationInput,
             locationType: locType.value,
           }),
         });
@@ -238,7 +197,7 @@
         const data = await response.json();
 
         if (!data) {
-          notificationManager.show(
+          window.notificationManager.show(
             "Location not found. Please check your input.",
             "warning"
           );
@@ -247,10 +206,13 @@
 
         this.validatedLocation = data;
         document.getElementById("add-coverage-area").disabled = false;
-        notificationManager.show("Location validated successfully!", "success");
+        window.notificationManager.show(
+          "Location validated successfully!",
+          "success"
+        );
       } catch (error) {
         console.error("Error validating location:", error);
-        notificationManager.show(
+        window.notificationManager.show(
           "Failed to validate location. Please try again.",
           "danger"
         );
@@ -259,7 +221,10 @@
 
     async addCoverageArea() {
       if (!this.validatedLocation) {
-        notificationManager.show("Please validate a location first.", "danger");
+        window.notificationManager.show(
+          "Please validate a location first.",
+          "danger"
+        );
         return;
       }
 
@@ -274,7 +239,7 @@
         );
 
         if (exists) {
-          notificationManager.show(
+          window.notificationManager.show(
             "This area is already being tracked.",
             "warning"
           );
@@ -311,7 +276,7 @@
           this.activeTaskIds.add(taskData.task_id);
         }
 
-        notificationManager.show(
+        window.notificationManager.show(
           "Coverage area processing started. You can check the status in the table.",
           "success"
         );
@@ -322,7 +287,7 @@
         this.validatedLocation = null;
       } catch (error) {
         console.error("Error adding coverage area:", error);
-        notificationManager.show(
+        window.notificationManager.show(
           "Failed to add coverage area. Please try again.",
           "danger"
         );
@@ -334,7 +299,10 @@
     async cancelProcessing(location = null) {
       const locationToCancel = location || this.currentProcessingLocation;
       if (!locationToCancel) {
-        notificationManager.show("No active processing to cancel.", "warning");
+        window.notificationManager.show(
+          "No active processing to cancel.",
+          "warning"
+        );
         return;
       }
 
@@ -347,7 +315,7 @@
 
         if (!response.ok) throw new Error("Failed to cancel processing");
 
-        notificationManager.show(
+        window.notificationManager.show(
           "Processing cancelled successfully.",
           "success"
         );
@@ -355,7 +323,7 @@
         await this.loadCoverageAreas();
       } catch (error) {
         console.error("Error cancelling processing:", error);
-        notificationManager.show(
+        window.notificationManager.show(
           "Failed to cancel processing. Please try again.",
           "danger"
         );
@@ -636,7 +604,7 @@
         this.constructor.updateCoverageTable(data.areas);
       } catch (error) {
         console.error("Error loading coverage areas: %s", error);
-        notificationManager.show(
+        window.notificationManager.show(
           "Failed to load coverage areas. Please refresh the page.",
           "danger"
         );
@@ -741,7 +709,7 @@
         );
 
         // Show notification that we're starting
-        notificationManager.show(
+        window.notificationManager.show(
           `Starting coverage calculation for ${location.display_name}...`,
           "info"
         );
@@ -781,13 +749,13 @@
         }
 
         // Show success notification
-        notificationManager.show(
+        window.notificationManager.show(
           `Coverage updated successfully for ${location.display_name}`,
           "success"
         );
       } catch (error) {
         console.error("Error updating coverage: ", error);
-        notificationManager.show(
+        window.notificationManager.show(
           `Error updating coverage: ${error.message}`,
           "danger",
           0
@@ -813,7 +781,7 @@
       }
 
       try {
-        notificationManager.show(
+        window.notificationManager.show(
           `Deleting coverage area for ${location.display_name}...`,
           "info"
         );
@@ -843,13 +811,13 @@
           this.selectedLocation = null;
         }
 
-        notificationManager.show(
+        window.notificationManager.show(
           `Coverage area deleted successfully`,
           "success"
         );
       } catch (error) {
         console.error("Error deleting coverage area:", error);
-        notificationManager.show(
+        window.notificationManager.show(
           `Error deleting coverage area: ${error.message}`,
           "danger"
         );
@@ -981,12 +949,12 @@
 
           // Show a toast notification
           if (hasError) {
-            notificationManager.show(
+            window.notificationManager.show(
               `Error in coverage calculation for ${data.coverage.location_name}`,
               "danger"
             );
           } else {
-            notificationManager.show(
+            window.notificationManager.show(
               `No street data available for ${data.coverage.location_name}. Try updating the coverage.`,
               "warning"
             );
@@ -1000,7 +968,7 @@
         }
 
         // Show success toast
-        notificationManager.show(
+        window.notificationManager.show(
           `Loaded coverage data for ${data.coverage.location_name}`,
           "success"
         );
@@ -1027,7 +995,7 @@
             <p>Please try refreshing the page or select a different location.</p>
           </div>`;
 
-        notificationManager.show(
+        window.notificationManager.show(
           `Error loading coverage data: ${error.message}`,
           "danger"
         );
@@ -1618,7 +1586,14 @@
           leafletImage(this.coverageMap, (err, canvas) => {
             if (err) {
               console.error("Error generating map image:", err);
-              alert("Failed to generate map image");
+              if (window.notificationManager) {
+                window.notificationManager.show(
+                  "Failed to generate map image",
+                  "danger"
+                );
+              } else {
+                console.error("Failed to generate map image");
+              }
               return;
             }
 
@@ -1629,11 +1604,27 @@
             link.click();
           });
         } else {
-          alert("To export the map, please take a screenshot manually.");
+          if (window.notificationManager) {
+            window.notificationManager.show(
+              "To export the map, please take a screenshot manually.",
+              "warning"
+            );
+          } else {
+            console.warn(
+              "To export the map, please take a screenshot manually."
+            );
+          }
         }
       } catch (error) {
         console.error("Error exporting map:", error);
-        alert(`Error exporting map: ${error.message}`);
+        if (window.notificationManager) {
+          window.notificationManager.show(
+            `Error exporting map: ${error.message}`,
+            "danger"
+          );
+        } else {
+          console.error(`Error exporting map: ${error.message}`);
+        }
       }
     }
 

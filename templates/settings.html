@@ -298,11 +298,6 @@ content %}
   </div>
 </div>
 
-<!-- Toast Container -->
-<div class="toast-container position-fixed top-0 end-0 p-3">
-  <!-- Toasts will be dynamically added here -->
-</div>
-
 <!-- Task Status Template (hidden) -->
 <template id="task-status-template">
   <div class="task-status d-flex align-items-center">
@@ -320,23 +315,6 @@ content %}
   </div>
 </template>
 
-<!-- Toast Template (hidden) -->
-<template id="toast-template">
-  <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-    <div class="toast-header">
-      <div class="rounded me-2 toast-icon"></div>
-      <strong class="me-auto toast-title"></strong>
-      <small class="toast-time">just now</small>
-      <button
-        type="button"
-        class="btn-close"
-        data-bs-dismiss="toast"
-        aria-label="Close"
-      ></button>
-    </div>
-    <div class="toast-body"></div>
-  </div>
-</template>
 {% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', path='js/settings.js') | replace('http://', '//') }}"></script>
 <script>

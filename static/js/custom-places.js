@@ -150,7 +150,10 @@ class CustomPlacesManager {
 
     const placeName = placeNameInput.value.trim();
     if (!placeName) {
-      notificationManager.show("Please enter a name for this place", "warning");
+      window.notificationManager.show(
+        "Please enter a name for this place",
+        "warning"
+      );
       return;
     }
 
@@ -183,14 +186,17 @@ class CustomPlacesManager {
         this.places.set(savedPlace._id, savedPlace);
         this.displayPlace(savedPlace);
         this.resetDrawing();
-        notificationManager.show(
+        window.notificationManager.show(
           `Place "${placeName}" saved successfully`,
           "success"
         );
       }
     } catch (error) {
       console.error("Error saving place:", error);
-      notificationManager.show(error.message || "Error saving place", "danger");
+      window.notificationManager.show(
+        error.message || "Error saving place",
+        "danger"
+      );
     }
   }
 
@@ -283,7 +289,7 @@ class CustomPlacesManager {
       this.updateVisitsData();
     } catch (error) {
       console.error("Error loading places:", error);
-      notificationManager.show("Failed to load custom places", "danger");
+      window.notificationManager.show("Failed to load custom places", "danger");
     }
   }
 
@@ -358,7 +364,10 @@ class CustomPlacesManager {
         .openOn(this.map);
     } catch (error) {
       console.error("Error showing place statistics:", error);
-      notificationManager.show("Failed to load place statistics", "danger");
+      window.notificationManager.show(
+        "Failed to load place statistics",
+        "danger"
+      );
     }
   }
 
@@ -426,7 +435,7 @@ class CustomPlacesManager {
         }
       });
 
-      notificationManager.show("Place deleted successfully", "success");
+      window.notificationManager.show("Place deleted successfully", "success");
 
       // Refresh modal if open
       if (
@@ -439,8 +448,8 @@ class CustomPlacesManager {
       }
     } catch (error) {
       console.error("Error deleting place:", error);
-      notificationManager.show(
-        error.message || "Error deleting place",
+      window.notificationManager.show(
+        `Error deleting place: ${error.message}`,
         "danger"
       );
     }
