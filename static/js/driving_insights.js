@@ -175,14 +175,19 @@
       const savedEndDate =
         localStorage.getItem("endDate") || DateUtils.getCurrentDate();
 
-      // Set initial values
-      startDateEl.value = savedStartDate;
-      endDateEl.value = savedEndDate;
-
-      // Update when flatpickr is already initialized by ModernUI
+      // Set initial values using DateUtils
       if (startDateEl._flatpickr && endDateEl._flatpickr) {
+        // Update when flatpickr is already initialized
         startDateEl._flatpickr.setDate(savedStartDate);
         endDateEl._flatpickr.setDate(savedEndDate);
+      } else {
+        // Initialize date pickers if they don't exist yet
+        DateUtils.initDatePicker(startDateEl, {
+          defaultDate: savedStartDate,
+        });
+        DateUtils.initDatePicker(endDateEl, {
+          defaultDate: savedEndDate,
+        });
       }
     }
   }
@@ -234,17 +239,17 @@
           preset = "90days";
           break;
         default:
-          // Handle custom days
-          const endDate = DateUtils.getCurrentDate();
+          // Handle custom days using DateUtils
+          const endDate = new Date();
           const startDate = new Date();
           startDate.setDate(startDate.getDate() - days);
 
-          // Update inputs directly
+          // Format dates using DateUtils
           updateDateInputs(
             startDateInput,
             endDateInput,
             DateUtils.formatDate(startDate),
-            endDate
+            DateUtils.formatDate(endDate)
           );
           return;
       }
@@ -256,15 +261,15 @@
           fetchDrivingInsights();
         })
         .catch((error) => {
-          console.error("Error setting date range:", error);
+          console.warn("Error setting date range: %s", error);
         });
     } catch (error) {
-      console.error("Error in setDateRange:", error);
+      console.warn("Error in setDateRange: %s", error);
     }
   }
 
   function updateDateInputs(startInput, endInput, startDate, endDate) {
-    // Update inputs
+    // Update inputs using DateUtils helper method
     if (startInput._flatpickr) {
       startInput._flatpickr.setDate(startDate);
     } else {
@@ -471,21 +476,29 @@
 
     if (totalTripsEl) totalTripsEl.textContent = data.total_trips || 0;
     if (totalDistanceEl)
-      totalDistanceEl.textContent = `${(data.total_distance || 0).toFixed(2)} miles`;
+      totalDistanceEl.textContent = `${(data.total_distance || 0).toFixed(
+        2
+      )} miles`;
     if (totalFuelEl)
-      totalFuelEl.textContent = `${(data.total_fuel_consumed || 0).toFixed(2)} gallons`;
+      totalFuelEl.textContent = `${(data.total_fuel_consumed || 0).toFixed(
+        2
+      )} gallons`;
     if (maxSpeedEl) maxSpeedEl.textContent = `${data.max_speed || 0} mph`;
     if (totalIdleEl)
       totalIdleEl.textContent = formatIdleDuration(
         data.total_idle_duration || 0
       );
     if (longestTripEl)
-      longestTripEl.textContent = `${(data.longest_trip_distance || 0).toFixed(2)} miles`;
+      longestTripEl.textContent = `${(data.longest_trip_distance || 0).toFixed(
+        2
+      )} miles`;
 
     if (mostVisitedEl) {
       if (data.most_visited?._id) {
         const { _id, count, isCustomPlace } = data.most_visited;
-        mostVisitedEl.innerHTML = `${_id} ${isCustomPlace ? '<span class="badge bg-primary">Custom</span>' : ""} (${count} visits)`;
+        mostVisitedEl.innerHTML = `${_id} ${
+          isCustomPlace ? '<span class="badge bg-primary">Custom</span>' : ""
+        } (${count} visits)`;
       } else {
         mostVisitedEl.textContent = "-";
       }

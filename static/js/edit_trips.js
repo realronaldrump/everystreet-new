@@ -88,9 +88,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Helper: Return yesterday's date in YYYY-MM-DD format.
   function getFallbackDate() {
-    const dateObj = new Date();
-    dateObj.setDate(dateObj.getDate() - 1);
-    return dateObj.toISOString().split("T")[0];
+    // Use the central DateUtils function
+    return DateUtils.getYesterday();
   }
 
   async function loadTrips() {

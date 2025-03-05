@@ -135,7 +135,9 @@
       el._eventHandlers = {};
     }
     const handlerFunction = handler.toString();
-    const handlerKey = `${eventType}_${handlerFunction.substring(0, 50).replace(/\s+/g, "")}`;
+    const handlerKey = `${eventType}_${handlerFunction
+      .substring(0, 50)
+      .replace(/\s+/g, "")}`;
     if (el._eventHandlers[handlerKey]) {
       return false;
     }
@@ -456,7 +458,9 @@
       div.dataset.layerName = name;
       div.innerHTML = `
         <label class="custom-checkbox">
-          <input type="checkbox" id="${name}-toggle" ${info.visible ? "checked" : ""}>
+          <input type="checkbox" id="${name}-toggle" ${
+        info.visible ? "checked" : ""
+      }>
           <span class="checkmark"></span>
         </label>
         <label for="${name}-toggle">${displayName}</label>
@@ -967,7 +971,9 @@
     // Add trip ID for actions
     html += `
         </table>
-        <div class="trip-actions" data-trip-id="${props.tripId || props.id || props.transactionId}">
+        <div class="trip-actions" data-trip-id="${
+          props.tripId || props.id || props.transactionId
+        }">
     `;
 
     // Add appropriate action buttons
@@ -1404,23 +1410,24 @@
   }
 
   function initializeDatePickers() {
-    if (typeof flatpickr !== "function") return;
     AppState.dom.startDateInput =
       AppState.dom.startDateInput || getElement("start-date");
     AppState.dom.endDateInput =
       AppState.dom.endDateInput || getElement("end-date");
+
     const storedStartDate =
       getStorageItem(CONFIG.STORAGE_KEYS.startDate) ||
       DateUtils.getCurrentDate();
     const storedEndDate =
       getStorageItem(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate();
+
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
+
+    // Use DateUtils to initialize both date pickers with custom config
     const config = {
-      dateFormat: "Y-m-d",
       maxDate: tomorrow,
-      enableTime: false,
       static: false,
       appendTo: document.body,
       theme: document.body.classList.contains("light-mode") ? "light" : "dark",
@@ -1428,29 +1435,36 @@
       disableMobile: true,
       onChange: function (selectedDates, dateStr) {
         const input = this.input;
-        if (input) {
-          const formattedDate = DateUtils.formatDate(dateStr);
-          if (formattedDate) {
-            setStorageItem(
-              input.id === "start-date"
-                ? CONFIG.STORAGE_KEYS.startDate
-                : CONFIG.STORAGE_KEYS.endDate,
-              formattedDate
-            );
-          }
-        }
+        const formattedDate = DateUtils.formatDate(dateStr);
+        const isStartDate = input.id === "start-date";
+        const key = isStartDate
+          ? CONFIG.STORAGE_KEYS.startDate
+          : CONFIG.STORAGE_KEYS.endDate;
+        setStorageItem(key, formattedDate);
       },
     };
-    if (
-      AppState.dom.startDateInput &&
-      !AppState.dom.startDateInput._flatpickr
-    ) {
-      const startConfig = { ...config, defaultDate: storedStartDate };
-      flatpickr(AppState.dom.startDateInput, startConfig);
+
+    // Initialize the date pickers
+    AppState.dom.startDatePicker = DateUtils.initDatePicker(
+      AppState.dom.startDateInput,
+      config
+    );
+    AppState.dom.endDatePicker = DateUtils.initDatePicker(
+      AppState.dom.endDateInput,
+      config
+    );
+
+    // Set initial values
+    if (AppState.dom.startDatePicker) {
+      AppState.dom.startDatePicker.setDate(storedStartDate);
+    } else {
+      AppState.dom.startDateInput.value = storedStartDate;
     }
-    if (AppState.dom.endDateInput && !AppState.dom.endDateInput._flatpickr) {
-      const endConfig = { ...config, defaultDate: storedEndDate };
-      flatpickr(AppState.dom.endDateInput, endConfig);
+
+    if (AppState.dom.endDatePicker) {
+      AppState.dom.endDatePicker.setDate(storedEndDate);
+    } else {
+      AppState.dom.endDateInput.value = storedEndDate;
     }
   }
 

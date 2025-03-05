@@ -357,16 +357,15 @@
    * @param {HTMLElement} endInput - End date input element
    */
   function initDatePickers(startInput, endInput) {
-    if (!window.flatpickr || !startInput || !endInput) return;
+    if (!startInput || !endInput) return;
 
     // Get dates from localStorage or use defaults
-    const today = new Date().toISOString().split("T")[0];
+    const today = DateUtils.getCurrentDate();
     startInput.value = localStorage.getItem(CONFIG.storage.startDate) || today;
     endInput.value = localStorage.getItem(CONFIG.storage.endDate) || today;
 
     // Create configuration
     const dateConfig = {
-      dateFormat: "Y-m-d",
       maxDate: "today",
       disableMobile: true,
       theme: document.body.classList.contains(CONFIG.classes.lightMode)
@@ -374,9 +373,9 @@
         : "dark",
     };
 
-    // Initialize flatpickr
-    window.flatpickr(startInput, dateConfig);
-    window.flatpickr(endInput, dateConfig);
+    // Initialize with DateUtils
+    DateUtils.initDatePicker(startInput, dateConfig);
+    DateUtils.initDatePicker(endInput, dateConfig);
   }
 
   /**
@@ -439,8 +438,10 @@
 
     // Format dates for display
     const formatDisplayDate = (dateStr) =>
-      new Date(dateStr).toLocaleDateString();
-    rangeSpan.textContent = `${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`;
+      DateUtils.formatForDisplay(dateStr, { dateStyle: "medium" });
+    rangeSpan.textContent = `${formatDisplayDate(
+      startDate
+    )} - ${formatDisplayDate(endDate)}`;
   }
 
   /**
@@ -821,7 +822,9 @@
       // Show notification with actual data
       if (window.notificationManager) {
         window.notificationManager.show(
-          `Successfully matched ${data.matched_count || 0} trips to the road network.`,
+          `Successfully matched ${
+            data.matched_count || 0
+          } trips to the road network.`,
           "success"
         );
       }

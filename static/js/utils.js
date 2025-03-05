@@ -63,7 +63,7 @@ const DateUtils = {
 
       return date;
     } catch (error) {
-      console.error("Error parsing date:", error);
+      console.warn("Error parsing date: %s", error);
       return null;
     }
   },
@@ -151,7 +151,7 @@ const DateUtils = {
             startDate = new Date("2000-01-01");
           }
         } catch (error) {
-          console.warn("Error fetching first trip date:", error);
+          console.warn("Error fetching first trip date: %s", error);
           startDate = new Date("2000-01-01"); // Fallback date
         }
         break;
@@ -248,26 +248,21 @@ const DateUtils = {
     // Add any other options
     Object.entries(options).forEach(([key, value]) => {
       if (
-        key !== "dateStyle" &&
-        key !== "timeStyle" &&
         value !== null &&
-        value !== undefined
+        value !== undefined &&
+        key !== "dateStyle" &&
+        key !== "timeStyle"
       ) {
         formatterOptions[key] = value;
       }
     });
-
-    // Ensure at least one formatting option is present
-    if (Object.keys(formatterOptions).length === 0) {
-      formatterOptions.dateStyle = "medium";
-    }
 
     const formatter = new Intl.DateTimeFormat("en-US", formatterOptions);
     return formatter.format(dateObj);
   },
 
   /**
-   * Check if a date is between two other dates (inclusive)
+   * Check if a date is within a specified date range (inclusive)
    * @param {Date|string} date - Date to check
    * @param {Date|string} startDate - Start of range
    * @param {Date|string} endDate - End of range
@@ -275,18 +270,18 @@ const DateUtils = {
    */
   isDateInRange(date, startDate, endDate) {
     const dateObj = this.parseDate(date);
-    const startObj = this.parseDate(startDate);
-    const endObj = this.parseDate(endDate, true); // End of day
+    const start = this.parseDate(startDate);
+    const end = this.parseDate(endDate, true); // Use end of day for end date
 
-    if (!dateObj || !startObj || !endObj) return false;
+    if (!dateObj || !start || !end) return false;
 
-    return dateObj >= startObj && dateObj <= endObj;
+    return dateObj >= start && dateObj <= end;
   },
 
   /**
-   * Validates a date range
-   * @param {string|Date} startDate - Start date
-   * @param {string|Date} endDate - End date
+   * Validate a date range
+   * @param {Date|string} startDate - Start date
+   * @param {Date|string} endDate - End date
    * @returns {boolean} - True if range is valid
    */
   isValidDateRange(startDate, endDate) {
@@ -295,15 +290,14 @@ const DateUtils = {
 
     if (!start || !end) return false;
 
-    // Ensure start date is not after end date
     return start <= end;
   },
 
   /**
-   * Calculates duration between two dates in a human-readable format
-   * @param {string|Date} startDate - Start date
-   * @param {string|Date} endDate - End date
-   * @returns {string} - Formatted duration (e.g., "2 days 3 hours")
+   * Calculate duration between two dates
+   * @param {Date|string} startDate - Start date
+   * @param {Date|string} endDate - End date
+   * @returns {string} - Human-readable duration
    */
   getDuration(startDate, endDate) {
     const start = this.parseDate(startDate);
@@ -311,23 +305,83 @@ const DateUtils = {
 
     if (!start || !end) return "Unknown";
 
-    const diffMs = end.getTime() - start.getTime();
-
-    if (diffMs < 0) return "Invalid duration";
-
-    // Calculate days, hours, minutes
+    const diffMs = Math.abs(end - start);
     const diffSec = Math.floor(diffMs / 1000);
-    const days = Math.floor(diffSec / 86400);
-    const hours = Math.floor((diffSec % 86400) / 3600);
-    const minutes = Math.floor((diffSec % 3600) / 60);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHours = Math.floor(diffMin / 60);
+    const diffDays = Math.floor(diffHours / 24);
 
-    let result = [];
-    if (days > 0) result.push(`${days} day${days > 1 ? "s" : ""}`);
-    if (hours > 0) result.push(`${hours} hour${hours > 1 ? "s" : ""}`);
-    if (minutes > 0 && days === 0)
-      result.push(`${minutes} minute${minutes > 1 ? "s" : ""}`);
+    if (diffDays > 0) {
+      return `${diffDays} day${diffDays !== 1 ? "s" : ""}`;
+    } else if (diffHours > 0) {
+      return `${diffHours} hour${diffHours !== 1 ? "s" : ""}`;
+    } else if (diffMin > 0) {
+      return `${diffMin} minute${diffMin !== 1 ? "s" : ""}`;
+    } else {
+      return `${diffSec} second${diffSec !== 1 ? "s" : ""}`;
+    }
+  },
 
-    return result.join(" ") || "Less than a minute";
+  /**
+   * Get yesterday's date
+   * @param {string} [format=DEFAULT_FORMAT] - Output format
+   * @returns {string} - Yesterday's date as a string
+   */
+  getYesterday(format = this.DEFAULT_FORMAT) {
+    const dateObj = new Date();
+    dateObj.setDate(dateObj.getDate() - 1);
+    return this.formatDate(dateObj, format);
+  },
+
+  /**
+   * Format a timestamp as "time ago" (e.g., "2 minutes ago")
+   * @param {Date|string} timestamp - The timestamp to format
+   * @returns {string} Formatted "time ago" string
+   */
+  formatTimeAgo(timestamp) {
+    const date = this.parseDate(timestamp);
+    if (!date) return "";
+
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+
+    if (seconds < 5) return "just now";
+    if (seconds < 60) return `${seconds} seconds ago`;
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
+
+    const days = Math.floor(hours / 24);
+    return `${days} day${days !== 1 ? "s" : ""} ago`;
+  },
+
+  /**
+   * Initialize Flatpickr date pickers with standard configuration
+   * @param {HTMLElement|string} element - Element or selector to initialize
+   * @param {Object} [options={}] - Additional Flatpickr options to merge
+   * @returns {Object} - Flatpickr instance
+   */
+  initDatePicker(element, options = {}) {
+    if (!window.flatpickr) {
+      console.warn("Flatpickr not loaded, cannot initialize date picker");
+      return null;
+    }
+
+    const defaultOptions = {
+      dateFormat: "Y-m-d",
+      allowInput: true,
+      errorHandler: (error) => {
+        console.warn("Flatpickr error: %s", error);
+      },
+    };
+
+    // Merge options, with provided options taking precedence
+    const mergedOptions = { ...defaultOptions, ...options };
+
+    return flatpickr(element, mergedOptions);
   },
 };
 

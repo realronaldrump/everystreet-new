@@ -404,7 +404,9 @@ class LiveTripTracker {
           const hours = Math.floor(duration / 3600);
           const minutes = Math.floor((duration % 3600) / 60);
           const seconds = duration % 60;
-          durationStr = `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+          durationStr = `${hours}:${minutes
+            .toString()
+            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
         } else {
           // If we somehow got a negative duration, show 0
           durationStr = "0:00:00";
@@ -434,7 +436,7 @@ class LiveTripTracker {
       "Average Speed": `${avgSpeed.toFixed(1)} mph`,
       "Max Speed": `${maxSpeed.toFixed(1)} mph`,
       "Points Recorded": pointsRecorded,
-      "Last Update": lastUpdate ? this.formatTimeAgo(lastUpdate) : "N/A",
+      "Last Update": lastUpdate ? DateUtils.formatTimeAgo(lastUpdate) : "N/A",
     };
 
     // Log metrics for debugging
@@ -449,30 +451,6 @@ class LiveTripTracker {
       </div>`
       )
       .join("");
-  }
-
-  /**
-   * Format a timestamp as "time ago" (e.g., "2 minutes ago")
-   * @param {Date|string} timestamp - The timestamp to format
-   * @returns {string} Formatted "time ago" string
-   */
-  formatTimeAgo(timestamp) {
-    const date =
-      typeof timestamp === "string" ? new Date(timestamp) : timestamp;
-    const now = new Date();
-    const seconds = Math.floor((now - date) / 1000);
-
-    if (seconds < 5) return "just now";
-    if (seconds < 60) return `${seconds} seconds ago`;
-
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
-
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
-
-    const days = Math.floor(hours / 24);
-    return `${days} day${days !== 1 ? "s" : ""} ago`;
   }
 
   /**

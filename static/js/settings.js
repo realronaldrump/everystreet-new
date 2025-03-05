@@ -264,8 +264,8 @@
                   .map(
                     (opt) => `
                   <option value="${opt.value}" ${
-                    opt.value === task.interval_minutes ? "selected" : ""
-                  }>
+                      opt.value === task.interval_minutes ? "selected" : ""
+                    }>
                     ${opt.label}
                   </option>
                 `
@@ -404,8 +404,12 @@
 
       // Previous button
       const prevLi = document.createElement("li");
-      prevLi.className = `page-item ${this.currentHistoryPage === 1 ? "disabled" : ""}`;
-      prevLi.innerHTML = `<a class="page-link" href="#" data-page="${this.currentHistoryPage - 1}">Previous</a>`;
+      prevLi.className = `page-item ${
+        this.currentHistoryPage === 1 ? "disabled" : ""
+      }`;
+      prevLi.innerHTML = `<a class="page-link" href="#" data-page="${
+        this.currentHistoryPage - 1
+      }">Previous</a>`;
       pagination.appendChild(prevLi);
 
       // Page numbers (show up to 5 pages with current page in the middle)
@@ -414,15 +418,21 @@
 
       for (let i = startPage; i <= endPage; i++) {
         const pageLi = document.createElement("li");
-        pageLi.className = `page-item ${i === this.currentHistoryPage ? "active" : ""}`;
+        pageLi.className = `page-item ${
+          i === this.currentHistoryPage ? "active" : ""
+        }`;
         pageLi.innerHTML = `<a class="page-link" href="#" data-page="${i}">${i}</a>`;
         pagination.appendChild(pageLi);
       }
 
       // Next button
       const nextLi = document.createElement("li");
-      nextLi.className = `page-item ${this.currentHistoryPage === this.historyTotalPages ? "disabled" : ""}`;
-      nextLi.innerHTML = `<a class="page-link" href="#" data-page="${this.currentHistoryPage + 1}">Next</a>`;
+      nextLi.className = `page-item ${
+        this.currentHistoryPage === this.historyTotalPages ? "disabled" : ""
+      }`;
+      nextLi.innerHTML = `<a class="page-link" href="#" data-page="${
+        this.currentHistoryPage + 1
+      }">Next</a>`;
       pagination.appendChild(nextLi);
 
       paginationContainer.appendChild(pagination);
@@ -453,8 +463,8 @@
       return hours > 0
         ? `${hours}h ${minutes % 60}m ${seconds % 60}s`
         : minutes > 0
-          ? `${minutes}m ${seconds % 60}s`
-          : `${seconds}s`;
+        ? `${minutes}m ${seconds % 60}s`
+        : `${seconds}s`;
     }
 
     gatherTaskConfigFromUI() {
@@ -972,6 +982,7 @@
       }
     });
 
-    flatpickr(".datepicker", { dateFormat: "Y-m-d" });
+    // Use the central DateUtils function
+    DateUtils.initDatePicker(".datepicker");
   }
 })();
