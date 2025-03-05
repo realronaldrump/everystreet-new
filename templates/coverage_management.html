@@ -26,6 +26,68 @@ block head_content %}
   #coverage-map {
     min-height: 400px;
   }
+
+  /* Step styling */
+  .steps-container {
+    position: relative;
+  }
+  .steps-container:after {
+    content: "";
+    position: absolute;
+    width: 76%;
+    height: 2px;
+    background-color: #4a4a4a;
+    top: 15px;
+    left: 12%;
+    z-index: 1;
+  }
+  .step {
+    text-align: center;
+    position: relative;
+    z-index: 2;
+    width: 25%;
+  }
+  .step-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: #343a40;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 5px;
+    border: 2px solid #4a4a4a;
+  }
+  .step-label {
+    font-size: 12px;
+    color: #6c757d;
+  }
+  .step.active .step-icon {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+  }
+  .step.active .step-label {
+    color: #007bff;
+    font-weight: bold;
+  }
+  .step.complete .step-icon {
+    background-color: #28a745;
+    color: white;
+    border-color: #28a745;
+  }
+  .step.complete .step-label {
+    color: #28a745;
+  }
+  .step.error .step-icon {
+    background-color: #dc3545;
+    color: white;
+    border-color: #dc3545;
+  }
+  .step.error .step-label {
+    color: #dc3545;
+  }
 </style>
 {% endblock %} {% block content %}
 <div class="container-fluid">
@@ -114,8 +176,19 @@ block head_content %}
             <div class="col-md-4">
               <div class="card bg-darker text-white mb-3">
                 <div class="card-body">
-                  <h4 class="h6">Coverage Statistics</h4>
+                  <h4 class="h6 mb-3">Coverage Statistics</h4>
                   <div class="stats-container">
+                    <div class="progress mb-3" style="height: 25px">
+                      <div
+                        id="coverage-percentage-bar"
+                        class="progress-bar bg-success"
+                        role="progressbar"
+                        style="width: 0%"
+                      >
+                        <span id="dashboard-coverage-percentage-text">0%</span>
+                      </div>
+                    </div>
+
                     <div class="d-flex justify-content-between mb-2">
                       <span>Total Streets:</span>
                       <span id="dashboard-total-streets">-</span>
@@ -129,10 +202,6 @@ block head_content %}
                       <span id="dashboard-driven-length">-</span>
                     </div>
                     <div class="d-flex justify-content-between mb-2">
-                      <span>Coverage Percentage:</span>
-                      <span id="dashboard-coverage-percentage">-</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-2">
                       <span>Last Updated:</span>
                       <span id="dashboard-last-updated">-</span>
                     </div>
@@ -141,10 +210,22 @@ block head_content %}
               </div>
 
               <!-- Street Type Breakdown -->
+              <div class="card bg-darker text-white mb-3">
+                <div class="card-body">
+                  <h4 class="h6 mb-3">Street Type Breakdown</h4>
+                  <div id="street-type-chart" style="height: 180px"></div>
+                </div>
+              </div>
+
+              <!-- Coverage By Street Type -->
               <div class="card bg-darker text-white">
                 <div class="card-body">
-                  <h4 class="h6">Street Type Coverage</h4>
-                  <div id="street-type-chart" style="height: 200px"></div>
+                  <h4 class="h6 mb-3">Coverage by Street Type</h4>
+                  <div id="street-type-coverage">
+                    <div class="placeholder-content">
+                      Select a location to view coverage by street type
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -221,6 +302,11 @@ block head_content %}
   </div>
 </div>
 
+<!-- Toast Notifications Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <!-- Toasts will be added here dynamically -->
+</div>
+
 <!-- Task Progress Modal -->
 <div
   class="modal fade"
@@ -244,6 +330,35 @@ block head_content %}
         ></button>
       </div>
       <div class="modal-body">
+        <!-- Progress Steps -->
+        <div class="steps-container mb-3 d-flex justify-content-between">
+          <div class="step step-initializing">
+            <div class="step-icon">
+              <i class="fas fa-cog"></i>
+            </div>
+            <span class="step-label">Initialize</span>
+          </div>
+          <div class="step step-loading">
+            <div class="step-icon">
+              <i class="fas fa-map"></i>
+            </div>
+            <span class="step-label">Load Data</span>
+          </div>
+          <div class="step step-processing">
+            <div class="step-icon">
+              <i class="fas fa-road"></i>
+            </div>
+            <span class="step-label">Process</span>
+          </div>
+          <div class="step step-complete">
+            <div class="step-icon">
+              <i class="fas fa-check-circle"></i>
+            </div>
+            <span class="step-label">Complete</span>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
         <div class="progress mb-3">
           <div
             class="progress-bar progress-bar-striped progress-bar-animated"
@@ -251,16 +366,25 @@ block head_content %}
             style="width: 0%"
           ></div>
         </div>
-        <p class="progress-message text-center mb-2">Initializing...</p>
-        <div class="progress-details text-center">
-          <div class="stage-info mb-2 text-info"></div>
-          <div class="stats-info"></div>
-          <div class="time-info text-muted mt-2"></div>
+
+        <!-- Progress Message -->
+        <div class="progress-info bg-darker p-3 rounded mb-3">
+          <p class="progress-message text-center mb-2">Initializing...</p>
+          <div class="progress-details">
+            <div class="stage-info mb-2 text-info"></div>
+            <div class="stats-info"></div>
+            <div
+              class="time-info text-muted mt-2 d-flex justify-content-between"
+            >
+              <span class="elapsed-time">Elapsed: 0s</span>
+              <span class="estimated-time">Est. remaining: calculating...</span>
+            </div>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-danger" id="cancel-processing">
-          <i class="fas fa-stop-circle"></i> Cancel Processing
+          <i class="fas fa-stop-circle"></i> Cancel
         </button>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
           Close
