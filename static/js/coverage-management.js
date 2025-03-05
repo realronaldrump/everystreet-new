@@ -1113,6 +1113,7 @@
       this.coverageMap = L.map("coverage-map", {
         attributionControl: false,
         zoomControl: true,
+        renderer: L.svg(), // Force SVG renderer for better export compatibility
       });
 
       // Add custom dark-themed map tiles
@@ -1143,6 +1144,12 @@
 
       // Add streets to the map
       this.addStreetsToMap(coverage.streets_geojson);
+
+      // Handle zoom events to keep layers visible
+      this.coverageMap.on("zoomend", () => {
+        // Re-apply current filter when zoom ends
+        this.setMapFilter(this.currentFilter || "all");
+      });
 
       // Add hover effects for street info
       this.addMapHoverEffects();
@@ -1176,6 +1183,7 @@
           weight: 3,
           opacity: 0.8,
           color: isDriven ? "#4caf50" : "#ff5252",
+          className: isDriven ? "driven-street" : "undriven-street", // Add classes for export
         };
 
         // Adjust style based on street type
@@ -1238,6 +1246,9 @@
 
       // Store the bounds for later use
       this.mapBounds = streetsLayer.getBounds();
+
+      // Save a reference to the streets layer for better export
+      this.streetsGeoJsonLayer = streetsLayer;
     }
 
     addMapHoverEffects() {
@@ -1250,6 +1261,11 @@
 
       // Add mouseover and mouseout events to streets
       this.streetLayers.eachLayer((layer) => {
+        // Store original style for reset
+        if (!layer.originalStyle && layer.options) {
+          layer.originalStyle = { ...layer.options };
+        }
+
         layer.on("mouseover", (e) => {
           // Highlight the street
           e.target.setStyle({
@@ -1272,8 +1288,10 @@
         });
 
         layer.on("mouseout", (e) => {
-          // Reset style
-          this.streetLayers.resetStyle(e.target);
+          // Reset style - instead of using resetStyle, manually apply original style
+          if (layer.originalStyle) {
+            e.target.setStyle(layer.originalStyle);
+          }
 
           // Hide info panel
           infoPanel.style.display = "none";
@@ -1583,26 +1601,72 @@
       try {
         // Use leaflet-image if available, otherwise fallback to a message
         if (typeof leafletImage !== "undefined") {
-          leafletImage(this.coverageMap, (err, canvas) => {
-            if (err) {
-              console.error("Error generating map image:", err);
-              if (window.notificationManager) {
-                window.notificationManager.show(
-                  "Failed to generate map image",
-                  "danger"
-                );
-              } else {
-                console.error("Failed to generate map image");
-              }
-              return;
-            }
+          // Show a notification to let the user know export is being processed
+          if (window.notificationManager) {
+            window.notificationManager.show("Generating map image...", "info");
+          }
 
-            // Create download link
-            const link = document.createElement("a");
-            link.download = filename;
-            link.href = canvas.toDataURL("image/png");
-            link.click();
-          });
+          // Re-apply the current filter to ensure layers are displayed
+          this.setMapFilter(this.currentFilter || "all");
+
+          // Make sure SVG path elements are properly rendered
+          document
+            .querySelectorAll(".leaflet-overlay-pane path")
+            .forEach((path) => {
+              path.setAttribute("stroke-opacity", "1");
+              // Make sure the path has proper visibility
+              path.style.display = "";
+              path.style.visibility = "visible";
+            });
+
+          // Force leaflet to redraw first
+          this.coverageMap.invalidateSize();
+
+          // Add a small delay to ensure rendering completes
+          setTimeout(() => {
+            // Options for leaflet-image
+            const options = {
+              quality: 1.0,
+              svgRenderer: true,
+              includeOverlayPanes: true,
+            };
+
+            // Use leaflet-image to create a canvas with the map
+            leafletImage(
+              this.coverageMap,
+              (err, canvas) => {
+                if (err) {
+                  console.error("Error generating map image: %s", err);
+                  if (window.notificationManager) {
+                    window.notificationManager.show(
+                      "Failed to generate map image",
+                      "danger"
+                    );
+                  } else {
+                    console.error("Failed to generate map image");
+                  }
+                  return;
+                }
+
+                // Create download link
+                const link = document.createElement("a");
+                link.download = filename;
+                link.href = canvas.toDataURL("image/png");
+
+                // Notify success
+                if (window.notificationManager) {
+                  window.notificationManager.show(
+                    "Map image generated successfully",
+                    "success"
+                  );
+                }
+
+                // Trigger download
+                link.click();
+              },
+              options
+            );
+          }, 600);
         } else {
           if (window.notificationManager) {
             window.notificationManager.show(
@@ -1616,7 +1680,7 @@
           }
         }
       } catch (error) {
-        console.error("Error exporting map:", error);
+        console.error("Error exporting map: %s", error);
         if (window.notificationManager) {
           window.notificationManager.show(
             `Error exporting map: ${error.message}`,
@@ -1645,6 +1709,7 @@
           color: isDriven ? "#4caf50" : "#ff5252",
           weight: 3,
           opacity: 0.8,
+          className: isDriven ? "driven-street" : "undriven-street", // Add classes for export
         };
       };
 
@@ -1678,6 +1743,9 @@
           `);
         },
       }).addTo(this.streetLayers);
+
+      // Store the reference to the current layer for export
+      this.streetsGeoJsonLayer = streetsLayer;
     }
 
     toggleFilterButtonState(clickedButton) {
