@@ -6,7 +6,7 @@
     constructor() {
       this.validatedLocation = null;
       this.taskProgressModal = new bootstrap.Modal(
-        document.getElementById("taskProgressModal")
+        document.getElementById("taskProgressModal"),
       );
       this.activeTaskIds = new Set();
       this.currentProcessingLocation = null;
@@ -106,7 +106,7 @@
       // Dashboard event delegation for the coverage map area
       document.addEventListener("click", (e) => {
         const updateMissingDataBtn = e.target.closest(
-          ".update-missing-data-btn"
+          ".update-missing-data-btn",
         );
         if (updateMissingDataBtn) {
           e.preventDefault();
@@ -157,7 +157,7 @@
       if (!locInput?.value || !locType?.value) {
         notificationManager.show(
           "Please enter a location and select a location type.",
-          "danger"
+          "danger",
         );
         return;
       }
@@ -178,7 +178,7 @@
         if (!data) {
           notificationManager.show(
             "Location not found. Please check your input.",
-            "warning"
+            "warning",
           );
           return;
         }
@@ -190,7 +190,7 @@
         console.error("Error validating location:", error);
         notificationManager.show(
           "Failed to validate location. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -208,13 +208,13 @@
 
         const exists = areas.some(
           (area) =>
-            area.location.display_name === this.validatedLocation.display_name
+            area.location.display_name === this.validatedLocation.display_name,
         );
 
         if (exists) {
           notificationManager.show(
             "This area is already being tracked.",
-            "warning"
+            "warning",
           );
           return;
         }
@@ -251,7 +251,7 @@
 
         notificationManager.show(
           "Coverage area processing started. You can check the status in the table.",
-          "success"
+          "success",
         );
 
         // Reset input and validated state.
@@ -262,7 +262,7 @@
         console.error("Error adding coverage area:", error);
         notificationManager.show(
           "Failed to add coverage area. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         this.hideProgressModal();
@@ -287,7 +287,7 @@
 
         notificationManager.show(
           "Processing cancelled successfully.",
-          "success"
+          "success",
         );
         this.hideProgressModal();
         await this.loadCoverageAreas();
@@ -295,7 +295,7 @@
         console.error("Error cancelling processing:", error);
         notificationManager.show(
           "Failed to cancel processing. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -335,7 +335,7 @@
         console.error("Error loading coverage areas: %s", error);
         notificationManager.show(
           "Failed to load coverage areas. Please refresh the page.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -392,17 +392,17 @@
           <td>
             <div class="btn-group" role="group">
               <button class="btn btn-sm btn-primary view-area-btn" data-location='${JSON.stringify(
-                area.location
+                area.location,
               ).replace(/'/g, "&#39;")}'>
                 <i class="fas fa-map-marked-alt"></i>
               </button>
               <button class="btn btn-sm btn-success update-coverage-btn" data-location='${JSON.stringify(
-                area.location
+                area.location,
               ).replace(/'/g, "&#39;")}'>
                 <i class="fas fa-sync-alt"></i>
               </button>
               <button class="btn btn-sm btn-danger delete-area-btn" data-location='${JSON.stringify(
-                area.location
+                area.location,
               ).replace(/'/g, "&#39;")}'>
                 <i class="fas fa-trash-alt"></i>
               </button>
@@ -434,7 +434,7 @@
         // Show progress modal
         this.showProgressModal(
           "Updating coverage for " + location.display_name,
-          0
+          0,
         );
 
         // Start coverage calculation
@@ -473,13 +473,13 @@
 
         notificationManager.show(
           "Coverage updated successfully for " + location.display_name,
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error updating coverage: ", error);
         notificationManager.show(
           "Error updating coverage: " + error.message,
-          "danger"
+          "danger",
         );
       } finally {
         this.hideProgressModal();
@@ -512,13 +512,13 @@
         await this.loadCoverageAreas();
         notificationManager.show(
           "Coverage area deleted successfully!",
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error deleting coverage area:", error);
         notificationManager.show(
           "Failed to delete coverage area. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -560,8 +560,8 @@
           <div class="mt-2">
             <div class="mb-1">
               <i class="fas fa-route"></i> Trips: ${data.processed_trips} / ${
-          data.total_trips
-        }
+                data.total_trips
+              }
             </div>
             <div class="mb-1">
               <i class="fas fa-road"></i> Covered Segments: ${
@@ -580,7 +580,7 @@
       // Update elapsed time.
       if (this.processingStartTime) {
         const elapsedSeconds = Math.floor(
-          (Date.now() - this.processingStartTime) / 1000
+          (Date.now() - this.processingStartTime) / 1000,
         );
         const minutes = Math.floor(elapsedSeconds / 60);
         const seconds = elapsedSeconds % 60;
@@ -710,7 +710,7 @@
               ${statusMessage}
               <p>Try updating the coverage for this location:</p>
               <button class="update-missing-data-btn btn btn-primary" data-location='${JSON.stringify(
-                data.coverage.location || {}
+                data.coverage.location || {},
               ).replace(/'/g, "&#39;")}'>
                 <i class="fas fa-sync-alt me-1"></i> Update Coverage Data
               </button>
@@ -750,9 +750,8 @@
         console.error("Error displaying coverage dashboard:", error);
         document.getElementById("dashboard-location-name").textContent =
           "Error loading data";
-        document.getElementById(
-          "coverage-map"
-        ).innerHTML = `<div class="alert alert-danger">
+        document.getElementById("coverage-map").innerHTML =
+          `<div class="alert alert-danger">
             <h5><i class="fas fa-exclamation-circle me-2"></i>Error loading coverage data</h5>
             <p>${error.message}</p>
             <p>Please try refreshing the page or select a different location.</p>
@@ -773,15 +772,12 @@
       // Update the stats
       document.getElementById("dashboard-total-streets").textContent =
         coverage.total_streets;
-      document.getElementById(
-        "dashboard-total-length"
-      ).textContent = `${totalMiles} miles`;
-      document.getElementById(
-        "dashboard-driven-length"
-      ).textContent = `${drivenMiles} miles`;
-      document.getElementById(
-        "dashboard-coverage-percentage"
-      ).textContent = `${coverage.coverage_percentage.toFixed(1)}%`;
+      document.getElementById("dashboard-total-length").textContent =
+        `${totalMiles} miles`;
+      document.getElementById("dashboard-driven-length").textContent =
+        `${drivenMiles} miles`;
+      document.getElementById("dashboard-coverage-percentage").textContent =
+        `${coverage.coverage_percentage.toFixed(1)}%`;
 
       // Format the last updated date
       const lastUpdated = coverage.last_updated
@@ -887,10 +883,10 @@
       // Prepare data for the chart
       const labels = topTypes.map((t) => t.type);
       const totalLengths = topTypes.map((t) =>
-        (t.length * 0.000621371).toFixed(2)
+        (t.length * 0.000621371).toFixed(2),
       );
       const drivenLengths = topTypes.map((t) =>
-        (t.covered_length * 0.000621371).toFixed(2)
+        (t.covered_length * 0.000621371).toFixed(2),
       );
 
       // Check if Chart.js is loaded
@@ -922,7 +918,7 @@
             {
               label: "Not Driven (miles)",
               data: totalLengths.map((total, i) =>
-                (total - drivenLengths[i]).toFixed(2)
+                (total - drivenLengths[i]).toFixed(2),
               ),
               backgroundColor: "#ff5252",
               borderColor: "#d32f2f",
