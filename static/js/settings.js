@@ -5,7 +5,7 @@
 (() => {
   class TaskManager {
     constructor() {
-      this.toastManager = {
+      this.notifier = {
         show: (title, message, type = "info") => {
           if (window.notificationManager) {
             window.notificationManager.show(`${title}: ${message}`, type);
@@ -82,7 +82,7 @@
             ) {
               const statusType =
                 currentStatus === "COMPLETED" ? "success" : "danger";
-              this.toastManager.show(
+              this.notifier.show(
                 "Task Update",
                 `Task ${taskId} ${currentStatus.toLowerCase()}`,
                 statusType
@@ -172,7 +172,7 @@
           }
         } catch (error) {
           console.error("Error in run all tasks:", error);
-          this.toastManager.show(
+          this.notifier.show(
             "Error",
             "Failed to run all tasks: " + error.message,
             "danger"
@@ -198,7 +198,7 @@
         const result = await response.json();
         if (result.status === "success") {
           this.activeTasksMap.set(taskId, "RUNNING");
-          this.toastManager.show(
+          this.notifier.show(
             "Task Started",
             `Task ${taskId} has been started`,
             "info"
@@ -221,7 +221,7 @@
         }
       } catch (error) {
         console.error(`Error running task ${taskId}:`, error);
-        this.toastManager.show(
+        this.notifier.show(
           "Error",
           `Failed to start task ${taskId}: ${error.message}`,
           "danger"
@@ -246,7 +246,7 @@
         await this.updateTaskHistory();
       } catch (error) {
         console.error("Error loading task configuration:", error);
-        this.toastManager.show(
+        this.notifier.show(
           "Error",
           "Failed to load task configuration: " + error.message,
           "danger"
@@ -331,7 +331,7 @@
         this.updateHistoryPagination();
       } catch (error) {
         console.error("Error updating task history:", error);
-        this.toastManager.show(
+        this.notifier.show(
           "Error",
           "Failed to update task history: " + error.message,
           "danger"
@@ -575,7 +575,7 @@
         bsModal.show();
       } catch (error) {
         console.error("Error fetching task details:", error);
-        this.toastManager.show(
+        this.notifier.show(
           "Error",
           "Failed to fetch task details: " + error.message,
           "danger"
@@ -610,14 +610,14 @@
         }
 
         this.task_history = [];
-        this.toastManager.show(
+        this.notifier.show(
           "Success",
           "Task history cleared successfully",
           "success"
         );
       } catch (error) {
         console.error("Error clearing task history:", error);
-        this.toastManager.show(
+        this.notifier.show(
           "Error",
           `Failed to clear task history: ${error.message}`,
           "danger"
