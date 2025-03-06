@@ -66,21 +66,18 @@
           this.loadCoverageAreas();
         });
 
-      // Button event listeners using event delegation for dynamically added elements
+      // Table action buttons
       document
         .querySelector("#coverage-areas-table")
         .addEventListener("click", (e) => {
+          e.preventDefault();
           const target = e.target.closest("button");
           if (!target) return;
 
-          // Extract location from data attribute
-          let location;
-          try {
-            location = JSON.parse(target.dataset.location);
-          } catch (err) {
-            console.error("Error parsing location data:", err);
-            return;
-          }
+          // Extract the location data attribute
+          const locationStr = target.dataset.location;
+          if (!locationStr) return;
+          const location = JSON.parse(locationStr);
 
           // Update coverage button
           if (target.classList.contains("update-coverage-btn")) {
@@ -91,11 +88,6 @@
           else if (target.classList.contains("delete-area-btn")) {
             e.preventDefault();
             this.deleteArea(location);
-          }
-          // View on map button
-          else if (target.classList.contains("view-area-btn")) {
-            e.preventDefault();
-            CoverageManager.viewAreaOnMap(location);
           }
           // Cancel processing button (if it exists)
           else if (target.classList.contains("cancel-processing")) {
@@ -662,11 +654,6 @@
           <td>${lastUpdated}</td>
           <td>
             <div class="btn-group" role="group">
-              <button class="btn btn-sm btn-primary view-area-btn" data-location='${JSON.stringify(
-                area.location
-              ).replace(/'/g, "&#39;")}'>
-                <i class="fas fa-map-marked-alt"></i>
-              </button>
               <button class="btn btn-sm btn-success update-coverage-btn" data-location='${JSON.stringify(
                 area.location
               ).replace(/'/g, "&#39;")}'>
@@ -698,65 +685,49 @@
           this.selectedLocation.location.display_name === location.display_name;
 
         const lastLocationId = isUpdatingDisplayedLocation
-          ? document.querySelector(".location-name-link[data-location-id]")
-              ?.dataset.locationId
+          ? this.selectedLocation._id
           : null;
 
-        // Show progress modal
-        this.showProgressModal(
-          "Updating coverage for " + location.display_name,
-          0
-        );
+        this.showProgressModal("Requesting coverage update...");
 
-        // Show notification that we're starting
-        window.notificationManager.show(
-          `Starting coverage calculation for ${location.display_name}...`,
-          "info"
-        );
-
-        // Start coverage calculation
-        const response = await fetch("/api/street_coverage", {
+        // Call the update endpoint
+        const response = await fetch("/api/coverage", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
             location: location,
+            update: true,
           }),
         });
 
-        if (!response.ok) {
-          throw new Error("Failed to start coverage calculation");
-        }
-
         const data = await response.json();
-        if (!data.task_id) {
-          throw new Error("No task ID returned");
+
+        if (!response.ok) {
+          this.hideProgressModal();
+          showNotification(
+            `Error updating coverage: ${data.detail || "Unknown error"}`,
+            "error"
+          );
+          return;
         }
 
-        // Poll for progress updates
-        await this.pollCoverageProgress(data.task_id);
+        if (data.task_id) {
+          this.pollCoverageProgress(data.task_id);
+        }
 
-        // Refresh the coverage areas
+        // Reload data after processing completes
         await this.loadCoverageAreas();
 
-        // Refresh the dashboard if we were updating the displayed location
-        if (isUpdatingDisplayedLocation && lastLocationId) {
-          // Wait a moment for the coverage data to be fully updated in the database
-          setTimeout(() => {
-            this.displayCoverageDashboard(lastLocationId);
-          }, 1000);
+        // If we were looking at this location's dashboard, refresh it
+        if (lastLocationId) {
+          await this.displayCoverageDashboard(lastLocationId);
         }
-
-        // Show success notification
-        window.notificationManager.show(
-          `Coverage updated successfully for ${location.display_name}`,
-          "success"
-        );
       } catch (error) {
-        console.error("Error updating coverage: ", error);
-        window.notificationManager.show(
-          `Error updating coverage: ${error.message}`,
+        console.error("Error updating coverage:", error);
+        showNotification(
+          "An error occurred while updating coverage. Please try again.",
           "danger",
           0
         );
@@ -764,11 +735,6 @@
         this.hideProgressModal();
         this.currentProcessingLocation = null;
       }
-    }
-
-    static viewAreaOnMap(location) {
-      localStorage.setItem("selectedLocation", JSON.stringify(location));
-      window.location.href = "/";
     }
 
     async deleteArea(location) {
