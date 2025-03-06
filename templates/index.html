@@ -6,8 +6,8 @@ block content %}
     <!-- Map Controls Panel - Now positioned as overlay with reduced opacity -->
     <div
       id="map-controls"
-      class="bg-dark text-white p-3 position-absolute bottom-0 start-0 end-0 rounded-top"
-      style="z-index: 1000; background-color: rgba(33, 37, 41, 0.85) !important"
+      class="p-3 position-absolute bottom-0 start-0 end-0 rounded-top"
+      style="z-index: 1000"
     >
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="h5 mb-0">Map Controls</h2>
@@ -23,7 +23,7 @@ block content %}
         <div class="row g-3">
           <!-- Live Tracking Status Panel - Now integrated within controls -->
           <div class="col-12 col-md-4">
-            <div class="card bg-dark border-secondary">
+            <div class="card border-secondary">
               <div
                 class="card-header border-secondary d-flex justify-content-between align-items-center"
               >
@@ -54,49 +54,49 @@ block content %}
 
           <!-- Metrics Section -->
           <div class="col-12 col-md-4">
-            <div class="card bg-dark border-secondary">
+            <div class="card border-secondary">
               <div class="card-header border-secondary">
                 <h3 class="h6 mb-0">Metrics</h3>
               </div>
               <ul class="list-group list-group-flush">
                 <li
-                  class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between"
+                  class="list-group-item border-secondary d-flex justify-content-between"
                 >
                   <span>Total Trips:</span>
                   <strong id="total-trips">0</strong>
                 </li>
                 <li
-                  class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between"
+                  class="list-group-item border-secondary d-flex justify-content-between"
                 >
                   <span>Total Distance:</span>
                   <strong> <span id="total-distance">0</span> miles </strong>
                 </li>
                 <li
-                  class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between"
+                  class="list-group-item border-secondary d-flex justify-content-between"
                 >
                   <span>Average Distance:</span>
                   <strong> <span id="avg-distance">0</span> miles </strong>
                 </li>
                 <li
-                  class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between"
+                  class="list-group-item border-secondary d-flex justify-content-between"
                 >
                   <span>Average Start Time:</span>
                   <strong id="avg-start-time">--:--</strong>
                 </li>
                 <li
-                  class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between"
+                  class="list-group-item border-secondary d-flex justify-content-between"
                 >
                   <span>Average Driving Time:</span>
                   <strong id="avg-driving-time">--:--</strong>
                 </li>
                 <li
-                  class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between"
+                  class="list-group-item border-secondary d-flex justify-content-between"
                 >
                   <span>Average Speed:</span>
                   <strong id="avg-speed">0 mph</strong>
                 </li>
                 <li
-                  class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between"
+                  class="list-group-item border-secondary d-flex justify-content-between"
                 >
                   <span>Maximum Speed:</span>
                   <strong id="max-speed">0 mph</strong>
@@ -107,7 +107,7 @@ block content %}
 
           <!-- Map Display Options -->
           <div class="col-12 col-md-4">
-            <div class="card bg-dark border-secondary">
+            <div class="card border-secondary">
               <div class="card-header border-secondary">
                 <h3 class="h6 mb-0">Map Display Options</h3>
               </div>
@@ -118,7 +118,7 @@ block content %}
                 </div>
                 <div id="layer-order">
                   <h4 class="h6">Layer Order</h4>
-                  <ul id="layer-order-list" class="list-group bg-dark">
+                  <ul id="layer-order-list" class="list-group">
                     <!-- Layer items inserted by JavaScript -->
                   </ul>
                 </div>
