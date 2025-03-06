@@ -153,16 +153,16 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
         location = element_data["location"]
         proj_to_utm = element_data["project_to_utm"]
         proj_to_wgs84 = element_data["project_to_wgs84"]
-        
+
         if "geometry" not in element or len(element.get("geometry", [])) < 2:
             return []
-            
+
         nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
         if len(nodes) < 2:
             return []
-            
+
         tags = element.get("tags", {})
-        
+
         name = tags.get("name")
         if not name:
             for key in tags:
@@ -175,13 +175,13 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
                 name = tags.get("ref")
             if not name:
                 name = "Unnamed Street"
-                
+
         highway_type = tags.get("highway", "unknown")
-        
+
         line = LineString(nodes)
         projected_line = transform(proj_to_utm, line)
         segments = segment_street(projected_line, segment_length_meters=100)
-        
+
         features = []
         for i, segment in enumerate(segments):
             segment_wgs84 = transform(proj_to_wgs84, segment)
