@@ -3035,3 +3035,34 @@ body.light-mode #map-controls .list-group-item.bg-dark {
 body.light-mode #map-controls strong {
   color: var(--light-text-primary) !important;
 }
+
+/* Ensure text colors in map controls match theme */
+body.light-mode #map-controls h1,
+body.light-mode #map-controls h2,
+body.light-mode #map-controls h3,
+body.light-mode #map-controls h4,
+body.light-mode #map-controls h5,
+body.light-mode #map-controls h6,
+body.light-mode #map-controls span,
+body.light-mode #map-controls p,
+body.light-mode #map-controls div,
+body.light-mode #map-controls li,
+body.light-mode #map-controls .card,
+body.light-mode #map-controls .list-group-item {
+  color: var(--light-text-primary);
+}
+
+body.light-mode #map-controls .card,
+body.light-mode #map-controls .list-group-item {
+  background-color: rgba(248, 249, 250, 0.85);
+  border-color: var(--light-border-color);
+}
+
+body.light-mode #map-controls .text-muted,
+body.light-mode #map-controls small {
+  color: var(--light-text-secondary) !important;
+}
+
+body.light-mode #map-controls strong {
+  color: var(--light-text-primary);
+}
