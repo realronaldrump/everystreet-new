@@ -2436,32 +2436,91 @@ function exportRouteAsGpx() {
   }
 
   try {
-    // Create GPX content
+    // Create a more structured GPX with organized track segments by street
     let gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="EveryStreet Route Optimizer" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata>
     <name>Optimized Street Coverage Route</name>
     <time>${new Date().toISOString()}</time>
+    <desc>Efficient route to cover all streets methodically</desc>
   </metadata>
   <trk>
     <name>Complete Coverage Route</name>
-    <trkseg>`;
+    <desc>Optimized path to cover streets with minimal redundancy</desc>`;
 
-    // Add track points from each segment
-    routeData.route_data.route.forEach((segment) => {
-      if (segment.geometry && segment.geometry.coordinates) {
-        segment.geometry.coordinates.forEach((coord) => {
-          gpxContent += `
-      <trkpt lat="${coord[1]}" lon="${coord[0]}">
-        <name>${segment.street_name}</name>
-      </trkpt>`;
-        });
+    // Group coordinates by street to create track segments for each street
+    const streets = {};
+    const routeSegments = routeData.route_data.route;
+
+    // Group by street name
+    routeSegments.forEach((segment) => {
+      if (!segment.geometry || !segment.geometry.coordinates) {
+        return;
       }
+
+      const streetName = segment.street_name || "Unnamed Street";
+      const isDriven = segment.is_covered;
+      const isConnector = segment.is_connector;
+
+      // Create a key that includes the street status for better organization
+      const key = isConnector
+        ? "00_connector"
+        : isDriven
+        ? `01_driven_${streetName}`
+        : `02_undriven_${streetName}`;
+
+      if (!streets[key]) {
+        streets[key] = {
+          name: streetName,
+          isConnector: isConnector,
+          isDriven: isDriven,
+          segments: [],
+        };
+      }
+
+      streets[key].segments.push(segment);
+    });
+
+    // Sort street keys to place undriven streets first, then driven streets, and connectors last
+    const sortedStreetKeys = Object.keys(streets).sort();
+
+    // Process each street
+    sortedStreetKeys.forEach((key) => {
+      const street = streets[key];
+      const streetDesc = street.isConnector
+        ? "Connector Path"
+        : street.isDriven
+        ? "Already Driven"
+        : "Undriven Street";
+
+      // Start a new track segment for this street
+      gpxContent += `
+    <trkseg>
+      <!-- ${street.name} (${streetDesc}) -->`;
+
+      // Add all coordinates for this street in order
+      street.segments.forEach((segment) => {
+        if (segment.geometry && segment.geometry.coordinates) {
+          // For LineString geometries, add each point in the line
+          segment.geometry.coordinates.forEach((coord, i) => {
+            // Only add the first point of subsequent segments to avoid duplicates
+            if (i > 0 || street.segments.indexOf(segment) === 0) {
+              gpxContent += `
+      <trkpt lat="${coord[1]}" lon="${coord[0]}">
+        <name>${street.name}</name>
+      </trkpt>`;
+            }
+          });
+        }
+      });
+
+      // Close the track segment
+      gpxContent += `
+    </trkseg>`;
     });
 
     // Close GPX document
     gpxContent += `
-    </trkseg>
   </trk>
 </gpx>`;
 

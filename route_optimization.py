@@ -319,138 +319,231 @@ class RouteOptimizer:
     ) -> Dict[str, Any]:
         """
         Compute the optimal route using Chinese Postman algorithm.
-
+        
         Args:
             start_point: Optional starting point coordinates (lon, lat)
             undriven_only: If True, prioritize undriven streets
-
+            
         Returns:
             Dictionary containing the optimized route and metadata
         """
         if not self.graph:
-            logger.error(
-                "Graph not initialized. Call build_network_from_streets first."
-            )
+            logger.error("Graph not initialized. Call build_network_from_streets first.")
             return {"error": "Graph not initialized"}
-
+            
         try:
             # Ensure graph is connected
             if not self.ensure_graph_connectivity():
-                return {
-                    "error": "Unable to create a connected route - the street network has disconnected segments"
-                }
-
+                return {"error": "Unable to create a connected route - the street network has disconnected segments"}
+            
             # Convert to undirected graph for Chinese Postman
             undirected_graph = self.graph.to_undirected()
-
+            
             # Find node closest to start_point if provided
             start_node = None
             if start_point:
                 # Find closest node to the starting point
-                closest_dist = float("inf")
+                closest_dist = float('inf')
                 for node, data in undirected_graph.nodes(data=True):
-                    dist = (
-                        (data["x"] - start_point[0]) ** 2
-                        + (data["y"] - start_point[1]) ** 2
-                    ) ** 0.5
+                    dist = ((data['x'] - start_point[0])**2 + 
+                            (data['y'] - start_point[1])**2)**0.5
                     if dist < closest_dist:
                         closest_dist = dist
                         start_node = node
-
-                logger.info(
-                    f"Selected start node {start_node} at distance {closest_dist:.2f} from requested start point"
-                )
-
+                        
+                logger.info(f"Selected start node {start_node} at distance {closest_dist:.2f} from requested start point")
+            
             # Find Eulerian circuit (Chinese Postman route)
             logger.info("Computing Eulerian circuit (Chinese Postman route)...")
-
-            # If graph is not Eulerian, add necessary edges
-            if not nx.is_eulerian(undirected_graph):
-                # Find odd-degree nodes
-                odd_nodes = [
-                    node
-                    for node, degree in undirected_graph.degree()
-                    if degree % 2 == 1
-                ]
-
-                # Find shortest paths between odd-degree nodes
-                augmented_edges = []
-
-                if len(odd_nodes) > 0:
-                    logger.info(
-                        f"Found {len(odd_nodes)} odd-degree nodes, computing shortest paths..."
-                    )
-
-                    # Create pairs of odd nodes (this is a matching problem)
-                    # For simplicity, we'll use a greedy approach to match them
+            
+            # Create a methodical path by:
+            # 1. Identifying odd-degree nodes
+            # 2. Optimally pairing them based on distance
+            # 3. Adding paths between pairs to make the graph Eulerian
+            
+            # Step 1: Find odd-degree nodes
+            odd_nodes = [node for node, degree in undirected_graph.degree() if degree % 2 == 1]
+            
+            if len(odd_nodes) > 0:
+                logger.info(f"Found {len(odd_nodes)} odd-degree nodes, computing optimal matching...")
+                
+                # Step 2: Compute optimal pairing using minimum weight matching
+                try:
+                    # Create a complete graph of odd-degree nodes
+                    odd_node_graph = nx.Graph()
+                    
+                    # Calculate shortest path distances between all odd nodes
+                    for i, u in enumerate(odd_nodes):
+                        for v in odd_nodes[i+1:]:
+                            try:
+                                # Use shortest path length as the distance
+                                path_length = nx.shortest_path_length(
+                                    undirected_graph, u, v, weight='length'
+                                )
+                                # Add edge with negative weight for maximum matching
+                                odd_node_graph.add_edge(u, v, weight=path_length)
+                            except nx.NetworkXNoPath:
+                                # If no path, add a very high weight edge
+                                continue
+                    
+                    # Find minimum weight perfect matching
+                    # (This is approximate since networkx doesn't have a perfect implementation)
+                    # We'll use a greedy approach that's more efficient for larger graphs
+                    
+                    # Sort edges by weight
+                    sorted_edges = sorted(odd_node_graph.edges(data=True), 
+                                         key=lambda x: x[2]['weight'])
+                    
+                    # Greedy matching
+                    matched_nodes = set()
+                    matching = []
+                    
+                    for u, v, data in sorted_edges:
+                        if u not in matched_nodes and v not in matched_nodes:
+                            matching.append((u, v))
+                            matched_nodes.add(u)
+                            matched_nodes.add(v)
+                    
+                    # Add remaining nodes with nearest neighbors if any remain
+                    remaining_nodes = [n for n in odd_nodes if n not in matched_nodes]
+                    while len(remaining_nodes) >= 2:
+                        u = remaining_nodes.pop(0)
+                        # Find closest remaining node
+                        min_dist = float('inf')
+                        closest_v = None
+                        
+                        for v in remaining_nodes:
+                            try:
+                                path_length = nx.shortest_path_length(
+                                    undirected_graph, u, v, weight='length'
+                                )
+                                if path_length < min_dist:
+                                    min_dist = path_length
+                                    closest_v = v
+                            except nx.NetworkXNoPath:
+                                continue
+                        
+                        if closest_v:
+                            matching.append((u, closest_v))
+                            remaining_nodes.remove(closest_v)
+                        else:
+                            logger.warning(f"Could not find a path to match odd node {u}")
+                    
+                    # Step 3: Add paths between matched pairs to make the graph Eulerian
+                    for u, v in matching:
+                        try:
+                            # Get the path
+                            path = nx.shortest_path(undirected_graph, u, v, weight='length')
+                            
+                            # Add duplicate edges along the path to make the graph Eulerian
+                            for i in range(len(path) - 1):
+                                # If the edge already exists, get its attributes
+                                if undirected_graph.has_edge(path[i], path[i+1]):
+                                    edge_data = undirected_graph[path[i]][path[i+1]]
+                                    
+                                    # Create a duplicate edge with a new ID
+                                    undirected_graph.add_edge(
+                                        path[i], 
+                                        path[i+1],
+                                        id=f"{edge_data.get('id', '')}-dup",
+                                        name=edge_data.get('name', 'Connection'),
+                                        length=edge_data.get('length', 0),
+                                        is_augmented=True,
+                                        geometry=edge_data.get('geometry'),
+                                        is_covered=edge_data.get('is_covered', False),
+                                        highway=edge_data.get('highway', 'unknown')
+                                    )
+                        except nx.NetworkXNoPath:
+                            logger.warning(f"No path found between nodes {u} and {v}")
+                
+                except Exception as e:
+                    logger.error(f"Error in odd-node matching: {e}")
+                    # Fallback to original method if matching fails
                     odd_node_pairs = []
                     remaining_nodes = odd_nodes.copy()
-
+                    
                     while len(remaining_nodes) >= 2:
                         node1 = remaining_nodes.pop(0)
-
-                        # Find closest odd node to node1
-                        min_dist = float("inf")
+                        min_dist = float('inf')
                         closest_node = None
-
+                        
                         for node2 in remaining_nodes:
                             try:
                                 path_length = nx.shortest_path_length(
-                                    undirected_graph, node1, node2, weight="length"
+                                    undirected_graph, node1, node2, weight='length'
                                 )
                                 if path_length < min_dist:
                                     min_dist = path_length
                                     closest_node = node2
                             except nx.NetworkXNoPath:
                                 continue
-
+                        
                         if closest_node:
                             odd_node_pairs.append((node1, closest_node))
                             remaining_nodes.remove(closest_node)
                         else:
-                            logger.warning(
-                                f"Could not find a path to match odd node {node1}"
-                            )
-
+                            logger.warning(f"Could not find a path to match odd node {node1}")
+                    
                     # Add shortest paths between odd node pairs to make graph Eulerian
                     for u, v in odd_node_pairs:
                         try:
                             # Find shortest path
-                            path = nx.shortest_path(
-                                undirected_graph, u, v, weight="length"
-                            )
+                            path = nx.shortest_path(undirected_graph, u, v, weight='length')
                             for i in range(len(path) - 1):
-                                augmented_edges.append(
-                                    (
-                                        path[i],
-                                        path[i + 1],
-                                        undirected_graph[path[i]][path[i + 1]][
-                                            "length"
-                                        ],
+                                if undirected_graph.has_edge(path[i], path[i+1]):
+                                    edge_data = undirected_graph[path[i]][path[i+1]]
+                                    
+                                    # Create a duplicate edge with a new ID
+                                    undirected_graph.add_edge(
+                                        path[i], 
+                                        path[i+1],
+                                        id=f"{edge_data.get('id', '')}-dup",
+                                        name=edge_data.get('name', 'Connection'),
+                                        length=edge_data.get('length', 0),
+                                        is_augmented=True,
+                                        geometry=edge_data.get('geometry'),
+                                        is_covered=edge_data.get('is_covered', False),
+                                        highway=edge_data.get('highway', 'unknown')
                                     )
-                                )
                         except nx.NetworkXNoPath:
                             logger.warning(f"No path found between nodes {u} and {v}")
-
-                # Add augmented edges to make the graph Eulerian
-                for u, v, length in augmented_edges:
-                    if not undirected_graph.has_edge(u, v):
-                        undirected_graph.add_edge(
-                            u, v, length=length, is_augmented=True
-                        )
-
-            # Find Eulerian circuit
+            
+            # Verify the graph is now Eulerian
+            if not nx.is_eulerian(undirected_graph):
+                logger.warning("Graph is not Eulerian after processing. Using approximate solution.")
+            
+            # Find Eulerian circuit or approximate one
             try:
                 if start_node:
-                    circuit = list(
-                        nx.eulerian_circuit(undirected_graph, source=start_node)
-                    )
+                    circuit = list(nx.eulerian_circuit(undirected_graph, source=start_node))
                 else:
                     circuit = list(nx.eulerian_circuit(undirected_graph))
             except nx.NetworkXError as e:
                 logger.error(f"Failed to find Eulerian circuit: {e}")
-                return {"error": f"Failed to compute optimal route: {str(e)}"}
-
+                
+                # If not Eulerian, use a depth-first traversal as an approximation
+                logger.info("Using DFS traversal as fallback")
+                if start_node is None and len(undirected_graph.nodes()) > 0:
+                    start_node = list(undirected_graph.nodes())[0]
+                
+                # Use DFS to create a path that covers all edges
+                # This won't be an Eulerian circuit but will cover all streets
+                dfs_edges = list(nx.dfs_edges(undirected_graph, source=start_node))
+                circuit = [(u, v) for u, v in dfs_edges]
+                
+                # Add any missed edges
+                all_edges = set(undirected_graph.edges())
+                traversed_edges = set([(u, v) for u, v in circuit]) | set([(v, u) for u, v in circuit])
+                
+                for u, v in all_edges - traversed_edges:
+                    circuit.append((u, v))
+                
+                logger.info(f"Created approximate circuit with {len(circuit)} edges")
+                
+            # Sort the circuit to group consecutive segments of the same street
+            # This makes the route more methodical, covering each street fully before moving to the next
+            sorted_circuit = self._organize_circuit_by_streets(circuit, undirected_graph)
+                
             # Convert circuit to a route
             route = []
             total_length = 0
@@ -458,19 +551,19 @@ class RouteOptimizer:
             undriven_edge_count = 0
             driven_edge_count = 0
             connector_count = 0
-
-            for u, v in circuit:
+            
+            for u, v in sorted_circuit:
                 # Get edge data
                 edge_data = undirected_graph[u][v]
-
+                
                 # Skip augmented edges in final route if needed
-                if edge_data.get("is_augmented", False):
+                if edge_data.get('is_augmented', False):
                     continue
-
+                
                 # Get node coordinates
                 u_data = undirected_graph.nodes[u]
                 v_data = undirected_graph.nodes[v]
-
+                
                 # Extract edge information
                 if self.graph.has_edge(u, v):
                     original_edge = self.graph[u][v]
@@ -478,15 +571,15 @@ class RouteOptimizer:
                     original_edge = self.graph[v][u]
                 else:
                     continue
-
-                street_id = original_edge.get("id", "")
-                street_name = original_edge.get("name", "Unnamed Street")
-                edge_length = original_edge.get("length", 0)
-                geometry = original_edge.get("geometry", None)
-                is_covered = original_edge.get("is_covered", False)
-                is_connector = original_edge.get("is_connector", False)
-                highway_type = original_edge.get("highway", "unknown")
-
+                
+                street_id = original_edge.get('id', '')
+                street_name = original_edge.get('name', 'Unnamed Street')
+                edge_length = original_edge.get('length', 0)
+                geometry = original_edge.get('geometry', None)
+                is_covered = original_edge.get('is_covered', False)
+                is_connector = original_edge.get('is_connector', False)
+                highway_type = original_edge.get('highway', 'unknown')
+                
                 # Track counts
                 if is_connector:
                     connector_count += 1
@@ -494,54 +587,36 @@ class RouteOptimizer:
                     driven_edge_count += 1
                 else:
                     undriven_edge_count += 1
-
+                
                 # Create a LineString from start to end if geometry is missing
                 if not geometry:
-                    line = LineString(
-                        [(u_data["x"], u_data["y"]), (v_data["x"], v_data["y"])]
-                    )
+                    line = LineString([(u_data['x'], u_data['y']), (v_data['x'], v_data['y'])])
                     geometry = mapping(line)
-
+                
                 # Add to route
-                route.append(
-                    {
-                        "street_id": street_id,
-                        "street_name": street_name,
-                        "start": [u_data["x"], u_data["y"]],
-                        "end": [v_data["x"], v_data["y"]],
-                        "length": edge_length,
-                        "geometry": geometry,
-                        "is_covered": is_covered,
-                        "is_connector": is_connector,
-                        "highway": highway_type,
-                    }
-                )
-
+                route.append({
+                    "street_id": street_id,
+                    "street_name": street_name,
+                    "start": [u_data['x'], u_data['y']],
+                    "end": [v_data['x'], v_data['y']],
+                    "length": edge_length,
+                    "geometry": geometry,
+                    "is_covered": is_covered,
+                    "is_connector": is_connector,
+                    "highway": highway_type
+                })
+                
                 total_length += edge_length
                 edge_count += 1
-
-            logger.info(
-                f"Computed optimal route with {edge_count} segments and total length {total_length:.2f} meters"
-            )
-            logger.info(
-                f"Route includes {undriven_edge_count} undriven streets, {driven_edge_count} driven streets, and {connector_count} connectors"
-            )
-
+            
+            logger.info(f"Computed optimal route with {edge_count} segments and total length {total_length:.2f} meters")
+            logger.info(f"Route includes {undriven_edge_count} undriven streets, {driven_edge_count} driven streets, and {connector_count} connectors")
+            
             # Calculate total undriven length
-            undriven_length = sum(
-                segment["length"]
-                for segment in route
-                if not segment["is_covered"] and not segment["is_connector"]
-            )
-            driven_length = sum(
-                segment["length"]
-                for segment in route
-                if segment["is_covered"] and not segment["is_connector"]
-            )
-            connector_length = sum(
-                segment["length"] for segment in route if segment["is_connector"]
-            )
-
+            undriven_length = sum(segment["length"] for segment in route if not segment["is_covered"] and not segment["is_connector"])
+            driven_length = sum(segment["length"] for segment in route if segment["is_covered"] and not segment["is_connector"])
+            connector_length = sum(segment["length"] for segment in route if segment["is_connector"])
+            
             return {
                 "route": route,
                 "total_length": total_length,
@@ -555,12 +630,104 @@ class RouteOptimizer:
                 "driven_length": driven_length,
                 "driven_length_miles": driven_length * 0.000621371,
                 "connector_length": connector_length,
-                "connector_length_miles": connector_length * 0.000621371,
+                "connector_length_miles": connector_length * 0.000621371
             }
-
+            
         except Exception as e:
             logger.error(f"Error computing optimal route: {e}")
             return {"error": str(e)}
+    
+    def _organize_circuit_by_streets(self, circuit, graph):
+        """
+        Reorganize the circuit to group segments of the same street together.
+        This creates a more methodical path that completes each street before moving on.
+        """
+        if not circuit:
+            return []
+            
+        # Group edges by street name
+        street_groups = {}
+        for u, v in circuit:
+            if not graph.has_edge(u, v):
+                continue
+                
+            edge_data = graph[u][v]
+            street_name = edge_data.get('name', 'Unnamed Street')
+            
+            if street_name not in street_groups:
+                street_groups[street_name] = []
+                
+            street_groups[street_name].append((u, v))
+        
+        # Create a new circuit by connecting street groups
+        new_circuit = []
+        visited_streets = set()
+        current_end_node = None
+        
+        # Start with the first edge from the original circuit
+        start_edge = circuit[0]
+        start_street = graph[start_edge[0]][start_edge[1]].get('name', 'Unnamed Street')
+        
+        # Process all edges for the starting street
+        new_circuit.extend(street_groups[start_street])
+        visited_streets.add(start_street)
+        current_end_node = new_circuit[-1][1]
+        
+        # Keep adding streets until all are processed
+        while len(visited_streets) < len(street_groups):
+            # Find the nearest unvisited street
+            best_street = None
+            best_distance = float('inf')
+            best_start_edge = None
+            
+            for street_name, edges in street_groups.items():
+                if street_name in visited_streets:
+                    continue
+                    
+                # For each potential next street, find the closest edge
+                for edge in edges:
+                    start_node = edge[0]
+                    try:
+                        # Calculate distance from current position to start of this street
+                        path_length = nx.shortest_path_length(
+                            graph, current_end_node, start_node, weight='length'
+                        )
+                        
+                        if path_length < best_distance:
+                            best_distance = path_length
+                            best_street = street_name
+                            best_start_edge = edge
+                    except (nx.NetworkXNoPath, nx.NodeNotFound):
+                        continue
+            
+            # If we found a nearby street, add it
+            if best_street:
+                # Reorder the edges to start with best_start_edge
+                street_edges = street_groups[best_street]
+                start_idx = street_edges.index(best_start_edge)
+                ordered_edges = street_edges[start_idx:] + street_edges[:start_idx]
+                
+                # Add connecting path if needed
+                if best_distance > 0:
+                    try:
+                        path = nx.shortest_path(graph, current_end_node, ordered_edges[0][0], weight='length')
+                        for i in range(len(path) - 1):
+                            new_circuit.append((path[i], path[i+1]))
+                    except (nx.NetworkXNoPath, nx.NodeNotFound):
+                        pass  # If no path, just jump to the next street
+                
+                # Add all edges for this street
+                new_circuit.extend(ordered_edges)
+                visited_streets.add(best_street)
+                current_end_node = ordered_edges[-1][1]
+            else:
+                # If no reachable streets, just add an arbitrary unvisited street
+                unvisited = next(iter(set(street_groups.keys()) - visited_streets))
+                new_circuit.extend(street_groups[unvisited])
+                visited_streets.add(unvisited)
+                current_end_node = street_groups[unvisited][-1][1]
+        
+        return new_circuit
 
     def generate_route_geojson(self, route_data: Dict[str, Any]) -> Dict[str, Any]:
         """

@@ -53,10 +53,11 @@ async def fetch_osm_data(
         [out:json];
         area({area_id})->.searchArea;
         (
+          way["highway"]["name"](area.searchArea);
           way["highway"](area.searchArea);
         );
         (._;>;);
-        out geom;
+        out geom qt;
         """
     else:
         query = f"""
@@ -66,7 +67,7 @@ async def fetch_osm_data(
         );
         out geom;
         """
-    timeout = aiohttp.ClientTimeout(total=30)
+    timeout = aiohttp.ClientTimeout(total=60)
     async with aiohttp.ClientSession(timeout=timeout) as session, session.get(
         OVERPASS_URL, params={"data": query}
     ) as response:
@@ -152,12 +153,35 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
         location = element_data["location"]
         proj_to_utm = element_data["project_to_utm"]
         proj_to_wgs84 = element_data["project_to_wgs84"]
+        
+        if "geometry" not in element or len(element.get("geometry", [])) < 2:
+            return []
+            
         nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
         if len(nodes) < 2:
             return []
+            
+        tags = element.get("tags", {})
+        
+        name = tags.get("name")
+        if not name:
+            for key in tags:
+                if key.startswith("name:"):
+                    name = tags[key]
+                    break
+            if not name:
+                name = tags.get("alt_name")
+            if not name:
+                name = tags.get("ref")
+            if not name:
+                name = "Unnamed Street"
+                
+        highway_type = tags.get("highway", "unknown")
+        
         line = LineString(nodes)
         projected_line = transform(proj_to_utm, line)
         segments = segment_street(projected_line, segment_length_meters=100)
+        
         features = []
         for i, segment in enumerate(segments):
             segment_wgs84 = transform(proj_to_wgs84, segment)
@@ -167,14 +191,14 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
                 "properties": {
                     "street_id": element["id"],
                     "segment_id": f"{element['id']}-{i}",
-                    "street_name": element.get("tags", {}).get(
-                        "name", "Unnamed Street"
-                    ),
+                    "name": name,
+                    "highway": highway_type,
                     "location": location,
                     "segment_length": segment.length,
                     "driven": False,
                     "last_updated": None,
                     "matched_trips": [],
+                    "tags": tags,
                 },
             }
             features.append(feature)
