@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" data-bs-theme="dark">
   <head>
     <meta charset="UTF-8" />
@@ -16,7 +16,7 @@
       (function () {
         const savedTheme = localStorage.getItem("theme");
         const prefersDarkScheme = window.matchMedia(
-          "(prefers-color-scheme: dark)"
+          "(prefers-color-scheme: dark)",
         ).matches;
 
         if (savedTheme === "light" || (!savedTheme && !prefersDarkScheme)) {
@@ -156,7 +156,9 @@
       .loading-overlay {
         opacity: 0;
         visibility: hidden;
-        transition: opacity 0.3s ease-in-out, visibility 0.3s;
+        transition:
+          opacity 0.3s ease-in-out,
+          visibility 0.3s;
       }
 
       .loading-overlay[style*="display: flex"] {
