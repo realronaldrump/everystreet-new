@@ -1735,3 +1735,756 @@
     console.log("Coverage Manager initialized");
   });
 })();
+
+// Route optimization functionality
+let routeMap = null;
+let routeLayer = null;
+let directionsLayer = null;
+let startMarker = null;
+let currentLocationMarker = null;
+let routeData = null;
+let mapboxAccessToken = "";
+let notificationManager = null;
+
+function initRouteOptimization() {
+  // Initialize notification manager
+  notificationManager = new NotificationManager({
+    container: document.querySelector(".notification-container"),
+    maxNotifications: 3,
+  });
+
+  // Get Mapbox token from meta tag
+  const mapboxMetaTag = document.querySelector('meta[name="mapbox-token"]');
+  if (mapboxMetaTag) {
+    mapboxAccessToken = mapboxMetaTag.getAttribute("content") || "";
+  }
+
+  const locationSelect = document.getElementById("route-location-select");
+  const generateRouteBtn = document.getElementById("generate-route-btn");
+  const startLonInput = document.getElementById("route-start-lon");
+  const startLatInput = document.getElementById("route-start-lat");
+
+  // Create a checkbox for undriven only option
+  const routeOptionsDiv = document.createElement("div");
+  routeOptionsDiv.className = "mt-2";
+  routeOptionsDiv.innerHTML = `
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="undriven-only-checkbox" checked>
+            <label class="form-check-label" for="undriven-only-checkbox">Focus on undriven streets only</label>
+        </div>
+        <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="use-current-location-checkbox">
+            <label class="form-check-label" for="use-current-location-checkbox">Use my current location for directions</label>
+        </div>
+    `;
+
+  document
+    .querySelector(".route-options-container")
+    .appendChild(routeOptionsDiv);
+
+  // Initialize the route map
+  routeMap = L.map("route-map", {
+    center: [0, 0],
+    zoom: 13,
+  });
+
+  // Add base tile layer
+  L.tileLayer(
+    "https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}",
+    {
+      attribution:
+        '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      id: "mapbox/streets-v11",
+      tileSize: 512,
+      zoomOffset: -1,
+      accessToken: mapboxAccessToken,
+    }
+  ).addTo(routeMap);
+
+  // Add map legend
+  const legend = L.control({ position: "bottomright" });
+  legend.onAdd = function (map) {
+    const div = L.DomUtil.create("div", "route-legend");
+    div.innerHTML = `
+            <div class="card bg-dark p-2">
+                <h6 class="mb-2">Route Legend</h6>
+                <div class="d-flex align-items-center mb-1">
+                    <div style="width: 20px; height: 3px; background-color: #ff3b30; margin-right: 5px;"></div>
+                    <span class="small">Undriven Streets</span>
+                </div>
+                <div class="d-flex align-items-center mb-1">
+                    <div style="width: 20px; height: 3px; background-color: #34c759; margin-right: 5px;"></div>
+                    <span class="small">Already Driven</span>
+                </div>
+                <div class="d-flex align-items-center">
+                    <div style="width: 20px; height: 3px; background-color: #5ac8fa; margin-right: 5px;"></div>
+                    <span class="small">Connector Path</span>
+                </div>
+            </div>
+        `;
+    return div;
+  };
+  legend.addTo(routeMap);
+
+  // Fill the location select with coverage areas
+  loadCoverageAreas();
+
+  // Enable/disable generate route button based on selection
+  locationSelect.addEventListener("change", () => {
+    generateRouteBtn.disabled = !locationSelect.value;
+    if (locationSelect.value) {
+      const selection = JSON.parse(locationSelect.value);
+      const location = selection.location;
+
+      if (location.boundingbox) {
+        const bbox = location.boundingbox;
+        const southWest = L.latLng(bbox[0], bbox[2]);
+        const northEast = L.latLng(bbox[1], bbox[3]);
+        const bounds = L.latLngBounds(southWest, northEast);
+
+        routeMap.fitBounds(bounds);
+        document.getElementById("route-map").classList.remove("d-none");
+
+        // Update coverage stats
+        const coverageStats = document.createElement("div");
+        coverageStats.className = "alert alert-info mt-3";
+        coverageStats.innerHTML = `
+                    <div class="d-flex justify-content-between">
+                        <span>Coverage:</span>
+                        <strong>${selection.coverage_percentage.toFixed(
+                          2
+                        )}%</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Undriven:</span>
+                        <strong>${selection.undriven_length_miles.toFixed(
+                          2
+                        )} miles</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Driven:</span>
+                        <strong>${selection.driven_length_miles.toFixed(
+                          2
+                        )} miles</strong>
+                    </div>
+                `;
+
+        const statsContainer = document.querySelector(
+          ".coverage-stats-container"
+        );
+        statsContainer.innerHTML = "";
+        statsContainer.appendChild(coverageStats);
+      }
+    }
+  });
+
+  // Click on map to set start point
+  routeMap.on("click", (e) => {
+    const latlng = e.latlng;
+
+    // Update input fields
+    startLonInput.value = latlng.lng.toFixed(6);
+    startLatInput.value = latlng.lat.toFixed(6);
+
+    // Add or move marker
+    if (startMarker) {
+      startMarker.setLatLng(latlng);
+    } else {
+      startMarker = L.marker(latlng, {
+        icon: L.divIcon({
+          className: "start-point-marker",
+          html: '<i class="fas fa-flag text-success" style="font-size: 24px;"></i>',
+          iconSize: [24, 24],
+          iconAnchor: [12, 24],
+        }),
+      }).addTo(routeMap);
+    }
+  });
+
+  // Handle current location checkbox
+  document
+    .getElementById("use-current-location-checkbox")
+    .addEventListener("change", function () {
+      if (this.checked) {
+        // Try to get current location
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            function (position) {
+              const lat = position.coords.latitude;
+              const lon = position.coords.longitude;
+
+              // Add a marker for current location
+              if (currentLocationMarker) {
+                currentLocationMarker.setLatLng([lat, lon]);
+              } else {
+                currentLocationMarker = L.marker([lat, lon], {
+                  icon: L.divIcon({
+                    className: "current-location-marker",
+                    html: '<i class="fas fa-map-marker-alt text-primary" style="font-size: 24px;"></i>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 24],
+                  }),
+                }).addTo(routeMap);
+              }
+
+              // Show a message
+              notificationManager.show("Current location acquired", "success");
+            },
+            function (error) {
+              console.error("Error getting location:", error);
+              notificationManager.show(
+                "Could not get your current location",
+                "error"
+              );
+              document.getElementById(
+                "use-current-location-checkbox"
+              ).checked = false;
+            }
+          );
+        } else {
+          notificationManager.show(
+            "Geolocation is not supported by your browser",
+            "error"
+          );
+          this.checked = false;
+        }
+      } else if (currentLocationMarker) {
+        // Remove the marker if checkbox is unchecked
+        routeMap.removeLayer(currentLocationMarker);
+        currentLocationMarker = null;
+      }
+    });
+
+  // Generate route button click handler
+  generateRouteBtn.addEventListener("click", generateOptimizedRoute);
+
+  // Toggle route visibility
+  document
+    .getElementById("toggle-route-visibility-btn")
+    .addEventListener("click", () => {
+      if (routeLayer) {
+        if (routeMap.hasLayer(routeLayer)) {
+          routeMap.removeLayer(routeLayer);
+          document.getElementById("toggle-route-visibility-btn").innerHTML =
+            '<i class="fas fa-eye-slash"></i> Show Route';
+        } else {
+          routeMap.addLayer(routeLayer);
+          document.getElementById("toggle-route-visibility-btn").innerHTML =
+            '<i class="fas fa-eye"></i> Hide Route';
+        }
+      }
+    });
+
+  // Export route as GPX
+  document
+    .getElementById("export-route-btn")
+    .addEventListener("click", exportRouteAsGpx);
+}
+
+async function loadCoverageAreas() {
+  try {
+    const response = await fetch("/api/route_optimization/coverage_areas");
+    if (!response.ok) {
+      throw new Error("Failed to fetch coverage areas");
+    }
+
+    const data = await response.json();
+    const locationSelect = document.getElementById("route-location-select");
+
+    locationSelect.innerHTML = '<option value="">Select an area...</option>';
+
+    if (data.areas && data.areas.length > 0) {
+      data.areas.forEach((area) => {
+        const option = document.createElement("option");
+        option.value = JSON.stringify(area);
+        option.textContent = `${
+          area.display_name
+        } (${area.coverage_percentage.toFixed(1)}% complete)`;
+        locationSelect.appendChild(option);
+      });
+    } else {
+      const option = document.createElement("option");
+      option.disabled = true;
+      option.textContent = "No coverage areas available";
+      locationSelect.appendChild(option);
+    }
+  } catch (error) {
+    console.error("Error loading coverage areas:", error);
+    notificationManager.show("Failed to load coverage areas", "error");
+  }
+}
+
+async function generateOptimizedRoute() {
+  try {
+    const locationSelect = document.getElementById("route-location-select");
+    const startLonInput = document.getElementById("route-start-lon");
+    const startLatInput = document.getElementById("route-start-lat");
+    const undriveOnlyCheckbox = document.getElementById(
+      "undriven-only-checkbox"
+    );
+    const useCurrentLocationCheckbox = document.getElementById(
+      "use-current-location-checkbox"
+    );
+
+    if (!locationSelect.value) {
+      notificationManager.show("Please select a coverage area", "warning");
+      return;
+    }
+
+    const selection = JSON.parse(locationSelect.value);
+    const location = selection.location;
+
+    // Get start point if provided
+    let startPoint = null;
+    if (startLonInput.value && startLatInput.value) {
+      startPoint = [
+        parseFloat(startLonInput.value),
+        parseFloat(startLatInput.value),
+      ];
+    }
+
+    // Get current location if enabled
+    let currentLocation = null;
+    if (useCurrentLocationCheckbox.checked && currentLocationMarker) {
+      const latlng = currentLocationMarker.getLatLng();
+      currentLocation = [latlng.lng, latlng.lat];
+    }
+
+    // Show progress UI
+    document.getElementById("route-progress").classList.remove("d-none");
+    document.getElementById("route-progress-bar").style.width = "0%";
+    document.getElementById("route-progress-message").textContent =
+      "Starting route optimization...";
+
+    // Start the optimization process
+    const initResponse = await fetch("/api/optimize_route", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        location: location,
+        start_point: startPoint,
+        undriven_only: undriveOnlyCheckbox.checked,
+        current_location: currentLocation,
+      }),
+    });
+
+    if (!initResponse.ok) {
+      const error = await initResponse.json();
+      throw new Error(error.message || "Failed to start route optimization");
+    }
+
+    // Get the task ID from the response
+    const initData = await initResponse.json();
+    const taskId = initData.task_id;
+
+    if (!taskId) {
+      throw new Error("No task ID returned from server");
+    }
+
+    // Set progress to 10%
+    document.getElementById("route-progress-bar").style.width = "10%";
+    document.getElementById("route-progress-message").textContent =
+      "Building network...";
+
+    // Poll for results
+    let result = null;
+    let attempts = 0;
+    let progress = 10;
+
+    while (!result && attempts < 60) {
+      // Poll for up to 60 seconds
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+      attempts++;
+
+      try {
+        const statusResponse = await fetch(`/api/optimize_route/${taskId}`);
+
+        if (!statusResponse.ok) {
+          throw new Error(`Server returned ${statusResponse.status}`);
+        }
+
+        const statusData = await statusResponse.json();
+
+        if (statusData.status === "error") {
+          throw new Error(statusData.message || "Error optimizing route");
+        }
+
+        if (statusData.status === "success") {
+          // Result is ready
+          result = statusData;
+          document.getElementById("route-progress-bar").style.width = "100%";
+          document.getElementById("route-progress-message").textContent =
+            "Route optimization complete!";
+          break;
+        } else {
+          // Update progress based on current status
+          switch (statusData.status) {
+            case "processing":
+              progress = 10;
+              document.getElementById("route-progress-message").textContent =
+                "Starting optimization...";
+              break;
+            case "building_network":
+              progress = 20;
+              document.getElementById("route-progress-message").textContent =
+                "Building street network...";
+              break;
+            case "optimizing":
+              progress = Math.min(80, 30 + attempts); // Gradually increase from 30 to 80
+              document.getElementById("route-progress-message").textContent =
+                "Computing optimal route...";
+              break;
+            case "partial":
+              progress = 90;
+              document.getElementById("route-progress-message").textContent =
+                "Creating simplified route (complexity limit reached)";
+              break;
+          }
+
+          document.getElementById(
+            "route-progress-bar"
+          ).style.width = `${progress}%`;
+        }
+      } catch (pollError) {
+        console.error("Error polling for status:", pollError);
+        // Continue polling despite errors
+      }
+    }
+
+    if (!result) {
+      throw new Error(
+        "Route optimization timed out. Please try again or use a smaller area."
+      );
+    }
+
+    // Store route data globally
+    routeData = result;
+
+    // Display route on map
+    displayOptimizedRoute(result);
+
+    // Display route instructions
+    displayRouteInstructions(result.instructions);
+
+    // Display directions to start if available
+    if (result.directions_to_start && result.directions_to_start.success) {
+      displayDirectionsToStart(result.directions_to_start);
+    }
+
+    // Show route details
+    document.getElementById("route-details").classList.remove("d-none");
+
+    // Update route statistics
+    const routeStats = result.route_data;
+    document.getElementById(
+      "route-total-length"
+    ).textContent = `${routeStats.total_length_miles.toFixed(2)} miles (${(
+      routeStats.total_length / 1000
+    ).toFixed(2)} km)`;
+    document.getElementById("route-segment-count").textContent =
+      routeStats.segment_count;
+
+    // Check if route is not fully optimized
+    let optimizationStatus = "";
+    if (routeStats.timed_out) {
+      optimizationStatus =
+        '<div class="alert alert-warning mt-2"><i class="fas fa-exclamation-triangle"></i> This route is simplified due to complexity. For best results, try a smaller area or fewer streets.</div>';
+    }
+
+    // Add more detailed statistics
+    const detailsContainer = document.getElementById("route-advanced-stats");
+    detailsContainer.innerHTML = `
+            <div class="mt-3">
+                <h6>Route Breakdown</h6>
+                <div class="d-flex justify-content-between mb-1">
+                    <span>Undriven streets:</span>
+                    <span>${
+                      routeStats.undriven_segments
+                    } segments (${routeStats.undriven_length_miles.toFixed(
+      2
+    )} mi)</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span>Already driven:</span>
+                    <span>${
+                      routeStats.driven_segments
+                    } segments (${routeStats.driven_length_miles.toFixed(
+      2
+    )} mi)</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span>Connector paths:</span>
+                    <span>${
+                      routeStats.connector_segments
+                    } segments (${routeStats.connector_length_miles.toFixed(
+      2
+    )} mi)</span>
+                </div>
+                ${optimizationStatus}
+            </div>
+        `;
+
+    // Hide progress after a delay
+    setTimeout(() => {
+      document.getElementById("route-progress").classList.add("d-none");
+    }, 1500);
+  } catch (error) {
+    console.error("Error generating route:", error);
+    document.getElementById(
+      "route-progress-message"
+    ).textContent = `Error: ${error.message}`;
+    document
+      .getElementById("route-progress-bar")
+      .classList.remove("bg-primary");
+    document.getElementById("route-progress-bar").classList.add("bg-danger");
+    notificationManager.show(
+      `Failed to generate route: ${error.message}`,
+      "error"
+    );
+  }
+}
+
+function displayOptimizedRoute(routeResult) {
+  // Clear existing layers
+  if (routeLayer) {
+    routeMap.removeLayer(routeLayer);
+  }
+
+  if (directionsLayer) {
+    routeMap.removeLayer(directionsLayer);
+  }
+
+  // Create route layer from GeoJSON
+  routeLayer = L.geoJSON(routeResult.geojson, {
+    style: (feature) => {
+      const properties = feature.properties;
+
+      // Style based on segment type
+      if (properties.is_connector) {
+        return {
+          color: "#5ac8fa", // Blue for connector segments
+          weight: 4,
+          opacity: 0.9,
+          dashArray: "5,8",
+        };
+      } else if (properties.is_covered) {
+        return {
+          color: "#34c759", // Green for already driven streets
+          weight: 4,
+          opacity: 0.7,
+        };
+      } else {
+        // Undriven streets - use sequence-based gradient from red to orange
+        const sequence = properties.sequence;
+        const totalSegments = routeResult.route_data.segment_count;
+        const hue = 0 + (sequence / totalSegments) * 40; // Red to orange gradient
+
+        return {
+          color: `hsl(${hue}, 100%, 50%)`,
+          weight: 5,
+          opacity: 0.8,
+        };
+      }
+    },
+    onEachFeature: (feature, layer) => {
+      // Add popups with street info
+      const properties = feature.properties;
+      let statusText = properties.is_connector
+        ? "Connector"
+        : properties.is_covered
+        ? "Already driven"
+        : "Not yet driven";
+
+      layer.bindPopup(`
+                <strong>${properties.name || "Unnamed Street"}</strong><br>
+                Sequence: ${properties.sequence}<br>
+                Length: ${(properties.length * 0.000621371).toFixed(
+                  2
+                )} miles<br>
+                Status: ${statusText}
+            `);
+    },
+  }).addTo(routeMap);
+
+  // Fit map to route bounds
+  routeMap.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+}
+
+function displayDirectionsToStart(directions) {
+  // Display directions to the starting point if available
+  if (directionsLayer) {
+    routeMap.removeLayer(directionsLayer);
+  }
+
+  const coords = directions.coordinates;
+  if (coords && coords.length > 0) {
+    // Create a polyline for the directions
+    directionsLayer = L.polyline(
+      coords.map((coord) => [coord[1], coord[0]]),
+      {
+        color: "#007bff",
+        weight: 4,
+        opacity: 0.8,
+        dashArray: "10,10",
+      }
+    ).addTo(routeMap);
+
+    // Add start and end markers
+    const startPoint = coords[0];
+    const endPoint = coords[coords.length - 1];
+
+    L.marker([startPoint[1], startPoint[0]], {
+      icon: L.divIcon({
+        className: "direction-marker",
+        html: '<i class="fas fa-car text-primary" style="font-size: 20px;"></i>',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      }),
+    }).addTo(directionsLayer);
+
+    L.marker([endPoint[1], endPoint[0]], {
+      icon: L.divIcon({
+        className: "direction-marker",
+        html: '<i class="fas fa-flag-checkered" style="font-size: 20px;"></i>',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      }),
+    }).addTo(directionsLayer);
+
+    // Display directions information
+    const directionsInfo = document.createElement("div");
+    directionsInfo.className = "alert alert-primary mt-3";
+    directionsInfo.innerHTML = `
+            <h6><i class="fas fa-directions"></i> Directions to Starting Point</h6>
+            <p>Distance to starting point: <strong>${directions.distance_miles.toFixed(
+              2
+            )} miles</strong></p>
+            <p class="mb-0 small">Follow the blue dashed line to reach the starting point of your route.</p>
+        `;
+
+    const directionsContainer = document.getElementById("directions-container");
+    directionsContainer.innerHTML = "";
+    directionsContainer.appendChild(directionsInfo);
+  }
+}
+
+function displayRouteInstructions(instructions) {
+  if (!instructions || instructions.length === 0) {
+    return;
+  }
+
+  // Create a container for instructions
+  const instructionsContainer = document.getElementById("route-instructions");
+  instructionsContainer.innerHTML = "";
+
+  // Add title
+  const title = document.createElement("h6");
+  title.className = "mt-3 mb-2";
+  title.innerHTML = '<i class="fas fa-list"></i> Turn-by-Turn Directions';
+  instructionsContainer.appendChild(title);
+
+  // Create a list group for the instructions
+  const list = document.createElement("div");
+  list.className = "list-group list-group-flush bg-dark";
+
+  // Add each instruction
+  instructions.forEach((instruction, index) => {
+    const item = document.createElement("div");
+    item.className = "list-group-item bg-dark text-white border-secondary";
+
+    // Determine the icon based on the street status
+    let icon = "road";
+    let iconClass = "text-white";
+
+    if (instruction.is_connector) {
+      icon = "random";
+      iconClass = "text-info";
+    } else if (instruction.is_covered) {
+      icon = "check-circle";
+      iconClass = "text-success";
+    } else {
+      icon = "road";
+      iconClass = "text-danger";
+    }
+
+    item.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="badge bg-secondary me-2">${index + 1}</span>
+                    <i class="fas fa-${icon} ${iconClass} me-2"></i>
+                    ${instruction.instruction}
+                </div>
+                <span class="badge bg-dark">${instruction.distance_miles.toFixed(
+                  2
+                )} mi</span>
+            </div>
+        `;
+
+    list.appendChild(item);
+  });
+
+  instructionsContainer.appendChild(list);
+  instructionsContainer.classList.remove("d-none");
+}
+
+function exportRouteAsGpx() {
+  if (!routeData || !routeData.route_data.route) {
+    notificationManager.show("No route data available to export", "warning");
+    return;
+  }
+
+  try {
+    // Create GPX content
+    let gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="EveryStreet Route Optimizer" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>Optimized Street Coverage Route</name>
+    <time>${new Date().toISOString()}</time>
+  </metadata>
+  <trk>
+    <name>Complete Coverage Route</name>
+    <trkseg>`;
+
+    // Add track points from each segment
+    routeData.route_data.route.forEach((segment) => {
+      if (segment.geometry && segment.geometry.coordinates) {
+        segment.geometry.coordinates.forEach((coord) => {
+          gpxContent += `
+      <trkpt lat="${coord[1]}" lon="${coord[0]}">
+        <name>${segment.street_name}</name>
+      </trkpt>`;
+        });
+      }
+    });
+
+    // Close GPX document
+    gpxContent += `
+    </trkseg>
+  </trk>
+</gpx>`;
+
+    // Create download link
+    const blob = new Blob([gpxContent], { type: "application/gpx+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "optimized_route.gpx";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    notificationManager.show("Route exported as GPX", "success");
+  } catch (error) {
+    console.error("Error exporting route:", error);
+    notificationManager.show("Failed to export route", "error");
+  }
+}
+
+// Initialize route optimization on document ready
+document.addEventListener("DOMContentLoaded", function () {
+  // Initialize route optimization
+  initRouteOptimization();
+});

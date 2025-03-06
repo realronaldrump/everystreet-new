@@ -723,11 +723,80 @@ class ConfirmationDialog {
   }
 }
 
-// Initialize and expose utility instances
-window.notificationManager =
-  window.notificationManager || new NotificationManager();
-window.confirmationDialog =
-  window.confirmationDialog || new ConfirmationDialog();
+// DOMHelper class implementation
+class DOMHelper {
+  /**
+   * Get element by ID with type checking
+   * @param {string} id - Element ID
+   * @returns {HTMLElement|null} Element or null
+   */
+  static byId(id) {
+    return document.getElementById(id);
+  }
+
+  /**
+   * Query selector with optional context
+   * @param {string} selector - CSS selector
+   * @param {Element|Document} [context=document] - Context element
+   * @returns {Element|null} First matching element or null
+   */
+  static query(selector, context = document) {
+    return context.querySelector(selector);
+  }
+
+  /**
+   * Query all elements matching selector
+   * @param {string} selector - CSS selector
+   * @param {Element|Document} [context=document] - Context element
+   * @returns {Element[]} Array of matching elements
+   */
+  static queryAll(selector, context = document) {
+    return Array.from(context.querySelectorAll(selector));
+  }
+
+  /**
+   * Create an element with attributes and content
+   * @param {string} tag - Element tag name
+   * @param {Object} [attrs] - Element attributes
+   * @param {string|Node|Array} [content] - Element content
+   * @returns {HTMLElement} The created element
+   */
+  static create(tag, attrs = {}, content = null) {
+    const element = document.createElement(tag);
+
+    // Set attributes
+    Object.entries(attrs).forEach(([key, value]) => {
+      if (key === "class" || key === "className") {
+        element.className = value;
+      } else if (key === "style" && typeof value === "object") {
+        Object.assign(element.style, value);
+      } else if (key.startsWith("data-")) {
+        element.setAttribute(key, value);
+      } else {
+        element[key] = value;
+      }
+    });
+
+    // Add content
+    if (content) {
+      if (Array.isArray(content)) {
+        content.forEach((item) => {
+          if (item instanceof Node) {
+            element.appendChild(item);
+          } else {
+            element.appendChild(document.createTextNode(String(item)));
+          }
+        });
+      } else if (content instanceof Node) {
+        element.appendChild(content);
+      } else {
+        element.textContent = content;
+      }
+    }
+
+    return element;
+  }
+}
 
 // Export utilities as namespaces
 window.utils = {
@@ -821,87 +890,13 @@ window.utils = {
   },
 };
 
-window.dom = {
-  /**
-   * Get element by ID with type checking
-   * @param {string} id - Element ID
-   * @returns {HTMLElement|null} Element or null
-   */
-  byId(id) {
-    return document.getElementById(id);
-  },
-
-  /**
-   * Query selector with optional context
-   * @param {string} selector - CSS selector
-   * @param {Element|Document} [context=document] - Context element
-   * @returns {Element|null} First matching element or null
-   */
-  query(selector, context = document) {
-    return context.querySelector(selector);
-  },
-
-  /**
-   * Query all elements matching selector
-   * @param {string} selector - CSS selector
-   * @param {Element|Document} [context=document] - Context element
-   * @returns {Element[]} Array of matching elements
-   */
-  queryAll(selector, context = document) {
-    return Array.from(context.querySelectorAll(selector));
-  },
-
-  /**
-   * Create an element with attributes and content
-   * @param {string} tag - Element tag name
-   * @param {Object} [attrs] - Element attributes
-   * @param {string|Node|Array} [content] - Element content
-   * @returns {HTMLElement} The created element
-   */
-  create(tag, attrs = {}, content = null) {
-    const element = document.createElement(tag);
-
-    // Set attributes
-    Object.entries(attrs).forEach(([key, value]) => {
-      if (key === "class" || key === "className") {
-        element.className = value;
-      } else if (key === "style" && typeof value === "object") {
-        Object.assign(element.style, value);
-      } else if (key.startsWith("data-")) {
-        element.setAttribute(key, value);
-      } else {
-        element[key] = value;
-      }
-    });
-
-    // Add content
-    if (content) {
-      if (Array.isArray(content)) {
-        content.forEach((item) => {
-          if (item instanceof Node) {
-            element.appendChild(item);
-          } else {
-            element.appendChild(document.createTextNode(String(item)));
-          }
-        });
-      } else if (content instanceof Node) {
-        element.appendChild(content);
-      } else {
-        element.textContent = content;
-      }
-    }
-
-    return element;
-  },
-};
-
 // Initialize global utility instances
 window.handleError = handleError;
 window.DateUtils = DateUtils;
 
 // Initialize and export notification manager
 window.notificationManager = new NotificationManager({
-  position: "bottom-end",
+  position: "top-end",
   defaultDuration: 5000,
   maxNotifications: 3,
 });
@@ -911,5 +906,6 @@ window.confirmationDialog = new ConfirmationDialog({
   backdropClickDismisses: false,
 });
 
-// Initialize DOM helper
+// Export DOM helper
+window.dom = window.dom || {};
 window.DOMHelper = DOMHelper;

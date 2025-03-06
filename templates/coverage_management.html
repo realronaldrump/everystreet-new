@@ -148,6 +148,7 @@ block head_content %}
                   <th>Coverage</th>
                   <th>Segments</th>
                   <th>Last Updated</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -298,6 +299,138 @@ block head_content %}
           </div>
         </div>
       </div>
+
+      <!-- Route Optimization Card -->
+      <div class="card bg-dark text-white mt-4">
+        <div class="card-body">
+          <h3 class="h5 mb-3">Route Optimization</h3>
+          <p class="mb-3">
+            Generate an optimized route to cover all streets in a selected area
+            using the Chinese Postman algorithm.
+          </p>
+
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <label for="route-location-select" class="form-label"
+                >Select Coverage Area</label
+              >
+              <select id="route-location-select" class="form-select">
+                <option value="">Select an area...</option>
+                <!-- Options will be populated dynamically -->
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label for="route-start-point" class="form-label"
+                >Start Point (optional)</label
+              >
+              <div class="input-group">
+                <input
+                  type="text"
+                  id="route-start-lon"
+                  class="form-control"
+                  placeholder="Longitude"
+                />
+                <input
+                  type="text"
+                  id="route-start-lat"
+                  class="form-control"
+                  placeholder="Latitude"
+                />
+              </div>
+              <small class="text-muted">Click on map to set start point</small>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <button
+                id="generate-route-btn"
+                class="btn btn-primary w-100"
+                disabled
+              >
+                <i class="fas fa-route"></i> Generate Optimized Route
+              </button>
+            </div>
+          </div>
+
+          <!-- Route options container -->
+          <div class="route-options-container"></div>
+
+          <!-- Coverage statistics container -->
+          <div class="coverage-stats-container mt-3"></div>
+
+          <div id="route-details" class="mt-3 d-none">
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <div class="card bg-darker">
+                  <div class="card-body">
+                    <h5 class="h6">Route Statistics</h5>
+                    <div class="d-flex justify-content-between mb-2">
+                      <span>Total Length:</span>
+                      <span id="route-total-length">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                      <span>Total Segments:</span>
+                      <span id="route-segment-count">-</span>
+                    </div>
+                    <!-- Advanced stats will go here -->
+                    <div id="route-advanced-stats"></div>
+                    <div class="d-flex mt-3">
+                      <button
+                        id="export-route-btn"
+                        class="btn btn-sm btn-secondary me-2"
+                      >
+                        <i class="fas fa-download"></i> Export GPX
+                      </button>
+                      <button
+                        id="toggle-route-visibility-btn"
+                        class="btn btn-sm btn-info"
+                      >
+                        <i class="fas fa-eye"></i> Hide Route
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="alert alert-info">
+                  <i class="fas fa-info-circle"></i> This route represents the
+                  most efficient path to cover all streets in the selected area.
+                  <p class="mt-2 mb-0 small">
+                    The Chinese Postman algorithm finds a path that traverses
+                    every street at least once with minimal redundancy.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Directions container -->
+          <div id="directions-container" class="mt-3"></div>
+
+          <!-- Route instructions container -->
+          <div id="route-instructions" class="mt-3 d-none"></div>
+
+          <!-- Optimization Progress -->
+          <div id="route-progress" class="mt-3 d-none">
+            <div class="progress mb-2">
+              <div
+                id="route-progress-bar"
+                class="progress-bar progress-bar-striped progress-bar-animated"
+                role="progressbar"
+                style="width: 0%"
+              ></div>
+            </div>
+            <p id="route-progress-message" class="small text-muted">
+              Generating route...
+            </p>
+          </div>
+
+          <!-- Map for Route Display -->
+          <div
+            id="route-map"
+            style="height: 500px; margin-top: 20px"
+            class="d-none"
+          ></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -388,7 +521,13 @@ block head_content %}
     </div>
   </div>
 </div>
-{% endblock %} {% block extra_js %}
+
+<!-- Add a notification container if it doesn't already exist -->
+{% if not request.path.startswith('/api/') %}
+<div class="notification-container" aria-live="polite">
+  <!-- Notifications will be dynamically inserted here -->
+</div>
+{% endif %} {% endblock %} {% block extra_js %}
 <!-- Leaflet JS -->
 <script
   src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"

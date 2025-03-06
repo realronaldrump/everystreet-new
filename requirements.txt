@@ -21,3 +21,5 @@ motor
 rtree
 gunicorn
 psutil
+networkx>=2.8.0
+osmnx>=1.2.2

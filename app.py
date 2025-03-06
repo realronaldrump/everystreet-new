@@ -56,6 +56,7 @@ from live_tracking import (
     get_active_trip,
     get_trip_updates,
 )
+from route_optimization import optimize_route_for_location, RouteOptimizer
 
 load_dotenv()
 
@@ -237,7 +238,11 @@ async def upload_page(request: Request):
 
 @app.get("/coverage-management", response_class=HTMLResponse)
 async def coverage_management_page(request: Request):
-    return templates.TemplateResponse("coverage_management.html", {"request": request})
+    """Render the coverage management page"""
+    return templates.TemplateResponse(
+        "coverage_management.html",
+        {"request": request, "mapbox_access_token": MAPBOX_ACCESS_TOKEN},
+    )
 
 
 @app.get("/database-management")
@@ -1990,7 +1995,8 @@ async def process_area(location: Dict[str, Any], task_id: str):
                 {
                     "$set": {
                         "stage": "error",
-                        "error": error_msg,
+                        "progress": 0,
+                        "message": error_msg,
                         "updated_at": datetime.now(timezone.utc),
                     }
                 },
@@ -3303,6 +3309,376 @@ def collect_street_type_stats(features):
     # Sort by total length descending
     result.sort(key=lambda x: x["length"], reverse=True)
     return result
+
+
+@app.post("/api/optimize_route")
+async def optimize_route_endpoint(request: Request):
+    """
+    Generate an optimized route to cover all streets in a location.
+    Uses the Chinese Postman algorithm to find the most efficient path.
+
+    Parameters:
+    - location: Location object with display_name and boundingbox
+    - start_point: Optional starting coordinates [lon, lat]
+    - undriven_only: Boolean to focus only on undriven streets (default: false)
+    - current_location: Optional current user location for directions to start [lon, lat]
+    """
+    # Create a background task
+    task_id = str(uuid.uuid4())
+
+    try:
+        data = await request.json()
+        location = data.get("location")
+        start_point = data.get("start_point")  # Optional [lon, lat]
+        undriven_only = data.get("undriven_only", False)  # Default to all streets
+        current_location = data.get("current_location")  # Optional [lon, lat]
+
+        if not location or not isinstance(location, dict):
+            raise HTTPException(status_code=400, detail="Invalid location data")
+
+        # Add task to progress collection
+        await progress_collection.insert_one(
+            {
+                "_id": task_id,
+                "type": "route_optimization",
+                "status": "processing",
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
+                "location": location,
+                "start_point": start_point,
+                "undriven_only": undriven_only,
+                "current_location": current_location,
+            }
+        )
+
+        # Create a background task
+        asyncio.create_task(
+            process_route_optimization(
+                task_id, location, start_point, undriven_only, current_location
+            )
+        )
+
+        # Return task ID so client can poll for results
+        return JSONResponse(
+            status_code=202,
+            content={
+                "status": "processing",
+                "message": "Route optimization started",
+                "task_id": task_id,
+            },
+        )
+
+    except Exception as e:
+        logger.exception("Error starting route optimization: %s", e)
+        return JSONResponse(
+            status_code=500, content={"status": "error", "message": str(e)}
+        )
+
+
+async def process_route_optimization(
+    task_id: str,
+    location: Dict[str, Any],
+    start_point: Optional[List[float]],
+    undriven_only: bool,
+    current_location: Optional[List[float]],
+):
+    """Process route optimization in a background task with timeout handling"""
+    try:
+        # Convert start_point to tuple if provided
+        start_tuple = None
+        if start_point and isinstance(start_point, list) and len(start_point) == 2:
+            start_tuple = (float(start_point[0]), float(start_point[1]))
+
+        # Convert current_location to tuple if provided
+        current_tuple = None
+        if (
+            current_location
+            and isinstance(current_location, list)
+            and len(current_location) == 2
+        ):
+            current_tuple = (float(current_location[0]), float(current_location[1]))
+
+        # Update status to building network
+        await progress_collection.update_one(
+            {"_id": task_id},
+            {
+                "$set": {
+                    "status": "building_network",
+                    "message": "Building street network...",
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+        )
+
+        # Create optimizer and build network
+        optimizer = RouteOptimizer(location)
+        network_success = await optimizer.build_network_from_streets(
+            undriven_only=undriven_only
+        )
+
+        if not network_success:
+            error_message = "No streets found for optimization"
+            if undriven_only:
+                error_message = "No undriven streets found in the selected area"
+
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "status": "error",
+                        "message": error_message,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+            return
+
+        # Update status to optimizing route
+        await progress_collection.update_one(
+            {"_id": task_id},
+            {
+                "$set": {
+                    "status": "optimizing",
+                    "message": "Computing optimal route...",
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+        )
+
+        # Compute route with timeout
+        try:
+            # Run with a timeout to prevent hanging
+            route_data = await asyncio.wait_for(
+                asyncio.to_thread(
+                    optimizer.compute_optimal_route,
+                    start_tuple,
+                    undriven_only=undriven_only,
+                ),
+                timeout=25,  # 25 second timeout
+            )
+        except asyncio.TimeoutError:
+            # If timeout, create a simple route without optimization
+            logger.warning("Route optimization timed out, creating a simpler route")
+            # Just return the street segments in sequential order
+            simple_route = []
+
+            # Create a simple path through the streets
+            if optimizer.graph:
+                for edge in optimizer.graph.edges(data=True):
+                    start_node = optimizer.graph.nodes[edge[0]]
+                    end_node = optimizer.graph.nodes[edge[1]]
+
+                    simple_route.append(
+                        {
+                            "street_id": edge[2].get("id", ""),
+                            "street_name": edge[2].get("name", "Unnamed Street"),
+                            "start": [start_node["x"], start_node["y"]],
+                            "end": [end_node["x"], end_node["y"]],
+                            "length": edge[2].get("length", 0),
+                            "geometry": edge[2].get("geometry", None),
+                            "is_covered": edge[2].get("is_covered", False),
+                            "is_connector": False,
+                            "highway": edge[2].get("highway", "unknown"),
+                        }
+                    )
+
+            # Calculate lengths
+            total_length = sum(s["length"] for s in simple_route)
+            undriven_length = sum(
+                s["length"] for s in simple_route if not s["is_covered"]
+            )
+            driven_length = sum(s["length"] for s in simple_route if s["is_covered"])
+
+            route_data = {
+                "route": simple_route,
+                "total_length": total_length,
+                "segment_count": len(simple_route),
+                "total_length_miles": total_length * 0.000621371,
+                "undriven_segments": len(
+                    [s for s in simple_route if not s["is_covered"]]
+                ),
+                "driven_segments": len([s for s in simple_route if s["is_covered"]]),
+                "connector_segments": 0,
+                "undriven_length": undriven_length,
+                "undriven_length_miles": undriven_length * 0.000621371,
+                "driven_length": driven_length,
+                "driven_length_miles": driven_length * 0.000621371,
+                "connector_length": 0,
+                "connector_length_miles": 0,
+                "is_optimized": False,
+                "timed_out": True,
+            }
+
+            # Update status to partial route
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "status": "partial",
+                        "message": "Created a simple route (optimization timed out)",
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+
+        # If route has an error, report it
+        if "error" in route_data:
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "status": "error",
+                        "message": route_data["error"],
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+            return
+
+        # Create GeoJSON and navigation instructions
+        geojson = optimizer.generate_route_geojson(route_data)
+        instructions = await optimizer.generate_navigation_instructions(route_data)
+
+        # Create directions to start if needed
+        directions_to_start = None
+        if current_tuple and start_tuple:
+            try:
+                directions_to_start = await optimizer.get_directions_to_start(
+                    start_tuple, current_tuple
+                )
+            except Exception as e:
+                logger.error(f"Error generating directions to start: {e}")
+                directions_to_start = {"success": False, "error": str(e)}
+
+        # Store the final result
+        result = {
+            "route_data": route_data,
+            "geojson": geojson,
+            "instructions": instructions,
+            "directions_to_start": directions_to_start,
+        }
+
+        # Update the progress with completed status and result
+        await progress_collection.update_one(
+            {"_id": task_id},
+            {
+                "$set": {
+                    "status": "complete",
+                    "result": result,
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+        )
+    except Exception as e:
+        logger.exception(f"Error in route optimization process: {e}")
+        # Update progress with error status
+        await progress_collection.update_one(
+            {"_id": task_id},
+            {
+                "$set": {
+                    "status": "error",
+                    "message": str(e),
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+        )
+
+
+@app.get("/api/optimize_route/{task_id}")
+async def get_route_optimization_status(task_id: str):
+    """Get the status or result of a route optimization task"""
+    try:
+        # Find the task in the progress collection
+        task = await progress_collection.find_one({"_id": task_id})
+
+        if not task:
+            return JSONResponse(
+                status_code=404,
+                content={"status": "error", "message": "Task not found"},
+            )
+
+        # Check status
+        status = task.get("status", "unknown")
+
+        if status == "complete":
+            # Return the full result
+            return {
+                "status": "success",
+                "route_data": task["result"]["route_data"],
+                "geojson": task["result"]["geojson"],
+                "instructions": task["result"].get("instructions", []),
+                "directions_to_start": task["result"].get("directions_to_start"),
+            }
+        elif status == "error":
+            # Return the error
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "status": "error",
+                    "message": task.get("message", "Unknown error"),
+                },
+            )
+        else:
+            # Return the current status
+            return {
+                "status": status,
+                "message": task.get("message", ""),
+                "progress": task.get("progress", 0),
+            }
+    except Exception as e:
+        logger.exception(f"Error checking route optimization status: {e}")
+        return JSONResponse(
+            status_code=500, content={"status": "error", "message": str(e)}
+        )
+
+
+@app.get("/api/route_optimization/coverage_areas")
+async def get_route_optimization_coverage_areas():
+    """
+    Get a list of coverage areas with their completion status for the route optimization feature.
+    """
+    try:
+        # Fetch all coverage areas from the database
+        areas = await coverage_metadata_collection.find({}).to_list(length=None)
+
+        if not areas:
+            return {"areas": []}
+
+        result = []
+        for area in areas:
+            # Extract the essential information
+            location = area.get("location", {})
+            if not location:
+                continue
+
+            area_data = {
+                "location": location,
+                "display_name": location.get("display_name", "Unknown"),
+                "coverage_percentage": area.get("coverage_percentage", 0),
+                "total_length": area.get("total_length", 0),
+                "total_length_miles": area.get("total_length", 0) * 0.000621371,
+                "driven_length": area.get("driven_length", 0),
+                "driven_length_miles": area.get("driven_length", 0) * 0.000621371,
+                "undriven_length": area.get("total_length", 0)
+                - area.get("driven_length", 0),
+                "undriven_length_miles": (
+                    area.get("total_length", 0) - area.get("driven_length", 0)
+                )
+                * 0.000621371,
+                "last_updated": area.get("last_updated", None),
+            }
+
+            result.append(area_data)
+
+        # Sort by display name
+        result.sort(key=lambda x: x["display_name"])
+
+        return {"areas": result}
+    except Exception as e:
+        logger.exception("Error fetching coverage areas: %s", e)
+        return JSONResponse(
+            status_code=500, content={"status": "error", "message": str(e)}
+        )
 
 
 if __name__ == "__main__":
