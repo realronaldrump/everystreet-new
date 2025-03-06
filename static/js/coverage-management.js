@@ -738,11 +738,15 @@
     }
 
     async deleteArea(location) {
-      if (
-        !confirm(
-          `Are you sure you want to delete coverage for ${location.display_name}?`
-        )
-      ) {
+      // Use the custom ConfirmationDialog instead of native confirm
+      const confirmed = await window.confirmationDialog.show({
+        title: "Delete Coverage Area",
+        message: `Are you sure you want to delete coverage for ${location.display_name}?`,
+        confirmText: "Delete",
+        confirmButtonClass: "btn-danger",
+      });
+
+      if (!confirmed) {
         return;
       }
 
