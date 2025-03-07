@@ -159,11 +159,12 @@ class RouteOptimizer:
                         if nearest_node is None:
                             # Create a new node
                             node_id = f"n{node_counter}"
-                            node_counter += 1
                             node_positions[node_id] = point
                             node_index.insert(
-                                node_id, (point[0], point[1], point[0], point[1])
+                                node_counter,  # Use integer index
+                                (point[0], point[1], point[0], point[1]),
                             )
+                            node_counter += 1
 
                 except Exception as e:
                     logger.error(f"Error processing street endpoints: {e}")
@@ -184,8 +185,17 @@ class RouteOptimizer:
                     street_id = street["properties"].get("segment_id")
                     street_name = street["properties"].get("name", "Unnamed Street")
 
+                    if not street_id:
+                        logger.warning(
+                            f"Skipping street with no segment_id: {street_name}"
+                        )
+                        continue
+
                     # Skip non-LineString geometries
                     if geom.geom_type != "LineString":
+                        logger.warning(
+                            f"Skipping non-LineString geometry for street {street_id}"
+                        )
                         continue
 
                     # Skip already driven streets if undriven_only is True
@@ -196,8 +206,14 @@ class RouteOptimizer:
                     processed_segments += 1
 
                     # Transform to UTM for accurate length calculation
-                    geom_utm = transform(self.project_to_utm, geom)
-                    length = geom_utm.length
+                    try:
+                        geom_utm = transform(self.project_to_utm, geom)
+                        length = geom_utm.length
+                    except Exception as e:
+                        logger.error(
+                            f"Error calculating length for street {street_id}: {e}"
+                        )
+                        continue
 
                     # Extract street attributes
                     highway_type = street["properties"].get("highway", "road")
@@ -205,6 +221,12 @@ class RouteOptimizer:
 
                     # Get the start and end points of the street
                     coords = list(geom.coords)
+                    if len(coords) < 2:
+                        logger.warning(
+                            f"Skipping street {street_id} with insufficient coordinates"
+                        )
+                        continue
+
                     start_point = coords[0]
                     end_point = coords[-1]
 
@@ -217,7 +239,9 @@ class RouteOptimizer:
                     )
 
                     if start_node is None or end_node is None:
-                        logger.warning(f"Could not find nodes for street {street_id}")
+                        logger.warning(
+                            f"Could not find nodes for street {street_id} ({street_name})"
+                        )
                         continue
 
                     # Add nodes to the graph with their coordinates
@@ -275,7 +299,10 @@ class RouteOptimizer:
                     }
 
                 except Exception as e:
-                    logger.error(f"Error processing street segment: {e}")
+                    logger.error(
+                        f"Error processing street segment {street.get('properties', {}).get('segment_id', 'unknown')}: {e}"
+                    )
+                    continue
 
             if undriven_only:
                 logger.info(
@@ -292,9 +319,27 @@ class RouteOptimizer:
                 f"Graph has {G.number_of_nodes()} nodes and {G.number_of_edges()} edges"
             )
 
+            if G.number_of_nodes() == 0:
+                logger.error("Failed to build graph - no valid nodes found")
+                return False
+
+            if G.number_of_edges() == 0:
+                logger.error("Failed to build graph - no valid edges found")
+                return False
+
             # Ensure the graph is connected
-            largest_cc = max(nx.weakly_connected_components(G), key=len)
+            components = list(nx.weakly_connected_components(G))
+            if not components:
+                logger.error("Failed to build graph - no connected components found")
+                return False
+
+            largest_cc = max(components, key=len)
             G = G.subgraph(largest_cc).copy()
+
+            if G.number_of_nodes() == 0:
+                logger.error("Failed to build graph - largest component has no nodes")
+                return False
+
             logger.info(
                 f"Largest connected component has {G.number_of_nodes()} nodes and {G.number_of_edges()} edges"
             )
@@ -328,22 +373,23 @@ class RouteOptimizer:
         )
 
         # Find nodes in the search box
-        nearby_nodes = list(node_index.intersection(search_box))
+        nearby_indices = list(node_index.intersection(search_box))
 
-        if not nearby_nodes:
+        if not nearby_indices:
             return None
 
         # Find the closest node
         closest_node = None
         min_distance = float("inf")
 
-        for node_id in nearby_nodes:
+        for idx in nearby_indices:
+            node_id = f"n{idx}"  # Convert index back to node ID
             node_point = node_positions[node_id]
             dist = (
                 (point[0] - node_point[0]) ** 2 + (point[1] - node_point[1]) ** 2
             ) ** 0.5
 
-            if dist < min_distance:
+            if dist < min_distance and dist <= max_distance:
                 min_distance = dist
                 closest_node = node_id
 
