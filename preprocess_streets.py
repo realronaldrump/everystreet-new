@@ -53,11 +53,10 @@ async def fetch_osm_data(
         [out:json];
         area({area_id})->.searchArea;
         (
-          way["highway"]["name"](area.searchArea);
           way["highway"](area.searchArea);
         );
         (._;>;);
-        out geom qt;
+        out geom;
         """
     else:
         query = f"""
@@ -67,7 +66,7 @@ async def fetch_osm_data(
         );
         out geom;
         """
-    timeout = aiohttp.ClientTimeout(total=60)
+    timeout = aiohttp.ClientTimeout(total=30)
     async with aiohttp.ClientSession(timeout=timeout) as session, session.get(
         OVERPASS_URL, params={"data": query}
     ) as response:
@@ -153,35 +152,43 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
         location = element_data["location"]
         proj_to_utm = element_data["project_to_utm"]
         proj_to_wgs84 = element_data["project_to_wgs84"]
-        
-        if "geometry" not in element or len(element.get("geometry", [])) < 2:
-            return []
-            
         nodes = [(node["lon"], node["lat"]) for node in element["geometry"]]
         if len(nodes) < 2:
             return []
-            
+
+        # Get all possible street name tags in order of priority
         tags = element.get("tags", {})
-        
-        name = tags.get("name")
-        if not name:
-            for key in tags:
-                if key.startswith("name:"):
-                    name = tags[key]
-                    break
-            if not name:
-                name = tags.get("alt_name")
-            if not name:
-                name = tags.get("ref")
-            if not name:
-                name = "Unnamed Street"
-                
-        highway_type = tags.get("highway", "unknown")
-        
+        street_name = None
+
+        # Check for name tags in order of preference
+        name_keys = ["name", "name:en", "loc_name", "alt_name", "official_name", "ref"]
+        for key in name_keys:
+            if key in tags and tags[key]:
+                street_name = tags[key]
+                break
+
+        # If still no name, try to create a descriptive name based on road type
+        if not street_name:
+            highway_type = tags.get("highway", "")
+            ref = tags.get("ref", "")
+            if ref:
+                street_name = f"{ref} ({highway_type.title()})"
+            else:
+                street_name = f"{highway_type.title()} Road"
+
+        # If still unnamed, use a generic name
+        if not street_name or street_name.strip() == "":
+            street_name = "Unnamed Street"
+
+        # Get other useful attributes
+        highway_type = tags.get("highway", "road")
+        is_oneway = tags.get("oneway", "no").lower() in ["yes", "true", "1"]
+        max_speed = tags.get("maxspeed", "")
+        surface = tags.get("surface", "")
+
         line = LineString(nodes)
         projected_line = transform(proj_to_utm, line)
         segments = segment_street(projected_line, segment_length_meters=100)
-        
         features = []
         for i, segment in enumerate(segments):
             segment_wgs84 = transform(proj_to_wgs84, segment)
@@ -191,14 +198,17 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
                 "properties": {
                     "street_id": element["id"],
                     "segment_id": f"{element['id']}-{i}",
-                    "name": name,
-                    "highway": highway_type,
+                    "name": street_name,
                     "location": location,
                     "segment_length": segment.length,
                     "driven": False,
                     "last_updated": None,
                     "matched_trips": [],
-                    "tags": tags,
+                    "highway": highway_type,
+                    "oneway": is_oneway,
+                    "maxspeed": max_speed,
+                    "surface": surface,
+                    "original_tags": tags,
                 },
             }
             features.append(feature)

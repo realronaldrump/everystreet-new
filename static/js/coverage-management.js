@@ -2436,96 +2436,161 @@ function exportRouteAsGpx() {
   }
 
   try {
-    // Create a more structured GPX with organized track segments by street
-    let gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="EveryStreet Route Optimizer" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata>
-    <name>Optimized Street Coverage Route</name>
-    <time>${new Date().toISOString()}</time>
-    <desc>Efficient route to cover all streets methodically</desc>
-  </metadata>
-  <trk>
-    <name>Complete Coverage Route</name>
-    <desc>Optimized path to cover streets with minimal redundancy</desc>`;
+    // Create a better organized route for GPX by consolidating continuous streets
+    const route = routeData.route_data.route;
+    const consolidated = [];
+    let currentStreet = null;
+    let currentCoords = [];
+    let totalDistance = 0;
 
-    // Group coordinates by street to create track segments for each street
-    const streets = {};
-    const routeSegments = routeData.route_data.route;
+    // Process route segments to consolidate by street name
+    for (let i = 0; i < route.length; i++) {
+      const segment = route[i];
+      const geometry = segment.geometry;
 
-    // Group by street name
-    routeSegments.forEach((segment) => {
-      if (!segment.geometry || !segment.geometry.coordinates) {
-        return;
+      // Check all possible property names for street name
+      let streetName = "Unnamed Street";
+      if (segment.name) {
+        streetName = segment.name;
+      } else if (segment.street_name) {
+        streetName = segment.street_name;
       }
 
-      const streetName = segment.street_name || "Unnamed Street";
-      const isDriven = segment.is_covered;
-      const isConnector = segment.is_connector;
-
-      // Create a key that includes the street status for better organization
-      const key = isConnector
-        ? "00_connector"
-        : isDriven
-        ? `01_driven_${streetName}`
-        : `02_undriven_${streetName}`;
-
-      if (!streets[key]) {
-        streets[key] = {
-          name: streetName,
-          isConnector: isConnector,
-          isDriven: isDriven,
-          segments: [],
-        };
+      if (
+        !geometry ||
+        !geometry.coordinates ||
+        geometry.coordinates.length === 0
+      ) {
+        continue;
       }
 
-      streets[key].segments.push(segment);
-    });
+      // Extract coordinates from the geometry
+      const coords = geometry.coordinates;
 
-    // Sort street keys to place undriven streets first, then driven streets, and connectors last
-    const sortedStreetKeys = Object.keys(streets).sort();
-
-    // Process each street
-    sortedStreetKeys.forEach((key) => {
-      const street = streets[key];
-      const streetDesc = street.isConnector
-        ? "Connector Path"
-        : street.isDriven
-        ? "Already Driven"
-        : "Undriven Street";
-
-      // Start a new track segment for this street
-      gpxContent += `
-    <trkseg>
-      <!-- ${street.name} (${streetDesc}) -->`;
-
-      // Add all coordinates for this street in order
-      street.segments.forEach((segment) => {
-        if (segment.geometry && segment.geometry.coordinates) {
-          // For LineString geometries, add each point in the line
-          segment.geometry.coordinates.forEach((coord, i) => {
-            // Only add the first point of subsequent segments to avoid duplicates
-            if (i > 0 || street.segments.indexOf(segment) === 0) {
-              gpxContent += `
-      <trkpt lat="${coord[1]}" lon="${coord[0]}">
-        <name>${street.name}</name>
-      </trkpt>`;
-            }
+      // First segment or new street name
+      if (currentStreet === null || currentStreet !== streetName) {
+        // Save previous street if it exists
+        if (currentStreet !== null && currentCoords.length > 0) {
+          consolidated.push({
+            name: currentStreet,
+            coordinates: currentCoords,
+            distance: totalDistance,
           });
         }
-      });
 
-      // Close the track segment
-      gpxContent += `
-    </trkseg>`;
+        // Start new street
+        currentStreet = streetName;
+        currentCoords = [...coords];
+        totalDistance = segment.length;
+      } else {
+        // Continue same street - avoid duplicating connecting points
+        currentCoords = currentCoords.concat(coords.slice(1));
+        totalDistance += segment.length;
+      }
+    }
+
+    // Add the last street segment
+    if (currentStreet !== null && currentCoords.length > 0) {
+      consolidated.push({
+        name: currentStreet,
+        coordinates: currentCoords,
+        distance: totalDistance,
+      });
+    }
+
+    // Create GPX content
+    const gpxDoc = document.implementation.createDocument(null, "gpx", null);
+    const gpx = gpxDoc.documentElement;
+
+    // Set attributes
+    gpx.setAttribute("version", "1.1");
+    gpx.setAttribute("creator", "EveryStreet Route Optimizer");
+    gpx.setAttribute("xmlns", "http://www.topografix.com/GPX/1/1");
+
+    // Add metadata
+    const metadata = gpxDoc.createElement("metadata");
+    const metaName = gpxDoc.createElement("name");
+    metaName.textContent = "Optimized Street Coverage Route";
+    const metaDesc = gpxDoc.createElement("desc");
+    metaDesc.textContent =
+      "Generated by EveryStreet - Efficient route to cover all streets";
+    const metaTime = gpxDoc.createElement("time");
+    metaTime.textContent = new Date().toISOString();
+
+    metadata.appendChild(metaName);
+    metadata.appendChild(metaDesc);
+    metadata.appendChild(metaTime);
+    gpx.appendChild(metadata);
+
+    // Add track
+    const trk = gpxDoc.createElement("trk");
+    const trkName = gpxDoc.createElement("name");
+    trkName.textContent = "Complete Coverage Route";
+    trk.appendChild(trkName);
+
+    const trkseg = gpxDoc.createElement("trkseg");
+
+    // Add all coordinates as trackpoints
+    let allCoords = [];
+    consolidated.forEach((street) => {
+      allCoords = allCoords.concat(street.coordinates);
     });
 
-    // Close GPX document
-    gpxContent += `
-  </trk>
-</gpx>`;
+    // Remove duplicate consecutive points
+    const uniqueCoords = [];
+    for (let i = 0; i < allCoords.length; i++) {
+      if (
+        i === 0 ||
+        allCoords[i][0] !== allCoords[i - 1][0] ||
+        allCoords[i][1] !== allCoords[i - 1][1]
+      ) {
+        uniqueCoords.push(allCoords[i]);
+      }
+    }
+
+    uniqueCoords.forEach((coord) => {
+      const trkpt = gpxDoc.createElement("trkpt");
+      trkpt.setAttribute("lat", coord[1]);
+      trkpt.setAttribute("lon", coord[0]);
+      trkseg.appendChild(trkpt);
+    });
+
+    trk.appendChild(trkseg);
+    gpx.appendChild(trk);
+
+    // Add waypoints
+    let waypointIdx = 1;
+    consolidated.forEach((street) => {
+      if (street.coordinates.length === 0) return;
+
+      // Add street start as a waypoint
+      const startCoord = street.coordinates[0];
+      const wpt = gpxDoc.createElement("wpt");
+      wpt.setAttribute("lat", startCoord[1]);
+      wpt.setAttribute("lon", startCoord[0]);
+
+      const wptName = gpxDoc.createElement("name");
+      wptName.textContent = `${waypointIdx++}: Drive on ${street.name}`;
+
+      const wptDesc = gpxDoc.createElement("desc");
+      wptDesc.textContent = `Continue for ${(
+        street.distance * 0.000621371
+      ).toFixed(2)} miles`;
+
+      wpt.appendChild(wptName);
+      wpt.appendChild(wptDesc);
+      gpx.appendChild(wpt);
+    });
+
+    // Convert to string
+    const serializer = new XMLSerializer();
+    const gpxString = serializer.serializeToString(gpxDoc);
+
+    // Create final formatted GPX with XML declaration
+    const finalGpx = '<?xml version="1.0" encoding="UTF-8"?>\n' + gpxString;
 
     // Create download link
-    const blob = new Blob([gpxContent], { type: "application/gpx+xml" });
+    const blob = new Blob([finalGpx], { type: "application/gpx+xml" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
