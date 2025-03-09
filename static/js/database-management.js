@@ -77,7 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(
-        errorData.detail || `HTTP error! status: ${response.status}`
+        errorData.detail || `HTTP error! status: ${response.status}`,
       );
     }
 
@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
       progressBar.classList.toggle("bg-danger", data.usage_percent > 95);
       progressBar.classList.toggle(
         "bg-warning",
-        data.usage_percent > 80 && data.usage_percent <= 95
+        data.usage_percent > 80 && data.usage_percent <= 95,
       );
       progressBar.classList.toggle("bg-success", data.usage_percent <= 80);
     }
@@ -161,14 +161,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const result = await performDatabaseAction(endpoint, body);
       showNotification(
         result.message || "Operation completed successfully",
-        "success"
+        "success",
       );
 
       setTimeout(() => window.location.reload(), 1500);
     } catch (error) {
       showNotification(
         error.message || "Failed to perform database action",
-        "danger"
+        "danger",
       );
       console.error("Error performing database action:", error); // Log to console for debugging
       setButtonLoading(currentButton, false, currentAction);
