@@ -85,7 +85,7 @@
               this.notifier.show(
                 "Task Update",
                 `Task ${taskId} ${currentStatus.toLowerCase()}`,
-                statusType
+                statusType,
               );
             }
           }
@@ -227,7 +227,7 @@
           this.notifier.show(
             "Task Started",
             `Task ${taskId} has been started`,
-            "info"
+            "info",
           );
 
           const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
@@ -265,7 +265,7 @@
         this.notifier.show(
           "Error",
           `Failed to start task ${taskId}: ${error.message}`,
-          "danger"
+          "danger",
         );
         return false;
       }
@@ -290,7 +290,7 @@
           this.notifier.show(
             "Task Started",
             `Task ${taskId} has been started`,
-            "info"
+            "info",
           );
 
           const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
@@ -313,7 +313,7 @@
         this.notifier.show(
           "Error",
           `Failed to start task ${taskId}: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -338,7 +338,7 @@
         this.notifier.show(
           "Error",
           "Failed to load task configuration: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -361,11 +361,11 @@
                   .map(
                     (opt) => `
                   <option value="${opt.value}" ${
-                      opt.value === task.interval_minutes ? "selected" : ""
-                    }>
+                    opt.value === task.interval_minutes ? "selected" : ""
+                  }>
                     ${opt.label}
                   </option>
-                `
+                `,
                   )
                   .join("")}
               </select>
@@ -379,7 +379,7 @@
             </td>
             <td>${task.priority || "MEDIUM"}</td>
             <td class="task-status">${this.getStatusHTML(
-              task.status || "IDLE"
+              task.status || "IDLE",
             )}</td>
             <td class="task-last-run">${
               task.last_run ? this.formatDateTime(task.last_run) : "Never"
@@ -409,7 +409,7 @@
     async updateTaskHistory() {
       try {
         const response = await fetch(
-          `/api/background_tasks/history?page=${this.currentHistoryPage}&limit=${this.historyLimit}`
+          `/api/background_tasks/history?page=${this.currentHistoryPage}&limit=${this.historyLimit}`,
         );
         if (!response.ok) {
           throw new Error("Failed to fetch task history");
@@ -423,7 +423,7 @@
         this.notifier.show(
           "Error",
           "Failed to update task history: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -488,7 +488,7 @@
 
     updateHistoryPagination() {
       const paginationContainer = document.querySelector(
-        "#taskHistoryPagination"
+        "#taskHistoryPagination",
       );
       if (!paginationContainer) return;
 
@@ -560,8 +560,8 @@
       return hours > 0
         ? `${hours}h ${minutes % 60}m ${seconds % 60}s`
         : minutes > 0
-        ? `${minutes}m ${seconds % 60}s`
-        : `${seconds}s`;
+          ? `${minutes}m ${seconds % 60}s`
+          : `${seconds}s`;
     }
 
     gatherTaskConfigFromUI() {
@@ -627,7 +627,7 @@
               <h6>Interval</h6>
               <p>${
                 this.intervalOptions.find(
-                  (opt) => opt.value === taskDetails.interval_minutes
+                  (opt) => opt.value === taskDetails.interval_minutes,
                 )?.label || taskDetails.interval_minutes + " minutes"
               }</p>
             </div>
@@ -667,7 +667,7 @@
         this.notifier.show(
           "Error",
           "Failed to fetch task details: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -692,7 +692,7 @@
         this.currentHistoryPage = 1;
         this.historyTotalPages = 1;
         const paginationContainer = document.querySelector(
-          "#taskHistoryPagination"
+          "#taskHistoryPagination",
         );
         if (paginationContainer) {
           paginationContainer.innerHTML = "";
@@ -702,14 +702,14 @@
         this.notifier.show(
           "Success",
           "Task history cleared successfully",
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error clearing task history:", error);
         this.notifier.show(
           "Error",
           `Failed to clear task history: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -745,7 +745,7 @@
           .then(() => {
             window.notificationManager.show(
               "Task configuration updated successfully",
-              "success"
+              "success",
             );
             taskManager.loadTaskConfig();
           })
@@ -753,7 +753,7 @@
             console.error("Error updating task config:", error);
             window.notificationManager.show(
               `Error updating task config: ${error.message}`,
-              "danger"
+              "danger",
             );
           });
       });
@@ -763,7 +763,7 @@
       confirmPauseBtn.addEventListener("click", async () => {
         const mins = parseInt(
           document.getElementById("pauseDuration").value,
-          10
+          10,
         );
         try {
           const response = await fetch("/api/background_tasks/pause", {
@@ -774,12 +774,12 @@
           if (!response.ok) throw new Error("Failed to pause tasks");
 
           bootstrap.Modal.getInstance(
-            document.getElementById("pauseModal")
+            document.getElementById("pauseModal"),
           ).hide();
           window.notificationManager.show(
             "Success",
             `Tasks paused for ${mins} minutes`,
-            "success"
+            "success",
           );
           taskManager.loadTaskConfig();
         } catch (error) {
@@ -787,7 +787,7 @@
           window.notificationManager.show(
             "Error",
             "Failed to pause tasks",
-            "danger"
+            "danger",
           );
         }
       });
@@ -804,7 +804,7 @@
           window.notificationManager.show(
             "Success",
             "Tasks resumed",
-            "success"
+            "success",
           );
           taskManager.loadTaskConfig();
         } catch (error) {
@@ -812,7 +812,7 @@
           window.notificationManager.show(
             "Error",
             "Failed to resume tasks",
-            "danger"
+            "danger",
           );
         }
       });
@@ -829,7 +829,7 @@
           window.notificationManager.show(
             "Success",
             "All tasks stopped",
-            "success"
+            "success",
           );
           taskManager.loadTaskConfig();
         } catch (error) {
@@ -837,7 +837,7 @@
           window.notificationManager.show(
             "Error",
             "Failed to stop tasks",
-            "danger"
+            "danger",
           );
         }
       });
@@ -854,7 +854,7 @@
           window.notificationManager.show(
             "Success",
             "All tasks enabled",
-            "success"
+            "success",
           );
           taskManager.loadTaskConfig();
         } catch (error) {
@@ -862,7 +862,7 @@
           window.notificationManager.show(
             "Error",
             "Failed to enable tasks",
-            "danger"
+            "danger",
           );
         }
       });
@@ -879,7 +879,7 @@
           window.notificationManager.show(
             "Success",
             "All tasks disabled",
-            "success"
+            "success",
           );
           taskManager.loadTaskConfig();
         } catch (error) {
@@ -887,7 +887,7 @@
           window.notificationManager.show(
             "Error",
             "Failed to disable tasks",
-            "danger"
+            "danger",
           );
         }
       });
@@ -895,7 +895,7 @@
 
     if (manualRunAllBtn) {
       manualRunAllBtn.addEventListener("click", () =>
-        taskManager.runTask("ALL")
+        taskManager.runTask("ALL"),
       );
     }
 
@@ -908,15 +908,15 @@
             window.notificationManager.show(
               "Success",
               "Global disable toggled",
-              "success"
-            )
+              "success",
+            ),
           )
           .catch(() =>
             window.notificationManager.show(
               "Error",
               "Failed to toggle global disable",
-              "danger"
-            )
+              "danger",
+            ),
           );
       });
     }
@@ -924,7 +924,7 @@
     if (clearHistoryBtn) {
       clearHistoryBtn.addEventListener("click", () => {
         const modal = new bootstrap.Modal(
-          document.getElementById("clearHistoryModal")
+          document.getElementById("clearHistoryModal"),
         );
         modal.show();
       });
@@ -935,7 +935,7 @@
       confirmClearHistory.addEventListener("click", async () => {
         await taskManager.clearTaskHistory();
         const modal = bootstrap.Modal.getInstance(
-          document.getElementById("clearHistoryModal")
+          document.getElementById("clearHistoryModal"),
         );
         modal.hide();
       });
@@ -995,7 +995,7 @@
         window.notificationManager.show(
           "Error",
           "Failed to update GeoPoints",
-          "danger"
+          "danger",
         );
       }
     });
@@ -1025,7 +1025,7 @@
         window.notificationManager.show(
           "Error",
           "Failed to re-geocode trips",
-          "danger"
+          "danger",
         );
       }
     });
@@ -1058,14 +1058,14 @@
           window.notificationManager.show(
             "Error",
             "Please select both start and end dates",
-            "danger"
+            "danger",
           );
           return;
         }
       } else {
         interval_days = parseInt(
           document.getElementById("remap-interval-select").value,
-          10
+          10,
         );
         start_date = new Date();
         start_date.setDate(start_date.getDate() - interval_days);
@@ -1090,7 +1090,7 @@
         window.notificationManager.show(
           "Error",
           "Failed to re-match trips",
-          "danger"
+          "danger",
         );
       }
     });
