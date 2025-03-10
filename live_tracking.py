@@ -12,12 +12,10 @@ Key components:
 """
 
 import os
-import uuid
 import logging
-import json
 import time
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, Optional
 
 from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinates
 from utils import haversine

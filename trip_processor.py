@@ -12,13 +12,12 @@ import logging
 import asyncio
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, Any, Optional, Tuple, List, Union, Callable
+from typing import Dict, Any, Optional, Tuple, List
 import time
 
-from shapely.geometry import LineString, Point, shape
+from shapely.geometry import Point
 import aiohttp
 import pyproj
-from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
 
 from db import (
@@ -28,7 +27,7 @@ from db import (
     uploaded_trips_collection,
     places_collection,
 )
-from utils import reverse_geocode_nominatim, haversine, get_session
+from utils import reverse_geocode_nominatim, haversine
 
 logger = logging.getLogger(__name__)
 
