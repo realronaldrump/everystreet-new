@@ -3242,24 +3242,6 @@ async def delete_coverage_area(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/coverage_areas/retry")
-async def retry_coverage_area(request: Request):
-    try:
-        data = await request.json()
-        location = data.get("location")
-        if not location or not isinstance(location, dict):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid location data")
-
-        task_id = str(uuid.uuid4())
-        asyncio.create_task(process_coverage_calculation(location, task_id))
-        return {"status": "success", "task_id": task_id}
-    except Exception as e:
-        logger.exception("Error retrying coverage area")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.post("/api/coverage_areas/cancel")
 async def cancel_coverage_area(request: Request):
     try:
