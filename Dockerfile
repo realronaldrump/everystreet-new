@@ -9,4 +9,4 @@ WORKDIR /app
 COPY requirements.txt . 
 RUN pip install -r requirements.txt
 COPY . ./
-CMD ["sh", "-c", "gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8080} --workers 4"]
+CMD ["sh", "-c", "gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8080} --workers 1"]
