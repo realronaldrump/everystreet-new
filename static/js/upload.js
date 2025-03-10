@@ -738,7 +738,6 @@ class UploadManager {
         }
       }
     } catch (error) {
-      console.error("Error deleting trips:", error);
       window.notificationManager.show(
         "Error deleting trips: " + error.message,
         "danger"
@@ -765,10 +764,8 @@ class UploadManager {
       });
 
       if (confirmed) {
-        const response = await fetch("/api/uploaded_trips/bulk_delete", {
+        const response = await fetch(`/api/uploaded_trips/${tripId}`, {
           method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ trip_ids: [tripId] }),
         });
 
         if (!response.ok) {
@@ -788,7 +785,6 @@ class UploadManager {
         }
       }
     } catch (error) {
-      console.error("Error deleting trip:", error);
       window.notificationManager.show(
         "Error deleting trip: " + error.message,
         "danger"

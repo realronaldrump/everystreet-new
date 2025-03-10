@@ -2584,14 +2584,45 @@ async def get_uploaded_trips():
 @app.delete("/api/uploaded_trips/{trip_id}")
 async def delete_uploaded_trip(trip_id: str):
     try:
+        # Handle the case when delete_uploaded_trip is called with 'bulk_delete'
+        if trip_id == "bulk_delete":
+            # Request body should be handled by the bulk delete endpoint
+            raise HTTPException(
+                status_code=405, 
+                detail="For bulk delete operations, use the /api/uploaded_trips/bulk_delete endpoint"
+            )
+        
+        # First, find the uploaded trip to get its transactionId (if it exists)
+        uploaded_trip = await find_one_with_retry(uploaded_trips_collection, {"_id": ObjectId(trip_id)})
+        if not uploaded_trip:
+            raise HTTPException(status_code=404, detail="Uploaded trip not found")
+            
+        transaction_id = uploaded_trip.get("transactionId")
+        
+        # Delete the uploaded trip
         result = await delete_one_with_retry(
             uploaded_trips_collection, {"_id": ObjectId(trip_id)}
         )
+        
+        # Also delete the matched trip if it exists
+        matched_delete_result = None
+        if transaction_id:
+            matched_delete_result = await delete_one_with_retry(
+                matched_trips_collection, {"transactionId": transaction_id}
+            )
+        
         if result.deleted_count == 1:
-            return {"status": "success", "message": "Trip deleted"}
+            return {
+                "status": "success", 
+                "message": "Trip deleted",
+                "deleted_matched_trips": matched_delete_result.deleted_count if matched_delete_result else 0
+            }
         raise HTTPException(status_code=404, detail="Not found")
+    except bson.errors.InvalidId as e:
+        logger.error("Invalid ObjectId format: %s", trip_id)
+        raise HTTPException(status_code=400, detail="Invalid trip ID format: %s" % str(e))
     except Exception as e:
-        logger.exception("Error deleting uploaded trip")
+        logger.error("Error deleting uploaded trip: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2874,7 +2905,7 @@ async def bulk_delete_uploaded_trips(request: Request):
             "deleted_matched_trips": matched_del_res.deleted_count,
         }
     except Exception as e:
-        logger.exception("Error in bulk_delete_uploaded_trips")
+        logger.error("Error in bulk_delete_uploaded_trips: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
