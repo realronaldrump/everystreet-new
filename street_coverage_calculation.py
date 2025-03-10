@@ -61,7 +61,8 @@ class CoverageCalculator:
         self.total_trips: int = 0
         self.processed_trips: int = 0
 
-        self.process_pool = ProcessPoolExecutor(max_workers=multiprocessing.cpu_count())
+        self.process_pool = ProcessPoolExecutor(
+            max_workers=multiprocessing.cpu_count())
 
         self.initialize_projections()
 
@@ -116,7 +117,7 @@ class CoverageCalculator:
     async def build_spatial_index(self, streets: List[Dict[str, Any]]) -> None:
         logger.info("Building spatial index for %d streets...", len(streets))
         for i in range(0, len(streets), self.street_chunk_size):
-            chunk = streets[i : i + self.street_chunk_size]
+            chunk = streets[i: i + self.street_chunk_size]
             await asyncio.to_thread(self._process_street_chunk, chunk)
             await asyncio.sleep(0)
 
@@ -138,10 +139,11 @@ class CoverageCalculator:
                     e,
                 )
 
-    async def calculate_boundary_box(self, streets: List[Dict[str, Any]]) -> box:
+    async def calculate_boundary_box(
+            self, streets: List[Dict[str, Any]]) -> box:
         bounds: Optional[Tuple[float, float, float, float]] = None
         for i in range(0, len(streets), self.street_chunk_size):
-            chunk = streets[i : i + self.street_chunk_size]
+            chunk = streets[i: i + self.street_chunk_size]
             chunk_bounds = await asyncio.to_thread(self._process_boundary_chunk, chunk)
             if chunk_bounds is None:
                 continue
@@ -179,7 +181,8 @@ class CoverageCalculator:
     @staticmethod
     def _is_valid_trip(gps_data: Any) -> Tuple[bool, List[Any]]:
         try:
-            data = json.loads(gps_data) if isinstance(gps_data, str) else gps_data
+            data = json.loads(gps_data) if isinstance(
+                gps_data, str) else gps_data
             coords = data.get("coordinates", [])
             return (False, []) if len(coords) < 2 else (True, coords)
         except Exception as e:
@@ -196,7 +199,10 @@ class CoverageCalculator:
                 return False
             return self.boundary_box.intersects(LineString(coords))
         except Exception as e:
-            logger.error("Error checking boundary for trip %s: %s", trip.get("_id"), e)
+            logger.error(
+                "Error checking boundary for trip %s: %s",
+                trip.get("_id"),
+                e)
             return False
 
     def _process_trip_sync(self, coords: List[Any]) -> Set[str]:
@@ -208,7 +214,9 @@ class CoverageCalculator:
             trip_line_utm = transform(self.project_to_utm, trip_line)
             trip_buffer = trip_line_utm.buffer(self.match_buffer)
             trip_buffer_wgs84 = transform(self.project_to_wgs84, trip_buffer)
-            for idx in list(self.streets_index.intersection(trip_buffer_wgs84.bounds)):
+            for idx in list(
+                self.streets_index.intersection(
+                    trip_buffer_wgs84.bounds)):
                 street = self.streets_lookup[idx]
                 street_geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, street_geom)
@@ -221,7 +229,10 @@ class CoverageCalculator:
                     if seg_id:
                         covered.add(seg_id)
         except Exception as e:
-            logger.error("Error processing trip synchronously: %s", e, exc_info=True)
+            logger.error(
+                "Error processing trip synchronously: %s",
+                e,
+                exc_info=True)
         return covered
 
     async def process_trip_batch(self, trips: List[Dict[str, Any]]) -> None:
@@ -236,7 +247,7 @@ class CoverageCalculator:
         if trip_coords:
             chunk_size = 100
             for i in range(0, len(trip_coords), chunk_size):
-                chunk = trip_coords[i : i + chunk_size]
+                chunk = trip_coords[i: i + chunk_size]
                 for coords in chunk:
                     covered = await asyncio.to_thread(self._process_trip_sync, coords)
                     for seg in covered:
@@ -324,8 +335,11 @@ class CoverageCalculator:
             features = []
             # Collect street type statistics
             street_type_stats = defaultdict(
-                lambda: {"total": 0, "covered": 0, "length": 0, "covered_length": 0}
-            )
+                lambda: {
+                    "total": 0,
+                    "covered": 0,
+                    "length": 0,
+                    "covered_length": 0})
 
             for street in streets:
                 seg_id = street["properties"].get("segment_id")
@@ -350,11 +364,15 @@ class CoverageCalculator:
                     "properties": {
                         **street["properties"],
                         "driven": is_covered,
-                        "coverage_count": self.segment_coverage.get(seg_id, 0),
+                        "coverage_count": self.segment_coverage.get(
+                            seg_id,
+                            0),
                         "segment_length": seg_length,
                         "segment_id": seg_id,
                         "street_type": street_type,
-                        "name": street["properties"].get("name", "Unnamed Street"),
+                        "name": street["properties"].get(
+                            "name",
+                            "Unnamed Street"),
                     },
                 }
                 features.append(feature)
@@ -432,7 +450,8 @@ async def update_coverage_for_all_locations() -> None:
     """
     try:
         logger.info("Starting coverage update for all locations...")
-        cursor = coverage_metadata_collection.find({}, {"location": 1, "_id": 1})
+        cursor = coverage_metadata_collection.find(
+            {}, {"location": 1, "_id": 1})
         async for doc in cursor:
             loc = doc.get("location")
             if not loc or isinstance(loc, str):
@@ -464,4 +483,7 @@ async def update_coverage_for_all_locations() -> None:
                 )
         logger.info("Finished coverage update for all locations.")
     except Exception as e:
-        logger.error("Error updating coverage for all locations: %s", e, exc_info=True)
+        logger.error(
+            "Error updating coverage for all locations: %s",
+            e,
+            exc_info=True)

@@ -52,8 +52,8 @@ async def create_geojson(trips: List[Dict[str, Any]]) -> str:
             gps_data = trip.get("gps")
             if not gps_data:
                 logger.warning(
-                    "Trip %s missing GPS data, skipping", trip.get("transactionId", "?")
-                )
+                    "Trip %s missing GPS data, skipping", trip.get(
+                        "transactionId", "?"))
                 continue
 
             if isinstance(gps_data, str):
@@ -95,8 +95,9 @@ async def create_geojson(trips: List[Dict[str, Any]]) -> str:
         logger.warning("No valid features generated from %d trips", len(trips))
     else:
         logger.info(
-            "Created GeoJSON with %d features from %d trips", len(features), len(trips)
-        )
+            "Created GeoJSON with %d features from %d trips",
+            len(features),
+            len(trips))
 
     return json.dumps(fc, default=default_serializer)
 
@@ -120,8 +121,8 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
             gps_data = trip.get("gps")
             if not gps_data:
                 logger.warning(
-                    "Trip %s missing GPS data, skipping", trip.get("transactionId", "?")
-                )
+                    "Trip %s missing GPS data, skipping", trip.get(
+                        "transactionId", "?"))
                 continue
 
             if isinstance(gps_data, str):
@@ -142,8 +143,9 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
             # Add description if available
             if trip.get("startLocation") and trip.get("destination"):
                 track.description = (
-                    f"From {trip.get('startLocation')} to {trip.get('destination')}"
-                )
+                    f"From {
+                        trip.get('startLocation')} to {
+                        trip.get('destination')}")
 
             gpx.tracks.append(track)
 
@@ -156,7 +158,8 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
                 for coord in gps_data.get("coordinates", []):
                     if len(coord) >= 2:
                         lon, lat = coord[0], coord[1]
-                        segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+                        segment.points.append(
+                            gpxpy.gpx.GPXTrackPoint(lat, lon))
             elif gps_data.get("type") == "Point":
                 coords = gps_data.get("coordinates", [])
                 if len(coords) >= 2:
@@ -176,6 +179,9 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
     if trip_count == 0:
         logger.warning("No valid tracks generated from %d trips", len(trips))
     else:
-        logger.info("Created GPX with %d tracks from %d trips", trip_count, len(trips))
+        logger.info(
+            "Created GPX with %d tracks from %d trips",
+            trip_count,
+            len(trips))
 
     return gpx.to_xml()

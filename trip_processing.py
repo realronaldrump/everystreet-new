@@ -65,7 +65,9 @@ async def process_trip_data(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         # Ensure coordinates exist
         coords = gps_data.get("coordinates", [])
         if len(coords) < 2:
-            logger.warning("Trip %s has insufficient coordinates", transaction_id)
+            logger.warning(
+                "Trip %s has insufficient coordinates",
+                transaction_id)
             return None
 
         # Get start and end points
@@ -89,24 +91,28 @@ async def process_trip_data(trip: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             start_place = await get_place_at_point(start_pt)
             if start_place:
                 processed_trip["startLocation"] = start_place.get("name", "")
-                processed_trip["startPlaceId"] = str(start_place.get("_id", ""))
+                processed_trip["startPlaceId"] = str(
+                    start_place.get("_id", ""))
             else:
                 rev_start = await reverse_geocode_nominatim(
                     start_coord[1], start_coord[0]
                 )
                 if rev_start:
-                    processed_trip["startLocation"] = rev_start.get("display_name", "")
+                    processed_trip["startLocation"] = rev_start.get(
+                        "display_name", "")
 
         # Determine end location
         if not processed_trip.get("destination"):
             end_place = await get_place_at_point(end_pt)
             if end_place:
                 processed_trip["destination"] = end_place.get("name", "")
-                processed_trip["destinationPlaceId"] = str(end_place.get("_id", ""))
+                processed_trip["destinationPlaceId"] = str(
+                    end_place.get("_id", ""))
             else:
                 rev_end = await reverse_geocode_nominatim(end_coord[1], end_coord[0])
                 if rev_end:
-                    processed_trip["destination"] = rev_end.get("display_name", "")
+                    processed_trip["destination"] = rev_end.get(
+                        "display_name", "")
 
         return processed_trip
 

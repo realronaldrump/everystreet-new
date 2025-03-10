@@ -134,7 +134,10 @@ def segment_street(
         return [line]
     start_distance = 0.0
     while start_distance < total_length:
-        end_distance = min(start_distance + segment_length_meters, total_length)
+        end_distance = min(
+            start_distance +
+            segment_length_meters,
+            total_length)
         seg = substring(line, start_distance, end_distance)
         if seg is not None:
             segments.append(seg)
@@ -142,7 +145,8 @@ def segment_street(
     return segments
 
 
-def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+def process_element_parallel(
+        element_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Process a single street element in parallel.
     Returns a list of segmented feature dictionaries.
@@ -180,13 +184,13 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
             features.append(feature)
         return features
     except Exception as e:
-        logger.error(
-            "Error processing element %s: %s", element_data["element"].get("id"), e
-        )
+        logger.error("Error processing element %s: %s",
+                     element_data["element"].get("id"), e)
         return []
 
 
-async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -> None:
+async def process_osm_data(
+        osm_data: Dict[str, Any], location: Dict[str, Any]) -> None:
     """
     Convert OSM ways into segmented features and insert them into streets_collection.
     Also update coverage metadata.
@@ -250,8 +254,8 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
     """
     try:
         logger.info(
-            "Starting street preprocessing for %s", validated_location["display_name"]
-        )
+            "Starting street preprocessing for %s",
+            validated_location["display_name"])
         await coverage_metadata_collection.update_one(
             {"location.display_name": validated_location["display_name"]},
             {
@@ -264,8 +268,8 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
         osm_data = await fetch_osm_data(validated_location, streets_only=True)
         await process_osm_data(osm_data, validated_location)
         logger.info(
-            "Street preprocessing completed for %s.", validated_location["display_name"]
-        )
+            "Street preprocessing completed for %s.",
+            validated_location["display_name"])
     except Exception as e:
         logger.error("Error during street preprocessing: %s", e, exc_info=True)
         await coverage_metadata_collection.update_one(

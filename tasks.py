@@ -194,7 +194,8 @@ class BackgroundTaskManager:
                 and hasattr(event, "scheduled_run_time")
                 and event.scheduled_run_time
             ):
-                # Calculate runtime if not provided but we have scheduled run time
+                # Calculate runtime if not provided but we have scheduled run
+                # time
                 runtime = (
                     datetime.now(timezone.utc) - event.scheduled_run_time
                 ).total_seconds() * 1000
@@ -250,7 +251,8 @@ class BackgroundTaskManager:
                 and hasattr(event, "scheduled_run_time")
                 and event.scheduled_run_time
             ):
-                # Calculate runtime if not provided but we have scheduled run time
+                # Calculate runtime if not provided but we have scheduled run
+                # time
                 runtime = (
                     datetime.now(timezone.utc) - event.scheduled_run_time
                 ).total_seconds() * 1000
@@ -282,7 +284,8 @@ class BackgroundTaskManager:
             logger.error("Error in _handle_job_error: %s", e, exc_info=True)
             raise
 
-    async def _update_task_config(self, task_id: str, updates: Dict[str, Any]) -> None:
+    async def _update_task_config(
+            self, task_id: str, updates: Dict[str, Any]) -> None:
         update_dict = {f"tasks.{task_id}.{k}": v for k, v in updates.items()}
         await self.db["task_config"].update_one(
             {"_id": "global_background_task_config"}, {"$set": update_dict}
@@ -321,7 +324,8 @@ class BackgroundTaskManager:
     ) -> None:
         try:
             if not enabled:
-                logger.info("Task %s is disabled, skipping scheduling", task_id)
+                logger.info(
+                    "Task %s is disabled, skipping scheduling", task_id)
                 return
             task_def = self.tasks.get(task_id)
             if not task_def:
@@ -350,8 +354,9 @@ class BackgroundTaskManager:
                 },
             )
             logger.info(
-                "Added task %s with %d minute interval", task_id, interval_minutes
-            )
+                "Added task %s with %d minute interval",
+                task_id,
+                interval_minutes)
         except Exception as e:
             logger.error("Error adding task %s: %s", task_id, e, exc_info=True)
             raise
@@ -431,16 +436,18 @@ class BackgroundTaskManager:
             # Check if dependency is currently running
             if dependency in self.running_tasks:
                 logger.info(
-                    "Task %s waiting for dependency %s to complete", task_id, dependency
-                )
+                    "Task %s waiting for dependency %s to complete",
+                    task_id,
+                    dependency)
                 return False
 
             # Check if dependency exists and has been completed successfully
             dependency_status = self.task_status.get(dependency)
             if not dependency_status or dependency_status != TaskStatus.COMPLETED:
                 logger.info(
-                    "Dependency %s for task %s not satisfied", dependency, task_id
-                )
+                    "Dependency %s for task %s not satisfied",
+                    dependency,
+                    task_id)
                 return False
 
         return True
@@ -461,11 +468,14 @@ class BackgroundTaskManager:
         try:
             task_def = self.tasks.get(task_id)
             if not task_def:
-                return {"success": False, "message": f"Unknown task: {task_id}"}
+                return {
+                    "success": False,
+                    "message": f"Unknown task: {task_id}"}
 
             # Check dependencies
             if not await self.validate_dependencies(task_id):
-                # Set as pending for automatic execution when dependencies complete
+                # Set as pending for automatic execution when dependencies
+                # complete
                 async with self._lock:
                     self.task_status[task_id] = TaskStatus.PENDING
                 return {
@@ -483,7 +493,8 @@ class BackgroundTaskManager:
 
             # Create job ID with timestamp for uniqueness
             timestamp = datetime.now(timezone.utc).timestamp()
-            job_id = f"{task_id}_{'manual' if is_manual else 'auto'}_{timestamp}"
+            job_id = f"{task_id}_{
+                'manual' if is_manual else 'auto'}_{timestamp}"
 
             # Schedule for immediate execution
             self.scheduler.add_job(
@@ -502,7 +513,11 @@ class BackgroundTaskManager:
             }
 
         except Exception as e:
-            logger.error("Error executing task %s: %s", task_id, e, exc_info=True)
+            logger.error(
+                "Error executing task %s: %s",
+                task_id,
+                e,
+                exc_info=True)
             return {"success": False, "message": f"Error: {str(e)}"}
 
     async def _process_pending_tasks(self, completed_task_id: str) -> None:
@@ -733,7 +748,8 @@ class BackgroundTaskManager:
         # Check memory before running this task
         high_memory = await self._check_memory_usage()
 
-        # Call the actual cleanup function that properly handles trip completion
+        # Call the actual cleanup function that properly handles trip
+        # completion
         cleanup_count = await cleanup_stale_trips()
 
         logger.info("Task manager: Cleaned up %d stale trips", cleanup_count)
@@ -766,7 +782,10 @@ class BackgroundTaskManager:
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
         except Exception as e:
             await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
-            logger.error("Error in cleanup_invalid_trips: %s", e, exc_info=True)
+            logger.error(
+                "Error in cleanup_invalid_trips: %s",
+                e,
+                exc_info=True)
             raise
 
     async def _update_geocoding(self) -> None:
@@ -804,7 +823,8 @@ class BackgroundTaskManager:
                         start_coords[1], start_coords[0]
                     )
                     if loc_start:
-                        updates["startLocation"] = loc_start.get("display_name")
+                        updates["startLocation"] = loc_start.get(
+                            "display_name")
                 if not trip.get("destination"):
                     loc_end = await reverse_geocode_nominatim(
                         end_coords[1], end_coords[0]
@@ -818,7 +838,9 @@ class BackgroundTaskManager:
                     )
             if update_ops:
                 result = await self.db["trips"].bulk_write(update_ops)
-                logger.info("Updated geocoding for %d trips", result.modified_count)
+                logger.info(
+                    "Updated geocoding for %d trips",
+                    result.modified_count)
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
         except Exception as e:
             await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
@@ -830,18 +852,23 @@ class BackgroundTaskManager:
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
             remap_count = 0
-            query = {"$or": [{"matchedGps": {"$exists": False}}, {"matchedGps": None}]}
+            query = {
+                "$or": [{"matchedGps": {"$exists": False}}, {"matchedGps": None}]}
             async for trip in self.db["trips"].find(query):
                 try:
                     await process_and_map_match_trip(trip)
                     remap_count += 1
                 except Exception as e:
-                    logger.warning("Failed to remap trip %s: %s", trip.get("_id"), e)
+                    logger.warning(
+                        "Failed to remap trip %s: %s", trip.get("_id"), e)
             logger.info("Remapped %d trips", remap_count)
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
         except Exception as e:
             await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
-            logger.error("Error in remap_unmatched_trips: %s", e, exc_info=True)
+            logger.error(
+                "Error in remap_unmatched_trips: %s",
+                e,
+                exc_info=True)
             raise
 
     async def _validate_trip_data(self) -> None:
@@ -875,7 +902,9 @@ class BackgroundTaskManager:
                     )
             if update_ops:
                 result = await self.db["trips"].bulk_write(update_ops)
-                logger.info("Validated and updated %d trips", result.modified_count)
+                logger.info(
+                    "Validated and updated %d trips",
+                    result.modified_count)
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
         except Exception as e:
             await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
