@@ -21,6 +21,7 @@ from typing import List, Dict, Any, Optional
 
 from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinates
 from utils import haversine
+from trip_processor import TripProcessor
 
 # Setup logging
 logging.basicConfig(
@@ -228,10 +229,7 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
 
 async def process_trip_data(data: Dict[str, Any]) -> None:
     """
-    Process a tripData event from the Bouncie webhook
-
-    Args:
-        data: The webhook payload
+    Process a tripData event from the Bouncie webhook using the TripProcessor
     """
     transaction_id = data.get("transactionId")
 
@@ -254,7 +252,7 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
                 "distance": 0,
                 "currentSpeed": 0,
                 "maxSpeed": 0,
-                "avgSpeed": 0,  # Initialize average speed
+                "avgSpeed": 0,
                 "sequence": sequence,
             }
         )
@@ -266,24 +264,38 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
 
     # Process trip data
     if "data" in data:
+        # First process the coordinates using the existing function
         new_coords = sort_and_filter_trip_coordinates(data["data"])
+
+        # Update with the current coordinates
         all_coords = trip_doc.get("coordinates", []) + new_coords
         all_coords.sort(key=lambda c: c["timestamp"])
 
-        # Calculate current speed and distance
+        # Use the TripProcessor to handle metrics calculations
+        # First, create a trip-like object
+        trip_like = {
+            "transactionId": transaction_id,
+            "startTime": trip_doc["startTime"],
+            "gps": {
+                "type": "LineString",
+                "coordinates": [[c["lon"], c["lat"]] for c in all_coords],
+            },
+        }
+
+        # Process it
+        processor = TripProcessor(source="live")
+        processor.set_trip_data(trip_like)
+        await processor.validate()
+        await processor.process_basic()
+
+        # Extract calculated metrics
         current_speed = 0
+        total_distance = processor.processed_data.get("distance", 0)
+
+        # Calculate current speed from last two points if available
         if len(all_coords) >= 2:
             last_point = all_coords[-1]
             prev_point = all_coords[-2]
-
-            # Calculate distance between last two points
-            distance = haversine(
-                prev_point["lon"],
-                prev_point["lat"],
-                last_point["lon"],
-                last_point["lat"],
-                unit="miles",
-            )
 
             # Calculate time difference in hours
             time_diff = (
@@ -291,21 +303,15 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
             ).total_seconds() / 3600
 
             if time_diff > 0:
-                current_speed = distance / time_diff
-
-        # Calculate total distance
-        total_distance = trip_doc.get("distance", 0)
-        if len(new_coords) >= 2:
-            for i in range(1, len(new_coords)):
-                prev = new_coords[i - 1]
-                curr = new_coords[i]
-                total_distance += haversine(
-                    prev["lon"],
-                    prev["lat"],
-                    curr["lon"],
-                    curr["lat"],
+                # Calculate distance for just this segment
+                distance = haversine(
+                    prev_point["lon"],
+                    prev_point["lat"],
+                    last_point["lon"],
+                    last_point["lat"],
                     unit="miles",
                 )
+                current_speed = distance / time_diff
 
         # Update max speed if needed
         max_speed = max(trip_doc.get("maxSpeed", 0), current_speed)
@@ -324,17 +330,6 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
             duration_hours = duration_seconds / 3600
             avg_speed = total_distance / duration_hours if duration_hours > 0 else 0
 
-        # Log metrics for debugging
-        logger.info(
-            "Trip metrics: id=%s, distance=%.2f mi, duration=%d sec, current=%.1f mph, avg=%.1f mph, max=%.1f mph",
-            transaction_id,
-            total_distance,
-            duration_seconds,
-            current_speed,
-            avg_speed,
-            max_speed,
-        )
-
         # Generate a new sequence number for this update
         sequence = int(time.time() * 1000)
 
@@ -352,10 +347,9 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
                     "distance": total_distance,
                     "currentSpeed": current_speed,
                     "maxSpeed": max_speed,
-                    "avgSpeed": avg_speed,  # Add average speed
+                    "avgSpeed": avg_speed,
                     "duration": duration_seconds,
                     "sequence": sequence,
-                    # Add count of points for UI
                     "pointsRecorded": len(all_coords),
                 }
             },

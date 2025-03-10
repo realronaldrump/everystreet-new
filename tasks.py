@@ -16,6 +16,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 
+from trip_processor import TripProcessor, TripState
 from pymongo import UpdateOne
 
 # Local module imports
@@ -792,7 +793,8 @@ class BackgroundTaskManager:
         task_id = "update_geocoding"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
-            update_ops = []
+
+            # Find trips that need geocoding
             query = {
                 "$or": [
                     {"startLocation": {"$exists": False}},
@@ -801,46 +803,47 @@ class BackgroundTaskManager:
                     {"destination": ""},
                 ]
             }
-            async for trip in self.db["trips"].find(
-                query, {"gps": 1, "startLocation": 1, "destination": 1}
-            ):
-                gps = trip.get("gps")
-                if not gps:
-                    continue
-                if isinstance(gps, str):
-                    try:
-                        gps = json.loads(gps)
-                    except json.JSONDecodeError:
-                        continue
-                coords = gps.get("coordinates", [])
-                if not coords:
-                    continue
-                updates = {}
-                start_coords = coords[0]
-                end_coords = coords[-1]
-                if not trip.get("startLocation"):
-                    loc_start = await reverse_geocode_nominatim(
-                        start_coords[1], start_coords[0]
-                    )
-                    if loc_start:
-                        updates["startLocation"] = loc_start.get(
-                            "display_name")
-                if not trip.get("destination"):
-                    loc_end = await reverse_geocode_nominatim(
-                        end_coords[1], end_coords[0]
-                    )
-                    if loc_end:
-                        updates["destination"] = loc_end.get("display_name")
-                if updates:
-                    updates["geocoded_at"] = datetime.now(timezone.utc)
-                    update_ops.append(
-                        UpdateOne({"_id": trip["_id"]}, {"$set": updates})
-                    )
-            if update_ops:
-                result = await self.db["trips"].bulk_write(update_ops)
-                logger.info(
-                    "Updated geocoding for %d trips",
-                    result.modified_count)
+            limit = 100
+
+            trips_to_process = await find_with_retry(
+                trips_collection, query, limit=limit
+            )
+            geocoded_count = 0
+            failed_count = 0
+
+            for trip in trips_to_process:
+                try:
+                    # Use the unified processor
+                    processor = TripProcessor(
+                        mapbox_token=os.getenv(
+                            "MAPBOX_ACCESS_TOKEN", ""), source="api")
+                    processor.set_trip_data(trip)
+
+                    # Just validate and geocode, don't map match
+                    await processor.validate()
+                    if processor.state == TripState.VALIDATED:
+                        await processor.process_basic()
+                        if processor.state == TripState.PROCESSED:
+                            await processor.geocode()
+                            if processor.state == TripState.GEOCODED:
+                                result = await processor.save()
+                                if result:
+                                    geocoded_count += 1
+                                    continue
+
+                    failed_count += 1
+                except Exception as e:
+                    logger.error(
+                        f"Error geocoding trip {
+                            trip.get('transactionId')}: {
+                            str(e)}")
+                    failed_count += 1
+
+                # Sleep briefly to avoid rate limiting
+                await asyncio.sleep(0.2)
+
+            logger.info(
+                f"Geocoded {geocoded_count} trips ({failed_count} failed)")
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
         except Exception as e:
             await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
@@ -851,17 +854,50 @@ class BackgroundTaskManager:
         task_id = "remap_unmatched_trips"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
-            remap_count = 0
+
+            # Find trips that need map matching
             query = {
                 "$or": [{"matchedGps": {"$exists": False}}, {"matchedGps": None}]}
-            async for trip in self.db["trips"].find(query):
+            limit = 50  # Process in smaller batches due to API constraints
+
+            trips_to_process = await find_with_retry(
+                trips_collection, query, limit=limit
+            )
+            remap_count = 0
+            failed_count = 0
+
+            for trip in trips_to_process:
                 try:
-                    await process_and_map_match_trip(trip)
-                    remap_count += 1
+                    # Use the unified processor
+                    processor = TripProcessor(
+                        mapbox_token=os.getenv(
+                            "MAPBOX_ACCESS_TOKEN", ""), source="api")
+                    processor.set_trip_data(trip)
+
+                    # Process with map matching
+                    await processor.process(do_map_match=True)
+                    result = await processor.save(map_match_result=True)
+
+                    if result:
+                        remap_count += 1
+                    else:
+                        failed_count += 1
+                        status = processor.get_processing_status()
+                        logger.warning(
+                            f"Failed to remap trip {
+                                trip.get('transactionId')}: {status}")
                 except Exception as e:
                     logger.warning(
-                        "Failed to remap trip %s: %s", trip.get("_id"), e)
-            logger.info("Remapped %d trips", remap_count)
+                        f"Failed to remap trip {
+                            trip.get('transactionId')}: {
+                            str(e)}")
+                    failed_count += 1
+
+                # Sleep briefly to avoid rate limiting
+                await asyncio.sleep(0.5)
+
+            logger.info(
+                f"Remapped {remap_count} trips ({failed_count} failed)")
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
         except Exception as e:
             await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))
@@ -875,36 +911,57 @@ class BackgroundTaskManager:
         task_id = "validate_trip_data"
         try:
             await self._update_task_status(task_id, TaskStatus.RUNNING)
-            update_ops = []
-            async for trip in self.db["trips"].find(
-                {}, {"startTime": 1, "endTime": 1, "gps": 1}
-            ):
-                updates = {}
-                for field in ["startTime", "endTime"]:
-                    val = trip.get(field)
-                    if isinstance(val, str):
-                        try:
-                            dt_parsed = datetime.fromisoformat(val)
-                            updates[field] = dt_parsed
-                        except ValueError:
-                            updates["invalid"] = True
-                            updates["validation_message"] = f"Invalid {field} format"
-                if isinstance(trip.get("gps"), str):
-                    try:
-                        json.loads(trip["gps"])
-                    except json.JSONDecodeError:
-                        updates["invalid"] = True
-                        updates["validation_message"] = "Invalid GPS JSON"
-                if updates:
-                    updates["validated_at"] = datetime.now(timezone.utc)
-                    update_ops.append(
-                        UpdateOne({"_id": trip["_id"]}, {"$set": updates})
+
+            # Fetch trips to validate
+            query = {"validated_at": {"$exists": False}}
+            limit = 100  # Process in batches
+
+            trips_to_process = await find_with_retry(
+                trips_collection, query, limit=limit
+            )
+            processed_count = 0
+            failed_count = 0
+
+            for trip in trips_to_process:
+                try:
+                    # Use the unified processor
+                    processor = TripProcessor(
+                        mapbox_token=os.getenv(
+                            "MAPBOX_ACCESS_TOKEN", ""), source="api")
+                    processor.set_trip_data(trip)
+
+                    # Just validate, don't process fully
+                    await processor.validate()
+
+                    # Update trip with validation status
+                    status = processor.get_processing_status()
+                    update_data = {
+                        "validated_at": datetime.now(timezone.utc),
+                        "validation_status": status["state"],
+                    }
+
+                    if status["state"] == TripState.FAILED.value:
+                        update_data["invalid"] = True
+                        update_data["validation_message"] = status.get(
+                            "errors", {}
+                        ).get(TripState.NEW.value, "Validation failed")
+                    else:
+                        update_data["invalid"] = False
+
+                    await update_one_with_retry(
+                        trips_collection, {"_id": trip["_id"]}, {"$set": update_data}
                     )
-            if update_ops:
-                result = await self.db["trips"].bulk_write(update_ops)
-                logger.info(
-                    "Validated and updated %d trips",
-                    result.modified_count)
+
+                    processed_count += 1
+                except Exception as e:
+                    logger.error(
+                        f"Error validating trip {
+                            trip.get('_id')}: {
+                            str(e)}")
+                    failed_count += 1
+
+            logger.info(
+                f"Validated {processed_count} trips ({failed_count} failed)")
             await self._update_task_status(task_id, TaskStatus.COMPLETED)
         except Exception as e:
             await self._update_task_status(task_id, TaskStatus.FAILED, error=str(e))

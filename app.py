@@ -37,6 +37,7 @@ from utils import (
     BaseConnectionManager,
     haversine as haversine_util,
 )
+from trip_processor import TripProcessor, TripState
 from map_matching import process_and_map_match_trip
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from preprocess_streets import preprocess_streets as async_preprocess_streets
@@ -1247,6 +1248,216 @@ async def api_fetch_trips_last_hour():
     return {"status": "success", "message": "Hourly trip fetch completed."}
 
 
+# PROCESS TRIPS
+
+
+@app.post("/api/process_trip/{trip_id}")
+async def process_single_trip(trip_id: str, request: Request):
+    """
+    Process a single trip with options to validate, geocode, and map match.
+    """
+    try:
+        data = await request.json()
+        validate_only = data.get("validate_only", False)
+        geocode_only = data.get("geocode_only", False)
+        map_match = data.get("map_match", True)
+
+        # Get the trip
+        trip, collection = await get_trip_from_all_collections(trip_id)
+
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+
+        # Create the processor
+        processor = TripProcessor(
+            mapbox_token=MAPBOX_ACCESS_TOKEN,
+            source="api" if collection == trips_collection else "upload",
+        )
+        processor.set_trip_data(trip)
+
+        # Process based on options
+        if validate_only:
+            await processor.validate()
+            processing_status = processor.get_processing_status()
+            return {
+                "status": "success",
+                "processing_status": processing_status,
+                "is_valid": processing_status["state"] == TripState.VALIDATED.value,
+            }
+        elif geocode_only:
+            await processor.validate()
+            if processor.state == TripState.VALIDATED:
+                await processor.process_basic()
+                if processor.state == TripState.PROCESSED:
+                    await processor.geocode()
+
+            # Save and return status
+            saved_id = await processor.save()
+            processing_status = processor.get_processing_status()
+            return {
+                "status": "success",
+                "processing_status": processing_status,
+                "geocoded": processing_status["state"] == TripState.GEOCODED.value,
+                "saved_id": saved_id,
+            }
+        else:
+            # Full processing
+            await processor.process(do_map_match=map_match)
+            saved_id = await processor.save(map_match_result=map_match)
+            processing_status = processor.get_processing_status()
+
+            return {
+                "status": "success",
+                "processing_status": processing_status,
+                "completed": processing_status["state"] == TripState.COMPLETED.value,
+                "saved_id": saved_id,
+            }
+    except Exception as e:
+        logger.exception(f"Error processing trip {trip_id}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# New endpoint for bulk trip processing
+@app.post("/api/bulk_process_trips")
+async def bulk_process_trips(request: Request):
+    """
+    Process multiple trips in bulk with configurable options.
+    """
+    try:
+        data = await request.json()
+        query = data.get("query", {})
+        options = data.get("options", {})
+        limit = min(int(data.get("limit", 100)), 500)  # Cap at 500 for safety
+
+        # Parse options
+        do_validate = options.get("validate", True)
+        do_geocode = options.get("geocode", True)
+        do_map_match = options.get("map_match", False)
+        collection_name = options.get("collection", "trips")
+
+        # Select collection
+        collection = trips_collection
+        if collection_name == "uploaded_trips":
+            collection = uploaded_trips_collection
+
+        # Fetch trips
+        trips = await find_with_retry(collection, query, limit=limit)
+
+        if not trips:
+            return {
+                "status": "success",
+                "message": "No trips found matching criteria",
+                "count": 0,
+            }
+
+        # Process trips
+        results = {
+            "total": len(trips),
+            "validated": 0,
+            "geocoded": 0,
+            "map_matched": 0,
+            "failed": 0,
+            "skipped": 0,
+        }
+
+        for trip in trips:
+            try:
+                processor = TripProcessor(
+                    mapbox_token=MAPBOX_ACCESS_TOKEN,
+                    source="api" if collection == trips_collection else "upload",
+                )
+                processor.set_trip_data(trip)
+
+                # Validate
+                if do_validate:
+                    await processor.validate()
+                    if processor.state == TripState.VALIDATED:
+                        results["validated"] += 1
+                    else:
+                        results["failed"] += 1
+                        continue
+
+                # Process and geocode
+                if do_geocode:
+                    await processor.process_basic()
+                    if processor.state == TripState.PROCESSED:
+                        await processor.geocode()
+                        if processor.state == TripState.GEOCODED:
+                            results["geocoded"] += 1
+                        else:
+                            results["failed"] += 1
+                            continue
+                    else:
+                        results["failed"] += 1
+                        continue
+
+                # Map match if requested
+                if do_map_match:
+                    await processor.map_match()
+                    if processor.state == TripState.MAP_MATCHED:
+                        results["map_matched"] += 1
+                    else:
+                        results["failed"] += 1
+                        continue
+
+                # Save the changes
+                saved_id = await processor.save(map_match_result=do_map_match)
+                if not saved_id:
+                    results["failed"] += 1
+            except Exception as e:
+                logger.error(
+                    f"Error processing trip {
+                        trip.get('transactionId')}: {
+                        str(e)}")
+                results["failed"] += 1
+
+        return {
+            "status": "success",
+            "message": f"Processed {len(trips)} trips",
+            "results": results,
+        }
+    except Exception as e:
+        logger.exception("Error in bulk_process_trips")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# New endpoint to get trip processing status
+@app.get("/api/trips/{trip_id}/status")
+async def get_trip_status(trip_id: str):
+    """
+    Get detailed processing status for a trip
+    """
+    try:
+        trip, collection = await get_trip_from_all_collections(trip_id)
+
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+
+        # Create status summary
+        status_info = {
+            "transaction_id": trip_id,
+            "collection": collection.name,
+            "has_start_location": bool(trip.get("startLocation")),
+            "has_destination": bool(trip.get("destination")),
+            "has_matched_trip": await matched_trips_collection.find_one(
+                {"transactionId": trip_id}
+            )
+            is not None,
+            "processing_history": trip.get("processing_history", []),
+            "validation_status": trip.get("validation_status", "unknown"),
+            "validation_message": trip.get("validation_message", ""),
+            "validated_at": trip.get("validated_at"),
+            "geocoded_at": trip.get("geocoded_at"),
+            "matched_at": trip.get("matched_at"),
+            "last_processed": trip.get("saved_at"),
+        }
+
+        return status_info
+    except Exception as e:
+        logger.exception(f"Error getting trip status for {trip_id}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # EXPORT ENDPOINTS
 
 
@@ -1553,13 +1764,37 @@ async def map_match_trips_endpoint(request: Request):
                 status_code=404, detail="No trips found matching criteria"
             )
 
+        # Use the TripProcessor for map matching
+        processed_count = 0
+        failed_count = 0
         for trip in trips_list:
-            await process_and_map_match_trip(trip)
+            try:
+                processor = TripProcessor(
+                    mapbox_token=MAPBOX_ACCESS_TOKEN, source="api"
+                )
+                processor.set_trip_data(trip)
+                await processor.process(do_map_match=True)
+                result = await processor.save(map_match_result=True)
+
+                if result:
+                    processed_count += 1
+                else:
+                    failed_count += 1
+                    logger.warning(
+                        f"Failed to save matched trip {
+                            trip.get('transactionId')}")
+            except Exception as e:
+                failed_count += 1
+                logger.error(
+                    f"Error processing trip {
+                        trip.get('transactionId')}: {
+                        str(e)}")
 
         return {
             "status": "success",
-            "message": f"Map matching completed for {
-                len(trips_list)} trip(s).",
+            "message": f"Map matching completed: {processed_count} successful, {failed_count} failed.",
+            "processed_count": processed_count,
+            "failed_count": failed_count,
         }
     except Exception as e:
         logger.exception("Error in map_match_trips endpoint")
@@ -2204,7 +2439,9 @@ async def get_street_segment_details(segment_id: str):
         logger.exception("Error fetching segment details")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 # LAST TRIP POINT
+
 
 @app.get("/api/last_trip_point")
 async def get_last_trip_point():
@@ -2329,7 +2566,9 @@ async def get_first_trip_date():
         logger.exception("get_first_trip_date error")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 # GPX / GEOJSON UPLOAD
+
 
 @app.get("/api/uploaded_trips")
 async def get_uploaded_trips():
@@ -2496,6 +2735,8 @@ async def upload_gpx_endpoint(request: Request):
                         end_t = max(times)
                         dist_meters = calculate_gpx_distance(coords)
                         dist_miles = meters_to_miles(dist_meters)
+
+                        # Create basic trip data
                         trip_data = {
                             "transactionId": f"GPX-{start_t.strftime('%Y%m%d%H%M%S')}-{filename}",
                             "startTime": start_t,
@@ -2508,8 +2749,16 @@ async def upload_gpx_endpoint(request: Request):
                             "filename": f.filename,
                             "imei": "UPLOADED",
                         }
-                        await process_and_store_trip(trip_data)
+
+                        # Use the TripProcessor to process and save
+                        processor = TripProcessor(
+                            mapbox_token=MAPBOX_ACCESS_TOKEN, source="upload"
+                        )
+                        processor.set_trip_data(trip_data)
+                        await processor.process(do_map_match=False)
+                        await processor.save()
                         success_count += 1
+
             elif filename.endswith(".geojson"):
                 content = await f.read()
                 data_geojson = json.loads(content)
@@ -2518,7 +2767,14 @@ async def upload_gpx_endpoint(request: Request):
                     for t in trips:
                         t["source"] = "upload"
                         t["filename"] = f.filename
-                        await process_and_store_trip(t)
+
+                        # Use the TripProcessor to process and save
+                        processor = TripProcessor(
+                            mapbox_token=MAPBOX_ACCESS_TOKEN, source="upload"
+                        )
+                        processor.set_trip_data(t)
+                        await processor.process(do_map_match=False)
+                        await processor.save()
                         success_count += 1
             else:
                 logger.warning(
@@ -2648,6 +2904,7 @@ async def bulk_delete_trips(request: Request):
     except Exception as e:
         logger.exception("Error in bulk_delete_trips")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # PLACES ENDPOINTS
 
@@ -2888,6 +3145,7 @@ async def get_trips_for_place(place_id: str):
     except Exception as e:
         logger.exception("Error fetching trips for place %s", place_id)
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # NON-CUSTOM PLACE VISITS
 
@@ -3283,12 +3541,17 @@ async def cancel_coverage_area(request: Request):
 @app.on_event("startup")
 async def startup_event():
     """
-    Initialize database indexes on application startup.
+    Initialize database indexes and components on application startup.
     """
     try:
         await ensure_street_coverage_indexes()  # From db.py
         await init_task_history_collection()  # From db.py
         logger.info("Database indexes initialized successfully.")
+
+        # Initialize TripProcessor settings
+        # This is just a dummy initialization to pre-load the module
+        TripProcessor(mapbox_token=MAPBOX_ACCESS_TOKEN)
+        logger.info("TripProcessor initialized.")
 
         # Additional initialization
         used_mb, limit_mb = await db_manager.check_quota()
@@ -3332,6 +3595,7 @@ async def shutdown_event():
     await cleanup_session()
 
     logger.info("Application shutdown completed successfully")
+
 
 # ERROR HANDLERS
 

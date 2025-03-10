@@ -425,7 +425,11 @@ async def process_and_map_match_trip(trip: Dict[str, Any]) -> None:
     """
     Process a trip: validate, extract GPS, map-match via Mapbox, reverse geocode,
     and store the matched trip.
+
+    Now using the unified TripProcessor
     """
+    from trip_processor import TripProcessor
+
     try:
         transaction_id = trip.get("transactionId", "?")
 
@@ -446,102 +450,21 @@ async def process_and_map_match_trip(trip: Dict[str, Any]) -> None:
                 transaction_id)
             return
 
-        # Validate trip data
-        is_valid, error_message = validate_trip_data(trip)
-        if not is_valid:
-            logger.error(
-                "Trip %s failed validation: %s",
-                transaction_id,
-                error_message,
-            )
-            return
+        # Create processor and process the trip
+        processor = TripProcessor(
+            mapbox_token=MAPBOX_ACCESS_TOKEN, source="api")
+        processor.set_trip_data(trip)
 
-        # Extract GPS data
-        if isinstance(trip["gps"], dict):
-            gps_data = trip["gps"]
-        else:
-            try:
-                gps_data = geojson_loads(trip["gps"])
-            except Exception as e:
-                logger.error(
-                    "Error parsing GPS data for trip %s: %s", transaction_id, e
-                )
-                return
+        # Process with map matching
+        await processor.process(do_map_match=True)
 
-        coords = gps_data.get("coordinates", [])
-        if not coords or len(coords) < 2:
-            logger.warning(
-                "Trip %s has insufficient coords for map matching",
-                transaction_id)
-            return
-
-        # Perform map matching with retries
-        match_result = await map_match_coordinates(coords)
-        if match_result.get("code") != "Ok":
-            logger.error(
-                "Map matching failed for trip %s: %s",
-                transaction_id,
-                match_result.get("message", "Unknown error"),
-            )
-
-            # Store the failure reason
-            error_info = {
-                "map_matching_failed": True,
-                "error_message": match_result.get("message", "Unknown error"),
-                "attempted_at": time.time(),
-            }
-
-            async def update_trip_with_error():
-                return await matched_trips_collection.update_one(
-                    {"transactionId": transaction_id}, {"$set": error_info}, upsert=True
-                )
-
-            await db_manager.execute_with_retry(
-                update_trip_with_error,
-                operation_name=f"update trip {transaction_id} with error info",
-            )
-
-            return
-
-        # Create matched trip document
-        matched_trip = trip.copy()
-        matched_trip.pop("_id", None)
-
-        if not isinstance(matched_trip["gps"], str):
-            matched_trip["gps"] = json.dumps(matched_trip["gps"])
-
-        matched_trip["matchedGps"] = match_result["matchings"][0]["geometry"]
-        matched_trip["matched_at"] = time.time()
-
-        # Reverse geocode if needed
-        try:
-            first_lon, first_lat = match_result["matchings"][0]["geometry"][
-                "coordinates"
-            ][0]
-            city_info = await reverse_geocode_nominatim(first_lat, first_lon)
-            if city_info:
-                matched_trip["location"] = city_info.get(
-                    "display_name", "Unknown")
-        except Exception as ge_err:
-            logger.warning(
-                "Reverse geocode error for trip %s: %s",
-                transaction_id,
-                ge_err,
-            )
-
-        # Store matched trip
-        async def insert_matched_trip():
-            return await matched_trips_collection.insert_one(matched_trip)
-
-        await db_manager.execute_with_retry(
-            insert_matched_trip, operation_name=f"insert matched trip {transaction_id}"
-        )
+        # Save to matched_trips collection
+        await processor.save(map_match_result=True)
 
         logger.info(
-            "Stored map–matched trip %s with %d coords in matched_trips.",
-            transaction_id,
-            len(match_result["matchings"][0]["geometry"]["coordinates"]),
-        )
+            "Map matched trip %s and saved to matched_trips collection",
+            transaction_id)
+
     except Exception as e:
         logger.error(
             "Error in process_and_map_match_trip for trip %s: %s",

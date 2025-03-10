@@ -16,7 +16,7 @@ from geojson import dumps as geojson_dumps
 from db import trips_collection
 from utils import validate_trip_data, get_session
 from map_matching import process_and_map_match_trip
-from trip_processing import process_trip_data
+from trip_processor import TripProcessor  # Use our new unified processor
 
 logging.basicConfig(
     level=logging.INFO,
@@ -116,35 +116,39 @@ async def fetch_trips_for_device(
 
 
 async def store_trip(trip: dict) -> bool:
-    """Store a single trip in MongoDB."""
+    """Store a single trip in MongoDB using the unified TripProcessor."""
     transaction_id = trip.get("transactionId", "?")
 
-    # Validate the trip data
-    is_valid, error_msg = validate_trip_data(trip)
-    if not is_valid:
-        logger.error(
-            "Trip %s failed validation: %s",
-            transaction_id,
-            error_msg)
-        return False
-
-    # Process the trip data
-    processed_trip = await process_trip_data(trip)
-    if not processed_trip:
-        logger.error("Trip %s could not be processed", transaction_id)
-        return False
-
-    # Convert gps to JSON string if needed
-    if isinstance(processed_trip.get("gps"), dict):
-        processed_trip["gps"] = geojson_dumps(processed_trip["gps"])
-
-    # Upsert into trips_collection
     try:
-        await trips_collection.update_one(
-            {"transactionId": transaction_id}, {"$set": processed_trip}, upsert=True
+        # Create a processor instance
+        processor = TripProcessor(
+            mapbox_token=os.getenv("MAPBOX_ACCESS_TOKEN", ""), source="api"
         )
-        logger.info("Stored trip %s successfully", transaction_id)
+
+        # Process the trip
+        processor.set_trip_data(trip)
+        processed_trip = await processor.process(do_map_match=False)
+
+        if not processed_trip:
+            logger.error(
+                "Trip %s could not be processed: %s",
+                transaction_id,
+                processor.get_processing_status(),
+            )
+            return False
+
+        # Save the trip
+        saved_id = await processor.save()
+        if not saved_id:
+            logger.error("Trip %s could not be saved", transaction_id)
+            return False
+
+        logger.info(
+            "Stored trip %s successfully with ID %s",
+            transaction_id,
+            saved_id)
         return True
+
     except Exception as e:
         logger.error("Error storing trip %s: %s", transaction_id, e)
         return False
@@ -220,7 +224,16 @@ async def fetch_bouncie_trips_in_range(
                     len(device_new_trips))
                 for trip in device_new_trips:
                     try:
-                        await process_and_map_match_trip(trip)
+                        # Create a processor for map matching
+                        processor = TripProcessor(
+                            mapbox_token=os.getenv("MAPBOX_ACCESS_TOKEN", ""),
+                            source="api",
+                        )
+
+                        # Process with map matching
+                        processor.set_trip_data(trip)
+                        await processor.process(do_map_match=True)
+                        await processor.save(map_match_result=True)
                     except Exception as e:
                         logger.error(
                             "Map matching error for trip %s: %s",
