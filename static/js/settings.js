@@ -95,6 +95,63 @@
       }
     }
 
+    // New function to check task status - for Celery integration
+    async checkTaskStatus(taskId) {
+      try {
+        const response = await fetch(`/api/background_tasks/task/${taskId}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch task status");
+        }
+        const taskInfo = await response.json();
+
+        // Update UI with new task status
+        const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
+        if (row) {
+          const statusCell = row.querySelector(".task-status");
+          const lastRunCell = row.querySelector(".task-last-run");
+          const nextRunCell = row.querySelector(".task-next-run");
+
+          if (statusCell)
+            statusCell.innerHTML = this.getStatusHTML(taskInfo.status);
+          if (lastRunCell && taskInfo.last_run)
+            lastRunCell.textContent = this.formatDateTime(taskInfo.last_run);
+          if (nextRunCell && taskInfo.next_run)
+            nextRunCell.textContent = this.formatDateTime(taskInfo.next_run);
+
+          const runButton = row.querySelector(".run-now-btn");
+          if (runButton) {
+            runButton.disabled = taskInfo.status === "RUNNING";
+          }
+        }
+
+        return taskInfo.status;
+      } catch (error) {
+        console.error(`Error checking status for task ${taskId}:`, error);
+        return null;
+      }
+    }
+
+    // New function to poll task status - for Celery integration
+    async pollTaskStatus(taskId, maxAttempts = 20, interval = 2000) {
+      let attempts = 0;
+
+      const poll = async () => {
+        attempts++;
+        const status = await this.checkTaskStatus(taskId); // Use this.checkTaskStatus
+
+        if (status === "RUNNING" && attempts < maxAttempts) {
+          // Task still running, continue polling
+          setTimeout(poll, interval);
+        } else {
+          // Task completed or failed, or we reached max attempts
+          this.updateTaskHistory(); // Use this.updateTaskHistory
+        }
+      };
+
+      // Start polling
+      setTimeout(poll, interval);
+    }
+
     handleTaskUpdate(data) {
       const row = document.querySelector(`tr[data-task-id="${data.task_id}"]`);
       if (row) {
@@ -151,39 +208,71 @@
       return statusColors[status] || "secondary";
     }
 
+    // Updated runTask function for Celery integration and polling
     async runTask(taskId) {
-      if (taskId === "ALL") {
-        try {
-          const configResponse = await fetch("/api/background_tasks/config");
-          if (!configResponse.ok) {
-            throw new Error("Failed to fetch task configuration");
-          }
-          const config = await configResponse.json();
+      try {
+        const response = await fetch("/api/background_tasks/manual_run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tasks: [taskId] }),
+        });
 
-          const enabledTasks = [];
-          for (const task in config.tasks) {
-            if (config.tasks[task].enabled) {
-              enabledTasks.push(task);
+        if (!response.ok) {
+          throw new Error("Failed to start task");
+        }
+
+        const result = await response.json();
+        if (result.status === "success") {
+          this.activeTasksMap.set(taskId, "RUNNING");
+          this.notifier.show(
+            "Task Started",
+            `Task ${taskId} has been started`,
+            "info"
+          );
+
+          const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
+          if (row) {
+            const statusCell = row.querySelector(".task-status");
+            if (statusCell) {
+              statusCell.innerHTML = this.getStatusHTML("RUNNING");
+            }
+
+            const runButton = row.querySelector(".run-now-btn");
+            if (runButton) {
+              runButton.disabled = true;
             }
           }
 
-          for (const task of enabledTasks) {
-            await this.runSingleTask(task);
+          // Start polling for status updates
+          if (result.results && result.results.length > 0) {
+            // If we have multiple tasks, poll each one
+            for (const taskResult of result.results) {
+              if (taskResult.success && taskResult.task) {
+                this.pollTaskStatus(taskResult.task);
+              }
+            }
+          } else {
+            // Single task
+            this.pollTaskStatus(taskId);
           }
-        } catch (error) {
-          console.error("Error in run all tasks:", error);
-          this.notifier.show(
-            "Error",
-            "Failed to run all tasks: " + error.message,
-            "danger"
-          );
+
+          return true;
+        } else {
+          throw new Error(result.message || "Failed to start task");
         }
-      } else {
-        await this.runSingleTask(taskId);
+      } catch (error) {
+        console.error(`Error running task ${taskId}:`, error);
+        this.notifier.show(
+          "Error",
+          `Failed to start task ${taskId}: ${error.message}`,
+          "danger"
+        );
+        return false;
       }
     }
 
     async runSingleTask(taskId) {
+      // Keep this function as it is, it's called by runTask("ALL")
       try {
         const response = await fetch("/api/background_tasks/manual_run", {
           method: "POST",
@@ -283,8 +372,8 @@
             </td>
             <td>
               <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" 
-                  id="enable-${taskId}" ${task.enabled ? "checked" : ""} 
+                <input class="form-check-input" type="checkbox"
+                  id="enable-${taskId}" ${task.enabled ? "checked" : ""}
                   data-task-id="${taskId}">
               </div>
             </td>
