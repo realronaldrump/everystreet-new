@@ -7,11 +7,12 @@ import certifi
 import logging
 import asyncio
 import threading
-from datetime import timezone
-from typing import Optional, Any, Dict, Tuple, Callable, TypeVar, Awaitable
+from datetime import datetime, timezone, timedelta
+from typing import Optional, Any, Dict, Tuple, Callable, TypeVar, Awaitable, List, Union
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase, AsyncIOMotorCollection
 import pymongo
+from bson import ObjectId
 from pymongo.errors import (
     ConnectionFailure,
     ServerSelectionTimeoutError,
@@ -212,6 +213,20 @@ class DatabaseManager:
             except Exception as e:
                 logger.error("Error closing MongoDB connections: %s", e)
 
+    async def handle_memory_error(self) -> None:
+        """Handle memory-related errors by cleaning up connections."""
+        try:
+            logger.warning("Handling memory error: Closing and reinitializing connections")
+            await self.cleanup_connections()
+            # Force garbage collection
+            import gc
+            gc.collect()
+            # Reinitialize after a short delay
+            await asyncio.sleep(1)
+            self._initialize_client()
+        except Exception as e:
+            logger.error("Error handling memory error: %s", e)
+
     def __del__(self) -> None:
         """Ensure connections are closed when the manager is garbage collected."""
         if self._client and asyncio.get_event_loop().is_running():
@@ -238,6 +253,281 @@ archived_live_trips_collection = db["archived_live_trips"]
 task_config_collection = db["task_config"]
 task_history_collection = db["task_history"]
 progress_collection = db["progress_status"]
+
+
+# ------------------------------------------------------------------------------
+# Serialization Functions
+# ------------------------------------------------------------------------------
+
+def serialize_datetime(dt: Optional[datetime]) -> Optional[str]:
+    """Return ISO formatted datetime string if dt is not None."""
+    return dt.isoformat() if dt else None
+
+
+def serialize_object_id(obj_id: Optional[ObjectId]) -> Optional[str]:
+    """Convert ObjectId to string if not None."""
+    return str(obj_id) if obj_id else None
+
+
+def serialize_trip(trip: dict) -> dict:
+    """Convert ObjectId and datetime fields in a trip dict to serializable types."""
+    if not trip:
+        return {}
+        
+    result = dict(trip)
+    
+    # Handle _id
+    if "_id" in result:
+        result["_id"] = serialize_object_id(result["_id"])
+    
+    # Handle common datetime fields
+    for key in ("startTime", "endTime", "lastUpdate", "created_at", "updated_at", "timestamp"):
+        if key in result and isinstance(result[key], datetime):
+            result[key] = serialize_datetime(result[key])
+            
+    # Return the serialized trip
+    return result
+
+
+# ------------------------------------------------------------------------------
+# Database Operation Functions with Retry
+# ------------------------------------------------------------------------------
+
+async def find_one_with_retry(collection, query, projection=None, sort=None):
+    """Execute find_one with retry logic."""
+
+    async def _operation():
+        if sort:
+            return await collection.find_one(query, projection, sort=sort)
+        return await collection.find_one(query, projection)
+
+    return await db_manager.execute_with_retry(
+        _operation, operation_name=f"find_one on {collection.name}"
+    )
+
+
+async def find_with_retry(
+    collection, query, projection=None, sort=None, limit=None, skip=None
+):
+    """Execute find with retry logic and return a list."""
+
+    async def _operation():
+        cursor = collection.find(query, projection)
+        if sort:
+            cursor = cursor.sort(sort)
+        if skip:
+            cursor = cursor.skip(skip)
+        if limit:
+            cursor = cursor.limit(limit)
+        return await cursor.to_list(length=None)
+
+    return await db_manager.execute_with_retry(
+        _operation, operation_name=f"find on {collection.name}"
+    )
+
+
+async def update_one_with_retry(collection, filter_query, update, upsert=False):
+    """Execute update_one with retry logic."""
+
+    async def _operation():
+        return await collection.update_one(filter_query, update, upsert=upsert)
+
+    return await db_manager.execute_with_retry(
+        _operation, operation_name=f"update_one on {collection.name}"
+    )
+
+
+async def update_many_with_retry(collection, filter_query, update, upsert=False):
+    """Execute update_many with retry logic."""
+
+    async def _operation():
+        return await collection.update_many(filter_query, update, upsert=upsert)
+
+    return await db_manager.execute_with_retry(
+        _operation, operation_name=f"update_many on {collection.name}"
+    )
+
+
+async def insert_one_with_retry(collection, document):
+    """Execute insert_one with retry logic."""
+
+    async def _operation():
+        return await collection.insert_one(document)
+
+    return await db_manager.execute_with_retry(
+        _operation, operation_name=f"insert_one on {collection.name}"
+    )
+
+
+async def insert_many_with_retry(collection, documents):
+    """Execute insert_many with retry logic."""
+
+    async def _operation():
+        return await collection.insert_many(documents)
+
+    return await db_manager.execute_with_retry(
+        _operation, operation_name=f"insert_many on {collection.name}"
+    )
+
+
+async def delete_one_with_retry(collection, filter_query):
+    """Execute delete_one with retry logic."""
+    
+    async def _operation():
+        return await collection.delete_one(filter_query)
+
+    return await db_manager.execute_with_retry(
+        _operation, operation_name=f"delete_one on {collection.name}"
+    )
+
+
+async def delete_many_with_retry(collection, filter_query):
+    """Execute delete_many with retry logic."""
+    
+    async def _operation():
+        return await collection.delete_many(filter_query)
+        
+    return await db_manager.execute_with_retry(
+        _operation, operation_name=f"delete_many on {collection.name}"
+    )
+
+
+async def aggregate_with_retry(collection, pipeline):
+    """Execute aggregate with retry logic."""
+
+    async def _operation():
+        return await collection.aggregate(pipeline).to_list(None)
+
+    return await db_manager.execute_with_retry(
+        _operation, operation_name=f"aggregate on {collection.name}"
+    )
+
+
+async def replace_one_with_retry(collection, filter_query, replacement, upsert=False):
+    """Execute replace_one with retry logic."""
+
+    async def _operation():
+        return await collection.replace_one(filter_query, replacement, upsert=upsert)
+
+    return await db_manager.execute_with_retry(
+        _operation, operation_name=f"replace_one on {collection.name}"
+    )
+
+
+async def count_documents_with_retry(collection, filter_query):
+    """Execute count_documents with retry logic."""
+
+    async def _operation():
+        return await collection.count_documents(filter_query)
+
+    return await db_manager.execute_with_retry(
+        _operation, operation_name=f"count_documents on {collection.name}"
+    )
+
+
+# ------------------------------------------------------------------------------
+# Common Query Pattern Helper Functions
+# ------------------------------------------------------------------------------
+
+def parse_query_date(
+    date_str: Optional[str], end_of_day: bool = False
+) -> Optional[datetime]:
+    """
+    Parse a date string into a datetime object.
+    Replaces trailing "Z" with "+00:00" for ISO8601 compatibility.
+    """
+    if not date_str:
+        return None
+    date_str = date_str.replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(date_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        if end_of_day:
+            dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+        return dt
+    except ValueError:
+        try:
+            dt2 = datetime.strptime(date_str, "%Y-%m-%d")
+            dt2 = dt2.replace(tzinfo=timezone.utc)
+            if end_of_day:
+                dt2 = dt2.replace(hour=23, minute=59, second=59, microsecond=999999)
+            return dt2
+        except ValueError:
+            logger.warning(
+                "Unable to parse date string '%s'; returning None.", date_str
+            )
+            return None
+
+
+async def get_trips_in_date_range(
+    start_date: datetime, 
+    end_date: datetime, 
+    imei: Optional[str] = None,
+    collection: Optional[AsyncIOMotorCollection] = None
+) -> List[Dict[str, Any]]:
+    """Get trips within a date range with optional IMEI filter."""
+    if collection is None:
+        collection = trips_collection
+        
+    query = {"startTime": {"$gte": start_date, "$lte": end_date}}
+    if imei:
+        query["imei"] = imei
+    
+    return await find_with_retry(collection, query)
+
+
+async def get_trip_by_id(
+    trip_id: str, 
+    collection: Optional[AsyncIOMotorCollection] = None,
+    check_both_id_types: bool = True
+) -> Optional[Dict[str, Any]]:
+    """Get a trip by transaction ID or ObjectId."""
+    if collection is None:
+        collection = trips_collection
+    
+    # First try as transaction ID
+    trip = await find_one_with_retry(collection, {"transactionId": trip_id})
+    
+    # If not found and check_both_id_types is True, try as ObjectId
+    if not trip and check_both_id_types:
+        try:
+            object_id = ObjectId(trip_id)
+            trip = await find_one_with_retry(collection, {"_id": object_id})
+        except Exception:
+            pass
+            
+    return trip
+
+
+async def get_trip_from_all_collections(
+    trip_id: str
+) -> Tuple[Optional[Dict[str, Any]], Optional[AsyncIOMotorCollection]]:
+    """Find a trip in any of the trip collections."""
+    collections = [trips_collection, matched_trips_collection, uploaded_trips_collection]
+    
+    for collection in collections:
+        trip = await get_trip_by_id(trip_id, collection, check_both_id_types=True)
+        if trip:
+            return trip, collection
+            
+    return None, None
+
+
+async def get_latest_trips(
+    limit: int = 10, 
+    collection: Optional[AsyncIOMotorCollection] = None
+) -> List[Dict[str, Any]]:
+    """Get the most recent trips."""
+    if collection is None:
+        collection = trips_collection
+        
+    return await find_with_retry(
+        collection, 
+        {}, 
+        sort=[("startTime", -1)], 
+        limit=limit
+    )
 
 
 async def init_task_history_collection() -> None:
@@ -296,57 +586,3 @@ async def ensure_street_coverage_indexes() -> None:
     except Exception as e:
         logger.error("Error creating street coverage indexes: %s", e)
         raise
-
-
-# Utility functions with retry logic
-async def find_one_with_retry(collection, query, projection=None):
-    """Execute find_one with retry logic."""
-
-    async def _operation():
-        return await collection.find_one(query, projection)
-
-    return await db_manager.execute_with_retry(
-        _operation, operation_name=f"find_one on {collection.name}"
-    )
-
-
-async def find_with_retry(
-    collection, query, projection=None, sort=None, limit=None, skip=None
-):
-    """Execute find with retry logic and return a list."""
-
-    async def _operation():
-        cursor = collection.find(query, projection)
-        if sort:
-            cursor = cursor.sort(sort)
-        if skip:
-            cursor = cursor.skip(skip)
-        if limit:
-            cursor = cursor.limit(limit)
-        return await cursor.to_list(length=None)
-
-    return await db_manager.execute_with_retry(
-        _operation, operation_name=f"find on {collection.name}"
-    )
-
-
-async def update_one_with_retry(collection, filter_query, update, upsert=False):
-    """Execute update_one with retry logic."""
-
-    async def _operation():
-        return await collection.update_one(filter_query, update, upsert=upsert)
-
-    return await db_manager.execute_with_retry(
-        _operation, operation_name=f"update_one on {collection.name}"
-    )
-
-
-async def aggregate_with_retry(collection, pipeline):
-    """Execute aggregate with retry logic."""
-
-    async def _operation():
-        return await collection.aggregate(pipeline).to_list(None)
-
-    return await db_manager.execute_with_retry(
-        _operation, operation_name=f"aggregate on {collection.name}"
-    )
