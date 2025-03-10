@@ -44,17 +44,13 @@ def get_trip_timestamps(
     if "start" in event_data and event_data["start"].get("timestamp"):
         start_time = parse_bouncie_timestamp(event_data["start"]["timestamp"])
         if start_time is None:
-            logger.warning(
-                "Invalid or missing startTime in event: %s",
-                event_data)
+            logger.warning("Invalid or missing startTime in event: %s", event_data)
 
     # Extract end timestamp
     if "end" in event_data and event_data["end"].get("timestamp"):
         end_time = parse_bouncie_timestamp(event_data["end"]["timestamp"])
         if end_time is None:
-            logger.warning(
-                "Invalid or missing endTime in event: %s",
-                event_data)
+            logger.warning("Invalid or missing endTime in event: %s", event_data)
 
     return start_time, end_time
 
