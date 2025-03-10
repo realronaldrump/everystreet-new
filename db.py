@@ -10,7 +10,11 @@ import threading
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Any, Dict, Tuple, Callable, TypeVar, Awaitable, List, Union
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase, AsyncIOMotorCollection
+from motor.motor_asyncio import (
+    AsyncIOMotorClient,
+    AsyncIOMotorDatabase,
+    AsyncIOMotorCollection,
+)
 import pymongo
 from bson import ObjectId
 from pymongo.errors import (
@@ -216,10 +220,13 @@ class DatabaseManager:
     async def handle_memory_error(self) -> None:
         """Handle memory-related errors by cleaning up connections."""
         try:
-            logger.warning("Handling memory error: Closing and reinitializing connections")
+            logger.warning(
+                "Handling memory error: Closing and reinitializing connections"
+            )
             await self.cleanup_connections()
             # Force garbage collection
             import gc
+
             gc.collect()
             # Reinitialize after a short delay
             await asyncio.sleep(1)
@@ -259,6 +266,7 @@ progress_collection = db["progress_status"]
 # Serialization Functions
 # ------------------------------------------------------------------------------
 
+
 def serialize_datetime(dt: Optional[datetime]) -> Optional[str]:
     """Return ISO formatted datetime string if dt is not None."""
     return dt.isoformat() if dt else None
@@ -273,18 +281,25 @@ def serialize_trip(trip: dict) -> dict:
     """Convert ObjectId and datetime fields in a trip dict to serializable types."""
     if not trip:
         return {}
-        
+
     result = dict(trip)
-    
+
     # Handle _id
     if "_id" in result:
         result["_id"] = serialize_object_id(result["_id"])
-    
+
     # Handle common datetime fields
-    for key in ("startTime", "endTime", "lastUpdate", "created_at", "updated_at", "timestamp"):
+    for key in (
+        "startTime",
+        "endTime",
+        "lastUpdate",
+        "created_at",
+        "updated_at",
+        "timestamp",
+    ):
         if key in result and isinstance(result[key], datetime):
             result[key] = serialize_datetime(result[key])
-            
+
     # Return the serialized trip
     return result
 
@@ -292,6 +307,7 @@ def serialize_trip(trip: dict) -> dict:
 # ------------------------------------------------------------------------------
 # Database Operation Functions with Retry
 # ------------------------------------------------------------------------------
+
 
 async def find_one_with_retry(collection, query, projection=None, sort=None):
     """Execute find_one with retry logic."""
@@ -372,7 +388,7 @@ async def insert_many_with_retry(collection, documents):
 
 async def delete_one_with_retry(collection, filter_query):
     """Execute delete_one with retry logic."""
-    
+
     async def _operation():
         return await collection.delete_one(filter_query)
 
@@ -383,10 +399,10 @@ async def delete_one_with_retry(collection, filter_query):
 
 async def delete_many_with_retry(collection, filter_query):
     """Execute delete_many with retry logic."""
-    
+
     async def _operation():
         return await collection.delete_many(filter_query)
-        
+
     return await db_manager.execute_with_retry(
         _operation, operation_name=f"delete_many on {collection.name}"
     )
@@ -429,6 +445,7 @@ async def count_documents_with_retry(collection, filter_query):
 # Common Query Pattern Helper Functions
 # ------------------------------------------------------------------------------
 
+
 def parse_query_date(
     date_str: Optional[str], end_of_day: bool = False
 ) -> Optional[datetime]:
@@ -461,34 +478,34 @@ def parse_query_date(
 
 
 async def get_trips_in_date_range(
-    start_date: datetime, 
-    end_date: datetime, 
+    start_date: datetime,
+    end_date: datetime,
     imei: Optional[str] = None,
-    collection: Optional[AsyncIOMotorCollection] = None
+    collection: Optional[AsyncIOMotorCollection] = None,
 ) -> List[Dict[str, Any]]:
     """Get trips within a date range with optional IMEI filter."""
     if collection is None:
         collection = trips_collection
-        
+
     query = {"startTime": {"$gte": start_date, "$lte": end_date}}
     if imei:
         query["imei"] = imei
-    
+
     return await find_with_retry(collection, query)
 
 
 async def get_trip_by_id(
-    trip_id: str, 
+    trip_id: str,
     collection: Optional[AsyncIOMotorCollection] = None,
-    check_both_id_types: bool = True
+    check_both_id_types: bool = True,
 ) -> Optional[Dict[str, Any]]:
     """Get a trip by transaction ID or ObjectId."""
     if collection is None:
         collection = trips_collection
-    
+
     # First try as transaction ID
     trip = await find_one_with_retry(collection, {"transactionId": trip_id})
-    
+
     # If not found and check_both_id_types is True, try as ObjectId
     if not trip and check_both_id_types:
         try:
@@ -496,38 +513,36 @@ async def get_trip_by_id(
             trip = await find_one_with_retry(collection, {"_id": object_id})
         except Exception:
             pass
-            
+
     return trip
 
 
 async def get_trip_from_all_collections(
-    trip_id: str
+    trip_id: str,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[AsyncIOMotorCollection]]:
     """Find a trip in any of the trip collections."""
-    collections = [trips_collection, matched_trips_collection, uploaded_trips_collection]
-    
+    collections = [
+        trips_collection,
+        matched_trips_collection,
+        uploaded_trips_collection,
+    ]
+
     for collection in collections:
         trip = await get_trip_by_id(trip_id, collection, check_both_id_types=True)
         if trip:
             return trip, collection
-            
+
     return None, None
 
 
 async def get_latest_trips(
-    limit: int = 10, 
-    collection: Optional[AsyncIOMotorCollection] = None
+    limit: int = 10, collection: Optional[AsyncIOMotorCollection] = None
 ) -> List[Dict[str, Any]]:
     """Get the most recent trips."""
     if collection is None:
         collection = trips_collection
-        
-    return await find_with_retry(
-        collection, 
-        {}, 
-        sort=[("startTime", -1)], 
-        limit=limit
-    )
+
+    return await find_with_retry(collection, {}, sort=[("startTime", -1)], limit=limit)
 
 
 async def init_task_history_collection() -> None:
