@@ -30,10 +30,7 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
-AUTHORIZED_DEVICES = [
-    d for d in os.getenv(
-        "AUTHORIZED_DEVICES",
-        "").split(",") if d]
+AUTHORIZED_DEVICES = [d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d]
 AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 
 # Progress tracking (used by tasks)
@@ -100,13 +97,13 @@ async def fetch_trips_for_device(
             # Normalize timestamps
             for trip in trips:
                 if "startTime" in trip:
-                    trip["startTime"] = date_parser.isoparse(
-                        trip["startTime"]).replace(
-                        tzinfo=timezone.utc)
+                    trip["startTime"] = date_parser.isoparse(trip["startTime"]).replace(
+                        tzinfo=timezone.utc
+                    )
                 if "endTime" in trip:
-                    trip["endTime"] = date_parser.isoparse(
-                        trip["endTime"]).replace(
-                        tzinfo=timezone.utc)
+                    trip["endTime"] = date_parser.isoparse(trip["endTime"]).replace(
+                        tzinfo=timezone.utc
+                    )
 
             logger.info("Fetched %d trips for device %s", len(trips), imei)
             return trips
@@ -122,10 +119,7 @@ async def store_trip(trip: dict) -> bool:
     # Validate the trip data
     is_valid, error_msg = validate_trip_data(trip)
     if not is_valid:
-        logger.error(
-            "Trip %s failed validation: %s",
-            transaction_id,
-            error_msg)
+        logger.error("Trip %s failed validation: %s", transaction_id, error_msg)
         return False
 
     # Process the trip data
@@ -216,8 +210,8 @@ async def fetch_bouncie_trips_in_range(
             # Optionally trigger map matching
             if do_map_match and device_new_trips:
                 logger.info(
-                    "Running map matching for %d new trips",
-                    len(device_new_trips))
+                    "Running map matching for %d new trips", len(device_new_trips)
+                )
                 for trip in device_new_trips:
                     try:
                         await process_and_map_match_trip(trip)
