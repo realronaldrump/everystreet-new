@@ -32,8 +32,7 @@ async def process_and_map_match_trip(trip: Dict[str, Any]) -> None:
         transaction_id = trip.get("transactionId", "?")
 
         # Create processor and process the trip
-        processor = TripProcessor(
-            mapbox_token=MAPBOX_ACCESS_TOKEN, source="api")
+        processor = TripProcessor(mapbox_token=MAPBOX_ACCESS_TOKEN, source="api")
         processor.set_trip_data(trip)
 
         # Process with map matching
@@ -43,8 +42,8 @@ async def process_and_map_match_trip(trip: Dict[str, Any]) -> None:
         await processor.save(map_match_result=True)
 
         logger.info(
-            "Map matched trip %s and saved to matched_trips collection",
-            transaction_id)
+            "Map matched trip %s and saved to matched_trips collection", transaction_id
+        )
 
     except Exception as e:
         logger.error(
