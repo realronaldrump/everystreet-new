@@ -363,7 +363,8 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
         logger.info(
             f"Updated trip data: {transaction_id} with {
                 len(new_coords)} new points (total: {
-                len(all_coords)})")
+                len(all_coords)})"
+        )
 
 
 async def process_trip_end(data: Dict[str, Any]) -> None:

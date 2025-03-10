@@ -120,9 +120,8 @@ progress_collection = db_manager.db["progress_status"]
 # Initialize live tracking module
 initialize_db(live_trips_collection, archived_live_trips_collection)
 
-# ------------------------------------------------------------------------------
+
 # Custom Place Class
-# ------------------------------------------------------------------------------
 
 
 class CustomPlace:
@@ -158,9 +157,7 @@ class CustomPlace:
         )
 
 
-# ------------------------------------------------------------------------------
 # BASIC PAGES
-# ------------------------------------------------------------------------------
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -252,9 +249,7 @@ async def app_settings_page(request: Request):
             "request": request})
 
 
-# ------------------------------------------------------------------------------
 # MIDDLEWARE
-# ------------------------------------------------------------------------------
 
 
 @app.middleware("http")
@@ -266,9 +261,7 @@ async def add_header(request: Request, call_next):
     return response
 
 
-# ------------------------------------------------------------------------------
 # BACKGROUND TASKS CONFIG / CONTROL
-# ------------------------------------------------------------------------------
 
 
 @app.get("/api/background_tasks/config")
@@ -465,9 +458,7 @@ async def manually_run_tasks(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ------------------------------------------------------------------------------
 # TASK HISTORY ENDPOINTS
-# ------------------------------------------------------------------------------
 
 
 @app.get("/api/background_tasks/history")
@@ -575,9 +566,7 @@ async def get_task_details(task_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ------------------------------------------------------------------------------
 # EDIT TRIPS ENDPOINTS
-# ------------------------------------------------------------------------------
 
 
 @app.get("/api/edit_trips")
@@ -702,9 +691,7 @@ async def update_trip(trip_id: str, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ------------------------------------------------------------------------------
 # STREET COVERAGE / COMPUTATIONS
-# ------------------------------------------------------------------------------
 
 
 @app.post("/api/street_coverage")
@@ -926,9 +913,7 @@ async def get_coverage_status(task_id: str):
     }
 
 
-# ------------------------------------------------------------------------------
 # TRIPS (REGULAR, UPLOADED)
-# ------------------------------------------------------------------------------
 
 
 @app.get("/api/trips")
@@ -1263,9 +1248,7 @@ async def api_fetch_trips_last_hour():
     return {"status": "success", "message": "Hourly trip fetch completed."}
 
 
-# ------------------------------------------------------------------------------
 # EXPORT ENDPOINTS
-# ------------------------------------------------------------------------------
 
 
 @app.get("/export/geojson")
@@ -1391,9 +1374,7 @@ async def export_gpx(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ------------------------------------------------------------------------------
 # VALIDATION / OSM DATA
-# ------------------------------------------------------------------------------
 
 
 @app.post("/api/validate_location")
@@ -1545,9 +1526,7 @@ async def generate_geojson_endpoint(request: Request):
     raise HTTPException(status_code=400, detail=err)
 
 
-# ------------------------------------------------------------------------------
 # MAP MATCHING ENDPOINTS
-# ------------------------------------------------------------------------------
 
 
 @app.post("/api/map_match_trips")
@@ -1783,9 +1762,7 @@ async def delete_matched_trip(trip_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ------------------------------------------------------------------------------
 # COMBINED EXPORT ENDPOINTS
-# ------------------------------------------------------------------------------
 
 
 async def fetch_all_trips_no_filter() -> List[dict]:
@@ -2011,9 +1988,7 @@ async def export_boundary(request: Request):
         raise HTTPException(status_code=400, detail="Invalid export format")
 
 
-# ------------------------------------------------------------------------------
 # PREPROCESS_STREETS / STREET SEGMENT
-# ------------------------------------------------------------------------------
 
 
 @app.post("/api/preprocess_streets")
@@ -2230,11 +2205,7 @@ async def get_street_segment_details(segment_id: str):
         logger.exception("Error fetching segment details")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# ------------------------------------------------------------------------------
 # LAST TRIP POINT
-# ------------------------------------------------------------------------------
-
 
 @app.get("/api/last_trip_point")
 async def get_last_trip_point():
@@ -2257,9 +2228,7 @@ async def get_last_trip_point():
         )
 
 
-# ------------------------------------------------------------------------------
 # SINGLE TRIP GET/DELETE
-# ------------------------------------------------------------------------------
 
 
 @app.get("/api/trips/{trip_id}")
@@ -2361,11 +2330,7 @@ async def get_first_trip_date():
         logger.exception("get_first_trip_date error")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# ------------------------------------------------------------------------------
 # GPX / GEOJSON UPLOAD
-# ------------------------------------------------------------------------------
-
 
 @app.get("/api/uploaded_trips")
 async def get_uploaded_trips():
@@ -2685,10 +2650,7 @@ async def bulk_delete_trips(request: Request):
         logger.exception("Error in bulk_delete_trips")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# ------------------------------------------------------------------------------
 # PLACES ENDPOINTS
-# ------------------------------------------------------------------------------
 
 
 @app.api_route("/api/places", methods=["GET", "POST"])
@@ -2928,10 +2890,7 @@ async def get_trips_for_place(place_id: str):
         logger.exception("Error fetching trips for place %s", place_id)
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# ------------------------------------------------------------------------------
 # NON-CUSTOM PLACE VISITS
-# ------------------------------------------------------------------------------
 
 
 @app.get("/api/non_custom_places_visits")
@@ -2977,9 +2936,7 @@ async def get_non_custom_places_visits():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ------------------------------------------------------------------------------
 # TRIP ANALYTICS
-# ------------------------------------------------------------------------------
 
 
 @app.get("/api/trip-analytics")
@@ -3051,9 +3008,7 @@ async def get_trip_analytics(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ------------------------------------------------------------------------------
 # GEOPOINT UPDATES / REGEOCODING
-# ------------------------------------------------------------------------------
 
 
 @app.post("/update_geo_points")
@@ -3121,9 +3076,7 @@ async def refresh_geocoding_for_trips(request: Request):
     }
 
 
-# ------------------------------------------------------------------------------
 # REAL-TIME / BOUNCIE WEBHOOK
-# ------------------------------------------------------------------------------
 
 
 @app.post("/webhook/bouncie")
@@ -3199,39 +3152,7 @@ async def trip_updates_endpoint(last_sequence: int = 0):
         }
 
 
-# ------------------------------------------------------------------------------
 # DATABASE MANAGEMENT ENDPOINTS
-# ------------------------------------------------------------------------------
-
-
-@app.get("/api/storage-info")
-async def get_storage_info():
-    """Get information about database storage usage."""
-    try:
-        # Get overall database stats
-        db_stats = await db_manager.db.command("dbStats")
-
-        # Format the response with storage info
-        storage_info = {
-            "total_size_mb": db_stats["dataSize"] / (1024 * 1024),
-            "total_size_bytes": db_stats["dataSize"],
-            "collections": [],
-        }
-
-        # Get stats for each collection
-        for collection_name in await db_manager.db.list_collection_names():
-            stats = await db_manager.db.command("collStats", collection_name)
-            storage_info["collections"].append(
-                {
-                    "name": collection_name,
-                    "document_count": stats["count"],
-                    "size_mb": round(stats["size"] / (1024 * 1024), 2),
-                }
-            )
-        return storage_info
-    except Exception as e:
-        logger.exception("Error getting storage info")
-        return {"error": str(e)}
 
 
 @app.post("/api/database/clear-collection")
@@ -3254,9 +3175,7 @@ async def clear_collection(collection: Dict[str, str]):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ------------------------------------------------------------------------------
 # COVERAGE AREA MANAGEMENT
-# ------------------------------------------------------------------------------
 
 
 @app.get("/api/coverage_areas")
@@ -3377,9 +3296,7 @@ async def cancel_coverage_area(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ------------------------------------------------------------------------------
 # APPLICATION LIFECYCLE
-# ------------------------------------------------------------------------------
 
 
 @app.on_event("startup")
@@ -3435,10 +3352,7 @@ async def shutdown_event():
 
     logger.info("Application shutdown completed successfully")
 
-
-# ------------------------------------------------------------------------------
 # ERROR HANDLERS
-# ------------------------------------------------------------------------------
 
 
 @app.exception_handler(404)

@@ -157,8 +157,11 @@ async def map_match_coordinates(
                                     error_text,
                                 )
                                 return {
-                                    "code": "Error", "message": f"Mapbox API error: {
-                                        response.status}", "details": error_text, }
+                                    "code": "Error",
+                                    "message": f"Mapbox API error: {
+                                        response.status}",
+                                    "details": error_text,
+                                }
 
                             # Handle server errors with retries
                             if response.status >= 500:
@@ -173,8 +176,11 @@ async def map_match_coordinates(
                                 else:
                                     error_text = await response.text()
                                     return {
-                                        "code": "Error", "message": f"Mapbox server error: {
-                                            response.status}", "details": error_text, }
+                                        "code": "Error",
+                                        "message": f"Mapbox server error: {
+                                            response.status}",
+                                        "details": error_text,
+                                    }
 
                             response.raise_for_status()
                             data = await response.json()

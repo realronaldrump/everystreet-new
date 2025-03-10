@@ -142,10 +142,9 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
 
             # Add description if available
             if trip.get("startLocation") and trip.get("destination"):
-                track.description = (
-                    f"From {
-                        trip.get('startLocation')} to {
-                        trip.get('destination')}")
+                track.description = f"From {
+                    trip.get('startLocation')} to {
+                    trip.get('destination')}"
 
             gpx.tracks.append(track)
 
