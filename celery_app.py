@@ -41,21 +41,17 @@ app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
-    
     # Concurrency and resource control
     worker_concurrency=4,  # Adjust based on your needs
     task_acks_late=True,  # Tasks are acknowledged after completion
     task_reject_on_worker_lost=True,  # Ensure tasks are re-queued if worker dies
     worker_prefetch_multiplier=1,  # One task at a time per worker
-    
     # Result management
     result_expires=3600,  # Results expire after 1 hour
     task_ignore_result=False,  # We want to track results
-    
     # Retry settings
     task_time_limit=1800,  # 30 minutes max per task
     task_soft_time_limit=1500,  # Soft limit 25 minutes
-    
     # Beat scheduler settings
     beat_schedule={
         "fetch_trips_hourly": {
@@ -99,7 +95,6 @@ app.conf.update(
             "options": {"queue": "default"},
         },
     },
-    
     # Worker monitoring settings
     worker_send_task_events=True,
     task_send_sent_event=True,
