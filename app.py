@@ -2493,18 +2493,29 @@ async def delete_trip(trip_id: str):
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
 
+        # Delete the trip from the original collection
         result = await delete_one_with_retry(collection, {"transactionId": trip_id})
+
+        # Also delete from matched_trips if it exists there
+        matched_delete_result = None
+        if collection != matched_trips_collection:
+            matched_delete_result = await delete_one_with_retry(
+                matched_trips_collection, {"transactionId": trip_id}
+            )
 
         if result.deleted_count == 1:
             return {
                 "status": "success",
-                "message": "Trip deleted successfully"}
+                "message": "Trip deleted successfully",
+                "deleted_trips": result.deleted_count,
+                "deleted_matched_trips": matched_delete_result.deleted_count if matched_delete_result else 0
+            }
 
         raise HTTPException(status_code=500, detail="Failed to delete trip")
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
-        logger.exception("Error deleting trip")
+        logger.error("Error deleting trip: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail="Internal server error") from e
@@ -2581,46 +2592,123 @@ async def get_uploaded_trips():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/api/uploaded_trips_bulk_delete")
+async def bulk_delete_uploaded_trips(request: Request):
+    try:
+        data = await request.json()
+        trip_ids = data.get("trip_ids", [])
+        if not trip_ids:
+            raise HTTPException(status_code=400, detail="No trip IDs")
+
+        logger.info(
+            "Bulk delete requested for %d uploaded trip IDs",
+            len(trip_ids))
+
+        valid_ids = []
+        for tid in trip_ids:
+            try:
+                valid_ids.append(ObjectId(tid))
+            except bson.errors.InvalidId:
+                logger.warning("Invalid ObjectId format: %s", tid)
+
+        if not valid_ids:
+            raise HTTPException(status_code=400, detail="No valid IDs found")
+
+        # Find all trips first to get their transaction IDs
+        ups_to_delete = await find_with_retry(
+            uploaded_trips_collection, {"_id": {"$in": valid_ids}}
+        )
+
+        # Extract transaction IDs, handling the case where some might not have
+        # a transactionId
+        trans_ids = []
+        for trip in ups_to_delete:
+            if "transactionId" in trip:
+                trans_ids.append(trip["transactionId"])
+
+        # Log what we're about to delete
+        logger.info(
+            "Found %d uploaded trips to delete with %d transaction IDs",
+            len(ups_to_delete),
+            len(trans_ids))
+
+        # Delete the trips
+        del_res = await delete_many_with_retry(
+            uploaded_trips_collection, {"_id": {"$in": valid_ids}}
+        )
+
+        # Delete associated matched trips if any
+        matched_del_res = None
+        if trans_ids:
+            matched_del_res = await delete_many_with_retry(
+                matched_trips_collection, {"transactionId": {"$in": trans_ids}}
+            )
+
+        deleted_matched = matched_del_res.deleted_count if matched_del_res else 0
+        logger.info("Deleted %d uploaded trips and %d matched trips",
+                    del_res.deleted_count, deleted_matched)
+
+        return {
+            "status": "success",
+            "deleted_uploaded_trips": del_res.deleted_count,
+            "deleted_matched_trips": deleted_matched,
+        }
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logger.error(
+            "Error in bulk_delete_uploaded_trips: %s",
+            e,
+            exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.delete("/api/uploaded_trips/{trip_id}")
 async def delete_uploaded_trip(trip_id: str):
     try:
-        # Handle the case when delete_uploaded_trip is called with 'bulk_delete'
-        if trip_id == "bulk_delete":
-            # Request body should be handled by the bulk delete endpoint
+        # Convert to ObjectId safely (this will raise InvalidId for malformed
+        # ids)
+        try:
+            object_id = ObjectId(trip_id)
+        except bson.errors.InvalidId:
+            logger.error("Invalid ObjectId format: %s", trip_id)
             raise HTTPException(
-                status_code=405, 
-                detail="For bulk delete operations, use the /api/uploaded_trips/bulk_delete endpoint"
-            )
-        
+                status_code=400,
+                detail="Invalid trip ID format: %s" %
+                trip_id)
+
         # First, find the uploaded trip to get its transactionId (if it exists)
-        uploaded_trip = await find_one_with_retry(uploaded_trips_collection, {"_id": ObjectId(trip_id)})
+        uploaded_trip = await find_one_with_retry(uploaded_trips_collection, {"_id": object_id})
         if not uploaded_trip:
-            raise HTTPException(status_code=404, detail="Uploaded trip not found")
-            
+            raise HTTPException(
+                status_code=404,
+                detail="Uploaded trip not found")
+
         transaction_id = uploaded_trip.get("transactionId")
-        
+
         # Delete the uploaded trip
         result = await delete_one_with_retry(
-            uploaded_trips_collection, {"_id": ObjectId(trip_id)}
+            uploaded_trips_collection, {"_id": object_id}
         )
-        
+
         # Also delete the matched trip if it exists
         matched_delete_result = None
         if transaction_id:
             matched_delete_result = await delete_one_with_retry(
                 matched_trips_collection, {"transactionId": transaction_id}
             )
-        
+
         if result.deleted_count == 1:
             return {
-                "status": "success", 
+                "status": "success",
                 "message": "Trip deleted",
                 "deleted_matched_trips": matched_delete_result.deleted_count if matched_delete_result else 0
             }
         raise HTTPException(status_code=404, detail="Not found")
-    except bson.errors.InvalidId as e:
-        logger.error("Invalid ObjectId format: %s", trip_id)
-        raise HTTPException(status_code=400, detail="Invalid trip ID format: %s" % str(e))
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
         logger.error("Error deleting uploaded trip: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -2866,74 +2954,6 @@ async def upload_files(request: Request, files: List[UploadFile] = File(...)):
         return {"status": "success", "message": f"Processed {count} trips"}
     except Exception as e:
         logger.exception("Error uploading files")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.delete("/api/uploaded_trips/bulk_delete")
-async def bulk_delete_uploaded_trips(request: Request):
-    try:
-        data = await request.json()
-        trip_ids = data.get("trip_ids", [])
-        if not trip_ids:
-            raise HTTPException(status_code=400, detail="No trip IDs")
-
-        valid_ids = []
-        for tid in trip_ids:
-            try:
-                valid_ids.append(ObjectId(tid))
-            except bson.errors.InvalidId:
-                logger.warning("Invalid ObjectId format: %s", tid)
-
-        if not valid_ids:
-            raise HTTPException(status_code=400, detail="No valid IDs found")
-
-        ups_to_delete = await find_with_retry(
-            uploaded_trips_collection, {"_id": {"$in": valid_ids}}
-        )
-        trans_ids = [u["transactionId"] for u in ups_to_delete]
-
-        del_res = await delete_many_with_retry(
-            uploaded_trips_collection, {"_id": {"$in": valid_ids}}
-        )
-        matched_del_res = await delete_many_with_retry(
-            matched_trips_collection, {"transactionId": {"$in": trans_ids}}
-        )
-
-        return {
-            "status": "success",
-            "deleted_uploaded_trips": del_res.deleted_count,
-            "deleted_matched_trips": matched_del_res.deleted_count,
-        }
-    except Exception as e:
-        logger.error("Error in bulk_delete_uploaded_trips: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.delete("/api/trips/bulk_delete")
-async def bulk_delete_trips(request: Request):
-    try:
-        data = await request.json()
-        trip_ids = data.get("trip_ids", [])
-        if not trip_ids:
-            raise HTTPException(status_code=400, detail="No trip IDs provided")
-
-        trips_result = await delete_many_with_retry(
-            trips_collection, {"transactionId": {"$in": trip_ids}}
-        )
-        matched_trips_result = await delete_many_with_retry(
-            matched_trips_collection, {"transactionId": {"$in": trip_ids}}
-        )
-
-        return {
-            "status": "success",
-            "message": f"Deleted {
-                trips_result.deleted_count} trips and {
-                matched_trips_result.deleted_count} matched trips",
-            "deleted_trips_count": trips_result.deleted_count,
-            "deleted_matched_trips_count": matched_trips_result.deleted_count,
-        }
-    except Exception as e:
-        logger.exception("Error in bulk_delete_trips")
         raise HTTPException(status_code=500, detail=str(e))
 
 

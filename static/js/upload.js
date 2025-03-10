@@ -715,7 +715,7 @@ class UploadManager {
       });
 
       if (confirmed) {
-        const response = await fetch("/api/uploaded_trips/bulk_delete", {
+        const response = await fetch("/api/uploaded_trips_bulk_delete", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ trip_ids: tripIds }),

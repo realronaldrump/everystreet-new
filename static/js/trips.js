@@ -510,26 +510,24 @@ function createEditableCell(data, type, field, inputType = "text") {
      * Delete trips in bulk
      */
     async bulkDeleteTrips() {
-      const selectedTrips = [];
-
-      // Collect selected trip IDs
-      $(".trip-checkbox:checked").each((_, el) => {
-        const rowData = this.tripsTable.row($(el).closest("tr")).data();
-        selectedTrips.push(rowData.transactionId);
-      });
-
-      if (selectedTrips.length === 0) {
-        window.notificationManager.show(
-          "No trips selected for deletion.",
-          "warning"
-        );
-        return;
-      }
-
       try {
+        const selectedTrips = this.tripsTable
+          .rows({ selected: true })
+          .data()
+          .map((row) => this.getTripId(row))
+          .toArray();
+
+        if (selectedTrips.length === 0) {
+          window.notificationManager.show(
+            "Please select at least one trip to delete",
+            "warning"
+          );
+          return;
+        }
+
         const confirmed = await confirmationDialog.show({
-          title: "Delete Trips",
-          message: `Are you sure you want to delete ${selectedTrips.length} trip(s)?`,
+          title: "Delete Selected Trips",
+          message: `Are you sure you want to delete ${selectedTrips.length} selected trip(s)? This action cannot be undone.`,
           confirmText: "Delete",
           confirmButtonClass: "btn-danger",
         });
@@ -545,7 +543,7 @@ function createEditableCell(data, type, field, inputType = "text") {
 
           if (data.status === "success") {
             window.notificationManager.show(
-              `Successfully deleted ${data.deleted_count} trip(s)`,
+              `Successfully deleted ${data.deleted_trips} trip(s) and ${data.deleted_matched_trips} matched trip(s)`,
               "success"
             );
             this.fetchTrips();
@@ -557,12 +555,10 @@ function createEditableCell(data, type, field, inputType = "text") {
           }
         }
       } catch (error) {
-        console.error("Error deleting trips:", error);
         window.notificationManager.show(
           `Error deleting trips: ${error.message}`,
           "danger"
         );
-        window.notificationManager.show("Error deleting trip(s).", "danger");
       }
     }
 
@@ -738,7 +734,7 @@ function createEditableCell(data, type, field, inputType = "text") {
           const data = await response.json();
           if (data.status === "success") {
             window.notificationManager.show(
-              "Trip deleted successfully",
+              `Trip deleted successfully. Matched trips deleted: ${data.deleted_matched_trips}`,
               "success"
             );
             this.fetchTrips();
@@ -747,7 +743,6 @@ function createEditableCell(data, type, field, inputType = "text") {
           }
         }
       } catch (error) {
-        console.error("Error deleting trip:", error);
         window.notificationManager.show(
           `Error deleting trip: ${error.message}`,
           "danger"

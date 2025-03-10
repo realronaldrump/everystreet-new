@@ -911,5 +911,68 @@ window.confirmationDialog = new ConfirmationDialog({
   backdropClickDismisses: false,
 });
 
+/**
+ * DOM Helper utility for handling common DOM operations
+ */
+class DOMHelper {
+  /**
+   * Find an element by ID
+   * @param {string} id - Element ID
+   * @returns {HTMLElement} The found element or null
+   */
+  static byId(id) {
+    return document.getElementById(id);
+  }
+
+  /**
+   * Query a single element
+   * @param {string} selector - CSS selector
+   * @param {Element} context - Context element (defaults to document)
+   * @returns {Element} The found element or null
+   */
+  static query(selector, context = document) {
+    return context.querySelector(selector);
+  }
+
+  /**
+   * Query multiple elements
+   * @param {string} selector - CSS selector
+   * @param {Element} context - Context element (defaults to document)
+   * @returns {NodeList} List of found elements
+   */
+  static queryAll(selector, context = document) {
+    return context.querySelectorAll(selector);
+  }
+
+  /**
+   * Create a new element with attributes and optional content
+   * @param {string} tag - HTML tag name
+   * @param {Object} attrs - Attributes to set
+   * @param {string|Node} content - Content to append
+   * @returns {HTMLElement} The created element
+   */
+  static create(tag, attrs = {}, content = null) {
+    const el = document.createElement(tag);
+
+    for (const [key, value] of Object.entries(attrs)) {
+      if (key === "class" || key === "className") {
+        el.className = value;
+      } else {
+        el.setAttribute(key, value);
+      }
+    }
+
+    if (content) {
+      if (typeof content === "string") {
+        el.innerHTML = content;
+      } else {
+        el.appendChild(content);
+      }
+    }
+
+    return el;
+  }
+}
+
 // Initialize DOM helper
 window.DOMHelper = DOMHelper;
