@@ -21,3 +21,6 @@ motor
 rtree
 gunicorn
 psutil
+redis
+flower
+celery
