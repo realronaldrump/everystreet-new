@@ -4,7 +4,6 @@ Manages scheduling, execution, and history recording for periodic tasks.
 """
 
 import asyncio
-import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -26,7 +25,7 @@ from utils import validate_trip_data, reverse_geocode_nominatim
 from street_coverage_calculation import update_coverage_for_all_locations
 from preprocess_streets import preprocess_streets as async_preprocess_streets
 
-from db import db, db_manager
+from db import db, db_manager, find_with_retry, trips_collection, update_one_with_retry
 from live_tracking import cleanup_stale_trips
 
 logger = logging.getLogger(__name__)
@@ -836,7 +835,8 @@ class BackgroundTaskManager:
                     logger.error(
                         f"Error geocoding trip {
                             trip.get('transactionId')}: {
-                            str(e)}")
+                            str(e)}"
+                    )
                     failed_count += 1
 
                 # Sleep briefly to avoid rate limiting
@@ -885,12 +885,14 @@ class BackgroundTaskManager:
                         status = processor.get_processing_status()
                         logger.warning(
                             f"Failed to remap trip {
-                                trip.get('transactionId')}: {status}")
+                                trip.get('transactionId')}: {status}"
+                        )
                 except Exception as e:
                     logger.warning(
                         f"Failed to remap trip {
                             trip.get('transactionId')}: {
-                            str(e)}")
+                            str(e)}"
+                    )
                     failed_count += 1
 
                 # Sleep briefly to avoid rate limiting
@@ -957,7 +959,8 @@ class BackgroundTaskManager:
                     logger.error(
                         f"Error validating trip {
                             trip.get('_id')}: {
-                            str(e)}")
+                            str(e)}"
+                    )
                     failed_count += 1
 
             logger.info(

@@ -12,7 +12,7 @@ import logging
 import asyncio
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, Any, Optional, Tuple, List, Union
+from typing import Dict, Any, Optional, Tuple, List, Union, Callable
 import time
 
 from shapely.geometry import LineString, Point, shape
@@ -45,7 +45,7 @@ class TripState(Enum):
 
 
 # Map matching configuration
-MAPBOX_ACCESS_TOKEN = None  # Will be set during initialization
+MAPBOX_ACCESS_TOKEN = None
 MAX_MAPBOX_COORDINATES = 100
 RATE_LIMIT_WINDOW = 60  # seconds
 MAX_REQUESTS_PER_MINUTE = 60
@@ -128,6 +128,7 @@ class TripProcessor:
             trip_data: The raw trip data dictionary
         """
         self.trip_data = trip_data
+        self.processed_data = trip_data.copy()  # Start with a copy to build upon
         self.state = TripState.NEW
         self._set_state(TripState.NEW)
 
@@ -187,7 +188,8 @@ class TripProcessor:
                 f"Error processing trip {
                     self.trip_data.get(
                         'transactionId',
-                        'unknown')}")
+                        'unknown')}"
+            )
             return {}
 
     async def validate(self) -> bool:
@@ -242,6 +244,10 @@ class TripProcessor:
             # Copy validated data to processed data
             self.processed_data = self.trip_data.copy()
 
+            # Add validation timestamp
+            self.processed_data["validated_at"] = datetime.now(timezone.utc)
+            self.processed_data["validation_status"] = TripState.VALIDATED.value
+
             # Update state
             self._set_state(TripState.VALIDATED)
             return True
@@ -259,11 +265,18 @@ class TripProcessor:
         """
         try:
             if self.state != TripState.VALIDATED:
-                logger.warning(
-                    f"Cannot process trip that hasn't been validated: {
-                        self.trip_data.get(
-                            'transactionId', 'unknown')}")
-                return False
+                if self.state == TripState.NEW:
+                    # Try to validate first
+                    await self.validate()
+                    if self.state != TripState.VALIDATED:
+                        return False
+                else:
+                    logger.warning(
+                        f"Cannot process trip that hasn't been validated: {
+                            self.trip_data.get(
+                                'transactionId', 'unknown')}"
+                    )
+                    return False
 
             # Handle timestamps
             from dateutil import parser
@@ -322,6 +335,12 @@ class TripProcessor:
                     )
                 self.processed_data["distance"] = total_distance
 
+            # Format idle time if available
+            if "totalIdleDuration" in self.processed_data:
+                self.processed_data["totalIdleDurationFormatted"] = (
+                    self.format_idle_time(self.processed_data["totalIdleDuration"])
+                )
+
             # Update state
             self._set_state(TripState.PROCESSED)
             return True
@@ -357,11 +376,24 @@ class TripProcessor:
             True if geocoding succeeded, False otherwise
         """
         try:
-            if self.state != TripState.PROCESSED:
+            if self.state == TripState.NEW:
+                # Try to validate and process first
+                await self.validate()
+                if self.state == TripState.VALIDATED:
+                    await self.process_basic()
+                if self.state != TripState.PROCESSED:
+                    logger.warning(
+                        f"Cannot geocode trip that hasn't been processed: {
+                            self.trip_data.get(
+                                'transactionId', 'unknown')}"
+                    )
+                    return False
+            elif self.state != TripState.PROCESSED:
                 logger.warning(
                     f"Cannot geocode trip that hasn't been processed: {
                         self.trip_data.get(
-                            'transactionId', 'unknown')}")
+                            'transactionId', 'unknown')}"
+                )
                 return False
 
             # Extract coordinates from geo-points
@@ -411,6 +443,9 @@ class TripProcessor:
                             "display_name", ""
                         )
 
+            # Add geocoding timestamp
+            self.processed_data["geocoded_at"] = datetime.now(timezone.utc)
+
             # Update state
             self._set_state(TripState.GEOCODED)
             return True
@@ -427,11 +462,22 @@ class TripProcessor:
             True if map matching succeeded, False otherwise
         """
         try:
-            if self.state != TripState.GEOCODED:
+            if self.state == TripState.NEW:
+                # Try to validate, process, and geocode first
+                await self.process(do_map_match=False)
+                if self.state != TripState.GEOCODED:
+                    logger.warning(
+                        f"Cannot map match trip that hasn't been geocoded: {
+                            self.trip_data.get(
+                                'transactionId', 'unknown')}"
+                    )
+                    return False
+            elif self.state != TripState.GEOCODED:
                 logger.warning(
                     f"Cannot map match trip that hasn't been geocoded: {
                         self.trip_data.get(
-                            'transactionId', 'unknown')}")
+                            'transactionId', 'unknown')}"
+                )
                 return False
 
             if not self.mapbox_token:
@@ -633,8 +679,11 @@ class TripProcessor:
                                         error_text,
                                     )
                                     return {
-                                        "code": "Error", "message": f"Mapbox API error: {
-                                            response.status}", "details": error_text, }
+                                        "code": "Error",
+                                        "message": f"Mapbox API error: {
+                                            response.status}",
+                                        "details": error_text,
+                                    }
 
                                 # Handle server errors with retries
                                 if response.status >= 500:
@@ -649,8 +698,11 @@ class TripProcessor:
                                     else:
                                         error_text = await response.text()
                                         return {
-                                            "code": "Error", "message": f"Mapbox server error: {
-                                                response.status}", "details": error_text, }
+                                            "code": "Error",
+                                            "message": f"Mapbox server error: {
+                                                response.status}",
+                                            "details": error_text,
+                                        }
 
                                 response.raise_for_status()
                                 data = await response.json()
@@ -904,12 +956,15 @@ class TripProcessor:
                 self.state != TripState.COMPLETED
                 and self.state != TripState.MAP_MATCHED
                 and self.state != TripState.GEOCODED
+                and self.state != TripState.PROCESSED
+                and self.state != TripState.VALIDATED
             ):
                 logger.warning(
                     f"Cannot save trip {
                         self.trip_data.get(
                             'transactionId',
-                            'unknown')} that hasn't been fully processed")
+                            'unknown')} that hasn't been processed"
+                )
                 return None
 
             # Ensure proper serialization
@@ -980,3 +1035,136 @@ class TripProcessor:
         except Exception as e:
             logger.error(f"Error saving trip: {str(e)}")
             return None
+
+    # Utility methods moved from trip_processing.py
+    def format_idle_time(self, seconds: Any) -> str:
+        """Convert idle time in seconds to a HH:MM:SS string."""
+        if not seconds:
+            return "00:00:00"
+
+        try:
+            total_seconds = int(seconds)
+            hrs = total_seconds // 3600
+            mins = (total_seconds % 3600) // 60
+            secs = total_seconds % 60
+            return f"{hrs:02d}:{mins:02d}:{secs:02d}"
+        except (TypeError, ValueError):
+            logger.error("Invalid input for format_idle_time: %s", seconds)
+            return "00:00:00"
+
+    @classmethod
+    async def process_from_coordinates(
+        cls,
+        coords_data: List[Dict[str, Any]],
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        transaction_id: Optional[str] = None,
+        imei: str = "UPLOADED",
+        source: str = "upload",
+        mapbox_token: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create and process a trip from raw coordinates data.
+
+        Args:
+            coords_data: List of coordinate data (with timestamp, lat, lon)
+            start_time: Optional start time, will use first timestamp if not provided
+            end_time: Optional end time, will use last timestamp if not provided
+            transaction_id: Optional transaction ID, will generate one if not provided
+            imei: Device identifier
+            source: Source of the trip data
+            mapbox_token: Mapbox token for map matching
+
+        Returns:
+            Processed trip data
+        """
+        from datetime import datetime, timezone
+        import uuid
+        import json
+
+        # Sort coordinates by timestamp
+        if len(coords_data) > 0 and "timestamp" in coords_data[0]:
+            coords_data.sort(key=lambda x: x["timestamp"])
+
+        # Extract timestamps if not provided
+        if not start_time and len(coords_data) > 0:
+            start_time = coords_data[0].get(
+                "timestamp", datetime.now(timezone.utc))
+        if not end_time and len(coords_data) > 0:
+            end_time = coords_data[-1].get("timestamp",
+                                           datetime.now(timezone.utc))
+
+        # Generate transaction ID if not provided
+        if not transaction_id:
+            transaction_id = f"{source}-{uuid.uuid4()}"
+
+        # Create coordinates for GeoJSON
+        coordinates = [[c["lon"], c["lat"]] for c in coords_data]
+
+        # Calculate distance
+        total_distance = 0.0
+        for i in range(1, len(coordinates)):
+            prev = coordinates[i - 1]
+            curr = coordinates[i]
+            total_distance += haversine(
+                prev[0], prev[1], curr[0], curr[1], unit="miles"
+            )
+
+        # Create trip data
+        trip_data = {
+            "transactionId": transaction_id,
+            "startTime": start_time,
+            "endTime": end_time,
+            "gps": json.dumps({"type": "LineString", "coordinates": coordinates}),
+            "distance": total_distance,
+            "imei": imei,
+            "source": source,
+        }
+
+        # Create processor and process trip
+        processor = cls(mapbox_token=mapbox_token, source=source)
+        processor.set_trip_data(trip_data)
+        # Skip map matching by default
+        await processor.process(do_map_match=False)
+
+        return processor.processed_data
+
+    @classmethod
+    async def process_trip_by_id(
+        cls,
+        trip_id: str,
+        do_map_match: bool = False,
+        mapbox_token: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Process an existing trip by its ID.
+
+        Args:
+            trip_id: Trip ID to process
+            do_map_match: Whether to perform map matching
+            mapbox_token: Mapbox token for map matching
+
+        Returns:
+            Processed trip data if successful, None otherwise
+        """
+        from db import get_trip_from_all_collections
+
+        # Find the trip in all collections
+        trip, collection = await get_trip_from_all_collections(trip_id)
+
+        if not trip:
+            logger.warning(f"Trip not found: {trip_id}")
+            return None
+
+        # Determine source based on collection
+        source = "api"
+        if collection.name == "uploaded_trips":
+            source = "upload"
+
+        # Create processor and process trip
+        processor = cls(mapbox_token=mapbox_token, source=source)
+        processor.set_trip_data(trip)
+        await processor.process(do_map_match=do_map_match)
+        await processor.save(map_match_result=do_map_match)
+
+        return processor.processed_data

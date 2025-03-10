@@ -1,8 +1,8 @@
 """
 bouncie_trip_fetcher.py
 
-Fetches trip data from the Bouncie API, processes and validates each trip,
-stores new trips in MongoDB, and optionally triggers map matching.
+Fetches trip data from the Bouncie API, processes and validates each trip using
+the unified TripProcessor, and stores trips in MongoDB.
 """
 
 import os
@@ -13,10 +13,8 @@ import aiohttp
 from geojson import dumps as geojson_dumps
 
 # Local imports
-from db import trips_collection
-from utils import validate_trip_data, get_session
-from map_matching import process_and_map_match_trip
-from trip_processor import TripProcessor  # Use our new unified processor
+from utils import get_session
+from trip_processor import TripProcessor
 
 logging.basicConfig(
     level=logging.INFO,
@@ -127,15 +125,7 @@ async def store_trip(trip: dict) -> bool:
 
         # Process the trip
         processor.set_trip_data(trip)
-        processed_trip = await processor.process(do_map_match=False)
-
-        if not processed_trip:
-            logger.error(
-                "Trip %s could not be processed: %s",
-                transaction_id,
-                processor.get_processing_status(),
-            )
-            return False
+        await processor.process(do_map_match=False)
 
         # Save the trip
         saved_id = await processor.save()

@@ -64,7 +64,6 @@ from db import (
     get_trips_in_date_range,
     parse_query_date,
 )
-from trip_processing import format_idle_time, process_trip_data
 from export_helpers import create_geojson, create_gpx
 from street_coverage_calculation import compute_coverage_for_location
 from live_tracking import (
@@ -939,6 +938,9 @@ async def get_trips(request: Request):
         all_trips = regular + uploaded
         features = []
 
+        # Create a TripProcessor instance for formatting
+        processor = TripProcessor()
+
         for trip in all_trips:
             try:
                 st = trip.get("startTime")
@@ -977,7 +979,7 @@ async def get_trips(request: Request):
                     "startLocation": trip.get("startLocation", "N/A"),
                     "destination": trip.get("destination", "N/A"),
                     "totalIdleDuration": trip.get("totalIdleDuration", 0),
-                    "totalIdleDurationFormatted": format_idle_time(
+                    "totalIdleDurationFormatted": processor.format_idle_time(
                         trip.get("totalIdleDuration", 0)
                     ),
                     "fuelConsumed": float(trip.get("fuelConsumed", 0)),
@@ -1368,7 +1370,7 @@ async def bulk_process_trips(request: Request):
                 )
                 processor.set_trip_data(trip)
 
-                # Validate
+                # Run the appropriate processing steps based on options
                 if do_validate:
                     await processor.validate()
                     if processor.state == TripState.VALIDATED:
@@ -1377,8 +1379,7 @@ async def bulk_process_trips(request: Request):
                         results["failed"] += 1
                         continue
 
-                # Process and geocode
-                if do_geocode:
+                if do_geocode and processor.state == TripState.VALIDATED:
                     await processor.process_basic()
                     if processor.state == TripState.PROCESSED:
                         await processor.geocode()
@@ -1391,8 +1392,7 @@ async def bulk_process_trips(request: Request):
                         results["failed"] += 1
                         continue
 
-                # Map match if requested
-                if do_map_match:
+                if do_map_match and processor.state == TripState.GEOCODED:
                     await processor.map_match()
                     if processor.state == TripState.MAP_MATCHED:
                         results["map_matched"] += 1
@@ -1408,7 +1408,8 @@ async def bulk_process_trips(request: Request):
                 logger.error(
                     f"Error processing trip {
                         trip.get('transactionId')}: {
-                        str(e)}")
+                        str(e)}"
+                )
                 results["failed"] += 1
 
         return {
@@ -1782,13 +1783,15 @@ async def map_match_trips_endpoint(request: Request):
                     failed_count += 1
                     logger.warning(
                         f"Failed to save matched trip {
-                            trip.get('transactionId')}")
+                            trip.get('transactionId')}"
+                    )
             except Exception as e:
                 failed_count += 1
                 logger.error(
                     f"Error processing trip {
                         trip.get('transactionId')}: {
-                        str(e)}")
+                        str(e)}"
+                )
 
         return {
             "status": "success",
@@ -1911,7 +1914,11 @@ async def remap_matched_trips(request: Request):
         )
 
         for trip in trips_list:
-            await process_and_map_match_trip(trip)
+            processor = TripProcessor(
+                mapbox_token=MAPBOX_ACCESS_TOKEN, source="api")
+            processor.set_trip_data(trip)
+            await processor.process(do_map_match=True)
+            await processor.save(map_match_result=True)
 
         return {"status": "success", "message": "Re-matching completed."}
     except Exception as e:
@@ -2508,7 +2515,8 @@ async def delete_trip(trip_id: str):
                 "status": "success",
                 "message": "Trip deleted successfully",
                 "deleted_trips": result.deleted_count,
-                "deleted_matched_trips": matched_delete_result.deleted_count if matched_delete_result else 0
+                "deleted_matched_trips": (
+                    matched_delete_result.deleted_count if matched_delete_result else 0),
             }
 
         raise HTTPException(status_code=500, detail="Failed to delete trip")
@@ -2630,7 +2638,8 @@ async def bulk_delete_uploaded_trips(request: Request):
         logger.info(
             "Found %d uploaded trips to delete with %d transaction IDs",
             len(ups_to_delete),
-            len(trans_ids))
+            len(trans_ids),
+        )
 
         # Delete the trips
         del_res = await delete_many_with_retry(
@@ -2645,8 +2654,11 @@ async def bulk_delete_uploaded_trips(request: Request):
             )
 
         deleted_matched = matched_del_res.deleted_count if matched_del_res else 0
-        logger.info("Deleted %d uploaded trips and %d matched trips",
-                    del_res.deleted_count, deleted_matched)
+        logger.info(
+            "Deleted %d uploaded trips and %d matched trips",
+            del_res.deleted_count,
+            deleted_matched,
+        )
 
         return {
             "status": "success",
@@ -2674,12 +2686,13 @@ async def delete_uploaded_trip(trip_id: str):
         except bson.errors.InvalidId:
             logger.error("Invalid ObjectId format: %s", trip_id)
             raise HTTPException(
-                status_code=400,
-                detail="Invalid trip ID format: %s" %
-                trip_id)
+                status_code=400, detail="Invalid trip ID format: %s" % trip_id
+            )
 
         # First, find the uploaded trip to get its transactionId (if it exists)
-        uploaded_trip = await find_one_with_retry(uploaded_trips_collection, {"_id": object_id})
+        uploaded_trip = await find_one_with_retry(
+            uploaded_trips_collection, {"_id": object_id}
+        )
         if not uploaded_trip:
             raise HTTPException(
                 status_code=404,
@@ -2703,7 +2716,9 @@ async def delete_uploaded_trip(trip_id: str):
             return {
                 "status": "success",
                 "message": "Trip deleted",
-                "deleted_matched_trips": matched_delete_result.deleted_count if matched_delete_result else 0
+                "deleted_matched_trips": (
+                    matched_delete_result.deleted_count if matched_delete_result else 0
+                ),
             }
         raise HTTPException(status_code=404, detail="Not found")
     except HTTPException:
@@ -2779,47 +2794,34 @@ def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
 
 async def process_and_store_trip(trip: dict):
     try:
+        processor = TripProcessor(
+            mapbox_token=MAPBOX_ACCESS_TOKEN,
+            source="upload")
+        processor.set_trip_data(trip)
+
+        # Ensure we have GPS data
         gps_data = trip["gps"]
         if isinstance(gps_data, str):
-            gps_data = json.loads(gps_data)
-        coords = gps_data.get("coordinates", [])
-        if coords:
-            start_pt = coords[0]
-            end_pt = coords[-1]
-            if not trip.get("startLocation"):
-                trip["startLocation"] = await reverse_geocode_nominatim(
-                    start_pt[1], start_pt[0]
+            try:
+                gps_data = json.loads(gps_data)
+                processor.processed_data["gps"] = gps_data
+            except json.JSONDecodeError:
+                logger.warning(
+                    f"Invalid GPS data for trip {
+                        trip.get(
+                            'transactionId',
+                            'unknown')}"
                 )
-            if not trip.get("destination"):
-                trip["destination"] = await reverse_geocode_nominatim(
-                    end_pt[1], end_pt[0]
-                )
-        if isinstance(trip["gps"], dict):
-            trip["gps"] = json.dumps(trip["gps"])
+                return
 
-        existing = await find_one_with_retry(
-            uploaded_trips_collection, {"transactionId": trip["transactionId"]}
-        )
+        # Extract and geocode the locations
+        await processor.process(do_map_match=False)
+        await processor.save()
 
-        if existing:
-            updates = {}
-            if not existing.get("startLocation") and trip.get("startLocation"):
-                updates["startLocation"] = trip["startLocation"]
-            if not existing.get("destination") and trip.get("destination"):
-                updates["destination"] = trip["destination"]
-
-            if updates:
-                await update_one_with_retry(
-                    uploaded_trips_collection,
-                    {"transactionId": trip["transactionId"]},
-                    {"$set": updates},
-                )
-        else:
-            await insert_one_with_retry(uploaded_trips_collection, trip)
     except bson.errors.DuplicateKeyError:
         logger.warning(
             "Duplicate trip ID %s; skipping.",
-            trip["transactionId"])
+            trip.get("transactionId"))
     except Exception as e:
         logger.exception("process_and_store_trip error")
         raise
@@ -2852,49 +2854,84 @@ async def upload_gpx_endpoint(request: Request):
                             continue
                         start_t = min(times)
                         end_t = max(times)
-                        dist_meters = calculate_gpx_distance(coords)
-                        dist_miles = meters_to_miles(dist_meters)
 
-                        # Create basic trip data
-                        trip_data = {
-                            "transactionId": f"GPX-{start_t.strftime('%Y%m%d%H%M%S')}-{filename}",
-                            "startTime": start_t,
-                            "endTime": end_t,
-                            "gps": json.dumps(
-                                {"type": "LineString", "coordinates": coords}
-                            ),
-                            "distance": round(dist_miles, 2),
-                            "source": "upload",
-                            "filename": f.filename,
-                            "imei": "UPLOADED",
-                        }
+                        # Convert points to format expected by TripProcessor
+                        coord_data = []
+                        for i, point in enumerate(seg.points):
+                            if point.time:
+                                coord_data.append(
+                                    {
+                                        "timestamp": point.time,
+                                        "lat": point.latitude,
+                                        "lon": point.longitude,
+                                    }
+                                )
 
-                        # Use the TripProcessor to process and save
+                        # Use TripProcessor's classmethod to process the
+                        # coordinates
+                        trip_data = await TripProcessor.process_from_coordinates(
+                            coord_data,
+                            start_time=start_t,
+                            end_time=end_t,
+                            transaction_id=f"GPX-{start_t.strftime('%Y%m%d%H%M%S')}-{filename}",
+                            imei="UPLOADED",
+                            source="upload",
+                            mapbox_token=MAPBOX_ACCESS_TOKEN,
+                        )
+
+                        # Create a processor to save the trip data
                         processor = TripProcessor(
                             mapbox_token=MAPBOX_ACCESS_TOKEN, source="upload"
                         )
                         processor.set_trip_data(trip_data)
-                        await processor.process(do_map_match=False)
                         await processor.save()
                         success_count += 1
 
             elif filename.endswith(".geojson"):
                 content = await f.read()
                 data_geojson = json.loads(content)
-                trips = process_geojson_trip(data_geojson)
-                if trips:
-                    for t in trips:
-                        t["source"] = "upload"
-                        t["filename"] = f.filename
+                feats = data_geojson.get("features", [])
 
-                        # Use the TripProcessor to process and save
-                        processor = TripProcessor(
-                            mapbox_token=MAPBOX_ACCESS_TOKEN, source="upload"
-                        )
-                        processor.set_trip_data(t)
-                        await processor.process(do_map_match=False)
-                        await processor.save()
-                        success_count += 1
+                for f in feats:
+                    props = f.get("properties", {})
+                    geom = f.get("geometry", {})
+                    stime_str = props.get("start_time")
+                    etime_str = props.get("end_time")
+                    tid = props.get("transaction_id",
+                                    f"geojson-{int(datetime.now().timestamp())}")
+                    stime_parsed = (
+                        dateutil_parser.isoparse(stime_str)
+                        if stime_str
+                        else datetime.now(timezone.utc)
+                    )
+                    etime_parsed = (
+                        dateutil_parser.isoparse(etime_str)
+                        if etime_str
+                        else stime_parsed
+                    )
+
+                    coords = geom.get("coordinates", [])
+                    if len(coords) < 2:
+                        continue
+
+                    processor = TripProcessor(
+                        mapbox_token=MAPBOX_ACCESS_TOKEN, source="upload"
+                    )
+
+                    trip_data = {
+                        "transactionId": tid,
+                        "startTime": stime_parsed,
+                        "endTime": etime_parsed,
+                        "gps": json.dumps(geom),
+                        "imei": "UPLOADED",
+                        "source": "upload",
+                        "filename": filename,
+                    }
+
+                    processor.set_trip_data(trip_data)
+                    await processor.process(do_map_match=False)
+                    await processor.save()
+                    success_count += 1
             else:
                 logger.warning(
                     "Skipping unhandled file extension: %s", filename)
@@ -3347,11 +3384,17 @@ async def regeocode_all_trips():
         for collection in [trips_collection, uploaded_trips_collection]:
             trips_list = await find_with_retry(collection, {})
             for trip in trips_list:
-                updated_trip = await process_trip_data(trip)
-                if updated_trip is not None:
-                    await replace_one_with_retry(
-                        collection, {"_id": trip["_id"]}, updated_trip
-                    )
+                processor = TripProcessor(
+                    mapbox_token=MAPBOX_ACCESS_TOKEN,
+                    source="api" if collection == trips_collection else "upload",
+                )
+                processor.set_trip_data(trip)
+                await processor.validate()
+                if processor.state == TripState.VALIDATED:
+                    await processor.process_basic()
+                    if processor.state == TripState.PROCESSED:
+                        await processor.geocode()
+                        await processor.save()
 
         return {"message": "All trips re-geocoded successfully."}
     except Exception as e:
@@ -3371,12 +3414,17 @@ async def refresh_geocoding_for_trips(request: Request):
     for trip_id in trip_ids:
         trip = await find_one_with_retry(trips_collection, {"transactionId": trip_id})
         if trip:
-            updated_trip = await process_trip_data(trip)
-            if updated_trip is not None:
-                await replace_one_with_retry(
-                    trips_collection, {"_id": trip["_id"]}, updated_trip
-                )
-                updated_count += 1
+            processor = TripProcessor(
+                mapbox_token=MAPBOX_ACCESS_TOKEN, source="api")
+            processor.set_trip_data(trip)
+            await processor.validate()
+            if processor.state == TripState.VALIDATED:
+                await processor.process_basic()
+                if processor.state == TripState.PROCESSED:
+                    await processor.geocode()
+                    if processor.state == TripState.GEOCODED:
+                        await processor.save()
+                        updated_count += 1
 
     return {
         "message": f"Geocoding refreshed for {updated_count} trips.",
