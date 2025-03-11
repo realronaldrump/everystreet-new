@@ -105,7 +105,7 @@ class CustomPlacesManager {
       this.map.on(L.Draw.Event.CREATED, (e) => this.onPolygonCreated(e));
     }
 
-    // Make deletePlace accessible globally for event handlers
+    // Make customPlaces accessible globally for event handlers
     window.customPlaces = this;
   }
 
@@ -300,6 +300,9 @@ class CustomPlacesManager {
     try {
       const placeIds = Array.from(this.places.keys());
 
+      // Skip if no places
+      if (placeIds.length === 0) return;
+
       // Fetch statistics for all places in parallel
       const results = await Promise.all(
         placeIds.map(async (placeId) => {
@@ -350,8 +353,11 @@ class CustomPlacesManager {
         : "Never";
 
       // Create and show popup
+      const coordinates = place.geometry.coordinates[0][0];
+      if (!coordinates) return;
+
       L.popup()
-        .setLatLng(L.GeoJSON.coordsToLatLng(place.geometry.coordinates[0][0]))
+        .setLatLng(L.GeoJSON.coordsToLatLng(coordinates))
         .setContent(
           `
           <div class="custom-place-popup">
