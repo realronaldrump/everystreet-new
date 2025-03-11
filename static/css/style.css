@@ -3066,3 +3066,68 @@ body.light-mode #map-controls small {
 body.light-mode #map-controls strong {
   color: var(--light-text-primary);
 }
+
+/* Enhanced vehicle markers */
+.vehicle-marker {
+  border-radius: 50%;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+  background-color: #00c853;
+  border: 2px solid white;
+  transition: all 0.3s ease;
+}
+
+.vehicle-marker-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.vehicle-marker-inner:before {
+  content: attr(data-speed);
+  color: transparent;
+  position: absolute;
+  font-size: 8px;
+  font-weight: bold;
+}
+
+.vehicle-marker-inner:hover:before {
+  color: white;
+}
+
+/* Different styles based on speed */
+.vehicle-stopped {
+  background-color: #f44336; /* Red for stopped */
+  animation: pulse 2s infinite;
+}
+
+.vehicle-slow {
+  background-color: #ff9800; /* Orange for slow */
+}
+
+.vehicle-medium {
+  background-color: #2196f3; /* Blue for medium */
+}
+
+.vehicle-fast {
+  background-color: #9c27b0; /* Purple for fast */
+  transform: scale(1.2);
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

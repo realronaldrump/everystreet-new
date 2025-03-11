@@ -3369,18 +3369,27 @@ async def active_trip_endpoint():
                 "status": "success",
                 "has_active_trip": False,
                 "message": "No active trip",
+                "server_time": datetime.now(timezone.utc).isoformat()
             }
 
         logger.info(
             "Returning active trip: %s", active_trip.get("transactionId", "unknown")
         )
-        return {"status": "success", "has_active_trip": True, "trip": active_trip}
+        return {
+            "status": "success",
+            "has_active_trip": True,
+            "trip": active_trip,
+            "server_time": datetime.now(timezone.utc).isoformat()
+        }
     except Exception as e:
-        logger.exception("Error in get_active_trip endpoint: %s", str(e))
+        error_id = str(uuid.uuid4())
+        logger.exception("Error in get_active_trip endpoint [%s]: %s", error_id, str(e))
         return {
             "status": "error",
             "has_active_trip": False,
             "message": f"Error retrieving active trip: {str(e)}",
+            "error_id": error_id,
+            "server_time": datetime.now(timezone.utc).isoformat()
         }
 
 
@@ -3397,6 +3406,34 @@ async def trip_updates_endpoint(last_sequence: int = 0):
     """
     try:
         logger.info("Fetching trip updates since sequence %d", last_sequence)
+        
+        # Validate input
+        if last_sequence < 0:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "status": "error",
+                    "has_update": False,
+                    "message": "Invalid sequence number: must be non-negative",
+                    "error_code": "INVALID_SEQUENCE",
+                    "server_time": datetime.now(timezone.utc).isoformat()
+                }
+            )
+            
+        # Check if database connection is healthy
+        if not db_manager._connection_healthy:
+            logger.error("Database connection is unhealthy")
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "error",
+                    "has_update": False,
+                    "message": "Database connection error",
+                    "error_code": "DB_CONNECTION_ERROR",
+                    "server_time": datetime.now(timezone.utc).isoformat()
+                }
+            )
+        
         updates = await get_trip_updates(last_sequence)
 
         if updates.get("has_update"):
@@ -3407,15 +3444,36 @@ async def trip_updates_endpoint(last_sequence: int = 0):
         else:
             logger.info("No trip updates found since sequence %d", last_sequence)
 
+        # Add server timestamp to response
+        updates["server_time"] = datetime.now(timezone.utc).isoformat()
         return updates
+        
     except Exception as e:
-        logger.exception("Error in trip_updates endpoint: %s", str(e))
-        return {
-            "status": "error",
-            "has_update": False,
-            "message": f"Error retrieving trip updates: {str(e)}",
-        }
-
+        error_id = str(uuid.uuid4())
+        logger.exception("Error in trip_updates endpoint [%s]: %s", error_id, str(e))
+        
+        # Categorize errors
+        error_message = str(e)
+        error_code = "INTERNAL_ERROR"
+        status_code = 500
+        
+        if "Cannot connect to database" in error_message or "ServerSelectionTimeoutError" in error_message:
+            error_code = "DB_CONNECTION_ERROR"
+            status_code = 503
+        elif "Memory" in error_message:
+            error_code = "MEMORY_ERROR"
+            
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "status": "error",
+                "has_update": False,
+                "message": f"Error retrieving trip updates: {error_message}",
+                "error_id": error_id,
+                "error_code": error_code,
+                "server_time": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
 # DATABASE MANAGEMENT ENDPOINTS
 

@@ -219,16 +219,25 @@ class LiveTripTracker {
         this.lastSequence = data.trip.sequence || this.lastSequence;
         this.updateStatus(true);
         this.hideError();
+
+        // Set adaptive polling based on new data
+        this.setAdaptivePollingInterval(data.trip, true);
       } else if (this.activeTrip && !data.has_update) {
         // No new updates for existing trip - keep current display
         console.log("No new updates for current trip");
         this.updateStatus(true);
+
+        // Adjust polling based on no new data
+        this.setAdaptivePollingInterval(this.activeTrip, false);
       } else if (!this.activeTrip && !data.has_update) {
         // No active trip at all
         console.log("No active trips found");
         this.clearActiveTrip();
         this.updateActiveTripsCount(0);
         this.updateStatus(true, "No active trips");
+
+        // Slow down polling when no trips
+        this.increasePollingInterval(1.2);
       }
     } else {
       console.error(`API error: ${data.message || "Unknown error"}`);
@@ -237,29 +246,92 @@ class LiveTripTracker {
   }
 
   /**
-   * Increase polling interval (slow down) with backoff
+   * Increase polling interval (slow down) with adaptive backoff
+   * @param {number} [factor=1.5] - Multiplication factor for increasing interval
    */
-  increasePollingInterval() {
+  increasePollingInterval(factor = 1.5) {
+    // Calculate new interval, but don't exceed max
+    const oldInterval = this.pollingInterval;
     this.pollingInterval = Math.min(
-      this.pollingInterval * 1.5,
+      this.pollingInterval * factor,
       this.maxPollingInterval
     );
-    console.log(
-      `LiveTripTracker: Increased polling interval to ${this.pollingInterval}ms`
-    );
+
+    // Only log if there's an actual change
+    if (this.pollingInterval !== oldInterval) {
+      console.log(
+        `LiveTripTracker: Increased polling interval to ${this.pollingInterval}ms`
+      );
+    }
+
+    // If we're at max interval and no active trip, consider showing a message
+    if (this.pollingInterval >= this.maxPollingInterval && !this.activeTrip) {
+      this.updateStatus(true, "Standby mode - waiting for trips");
+    }
   }
 
   /**
    * Decrease polling interval (speed up) for more responsive updates
+   * @param {number} [factor=0.7] - Multiplication factor for decreasing interval
+   * @param {boolean} [forceMinimum=false] - Whether to force minimum interval
    */
-  decreasePollingInterval() {
-    this.pollingInterval = Math.max(
-      this.pollingInterval * 0.8,
-      this.minPollingInterval
-    );
-    console.log(
-      `LiveTripTracker: Decreased polling interval to ${this.pollingInterval}ms`
-    );
+  decreasePollingInterval(factor = 0.7, forceMinimum = false) {
+    const oldInterval = this.pollingInterval;
+
+    if (forceMinimum) {
+      this.pollingInterval = this.minPollingInterval;
+    } else {
+      // More aggressive decrease when we have an active trip
+      this.pollingInterval = Math.max(
+        this.pollingInterval * factor,
+        this.activeTrip ? this.minPollingInterval : this.minPollingInterval * 2
+      );
+    }
+
+    // Only log if there's an actual change
+    if (this.pollingInterval !== oldInterval) {
+      console.log(
+        `LiveTripTracker: Decreased polling interval to ${this.pollingInterval}ms`
+      );
+    }
+
+    // Update status if we're in active mode
+    if (this.activeTrip) {
+      this.updateStatus(true, "Connected - tracking active");
+    }
+  }
+
+  /**
+   * Set adaptive polling interval based on trip status and activity
+   * @param {Object} trip - Current trip data
+   * @param {boolean} hasNewData - Whether we just received new data
+   */
+  setAdaptivePollingInterval(trip, hasNewData) {
+    if (!trip) {
+      // No active trip, slow polling
+      this.increasePollingInterval(1.2);
+      return;
+    }
+
+    // Check if vehicle is moving based on current speed
+    const isMoving = trip.currentSpeed > 2; // Over 2 mph considered moving
+
+    if (isMoving && hasNewData) {
+      // Moving vehicle with new data - fastest polling
+      this.decreasePollingInterval(0.5, true);
+    } else if (isMoving) {
+      // Moving but no new data - medium fast polling
+      this.decreasePollingInterval(0.8);
+    } else if (hasNewData) {
+      // Stationary but updating - medium polling
+      this.pollingInterval = Math.max(
+        this.minPollingInterval * 1.5,
+        Math.min(this.pollingInterval, this.maxPollingInterval / 2)
+      );
+    } else {
+      // Stationary with no updates - slower polling
+      this.increasePollingInterval(1.1);
+    }
   }
 
   /**
@@ -302,11 +374,15 @@ class LiveTripTracker {
   }
 
   /**
-   * Set active trip data and update map
+   * Set active trip data and update map with smooth transitions
    * @param {Object} trip - Trip data
    */
   setActiveTrip(trip) {
     if (!trip) return;
+
+    const isNewTrip =
+      !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
+    const previousTrip = this.activeTrip;
 
     // If trip is marked as completed, clear it from the map
     if (trip.status === "completed") {
@@ -328,23 +404,111 @@ class LiveTripTracker {
     const sortedCoords = [...trip.coordinates];
     sortedCoords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    // Update polyline path
+    // Create array of LatLng points
     const latLngs = sortedCoords.map((coord) => [coord.lat, coord.lon]);
-    this.polyline.setLatLngs(latLngs);
 
-    // Update marker position to latest point
+    // Get the last point for marker positioning
     const lastPoint = latLngs[latLngs.length - 1];
-    if (!this.map.hasLayer(this.marker)) {
-      this.marker.addTo(this.map);
+
+    // For new trips, reset the view and fit bounds
+    if (isNewTrip) {
+      console.log("New trip detected, resetting view");
+      this.polyline.setLatLngs(latLngs);
+
+      if (!this.map.hasLayer(this.marker)) {
+        this.marker.addTo(this.map);
+      }
+
+      this.marker.setLatLng(lastPoint);
+      this.marker.setOpacity(1);
+
+      // Set appropriate map view
+      if (latLngs.length > 1) {
+        try {
+          // Fit bounds with some padding
+          const bounds = L.latLngBounds(latLngs);
+          this.map.fitBounds(bounds, { padding: [50, 50] });
+        } catch (e) {
+          console.error("Error fitting bounds:", e);
+          // Fallback to center on last point
+          this.map.setView(lastPoint, 15);
+        }
+      } else {
+        // Just one point, center on it
+        this.map.setView(lastPoint, 15);
+      }
+    }
+    // For existing trips, smoothly update
+    else {
+      // Check if we have new coordinates
+      const prevCoords = this.polyline.getLatLngs();
+
+      if (latLngs.length > prevCoords.length) {
+        // Add new points to existing polyline
+        this.polyline.setLatLngs(latLngs);
+
+        // Smooth marker movement
+        if (prevCoords.length > 0) {
+          const prevLastPoint = prevCoords[prevCoords.length - 1];
+
+          // Only animate if points are different
+          if (
+            prevLastPoint[0] !== lastPoint[0] ||
+            prevLastPoint[1] !== lastPoint[1]
+          ) {
+            // Use Leaflet's built-in animation
+            this.marker.setLatLng(lastPoint);
+
+            // Pan map if auto-follow is enabled and point is near edge of view
+            if (localStorage.getItem("autoFollowVehicle") === "true") {
+              if (!this.map.getBounds().contains(lastPoint)) {
+                this.map.panTo(lastPoint);
+              }
+            }
+          }
+        } else {
+          // No previous points, just set marker position
+          this.marker.setLatLng(lastPoint);
+        }
+      }
     }
 
-    this.marker.setLatLng(lastPoint);
-    this.marker.setOpacity(1);
+    // Update marker icon based on speed
+    this.updateMarkerIcon(trip.currentSpeed);
+  }
 
-    // Pan to latest position if option is enabled
-    // This now depends on a user preference setting rather than automatic
-    if (localStorage.getItem("autoFollowVehicle") === "true") {
-      this.map.panTo(lastPoint);
+  /**
+   * Update marker icon based on vehicle speed
+   * @param {number} speed - Current speed in mph
+   */
+  updateMarkerIcon(speed) {
+    if (!this.marker) return;
+
+    // Define speed thresholds and corresponding icon classes
+    let iconClass = "vehicle-marker";
+
+    if (speed === 0) {
+      iconClass += " vehicle-stopped";
+    } else if (speed < 10) {
+      iconClass += " vehicle-slow";
+    } else if (speed < 35) {
+      iconClass += " vehicle-medium";
+    } else {
+      iconClass += " vehicle-fast";
+    }
+
+    // Only update if necessary
+    if (this.marker.options.icon.options.className !== iconClass) {
+      this.marker.setIcon(
+        L.divIcon({
+          className: iconClass,
+          iconSize: [12, 12],
+          iconAnchor: [6, 6],
+          html: `<div class="vehicle-marker-inner" data-speed="${Math.round(
+            speed
+          )}"></div>`,
+        })
+      );
     }
   }
 
@@ -451,102 +615,6 @@ class LiveTripTracker {
       </div>`
       )
       .join("");
-  }
-
-  /**
-   * Calculate total trip distance from coordinates
-   * @param {Array} coordinates - Array of coordinate objects
-   * @returns {number} - Distance in miles
-   */
-  calculateTripDistance(coordinates) {
-    if (!coordinates || coordinates.length < 2) return 0;
-
-    let totalDistance = 0;
-    for (let i = 1; i < coordinates.length; i++) {
-      const prev = coordinates[i - 1];
-      const curr = coordinates[i];
-      totalDistance += this.calculateDistance(
-        prev.lat,
-        prev.lon,
-        curr.lat,
-        curr.lon
-      );
-    }
-    return totalDistance;
-  }
-
-  /**
-   * Calculate distance between two points using Haversine formula
-   * @param {number} lat1 - Latitude of point 1
-   * @param {number} lon1 - Longitude of point 1
-   * @param {number} lat2 - Latitude of point 2
-   * @param {number} lon2 - Longitude of point 2
-   * @returns {number} - Distance in miles
-   */
-  calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 3959; // Earth's radius in miles
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  /**
-   * Calculate current speed from recent coordinates
-   * @param {Array} coordinates - Array of coordinate objects
-   * @returns {number} - Speed in mph
-   */
-  calculateCurrentSpeed(coordinates) {
-    if (!coordinates || coordinates.length < 2) return 0;
-
-    // Use last two points to calculate current speed
-    const last = coordinates[coordinates.length - 1];
-    const prev = coordinates[coordinates.length - 2];
-
-    const distance = this.calculateDistance(
-      prev.lat,
-      prev.lon,
-      last.lat,
-      last.lon
-    );
-
-    const timeDiff =
-      (new Date(last.timestamp) - new Date(prev.timestamp)) / 1000 / 3600;
-    return timeDiff > 0 ? distance / timeDiff : 0;
-  }
-
-  /**
-   * Calculate maximum speed from coordinates
-   * @param {Array} coordinates - Array of coordinate objects
-   * @returns {number} - Speed in mph
-   */
-  calculateMaxSpeed(coordinates) {
-    if (!coordinates || coordinates.length < 2) return 0;
-
-    let maxSpeed = 0;
-    for (let i = 1; i < coordinates.length; i++) {
-      const prev = coordinates[i - 1];
-      const curr = coordinates[i];
-
-      const distance = this.calculateDistance(
-        prev.lat,
-        prev.lon,
-        curr.lat,
-        curr.lon
-      );
-
-      const timeDiff =
-        (new Date(curr.timestamp) - new Date(prev.timestamp)) / 1000 / 3600;
-      const speed = timeDiff > 0 ? distance / timeDiff : 0;
-      maxSpeed = Math.max(maxSpeed, speed);
-    }
-    return maxSpeed;
   }
 
   /**

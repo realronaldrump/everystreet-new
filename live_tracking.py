@@ -150,7 +150,14 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
         data: The webhook payload
     """
     transaction_id = data.get("transactionId")
+    if not transaction_id:
+        logger.error("Missing transactionId in tripStart event")
+        return
+        
     start_time, _ = get_trip_timestamps(data)
+    if not start_time:
+        logger.error(f"Failed to extract start time from tripStart event for {transaction_id}")
+        start_time = datetime.now(timezone.utc)
 
     # Check if there's already an active trip for this transaction ID
     existing_trip = await live_trips_collection.find_one(
@@ -223,21 +230,50 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
     Process a tripData event from the Bouncie webhook using the TripProcessor
     """
     transaction_id = data.get("transactionId")
+    if not transaction_id:
+        logger.error("Missing transactionId in tripData event")
+        return
 
     # Get or create trip document
     trip_doc = await live_trips_collection.find_one(
         {"transactionId": transaction_id, "status": "active"}
     )
     if not trip_doc:
-        # If no active trip found, create one
+        # Check if a tripStart event was missed by looking for this transaction ID in archived trips
+        archived_trip = await archived_live_trips_collection.find_one(
+            {"transactionId": transaction_id}
+        )
+        if archived_trip:
+            logger.warning(f"Received data for archived trip: {transaction_id}, ignoring")
+            return
+            
+        # If no active trip found, create one but log a warning as this is unexpected
+        logger.warning(f"Received trip data for unknown trip: {transaction_id}, creating new trip")
         now = datetime.now(timezone.utc)
-        sequence = int(time.time() * 1000)  # Millisecond timestamp as sequence
+        
+        # Try to extract a better start time from the data
+        start_time = now
+        if "data" in data and data["data"]:
+            # Find the earliest timestamp in the data
+            timestamps = []
+            for point in data["data"]:
+                if "timestamp" in point:
+                    try:
+                        ts = datetime.fromisoformat(point["timestamp"].replace("Z", "+00:00"))
+                        timestamps.append(ts)
+                    except (ValueError, AttributeError):
+                        pass
+            if timestamps:
+                start_time = min(timestamps)
+                logger.info(f"Using earliest timestamp from data as start time: {start_time}")
 
+        sequence = int(time.time() * 1000)
+        
         await live_trips_collection.insert_one(
             {
                 "transactionId": transaction_id,
                 "status": "active",
-                "startTime": now,
+                "startTime": start_time,
                 "coordinates": [],
                 "lastUpdate": now,
                 "distance": 0,
@@ -245,6 +281,7 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
                 "maxSpeed": 0,
                 "avgSpeed": 0,
                 "sequence": sequence,
+                "created_from_data": True,  # Flag to indicate this was created from a data event
             }
         )
         trip_doc = await live_trips_collection.find_one(
@@ -320,8 +357,9 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
             duration_hours = duration_seconds / 3600
             avg_speed = total_distance / duration_hours if duration_hours > 0 else 0
 
-        # Generate a new sequence number for this update
-        sequence = int(time.time() * 1000)
+        # Get the current highest sequence number and increment it
+        highest_sequence = trip_doc.get("sequence", 0)
+        sequence = max(highest_sequence + 1, int(time.time() * 1000))
 
         # Update trip in database
         await live_trips_collection.update_one(
@@ -359,18 +397,59 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
         data: The webhook payload
     """
     transaction_id = data.get("transactionId")
+    if not transaction_id:
+        logger.error("Missing transactionId in tripEnd event")
+        return
+        
     _, end_time = get_trip_timestamps(data)
+    if not end_time:
+        logger.error(f"Failed to extract end time from tripEnd event for {transaction_id}")
+        end_time = datetime.now(timezone.utc)
 
     trip = await live_trips_collection.find_one({"transactionId": transaction_id})
     if trip:
-        trip["endTime"] = end_time
-        trip["status"] = "completed"
+        trip_id = trip["_id"]
+        start_time = trip.get("startTime")
+        
+        # Calculate trip metrics for logging
+        duration = (end_time - start_time).total_seconds() if start_time else 0
+        distance = trip.get("distance", 0)
+        avg_speed = trip.get("avgSpeed", 0)
+        max_speed = trip.get("maxSpeed", 0)
+        
+        logger.info(
+            f"Ending trip {transaction_id}: duration={duration:.1f}s, "
+            f"distance={distance:.2f}mi, avg_speed={avg_speed:.1f}mph, "
+            f"max_speed={max_speed:.1f}mph"
+        )
+        
+        # Remove _id field before archiving to avoid MongoDB error
+        trip_to_archive = trip.copy()
+        del trip_to_archive["_id"]
+        
+        # Update with end data
+        trip_to_archive["endTime"] = end_time
+        trip_to_archive["status"] = "completed"
+        trip_to_archive["closed_reason"] = "normal"
         # Set final sequence number before archiving
-        trip["sequence"] = int(time.time() * 1000)
+        trip_to_archive["sequence"] = int(time.time() * 1000)
 
-        await archived_live_trips_collection.insert_one(trip)
-        await live_trips_collection.delete_one({"_id": trip["_id"]})
-        logger.info("Trip ended: %s", transaction_id)
+        try:
+            # Archive the trip
+            archive_result = await archived_live_trips_collection.insert_one(trip_to_archive)
+            
+            # Only delete from live collection after successful archive
+            if archive_result.inserted_id:
+                delete_result = await live_trips_collection.delete_one({"_id": trip_id})
+                logger.info(
+                    f"Trip {transaction_id} successfully archived (deleted={delete_result.deleted_count})"
+                )
+            else:
+                logger.warning(f"Failed to archive trip {transaction_id}")
+        except Exception as e:
+            logger.exception(f"Error archiving trip {transaction_id}: {str(e)}")
+    else:
+        logger.warning(f"Received tripEnd event for unknown trip: {transaction_id}")
 
 
 async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
@@ -455,39 +534,74 @@ async def get_active_trip(since_sequence: Optional[int] = None) -> Dict[str, Any
     return None
 
 
-async def cleanup_stale_trips():
+async def cleanup_stale_trips(stale_minutes: int = 5, max_archive_age_days: int = 30):
     """
-    Cleanup trips that haven't been updated recently
+    Cleanup trips that haven't been updated recently and limit archived trips
+
+    Args:
+        stale_minutes: Number of minutes of inactivity to consider a trip stale
+        max_archive_age_days: Maximum age in days to keep archived trips
 
     Returns:
-        int: Number of trips cleaned up
+        Dict: Containing counts of stale trips moved and old archived trips removed
     """
     now = datetime.now(timezone.utc)
-    stale_threshold = now - timedelta(minutes=5)
+    stale_threshold = now - timedelta(minutes=stale_minutes)
+    archive_threshold = now - timedelta(days=max_archive_age_days)
     cleanup_count = 0
+    archive_cleanup_count = 0
 
-    while True:
-        trip = await live_trips_collection.find_one_and_delete(
-            {"lastUpdate": {"$lt": stale_threshold}, "status": "active"},
-            projection={"_id": False},
+    # Cleanup stale active trips
+    try:
+        # Instead of one at a time, find all stale trips in a single query
+        stale_trips = await live_trips_collection.find(
+            {"lastUpdate": {"$lt": stale_threshold}, "status": "active"}
+        ).to_list(length=100)  # Limit to avoid potential memory issues
+        
+        for trip in stale_trips:
+            trip_id = trip.get("_id")
+            transaction_id = trip.get("transactionId", "unknown")
+            
+            # Mark the trip as stale instead of active and prepare for archiving
+            trip["status"] = "completed"
+            trip["endTime"] = now
+            trip["closed_reason"] = "stale"
+
+            # Calculate final duration before archiving
+            if "startTime" in trip and isinstance(trip["startTime"], datetime):
+                duration_seconds = (now - trip["startTime"]).total_seconds()
+                trip["duration"] = duration_seconds
+
+            # Remove _id to avoid duplicate key issues
+            del trip["_id"]
+            
+            # Archive the trip
+            try:
+                await archived_live_trips_collection.insert_one(trip)
+                # Only delete from live collection after successful archive
+                await live_trips_collection.delete_one({"_id": trip_id})
+                cleanup_count += 1
+                logger.info(f"Archived stale trip: {transaction_id}")
+            except Exception as e:
+                logger.error(f"Error archiving stale trip {transaction_id}: {str(e)}")
+
+        # Also cleanup old archived trips
+        old_archive_result = await archived_live_trips_collection.delete_many(
+            {"endTime": {"$lt": archive_threshold}}
         )
-        if not trip:
-            break
-
-        # Mark the trip as stale instead of active
-        trip["status"] = "completed"
-        trip["endTime"] = now
-
-        # Calculate final duration before archiving
-        if "startTime" in trip and isinstance(trip["startTime"], datetime):
-            duration_seconds = (now - trip["startTime"]).total_seconds()
-            trip["duration"] = duration_seconds
-
-        await archived_live_trips_collection.insert_one(trip)
-        cleanup_count += 1
-
-    logger.info("Cleaned up %d stale trips", cleanup_count)
-    return cleanup_count
+        archive_cleanup_count = old_archive_result.deleted_count
+        
+        if archive_cleanup_count > 0:
+            logger.info(f"Deleted {archive_cleanup_count} old archived trips (older than {max_archive_age_days} days)")
+    
+    except Exception as e:
+        logger.exception(f"Error during stale trip cleanup: {str(e)}")
+    
+    logger.info(f"Cleaned up {cleanup_count} stale trips")
+    return {
+        "stale_trips_archived": cleanup_count,
+        "old_archives_removed": archive_cleanup_count
+    }
 
 
 async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
