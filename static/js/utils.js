@@ -583,7 +583,7 @@ class NotificationManager {
           notification.parentNode.removeChild(notification);
         }
         this.notifications = this.notifications.filter(
-          (n) => n !== notification
+          (n) => n !== notification,
         );
       }, 150);
     } else {
