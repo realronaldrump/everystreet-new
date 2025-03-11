@@ -279,12 +279,12 @@ async def get_background_tasks_config():
     try:
         config = await get_task_config()
         task_metadata = await get_all_task_metadata()
-        
+
         # Ensure all tasks are properly represented
         for task_id, task_def in task_metadata.items():
             if task_id not in config["tasks"]:
                 config["tasks"][task_id] = {}
-            
+
             task_config = config["tasks"][task_id]
             task_config["display_name"] = task_def["display_name"]
             task_config["description"] = task_def["description"]
@@ -293,16 +293,21 @@ async def get_background_tasks_config():
             task_config["interval_minutes"] = task_config.get(
                 "interval_minutes", task_def["default_interval_minutes"]
             )
-            
+
             # Format timestamp fields
-            for ts_field in ["last_run", "next_run", "start_time", "end_time", "last_updated"]:
+            for ts_field in [
+                "last_run",
+                "next_run",
+                "start_time",
+                "end_time",
+                    "last_updated"]:
                 if ts_field in task_config and task_config[ts_field]:
                     task_config[ts_field] = (
                         task_config[ts_field]
                         if isinstance(task_config[ts_field], str)
                         else task_config[ts_field].isoformat()
                     )
-        
+
         # Return the enhanced config
         return config
     except Exception as e:
@@ -315,10 +320,10 @@ async def update_background_tasks_config(request: Request):
     try:
         data = await request.json()
         result = await update_task_schedule(data)
-        
+
         if result["status"] == "error":
             raise HTTPException(status_code=500, detail=result["message"])
-            
+
         return {"status": "success", "message": "Configuration updated"}
     except Exception as e:
         logger.exception("Error updating task configuration.")
@@ -332,12 +337,12 @@ async def pause_background_tasks(request: Request):
         minutes = data.get("minutes", 30)
         config = await get_task_config()
         config["disabled"] = True
-        
+
         await update_task_schedule({"globalDisable": True})
-        
+
         # Cancel any running tasks - optional depending on your requirements
         # This is more complex with Celery, so we'll just update the config
-        
+
         return {
             "status": "success",
             "message": f"Background tasks paused for {minutes} minutes",
@@ -362,10 +367,10 @@ async def stop_all_background_tasks():
     try:
         # In Celery, we don't have a direct "stop all" but we can disable them
         await update_task_schedule({"globalDisable": True})
-        
+
         # More advanced: revoke all currently running tasks
         # This is optional and might not be needed
-        
+
         return {"status": "success", "message": "All background tasks stopped"}
     except Exception as e:
         logger.exception("Error stopping all tasks.")
@@ -377,10 +382,10 @@ async def enable_all_background_tasks():
     try:
         config = await get_task_config()
         tasks_update = {}
-        
+
         for task_id in TASK_METADATA:
             tasks_update[task_id] = {"enabled": True}
-            
+
         await update_task_schedule({"tasks": tasks_update})
         return {"status": "success", "message": "All background tasks enabled"}
     except Exception as e:
@@ -393,12 +398,14 @@ async def disable_all_background_tasks():
     try:
         config = await get_task_config()
         tasks_update = {}
-        
+
         for task_id in TASK_METADATA:
             tasks_update[task_id] = {"enabled": False}
-            
+
         await update_task_schedule({"tasks": tasks_update})
-        return {"status": "success", "message": "All background tasks disabled"}
+        return {
+            "status": "success",
+            "message": "All background tasks disabled"}
     except Exception as e:
         logger.exception("Error disabling all tasks.")
         raise HTTPException(status_code=500, detail=str(e))
@@ -409,12 +416,14 @@ async def manually_run_tasks(request: Request):
     try:
         data = await request.json()
         tasks_to_run = data.get("tasks", [])
-        
+
         if not tasks_to_run:
-            raise HTTPException(status_code=400, detail="No tasks specified to run")
-            
+            raise HTTPException(
+                status_code=400,
+                detail="No tasks specified to run")
+
         results = []
-        
+
         if "ALL" in tasks_to_run:
             result = await manual_run_task("ALL")
             if result["status"] == "success":
@@ -436,7 +445,7 @@ async def manually_run_tasks(request: Request):
                         "success": False,
                         "message": "Unknown task",
                     })
-                    
+
         return {
             "status": "success",
             "message": f"Triggered {len(results)} tasks",
@@ -451,12 +460,14 @@ async def manually_run_tasks(request: Request):
 async def get_task_details(task_id: str):
     try:
         if task_id not in TASK_METADATA:
-            raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
-            
+            raise HTTPException(
+                status_code=404,
+                detail=f"Task {task_id} not found")
+
         task_def = TASK_METADATA[task_id]
         config = await get_task_config()
         task_config = config.get("tasks", {}).get(task_id, {})
-        
+
         # Get recent history
         history_docs = await find_with_retry(
             task_history_collection,
@@ -464,7 +475,7 @@ async def get_task_details(task_id: str):
             sort=[("timestamp", -1)],
             limit=5,
         )
-        
+
         history = []
         for entry in history_docs:
             entry["_id"] = str(entry["_id"])
@@ -474,7 +485,7 @@ async def get_task_details(task_id: str):
                 "runtime": entry.get("runtime"),
                 "error": entry.get("error"),
             })
-            
+
         return {
             "id": task_id,
             "display_name": task_def["display_name"],
@@ -536,6 +547,7 @@ async def get_task_history(page: int = 1, limit: int = 10):
     except Exception as e:
         logger.exception("Error fetching task history.")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/background_tasks/history/clear")
 async def clear_task_history():
@@ -3652,10 +3664,10 @@ async def startup_event():
             await db_manager.safe_create_index(
                 "coverage_metadata", [("location", 1)], unique=True
             )
-            
+
             # Note: task_manager.start() removed since Celery workers
             # are managed separately in Railway services
-            
+
             logger.info("Application startup completed successfully")
         else:
             logger.warning(
