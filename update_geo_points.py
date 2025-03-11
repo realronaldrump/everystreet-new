@@ -92,15 +92,17 @@ async def update_geo_points(
                                     gps_data = json.loads(gps_data)
                                 except json.JSONDecodeError:
                                     logger.warning(
-                                        "Invalid JSON in 'gps' for document %s", doc.get(
-                                            "_id", "?"), )
+                                        "Invalid JSON in 'gps' for document %s",
+                                        doc.get("_id", "?"),
+                                    )
                                     continue
 
                             coords = gps_data.get("coordinates", [])
                             if len(coords) < 2:
                                 logger.debug(
-                                    "Skipping document %s: insufficient coordinates", doc.get(
-                                        "_id", "?"), )
+                                    "Skipping document %s: insufficient coordinates",
+                                    doc.get("_id", "?"),
+                                )
                                 continue
 
                             # Extract start and end coordinates
@@ -121,8 +123,7 @@ async def update_geo_points(
                                 }
 
                             if update_fields:
-                                update_fields["geoPointsUpdatedAt"] = datetime.utcnow(
-                                )
+                                update_fields["geoPointsUpdatedAt"] = datetime.utcnow()
                                 batch_updates.append(
                                     UpdateOne(
                                         {"_id": doc["_id"]}, {"$set": update_fields}
@@ -159,7 +160,8 @@ async def update_geo_points(
                             return modified
                         except Exception as e:
                             logger.error(
-                                "Error executing batch update: %s", e, exc_info=True)
+                                "Error executing batch update: %s", e, exc_info=True
+                            )
                             return 0
 
                     return 0
@@ -178,8 +180,7 @@ async def update_geo_points(
 
         # Use cursor with no_cursor_timeout and process in batches
         async def get_cursor():
-            return collection.find(
-                query, no_cursor_timeout=True).batch_size(batch_size)
+            return collection.find(query, no_cursor_timeout=True).batch_size(batch_size)
 
         cursor = await db_manager.execute_with_retry(
             get_cursor, operation_name=f"get cursor for {collection.name}"
@@ -193,10 +194,7 @@ async def update_geo_points(
 
                 if len(current_batch) >= batch_size:
                     batch_num += 1
-                    batch_tasks.append(
-                        process_batch(
-                            current_batch.copy(),
-                            batch_num))
+                    batch_tasks.append(process_batch(current_batch.copy(), batch_num))
                     current_batch = []
 
                     # If we have enough batch tasks, wait for some to complete
@@ -226,8 +224,9 @@ async def update_geo_points(
             await cursor.close()
 
     except Exception as e:
-        logger.error("Error iterating collection %s: %s",
-                     collection.name, e, exc_info=True)
+        logger.error(
+            "Error iterating collection %s: %s", collection.name, e, exc_info=True
+        )
 
     logger.info(
         "GeoPoint update for collection %s completed. Updated %d documents.",
@@ -238,8 +237,7 @@ async def update_geo_points(
     return updated_count
 
 
-async def update_geo_points_with_indexing(
-        collection: AsyncIOMotorCollection) -> int:
+async def update_geo_points_with_indexing(collection: AsyncIOMotorCollection) -> int:
     """
     Updates geo-points and creates geospatial indexes after completion.
 
@@ -268,10 +266,7 @@ async def update_geo_points_with_indexing(
 
         return updated_count
     except Exception as e:
-        logger.error(
-            "Error in update_geo_points_with_indexing: %s",
-            e,
-            exc_info=True)
+        logger.error("Error in update_geo_points_with_indexing: %s", e, exc_info=True)
         return 0
 
 
@@ -301,11 +296,7 @@ async def update_all_collections_geo_points() -> Dict[str, int]:
             results[name] = count
             logger.info("Updated %d documents in %s collection", count, name)
         except Exception as e:
-            logger.error(
-                "Error updating geo-points for %s: %s",
-                name,
-                e,
-                exc_info=True)
+            logger.error("Error updating geo-points for %s: %s", name, e, exc_info=True)
             results[name] = 0
 
     return results

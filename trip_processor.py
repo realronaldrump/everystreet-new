@@ -60,10 +60,7 @@ class TripProcessor:
     approach to track status.
     """
 
-    def __init__(
-            self,
-            mapbox_token: Optional[str] = None,
-            source: str = "api"):
+    def __init__(self, mapbox_token: Optional[str] = None, source: str = "api"):
         """
         Initialize the trip processor.
 
@@ -93,10 +90,7 @@ class TripProcessor:
         self.project_to_utm = None
         self.project_to_wgs84 = None
 
-    def _set_state(
-            self,
-            new_state: TripState,
-            error: Optional[str] = None) -> None:
+    def _set_state(self, new_state: TripState, error: Optional[str] = None) -> None:
         """
         Update the processing state and record it in history.
 
@@ -216,8 +210,7 @@ class TripProcessor:
                 try:
                     gps_data = json.loads(gps_data)
                 except json.JSONDecodeError:
-                    self._set_state(
-                        TripState.FAILED, "Invalid GPS data format")
+                    self._set_state(TripState.FAILED, "Invalid GPS data format")
                     return False
 
             if (
@@ -225,19 +218,19 @@ class TripProcessor:
                 or "type" not in gps_data
                 or "coordinates" not in gps_data
             ):
-                self._set_state(TripState.FAILED,
-                                "GPS data missing 'type' or 'coordinates'")
+                self._set_state(
+                    TripState.FAILED, "GPS data missing 'type' or 'coordinates'"
+                )
                 return False
 
             if not isinstance(gps_data["coordinates"], list):
-                self._set_state(
-                    TripState.FAILED,
-                    "GPS coordinates must be a list")
+                self._set_state(TripState.FAILED, "GPS coordinates must be a list")
                 return False
 
             if len(gps_data["coordinates"]) < 2:
-                self._set_state(TripState.FAILED,
-                                "GPS coordinates must have at least 2 points")
+                self._set_state(
+                    TripState.FAILED, "GPS coordinates must have at least 2 points"
+                )
                 return False
 
             # Copy validated data to processed data
@@ -295,8 +288,7 @@ class TripProcessor:
                     gps_data = json.loads(gps_data)
                     self.processed_data["gps"] = gps_data
                 except json.JSONDecodeError:
-                    self._set_state(
-                        TripState.FAILED, "Failed to parse GPS data")
+                    self._set_state(TripState.FAILED, "Failed to parse GPS data")
                     return False
 
             # Get coordinates
@@ -348,8 +340,7 @@ class TripProcessor:
             self._set_state(TripState.FAILED, f"Processing error: {str(e)}")
             return False
 
-    async def get_place_at_point(
-            self, point: Point) -> Optional[Dict[str, Any]]:
+    async def get_place_at_point(self, point: Point) -> Optional[Dict[str, Any]]:
         """
         Find a custom place that contains the given point.
 
@@ -407,8 +398,7 @@ class TripProcessor:
                 # First check for custom places
                 start_place = await self.get_place_at_point(start_pt)
                 if start_place:
-                    self.processed_data["startLocation"] = start_place.get(
-                        "name", "")
+                    self.processed_data["startLocation"] = start_place.get("name", "")
                     self.processed_data["startPlaceId"] = str(
                         start_place.get("_id", "")
                     )
@@ -427,8 +417,7 @@ class TripProcessor:
                 # First check for custom places
                 end_place = await self.get_place_at_point(end_pt)
                 if end_place:
-                    self.processed_data["destination"] = end_place.get(
-                        "name", "")
+                    self.processed_data["destination"] = end_place.get("name", "")
                     self.processed_data["destinationPlaceId"] = str(
                         end_place.get("_id", "")
                     )
@@ -480,8 +469,7 @@ class TripProcessor:
                 return False
 
             if not self.mapbox_token:
-                logger.warning(
-                    "No Mapbox token provided, skipping map matching")
+                logger.warning("No Mapbox token provided, skipping map matching")
                 return False
 
             # Get coordinates
@@ -491,18 +479,16 @@ class TripProcessor:
 
             coords = gps_data.get("coordinates", [])
             if len(coords) < 2:
-                self._set_state(TripState.FAILED,
-                                "Insufficient coordinates for map matching")
+                self._set_state(
+                    TripState.FAILED, "Insufficient coordinates for map matching"
+                )
                 return False
 
             # Perform map matching
             match_result = await self._map_match_coordinates(coords)
             if match_result.get("code") != "Ok":
-                error_msg = match_result.get(
-                    "message", "Unknown map matching error")
-                self._set_state(
-                    TripState.FAILED,
-                    f"Map matching failed: {error_msg}")
+                error_msg = match_result.get("message", "Unknown map matching error")
+                self._set_state(TripState.FAILED, f"Map matching failed: {error_msg}")
                 return False
 
             # Store matched result
@@ -634,16 +620,19 @@ class TripProcessor:
                         should_wait, wait_time = await self._check_rate_limit()
                         if should_wait:
                             logger.info(
-                                "Rate limit approaching - waiting %.2f seconds before API call", wait_time, )
+                                "Rate limit approaching - waiting %.2f seconds before API call",
+                                wait_time,
+                            )
                             await asyncio.sleep(wait_time)
 
                         try:
                             async with session.get(url, params=params) as response:
                                 if response.status == 429:
                                     logger.warning(
-                                        "Received 429 Too Many Requests. Attempt=%d", retry_attempt, )
-                                    retry_after = response.headers.get(
-                                        "Retry-After")
+                                        "Received 429 Too Many Requests. Attempt=%d",
+                                        retry_attempt,
+                                    )
+                                    retry_after = response.headers.get("Retry-After")
                                     wait_time = (
                                         float(retry_after)
                                         if retry_after is not None
@@ -661,7 +650,9 @@ class TripProcessor:
                                         continue
                                     else:
                                         logger.error(
-                                            "Gave up after %d attempts for 429 errors.", retry_attempt, )
+                                            "Gave up after %d attempts for 429 errors.",
+                                            retry_attempt,
+                                        )
                                         raise aiohttp.ClientResponseError(
                                             response.request_info,
                                             response.history,
@@ -691,7 +682,10 @@ class TripProcessor:
                                             2 ** (retry_attempt - 1)
                                         )
                                         logger.warning(
-                                            "Mapbox server error %d, retrying in %f seconds", response.status, wait_time, )
+                                            "Mapbox server error %d, retrying in %f seconds",
+                                            response.status,
+                                            wait_time,
+                                        )
                                         await asyncio.sleep(wait_time)
                                         continue
                                     else:
@@ -736,8 +730,7 @@ class TripProcessor:
 
                     # This should only be reached if all retry attempts failed
                     # but no exception was raised
-                    return {"code": "Error",
-                            "message": "All retry attempts failed"}
+                    return {"code": "Error", "message": "All retry attempts failed"}
 
             async def match_chunk(
                 chunk_coords: List[List[float]], depth: int = 0
@@ -745,8 +738,7 @@ class TripProcessor:
                 if len(chunk_coords) < 2:
                     return []
                 if len(chunk_coords) > 100:
-                    logger.error(
-                        "match_chunk received >100 coords unexpectedly.")
+                    logger.error("match_chunk received >100 coords unexpectedly.")
                     return []
                 try:
                     data = await call_mapbox_api(chunk_coords)
@@ -760,10 +752,10 @@ class TripProcessor:
                     # Special handling for invalid input
                     if "invalid coordinates" in msg.lower():
                         # Try to clean up coordinates
-                        filtered_coords = filter_invalid_coordinates(
-                            chunk_coords)
-                        if len(filtered_coords) >= 2 and len(
-                                filtered_coords) < len(chunk_coords):
+                        filtered_coords = filter_invalid_coordinates(chunk_coords)
+                        if len(filtered_coords) >= 2 and len(filtered_coords) < len(
+                            chunk_coords
+                        ):
                             logger.info(
                                 "Retrying with %d filtered coordinates",
                                 len(filtered_coords),
@@ -771,8 +763,7 @@ class TripProcessor:
                             return await match_chunk(filtered_coords, depth)
 
                 except Exception as exc:
-                    logger.warning(
-                        "Unexpected error in mapbox chunk: %s", str(exc))
+                    logger.warning("Unexpected error in mapbox chunk: %s", str(exc))
 
                 # Fallback to splitting if needed and allowed
                 if depth < max_retries and len(chunk_coords) > min_sub_chunk:
@@ -919,7 +910,9 @@ class TripProcessor:
                         fix_count += 1
                     else:
                         logger.info(
-                            "Local re-match for sub-segment around index %d failed, leaving as is", i, )
+                            "Local re-match for sub-segment around index %d failed, leaving as is",
+                            i,
+                        )
                 final_matched = new_coords
                 pass_count += 1
                 if fix_count == 0:
@@ -937,9 +930,7 @@ class TripProcessor:
                 ],
             }
 
-    async def save(
-            self,
-            map_match_result: Optional[bool] = None) -> Optional[str]:
+    async def save(self, map_match_result: Optional[bool] = None) -> Optional[str]:
         """
         Save the processed trip to the appropriate collection.
 
@@ -1018,8 +1009,7 @@ class TripProcessor:
                         operation_name=f"save_matched_trip_{transaction_id}",
                     )
                 except DuplicateKeyError:
-                    logger.info(
-                        f"Matched trip {transaction_id} already exists")
+                    logger.info(f"Matched trip {transaction_id} already exists")
 
             logger.info(f"Saved trip {transaction_id} successfully")
 
@@ -1087,11 +1077,9 @@ class TripProcessor:
 
         # Extract timestamps if not provided
         if not start_time and len(coords_data) > 0:
-            start_time = coords_data[0].get(
-                "timestamp", datetime.now(timezone.utc))
+            start_time = coords_data[0].get("timestamp", datetime.now(timezone.utc))
         if not end_time and len(coords_data) > 0:
-            end_time = coords_data[-1].get("timestamp",
-                                           datetime.now(timezone.utc))
+            end_time = coords_data[-1].get("timestamp", datetime.now(timezone.utc))
 
         # Generate transaction ID if not provided
         if not transaction_id:

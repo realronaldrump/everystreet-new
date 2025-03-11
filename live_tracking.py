@@ -85,10 +85,7 @@ async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
     serialized.setdefault("maxSpeed", 0)  # mph
     serialized.setdefault("avgSpeed", 0)  # mph
     serialized.setdefault("duration", 0)  # seconds
-    serialized.setdefault(
-        "pointsRecorded", len(
-            serialized.get(
-                "coordinates", [])))
+    serialized.setdefault("pointsRecorded", len(serialized.get("coordinates", [])))
 
     # Calculate formatted duration for display
     duration_seconds = serialized.get("duration", 0)
@@ -103,8 +100,7 @@ async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
             start_time = datetime.fromisoformat(
                 serialized["startTime"].replace("Z", "+00:00")
             )
-            serialized["startTimeFormatted"] = start_time.strftime(
-                "%Y-%m-%d %H:%M:%S")
+            serialized["startTimeFormatted"] = start_time.strftime("%Y-%m-%d %H:%M:%S")
         except (ValueError, AttributeError):
             serialized["startTimeFormatted"] = "Unknown"
 
@@ -117,11 +113,9 @@ async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
             for i in range(1, len(coordinates)):
                 prev = coordinates[i - 1]
                 curr = coordinates[i]
-                total_distance += haversine(prev["lon"],
-                                            prev["lat"],
-                                            curr["lon"],
-                                            curr["lat"],
-                                            unit="miles")
+                total_distance += haversine(
+                    prev["lon"], prev["lat"], curr["lon"], curr["lat"], unit="miles"
+                )
             serialized["distance"] = total_distance
 
             # Recalculate speeds if needed
@@ -135,8 +129,7 @@ async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
                     )
                     duration_hours = (last - start).total_seconds() / 3600
                     if duration_hours > 0:
-                        serialized["avgSpeed"] = total_distance / \
-                            duration_hours
+                        serialized["avgSpeed"] = total_distance / duration_hours
                 except (ValueError, AttributeError):
                     pass
 
@@ -219,8 +212,8 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
             )
         else:
             logger.warning(
-                "Trip inserted but not found on verification: %s",
-                transaction_id)
+                "Trip inserted but not found on verification: %s", transaction_id
+            )
     else:
         logger.error("Failed to insert trip: %s", transaction_id)
 
@@ -257,8 +250,7 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
         trip_doc = await live_trips_collection.find_one(
             {"transactionId": transaction_id, "status": "active"}
         )
-        logger.info(
-            f"Created new trip for existing trip data: {transaction_id}")
+        logger.info(f"Created new trip for existing trip data: {transaction_id}")
 
     # Process trip data
     if "data" in data:
@@ -398,10 +390,7 @@ async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
             return {"status": "success", "message": "Event processed"}
 
         transaction_id = data.get("transactionId")
-        if event_type in (
-            "tripStart",
-            "tripData",
-                "tripEnd") and not transaction_id:
+        if event_type in ("tripStart", "tripData", "tripEnd") and not transaction_id:
             logger.error("Missing transactionId for trip event")
             return {"status": "success", "message": "Event processed"}
 
@@ -419,8 +408,7 @@ async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
         return {"status": "success", "message": "Event processed with errors"}
 
 
-async def get_active_trip(
-        since_sequence: Optional[int] = None) -> Dict[str, Any]:
+async def get_active_trip(since_sequence: Optional[int] = None) -> Dict[str, Any]:
     """
     Get the currently active trip with optional filtering by sequence number
 

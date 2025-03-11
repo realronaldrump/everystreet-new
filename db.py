@@ -142,9 +142,8 @@ class DatabaseManager:
                     and attempts < max_attempts
                 ):
                     logger.warning(
-                        "Server error in %s: %s. Retrying...",
-                        operation_name,
-                        str(e))
+                        "Server error in %s: %s. Retrying...", operation_name, str(e)
+                    )
                     await asyncio.sleep(retry_delay)
                     retry_delay *= 2
                 else:
@@ -196,10 +195,7 @@ class DatabaseManager:
                 lambda: self.db[collection_name].create_index(keys, **kwargs),
                 operation_name=f"index creation on {collection_name}",
             )
-            logger.info(
-                "Index created on %s with keys %s",
-                collection_name,
-                keys)
+            logger.info("Index created on %s with keys %s", collection_name, keys)
         except OperationFailure as e:
             if "over your space quota" in str(e).lower():
                 self._quota_exceeded = True
@@ -342,11 +338,7 @@ async def find_with_retry(
     )
 
 
-async def update_one_with_retry(
-        collection,
-        filter_query,
-        update,
-        upsert=False):
+async def update_one_with_retry(collection, filter_query, update, upsert=False):
     """Execute update_one with retry logic."""
 
     async def _operation():
@@ -357,11 +349,7 @@ async def update_one_with_retry(
     )
 
 
-async def update_many_with_retry(
-        collection,
-        filter_query,
-        update,
-        upsert=False):
+async def update_many_with_retry(collection, filter_query, update, upsert=False):
     """Execute update_many with retry logic."""
 
     async def _operation():
@@ -427,11 +415,7 @@ async def aggregate_with_retry(collection, pipeline):
     )
 
 
-async def replace_one_with_retry(
-        collection,
-        filter_query,
-        replacement,
-        upsert=False):
+async def replace_one_with_retry(collection, filter_query, replacement, upsert=False):
     """Execute replace_one with retry logic."""
 
     async def _operation():
@@ -478,11 +462,7 @@ def parse_query_date(
             dt2 = datetime.strptime(date_str, "%Y-%m-%d")
             dt2 = dt2.replace(tzinfo=timezone.utc)
             if end_of_day:
-                dt2 = dt2.replace(
-                    hour=23,
-                    minute=59,
-                    second=59,
-                    microsecond=999999)
+                dt2 = dt2.replace(hour=23, minute=59, second=59, microsecond=999999)
             return dt2
         except ValueError:
             logger.warning(
