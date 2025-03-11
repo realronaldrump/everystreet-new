@@ -394,3 +394,31 @@ class LoadingManager {
 if (!window.loadingManager) {
   window.loadingManager = new LoadingManager();
 }
+
+/**
+ * Global function to show the loading overlay
+ * @param {string} [message="Loading..."] - Message to display in the overlay
+ */
+function showLoadingOverlay(message = "Loading...") {
+  if (window.loadingManager) {
+    window.loadingManager.startOperation("global", 100);
+    window.loadingManager._showOverlay(message);
+  } else {
+    console.warn("Loading manager not initialized");
+  }
+}
+
+/**
+ * Global function to hide the loading overlay
+ */
+function hideLoadingOverlay() {
+  if (window.loadingManager) {
+    window.loadingManager.finish();
+  } else {
+    console.warn("Loading manager not initialized");
+  }
+}
+
+// Make functions globally available
+window.showLoadingOverlay = showLoadingOverlay;
+window.hideLoadingOverlay = hideLoadingOverlay;
