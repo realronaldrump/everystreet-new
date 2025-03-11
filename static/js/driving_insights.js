@@ -4,11 +4,11 @@
 
 (() => {
   // Global chart variables
-  let tripCountsChart = null,
-    distanceChart = null,
-    fuelConsumptionChart = null;
-  let insightsTable;
+  let tripCountsChart = null;
+  let distanceChart = null;
+  let fuelConsumptionChart = null;
 
+  // Loading manager reference
   const loadingManager = window.loadingManager || {
     startOperation: () => {},
     finish: () => {},
@@ -30,7 +30,6 @@
     const tripCountsCtx = document
       .getElementById("tripCountsChart")
       ?.getContext("2d");
-
     if (tripCountsCtx) {
       tripCountsChart = new Chart(tripCountsCtx, {
         type: "line",
@@ -70,7 +69,6 @@
     const distanceCtx = document
       .getElementById("distanceChart")
       ?.getContext("2d");
-
     if (distanceCtx) {
       distanceChart = new Chart(distanceCtx, {
         type: "bar",
@@ -114,11 +112,10 @@
       });
     }
 
-    // Fuel Consumption Chart (Bar Chart)
+    // Fuel Consumption Chart (Doughnut Chart)
     const fuelConsumptionCtx = document
       .getElementById("fuelConsumptionChart")
       ?.getContext("2d");
-
     if (fuelConsumptionCtx) {
       fuelConsumptionChart = new Chart(fuelConsumptionCtx, {
         type: "doughnut",
@@ -182,33 +179,28 @@
         endDateEl._flatpickr.setDate(savedEndDate);
       } else {
         // Initialize date pickers if they don't exist yet
-        DateUtils.initDatePicker(startDateEl, {
-          defaultDate: savedStartDate,
-        });
-        DateUtils.initDatePicker(endDateEl, {
-          defaultDate: savedEndDate,
-        });
+        DateUtils.initDatePicker(startDateEl, { defaultDate: savedStartDate });
+        DateUtils.initDatePicker(endDateEl, { defaultDate: savedEndDate });
       }
     }
   }
 
   function initializeEventListeners() {
+    // Apply filters button
     document
       .getElementById("apply-filters")
       ?.addEventListener("click", fetchDrivingInsights);
 
-    // Add quick filter buttons listeners
-    document.getElementById("filter-7days")?.addEventListener("click", () => {
-      setDateRange(7);
-    });
-
-    document.getElementById("filter-30days")?.addEventListener("click", () => {
-      setDateRange(30);
-    });
-
-    document.getElementById("filter-90days")?.addEventListener("click", () => {
-      setDateRange(90);
-    });
+    // Quick filter buttons
+    document
+      .getElementById("filter-7days")
+      ?.addEventListener("click", () => setDateRange(7));
+    document
+      .getElementById("filter-30days")
+      ?.addEventListener("click", () => setDateRange(30));
+    document
+      .getElementById("filter-90days")
+      ?.addEventListener("click", () => setDateRange(90));
 
     // Listen for Modern UI filter changes
     document.addEventListener("filtersApplied", () => {
@@ -269,7 +261,7 @@
   }
 
   function updateDateInputs(startInput, endInput, startDate, endDate) {
-    // Update inputs using DateUtils helper method
+    // Update flatpickr instances if available, otherwise update input values
     if (startInput._flatpickr) {
       startInput._flatpickr.setDate(startDate);
     } else {
@@ -288,6 +280,7 @@
   }
 
   function getFilterParams() {
+    // Use stored date range or default to last 30 days
     const startDate =
       localStorage.getItem("startDate") ||
       DateUtils.formatDate(
@@ -295,6 +288,7 @@
       );
     const endDate =
       localStorage.getItem("endDate") || DateUtils.formatDate(new Date());
+
     return new URLSearchParams({ start_date: startDate, end_date: endDate });
   }
 
@@ -312,6 +306,7 @@
     loadingManager.startOperation("Loading Insights");
 
     try {
+      // Fetch both general data and analytics data in parallel
       const [generalData, analyticsData] = await Promise.all([
         fetch(`/api/driving-insights?${params}`).then((res) => {
           if (!res.ok) {
@@ -331,7 +326,7 @@
         }),
       ]);
 
-      // Update the UI
+      // Update the UI with the fetched data
       updateSummaryMetrics(generalData);
       updateTripCountsChart(analyticsData);
       updateDistanceChart(analyticsData.daily_distances);
@@ -355,11 +350,12 @@
       // Reset charts to empty state
       resetCharts();
     } finally {
-      loadingManager.finish();
+      loadingManager.finish("Loading Insights");
     }
   }
 
   function resetCharts() {
+    // Reset all charts to an empty state
     if (tripCountsChart) {
       tripCountsChart.data.datasets = [];
       tripCountsChart.update();
@@ -376,32 +372,27 @@
     }
 
     // Reset summary metrics
-    const totalTripsEl = document.getElementById("total-trips");
-    if (totalTripsEl) totalTripsEl.textContent = "0";
+    const metrics = {
+      "total-trips": "0",
+      "total-distance": "0 miles",
+      "total-fuel": "0 gallons",
+      "max-speed": "0 mph",
+      "total-idle": "0m 0s",
+      "longest-trip": "0 miles",
+      "most-visited": "-",
+    };
 
-    const totalDistanceEl = document.getElementById("total-distance");
-    if (totalDistanceEl) totalDistanceEl.textContent = "0 miles";
-
-    const totalFuelEl = document.getElementById("total-fuel");
-    if (totalFuelEl) totalFuelEl.textContent = "0 gallons";
-
-    const maxSpeedEl = document.getElementById("max-speed");
-    if (maxSpeedEl) maxSpeedEl.textContent = "0 mph";
-
-    const totalIdleEl = document.getElementById("total-idle");
-    if (totalIdleEl) totalIdleEl.textContent = "0m 0s";
-
-    const longestTripEl = document.getElementById("longest-trip");
-    if (longestTripEl) longestTripEl.textContent = "0 miles";
-
-    const mostVisitedEl = document.getElementById("most-visited");
-    if (mostVisitedEl) mostVisitedEl.textContent = "-";
+    Object.entries(metrics).forEach(([id, value]) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    });
   }
 
   //  CHART UPDATE FUNCTIONS
   function updateTripCountsChart(data) {
     if (!tripCountsChart || !data) return;
 
+    // Daily trips count chart
     tripCountsChart.data.datasets = [
       {
         label: "Daily Trips",
@@ -414,6 +405,7 @@
       {
         label: "7-Day Avg",
         data: data.daily_distances.map((d, i, arr) => {
+          // Calculate 7-day moving average
           const slice = arr.slice(Math.max(i - 6, 0), i + 1);
           const avg =
             slice.reduce((sum, entry) => sum + entry.count, 0) / slice.length;
@@ -432,6 +424,7 @@
   function updateDistanceChart(data) {
     if (!distanceChart || !Array.isArray(data)) return;
 
+    // Daily distance bar chart
     distanceChart.data.datasets = [
       {
         label: "Daily Distance (miles)",
@@ -449,59 +442,46 @@
   }
 
   function updateFuelChart(data) {
-    if (
-      fuelConsumptionChart &&
-      data &&
-      data.total_fuel_consumed !== undefined
-    ) {
-      const fuelConsumed = data.total_fuel_consumed || 0;
-      const distance = data.total_distance || 0;
+    if (!fuelConsumptionChart || !data) return;
 
-      // Calculate miles per gallon (MPG)
-      const mpg = fuelConsumed > 0 ? distance / fuelConsumed : 0;
+    const fuelConsumed = data.total_fuel_consumed || 0;
+    const distance = data.total_distance || 0;
 
-      fuelConsumptionChart.data.datasets[0].data = [fuelConsumed, mpg];
-      fuelConsumptionChart.update();
-    }
+    // Calculate miles per gallon (MPG)
+    const mpg = fuelConsumed > 0 ? distance / fuelConsumed : 0;
+
+    fuelConsumptionChart.data.datasets[0].data = [fuelConsumed, mpg];
+    fuelConsumptionChart.update();
   }
 
   function updateSummaryMetrics(data) {
-    const totalTripsEl = document.getElementById("total-trips");
-    const totalDistanceEl = document.getElementById("total-distance");
-    const totalFuelEl = document.getElementById("total-fuel");
-    const maxSpeedEl = document.getElementById("max-speed");
-    const totalIdleEl = document.getElementById("total-idle");
-    const longestTripEl = document.getElementById("longest-trip");
+    if (!data) return;
+
+    // Update DOM elements with summary metrics
+    const metrics = {
+      "total-trips": data.total_trips || 0,
+      "total-distance": `${(data.total_distance || 0).toFixed(2)} miles`,
+      "total-fuel": `${(data.total_fuel_consumed || 0).toFixed(2)} gallons`,
+      "max-speed": `${data.max_speed || 0} mph`,
+      "total-idle": formatIdleDuration(data.total_idle_duration || 0),
+      "longest-trip": `${(data.longest_trip_distance || 0).toFixed(2)} miles`,
+    };
+
+    // Update each metric element
+    Object.entries(metrics).forEach(([id, value]) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    });
+
+    // Handle "most visited" element specially due to complex formatting
     const mostVisitedEl = document.getElementById("most-visited");
-
-    if (totalTripsEl) totalTripsEl.textContent = data.total_trips || 0;
-    if (totalDistanceEl)
-      totalDistanceEl.textContent = `${(data.total_distance || 0).toFixed(
-        2
-      )} miles`;
-    if (totalFuelEl)
-      totalFuelEl.textContent = `${(data.total_fuel_consumed || 0).toFixed(
-        2
-      )} gallons`;
-    if (maxSpeedEl) maxSpeedEl.textContent = `${data.max_speed || 0} mph`;
-    if (totalIdleEl)
-      totalIdleEl.textContent = formatIdleDuration(
-        data.total_idle_duration || 0
-      );
-    if (longestTripEl)
-      longestTripEl.textContent = `${(data.longest_trip_distance || 0).toFixed(
-        2
-      )} miles`;
-
-    if (mostVisitedEl) {
-      if (data.most_visited?._id) {
-        const { _id, count, isCustomPlace } = data.most_visited;
-        mostVisitedEl.innerHTML = `${_id} ${
-          isCustomPlace ? '<span class="badge bg-primary">Custom</span>' : ""
-        } (${count} visits)`;
-      } else {
-        mostVisitedEl.textContent = "-";
-      }
+    if (mostVisitedEl && data.most_visited?._id) {
+      const { _id, count, isCustomPlace } = data.most_visited;
+      mostVisitedEl.innerHTML = `${_id} ${
+        isCustomPlace ? '<span class="badge bg-primary">Custom</span>' : ""
+      } (${count} visits)`;
+    } else if (mostVisitedEl) {
+      mostVisitedEl.textContent = "-";
     }
   }
 })();
