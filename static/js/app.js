@@ -91,7 +91,6 @@
   // ==============================
   // DOM Utility Functions
   // ==============================
-
   function getElement(selector, useCache = true, context = document) {
     if (useCache && AppState.dom[selector]) {
       return AppState.dom[selector];
@@ -131,16 +130,20 @@
   function addSingleEventListener(element, eventType, handler) {
     const el = typeof element === "string" ? getElement(element) : element;
     if (!el) return false;
+
     if (!el._eventHandlers) {
       el._eventHandlers = {};
     }
+
     const handlerFunction = handler.toString();
     const handlerKey = `${eventType}_${handlerFunction
       .substring(0, 50)
       .replace(/\s+/g, "")}`;
+
     if (el._eventHandlers[handlerKey]) {
       return false;
     }
+
     el.addEventListener(eventType, handler);
     el._eventHandlers[handlerKey] = handler;
     return true;
@@ -179,7 +182,6 @@
   // ==============================
   // Date & Filter Functions
   // ==============================
-
   function getStartDate() {
     const startDateInput =
       AppState.dom.startDateInput || getElement("start-date");
@@ -220,16 +222,21 @@
       console.warn("Invalid date values provided to updateDatePickersAndStore");
       return;
     }
-    if (AppState.dom.startDateInput?._flatpickr) {
-      AppState.dom.startDateInput._flatpickr.setDate(startDateString);
-    } else if (AppState.dom.startDateInput) {
-      AppState.dom.startDateInput.value = startDateString;
+
+    const { startDateInput, endDateInput } = AppState.dom;
+
+    if (startDateInput?._flatpickr) {
+      startDateInput._flatpickr.setDate(startDateString);
+    } else if (startDateInput) {
+      startDateInput.value = startDateString;
     }
-    if (AppState.dom.endDateInput?._flatpickr) {
-      AppState.dom.endDateInput._flatpickr.setDate(endDateString);
-    } else if (AppState.dom.endDateInput) {
-      AppState.dom.endDateInput.value = endDateString;
+
+    if (endDateInput?._flatpickr) {
+      endDateInput._flatpickr.setDate(endDateString);
+    } else if (endDateInput) {
+      endDateInput.value = endDateString;
     }
+
     setStorageItem(CONFIG.STORAGE_KEYS.startDate, startDateString);
     setStorageItem(CONFIG.STORAGE_KEYS.endDate, endDateString);
   }
@@ -237,7 +244,6 @@
   // ==============================
   // Trip Styling Functions
   // ==============================
-
   function getTripFeatureStyle(feature, layerInfo) {
     const { properties } = feature;
     const { transactionId, startTime } = properties;
@@ -277,6 +283,7 @@
       opacity = 0.8;
       className = "recent-trip";
     }
+
     return {
       color,
       weight,
@@ -288,6 +295,7 @@
 
   function refreshTripStyles() {
     if (!AppState.layerGroup) return;
+
     AppState.layerGroup.eachLayer((layer) => {
       if (layer.eachLayer) {
         layer.eachLayer((featureLayer) => {
@@ -314,7 +322,6 @@
   // ==============================
   // Map Initialization & Controls
   // ==============================
-
   function isMapReady() {
     return AppState.map && AppState.mapInitialized && AppState.layerGroup;
   }
@@ -326,6 +333,7 @@
         console.warn("Map container not found");
         return;
       }
+
       mapContainer.style.height = "500px";
       mapContainer.style.position = "relative";
 
@@ -344,6 +352,7 @@
           [90, 180],
         ],
       });
+
       window.map = AppState.map;
 
       L.tileLayer(tileUrl, {
@@ -365,6 +374,7 @@
         }
       });
 
+      // Map click event
       AppState.map.on("click", (e) => {
         if (AppState.selectedTripId && !e.originalEvent._stopped) {
           AppState.selectedTripId = null;
@@ -372,13 +382,16 @@
         }
       });
 
+      // Theme change event
       document.addEventListener("themeChanged", (e) => {
         const theme = e.detail?.theme || "dark";
         updateMapTheme(theme);
       });
 
+      // Initialize live tracker
       initializeLiveTracker();
 
+      // Center map on last position
       try {
         await centerMapOnLastPosition();
       } catch (error) {
@@ -398,23 +411,27 @@
 
   function updateMapTheme(theme) {
     if (!AppState.map) return;
+
     AppState.map.eachLayer((layer) => {
       if (layer instanceof L.TileLayer) {
         AppState.map.removeLayer(layer);
       }
     });
+
     const tileUrl =
       CONFIG.MAP.tileLayerUrls[theme] || CONFIG.MAP.tileLayerUrls.dark;
     L.tileLayer(tileUrl, {
       maxZoom: CONFIG.MAP.maxZoom,
       attribution: "",
     }).addTo(AppState.map);
+
     refreshTripStyles();
     AppState.map.invalidateSize();
   }
 
   function initializeLiveTracker() {
     if (!window.LiveTripTracker || !AppState.map) return;
+
     try {
       if (!window.liveTracker) {
         AppState.liveTracker = new window.LiveTripTracker(AppState.map);
@@ -431,6 +448,7 @@
       if (!response.ok) {
         throw new Error(`HTTP error ${response.status}`);
       }
+
       const data = await response.json();
       if (data.lastPoint && AppState.map) {
         AppState.map.flyTo([data.lastPoint[1], data.lastPoint[0]], 11, {
@@ -449,6 +467,7 @@
   function initializeLayerControls() {
     const layerToggles = getElement("layer-toggles");
     if (!layerToggles) return;
+
     layerToggles.innerHTML = "";
 
     Object.entries(AppState.mapLayers).forEach(([name, info]) => {
@@ -465,16 +484,19 @@
         </label>
         <label for="${name}-toggle">${displayName}</label>
       `;
+
       if (!["customPlaces"].includes(name)) {
         const colorControl = document.createElement("input");
         colorControl.type = "color";
         colorControl.id = `${name}-color`;
         colorControl.value = info.color;
         div.appendChild(colorControl);
+
         const opacityLabel = document.createElement("label");
         opacityLabel.setAttribute("for", `${name}-opacity`);
         opacityLabel.textContent = "Opacity:";
         div.appendChild(opacityLabel);
+
         const opacitySlider = document.createElement("input");
         opacitySlider.type = "range";
         opacitySlider.id = `${name}-opacity`;
@@ -484,6 +506,7 @@
         opacitySlider.value = info.opacity;
         div.appendChild(opacitySlider);
       }
+
       layerToggles.appendChild(div);
     });
 
@@ -514,12 +537,15 @@
   function toggleLayer(name, visible) {
     const layerInfo = AppState.mapLayers[name];
     if (!layerInfo) return;
+
     layerInfo.visible = visible;
+
     if (name === "customPlaces" && window.customPlaces) {
       window.customPlaces.toggleVisibility(visible);
     } else {
       debouncedUpdateMap();
     }
+
     updateLayerOrderUI();
     document.dispatchEvent(
       new CustomEvent("layerVisibilityChanged", {
@@ -531,6 +557,7 @@
   function changeLayerColor(name, color) {
     const layerInfo = AppState.mapLayers[name];
     if (!layerInfo) return;
+
     layerInfo.color = color;
     debouncedUpdateMap();
   }
@@ -538,6 +565,7 @@
   function changeLayerOpacity(name, opacity) {
     const layerInfo = AppState.mapLayers[name];
     if (!layerInfo) return;
+
     layerInfo.opacity = opacity;
     debouncedUpdateMap();
   }
@@ -545,13 +573,17 @@
   function updateLayerOrderUI() {
     const layerOrderEl = getElement("layer-order");
     if (!layerOrderEl) return;
+
     layerOrderEl.innerHTML = '<h4 class="h6">Layer Order</h4>';
+
     const visibleLayers = Object.entries(AppState.mapLayers)
       .filter(([, info]) => info.visible && info.layer)
       .sort(([, a], [, b]) => b.order - a.order);
+
     const ul = document.createElement("ul");
     ul.id = "layer-order-list";
     ul.className = "list-group bg-dark";
+
     visibleLayers.forEach(([name, info]) => {
       const li = document.createElement("li");
       li.textContent = info.name || name;
@@ -560,6 +592,7 @@
       li.className = "list-group-item bg-dark text-white";
       ul.appendChild(li);
     });
+
     layerOrderEl.appendChild(ul);
     initializeDragAndDrop();
   }
@@ -567,7 +600,9 @@
   function initializeDragAndDrop() {
     const list = getElement("layer-order-list");
     if (!list) return;
+
     let draggedItem = null;
+
     list.addEventListener("dragstart", (e) => {
       draggedItem = e.target;
       e.dataTransfer.effectAllowed = "move";
@@ -575,6 +610,7 @@
         draggedItem.classList.add("dragging");
       }, 0);
     });
+
     list.addEventListener("dragover", (e) => {
       e.preventDefault();
       const target = e.target.closest("li");
@@ -588,6 +624,7 @@
         }
       }
     });
+
     list.addEventListener("dragend", (e) => {
       e.target.classList.remove("dragging");
       updateLayerOrder();
@@ -597,21 +634,23 @@
   function updateLayerOrder() {
     const list = getElement("layer-order-list");
     if (!list) return;
+
     const items = Array.from(list.querySelectorAll("li"));
     const total = items.length;
+
     items.forEach((item, i) => {
       const layerName = item.dataset.layer;
       if (AppState.mapLayers[layerName]) {
         AppState.mapLayers[layerName].order = total - i;
       }
     });
+
     debouncedUpdateMap();
   }
 
   // ==============================
   // API Calls & Map Data
   // ==============================
-
   async function withLoading(
     operationId,
     totalWeight = 100,
@@ -624,6 +663,7 @@
       updateSubOperation: () => {},
       finish: () => {},
     };
+
     try {
       loadingManager.startOperation(operationId, totalWeight);
       Object.entries(subOperations).forEach(([name, weight]) => {
@@ -648,44 +688,55 @@
           "Processing Data": 30,
           "Displaying Data": 20,
         };
+
         Object.entries(subOps).forEach(([name, weight]) => {
           lm.addSubOperation(opId, name, weight);
         });
+
         const startDate = DateUtils.formatDate(
           getStorageItem(CONFIG.STORAGE_KEYS.startDate)
         );
         const endDate = DateUtils.formatDate(
           getStorageItem(CONFIG.STORAGE_KEYS.endDate)
         );
+
         if (!startDate || !endDate) {
           showNotification("Invalid date range for fetching trips.", "warning");
           console.warn("Invalid dates selected for fetching trips.");
           return;
         }
+
         if (AppState.dom.startDateInput) {
           AppState.dom.startDateInput.value = startDate;
         }
+
         if (AppState.dom.endDateInput) {
           AppState.dom.endDateInput.value = endDate;
         }
+
         lm.updateSubOperation(opId, "Fetching Data", 25);
         const params = new URLSearchParams({
           start_date: startDate,
           end_date: endDate,
         });
+
         const response = await fetch(`/api/trips?${params.toString()}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
+
         const geojson = await response.json();
         lm.updateSubOperation(opId, "Fetching Data", 50);
         lm.updateSubOperation(opId, "Processing Data", 15);
+
         await Promise.all([
           updateTripsTable(geojson),
           updateMapWithTrips(geojson),
         ]);
+
         lm.updateSubOperation(opId, "Processing Data", 30);
         lm.updateSubOperation(opId, "Displaying Data", 10);
+
         try {
           await fetchMatchedTrips();
         } catch (err) {
@@ -693,6 +744,7 @@
         } finally {
           lm.updateSubOperation(opId, "Displaying Data", 20);
         }
+
         document.dispatchEvent(
           new CustomEvent("tripsLoaded", {
             detail: { count: geojson.features.length },
@@ -704,15 +756,18 @@
 
   async function updateTripsTable(geojson) {
     if (!window.tripsTable) return;
+
     const formattedTrips = geojson.features.map((trip) => {
       const startTimeFormatted = DateUtils.formatForDisplay(
         trip.properties.startTime,
         { dateStyle: "short", timeStyle: "short" }
       );
+
       const endTimeFormatted = DateUtils.formatForDisplay(
         trip.properties.endTime,
         { dateStyle: "short", timeStyle: "short" }
       );
+
       return {
         ...trip.properties,
         gps: trip.geometry,
@@ -725,6 +780,7 @@
         distance: Number(trip.properties.distance).toFixed(2),
       };
     });
+
     return new Promise((resolve) => {
       window.tripsTable.clear().rows.add(formattedTrips).draw();
       setTimeout(resolve, 100);
@@ -749,19 +805,24 @@
     const endDate = DateUtils.formatDate(
       getStorageItem(CONFIG.STORAGE_KEYS.endDate)
     );
+
     if (!startDate || !endDate) {
       console.warn("Invalid date range for fetching matched trips");
       return;
     }
+
     const params = new URLSearchParams({
       start_date: startDate,
       end_date: endDate,
     });
+
     const url = `/api/matched_trips?${params.toString()}`;
     const response = await fetch(url);
+
     if (!response.ok) {
       throw new Error(`HTTP error fetching matched trips: ${response.status}`);
     }
+
     const geojson = await response.json();
     AppState.mapLayers.matchedTrips.layer = geojson;
   }
@@ -771,11 +832,15 @@
       console.warn("Map not ready for update. Operation deferred.");
       return;
     }
+
     AppState.layerGroup.clearLayers();
+
     const visibleLayers = Object.entries(AppState.mapLayers)
       .filter(([, info]) => info.visible && info.layer)
       .sort(([, a], [, b]) => a.order - b.order);
+
     const tripLayers = new Map();
+
     await Promise.all(
       visibleLayers.map(async ([name, info]) => {
         if (["customPlaces"].includes(name)) {
@@ -797,22 +862,28 @@
         }
       })
     );
+
     if (AppState.selectedTripId && tripLayers.has(AppState.selectedTripId)) {
       tripLayers.get(AppState.selectedTripId)?.bringToFront();
     }
+
     if (fitBounds) {
       fitMapBounds();
     }
+
     document.dispatchEvent(new CustomEvent("mapUpdated"));
   }
 
   function handleTripClick(e, feature, layer, info, name) {
     e.originalEvent._stopped = true;
     L.DomEvent.stopPropagation(e);
+
     const clickedId = feature.properties.transactionId;
     const wasSelected = AppState.selectedTripId === clickedId;
+
     AppState.selectedTripId = wasSelected ? null : clickedId;
     AppState.layerGroup.eachLayer((l) => l.closePopup && l.closePopup());
+
     if (!wasSelected) {
       const popupContent = createTripPopupContent(feature, name);
       layer
@@ -823,6 +894,7 @@
         })
         .openPopup(e.latlng);
     }
+
     refreshTripStyles();
     document.dispatchEvent(
       new CustomEvent("tripSelected", {
@@ -838,16 +910,18 @@
     const props = feature.properties;
     const isMatched = layerName === "matchedTrips";
 
-    let startTime = props.startTime;
-    let endTime = props.endTime;
+    // Get time values
+    const startTime = props.startTime;
+    const endTime = props.endTime;
 
-    // Convert to display format using DateUtils
+    // Format times for display
     const startTimeDisplay = startTime
       ? DateUtils.formatForDisplay(startTime, {
           dateStyle: "medium",
           timeStyle: "short",
         })
       : "Unknown";
+
     const endTimeDisplay = endTime
       ? DateUtils.formatForDisplay(endTime, {
           dateStyle: "medium",
@@ -860,7 +934,7 @@
       ? `${props.distance.toFixed(2)} mi`
       : "Unknown";
 
-    // Calculate duration if both start and end times are available
+    // Calculate duration
     let durationDisplay = "Unknown";
     if (startTime && endTime) {
       try {
@@ -881,11 +955,12 @@
     const maxSpeed = props.maxSpeed
       ? `${(props.maxSpeed * 0.621371).toFixed(1)} mph`
       : "Unknown";
+
     const avgSpeed = props.averageSpeed
       ? `${(props.averageSpeed * 0.621371).toFixed(1)} mph`
       : "Unknown";
 
-    // Create popup content with data
+    // Create popup content
     let html = `
       <div class="trip-popup">
         <h4>${isMatched ? "Matched Trip" : "Trip"}</h4>
@@ -949,7 +1024,7 @@
       `;
     }
 
-    // Only add driving behavior metrics if greater than 0
+    // Add driving behavior metrics if greater than 0
     if (props.hardBrakingCount > 0) {
       html += `
         <tr>
@@ -997,13 +1072,17 @@
   function setupPopupEventListeners(layer, feature) {
     const popupEl = layer.getPopup()?.getElement();
     if (!popupEl) return;
+
     const handlePopupClick = async (e) => {
       if (!e.target.closest("button")) return;
+
       e.stopPropagation();
       L.DomEvent.stopPropagation(e);
+
       const target = e.target.closest("button");
-      const tripId = target.dataset.tripId;
+      const tripId = target.closest(".trip-actions").dataset.tripId;
       if (!tripId) return;
+
       if (target.classList.contains("delete-matched-trip")) {
         e.preventDefault();
         await handleDeleteMatchedTrip(tripId, layer);
@@ -1015,31 +1094,37 @@
         await handleRematchTrip(tripId, layer, feature);
       }
     };
+
     popupEl.addEventListener("click", handlePopupClick);
+
     layer.on("popupclose", () => {
       popupEl.removeEventListener("click", handlePopupClick);
     });
   }
 
   async function handleDeleteMatchedTrip(tripId, layer) {
+    let confirmed = false;
+
     if (!window.confirmationDialog) {
-      if (!confirm("Are you sure you want to delete this matched trip?")) {
-        return;
-      }
+      confirmed = confirm("Are you sure you want to delete this matched trip?");
     } else {
-      const confirmed = await window.confirmationDialog.show({
+      confirmed = await window.confirmationDialog.show({
         title: "Delete Matched Trip",
         message: "Are you sure you want to delete this matched trip?",
         confirmText: "Delete",
         confirmButtonClass: "btn-danger",
       });
-      if (!confirmed) return;
     }
+
+    if (!confirmed) return;
+
     try {
       const res = await fetch(`/api/matched_trips/${tripId}`, {
         method: "DELETE",
       });
+
       if (!res.ok) throw new Error("Failed to delete matched trip");
+
       layer.closePopup();
       await fetchTrips();
       showNotification("Trip deleted", "success");
@@ -1050,6 +1135,7 @@
 
   async function handleDeleteTrip(tripId, layer) {
     let confirmed = false;
+
     if (!window.confirmationDialog) {
       confirmed = confirm(
         "Delete this trip? This will also delete its corresponding matched trip."
@@ -1063,17 +1149,22 @@
         confirmButtonClass: "btn-danger",
       });
     }
+
     if (!confirmed) return;
+
     try {
       const tripRes = await fetch(`/api/trips/${tripId}`, {
         method: "DELETE",
       });
+
       if (!tripRes.ok) throw new Error("Failed to delete trip");
+
       try {
         await fetch(`/api/matched_trips/${tripId}`, { method: "DELETE" });
       } catch (e) {
         console.warn("No matched trip found or failed to delete matched trip");
       }
+
       layer.closePopup();
       await fetchTrips();
       showNotification("Trip and its matched trip deleted", "success");
@@ -1084,6 +1175,7 @@
 
   async function handleRematchTrip(tripId, layer, feature) {
     let confirmed = false;
+
     if (!window.confirmationDialog) {
       confirmed = confirm(
         "Re-match this trip? This will delete the existing matched trip and create a new one."
@@ -1097,16 +1189,21 @@
         confirmButtonClass: "btn-warning",
       });
     }
+
     if (!confirmed) return;
+
     try {
       const deleteRes = await fetch(`/api/matched_trips/${tripId}`, {
         method: "DELETE",
       });
+
       if (!deleteRes.ok) {
         throw new Error("Failed to delete existing matched trip");
       }
+
       const startTime = DateUtils.formatDate(feature.properties.startTime);
       const endTime = DateUtils.formatDate(feature.properties.endTime);
+
       const rematchRes = await fetch("/api/map_match_trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1116,7 +1213,9 @@
           trip_id: tripId,
         }),
       });
+
       if (!rematchRes.ok) throw new Error("Failed to re-match trip");
+
       layer.closePopup();
       await fetchTrips();
       showNotification("Trip successfully re-matched", "success");
@@ -1127,15 +1226,19 @@
 
   function fitMapBounds() {
     if (!AppState.map) return;
+
     const bounds = L.latLngBounds();
     let validBounds = false;
+
     Object.values(AppState.mapLayers).forEach((info) => {
       if (!info.visible || !info.layer) return;
+
       try {
         const layerBounds =
           typeof info.layer.getBounds === "function"
             ? info.layer.getBounds()
             : L.geoJSON(info.layer).getBounds();
+
         if (layerBounds?.isValid()) {
           bounds.extend(layerBounds);
           validBounds = true;
@@ -1144,25 +1247,29 @@
         // ignore invalid bounds
       }
     });
+
     if (validBounds) AppState.map.fitBounds(bounds);
   }
 
   // ==============================
   // Map Matching & Metrics
   // ==============================
-
   async function mapMatchTrips() {
     const startDate = DateUtils.formatDate(getStartDate());
     const endDate = DateUtils.formatDate(getEndDate());
+
     if (!startDate || !endDate) {
       showNotification("Select valid start and end dates.", "warning");
       return;
     }
+
     const loadingManager = window.loadingManager || {
       startOperation: () => {},
       finish: () => {},
     };
+
     loadingManager.startOperation("MapMatching", 100);
+
     try {
       const response = await fetch("/api/map_match_trips", {
         method: "POST",
@@ -1176,14 +1283,14 @@
           errorData.message || `HTTP error! status: ${response.status}`
         );
       }
+
       const results = await response.json();
       showNotification("Map matching completed for selected trips.", "success");
       await fetchTrips();
+
       document.dispatchEvent(
         new CustomEvent("mapMatchingCompleted", {
-          detail: {
-            results,
-          },
+          detail: { results },
         })
       );
     } catch (err) {
@@ -1196,23 +1303,29 @@
   async function fetchTripsInRange() {
     const startDate = DateUtils.formatDate(getStartDate());
     const endDate = DateUtils.formatDate(getEndDate());
+
     if (!startDate || !endDate) {
       showNotification("Select valid start and end dates.", "warning");
       return;
     }
+
     if (window.loadingManager) {
       window.loadingManager.startOperation("FetchTripsRange", 100);
     }
+
     try {
       const response = await fetch("/api/fetch_trips_range", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ start_date: startDate, end_date: endDate }),
       });
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+
       const data = await response.json();
+
       if (data.status === "success") {
         showNotification(data.message, "success");
         await fetchTrips();
@@ -1232,15 +1345,20 @@
     const startDate = DateUtils.formatDate(getStartDate());
     const endDate = DateUtils.formatDate(getEndDate());
     const imei = getElement("imei")?.value || "";
+
     if (!startDate || !endDate) return;
+
     try {
       const response = await fetch(
         `/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`
       );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+
       const metrics = await response.json();
+
       const metricMap = {
         "total-trips": metrics.total_trips,
         "total-distance": metrics.total_distance,
@@ -1250,10 +1368,12 @@
         "avg-speed": `${metrics.avg_speed} mph`,
         "max-speed": `${metrics.max_speed} mph`,
       };
+
       for (const [id, value] of Object.entries(metricMap)) {
         const el = getElement(id, false);
         if (el) el.textContent = value;
       }
+
       document.dispatchEvent(
         new CustomEvent("metricsUpdated", {
           detail: { metrics },
@@ -1267,7 +1387,6 @@
   // ==============================
   // Event Listeners & Date Presets
   // ==============================
-
   function handleDatePresetClick() {
     const range = this.dataset.range;
     if (!range) return;
@@ -1277,12 +1396,13 @@
       startOperation: () => {},
       finish: () => {},
     };
+
     loadingManager.startOperation("DatePreset", 100);
 
-    // Use the unified DateUtils.getDateRangePreset for all presets including "all-time"
+    // Get date range based on preset
     DateUtils.getDateRangePreset(range)
       .then(({ startDate, endDate }) => {
-        // These are already formatted as strings from the getDateRangePreset function
+        // These are already formatted as strings
         if (startDate && endDate) {
           // Update date pickers directly with string values
           const startInput = getElement("#start-date");
@@ -1350,7 +1470,7 @@
       if (mapControls) {
         mapControls.classList.toggle("minimized");
 
-        // Animate the height transition for smoother UI
+        // Animate the height transition
         if (controlsContent) {
           const bootstrap = window.bootstrap || {};
           if (bootstrap.Collapse) {
@@ -1377,9 +1497,11 @@
     });
 
     addSingleEventListener("map-match-trips", "click", () => mapMatchTrips());
+
     document.querySelectorAll(".date-preset").forEach((btn) => {
       addSingleEventListener(btn, "click", handleDatePresetClick);
     });
+
     addSingleEventListener("highlight-recent-trips", "change", function () {
       AppState.mapSettings.highlightRecentTrips = this.checked;
       debouncedUpdateMap();
@@ -1425,7 +1547,7 @@
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
 
-    // Use DateUtils to initialize both date pickers with custom config
+    // Initialize date pickers
     const config = {
       maxDate: tomorrow,
       static: false,
@@ -1444,7 +1566,6 @@
       },
     };
 
-    // Initialize the date pickers
     AppState.dom.startDatePicker = DateUtils.initDatePicker(
       AppState.dom.startDateInput,
       config
@@ -1457,13 +1578,13 @@
     // Set initial values
     if (AppState.dom.startDatePicker) {
       AppState.dom.startDatePicker.setDate(storedStartDate);
-    } else {
+    } else if (AppState.dom.startDateInput) {
       AppState.dom.startDateInput.value = storedStartDate;
     }
 
     if (AppState.dom.endDatePicker) {
       AppState.dom.endDatePicker.setDate(storedEndDate);
-    } else {
+    } else if (AppState.dom.endDateInput) {
       AppState.dom.endDateInput.value = storedEndDate;
     }
   }
@@ -1485,7 +1606,7 @@
 
           initializeLayerControls();
 
-          // Fetch data after map is fully initialized
+          // Fetch data after map initialization
           return Promise.all([fetchTrips(), fetchMetrics()]);
         })
         .then((results) => {
@@ -1498,6 +1619,7 @@
         });
     }
   }
+
   document.addEventListener("DOMContentLoaded", initialize);
 
   window.addEventListener("beforeunload", () => {
@@ -1507,6 +1629,7 @@
     AppState.polling.active = false;
   });
 
+  // Export public API
   window.EveryStreet = window.EveryStreet || {};
   window.EveryStreet.App = {
     fetchTrips,
