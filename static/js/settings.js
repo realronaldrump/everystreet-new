@@ -14,8 +14,7 @@
           }
         },
       };
-      // Remove the websocket initialization
-      // this.ws = null;
+
       this.activeTasksMap = new Map();
       this.intervalOptions = [
         { value: 1, label: "1 minute" },
@@ -30,22 +29,28 @@
       this.currentHistoryPage = 1;
       this.historyLimit = 10;
       this.historyTotalPages = 1;
+      this.pollingInterval = null;
 
-      // Enhance polling to handle all updates
+      // Setup polling for regular updates
       this.setupPolling();
     }
 
     setupPolling() {
+      // Clear any existing interval
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+      }
+
       // Increase polling frequency for better responsiveness
-      setInterval(() => {
+      this.pollingInterval = setInterval(() => {
         this.loadTaskConfig();
         this.updateTaskHistory();
         // Check for active tasks status updates
         this.checkActiveTasksStatus();
-      }, 10000); // Poll every 10 seconds instead of 30 seconds
+      }, 5000); // Poll every 5 seconds for more responsive UI
     }
 
-    // Add a method to check status of active tasks
+    // Better task status checking with Celery API
     async checkActiveTasksStatus() {
       try {
         const activeTaskIds = Array.from(this.activeTasksMap.keys());
@@ -87,6 +92,10 @@
                 `Task ${taskId} ${currentStatus.toLowerCase()}`,
                 statusType
               );
+
+              // Also update UI for completed tasks
+              this.loadTaskConfig();
+              this.updateTaskHistory();
             }
           }
         }
@@ -95,7 +104,7 @@
       }
     }
 
-    // New function to check task status - for Celery integration
+    // Updated function to check task status with the Celery API
     async checkTaskStatus(taskId) {
       try {
         const response = await fetch(`/api/background_tasks/task/${taskId}`);
@@ -131,25 +140,50 @@
       }
     }
 
-    // New function to poll task status - for Celery integration
-    async pollTaskStatus(taskId, maxAttempts = 20, interval = 2000) {
+    // Improved polling with exponential backoff
+    async pollTaskStatus(taskId, maxAttempts = 30, initialInterval = 1000) {
       let attempts = 0;
+      let interval = initialInterval;
 
       const poll = async () => {
         attempts++;
-        const status = await this.checkTaskStatus(taskId); // Use this.checkTaskStatus
+        const status = await this.checkTaskStatus(taskId);
 
         if (status === "RUNNING" && attempts < maxAttempts) {
-          // Task still running, continue polling
+          // Task still running, continue polling with exponential backoff
+          interval = Math.min(interval * 1.5, 10000); // Cap at 10 seconds
           setTimeout(poll, interval);
-        } else {
-          // Task completed or failed, or we reached max attempts
-          this.updateTaskHistory(); // Use this.updateTaskHistory
+        } else if (status === "FAILED") {
+          // Task failed, show error notification
+          this.notifier.show(
+            "Task Error",
+            `Task ${taskId} failed to complete`,
+            "danger"
+          );
+          this.activeTasksMap.delete(taskId);
+          this.updateTaskHistory();
+        } else if (status === "COMPLETED") {
+          // Task completed successfully
+          this.notifier.show(
+            "Task Completed",
+            `Task ${taskId} completed successfully`,
+            "success"
+          );
+          this.activeTasksMap.delete(taskId);
+          this.updateTaskHistory();
+        } else if (attempts >= maxAttempts) {
+          // Reached max attempts, but still no completion
+          this.notifier.show(
+            "Task Timeout",
+            `Task ${taskId} is taking longer than expected`,
+            "warning"
+          );
+          // Keep in active tasks map to continue checking
         }
       };
 
       // Start polling
-      setTimeout(poll, interval);
+      setTimeout(poll, initialInterval);
     }
 
     handleTaskUpdate(data) {
@@ -208,9 +242,12 @@
       return statusColors[status] || "secondary";
     }
 
-    // Updated runTask function for Celery integration and polling
+    // Enhanced runTask function for Celery integration
     async runTask(taskId) {
       try {
+        // Show loading overlay while starting task
+        showLoadingOverlay();
+
         const response = await fetch("/api/background_tasks/manual_run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -222,6 +259,10 @@
         }
 
         const result = await response.json();
+
+        // Hide loading overlay
+        hideLoadingOverlay();
+
         if (result.status === "success") {
           this.activeTasksMap.set(taskId, "RUNNING");
           this.notifier.show(
@@ -230,6 +271,7 @@
             "info"
           );
 
+          // Update UI to show running status
           const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
           if (row) {
             const statusCell = row.querySelector(".task-status");
@@ -248,6 +290,7 @@
             // If we have multiple tasks, poll each one
             for (const taskResult of result.results) {
               if (taskResult.success && taskResult.task) {
+                this.activeTasksMap.set(taskResult.task, "RUNNING");
                 this.pollTaskStatus(taskResult.task);
               }
             }
@@ -262,59 +305,13 @@
         }
       } catch (error) {
         console.error(`Error running task ${taskId}:`, error);
+        hideLoadingOverlay();
         this.notifier.show(
           "Error",
           `Failed to start task ${taskId}: ${error.message}`,
           "danger"
         );
         return false;
-      }
-    }
-
-    async runSingleTask(taskId) {
-      // Keep this function as it is, it's called by runTask("ALL")
-      try {
-        const response = await fetch("/api/background_tasks/manual_run", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tasks: [taskId] }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to start task");
-        }
-
-        const result = await response.json();
-        if (result.status === "success") {
-          this.activeTasksMap.set(taskId, "RUNNING");
-          this.notifier.show(
-            "Task Started",
-            `Task ${taskId} has been started`,
-            "info"
-          );
-
-          const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
-          if (row) {
-            const statusCell = row.querySelector(".task-status");
-            if (statusCell) {
-              statusCell.innerHTML = this.getStatusHTML("RUNNING");
-            }
-
-            const runButton = row.querySelector(".run-now-btn");
-            if (runButton) {
-              runButton.disabled = true;
-            }
-          }
-        } else {
-          throw new Error(result.message || "Failed to start task");
-        }
-      } catch (error) {
-        console.error(`Error running task ${taskId}:`, error);
-        this.notifier.show(
-          "Error",
-          `Failed to start task ${taskId}: ${error.message}`,
-          "danger"
-        );
       }
     }
 
@@ -353,8 +350,16 @@
         const row = document.createElement("tr");
         row.dataset.taskId = taskId;
 
+        // Skip if task has no display_name (likely not a proper task)
+        if (!task.display_name) return;
+
         row.innerHTML = `
-            <td>${task.display_name || taskId}</td>
+            <td>
+              <span class="task-name-display">${
+                task.display_name || taskId
+              }</span>
+              <span class="text-muted small d-block">${taskId}</span>
+            </td>
             <td>
               <select class="form-select form-select-sm" data-task-id="${taskId}">
                 ${this.intervalOptions
@@ -392,10 +397,12 @@
             <td>
               <div class="btn-group btn-group-sm">
                 <button class="btn btn-info run-now-btn" data-task-id="${taskId}"
-                  ${task.status === "RUNNING" ? "disabled" : ""}>
+                  ${task.status === "RUNNING" ? "disabled" : ""} 
+                  title="Run task now">
                   <i class="fas fa-play"></i>
                 </button>
-                <button class="btn btn-primary view-details-btn" data-task-id="${taskId}">
+                <button class="btn btn-primary view-details-btn" data-task-id="${taskId}"
+                  title="View task details">
                   <i class="fas fa-info-circle"></i>
                 </button>
               </div>
@@ -484,6 +491,51 @@
           `;
         tbody.appendChild(row);
       });
+
+      // Add event listeners for error buttons
+      const errorButtons = tbody.querySelectorAll(".view-error-btn");
+      errorButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const errorMessage = btn.dataset.error;
+          this.showErrorModal(errorMessage);
+        });
+      });
+    }
+
+    showErrorModal(errorMessage) {
+      // Create modal if it doesn't exist
+      let modal = document.getElementById("errorModal");
+      if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "errorModal";
+        modal.className = "modal fade";
+        modal.setAttribute("tabindex", "-1");
+        modal.innerHTML = `
+          <div class="modal-dialog">
+            <div class="modal-content bg-dark text-white">
+              <div class="modal-header">
+                <h5 class="modal-title">Task Error Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <pre class="error-details p-3 bg-dark text-danger border border-danger rounded" style="white-space: pre-wrap;"></pre>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              </div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      }
+
+      // Set error content
+      const errorContent = modal.querySelector(".error-details");
+      errorContent.textContent = errorMessage;
+
+      // Show modal
+      const bsModal = new bootstrap.Modal(modal);
+      bsModal.show();
     }
 
     updateHistoryPagination() {
@@ -550,7 +602,11 @@
 
     formatDateTime(date) {
       if (!date) return "";
-      return new Date(date).toLocaleString();
+      try {
+        return new Date(date).toLocaleString();
+      } catch (e) {
+        return date;
+      }
     }
 
     formatDuration(ms) {
@@ -583,28 +639,42 @@
     }
 
     async submitTaskConfigUpdate(config) {
-      const response = await fetch("/api/background_tasks/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
-      });
+      // Show loading overlay while saving config
+      showLoadingOverlay();
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || "Error updating config");
+      try {
+        const response = await fetch("/api/background_tasks/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(config),
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.message || "Error updating config");
+        }
+
+        hideLoadingOverlay();
+        return response.json();
+      } catch (error) {
+        hideLoadingOverlay();
+        throw error;
       }
-
-      return response.json();
     }
 
     async showTaskDetails(taskId) {
       try {
-        const response = await fetch("/api/background_tasks/config");
-        if (!response.ok) throw new Error("Failed to fetch task configuration");
-        const config = await response.json();
+        // Show loading overlay while fetching details
+        showLoadingOverlay();
 
-        const taskDetails = config.tasks[taskId];
-        if (!taskDetails) throw new Error("Task not found");
+        // First get the task metadata
+        const taskResponse = await fetch(
+          `/api/background_tasks/task/${taskId}`
+        );
+        if (!taskResponse.ok) throw new Error("Failed to fetch task details");
+        const taskDetails = await taskResponse.json();
+
+        hideLoadingOverlay();
 
         const modal = document.getElementById("taskDetailsModal");
         const content = modal.querySelector(".task-details-content");
@@ -618,6 +688,10 @@
             <div class="mb-3">
               <h6>Display Name</h6>
               <p>${taskDetails.display_name || taskId}</p>
+            </div>
+            <div class="mb-3">
+              <h6>Description</h6>
+              <p>${taskDetails.description || "No description available"}</p>
             </div>
             <div class="mb-3">
               <h6>Status</h6>
@@ -655,6 +729,51 @@
               <h6>Enabled</h6>
               <p>${taskDetails.enabled ? "Yes" : "No"}</p>
             </div>
+            ${
+              taskDetails.last_error
+                ? `
+            <div class="mb-3">
+              <h6>Last Error</h6>
+              <pre class="bg-dark text-danger p-2 rounded">${taskDetails.last_error}</pre>
+            </div>`
+                : ""
+            }
+            ${
+              taskDetails.history && taskDetails.history.length > 0
+                ? `
+            <div class="mb-3">
+              <h6>Recent History</h6>
+              <table class="table table-dark table-sm">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Runtime</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${taskDetails.history
+                    .map(
+                      (entry) => `
+                    <tr>
+                      <td>${this.formatDateTime(entry.timestamp)}</td>
+                      <td><span class="badge bg-${this.getStatusColor(
+                        entry.status
+                      )}">${entry.status}</span></td>
+                      <td>${
+                        entry.runtime
+                          ? this.formatDuration(entry.runtime)
+                          : "N/A"
+                      }</td>
+                    </tr>
+                  `
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>`
+                : ""
+            }
           `;
 
         runBtn.dataset.taskId = taskId;
@@ -663,6 +782,7 @@
         const bsModal = new bootstrap.Modal(modal);
         bsModal.show();
       } catch (error) {
+        hideLoadingOverlay();
         console.error("Error fetching task details:", error);
         this.notifier.show(
           "Error",
@@ -674,6 +794,9 @@
 
     async clearTaskHistory() {
       try {
+        // Show loading overlay
+        showLoadingOverlay();
+
         const response = await fetch("/api/background_tasks/history/clear", {
           method: "POST",
         });
@@ -681,6 +804,8 @@
         if (!response.ok) {
           throw new Error("Failed to clear task history");
         }
+
+        hideLoadingOverlay();
 
         const tbody = document.querySelector("#taskHistoryTable tbody");
         if (tbody) {
@@ -705,6 +830,7 @@
           "success"
         );
       } catch (error) {
+        hideLoadingOverlay();
         console.error("Error clearing task history:", error);
         this.notifier.show(
           "Error",
@@ -713,7 +839,18 @@
         );
       }
     }
+
+    // Clean up resources when page is unloaded
+    cleanup() {
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+        this.pollingInterval = null;
+      }
+    }
   }
+
+  // Make taskManager accessible globally
+  window.taskManager = null;
 
   document.addEventListener("DOMContentLoaded", () => {
     window.taskManager = new TaskManager();
@@ -723,7 +860,15 @@
     setupRegeocode();
     setupRemapMatchedTrips();
 
+    // Initial loading of task configuration
     taskManager.loadTaskConfig();
+
+    // Cleanup on page unload
+    window.addEventListener("beforeunload", () => {
+      if (window.taskManager) {
+        window.taskManager.cleanup();
+      }
+    });
   });
 
   function setupTaskConfigEventListeners() {
@@ -766,29 +911,29 @@
           10
         );
         try {
+          showLoadingOverlay();
           const response = await fetch("/api/background_tasks/pause", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ minutes: mins }),
           });
+
+          hideLoadingOverlay();
+
           if (!response.ok) throw new Error("Failed to pause tasks");
 
           bootstrap.Modal.getInstance(
             document.getElementById("pauseModal")
           ).hide();
           window.notificationManager.show(
-            "Success",
             `Tasks paused for ${mins} minutes`,
             "success"
           );
           taskManager.loadTaskConfig();
         } catch (error) {
+          hideLoadingOverlay();
           console.error("Error pausing tasks:", error);
-          window.notificationManager.show(
-            "Error",
-            "Failed to pause tasks",
-            "danger"
-          );
+          window.notificationManager.show("Failed to pause tasks", "danger");
         }
       });
     }
@@ -796,24 +941,21 @@
     if (resumeBtn) {
       resumeBtn.addEventListener("click", async () => {
         try {
+          showLoadingOverlay();
           const response = await fetch("/api/background_tasks/resume", {
             method: "POST",
           });
+
+          hideLoadingOverlay();
+
           if (!response.ok) throw new Error("Failed to resume tasks");
 
-          window.notificationManager.show(
-            "Success",
-            "Tasks resumed",
-            "success"
-          );
+          window.notificationManager.show("Tasks resumed", "success");
           taskManager.loadTaskConfig();
         } catch (error) {
+          hideLoadingOverlay();
           console.error("Error resuming tasks:", error);
-          window.notificationManager.show(
-            "Error",
-            "Failed to resume tasks",
-            "danger"
-          );
+          window.notificationManager.show("Failed to resume tasks", "danger");
         }
       });
     }
@@ -821,24 +963,21 @@
     if (stopAllBtn) {
       stopAllBtn.addEventListener("click", async () => {
         try {
+          showLoadingOverlay();
           const response = await fetch("/api/background_tasks/stop_all", {
             method: "POST",
           });
+
+          hideLoadingOverlay();
+
           if (!response.ok) throw new Error("Failed to stop tasks");
 
-          window.notificationManager.show(
-            "Success",
-            "All tasks stopped",
-            "success"
-          );
+          window.notificationManager.show("All tasks stopped", "success");
           taskManager.loadTaskConfig();
         } catch (error) {
+          hideLoadingOverlay();
           console.error("Error stopping tasks:", error);
-          window.notificationManager.show(
-            "Error",
-            "Failed to stop tasks",
-            "danger"
-          );
+          window.notificationManager.show("Failed to stop tasks", "danger");
         }
       });
     }
@@ -846,24 +985,21 @@
     if (enableAllBtn) {
       enableAllBtn.addEventListener("click", async () => {
         try {
+          showLoadingOverlay();
           const response = await fetch("/api/background_tasks/enable", {
             method: "POST",
           });
+
+          hideLoadingOverlay();
+
           if (!response.ok) throw new Error("Failed to enable all tasks");
 
-          window.notificationManager.show(
-            "Success",
-            "All tasks enabled",
-            "success"
-          );
+          window.notificationManager.show("All tasks enabled", "success");
           taskManager.loadTaskConfig();
         } catch (error) {
+          hideLoadingOverlay();
           console.error("Error enabling tasks:", error);
-          window.notificationManager.show(
-            "Error",
-            "Failed to enable tasks",
-            "danger"
-          );
+          window.notificationManager.show("Failed to enable tasks", "danger");
         }
       });
     }
@@ -871,24 +1007,21 @@
     if (disableAllBtn) {
       disableAllBtn.addEventListener("click", async () => {
         try {
+          showLoadingOverlay();
           const response = await fetch("/api/background_tasks/disable", {
             method: "POST",
           });
+
+          hideLoadingOverlay();
+
           if (!response.ok) throw new Error("Failed to disable all tasks");
 
-          window.notificationManager.show(
-            "Success",
-            "All tasks disabled",
-            "success"
-          );
+          window.notificationManager.show("All tasks disabled", "success");
           taskManager.loadTaskConfig();
         } catch (error) {
+          hideLoadingOverlay();
           console.error("Error disabling tasks:", error);
-          window.notificationManager.show(
-            "Error",
-            "Failed to disable tasks",
-            "danger"
-          );
+          window.notificationManager.show("Failed to disable tasks", "danger");
         }
       });
     }
@@ -905,15 +1038,10 @@
         taskManager
           .submitTaskConfigUpdate(config)
           .then(() =>
-            window.notificationManager.show(
-              "Success",
-              "Global disable toggled",
-              "success"
-            )
+            window.notificationManager.show("Global disable toggled", "success")
           )
           .catch(() =>
             window.notificationManager.show(
-              "Error",
               "Failed to toggle global disable",
               "danger"
             )
@@ -980,23 +1108,24 @@
         "Updating...";
 
       try {
+        showLoadingOverlay();
         const response = await fetch("/update_geo_points", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ collection }),
         });
+
+        hideLoadingOverlay();
+
         const data = await response.json();
 
         document.getElementById("update-geo-points-status").textContent =
           data.message;
-        window.notificationManager.show("Success", data.message, "success");
+        window.notificationManager.show(data.message, "success");
       } catch (err) {
+        hideLoadingOverlay();
         console.error("Error updating GeoPoints:", err);
-        window.notificationManager.show(
-          "Error",
-          "Failed to update GeoPoints",
-          "danger"
-        );
+        window.notificationManager.show("Failed to update GeoPoints", "danger");
       }
     });
   }
@@ -1010,23 +1139,24 @@
         "Re-geocoding all trips...";
 
       try {
+        showLoadingOverlay();
         const response = await fetch("/api/regeocode_all_trips", {
           method: "POST",
         });
+
+        hideLoadingOverlay();
+
         const data = await response.json();
 
         document.getElementById("re-geocode-all-trips-status").textContent =
           "All trips have been re-geocoded.";
-        window.notificationManager.show("Success", data.message, "success");
+        window.notificationManager.show(data.message, "success");
       } catch (err) {
+        hideLoadingOverlay();
         console.error("Error re-geocoding trips:", err);
         document.getElementById("re-geocode-all-trips-status").textContent =
           "Error re-geocoding trips. See console.";
-        window.notificationManager.show(
-          "Error",
-          "Failed to re-geocode trips",
-          "danger"
-        );
+        window.notificationManager.show("Failed to re-geocode trips", "danger");
       }
     });
   }
@@ -1056,7 +1186,6 @@
         end_date = document.getElementById("remap-end").value;
         if (!start_date || !end_date) {
           window.notificationManager.show(
-            "Error",
             "Please select both start and end dates",
             "danger"
           );
@@ -1074,28 +1203,41 @@
       }
 
       try {
+        // Show loading as this can take time
+        showLoadingOverlay();
+        document.getElementById("remap-status").textContent =
+          "Remapping trips...";
+
         const response = await fetch("/api/matched_trips/remap", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ start_date, end_date, interval_days }),
         });
+
+        hideLoadingOverlay();
+
         const data = await response.json();
 
         document.getElementById("remap-status").textContent = data.message;
-        window.notificationManager.show("Success", data.message, "success");
+        window.notificationManager.show(data.message, "success");
       } catch (error) {
+        hideLoadingOverlay();
         console.error("Error re-matching trips:", error);
         document.getElementById("remap-status").textContent =
           "Error re-matching trips.";
-        window.notificationManager.show(
-          "Error",
-          "Failed to re-match trips",
-          "danger"
-        );
+        window.notificationManager.show("Failed to re-match trips", "danger");
       }
     });
 
     // Use the central DateUtils function
-    DateUtils.initDatePicker(".datepicker");
+    if (window.DateUtils && window.DateUtils.initDatePicker) {
+      window.DateUtils.initDatePicker(".datepicker");
+    } else {
+      // Fallback to flatpickr directly
+      flatpickr(".datepicker", {
+        enableTime: false,
+        dateFormat: "Y-m-d",
+      });
+    }
   }
 })();

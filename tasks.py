@@ -128,75 +128,59 @@ TASK_METADATA = {
     },
 }
 
-# Global loop for task signals - initialized once
-LOOP = None
+# Singleton event loop for async operations
+_EVENT_LOOP = None
 
 def get_event_loop():
     """Get or create the global event loop."""
-    global LOOP
-    if LOOP is None or LOOP.is_closed():
-        LOOP = asyncio.new_event_loop()
-        asyncio.set_event_loop(LOOP)
-    return LOOP
+    global _EVENT_LOOP
+    if _EVENT_LOOP is None or _EVENT_LOOP.is_closed():
+        _EVENT_LOOP = asyncio.new_event_loop()
+        asyncio.set_event_loop(_EVENT_LOOP)
+    return _EVENT_LOOP
 
 def run_async(coro):
     """Run an async coroutine from a sync context safely."""
     loop = get_event_loop()
-    if loop.is_running():
-        # If we're already in a running loop, use create_task
-        return asyncio.ensure_future(coro)
     return loop.run_until_complete(coro)
 
-# Decorator for async task coroutines
-def async_task(f):
-    """Decorator to help bridge between Celery tasks and async functions."""
-    @wraps(f)
-    def wrapped(*args, **kwargs):
-        return run_async(f(*args, **kwargs))
-    return wrapped
-
-# Task tracking hooks - converted to sync functions that run async code
+# Task hooks for tracking task execution in MongoDB
 
 @task_prerun.connect
 def task_started(task_id=None, task=None, *args, **kwargs):
     """Record when a task starts running."""
     task_name = task.name.split('.')[-1] if task and task.name else "unknown"
     
-    async def _async_task_started():
-        try:
-            # Record task start in the task history
-            await update_one_with_retry(
-                task_history_collection,
-                {"_id": str(task_id)},
-                {
-                    "$set": {
-                        "task_id": task_name,
-                        "status": TaskStatus.RUNNING.value,
-                        "timestamp": datetime.now(timezone.utc),
-                        "start_time": datetime.now(timezone.utc),
-                    }
-                },
-                upsert=True
-            )
-            
-            # Update task config status
-            await update_task_config(
-                task_name,
-                {
-                    "status": TaskStatus.RUNNING.value,
-                    "start_time": datetime.now(timezone.utc),
-                    "last_updated": datetime.now(timezone.utc)
-                }
-            )
-            
-            logger.info(f"Task {task_name} ({task_id}) started")
-        except Exception as e:
-            logger.error(f"Error recording task start: {str(e)}")
-    
     try:
-        run_async(_async_task_started())
+        # Run synchronously to avoid issues with task execution
+        update_data = {
+            "task_id": task_name,
+            "status": TaskStatus.RUNNING.value,
+            "timestamp": datetime.now(timezone.utc),
+            "start_time": datetime.now(timezone.utc),
+        }
+        
+        # Store task start information in MongoDB (async)
+        run_async(update_one_with_retry(
+            task_history_collection,
+            {"_id": str(task_id)},
+            {"$set": update_data},
+            upsert=True
+        ))
+        
+        # Update task config status (async)
+        run_async(update_task_config(
+            task_name,
+            {
+                "status": TaskStatus.RUNNING.value,
+                "start_time": datetime.now(timezone.utc),
+                "last_updated": datetime.now(timezone.utc)
+            }
+        ))
+        
+        logger.info(f"Task {task_name} ({task_id}) started")
     except Exception as e:
-        logger.error(f"Error in task_started: {str(e)}")
+        logger.error(f"Error recording task start: {str(e)}")
 
 
 @task_postrun.connect
@@ -207,65 +191,62 @@ def task_finished(task_id=None, task=None, retval=None, state=None, *args, **kwa
     
     task_name = task.name.split('.')[-1] if task and task.name else "unknown"
     
-    async def _async_task_finished():
-        try:
-            task_info = await find_one_with_retry(
-                task_history_collection,
-                {"_id": str(task_id)}
-            )
-            
-            start_time = task_info.get("start_time") if task_info else None
-            runtime = None
-            if start_time:
-                end_time = datetime.now(timezone.utc)
-                runtime = (end_time - start_time).total_seconds() * 1000  # Convert to ms
-            
-            # Update task history
-            status = TaskStatus.COMPLETED.value if state == "SUCCESS" else TaskStatus.FAILED.value
-            
-            await update_one_with_retry(
-                task_history_collection,
-                {"_id": str(task_id)},
-                {
-                    "$set": {
-                        "status": status,
-                        "end_time": datetime.now(timezone.utc),
-                        "runtime": runtime,
-                        "result": state == "SUCCESS",
-                    }
-                },
-                upsert=True
-            )
-            
-            # Update task config
-            next_run = None
-            # Get schedule for this task, if available
-            schedule_entry = app.conf.beat_schedule.get(f"{task_name}_scheduled", None)
-            if schedule_entry:
-                schedule = schedule_entry.get("schedule")
-                if schedule:
-                    next_run = datetime.now(timezone.utc) + schedule
-            
-            await update_task_config(
-                task_name,
-                {
-                    "status": status,
-                    "last_run": datetime.now(timezone.utc),
-                    "next_run": next_run,
-                    "end_time": datetime.now(timezone.utc),
-                    "last_updated": datetime.now(timezone.utc)
-                }
-            )
-            
-            logger.info(f"Task {task_name} ({task_id}) finished with status {status}")
-            
-        except Exception as e:
-            logger.error(f"Error recording task completion: {str(e)}")
-    
     try:
-        run_async(_async_task_finished())
+        # Get task info from MongoDB (need to run synchronously)
+        task_info = run_async(find_one_with_retry(
+            task_history_collection,
+            {"_id": str(task_id)}
+        ))
+        
+        start_time = task_info.get("start_time") if task_info else None
+        runtime = None
+        if start_time:
+            end_time = datetime.now(timezone.utc)
+            runtime = (end_time - start_time).total_seconds() * 1000  # Convert to ms
+        
+        # Update task history
+        status = TaskStatus.COMPLETED.value if state == "SUCCESS" else TaskStatus.FAILED.value
+        
+        run_async(update_one_with_retry(
+            task_history_collection,
+            {"_id": str(task_id)},
+            {
+                "$set": {
+                    "status": status,
+                    "end_time": datetime.now(timezone.utc),
+                    "runtime": runtime,
+                    "result": state == "SUCCESS",
+                }
+            },
+            upsert=True
+        ))
+        
+        # Calculate next run time based on schedule
+        next_run = None
+        # Find the task entry in the beat schedule
+        for schedule_name, schedule_entry in app.conf.beat_schedule.items():
+            if schedule_name.startswith(task_name) or schedule_entry.get('task') == f'tasks.{task_name}':
+                schedule = schedule_entry.get("schedule")
+                if hasattr(schedule, 'seconds'):  # timedelta object
+                    next_run = datetime.now(timezone.utc) + schedule
+                    break
+        
+        # Update task config
+        run_async(update_task_config(
+            task_name,
+            {
+                "status": status,
+                "last_run": datetime.now(timezone.utc),
+                "next_run": next_run,
+                "end_time": datetime.now(timezone.utc),
+                "last_updated": datetime.now(timezone.utc)
+            }
+        ))
+        
+        logger.info(f"Task {task_name} ({task_id}) finished with status {status}")
+        
     except Exception as e:
-        logger.error(f"Error in task_finished: {str(e)}")
+        logger.error(f"Error recording task completion: {str(e)}")
 
 
 @task_failure.connect
@@ -276,44 +257,38 @@ def task_failed(task_id=None, task=None, exception=None, *args, **kwargs):
     
     task_name = task.name.split('.')[-1] if task.name else "unknown"
     
-    async def _async_task_failed():
-        try:
-            error_msg = str(exception) if exception else "Unknown error"
-            
-            # Update task history with error
-            await update_one_with_retry(
-                task_history_collection,
-                {"_id": str(task_id)},
-                {
-                    "$set": {
-                        "status": TaskStatus.FAILED.value,
-                        "error": error_msg,
-                        "end_time": datetime.now(timezone.utc),
-                    }
-                },
-                upsert=True
-            )
-            
-            # Update task config
-            await update_task_config(
-                task_name,
-                {
-                    "status": TaskStatus.FAILED.value,
-                    "last_error": error_msg,
-                    "end_time": datetime.now(timezone.utc),
-                    "last_updated": datetime.now(timezone.utc)
-                }
-            )
-            
-            logger.error(f"Task {task_name} ({task_id}) failed: {error_msg}")
-            
-        except Exception as e:
-            logger.error(f"Error recording task failure: {str(e)}")
-    
     try:
-        run_async(_async_task_failed())
+        error_msg = str(exception) if exception else "Unknown error"
+        
+        # Update task history with error
+        run_async(update_one_with_retry(
+            task_history_collection,
+            {"_id": str(task_id)},
+            {
+                "$set": {
+                    "status": TaskStatus.FAILED.value,
+                    "error": error_msg,
+                    "end_time": datetime.now(timezone.utc),
+                }
+            },
+            upsert=True
+        ))
+        
+        # Update task config
+        run_async(update_task_config(
+            task_name,
+            {
+                "status": TaskStatus.FAILED.value,
+                "last_error": error_msg,
+                "end_time": datetime.now(timezone.utc),
+                "last_updated": datetime.now(timezone.utc)
+            }
+        ))
+        
+        logger.error(f"Task {task_name} ({task_id}) failed: {error_msg}")
+        
     except Exception as e:
-        logger.error(f"Error in task_failed: {str(e)}")
+        logger.error(f"Error recording task failure: {str(e)}")
 
 
 # Task configuration helpers
@@ -466,10 +441,29 @@ async def check_memory_usage() -> bool:
         return False
 
 
+# Decorator for better async task handling
+def async_task_wrapper(func):
+    """Decorator to handle async tasks more robustly."""
+    @wraps(func)
+    def wrapped_task(*args, **kwargs):
+        try:
+            # For async functions, use run_async to execute them
+            if asyncio.iscoroutinefunction(func):
+                return run_async(func(*args, **kwargs))
+            else:
+                return func(*args, **kwargs)
+        except Exception as e:
+            logger.exception(f"Error in task {func.__name__}: {str(e)}")
+            raise
+    
+    return wrapped_task
+
+
 # Core Task Implementations
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60, 
-             time_limit=3600, soft_time_limit=3300, name="tasks.periodic_fetch_trips")
+             time_limit=3600, soft_time_limit=3300, name="tasks.periodic_fetch_trips",
+             queue="high_priority")
 def periodic_fetch_trips(self) -> Dict[str, Any]:
     """
     Fetch trips from the Bouncie API periodically.
@@ -477,7 +471,7 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
     Returns:
         Dict with status information
     """
-    @async_task
+    @async_task_wrapper
     async def _execute():
         # Check memory usage first
         high_memory = await check_memory_usage()
@@ -528,7 +522,8 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=300, 
-             time_limit=7200, soft_time_limit=7000, name="tasks.preprocess_streets")
+             time_limit=7200, soft_time_limit=7000, name="tasks.preprocess_streets",
+             queue="low_priority")
 def preprocess_streets(self) -> Dict[str, Any]:
     """
     Preprocess street data for coverage calculation.
@@ -536,7 +531,7 @@ def preprocess_streets(self) -> Dict[str, Any]:
     Returns:
         Dict with status information
     """
-    @async_task
+    @async_task_wrapper
     async def _execute():
         # Check dependencies
         if not await check_dependencies("preprocess_streets"):
@@ -584,15 +579,16 @@ def preprocess_streets(self) -> Dict[str, Any]:
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=300, 
-             time_limit=7200, soft_time_limit=7000, name="tasks.update_coverage_for_all_locations")
-def update_coverage_for_all_locations(self) -> Dict[str, Any]:
+             time_limit=7200, soft_time_limit=7000, name="tasks.update_coverage_for_all_locations",
+             queue="default")
+def update_coverage_for_all_locations_task(self) -> Dict[str, Any]:
     """
     Update street coverage calculations for all locations.
     
     Returns:
         Dict with status information
     """
-    @async_task
+    @async_task_wrapper
     async def _execute():
         # Check dependencies
         if not await check_dependencies("update_coverage_for_all_locations"):
@@ -624,7 +620,8 @@ def update_coverage_for_all_locations(self) -> Dict[str, Any]:
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60, 
-             time_limit=1800, soft_time_limit=1700, name="tasks.cleanup_stale_trips")
+             time_limit=1800, soft_time_limit=1700, name="tasks.cleanup_stale_trips",
+             queue="low_priority")
 def cleanup_stale_trips_task(self) -> Dict[str, Any]:
     """
     Archive trips that haven't been updated recently.
@@ -632,7 +629,7 @@ def cleanup_stale_trips_task(self) -> Dict[str, Any]:
     Returns:
         Dict with status information
     """
-    @async_task
+    @async_task_wrapper
     async def _execute():
         # Check memory
         high_memory = await check_memory_usage()
@@ -651,7 +648,8 @@ def cleanup_stale_trips_task(self) -> Dict[str, Any]:
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=300, 
-             time_limit=7200, soft_time_limit=7000, name="tasks.cleanup_invalid_trips")
+             time_limit=7200, soft_time_limit=7000, name="tasks.cleanup_invalid_trips",
+             queue="low_priority")
 def cleanup_invalid_trips(self) -> Dict[str, Any]:
     """
     Identify and mark invalid trip records.
@@ -659,7 +657,7 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
     Returns:
         Dict with status information
     """
-    @async_task
+    @async_task_wrapper
     async def _execute():
         update_ops = []
         
@@ -700,7 +698,8 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=300, 
-             time_limit=7200, soft_time_limit=7000, name="tasks.update_geocoding")
+             time_limit=7200, soft_time_limit=7000, name="tasks.update_geocoding",
+             queue="default")
 def update_geocoding(self) -> Dict[str, Any]:
     """
     Update reverse geocoding for trips missing location data.
@@ -708,7 +707,7 @@ def update_geocoding(self) -> Dict[str, Any]:
     Returns:
         Dict with status information
     """
-    @async_task
+    @async_task_wrapper
     async def _execute():
         # Find trips that need geocoding
         query = {
@@ -770,7 +769,8 @@ def update_geocoding(self) -> Dict[str, Any]:
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=300, 
-             time_limit=7200, soft_time_limit=7000, name="tasks.remap_unmatched_trips")
+             time_limit=7200, soft_time_limit=7000, name="tasks.remap_unmatched_trips",
+             queue="default")
 def remap_unmatched_trips(self) -> Dict[str, Any]:
     """
     Attempt to map-match trips that previously failed.
@@ -778,7 +778,7 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
     Returns:
         Dict with status information
     """
-    @async_task
+    @async_task_wrapper
     async def _execute():
         # Check dependencies
         if not await check_dependencies("remap_unmatched_trips"):
@@ -834,7 +834,8 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=300, 
-             time_limit=7200, soft_time_limit=7000, name="tasks.validate_trip_data")
+             time_limit=7200, soft_time_limit=7000, name="tasks.validate_trip_data",
+             queue="low_priority")
 def validate_trip_data_task(self) -> Dict[str, Any]:
     """
     Validate trip data consistency.
@@ -842,7 +843,7 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
     Returns:
         Dict with status information
     """
-    @async_task
+    @async_task_wrapper
     async def _execute():
         # Fetch trips to validate
         query = {"validated_at": {"$exists": False}}
@@ -904,8 +905,8 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
 
 
 # Task execution helper
-@shared_task(name="tasks.execute_task")
-def execute_task(task_name: str, is_manual: bool = False) -> Dict[str, Any]:
+@shared_task(bind=True, name="tasks.execute_task")
+def execute_task(self, task_name: str, is_manual: bool = False) -> Dict[str, Any]:
     """
     Execute a named task with dependency validation.
     
@@ -919,7 +920,7 @@ def execute_task(task_name: str, is_manual: bool = False) -> Dict[str, Any]:
     task_mapping = {
         "periodic_fetch_trips": periodic_fetch_trips,
         "preprocess_streets": preprocess_streets,
-        "update_coverage_for_all_locations": update_coverage_for_all_locations,
+        "update_coverage_for_all_locations": update_coverage_for_all_locations_task,
         "cleanup_stale_trips": cleanup_stale_trips_task,
         "cleanup_invalid_trips": cleanup_invalid_trips,
         "update_geocoding": update_geocoding,
@@ -938,8 +939,17 @@ def execute_task(task_name: str, is_manual: bool = False) -> Dict[str, Any]:
         else:
             task_id = f"{task_name}_{uuid.uuid4()}"
             
-        # Launch the task
-        result = task_mapping[task_name].apply_async(task_id=task_id)
+        # Launch the task with appropriate queue
+        task_func = task_mapping[task_name]
+        priority = TASK_METADATA.get(task_name, {}).get("priority", TaskPriority.MEDIUM)
+        
+        queue = "default"
+        if priority == TaskPriority.HIGH:
+            queue = "high_priority"
+        elif priority == TaskPriority.LOW:
+            queue = "low_priority"
+            
+        result = task_func.apply_async(task_id=task_id, queue=queue)
         
         return {
             "status": "success",
@@ -980,6 +990,7 @@ async def manual_run_task(task_id: str, is_manual: bool = True) -> Dict[str, Any
         # Execute all enabled tasks
         results = []
         for task_name in enabled_tasks:
+            # Use execute_task.delay to run asynchronously
             result = execute_task.delay(task_name, True)
             results.append({
                 "task": task_name,
