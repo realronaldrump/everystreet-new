@@ -73,7 +73,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(
-        errorData.detail || `HTTP error! status: ${response.status}`
+        errorData.detail || `HTTP error! status: ${response.status}`,
       );
     }
 
@@ -166,7 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const result = await performDatabaseAction(endpoint, body);
       showNotification(
         result.message || "Operation completed successfully",
-        "success"
+        "success",
       );
 
       // Reload the page after a short delay
@@ -174,7 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       showNotification(
         error.message || "Failed to perform database action",
-        "danger"
+        "danger",
       );
       console.error("Error performing database action:", error);
       setButtonLoading(currentButton, false, currentAction);
