@@ -334,11 +334,12 @@ const DateUtils = {
   },
 
   /**
-   * Format a timestamp as "time ago" (e.g., "2 minutes ago")
+   * Format a timestamp as "time ago" (e.g., "2m ago")
    * @param {Date|string} timestamp - The timestamp to format
+   * @param {boolean} [abbreviated=false] - Use abbreviated format (2m vs 2 minutes)
    * @returns {string} Formatted "time ago" string
    */
-  formatTimeAgo(timestamp) {
+  formatTimeAgo(timestamp, abbreviated = false) {
     const date = this.parseDate(timestamp);
     if (!date) return "";
 
@@ -346,16 +347,63 @@ const DateUtils = {
     const seconds = Math.floor((now - date) / 1000);
 
     if (seconds < 5) return "just now";
-    if (seconds < 60) return `${seconds} seconds ago`;
+
+    if (seconds < 60) {
+      return abbreviated
+        ? `${seconds}s ago`
+        : `${seconds} second${seconds !== 1 ? "s" : ""} ago`;
+    }
 
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
+    if (minutes < 60) {
+      return abbreviated
+        ? `${minutes}m ago`
+        : `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
+    }
 
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
+    if (hours < 24) {
+      return abbreviated
+        ? `${hours}h ago`
+        : `${hours} hour${hours !== 1 ? "s" : ""} ago`;
+    }
 
     const days = Math.floor(hours / 24);
-    return `${days} day${days !== 1 ? "s" : ""} ago`;
+    if (days < 7 || !abbreviated) {
+      return abbreviated
+        ? `${days}d ago`
+        : `${days} day${days !== 1 ? "s" : ""} ago`;
+    }
+
+    // For abbreviated format, use date if older than a week
+    return this.formatForDisplay(date, { dateStyle: "short" });
+  },
+
+  /**
+   * Format a vehicle speed value with appropriate status indication
+   * @param {number} speed - Speed in mph
+   * @returns {Object} Object with formatted value and status
+   */
+  formatVehicleSpeed(speed) {
+    if (typeof speed !== "number") {
+      speed = parseFloat(speed) || 0;
+    }
+
+    let status = "stopped";
+    if (speed > 35) {
+      status = "fast";
+    } else if (speed > 10) {
+      status = "medium";
+    } else if (speed > 0) {
+      status = "slow";
+    }
+
+    return {
+      value: speed.toFixed(1),
+      status: status,
+      formatted: `${speed.toFixed(1)} mph`,
+      cssClass: `vehicle-${status}`,
+    };
   },
 
   /**
@@ -818,6 +866,110 @@ window.utils = {
       console.warn(`Error removing localStorage for key ${key}:`, error);
       return false;
     }
+  },
+
+  /**
+   * Format trip metrics for display
+   * @param {Object} trip - Trip data object
+   * @returns {Object} Formatted trip metrics
+   */
+  formatTripMetrics(trip) {
+    if (!trip) return {};
+
+    const startTime = trip.startTime ? new Date(trip.startTime) : null;
+    const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
+    const endTime = trip.endTime ? new Date(trip.endTime) : null;
+    const tripStatus = trip.status || "active";
+
+    // Format duration
+    let durationStr = trip.durationFormatted;
+    if (!durationStr && startTime) {
+      const endTimeToUse =
+        tripStatus === "completed" ? endTime : lastUpdate || new Date();
+      if (endTimeToUse) {
+        const duration = Math.floor((endTimeToUse - startTime) / 1000);
+        if (duration >= 0) {
+          const hours = Math.floor(duration / 3600);
+          const minutes = Math.floor((duration % 3600) / 60);
+          const seconds = duration % 60;
+          durationStr = `${hours}:${minutes
+            .toString()
+            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+        } else {
+          durationStr = "0:00:00";
+        }
+      }
+    }
+
+    const distance = typeof trip.distance === "number" ? trip.distance : 0;
+    const currentSpeed =
+      typeof trip.currentSpeed === "number" ? trip.currentSpeed : 0;
+    const avgSpeed = typeof trip.avgSpeed === "number" ? trip.avgSpeed : 0;
+    const maxSpeed = typeof trip.maxSpeed === "number" ? trip.maxSpeed : 0;
+    const pointsRecorded = trip.pointsRecorded || trip.coordinates?.length || 0;
+
+    const speedInfo = DateUtils.formatVehicleSpeed(currentSpeed);
+
+    return {
+      startTime: startTime ? DateUtils.formatForDisplay(startTime) : "N/A",
+      duration: durationStr || "0:00:00",
+      distance: `${distance.toFixed(2)} miles`,
+      currentSpeed: speedInfo.formatted,
+      speedStatus: speedInfo.status,
+      avgSpeed: `${avgSpeed.toFixed(1)} mph`,
+      maxSpeed: `${maxSpeed.toFixed(1)} mph`,
+      pointsRecorded: pointsRecorded,
+      lastUpdate: lastUpdate
+        ? DateUtils.formatTimeAgo(lastUpdate, true)
+        : "N/A",
+      isMoving: currentSpeed > 0,
+      isStopped: currentSpeed === 0,
+      status: tripStatus,
+    };
+  },
+
+  /**
+   * Adaptive polling utilities
+   */
+  adaptivePolling: {
+    /**
+     * Calculate appropriate polling interval based on vehicle status
+     * @param {Object} trip - Trip data object
+     * @param {boolean} hasNewData - Whether new data was just received
+     * @param {number} currentInterval - Current polling interval in ms
+     * @param {Object} [options] - Configuration options
+     * @returns {number} New polling interval in ms
+     */
+    calculateInterval(trip, hasNewData, currentInterval, options = {}) {
+      const config = {
+        minInterval: options.minInterval || 1000,
+        maxInterval: options.maxInterval || 10000,
+        movingFast: options.movingFast || 1000,
+        movingSlow: options.movingSlow || 2000,
+        stationaryActive: options.stationaryActive || 3000,
+        stationaryIdle: options.stationaryIdle || 5000,
+        noTrip: options.noTrip || 7000,
+      };
+
+      if (!trip) {
+        return Math.min(currentInterval * 1.2, config.noTrip);
+      }
+
+      const isMoving = trip.currentSpeed > 2; // Over 2 mph considered moving
+      const isFastMoving = trip.currentSpeed > 15; // Over 15 mph is fast
+
+      if (isFastMoving && hasNewData) {
+        return config.movingFast;
+      } else if (isMoving && hasNewData) {
+        return config.movingSlow;
+      } else if (isMoving) {
+        return Math.max(currentInterval * 0.8, config.movingSlow);
+      } else if (hasNewData) {
+        return config.stationaryActive;
+      } else {
+        return Math.min(currentInterval * 1.1, config.stationaryIdle);
+      }
+    },
   },
 };
 
