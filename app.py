@@ -3369,7 +3369,7 @@ async def active_trip_endpoint():
                 "status": "success",
                 "has_active_trip": False,
                 "message": "No active trip",
-                "server_time": datetime.now(timezone.utc).isoformat()
+                "server_time": datetime.now(timezone.utc).isoformat(),
             }
 
         logger.info(
@@ -3379,7 +3379,7 @@ async def active_trip_endpoint():
             "status": "success",
             "has_active_trip": True,
             "trip": active_trip,
-            "server_time": datetime.now(timezone.utc).isoformat()
+            "server_time": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
         error_id = str(uuid.uuid4())
@@ -3389,7 +3389,7 @@ async def active_trip_endpoint():
             "has_active_trip": False,
             "message": f"Error retrieving active trip: {str(e)}",
             "error_id": error_id,
-            "server_time": datetime.now(timezone.utc).isoformat()
+            "server_time": datetime.now(timezone.utc).isoformat(),
         }
 
 
@@ -3406,7 +3406,7 @@ async def trip_updates_endpoint(last_sequence: int = 0):
     """
     try:
         logger.info("Fetching trip updates since sequence %d", last_sequence)
-        
+
         # Validate input
         if last_sequence < 0:
             return JSONResponse(
@@ -3416,10 +3416,10 @@ async def trip_updates_endpoint(last_sequence: int = 0):
                     "has_update": False,
                     "message": "Invalid sequence number: must be non-negative",
                     "error_code": "INVALID_SEQUENCE",
-                    "server_time": datetime.now(timezone.utc).isoformat()
-                }
+                    "server_time": datetime.now(timezone.utc).isoformat(),
+                },
             )
-            
+
         # Check if database connection is healthy
         if not db_manager._connection_healthy:
             logger.error("Database connection is unhealthy")
@@ -3430,10 +3430,10 @@ async def trip_updates_endpoint(last_sequence: int = 0):
                     "has_update": False,
                     "message": "Database connection error",
                     "error_code": "DB_CONNECTION_ERROR",
-                    "server_time": datetime.now(timezone.utc).isoformat()
-                }
+                    "server_time": datetime.now(timezone.utc).isoformat(),
+                },
             )
-        
+
         updates = await get_trip_updates(last_sequence)
 
         if updates.get("has_update"):
@@ -3447,22 +3447,25 @@ async def trip_updates_endpoint(last_sequence: int = 0):
         # Add server timestamp to response
         updates["server_time"] = datetime.now(timezone.utc).isoformat()
         return updates
-        
+
     except Exception as e:
         error_id = str(uuid.uuid4())
         logger.exception("Error in trip_updates endpoint [%s]: %s", error_id, str(e))
-        
+
         # Categorize errors
         error_message = str(e)
         error_code = "INTERNAL_ERROR"
         status_code = 500
-        
-        if "Cannot connect to database" in error_message or "ServerSelectionTimeoutError" in error_message:
+
+        if (
+            "Cannot connect to database" in error_message
+            or "ServerSelectionTimeoutError" in error_message
+        ):
             error_code = "DB_CONNECTION_ERROR"
             status_code = 503
         elif "Memory" in error_message:
             error_code = "MEMORY_ERROR"
-            
+
         return JSONResponse(
             status_code=status_code,
             content={
@@ -3472,8 +3475,9 @@ async def trip_updates_endpoint(last_sequence: int = 0):
                 "error_id": error_id,
                 "error_code": error_code,
                 "server_time": datetime.now(timezone.utc).isoformat(),
-            }
+            },
         )
+
 
 # DATABASE MANAGEMENT ENDPOINTS
 

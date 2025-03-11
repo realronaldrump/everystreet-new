@@ -153,10 +153,12 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
     if not transaction_id:
         logger.error("Missing transactionId in tripStart event")
         return
-        
+
     start_time, _ = get_trip_timestamps(data)
     if not start_time:
-        logger.error(f"Failed to extract start time from tripStart event for {transaction_id}")
+        logger.error(
+            f"Failed to extract start time from tripStart event for {transaction_id}"
+        )
         start_time = datetime.now(timezone.utc)
 
     # Check if there's already an active trip for this transaction ID
@@ -244,13 +246,17 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
             {"transactionId": transaction_id}
         )
         if archived_trip:
-            logger.warning(f"Received data for archived trip: {transaction_id}, ignoring")
+            logger.warning(
+                f"Received data for archived trip: {transaction_id}, ignoring"
+            )
             return
-            
+
         # If no active trip found, create one but log a warning as this is unexpected
-        logger.warning(f"Received trip data for unknown trip: {transaction_id}, creating new trip")
+        logger.warning(
+            f"Received trip data for unknown trip: {transaction_id}, creating new trip"
+        )
         now = datetime.now(timezone.utc)
-        
+
         # Try to extract a better start time from the data
         start_time = now
         if "data" in data and data["data"]:
@@ -259,16 +265,20 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
             for point in data["data"]:
                 if "timestamp" in point:
                     try:
-                        ts = datetime.fromisoformat(point["timestamp"].replace("Z", "+00:00"))
+                        ts = datetime.fromisoformat(
+                            point["timestamp"].replace("Z", "+00:00")
+                        )
                         timestamps.append(ts)
                     except (ValueError, AttributeError):
                         pass
             if timestamps:
                 start_time = min(timestamps)
-                logger.info(f"Using earliest timestamp from data as start time: {start_time}")
+                logger.info(
+                    f"Using earliest timestamp from data as start time: {start_time}"
+                )
 
         sequence = int(time.time() * 1000)
-        
+
         await live_trips_collection.insert_one(
             {
                 "transactionId": transaction_id,
@@ -400,33 +410,35 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     if not transaction_id:
         logger.error("Missing transactionId in tripEnd event")
         return
-        
+
     _, end_time = get_trip_timestamps(data)
     if not end_time:
-        logger.error(f"Failed to extract end time from tripEnd event for {transaction_id}")
+        logger.error(
+            f"Failed to extract end time from tripEnd event for {transaction_id}"
+        )
         end_time = datetime.now(timezone.utc)
 
     trip = await live_trips_collection.find_one({"transactionId": transaction_id})
     if trip:
         trip_id = trip["_id"]
         start_time = trip.get("startTime")
-        
+
         # Calculate trip metrics for logging
         duration = (end_time - start_time).total_seconds() if start_time else 0
         distance = trip.get("distance", 0)
         avg_speed = trip.get("avgSpeed", 0)
         max_speed = trip.get("maxSpeed", 0)
-        
+
         logger.info(
             f"Ending trip {transaction_id}: duration={duration:.1f}s, "
             f"distance={distance:.2f}mi, avg_speed={avg_speed:.1f}mph, "
             f"max_speed={max_speed:.1f}mph"
         )
-        
+
         # Remove _id field before archiving to avoid MongoDB error
         trip_to_archive = trip.copy()
         del trip_to_archive["_id"]
-        
+
         # Update with end data
         trip_to_archive["endTime"] = end_time
         trip_to_archive["status"] = "completed"
@@ -436,8 +448,10 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
 
         try:
             # Archive the trip
-            archive_result = await archived_live_trips_collection.insert_one(trip_to_archive)
-            
+            archive_result = await archived_live_trips_collection.insert_one(
+                trip_to_archive
+            )
+
             # Only delete from live collection after successful archive
             if archive_result.inserted_id:
                 delete_result = await live_trips_collection.delete_one({"_id": trip_id})
@@ -556,12 +570,14 @@ async def cleanup_stale_trips(stale_minutes: int = 5, max_archive_age_days: int 
         # Instead of one at a time, find all stale trips in a single query
         stale_trips = await live_trips_collection.find(
             {"lastUpdate": {"$lt": stale_threshold}, "status": "active"}
-        ).to_list(length=100)  # Limit to avoid potential memory issues
-        
+        ).to_list(
+            length=100
+        )  # Limit to avoid potential memory issues
+
         for trip in stale_trips:
             trip_id = trip.get("_id")
             transaction_id = trip.get("transactionId", "unknown")
-            
+
             # Mark the trip as stale instead of active and prepare for archiving
             trip["status"] = "completed"
             trip["endTime"] = now
@@ -574,7 +590,7 @@ async def cleanup_stale_trips(stale_minutes: int = 5, max_archive_age_days: int 
 
             # Remove _id to avoid duplicate key issues
             del trip["_id"]
-            
+
             # Archive the trip
             try:
                 await archived_live_trips_collection.insert_one(trip)
@@ -590,17 +606,19 @@ async def cleanup_stale_trips(stale_minutes: int = 5, max_archive_age_days: int 
             {"endTime": {"$lt": archive_threshold}}
         )
         archive_cleanup_count = old_archive_result.deleted_count
-        
+
         if archive_cleanup_count > 0:
-            logger.info(f"Deleted {archive_cleanup_count} old archived trips (older than {max_archive_age_days} days)")
-    
+            logger.info(
+                f"Deleted {archive_cleanup_count} old archived trips (older than {max_archive_age_days} days)"
+            )
+
     except Exception as e:
         logger.exception(f"Error during stale trip cleanup: {str(e)}")
-    
+
     logger.info(f"Cleaned up {cleanup_count} stale trips")
     return {
         "stale_trips_archived": cleanup_count,
-        "old_archives_removed": archive_cleanup_count
+        "old_archives_removed": archive_cleanup_count,
     }
 
 
