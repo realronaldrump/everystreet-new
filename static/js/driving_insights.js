@@ -167,7 +167,7 @@
       const savedStartDate =
         localStorage.getItem("startDate") ||
         DateUtils.formatDate(
-          DateUtils.getDateRangeForPreset("30days").startDate
+          DateUtils.getDateRangeForPreset("30days").startDate,
         );
       const savedEndDate =
         localStorage.getItem("endDate") || DateUtils.getCurrentDate();
@@ -241,7 +241,7 @@
             startDateInput,
             endDateInput,
             DateUtils.formatDate(startDate),
-            DateUtils.formatDate(endDate)
+            DateUtils.formatDate(endDate),
           );
           return;
       }
@@ -284,7 +284,7 @@
     const startDate =
       localStorage.getItem("startDate") ||
       DateUtils.formatDate(
-        new Date(new Date().setDate(new Date().getDate() - 30))
+        new Date(new Date().setDate(new Date().getDate() - 30)),
       );
     const endDate =
       localStorage.getItem("endDate") || DateUtils.formatDate(new Date());
@@ -311,7 +311,7 @@
         fetch(`/api/driving-insights?${params}`).then((res) => {
           if (!res.ok) {
             throw new Error(
-              `Failed to fetch insights: ${res.status} ${res.statusText}`
+              `Failed to fetch insights: ${res.status} ${res.statusText}`,
             );
           }
           return res.json();
@@ -319,7 +319,7 @@
         fetch(`/api/trip-analytics?${params}`).then((res) => {
           if (!res.ok) {
             throw new Error(
-              `Failed to fetch analytics: ${res.status} ${res.statusText}`
+              `Failed to fetch analytics: ${res.status} ${res.statusText}`,
             );
           }
           return res.json();
@@ -336,7 +336,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Insights data loaded successfully",
-          "success"
+          "success",
         );
       }
     } catch (error) {
@@ -344,7 +344,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           `Error loading driving insights: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
       // Reset charts to empty state
