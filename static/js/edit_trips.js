@@ -1,12 +1,15 @@
-/* global L, flatpickr, notificationManager, bootstrap, DateUtils $ */
+/* global L, flatpickr, notificationManager, bootstrap, DateUtils, $ */
 
 document.addEventListener("DOMContentLoaded", () => {
-  let editMap = null,
-    tripsLayerGroup = null,
-    editableLayers = null;
+  let editMap = null;
+  let tripsLayerGroup = null;
+  let editableLayers = null;
   let currentTrip = null;
   let editMode = false;
 
+  /**
+   * Initialize the trip editor
+   */
   async function init() {
     initializeMap();
     initializeControls();
@@ -14,8 +17,15 @@ document.addEventListener("DOMContentLoaded", () => {
     await loadTrips();
   }
 
+  /**
+   * Initialize the map for trip editing
+   */
   function initializeMap() {
+    const mapContainer = document.getElementById("editMap");
+    if (!mapContainer) return;
+
     editMap = L.map("editMap").setView([37.0902, -95.7129], 4);
+
     L.tileLayer(
       "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
       {
@@ -28,13 +38,17 @@ document.addEventListener("DOMContentLoaded", () => {
     editableLayers = L.featureGroup().addTo(editMap);
   }
 
+  /**
+   * Initialize Leaflet.Draw controls
+   */
   function initializeControls() {
-    if (typeof L.Control.Draw !== "function") {
+    if (!editMap || typeof L.Control.Draw !== "function") {
       console.error(
         "Leaflet Draw is missing. Ensure leaflet.draw.js is included."
       );
       return;
     }
+
     editMap.addControl(
       new L.Control.Draw({
         edit: {
@@ -53,15 +67,29 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
+  /**
+   * Initialize event listeners
+   */
   function initializeEventListeners() {
-    document
-      .getElementById("editModeToggle")
-      ?.addEventListener("change", toggleEditMode);
-    document.getElementById("tripType")?.addEventListener("change", loadTrips);
-    document
-      .getElementById("saveChanges")
-      ?.addEventListener("click", saveTripChanges);
-    // Also update trips when the date inputs change (if they exist)
+    // Toggle edit mode
+    const editModeToggle = document.getElementById("editModeToggle");
+    if (editModeToggle) {
+      editModeToggle.addEventListener("change", toggleEditMode);
+    }
+
+    // Trip type selector
+    const tripTypeSelect = document.getElementById("tripType");
+    if (tripTypeSelect) {
+      tripTypeSelect.addEventListener("change", loadTrips);
+    }
+
+    // Save changes button
+    const saveChangesBtn = document.getElementById("saveChanges");
+    if (saveChangesBtn) {
+      saveChangesBtn.addEventListener("click", saveTripChanges);
+    }
+
+    // Date inputs
     const startInput = document.getElementById("start-date");
     const endInput = document.getElementById("end-date");
     if (startInput) {
@@ -70,39 +98,48 @@ document.addEventListener("DOMContentLoaded", () => {
     if (endInput) {
       endInput.addEventListener("change", loadTrips);
     }
-    // Additionally, if the sidebar's "Apply Filters" button is present,
-    // attach a listener to trigger loadTrips on the edit_trips page.
+
+    // Apply filters button (if present on edit_trips page)
     if (document.getElementById("editMap")) {
-      document
-        .getElementById("apply-filters")
-        ?.addEventListener("click", loadTrips);
-    }
-    editMap.on(L.Draw.Event.CREATED, (e) => {
-      if (editMode && currentTrip) {
-        const newMarker = e.layer;
-        const latLng = newMarker.getLatLng();
-        addPointToTrip(latLng);
+      const applyFiltersBtn = document.getElementById("apply-filters");
+      if (applyFiltersBtn) {
+        applyFiltersBtn.addEventListener("click", loadTrips);
       }
-    });
+    }
+
+    // Leaflet.Draw created event
+    if (editMap) {
+      editMap.on(L.Draw.Event.CREATED, (e) => {
+        if (editMode && currentTrip) {
+          const newMarker = e.layer;
+          const latLng = newMarker.getLatLng();
+          addPointToTrip(latLng);
+        }
+      });
+    }
   }
 
-  // Helper: Return yesterday's date in YYYY-MM-DD format.
+  /**
+   * Get a fallback date (yesterday)
+   * @returns {string} Yesterday's date in YYYY-MM-DD format
+   */
   function getFallbackDate() {
-    // Use the central DateUtils function
     return DateUtils.getYesterday();
   }
 
+  /**
+   * Load trips from API
+   */
   async function loadTrips() {
     try {
-      // Get dates from inputs if available; otherwise from localStorage; otherwise fallback to yesterday.
+      // Get dates from inputs or localStorage or fallback
       const startDate =
-        (document.getElementById("start-date") &&
-          document.getElementById("start-date").value) ||
+        document.getElementById("start-date")?.value ||
         localStorage.getItem("startDate") ||
         getFallbackDate();
+
       const endDate =
-        (document.getElementById("end-date") &&
-          document.getElementById("end-date").value) ||
+        document.getElementById("end-date")?.value ||
         localStorage.getItem("endDate") ||
         getFallbackDate();
 
@@ -110,7 +147,11 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.setItem("startDate", startDate);
       localStorage.setItem("endDate", endDate);
 
-      const tripType = document.getElementById("tripType").value;
+      // Get selected trip type
+      const tripTypeSelect = document.getElementById("tripType");
+      if (!tripTypeSelect) return;
+
+      const tripType = tripTypeSelect.value;
       const url =
         tripType === "matched_trips"
           ? `/api/matched_trips?start_date=${startDate}&end_date=${endDate}`
@@ -129,15 +170,27 @@ document.addEventListener("DOMContentLoaded", () => {
       displayTripsOnMap(data.features);
     } catch (error) {
       console.error("Error loading trips:", error);
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          "Error loading trips: " + error.message,
+          "danger"
+        );
+      }
     }
   }
 
+  /**
+   * Display trips on the map
+   * @param {Array} trips - Array of trip features
+   */
   function displayTripsOnMap(trips) {
+    if (!tripsLayerGroup) return;
+
     tripsLayerGroup.clearLayers();
     editableLayers.clearLayers();
     currentTrip = null;
 
-    if (trips.length === 0) {
+    if (!trips || trips.length === 0) {
       console.warn("No trips to display.");
       return;
     }
@@ -151,12 +204,16 @@ document.addEventListener("DOMContentLoaded", () => {
           );
           return null;
         }
+
+        // Convert GeoJSON coordinates ([lon, lat]) to Leaflet ([lat, lon])
         const coordsLatLng = gps.coordinates.map(([lon, lat]) => [lat, lon]);
+
         const poly = L.polyline(coordsLatLng, {
           color: "#BB86FC",
           weight: 3,
           opacity: 0.8,
         });
+
         poly.on("click", () => selectTrip(poly, trip));
         tripsLayerGroup.addLayer(poly);
         return poly;
@@ -169,10 +226,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  /**
+   * Select a trip for editing
+   * @param {L.Polyline} layer - Leaflet polyline layer
+   * @param {Object} tripData - Trip data
+   */
   function selectTrip(layer, tripData) {
     if (currentTrip) {
-      resetTripStyle(currentTrip.layer, currentTrip.tripData);
+      resetTripStyle(currentTrip.layer);
     }
+
     currentTrip = { layer, tripData };
     layer.setStyle({ color: "#FFD700", weight: 5, opacity: 1 });
 
@@ -181,7 +244,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function resetTripStyle(layer, tripData) {
+  /**
+   * Reset trip style to default
+   * @param {L.Polyline} layer - Leaflet polyline layer
+   */
+  function resetTripStyle(layer) {
     layer.setStyle({
       color: "#BB86FC",
       weight: 3,
@@ -189,9 +256,18 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  /**
+   * Toggle edit mode
+   * @param {Event} e - Change event
+   */
   function toggleEditMode(e) {
     editMode = e.target.checked;
-    document.getElementById("saveChanges").disabled = !editMode;
+
+    const saveChangesBtn = document.getElementById("saveChanges");
+    if (saveChangesBtn) {
+      saveChangesBtn.disabled = !editMode;
+    }
+
     if (!editMode) {
       editableLayers.clearLayers();
     } else if (currentTrip) {
@@ -199,13 +275,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  /**
+   * Create editable markers for trip points
+   * @param {Array} coordinates - Trip coordinates
+   */
   function createEditableMarkers(coordinates) {
     editableLayers.clearLayers();
+
     coordinates.forEach(([lon, lat], index) => {
       const marker = L.marker([lat, lon], {
         draggable: true,
         pointIndex: index,
       });
+
       marker.on("dragend", (e) =>
         updatePointInTrip(index, e.target.getLatLng())
       );
@@ -213,71 +295,106 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  /**
+   * Find the closest point index to insert a new point
+   * @param {L.LatLng} latLng - New point position
+   * @param {Array} coordinates - Existing coordinates
+   * @returns {number} Index where the new point should be inserted
+   */
   function findClosestPointIndex(latLng, coordinates) {
     let closestIndex = 0;
     let minDistance = Infinity;
     const point = L.latLng(latLng);
+
     for (let i = 0; i < coordinates.length; i++) {
       const coord = L.latLng(coordinates[i][1], coordinates[i][0]);
       const distance = point.distanceTo(coord);
+
       if (distance < minDistance) {
         minDistance = distance;
         closestIndex = i;
       }
     }
+
     return closestIndex;
   }
 
+  /**
+   * Add a new point to the trip
+   * @param {L.LatLng} latLng - New point position
+   */
   function addPointToTrip(latLng) {
     if (!currentTrip) return;
+
     const coords = currentTrip.tripData.geometry.coordinates;
     const index = findClosestPointIndex(latLng, coords);
+
+    // Insert new point after the closest existing point
     coords.splice(index + 1, 0, [latLng.lng, latLng.lat]);
+
     updateTripPolyline();
     createEditableMarkers(coords);
   }
 
+  /**
+   * Update an existing point in the trip
+   * @param {number} index - Point index
+   * @param {L.LatLng} latLng - New point position
+   */
   function updatePointInTrip(index, latLng) {
     if (!currentTrip) return;
+
     currentTrip.tripData.geometry.coordinates[index] = [latLng.lng, latLng.lat];
+
     updateTripPolyline();
     createEditableMarkers(currentTrip.tripData.geometry.coordinates);
   }
 
+  /**
+   * Update the trip polyline with the current coordinates
+   */
   function updateTripPolyline() {
     if (!currentTrip) return;
+
     const coords = currentTrip.tripData.geometry.coordinates;
     const latLngs = coords.map(([lon, lat]) => [lat, lon]);
+
     currentTrip.layer.setLatLngs(latLngs);
   }
 
+  /**
+   * Save trip changes to the server
+   */
   async function saveTripChanges() {
     if (!currentTrip) {
-      window.notificationManager.show("No trip selected to save.", "warning");
+      window.notificationManager?.show("No trip selected to save.", "warning");
       return;
     }
 
     try {
-      let tripId = currentTrip.tripData.properties?.transactionId;
-      if (!tripId) {
-        tripId = currentTrip.tripData.transactionId;
-      }
-      const isMatchedTrip =
-        document.getElementById("tripType").value === "matched_trips";
-      const baseUrl = isMatchedTrip ? "/api/matched_trips" : "/api/trips";
+      // Get trip ID from properties or directly from tripData
+      let tripId =
+        currentTrip.tripData.properties?.transactionId ||
+        currentTrip.tripData.transactionId;
+
       if (!tripId) {
         console.error(
           "Error: transactionId is undefined.",
           currentTrip.tripData
         );
-        window.notificationManager.show(
+        window.notificationManager?.show(
           "Error: Could not find the trip ID to save changes.",
           "danger"
         );
         return;
       }
+
+      const isMatchedTrip =
+        document.getElementById("tripType")?.value === "matched_trips";
+      const baseUrl = isMatchedTrip ? "/api/matched_trips" : "/api/trips";
       const url = `${baseUrl}/${tripId}`;
-      const res = await fetch(url, {
+
+      const response = await fetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -285,20 +402,24 @@ document.addEventListener("DOMContentLoaded", () => {
           type: isMatchedTrip ? "matched_trips" : "trips",
         }),
       });
-      if (!res.ok)
-        throw new Error(`Failed to save trip changes: ${res.status}`);
-      window.notificationManager.show(
+
+      if (!response.ok) {
+        throw new Error(`Failed to save trip changes: ${response.status}`);
+      }
+
+      window.notificationManager?.show(
         "Trip changes saved successfully.",
         "success"
       );
     } catch (error) {
       console.error("Error saving trip:", error);
-      window.notificationManager.show(
+      window.notificationManager?.show(
         `Error saving trip: ${error.message}`,
         "danger"
       );
     }
   }
 
+  // Initialize the editor
   init();
 });
