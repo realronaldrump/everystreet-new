@@ -1,4 +1,4 @@
-/** global bootstrap */
+/** global bootstrap, flatpickr */
 
 /**
  * @file Application utilities for error handling, notifications, and UI components

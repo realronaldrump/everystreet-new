@@ -1,4 +1,4 @@
-/* global L */
+/* global L, DateUtils */
 /**
  * LiveTripTracker - Tracks and visualizes real-time vehicle location using polling
  * @class

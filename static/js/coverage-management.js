@@ -1,4 +1,4 @@
-/* global bootstrap, notificationManager, confirmationDialog */
+/* global bootstrap, notificationManager, confirmationDialog, L, leafletImage, Chart, showNotification */
 "use strict";
 
 (() => {

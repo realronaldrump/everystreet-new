@@ -1,4 +1,4 @@
-/* global L, flatpickr, notificationManager, bootstrap, $ */
+/* global L, flatpickr, notificationManager, bootstrap, DateUtils $ */
 
 document.addEventListener("DOMContentLoaded", () => {
   let editMap = null,
