@@ -28,17 +28,13 @@ from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 # Local module imports
-from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinates
 from update_geo_points import update_geo_points
 from utils import (
     validate_location_osm,
-    reverse_geocode_nominatim,
     cleanup_session,
-    BaseConnectionManager,
     haversine as haversine_util,
 )
 from trip_processor import TripProcessor, TripState
-from map_matching import process_and_map_match_trip
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from preprocess_streets import preprocess_streets as async_preprocess_streets
 from tasks import (
@@ -46,7 +42,6 @@ from tasks import (
     get_task_config,
     update_task_schedule,
     get_all_task_metadata,
-    TaskStatus,
     TASK_METADATA,
 )
 
@@ -62,17 +57,12 @@ from db import (
     find_one_with_retry,
     find_with_retry,
     update_one_with_retry,
-    update_many_with_retry,
     insert_one_with_retry,
-    insert_many_with_retry,
     delete_one_with_retry,
     delete_many_with_retry,
     aggregate_with_retry,
-    replace_one_with_retry,
     count_documents_with_retry,
-    get_trip_by_id,
     get_trip_from_all_collections,
-    get_trips_in_date_range,
     parse_query_date,
 )
 from export_helpers import create_geojson, create_gpx

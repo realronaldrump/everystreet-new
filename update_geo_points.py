@@ -270,38 +270,6 @@ async def update_geo_points_with_indexing(collection: AsyncIOMotorCollection) ->
         return 0
 
 
-async def update_all_collections_geo_points() -> Dict[str, int]:
-    """
-    Update geo-points for all trip collections.
-
-    Returns:
-        Dict mapping collection names to number of documents updated
-    """
-    from db import (
-        trips_collection,
-        uploaded_trips_collection,
-    )
-
-    collections = {
-        "trips": trips_collection,
-        "uploaded_trips": uploaded_trips_collection,
-    }
-
-    results = {}
-
-    for name, collection in collections.items():
-        try:
-            logger.info("Updating geo-points for %s collection", name)
-            count = await update_geo_points_with_indexing(collection)
-            results[name] = count
-            logger.info("Updated %d documents in %s collection", count, name)
-        except Exception as e:
-            logger.error("Error updating geo-points for %s: %s", name, e, exc_info=True)
-            results[name] = 0
-
-    return results
-
-
 if __name__ == "__main__":
     import os
     import sys

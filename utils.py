@@ -226,18 +226,3 @@ def haversine(
         radius = EARTH_RADIUS_METERS
 
     return radius * c
-
-
-class BaseConnectionManager:
-    """Base class for connection managers"""
-
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    async def cleanup(self):
-        """Method to cleanup resources"""
-        pass

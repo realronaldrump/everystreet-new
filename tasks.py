@@ -6,12 +6,9 @@ application, replacing the previous APScheduler-based implementation.
 """
 
 import os
-import logging
-import time
-import json
 import asyncio
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any
 from enum import Enum
 import uuid
 from functools import wraps

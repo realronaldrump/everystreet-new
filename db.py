@@ -7,8 +7,8 @@ import certifi
 import logging
 import asyncio
 import threading
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Any, Dict, Tuple, Callable, TypeVar, Awaitable, List, Union
+from datetime import datetime, timezone
+from typing import Optional, Any, Dict, Tuple, Callable, TypeVar, Awaitable, List
 
 from motor.motor_asyncio import (
     AsyncIOMotorClient,

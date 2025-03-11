@@ -10,7 +10,6 @@ import logging
 from datetime import datetime, timedelta, timezone
 from dateutil import parser as date_parser
 import aiohttp
-from geojson import dumps as geojson_dumps
 
 # Local imports
 from utils import get_session
