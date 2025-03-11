@@ -101,7 +101,7 @@ class LiveTripTracker {
       if (data.status === "success") {
         if (data.has_active_trip && data.trip) {
           console.log(
-            `Found active trip: ${data.trip.transactionId} with sequence: ${data.trip.sequence}`
+            `Found active trip: ${data.trip.transactionId} with sequence: ${data.trip.sequence}`,
           );
           this.setActiveTrip(data.trip);
           this.updateActiveTripsCount(1);
@@ -133,7 +133,7 @@ class LiveTripTracker {
     this.isPolling = true;
     this.poll();
     console.log(
-      `LiveTripTracker: Started polling (${this.pollingInterval}ms interval)`
+      `LiveTripTracker: Started polling (${this.pollingInterval}ms interval)`,
     );
   }
 
@@ -192,11 +192,11 @@ class LiveTripTracker {
    */
   async fetchTripUpdates() {
     console.log(
-      `Fetching trip updates with last_sequence=${this.lastSequence}`
+      `Fetching trip updates with last_sequence=${this.lastSequence}`,
     );
 
     const response = await fetch(
-      `/api/trip_updates?last_sequence=${this.lastSequence}`
+      `/api/trip_updates?last_sequence=${this.lastSequence}`,
     );
 
     if (!response.ok) {
@@ -211,7 +211,7 @@ class LiveTripTracker {
       if (data.has_update && data.trip) {
         // We have new trip data
         console.log(
-          `Received trip update with sequence: ${data.trip.sequence}`
+          `Received trip update with sequence: ${data.trip.sequence}`,
         );
         this.setActiveTrip(data.trip);
         this.updateActiveTripsCount(1);
@@ -254,13 +254,13 @@ class LiveTripTracker {
     const oldInterval = this.pollingInterval;
     this.pollingInterval = Math.min(
       this.pollingInterval * factor,
-      this.maxPollingInterval
+      this.maxPollingInterval,
     );
 
     // Only log if there's an actual change
     if (this.pollingInterval !== oldInterval) {
       console.log(
-        `LiveTripTracker: Increased polling interval to ${this.pollingInterval}ms`
+        `LiveTripTracker: Increased polling interval to ${this.pollingInterval}ms`,
       );
     }
 
@@ -284,14 +284,14 @@ class LiveTripTracker {
       // More aggressive decrease when we have an active trip
       this.pollingInterval = Math.max(
         this.pollingInterval * factor,
-        this.activeTrip ? this.minPollingInterval : this.minPollingInterval * 2
+        this.activeTrip ? this.minPollingInterval : this.minPollingInterval * 2,
       );
     }
 
     // Only log if there's an actual change
     if (this.pollingInterval !== oldInterval) {
       console.log(
-        `LiveTripTracker: Decreased polling interval to ${this.pollingInterval}ms`
+        `LiveTripTracker: Decreased polling interval to ${this.pollingInterval}ms`,
       );
     }
 
@@ -326,7 +326,7 @@ class LiveTripTracker {
       // Stationary but updating - medium polling
       this.pollingInterval = Math.max(
         this.minPollingInterval * 1.5,
-        Math.min(this.pollingInterval, this.maxPollingInterval / 2)
+        Math.min(this.pollingInterval, this.maxPollingInterval / 2),
       );
     } else {
       // Stationary with no updates - slower polling
@@ -346,7 +346,7 @@ class LiveTripTracker {
     this.statusIndicator.classList.toggle("disconnected", !connected);
     this.statusIndicator.setAttribute(
       "aria-label",
-      connected ? "Connected" : "Disconnected"
+      connected ? "Connected" : "Disconnected",
     );
 
     this.statusText.textContent =
@@ -505,9 +505,9 @@ class LiveTripTracker {
           iconSize: [12, 12],
           iconAnchor: [6, 6],
           html: `<div class="vehicle-marker-inner" data-speed="${Math.round(
-            speed
+            speed,
           )}"></div>`,
-        })
+        }),
       );
     }
   }
@@ -533,7 +533,7 @@ class LiveTripTracker {
       this.activeTripsCountElem.textContent = count;
       this.activeTripsCountElem.setAttribute(
         "aria-label",
-        `${count} active trips`
+        `${count} active trips`,
       );
     }
   }
@@ -612,7 +612,7 @@ class LiveTripTracker {
         ([label, value]) => `<div class="metric-row">
         <span class="metric-label">${label}:</span>
         <span class="metric-value">${value}</span>
-      </div>`
+      </div>`,
       )
       .join("");
   }
@@ -671,7 +671,7 @@ class LiveTripTracker {
     // Remove event listeners
     document.removeEventListener(
       "visibilitychange",
-      this.handleVisibilityChange
+      this.handleVisibilityChange,
     );
   }
 }
