@@ -99,7 +99,7 @@
               this.notifier.show(
                 "Task Update",
                 `Task ${taskId} ${statusInfo.verb}`,
-                statusInfo.type
+                statusInfo.type,
               );
             }
           }
@@ -116,7 +116,7 @@
             const statusText = statusCell.textContent.trim();
             if (
               ["COMPLETED", "FAILED", "TERMINATED", "IDLE"].some((status) =>
-                statusText.includes(status)
+                statusText.includes(status),
               )
             ) {
               this.activeTasksMap.delete(taskId);
@@ -188,7 +188,7 @@
           this.notifier.show(
             "Task Error",
             `Task ${taskId} failed to complete`,
-            "danger"
+            "danger",
           );
           this.activeTasksMap.delete(taskId);
           this.updateTaskHistory();
@@ -197,7 +197,7 @@
           this.notifier.show(
             "Task Completed",
             `Task ${taskId} completed successfully`,
-            "success"
+            "success",
           );
           this.activeTasksMap.delete(taskId);
           this.updateTaskHistory();
@@ -206,7 +206,7 @@
           this.notifier.show(
             "Task Timeout",
             `Task ${taskId} is taking longer than expected`,
-            "warning"
+            "warning",
           );
           // Keep in active tasks map to continue checking
         }
@@ -311,7 +311,7 @@
                 if (taskResult.success && taskResult.task) {
                   // Mark each task as running in the UI
                   const taskRow = document.querySelector(
-                    `tr[data-task-id="${taskResult.task}"]`
+                    `tr[data-task-id="${taskResult.task}"]`,
                   );
                   if (taskRow) {
                     const statusCell = taskRow.querySelector(".task-status");
@@ -335,7 +335,7 @@
               this.notifier.show(
                 "Tasks Started",
                 `Started ${startedTasks.length} tasks`,
-                "info"
+                "info",
               );
             }
           } else {
@@ -344,7 +344,7 @@
             this.notifier.show(
               "Task Started",
               `Task ${taskId} has been started`,
-              "info"
+              "info",
             );
 
             // Update UI to show running status
@@ -383,7 +383,7 @@
         this.notifier.show(
           "Error",
           `Failed to start task ${taskId}: ${error.message}`,
-          "danger"
+          "danger",
         );
         return false;
       }
@@ -409,7 +409,7 @@
         this.notifier.show(
           "Error",
           "Failed to load task configuration: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -440,11 +440,11 @@
                   .map(
                     (opt) => `
                   <option value="${opt.value}" ${
-                      opt.value === task.interval_minutes ? "selected" : ""
-                    }>
+                    opt.value === task.interval_minutes ? "selected" : ""
+                  }>
                     ${opt.label}
                   </option>
-                `
+                `,
                   )
                   .join("")}
               </select>
@@ -458,7 +458,7 @@
             </td>
             <td>${task.priority || "MEDIUM"}</td>
             <td class="task-status">${this.getStatusHTML(
-              task.status || "IDLE"
+              task.status || "IDLE",
             )}</td>
             <td class="task-last-run">${
               task.last_run ? this.formatDateTime(task.last_run) : "Never"
@@ -490,7 +490,7 @@
     async updateTaskHistory() {
       try {
         const response = await fetch(
-          `/api/background_tasks/history?page=${this.currentHistoryPage}&limit=${this.historyLimit}`
+          `/api/background_tasks/history?page=${this.currentHistoryPage}&limit=${this.historyLimit}`,
         );
         if (!response.ok) {
           throw new Error("Failed to fetch task history");
@@ -504,7 +504,7 @@
         this.notifier.show(
           "Error",
           "Failed to update task history: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -614,7 +614,7 @@
 
     updateHistoryPagination() {
       const paginationContainer = document.querySelector(
-        "#taskHistoryPagination"
+        "#taskHistoryPagination",
       );
       if (!paginationContainer) return;
 
@@ -690,8 +690,8 @@
       return hours > 0
         ? `${hours}h ${minutes % 60}m ${seconds % 60}s`
         : minutes > 0
-        ? `${minutes}m ${seconds % 60}s`
-        : `${seconds}s`;
+          ? `${minutes}m ${seconds % 60}s`
+          : `${seconds}s`;
     }
 
     gatherTaskConfigFromUI() {
@@ -743,7 +743,7 @@
 
         // First get the task metadata
         const taskResponse = await fetch(
-          `/api/background_tasks/task/${taskId}`
+          `/api/background_tasks/task/${taskId}`,
         );
         if (!taskResponse.ok) throw new Error("Failed to fetch task details");
         const taskDetails = await taskResponse.json();
@@ -775,7 +775,7 @@
               <h6>Interval</h6>
               <p>${
                 this.intervalOptions.find(
-                  (opt) => opt.value === taskDetails.interval_minutes
+                  (opt) => opt.value === taskDetails.interval_minutes,
                 )?.label || taskDetails.interval_minutes + " minutes"
               }</p>
             </div>
@@ -832,7 +832,7 @@
                     <tr>
                       <td>${this.formatDateTime(entry.timestamp)}</td>
                       <td><span class="badge bg-${this.getStatusColor(
-                        entry.status
+                        entry.status,
                       )}">${entry.status}</span></td>
                       <td>${
                         entry.runtime
@@ -840,7 +840,7 @@
                           : "N/A"
                       }</td>
                     </tr>
-                  `
+                  `,
                     )
                     .join("")}
                 </tbody>
@@ -861,7 +861,7 @@
         this.notifier.show(
           "Error",
           "Failed to fetch task details: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -891,7 +891,7 @@
         this.currentHistoryPage = 1;
         this.historyTotalPages = 1;
         const paginationContainer = document.querySelector(
-          "#taskHistoryPagination"
+          "#taskHistoryPagination",
         );
         if (paginationContainer) {
           paginationContainer.innerHTML = "";
@@ -901,7 +901,7 @@
         this.notifier.show(
           "Success",
           "Task history cleared successfully",
-          "success"
+          "success",
         );
       } catch (error) {
         hideLoadingOverlay();
@@ -909,7 +909,7 @@
         this.notifier.show(
           "Error",
           `Failed to clear task history: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -964,7 +964,7 @@
           .then((result) => {
             window.notificationManager.show(
               "Task configuration updated successfully",
-              "success"
+              "success",
             );
             taskManager.loadTaskConfig();
           })
@@ -972,7 +972,7 @@
             console.error("Error updating task config:", error);
             window.notificationManager.show(
               `Error updating task config: ${error.message}`,
-              "danger"
+              "danger",
             );
           });
       });
@@ -982,7 +982,7 @@
       confirmPauseBtn.addEventListener("click", async () => {
         const mins = parseInt(
           document.getElementById("pauseDuration").value,
-          10
+          10,
         );
         try {
           showLoadingOverlay();
@@ -997,16 +997,16 @@
           if (!response.ok) throw new Error("Failed to pause tasks");
 
           bootstrap.Modal.getInstance(
-            document.getElementById("pauseModal")
+            document.getElementById("pauseModal"),
           ).hide();
           window.notificationManager.show(
             `Tasks paused for ${mins} minutes`,
-            "success"
+            "success",
           );
 
           // Update task status display for all running tasks
           const taskRows = document.querySelectorAll(
-            "#taskConfigTable tbody tr"
+            "#taskConfigTable tbody tr",
           );
           taskRows.forEach((row) => {
             const statusCell = row.querySelector(".task-status");
@@ -1029,7 +1029,7 @@
           console.error("Error pausing tasks:", error);
           window.notificationManager.show(
             "Failed to pause tasks: " + error.message,
-            "danger"
+            "danger",
           );
         }
       });
@@ -1051,7 +1051,7 @@
 
           // Immediately update UI to show tasks as resumed
           const taskRows = document.querySelectorAll(
-            "#taskConfigTable tbody tr"
+            "#taskConfigTable tbody tr",
           );
           taskRows.forEach((row) => {
             const statusCell = row.querySelector(".task-status");
@@ -1068,7 +1068,7 @@
           console.error("Error resuming tasks:", error);
           window.notificationManager.show(
             "Failed to resume tasks: " + error.message,
-            "danger"
+            "danger",
           );
         }
       });
@@ -1089,7 +1089,7 @@
 
           // Update UI to show all running tasks as terminated
           const taskRows = document.querySelectorAll(
-            "#taskConfigTable tbody tr"
+            "#taskConfigTable tbody tr",
           );
           taskRows.forEach((row) => {
             const statusCell = row.querySelector(".task-status");
@@ -1127,7 +1127,7 @@
           console.error("Error stopping tasks:", error);
           window.notificationManager.show(
             "Failed to stop tasks: " + error.message,
-            "danger"
+            "danger",
           );
         }
       });
@@ -1159,7 +1159,7 @@
           console.error("Error enabling tasks:", error);
           window.notificationManager.show(
             "Failed to enable tasks: " + error.message,
-            "danger"
+            "danger",
           );
         }
       });
@@ -1191,7 +1191,7 @@
           console.error("Error disabling tasks:", error);
           window.notificationManager.show(
             "Failed to disable tasks: " + error.message,
-            "danger"
+            "danger",
           );
         }
       });
@@ -1199,7 +1199,7 @@
 
     if (manualRunAllBtn) {
       manualRunAllBtn.addEventListener("click", () =>
-        taskManager.runTask("ALL")
+        taskManager.runTask("ALL"),
       );
     }
 
@@ -1212,7 +1212,7 @@
             const status = this.checked ? "disabled" : "enabled";
             window.notificationManager.show(
               `Global tasks ${status}`,
-              "success"
+              "success",
             );
 
             // If disabled, update status of all running tasks
@@ -1235,8 +1235,8 @@
           .catch((error) =>
             window.notificationManager.show(
               `Failed to toggle global task state: ${error.message}`,
-              "danger"
-            )
+              "danger",
+            ),
           );
       });
     }
@@ -1244,7 +1244,7 @@
     if (clearHistoryBtn) {
       clearHistoryBtn.addEventListener("click", () => {
         const modal = new bootstrap.Modal(
-          document.getElementById("clearHistoryModal")
+          document.getElementById("clearHistoryModal"),
         );
         modal.show();
       });
@@ -1255,7 +1255,7 @@
       confirmClearHistory.addEventListener("click", async () => {
         await taskManager.clearTaskHistory();
         const modal = bootstrap.Modal.getInstance(
-          document.getElementById("clearHistoryModal")
+          document.getElementById("clearHistoryModal"),
         );
         modal.hide();
       });
@@ -1379,14 +1379,14 @@
         if (!start_date || !end_date) {
           window.notificationManager.show(
             "Please select both start and end dates",
-            "danger"
+            "danger",
           );
           return;
         }
       } else {
         interval_days = parseInt(
           document.getElementById("remap-interval-select").value,
-          10
+          10,
         );
         start_date = new Date();
         start_date.setDate(start_date.getDate() - interval_days);
