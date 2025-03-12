@@ -35,7 +35,7 @@ class LiveTripTracker {
     this.lastSequence = 0;
     this.pollingInterval = 2000; // Start with 2 seconds
     this.maxPollingInterval = 10000; // Max 10 seconds
-    this.minPollingInterval = 1000; // Min 1 second
+    this.minPollingInterval = 500; // Min 0.5 second
     this.pollingTimerId = null;
     this.consecutiveErrors = 0;
     this.maxConsecutiveErrors = 5;

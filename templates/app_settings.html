@@ -154,10 +154,14 @@ endblock %} {% block content %}
     const polylineOpacity = document.getElementById("polyline-opacity");
     const opacityValue = document.getElementById("opacity-value");
     const form = document.getElementById("app-settings-form");
+    const themeToggleCheckbox = document.getElementById(
+      "theme-toggle-checkbox"
+    );
 
     // Load settings from localStorage
-    darkModeToggle.checked =
+    const isDarkMode =
       document.documentElement.getAttribute("data-bs-theme") === "dark";
+    darkModeToggle.checked = isDarkMode;
     highlightRecentTrips.checked =
       localStorage.getItem("highlightRecentTrips") !== "false";
     autoCenterToggle.checked = localStorage.getItem("autoCenter") !== "false";
@@ -177,11 +181,6 @@ endblock %} {% block content %}
     // Handle form submission
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-
-      // Save theme setting
-      const theme = darkModeToggle.checked ? "dark" : "light";
-      document.documentElement.setAttribute("data-bs-theme", theme);
-      localStorage.setItem("theme", theme);
 
       // Save other settings
       localStorage.setItem(
@@ -216,11 +215,14 @@ endblock %} {% block content %}
       }
     });
 
-    // Handle dark mode toggle directly
+    // Handle dark mode toggle via the main app toggle
     darkModeToggle.addEventListener("change", function () {
-      const theme = this.checked ? "dark" : "light";
-      document.documentElement.setAttribute("data-bs-theme", theme);
-      document.body.classList.toggle("light-mode", !this.checked);
+      // Sync with the main theme toggle in header
+      if (themeToggleCheckbox) {
+        themeToggleCheckbox.checked = !this.checked;
+        // Trigger a change event to update the theme through the main handler
+        themeToggleCheckbox.dispatchEvent(new Event("change"));
+      }
     });
   });
 </script>

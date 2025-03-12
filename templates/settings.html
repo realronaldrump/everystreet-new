@@ -317,13 +317,4 @@ content %}
 
 {% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', path='js/settings.js') | replace('http://', '//') }}"></script>
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    // Initialize flatpickr for date inputs
-    flatpickr(".datepicker", {
-      enableTime: false,
-      dateFormat: "Y-m-d",
-    });
-  });
-</script>
 {% endblock %}

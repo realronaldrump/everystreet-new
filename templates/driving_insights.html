@@ -16,7 +16,7 @@ block content %}
               <label for="start-date" class="form-label">Start Date</label>
               <input
                 type="date"
-                class="form-control"
+                class="form-control datepicker"
                 id="start-date"
                 name="start_date"
               />
@@ -25,7 +25,7 @@ block content %}
               <label for="end-date" class="form-label">End Date</label>
               <input
                 type="date"
-                class="form-control"
+                class="form-control datepicker"
                 id="end-date"
                 name="end_date"
               />
@@ -162,16 +162,5 @@ block content %}
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
-<!-- Only load flatpickr if it's not already loaded by Modern UI -->
-<script>
-  if (typeof flatpickr === "undefined") {
-    document.write(
-      '<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"><\/script>'
-    );
-    document.write(
-      '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">'
-    );
-  }
-</script>
 <script src="{{ url_for('static', path='js/driving_insights.js') | replace('http://', '//') }}"></script>
 {% endblock %}

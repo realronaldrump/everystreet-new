@@ -12,6 +12,7 @@
   const CONFIG = {
     selectors: {
       themeToggle: "#theme-toggle-checkbox",
+      darkModeToggle: "#dark-mode-toggle",
       mobileDrawer: "#mobile-nav-drawer",
       menuToggle: "#menu-toggle",
       closeBtn: ".drawer-close-btn",
@@ -26,6 +27,7 @@
       actionButton: "#action-button",
       actionMenu: "#action-menu",
       header: ".app-header",
+      datepicker: ".datepicker",
       mapTileUrl: {
         light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
         dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
@@ -80,6 +82,7 @@
       initFilterPanel();
       initFloatingActionButton();
       initScrollEffects();
+      initDatePickers();
       setupLegacyCodeBridge();
 
       // Handle resize events
@@ -104,6 +107,7 @@
 
     // Main UI elements
     elements.themeToggle = document.querySelector(selectors.themeToggle);
+    elements.darkModeToggle = document.querySelector(selectors.darkModeToggle);
     elements.mobileDrawer = document.querySelector(selectors.mobileDrawer);
     elements.menuToggle = document.querySelector(selectors.menuToggle);
     elements.closeBtn = document.querySelector(selectors.closeBtn);
@@ -118,6 +122,7 @@
     elements.applyFiltersBtn = document.querySelector(selectors.applyFilters);
     elements.resetFiltersBtn = document.querySelector(selectors.resetFilters);
     elements.quickSelectBtns = document.querySelectorAll(".quick-select-btn");
+    elements.datepickers = document.querySelectorAll(selectors.datepicker);
 
     // Action elements
     elements.actionButton = document.querySelector(selectors.actionButton);
@@ -143,8 +148,8 @@
    * Initialize theme toggle functionality
    */
   function initThemeToggle() {
-    const { themeToggle } = elements;
-    if (!themeToggle) return;
+    const { themeToggle, darkModeToggle } = elements;
+    if (!themeToggle && !darkModeToggle) return;
 
     // Check for saved theme preference or system preference
     const savedTheme = localStorage.getItem(CONFIG.storage.theme);
@@ -153,24 +158,31 @@
     ).matches;
 
     // Apply theme
-    if (savedTheme === "light" || (!savedTheme && !prefersDarkScheme)) {
-      applyTheme("light");
-      themeToggle.checked = true;
-    } else {
-      applyTheme("dark");
-      themeToggle.checked = false;
+    const isLight =
+      savedTheme === "light" || (!savedTheme && !prefersDarkScheme);
+    const themeName = isLight ? "light" : "dark";
+
+    // Apply theme
+    applyTheme(themeName);
+
+    // Set toggle states
+    if (themeToggle) {
+      themeToggle.checked = isLight;
+      themeToggle.addEventListener("change", () => {
+        const newTheme = themeToggle.checked ? "light" : "dark";
+        applyTheme(newTheme);
+        localStorage.setItem(CONFIG.storage.theme, newTheme);
+
+        // Sync with app settings dark mode toggle if it exists
+        if (darkModeToggle) {
+          darkModeToggle.checked = newTheme === "dark";
+        }
+
+        document.dispatchEvent(
+          new CustomEvent("themeChanged", { detail: { theme: newTheme } })
+        );
+      });
     }
-
-    // Handle theme toggle
-    themeToggle.addEventListener("change", () => {
-      const themeName = themeToggle.checked ? "light" : "dark";
-      applyTheme(themeName);
-      localStorage.setItem(CONFIG.storage.theme, themeName);
-
-      document.dispatchEvent(
-        new CustomEvent("themeChanged", { detail: { theme: themeName } })
-      );
-    });
   }
 
   /**
@@ -183,6 +195,12 @@
     // Update document
     document.body.classList.toggle(CONFIG.classes.lightMode, isLight);
     document.documentElement.setAttribute("data-bs-theme", theme);
+
+    // Update theme-color meta tag for mobile browsers
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute("content", isLight ? "#f8f9fa" : "#121212");
+    }
 
     // Update map theme if map exists
     updateMapTheme(theme);
@@ -284,8 +302,6 @@
       filtersPanel,
       contentOverlay,
       filtersClose,
-      startDateInput,
-      endDateInput,
       applyFiltersBtn,
       resetFiltersBtn,
       quickSelectBtns,
@@ -319,9 +335,6 @@
       });
     }
 
-    // Initialize datepickers if available
-    initDatePickers(startDateInput, endDateInput);
-
     // Handle quick select buttons
     if (quickSelectBtns) {
       quickSelectBtns.forEach((btn) => {
@@ -329,7 +342,7 @@
           const range = btn.dataset.range;
           if (!range) return;
 
-          setDateRange(range, startDateInput, endDateInput);
+          setDateRange(range);
 
           // Update active button state
           quickSelectBtns.forEach((b) =>
@@ -352,17 +365,15 @@
   }
 
   /**
-   * Initialize date pickers
-   * @param {HTMLElement} startInput - Start date input element
-   * @param {HTMLElement} endInput - End date input element
+   * Initialize all date pickers
    */
-  function initDatePickers(startInput, endInput) {
-    if (!startInput || !endInput) return;
+  function initDatePickers() {
+    const { datepickers, startDateInput, endDateInput } = elements;
 
     // Get dates from localStorage or use defaults
     const today = DateUtils.getCurrentDate();
-    startInput.value = localStorage.getItem(CONFIG.storage.startDate) || today;
-    endInput.value = localStorage.getItem(CONFIG.storage.endDate) || today;
+    const startDate = localStorage.getItem(CONFIG.storage.startDate) || today;
+    const endDate = localStorage.getItem(CONFIG.storage.endDate) || today;
 
     // Create configuration
     const dateConfig = {
@@ -373,9 +384,29 @@
         : "dark",
     };
 
-    // Initialize with DateUtils
-    DateUtils.initDatePicker(startInput, dateConfig);
-    DateUtils.initDatePicker(endInput, dateConfig);
+    // Initialize all date pickers with the datepicker class
+    if (datepickers && datepickers.length > 0) {
+      datepickers.forEach((input) => {
+        if (!input._flatpickr) {
+          DateUtils.initDatePicker(input, dateConfig);
+        }
+      });
+    }
+
+    // Set values for the main date filters
+    if (startDateInput) {
+      startDateInput.value = startDate;
+      if (startDateInput._flatpickr) {
+        startDateInput._flatpickr.setDate(startDate);
+      }
+    }
+
+    if (endDateInput) {
+      endDateInput.value = endDate;
+      if (endDateInput._flatpickr) {
+        endDateInput._flatpickr.setDate(endDate);
+      }
+    }
   }
 
   /**
@@ -447,11 +478,11 @@
   /**
    * Set date range based on preset
    * @param {string} range - Range identifier
-   * @param {HTMLElement} startInput - Start date input
-   * @param {HTMLElement} endInput - End date input
    */
-  function setDateRange(range, startInput, endInput) {
-    if (!startInput || !endInput) {
+  function setDateRange(range) {
+    const { startDateInput, endDateInput } = elements;
+
+    if (!startDateInput || !endDateInput) {
       console.warn("Date inputs not found");
       return;
     }
@@ -466,7 +497,7 @@
       .then(({ startDate, endDate }) => {
         if (startDate && endDate) {
           // Update inputs and localStorage
-          updateDateInputs(startInput, endInput, startDate, endDate);
+          updateDateInputs(startDate, endDate);
           localStorage.setItem(CONFIG.storage.startDate, startDate);
           localStorage.setItem(CONFIG.storage.endDate, endDate);
 
@@ -491,26 +522,26 @@
   }
 
   /**
-   * Update date inputs (both DOM value and flatpickr instance if available)
-   * @param {HTMLElement} startInput - Start date input
-   * @param {HTMLElement} endInput - End date input
+   * Update all instances of date inputs with the same ID
    * @param {string} startStr - Start date string
    * @param {string} endStr - End date string
    */
-  function updateDateInputs(startInput, endInput, startStr, endStr) {
-    if (startInput) {
-      startInput.value = startStr;
-      if (startInput._flatpickr) {
-        startInput._flatpickr.setDate(startStr);
+  function updateDateInputs(startStr, endStr) {
+    // Update all start date inputs
+    document.querySelectorAll("#start-date").forEach((input) => {
+      input.value = startStr;
+      if (input._flatpickr) {
+        input._flatpickr.setDate(startStr);
       }
-    }
+    });
 
-    if (endInput) {
-      endInput.value = endStr;
-      if (endInput._flatpickr) {
-        endInput._flatpickr.setDate(endStr);
+    // Update all end date inputs
+    document.querySelectorAll("#end-date").forEach((input) => {
+      input.value = endStr;
+      if (input._flatpickr) {
+        input._flatpickr.setDate(endStr);
       }
-    }
+    });
   }
 
   /**
@@ -558,11 +589,15 @@
    * Reset filters to today
    */
   function resetFilters() {
-    const { startDateInput, endDateInput, quickSelectBtns } = elements;
+    const { quickSelectBtns } = elements;
     const today = new Date().toISOString().split("T")[0];
 
     // Update inputs
-    updateDateInputs(startDateInput, endDateInput, today, today);
+    updateDateInputs(today, today);
+
+    // Save to localStorage
+    localStorage.setItem(CONFIG.storage.startDate, today);
+    localStorage.setItem(CONFIG.storage.endDate, today);
 
     // Remove active class from quick select buttons
     if (quickSelectBtns) {
@@ -570,6 +605,9 @@
         btn.classList.remove(CONFIG.classes.active)
       );
     }
+
+    // Update the indicator
+    updateFilterIndicator();
 
     // Show notification
     if (window.notificationManager) {
@@ -967,7 +1005,7 @@
    */
   function refreshMapData() {
     if (window.map) {
-      // Try different refresh methods
+      // Try different refresh methods in order of preference
       if (typeof window.EveryStreet?.App?.fetchTrips === "function") {
         window.EveryStreet.App.fetchTrips();
       } else if (typeof window.fetchTrips === "function") {
@@ -1068,12 +1106,21 @@
       updateProgress,
       hideLoading,
       updateFilterIndicator,
+      applyTheme,
+      initDatePickers,
     };
 
     // Backward compatibility layer for loadingManager reference
     if (!window.loadingManager) {
       window.loadingManager = createCompatibilityLoadingManager();
     }
+
+    // Set up theme change event listener
+    document.addEventListener("themeChanged", function (e) {
+      if (e.detail && e.detail.theme) {
+        applyTheme(e.detail.theme);
+      }
+    });
   }
 
   /**
