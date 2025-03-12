@@ -58,6 +58,8 @@ from celery_app import app as celery_app
 from db import (
     db_manager,
     SerializationHelper,
+    serialize_datetime,
+    serialize_trip,
     ensure_street_coverage_indexes,
     init_task_history_collection,
     find_one_with_retry,
