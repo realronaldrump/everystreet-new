@@ -73,7 +73,7 @@
         (!window.map || typeof window.map.eachLayer !== "function")
       ) {
         console.warn(
-          "Map not properly initialized. Some features may not work correctly."
+          "Map not properly initialized. Some features may not work correctly.",
         );
       }
 
@@ -93,7 +93,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Error initializing UI: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -133,10 +133,10 @@
     elements.header = document.querySelector(selectors.header);
     elements.loadingOverlay = document.querySelector(".loading-overlay");
     elements.progressBar = document.querySelector(
-      ".loading-overlay .progress-bar"
+      ".loading-overlay .progress-bar",
     );
     elements.loadingText = document.querySelector(
-      ".loading-overlay .loading-text"
+      ".loading-overlay .loading-text",
     );
   }
 
@@ -154,7 +154,7 @@
     // Check for saved theme preference or system preference
     const savedTheme = localStorage.getItem(CONFIG.storage.theme);
     const prefersDarkScheme = window.matchMedia(
-      "(prefers-color-scheme: dark)"
+      "(prefers-color-scheme: dark)",
     ).matches;
 
     // Apply theme
@@ -179,7 +179,7 @@
         }
 
         document.dispatchEvent(
-          new CustomEvent("themeChanged", { detail: { theme: newTheme } })
+          new CustomEvent("themeChanged", { detail: { theme: newTheme } }),
         );
       });
     }
@@ -243,7 +243,7 @@
 
     // Dispatch map theme change event
     document.dispatchEvent(
-      new CustomEvent("mapThemeChanged", { detail: { theme } })
+      new CustomEvent("mapThemeChanged", { detail: { theme } }),
     );
   }
 
@@ -346,7 +346,7 @@
 
           // Update active button state
           quickSelectBtns.forEach((b) =>
-            b.classList.remove(CONFIG.classes.active)
+            b.classList.remove(CONFIG.classes.active),
           );
           btn.classList.add(CONFIG.classes.active);
         });
@@ -471,7 +471,7 @@
     const formatDisplayDate = (dateStr) =>
       DateUtils.formatForDisplay(dateStr, { dateStyle: "medium" });
     rangeSpan.textContent = `${formatDisplayDate(
-      startDate
+      startDate,
     )} - ${formatDisplayDate(endDate)}`;
   }
 
@@ -510,7 +510,7 @@
         if (window.notificationManager) {
           window.notificationManager.show(
             "Error setting date range. Please try again.",
-            "error"
+            "error",
           );
         }
       })
@@ -572,14 +572,14 @@
             startDate: startDateInput.value,
             endDate: endDateInput.value,
           },
-        })
+        }),
       );
 
       // Show confirmation
       if (window.notificationManager) {
         window.notificationManager.show(
           `Filters applied: ${startDateInput.value} to ${endDateInput.value}`,
-          "success"
+          "success",
         );
       }
     }
@@ -602,7 +602,7 @@
     // Remove active class from quick select buttons
     if (quickSelectBtns) {
       quickSelectBtns.forEach((btn) =>
-        btn.classList.remove(CONFIG.classes.active)
+        btn.classList.remove(CONFIG.classes.active),
       );
     }
 
@@ -613,7 +613,7 @@
     if (window.notificationManager) {
       window.notificationManager.show(
         "Date filters have been reset to today",
-        "info"
+        "info",
       );
     }
   }
@@ -803,7 +803,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           `Successfully fetched ${data.trips_count || 0} trips.`,
-          "success"
+          "success",
         );
       }
 
@@ -816,7 +816,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           `Error fetching trips: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -863,7 +863,7 @@
           `Successfully matched ${
             data.matched_count || 0
           } trips to the road network.`,
-          "success"
+          "success",
         );
       }
 
@@ -876,7 +876,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           `Error map matching: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -897,7 +897,7 @@
         if (window.notificationManager) {
           window.notificationManager.show(
             "Draw a polygon on the map to create a new place",
-            "info"
+            "info",
           );
         }
 
@@ -942,7 +942,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "Please enter valid latitude and longitude values.",
-          "warning"
+          "warning",
         );
       }
       return;
@@ -981,7 +981,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           `Successfully added place: ${placeData.name}`,
-          "success"
+          "success",
         );
       }
 
@@ -994,7 +994,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           `Error adding place: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -1147,7 +1147,7 @@
         _parentOperation,
         _subOperationName,
         progress,
-        message
+        message,
       ) => {
         if (message) {
           updateProgress(progress, message);
