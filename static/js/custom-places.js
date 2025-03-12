@@ -96,7 +96,7 @@ class CustomPlacesManager {
 
     if (managePlacesBtn) {
       managePlacesBtn.addEventListener("click", () =>
-        this.showManagePlacesModal()
+        this.showManagePlacesModal(),
       );
     }
 
@@ -152,7 +152,7 @@ class CustomPlacesManager {
     if (!placeName) {
       window.notificationManager.show(
         "Please enter a name for this place",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -188,14 +188,14 @@ class CustomPlacesManager {
         this.resetDrawing();
         window.notificationManager.show(
           `Place "${placeName}" saved successfully`,
-          "success"
+          "success",
         );
       }
     } catch (error) {
       console.error("Error saving place:", error);
       window.notificationManager.show(
         error.message || "Error saving place",
-        "danger"
+        "danger",
       );
     }
   }
@@ -316,7 +316,7 @@ class CustomPlacesManager {
             console.warn(`Failed to fetch stats for place ${placeId}:`, error);
             return { placeId, stats: { totalVisits: 0, lastVisit: null } };
           }
-        })
+        }),
       );
 
       // Update place data with statistics
@@ -365,14 +365,14 @@ class CustomPlacesManager {
             <p>Total Visits: ${stats.totalVisits || 0}</p>
             <p>Last Visit: ${lastVisitDate}</p>
           </div>
-        `
+        `,
         )
         .openOn(this.map);
     } catch (error) {
       console.error("Error showing place statistics:", error);
       window.notificationManager.show(
         "Failed to load place statistics",
-        "danger"
+        "danger",
       );
     }
   }
@@ -456,7 +456,7 @@ class CustomPlacesManager {
       console.error("Error deleting place:", error);
       window.notificationManager.show(
         `Error deleting place: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
