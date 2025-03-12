@@ -64,6 +64,7 @@ from db import (
     count_documents_with_retry,
     get_trip_from_all_collections,
     parse_query_date,
+    build_query_from_request,
 )
 from export_helpers import create_geojson, create_gpx
 from street_coverage_calculation import compute_coverage_for_location
@@ -549,11 +550,8 @@ async def clear_task_history():
 @app.get("/api/edit_trips")
 async def get_edit_trips(request: Request):
     try:
-        start_date_str = request.query_params.get("start_date")
-        end_date_str = request.query_params.get("end_date")
+        query = await build_query_from_request(request)
         trip_type = request.query_params.get("type")
-        start_date = parse_query_date(start_date_str)
-        end_date = parse_query_date(end_date_str, end_of_day=True)
 
         if not trip_type or trip_type not in ["trips", "matched_trips"]:
             raise HTTPException(status_code=400, detail="Invalid trip type")
@@ -561,10 +559,6 @@ async def get_edit_trips(request: Request):
         collection = (
             trips_collection if trip_type == "trips" else matched_trips_collection
         )
-
-        query = {}
-        if start_date and end_date:
-            query["startTime"] = {"$gte": start_date, "$lte": end_date}
 
         trips = await find_with_retry(collection, query)
         serialized_trips = [serialize_trip(trip) for trip in trips]
@@ -889,17 +883,7 @@ async def get_coverage_status(task_id: str):
 @app.get("/api/trips")
 async def get_trips(request: Request):
     try:
-        start_date_str = request.query_params.get("start_date")
-        end_date_str = request.query_params.get("end_date")
-        imei = request.query_params.get("imei")
-        start_date = parse_query_date(start_date_str)
-        end_date = parse_query_date(end_date_str, end_of_day=True)
-
-        query = {}
-        if start_date and end_date:
-            query["startTime"] = {"$gte": start_date, "$lte": end_date}
-        if imei:
-            query["imei"] = imei
+        query = await build_query_from_request(request)
 
         # Fetch trips from both collections
         regular_future = find_with_retry(trips_collection, query)
@@ -983,17 +967,7 @@ async def get_trips(request: Request):
 @app.get("/api/driving-insights")
 async def get_driving_insights(request: Request):
     try:
-        start_date_str = request.query_params.get("start_date")
-        end_date_str = request.query_params.get("end_date")
-        imei = request.query_params.get("imei")
-        start_date = parse_query_date(start_date_str)
-        end_date = parse_query_date(end_date_str, end_of_day=True)
-
-        query = {}
-        if start_date and end_date:
-            query["startTime"] = {"$gte": start_date, "$lte": end_date}
-        if imei:
-            query["imei"] = imei
+        query = await build_query_from_request(request)
 
         # Pipeline for aggregation
         pipeline = [
@@ -1082,17 +1056,7 @@ async def get_driving_insights(request: Request):
 @app.get("/api/metrics")
 async def get_metrics(request: Request):
     try:
-        start_date_str = request.query_params.get("start_date")
-        end_date_str = request.query_params.get("end_date")
-        imei = request.query_params.get("imei")
-        start_date = parse_query_date(start_date_str)
-        end_date = parse_query_date(end_date_str, end_of_day=True)
-
-        query = {}
-        if start_date and end_date:
-            query["startTime"] = {"$gte": start_date, "$lte": end_date}
-        if imei:
-            query["imei"] = imei
+        query = await build_query_from_request(request)
 
         trips_data = await find_with_retry(trips_collection, query)
         total_trips = len(trips_data)
@@ -1426,19 +1390,7 @@ async def get_trip_status(trip_id: str):
 @app.get("/export/geojson")
 async def export_geojson(request: Request):
     try:
-        start_date_str = request.query_params.get("start_date")
-        end_date_str = request.query_params.get("end_date")
-        imei = request.query_params.get("imei")
-        start_date = parse_query_date(start_date_str)
-        end_date = parse_query_date(end_date_str, end_of_day=True)
-
-        query = {}
-        if start_date:
-            query["startTime"] = {"$gte": start_date}
-        if end_date:
-            query.setdefault("startTime", {})["$lte"] = end_date
-        if imei:
-            query["imei"] = imei
+        query = await build_query_from_request(request)
 
         trips = await find_with_retry(trips_collection, query)
 
@@ -1450,7 +1402,13 @@ async def export_geojson(request: Request):
         for t in trips:
             gps_data = t["gps"]
             if isinstance(gps_data, str):
-                gps_data = json.loads(gps_data)
+                try:
+                    gps_data = json.loads(gps_data)
+                except json.JSONDecodeError:
+                    logger.warning(
+                        f"Invalid GPS data for trip {t.get('transactionId', 'unknown')}"
+                    )
+                    continue
 
             feature = {
                 "type": "Feature",
@@ -1479,19 +1437,7 @@ async def export_geojson(request: Request):
 @app.get("/export/gpx")
 async def export_gpx(request: Request):
     try:
-        start_date_str = request.query_params.get("start_date")
-        end_date_str = request.query_params.get("end_date")
-        imei = request.query_params.get("imei")
-        start_date = parse_query_date(start_date_str)
-        end_date = parse_query_date(end_date_str, end_of_day=True)
-
-        query = {}
-        if start_date:
-            query["startTime"] = {"$gte": start_date}
-        if end_date:
-            query.setdefault("startTime", {})["$lte"] = end_date
-        if imei:
-            query["imei"] = imei
+        query = await build_query_from_request(request)
 
         trips = await find_with_retry(trips_collection, query)
 
@@ -1508,7 +1454,13 @@ async def export_gpx(request: Request):
 
             gps_data = t["gps"]
             if isinstance(gps_data, str):
-                gps_data = json.loads(gps_data)
+                try:
+                    gps_data = json.loads(gps_data)
+                except json.JSONDecodeError:
+                    logger.warning(
+                        f"Invalid GPS data for trip {t.get('transactionId', 'unknown')}"
+                    )
+                    continue
 
             if gps_data.get("type") == "LineString":
                 for coord in gps_data.get("coordinates", []):
@@ -1760,49 +1712,43 @@ async def map_match_trips_endpoint(request: Request):
 
 @app.get("/api/matched_trips")
 async def get_matched_trips(request: Request):
-    start_date_str = request.query_params.get("start_date")
-    end_date_str = request.query_params.get("end_date")
-    imei = request.query_params.get("imei")
-    start_date = parse_query_date(start_date_str)
-    end_date = parse_query_date(end_date_str, end_of_day=True)
+    try:
+        query = await build_query_from_request(request)
 
-    query = {}
-    if start_date and end_date:
-        query["startTime"] = {"$gte": start_date, "$lte": end_date}
-    if imei:
-        query["imei"] = imei
+        matched = await find_with_retry(matched_trips_collection, query)
+        features = []
 
-    matched = await find_with_retry(matched_trips_collection, query)
-    features = []
+        for trip in matched:
+            try:
+                mgps = trip["matchedGps"]
+                geometry_dict = (
+                    mgps if isinstance(mgps, dict) else geojson_module.loads(mgps)
+                )
+                feature = geojson_module.Feature(
+                    geometry=geometry_dict,
+                    properties={
+                        "transactionId": trip["transactionId"],
+                        "imei": trip.get("imei", ""),
+                        "startTime": serialize_datetime(trip.get("startTime")) or "",
+                        "endTime": serialize_datetime(trip.get("endTime")) or "",
+                        "distance": trip.get("distance", 0),
+                        "timeZone": trip.get("timeZone", "UTC"),
+                        "destination": trip.get("destination", "N/A"),
+                        "startLocation": trip.get("startLocation", "N/A"),
+                    },
+                )
+                features.append(feature)
+            except Exception as e:
+                logger.exception(
+                    "Error processing matched trip %s", trip.get("transactionId")
+                )
+                continue
 
-    for trip in matched:
-        try:
-            mgps = trip["matchedGps"]
-            geometry_dict = (
-                mgps if isinstance(mgps, dict) else geojson_module.loads(mgps)
-            )
-            feature = geojson_module.Feature(
-                geometry=geometry_dict,
-                properties={
-                    "transactionId": trip["transactionId"],
-                    "imei": trip.get("imei", ""),
-                    "startTime": serialize_datetime(trip.get("startTime")) or "",
-                    "endTime": serialize_datetime(trip.get("endTime")) or "",
-                    "distance": trip.get("distance", 0),
-                    "timeZone": trip.get("timeZone", "UTC"),
-                    "destination": trip.get("destination", "N/A"),
-                    "startLocation": trip.get("startLocation", "N/A"),
-                },
-            )
-            features.append(feature)
-        except Exception as e:
-            logger.exception(
-                "Error processing matched trip %s", trip.get("transactionId")
-            )
-            continue
-
-    fc = geojson_module.FeatureCollection(features)
-    return JSONResponse(content=fc)
+        fc = geojson_module.FeatureCollection(features)
+        return JSONResponse(content=fc)
+    except Exception as e:
+        logger.exception("Error in get_matched_trips")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/matched_trips/delete")
@@ -2000,25 +1946,32 @@ async def export_all_trips(request: Request):
 
 @app.get("/api/export/trips")
 async def export_trips_within_range(request: Request):
-    start_date_str = request.query_params.get("start_date")
-    end_date_str = request.query_params.get("end_date")
     fmt = request.query_params.get("format", "geojson").lower()
-    start_date = parse_query_date(start_date_str)
-    end_date = parse_query_date(end_date_str, end_of_day=True)
 
-    if not start_date or not end_date:
+    query = await build_query_from_request(request)
+
+    # Check if date range is valid by checking if query has startTime filter
+    if "startTime" not in query:
         raise HTTPException(status_code=400, detail="Invalid or missing date range")
-
-    query = {"startTime": {"$gte": start_date, "$lte": end_date}}
 
     # Use the utility functions from db.py
     trips_data = await find_with_retry(trips_collection, query)
     ups_data = await find_with_retry(uploaded_trips_collection, query)
     all_trips = trips_data + ups_data
 
-    date_range = f"{
-        start_date.strftime('%Y%m%d')}-{
-        end_date.strftime('%Y%m%d')}"
+    # Extract the start and end dates from query for filename
+    start_date = (
+        query["startTime"].get("$gte") if isinstance(query["startTime"], dict) else None
+    )
+    end_date = (
+        query["startTime"].get("$lte") if isinstance(query["startTime"], dict) else None
+    )
+
+    if start_date and end_date:
+        date_range = f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
+    else:
+        date_range = datetime.now().strftime("%Y%m%d")
+
     filename_base = f"trips_{date_range}"
 
     if fmt == "geojson":
@@ -2044,21 +1997,29 @@ async def export_trips_within_range(request: Request):
 
 @app.get("/api/export/matched_trips")
 async def export_matched_trips_within_range(request: Request):
-    start_date_str = request.query_params.get("start_date")
-    end_date_str = request.query_params.get("end_date")
     fmt = request.query_params.get("format", "geojson").lower()
-    start_date = parse_query_date(start_date_str)
-    end_date = parse_query_date(end_date_str, end_of_day=True)
 
-    if not start_date or not end_date:
+    query = await build_query_from_request(request)
+
+    # Check if date range is valid by checking if query has startTime filter
+    if "startTime" not in query:
         raise HTTPException(status_code=400, detail="Invalid or missing date range")
 
-    query = {"startTime": {"$gte": start_date, "$lte": end_date}}
     matched = await find_with_retry(matched_trips_collection, query)
 
-    date_range = f"{
-        start_date.strftime('%Y%m%d')}-{
-        end_date.strftime('%Y%m%d')}"
+    # Extract the start and end dates from query for filename
+    start_date = (
+        query["startTime"].get("$gte") if isinstance(query["startTime"], dict) else None
+    )
+    end_date = (
+        query["startTime"].get("$lte") if isinstance(query["startTime"], dict) else None
+    )
+
+    if start_date and end_date:
+        date_range = f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
+    else:
+        date_range = datetime.now().strftime("%Y%m%d")
+
     filename_base = f"matched_trips_{date_range}"
 
     if fmt == "geojson":
@@ -3197,19 +3158,15 @@ async def get_non_custom_places_visits():
 
 @app.get("/api/trip-analytics")
 async def get_trip_analytics(request: Request):
-    start_date_str = request.query_params.get("start_date")
-    end_date_str = request.query_params.get("end_date")
-    if not start_date_str or not end_date_str:
-        raise HTTPException(status_code=400, detail="Missing date range")
-
     try:
-        start_date = parse_query_date(start_date_str)
-        end_date = parse_query_date(end_date_str, end_of_day=True)
-        if not start_date or not end_date:
-            raise HTTPException(status_code=400, detail="Invalid date range")
+        query = await build_query_from_request(request)
+
+        # Check if date range is valid by checking if query has startTime filter
+        if "startTime" not in query:
+            raise HTTPException(status_code=400, detail="Missing date range")
 
         pipeline = [
-            {"$match": {"startTime": {"$gte": start_date, "$lte": end_date}}},
+            {"$match": query},
             {
                 "$group": {
                     "_id": {

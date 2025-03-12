@@ -8,8 +8,9 @@ import logging
 import asyncio
 import threading
 from datetime import datetime, timezone
-from typing import Optional, Any, Dict, Tuple, Callable, TypeVar, Awaitable, List
+from typing import Optional, Any, Dict, Tuple, Callable, TypeVar, Awaitable, List, Union
 
+from fastapi import Request
 from motor.motor_asyncio import (
     AsyncIOMotorClient,
     AsyncIOMotorDatabase,
@@ -302,6 +303,121 @@ def serialize_trip(trip: dict) -> dict:
     return result
 
 
+# Date parameter parsing utilities
+
+
+def parse_query_date(
+    date_str: Optional[str], end_of_day: bool = False
+) -> Optional[datetime]:
+    """
+    Parse a date string into a datetime object.
+    Replaces trailing "Z" with "+00:00" for ISO8601 compatibility.
+    """
+    if not date_str:
+        return None
+    date_str = date_str.replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(date_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        if end_of_day:
+            dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+        return dt
+    except ValueError:
+        try:
+            dt2 = datetime.strptime(date_str, "%Y-%m-%d")
+            dt2 = dt2.replace(tzinfo=timezone.utc)
+            if end_of_day:
+                dt2 = dt2.replace(hour=23, minute=59, second=59, microsecond=999999)
+            return dt2
+        except ValueError:
+            logger.warning(
+                "Unable to parse date string '%s'; returning None.", date_str
+            )
+            return None
+
+
+class DateFilter:
+    """A utility class for date range filtering."""
+
+    def __init__(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        field_name: str = "startTime",
+    ):
+        self.start_date = start_date
+        self.end_date = end_date
+        self.field_name = field_name
+
+    def get_query_dict(self) -> dict:
+        """Get a MongoDB query filter for this date range."""
+        query = {}
+        if self.start_date and self.end_date:
+            query[self.field_name] = {"$gte": self.start_date, "$lte": self.end_date}
+        elif self.start_date:
+            query[self.field_name] = {"$gte": self.start_date}
+        elif self.end_date:
+            query[self.field_name] = {"$lte": self.end_date}
+        return query
+
+
+async def parse_date_params(
+    request: Request,
+    start_param: str = "start_date",
+    end_param: str = "end_date",
+    field_name: str = "startTime",
+    end_of_day: bool = True,
+) -> DateFilter:
+    """
+    Parse start and end date parameters from a request.
+    Returns a DateFilter object with parsed datetime objects.
+    """
+    start_date_str = request.query_params.get(start_param)
+    end_date_str = request.query_params.get(end_param)
+
+    start_date = parse_query_date(start_date_str)
+    end_date = parse_query_date(end_date_str, end_of_day=end_of_day)
+
+    return DateFilter(start_date, end_date, field_name)
+
+
+async def build_query_from_request(
+    request: Request,
+    date_field: str = "startTime",
+    end_of_day: bool = True,
+    include_imei: bool = True,
+    additional_filters: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Build a MongoDB query from request parameters.
+
+    Args:
+        request: FastAPI request object
+        date_field: Field name for date filtering
+        end_of_day: Whether to set end date to end of day
+        include_imei: Whether to include IMEI filter
+        additional_filters: Additional query filters
+
+    Returns:
+        MongoDB query filter
+    """
+    date_filter = await parse_date_params(
+        request, field_name=date_field, end_of_day=end_of_day
+    )
+    query = date_filter.get_query_dict()
+
+    # Add IMEI filter if requested
+    if include_imei and request.query_params.get("imei"):
+        query["imei"] = request.query_params.get("imei")
+
+    # Add any additional filters
+    if additional_filters:
+        query.update(additional_filters)
+
+    return query
+
+
 # Database Operation Functions with Retry
 
 
@@ -438,37 +554,6 @@ async def count_documents_with_retry(collection, filter_query):
 
 
 # Common Query Pattern Helper Functions
-
-
-def parse_query_date(
-    date_str: Optional[str], end_of_day: bool = False
-) -> Optional[datetime]:
-    """
-    Parse a date string into a datetime object.
-    Replaces trailing "Z" with "+00:00" for ISO8601 compatibility.
-    """
-    if not date_str:
-        return None
-    date_str = date_str.replace("Z", "+00:00")
-    try:
-        dt = datetime.fromisoformat(date_str)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        if end_of_day:
-            dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
-        return dt
-    except ValueError:
-        try:
-            dt2 = datetime.strptime(date_str, "%Y-%m-%d")
-            dt2 = dt2.replace(tzinfo=timezone.utc)
-            if end_of_day:
-                dt2 = dt2.replace(hour=23, minute=59, second=59, microsecond=999999)
-            return dt2
-        except ValueError:
-            logger.warning(
-                "Unable to parse date string '%s'; returning None.", date_str
-            )
-            return None
 
 
 async def get_trips_in_date_range(
