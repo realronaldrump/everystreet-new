@@ -1,9 +1,3 @@
-/** global bootstrap, flatpickr */
-
-/**
- * @file Application utilities for error handling, notifications, and UI components
- */
-
 /**
  * DateUtils: Centralized utilities for consistent date handling
  */
@@ -259,6 +253,50 @@ const DateUtils = {
 
     const formatter = new Intl.DateTimeFormat("en-US", formatterOptions);
     return formatter.format(dateObj);
+  },
+
+  /**
+   * Format duration between two dates as HH:MM:SS
+   * @param {Date|string} startDate - Start date
+   * @param {Date|string} endDate - End date (defaults to now if not provided)
+   * @returns {string} - Duration in HH:MM:SS format
+   */
+  formatDurationHMS(startDate, endDate = new Date()) {
+    const start = this.parseDate(startDate);
+    const end = this.parseDate(endDate);
+
+    if (!start) return "00:00:00";
+
+    const diffMs = Math.max(0, end - start); // Ensure non-negative
+    const totalSeconds = Math.floor(diffMs / 1000);
+
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  },
+
+  /**
+   * Format seconds into a readable duration string
+   * @param {number} seconds - Total seconds
+   * @returns {string} - Formatted duration string (HH:MM:SS)
+   */
+  formatSecondsToHMS(seconds) {
+    if (typeof seconds !== "number" || isNaN(seconds)) {
+      return "00:00:00";
+    }
+
+    seconds = Math.max(0, Math.floor(seconds));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
+
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
   },
 
   /**

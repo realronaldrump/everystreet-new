@@ -315,16 +315,22 @@ class LiveTripTracker {
 
     // Check if vehicle is moving based on current speed
     const isMoving = trip.currentSpeed > 2; // Over 2 mph considered moving
+    const isFastMoving = trip.currentSpeed > 15; // Over 15 mph is fast
 
-    if (isMoving && hasNewData) {
+    if (isFastMoving && hasNewData) {
       // Moving vehicle with new data - fastest polling
       this.decreasePollingInterval(0.5, true);
-    } else if (isMoving) {
+    } else if (isMoving && hasNewData) {
       // Moving but no new data - medium fast polling
       this.decreasePollingInterval(0.8);
-    } else if (hasNewData) {
+    } else if (isMoving) {
       // Stationary but updating - medium polling
       this.pollingInterval = Math.max(
+        this.minPollingInterval * 1.5,
+        Math.min(this.pollingInterval, this.maxPollingInterval / 2)
+      );
+    } else if (hasNewData) {
+      return Math.max(
         this.minPollingInterval * 1.5,
         Math.min(this.pollingInterval, this.maxPollingInterval / 2)
       );
@@ -545,15 +551,12 @@ class LiveTripTracker {
   updateTripMetrics(trip) {
     if (!this.tripMetricsElem || !trip) return;
 
-    console.log("Updating trip metrics with:", trip);
-
-    // Get values from backend if available, otherwise calculate
     const startTime = trip.startTime ? new Date(trip.startTime) : null;
     const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
     const endTime = trip.endTime ? new Date(trip.endTime) : null;
     const tripStatus = trip.status || "active";
 
-    // Display preformatted duration from backend or format it client-side
+    // Use formatDurationHMS from DateUtils
     let durationStr = trip.durationFormatted;
     if (!durationStr && startTime) {
       // If trip is completed, use endTime for duration calculation
@@ -562,19 +565,7 @@ class LiveTripTracker {
         tripStatus === "completed" ? endTime : lastUpdate || new Date();
 
       if (endTimeToUse) {
-        const duration = Math.floor((endTimeToUse - startTime) / 1000);
-        // Only show positive durations
-        if (duration >= 0) {
-          const hours = Math.floor(duration / 3600);
-          const minutes = Math.floor((duration % 3600) / 60);
-          const seconds = duration % 60;
-          durationStr = `${hours}:${minutes
-            .toString()
-            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-        } else {
-          // If we somehow got a negative duration, show 0
-          durationStr = "0:00:00";
-        }
+        durationStr = DateUtils.formatDurationHMS(startTime, endTimeToUse);
       }
     }
 
@@ -586,10 +577,10 @@ class LiveTripTracker {
     const maxSpeed = typeof trip.maxSpeed === "number" ? trip.maxSpeed : 0;
     const pointsRecorded = trip.pointsRecorded || trip.coordinates?.length || 0;
 
-    // Format start time for display
+    // Format start time for display using DateUtils
     const startTimeFormatted =
       trip.startTimeFormatted ||
-      (startTime ? startTime.toLocaleString() : "N/A");
+      (startTime ? DateUtils.formatForDisplay(startTime) : "N/A");
 
     // Format metrics for display
     const metrics = {

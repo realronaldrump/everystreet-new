@@ -20,13 +20,13 @@ function createEditableCell(data, type, field, inputType = "text") {
   if (inputType === "number") {
     inputAttributes = 'step="any"';
   } else if (inputType === "datetime-local") {
-    // Convert date to datetime-local format for input
-    const datetime = value ? new Date(value) : new Date();
-    const localDatetime = new Date(
-      datetime.getTime() - datetime.getTimezoneOffset() * 60000
-    )
-      .toISOString()
-      .slice(0, 16);
+    // Convert date to datetime-local format for input using DateUtils
+    const dateObj = DateUtils.parseDate(value);
+    const localDatetime = dateObj
+      ? new Date(dateObj.getTime() - dateObj.getTimezoneOffset() * 60000)
+          .toISOString()
+          .slice(0, 16)
+      : "";
 
     return `
       <div class="editable-cell" data-field="${field}">

@@ -231,12 +231,11 @@
           preset = "90days";
           break;
         default:
-          // Handle custom days using DateUtils
+          // Use DateUtils for custom days calculation
           const endDate = new Date();
           const startDate = new Date();
           startDate.setDate(startDate.getDate() - days);
 
-          // Format dates using DateUtils
           updateDateInputs(
             startDateInput,
             endDateInput,
@@ -293,12 +292,10 @@
   }
 
   function formatIdleDuration(seconds) {
-    if (!seconds) return "0m 0s";
-
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-
-    return `${minutes}m ${remainingSeconds}s`;
+    return (
+      DateUtils.formatSecondsToHMS(seconds).split(":").slice(0, 2).join("m ") +
+      "s"
+    );
   }
 
   async function fetchDrivingInsights() {
