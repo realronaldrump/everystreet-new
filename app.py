@@ -352,49 +352,98 @@ async def stop_all_background_tasks():
 
         # Get all active tasks from Celery
         from celery_app import app as celery_app
-        from tasks import task_history_collection
-
+        from tasks import task_history_collection, update_task_config, TaskStatus
+        
         # Revoke all currently running tasks
         inspect = celery_app.control.inspect()
         active_tasks = inspect.active() or {}
         scheduled_tasks = inspect.scheduled() or {}
         reserved_tasks = inspect.reserved() or {}
-
+        
         revoked_count = 0
-
+        terminated_task_ids = []
+        
         # Process active tasks
         for worker_name, tasks in active_tasks.items():
             for task in tasks:
-                celery_app.control.revoke(task["id"], terminate=True)
+                task_id = task['id']
+                # Extract the base task name without additional identifiers
+                task_name = task.get('name', '').split('.')[-1]
+                celery_app.control.revoke(task_id, terminate=True)
                 revoked_count += 1
-
+                terminated_task_ids.append(task_name)
+                
                 # Update task history to mark as terminated
                 await task_history_collection.update_one(
-                    {"_id": task["id"]},
-                    {
-                        "$set": {
+                    {"_id": task_id},
+                    {"$set": {
+                        "status": "TERMINATED", 
+                        "end_time": datetime.now(timezone.utc),
+                        "result": False
+                    }},
+                    upsert=False
+                )
+                
+                # Also update the main task configuration status
+                if task_name:
+                    await update_task_config(
+                        task_name,
+                        {
                             "status": "TERMINATED",
                             "end_time": datetime.now(timezone.utc),
-                            "result": False,
+                            "last_updated": datetime.now(timezone.utc),
                         }
-                    },
-                    upsert=False,
-                )
-
+                    )
+                
         # Process reserved and scheduled tasks
         for worker_tasks in [scheduled_tasks, reserved_tasks]:
             for worker_name, tasks in worker_tasks.items():
                 for task in tasks:
-                    celery_app.control.revoke(task["id"])
+                    task_id = task['id']
+                    task_name = task.get('name', '').split('.')[-1]
+                    celery_app.control.revoke(task_id)
                     revoked_count += 1
+                    terminated_task_ids.append(task_name)
+                    
+                    # Also update task status in database
+                    if task_name:
+                        await update_task_config(
+                            task_name,
+                            {
+                                "status": "TERMINATED",
+                                "end_time": datetime.now(timezone.utc),
+                                "last_updated": datetime.now(timezone.utc),
+                            }
+                        )
 
         # Also purge all task queues
         celery_app.control.purge()
+        
+        # Update any tasks that might still be marked as running in the database
+        # Get the task config to find any tasks still marked as running
+        from tasks import get_task_config
+        config = await get_task_config()
+        tasks_config = config.get("tasks", {})
+        
+        for task_id, task_data in tasks_config.items():
+            if task_data.get("status") == "RUNNING" and task_id not in terminated_task_ids:
+                # This task is marked as running in the DB but wasn't active in Celery
+                # Update its status to be safe
+                await update_task_config(
+                    task_id,
+                    {
+                        "status": "TERMINATED",
+                        "end_time": datetime.now(timezone.utc),
+                        "last_updated": datetime.now(timezone.utc),
+                    }
+                )
+                terminated_task_ids.append(task_id)
 
         return {
-            "status": "success",
+            "status": "success", 
             "message": f"All background tasks stopped. Revoked {revoked_count} running tasks",
             "revoked_count": revoked_count,
+            "terminated_task_ids": terminated_task_ids
         }
     except Exception as e:
         logger.exception("Error stopping all tasks: %s", str(e))

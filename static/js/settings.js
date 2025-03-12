@@ -53,6 +53,27 @@
     // Better task status checking with Celery API
     async checkActiveTasksStatus() {
       try {
+        // Force refresh all visible task statuses if needed
+        const taskRows = document.querySelectorAll("#taskConfigTable tbody tr");
+        const visibleRunningTasks = [];
+
+        // First check for any visual inconsistencies - tasks that appear to be running in the UI
+        taskRows.forEach((row) => {
+          const taskId = row.dataset.taskId;
+          const statusCell = row.querySelector(".task-status");
+
+          // If visually running (has spinner), add to our check list
+          if (statusCell && statusCell.querySelector(".spinner-border")) {
+            visibleRunningTasks.push(taskId);
+
+            // If not in active tasks map, add it so we check its status
+            if (!this.activeTasksMap.has(taskId)) {
+              this.activeTasksMap.set(taskId, "RUNNING");
+            }
+          }
+        });
+
+        // Now check active tasks in our tracking map
         const activeTaskIds = Array.from(this.activeTasksMap.keys());
         if (activeTaskIds.length === 0) return;
 
@@ -71,6 +92,7 @@
           const currentStatus = taskConfig.status;
           const previousStatus = this.activeTasksMap.get(taskId);
 
+          // If status doesn't match what we think it is, update UI
           if (currentStatus !== previousStatus) {
             this.activeTasksMap.set(taskId, currentStatus);
             this.handleTaskUpdate({
@@ -103,28 +125,41 @@
               );
             }
           }
+          // If task shows as running in UI but is not running on server, fix the mismatch
+          else if (
+            visibleRunningTasks.includes(taskId) &&
+            currentStatus !== "RUNNING"
+          ) {
+            this.handleTaskUpdate({
+              task_id: taskId,
+              status: currentStatus,
+              last_run: taskConfig.last_run,
+              next_run: taskConfig.next_run,
+            });
+          }
         }
 
         // Check for any tasks that should be removed from active tasks map
-        // For example, if they've been terminated via Stop All
-        const taskRows = document.querySelectorAll("#taskConfigTable tbody tr");
         taskRows.forEach((row) => {
           const taskId = row.dataset.taskId;
           const statusCell = row.querySelector(".task-status");
 
           if (statusCell && this.activeTasksMap.has(taskId)) {
-            const statusText = statusCell.textContent.trim();
-            if (
-              ["COMPLETED", "FAILED", "TERMINATED", "IDLE"].some((status) =>
-                statusText.includes(status)
-              )
-            ) {
-              this.activeTasksMap.delete(taskId);
+            // Check if spinner is gone and status is not running
+            if (!statusCell.querySelector(".spinner-border")) {
+              const statusText = statusCell.textContent.trim();
+              if (
+                ["COMPLETED", "FAILED", "TERMINATED", "IDLE"].some((status) =>
+                  statusText.includes(status)
+                )
+              ) {
+                this.activeTasksMap.delete(taskId);
 
-              // Also ensure the run button is enabled
-              const runButton = row.querySelector(".run-now-btn");
-              if (runButton) {
-                runButton.disabled = false;
+                // Also ensure the run button is enabled
+                const runButton = row.querySelector(".run-now-btn");
+                if (runButton) {
+                  runButton.disabled = false;
+                }
               }
             }
           }
@@ -179,7 +214,18 @@
         attempts++;
         const status = await this.checkTaskStatus(taskId);
 
-        if (status === "RUNNING" && attempts < maxAttempts) {
+        // If terminated, show appropriate message
+        if (status === "TERMINATED") {
+          this.notifier.show(
+            "Task Terminated",
+            `Task ${taskId} was terminated`,
+            "warning"
+          );
+          this.activeTasksMap.delete(taskId);
+          this.updateTaskHistory();
+        }
+        // If still running and under max attempts, continue polling
+        else if (status === "RUNNING" && attempts < maxAttempts) {
           // Task still running, continue polling with exponential backoff
           interval = Math.min(interval * 1.5, 10000); // Cap at 10 seconds
           setTimeout(poll, interval);
@@ -208,7 +254,11 @@
             `Task ${taskId} is taking longer than expected`,
             "warning"
           );
-          // Keep in active tasks map to continue checking
+          // Keep in active tasks map to continue checking via regular polling
+        } else {
+          // Status is something else (PAUSED, IDLE, etc.)
+          this.activeTasksMap.delete(taskId);
+          this.updateTaskHistory();
         }
       };
 
@@ -223,16 +273,25 @@
         const lastRunCell = row.querySelector(".task-last-run");
         const nextRunCell = row.querySelector(".task-next-run");
 
-        if (statusCell) statusCell.innerHTML = this.getStatusHTML(data.status);
+        // Ensure status is properly formatted
+        if (statusCell) {
+          const status = data.status ? data.status.toUpperCase() : "UNKNOWN";
+          statusCell.innerHTML = this.getStatusHTML(status);
+
+          // Force update button state
+          const runButton = row.querySelector(".run-now-btn");
+          if (runButton) {
+            runButton.disabled = status === "RUNNING";
+          }
+        }
+
         if (lastRunCell && data.last_run)
           lastRunCell.textContent = this.formatDateTime(data.last_run);
+
         if (nextRunCell && data.next_run)
           nextRunCell.textContent = this.formatDateTime(data.next_run);
-
-        const runButton = row.querySelector(".run-now-btn");
-        if (runButton) {
-          runButton.disabled = data.status === "RUNNING";
-        }
+        else if (nextRunCell && !data.next_run)
+          nextRunCell.textContent = "Not scheduled";
       }
     }
 
@@ -249,7 +308,10 @@
 
       const color = statusColors[status] || "secondary";
 
-      if (status === "RUNNING") {
+      // Standardize status to uppercase for consistency
+      const displayStatus = status.toUpperCase();
+
+      if (displayStatus === "RUNNING") {
         return `
             <div class="d-flex align-items-center">
               <div class="spinner-border spinner-border-sm me-2" role="status">
@@ -260,7 +322,7 @@
           `;
       }
 
-      return `<span class="badge bg-${color}">${status}</span>`;
+      return `<span class="badge bg-${color}">${displayStatus}</span>`;
     }
 
     getStatusColor(status) {
@@ -404,6 +466,9 @@
 
         this.updateTaskConfigTable(config);
         await this.updateTaskHistory();
+
+        // Also clean up any inconsistent UI states
+        this.reconcileTaskStatus(config);
       } catch (error) {
         console.error("Error loading task configuration:", error);
         this.notifier.show(
@@ -921,6 +986,42 @@
         this.pollingInterval = null;
       }
     }
+
+    // New function to reconcile task status between UI and database
+    reconcileTaskStatus(config) {
+      // Find any UI elements showing a running state but that are not running in the DB
+      const taskRows = document.querySelectorAll("#taskConfigTable tbody tr");
+
+      taskRows.forEach((row) => {
+        const taskId = row.dataset.taskId;
+        const statusCell = row.querySelector(".task-status");
+        const runButton = row.querySelector(".run-now-btn");
+
+        if (!statusCell) return;
+
+        // If the task is visually running (has spinner)
+        const hasSpinner = statusCell.querySelector(".spinner-border");
+
+        if (hasSpinner) {
+          // Check what the server thinks the status is
+          const taskConfig = config.tasks[taskId];
+          if (taskConfig && taskConfig.status !== "RUNNING") {
+            // Server doesn't think it's running, update the UI
+            statusCell.innerHTML = this.getStatusHTML(taskConfig.status);
+
+            // Enable the run button
+            if (runButton) {
+              runButton.disabled = false;
+            }
+
+            // Remove from active tasks map
+            if (this.activeTasksMap.has(taskId)) {
+              this.activeTasksMap.delete(taskId);
+            }
+          }
+        }
+      });
+    }
   }
 
   // Make taskManager accessible globally
@@ -1091,13 +1192,22 @@
           const taskRows = document.querySelectorAll(
             "#taskConfigTable tbody tr"
           );
+          let updatedCount = 0;
+
           taskRows.forEach((row) => {
             const statusCell = row.querySelector(".task-status");
             const taskId = row.dataset.taskId;
 
-            // If status is "RUNNING", update to "TERMINATED"
-            if (statusCell && statusCell.innerHTML.includes("Running")) {
+            // Check for running status more reliably - looking for spinner element
+            // or any indication of a running task
+            if (
+              statusCell &&
+              (statusCell.querySelector(".spinner-border") ||
+                statusCell.textContent.includes("Running") ||
+                statusCell.innerHTML.includes("Running"))
+            ) {
               statusCell.innerHTML = `<span class="badge bg-warning">TERMINATED</span>`;
+              updatedCount++;
 
               // Remove from active tasks map
               if (taskManager.activeTasksMap.has(taskId)) {
@@ -1112,15 +1222,26 @@
             }
           });
 
-          // Show success notification with count of revoked tasks
-          const message =
-            result.revoked_count > 0
-              ? `All tasks stopped. ${result.revoked_count} running tasks were terminated.`
-              : "All tasks stopped. No running tasks needed to be terminated.";
+          // Check notification message based on actual updates
+          let message;
+          if (
+            result.terminated_task_ids &&
+            result.terminated_task_ids.length > 0
+          ) {
+            message = `All tasks stopped. ${result.terminated_task_ids.length} tasks were terminated.`;
+          } else if (result.revoked_count > 0) {
+            message = `All tasks stopped. ${result.revoked_count} running tasks were terminated.`;
+          } else if (updatedCount > 0) {
+            message = `All tasks stopped. ${updatedCount} tasks were updated in the UI.`;
+          } else {
+            message =
+              "All tasks stopped. No running tasks needed to be terminated.";
+          }
 
           window.notificationManager.show(message, "success");
 
-          // Reload task config after a brief delay to get fresh data
+          // Reload task config immediately and again after a delay to ensure UI is updated
+          await taskManager.loadTaskConfig();
           setTimeout(() => taskManager.loadTaskConfig(), 1000);
         } catch (error) {
           hideLoadingOverlay();
