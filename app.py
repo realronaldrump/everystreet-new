@@ -347,15 +347,57 @@ async def resume_background_tasks():
 @app.post("/api/background_tasks/stop_all")
 async def stop_all_background_tasks():
     try:
-        # In Celery, we don't have a direct "stop all" but we can disable them
+        # First disable future task scheduling
         await update_task_schedule({"globalDisable": True})
 
-        # More advanced: revoke all currently running tasks
-        # This is optional and might not be needed
+        # Get all active tasks from Celery
+        from celery_app import app as celery_app
+        from tasks import task_history_collection
 
-        return {"status": "success", "message": "All background tasks stopped"}
+        # Revoke all currently running tasks
+        inspect = celery_app.control.inspect()
+        active_tasks = inspect.active() or {}
+        scheduled_tasks = inspect.scheduled() or {}
+        reserved_tasks = inspect.reserved() or {}
+
+        revoked_count = 0
+
+        # Process active tasks
+        for worker_name, tasks in active_tasks.items():
+            for task in tasks:
+                celery_app.control.revoke(task["id"], terminate=True)
+                revoked_count += 1
+
+                # Update task history to mark as terminated
+                await task_history_collection.update_one(
+                    {"_id": task["id"]},
+                    {
+                        "$set": {
+                            "status": "TERMINATED",
+                            "end_time": datetime.now(timezone.utc),
+                            "result": False,
+                        }
+                    },
+                    upsert=False,
+                )
+
+        # Process reserved and scheduled tasks
+        for worker_tasks in [scheduled_tasks, reserved_tasks]:
+            for worker_name, tasks in worker_tasks.items():
+                for task in tasks:
+                    celery_app.control.revoke(task["id"])
+                    revoked_count += 1
+
+        # Also purge all task queues
+        celery_app.control.purge()
+
+        return {
+            "status": "success",
+            "message": f"All background tasks stopped. Revoked {revoked_count} running tasks",
+            "revoked_count": revoked_count,
+        }
     except Exception as e:
-        logger.exception("Error stopping all tasks.")
+        logger.exception("Error stopping all tasks: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1866,8 +1908,10 @@ async def export_single_trip(trip_id: str, request: Request):
             "geometry": gps_data,
             "properties": {
                 "transactionId": t["transactionId"],
-                "startTime": SerializationHelper.serialize_datetime(t.get("startTime")) or "",
-                "endTime": SerializationHelper.serialize_datetime(t.get("endTime")) or "",
+                "startTime": SerializationHelper.serialize_datetime(t.get("startTime"))
+                or "",
+                "endTime": SerializationHelper.serialize_datetime(t.get("endTime"))
+                or "",
                 "distance": t.get("distance", 0),
                 "imei": t["imei"],
             },
@@ -3157,8 +3201,12 @@ async def get_non_custom_places_visits():
                 {
                     "name": doc["_id"],
                     "totalVisits": doc["totalVisits"],
-                    "firstVisit": SerializationHelper.serialize_datetime(doc.get("firstVisit")),
-                    "lastVisit": SerializationHelper.serialize_datetime(doc.get("lastVisit")),
+                    "firstVisit": SerializationHelper.serialize_datetime(
+                        doc.get("firstVisit")
+                    ),
+                    "lastVisit": SerializationHelper.serialize_datetime(
+                        doc.get("lastVisit")
+                    ),
                 }
             )
 

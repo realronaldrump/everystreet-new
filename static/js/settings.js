@@ -80,25 +80,55 @@
               next_run: taskConfig.next_run,
             });
 
-            // If task completed or failed, show a notification
+            // If task completed, failed or was terminated
             if (
               previousStatus === "RUNNING" &&
-              (currentStatus === "COMPLETED" || currentStatus === "FAILED")
+              ["COMPLETED", "FAILED", "TERMINATED"].includes(currentStatus)
             ) {
-              const statusType =
-                currentStatus === "COMPLETED" ? "success" : "danger";
+              const statusMap = {
+                COMPLETED: { type: "success", verb: "completed" },
+                FAILED: { type: "danger", verb: "failed" },
+                TERMINATED: { type: "warning", verb: "was terminated" },
+              };
+
+              const statusInfo = statusMap[currentStatus] || {
+                type: "info",
+                verb: "changed status",
+              };
+
               this.notifier.show(
                 "Task Update",
-                `Task ${taskId} ${currentStatus.toLowerCase()}`,
-                statusType
+                `Task ${taskId} ${statusInfo.verb}`,
+                statusInfo.type
               );
-
-              // Also update UI for completed tasks
-              this.loadTaskConfig();
-              this.updateTaskHistory();
             }
           }
         }
+
+        // Check for any tasks that should be removed from active tasks map
+        // For example, if they've been terminated via Stop All
+        const taskRows = document.querySelectorAll("#taskConfigTable tbody tr");
+        taskRows.forEach((row) => {
+          const taskId = row.dataset.taskId;
+          const statusCell = row.querySelector(".task-status");
+
+          if (statusCell && this.activeTasksMap.has(taskId)) {
+            const statusText = statusCell.textContent.trim();
+            if (
+              ["COMPLETED", "FAILED", "TERMINATED", "IDLE"].some((status) =>
+                statusText.includes(status)
+              )
+            ) {
+              this.activeTasksMap.delete(taskId);
+
+              // Also ensure the run button is enabled
+              const runButton = row.querySelector(".run-now-btn");
+              if (runButton) {
+                runButton.disabled = false;
+              }
+            }
+          }
+        });
       } catch (error) {
         console.error("Error checking active tasks status:", error);
       }
@@ -213,6 +243,8 @@
         FAILED: "danger",
         PAUSED: "warning",
         IDLE: "secondary",
+        TERMINATED: "warning",
+        PENDING: "info",
       };
 
       const color = statusColors[status] || "secondary";
@@ -238,6 +270,8 @@
         FAILED: "danger",
         PAUSED: "warning",
         IDLE: "secondary",
+        TERMINATED: "warning",
+        PENDING: "info",
       };
       return statusColors[status] || "secondary";
     }
@@ -247,6 +281,9 @@
       try {
         // Show loading overlay while starting task
         showLoadingOverlay();
+
+        // Check if it's a batch run of all tasks
+        const isAllTasks = taskId === "ALL";
 
         const response = await fetch("/api/background_tasks/manual_run", {
           method: "POST",
@@ -264,41 +301,78 @@
         hideLoadingOverlay();
 
         if (result.status === "success") {
-          this.activeTasksMap.set(taskId, "RUNNING");
-          this.notifier.show(
-            "Task Started",
-            `Task ${taskId} has been started`,
-            "info"
-          );
+          // If running all tasks
+          if (isAllTasks) {
+            if (result.results && result.results.length > 0) {
+              // Process each task result
+              const startedTasks = [];
 
-          // Update UI to show running status
-          const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
-          if (row) {
-            const statusCell = row.querySelector(".task-status");
-            if (statusCell) {
-              statusCell.innerHTML = this.getStatusHTML("RUNNING");
-            }
+              for (const taskResult of result.results) {
+                if (taskResult.success && taskResult.task) {
+                  // Mark each task as running in the UI
+                  const taskRow = document.querySelector(
+                    `tr[data-task-id="${taskResult.task}"]`
+                  );
+                  if (taskRow) {
+                    const statusCell = taskRow.querySelector(".task-status");
+                    if (statusCell) {
+                      statusCell.innerHTML = this.getStatusHTML("RUNNING");
+                    }
 
-            const runButton = row.querySelector(".run-now-btn");
-            if (runButton) {
-              runButton.disabled = true;
-            }
-          }
+                    const runButton = taskRow.querySelector(".run-now-btn");
+                    if (runButton) {
+                      runButton.disabled = true;
+                    }
+                  }
 
-          // Start polling for status updates
-          if (result.results && result.results.length > 0) {
-            // If we have multiple tasks, poll each one
-            for (const taskResult of result.results) {
-              if (taskResult.success && taskResult.task) {
-                this.activeTasksMap.set(taskResult.task, "RUNNING");
-                this.pollTaskStatus(taskResult.task);
+                  // Add to active tasks map and start polling
+                  this.activeTasksMap.set(taskResult.task, "RUNNING");
+                  this.pollTaskStatus(taskResult.task);
+                  startedTasks.push(taskResult.task);
+                }
               }
+
+              this.notifier.show(
+                "Tasks Started",
+                `Started ${startedTasks.length} tasks`,
+                "info"
+              );
             }
           } else {
             // Single task
+            this.activeTasksMap.set(taskId, "RUNNING");
+            this.notifier.show(
+              "Task Started",
+              `Task ${taskId} has been started`,
+              "info"
+            );
+
+            // Update UI to show running status
+            const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
+            if (row) {
+              const statusCell = row.querySelector(".task-status");
+              if (statusCell) {
+                statusCell.innerHTML = this.getStatusHTML("RUNNING");
+              }
+
+              const runButton = row.querySelector(".run-now-btn");
+              if (runButton) {
+                runButton.disabled = true;
+              }
+            }
+
+            // Track task ID from response
+            let taskInstanceId = taskId;
+            if (result.task_id) {
+              taskInstanceId = result.task_id;
+            }
+
+            // Start polling for status updates
             this.pollTaskStatus(taskId);
           }
 
+          // Full config update after a small delay to get fresh data
+          setTimeout(() => this.loadTaskConfig(), 1000);
           return true;
         } else {
           throw new Error(result.message || "Failed to start task");
@@ -887,7 +961,7 @@
         const config = taskManager.gatherTaskConfigFromUI();
         taskManager
           .submitTaskConfigUpdate(config)
-          .then(() => {
+          .then((result) => {
             window.notificationManager.show(
               "Task configuration updated successfully",
               "success"
@@ -929,11 +1003,34 @@
             `Tasks paused for ${mins} minutes`,
             "success"
           );
-          taskManager.loadTaskConfig();
+
+          // Update task status display for all running tasks
+          const taskRows = document.querySelectorAll(
+            "#taskConfigTable tbody tr"
+          );
+          taskRows.forEach((row) => {
+            const statusCell = row.querySelector(".task-status");
+            const taskId = row.dataset.taskId;
+
+            // If status is "RUNNING", update to "PAUSED"
+            if (statusCell && statusCell.innerHTML.includes("Running")) {
+              statusCell.innerHTML = `<span class="badge bg-warning">PAUSED</span>`;
+
+              // Update in active tasks map
+              if (taskManager.activeTasksMap.has(taskId)) {
+                taskManager.activeTasksMap.set(taskId, "PAUSED");
+              }
+            }
+          });
+
+          setTimeout(() => taskManager.loadTaskConfig(), 1000);
         } catch (error) {
           hideLoadingOverlay();
           console.error("Error pausing tasks:", error);
-          window.notificationManager.show("Failed to pause tasks", "danger");
+          window.notificationManager.show(
+            "Failed to pause tasks: " + error.message,
+            "danger"
+          );
         }
       });
     }
@@ -951,11 +1048,28 @@
           if (!response.ok) throw new Error("Failed to resume tasks");
 
           window.notificationManager.show("Tasks resumed", "success");
-          taskManager.loadTaskConfig();
+
+          // Immediately update UI to show tasks as resumed
+          const taskRows = document.querySelectorAll(
+            "#taskConfigTable tbody tr"
+          );
+          taskRows.forEach((row) => {
+            const statusCell = row.querySelector(".task-status");
+
+            // If status is "PAUSED", update to "IDLE" (will be updated to proper status on next refresh)
+            if (statusCell && statusCell.innerHTML.includes("PAUSED")) {
+              statusCell.innerHTML = `<span class="badge bg-secondary">IDLE</span>`;
+            }
+          });
+
+          setTimeout(() => taskManager.loadTaskConfig(), 1000);
         } catch (error) {
           hideLoadingOverlay();
           console.error("Error resuming tasks:", error);
-          window.notificationManager.show("Failed to resume tasks", "danger");
+          window.notificationManager.show(
+            "Failed to resume tasks: " + error.message,
+            "danger"
+          );
         }
       });
     }
@@ -968,16 +1082,53 @@
             method: "POST",
           });
 
-          hideLoadingOverlay();
-
           if (!response.ok) throw new Error("Failed to stop tasks");
 
-          window.notificationManager.show("All tasks stopped", "success");
-          taskManager.loadTaskConfig();
+          const result = await response.json();
+          hideLoadingOverlay();
+
+          // Update UI to show all running tasks as terminated
+          const taskRows = document.querySelectorAll(
+            "#taskConfigTable tbody tr"
+          );
+          taskRows.forEach((row) => {
+            const statusCell = row.querySelector(".task-status");
+            const taskId = row.dataset.taskId;
+
+            // If status is "RUNNING", update to "TERMINATED"
+            if (statusCell && statusCell.innerHTML.includes("Running")) {
+              statusCell.innerHTML = `<span class="badge bg-warning">TERMINATED</span>`;
+
+              // Remove from active tasks map
+              if (taskManager.activeTasksMap.has(taskId)) {
+                taskManager.activeTasksMap.delete(taskId);
+              }
+
+              // Enable run button
+              const runButton = row.querySelector(".run-now-btn");
+              if (runButton) {
+                runButton.disabled = false;
+              }
+            }
+          });
+
+          // Show success notification with count of revoked tasks
+          const message =
+            result.revoked_count > 0
+              ? `All tasks stopped. ${result.revoked_count} running tasks were terminated.`
+              : "All tasks stopped. No running tasks needed to be terminated.";
+
+          window.notificationManager.show(message, "success");
+
+          // Reload task config after a brief delay to get fresh data
+          setTimeout(() => taskManager.loadTaskConfig(), 1000);
         } catch (error) {
           hideLoadingOverlay();
           console.error("Error stopping tasks:", error);
-          window.notificationManager.show("Failed to stop tasks", "danger");
+          window.notificationManager.show(
+            "Failed to stop tasks: " + error.message,
+            "danger"
+          );
         }
       });
     }
@@ -994,12 +1145,22 @@
 
           if (!response.ok) throw new Error("Failed to enable all tasks");
 
+          // Update all task enable switches in the UI
+          document
+            .querySelectorAll('#taskConfigTable input[type="checkbox"]')
+            .forEach((checkbox) => {
+              checkbox.checked = true;
+            });
+
           window.notificationManager.show("All tasks enabled", "success");
-          taskManager.loadTaskConfig();
+          setTimeout(() => taskManager.loadTaskConfig(), 500);
         } catch (error) {
           hideLoadingOverlay();
           console.error("Error enabling tasks:", error);
-          window.notificationManager.show("Failed to enable tasks", "danger");
+          window.notificationManager.show(
+            "Failed to enable tasks: " + error.message,
+            "danger"
+          );
         }
       });
     }
@@ -1016,12 +1177,22 @@
 
           if (!response.ok) throw new Error("Failed to disable all tasks");
 
+          // Update all task enable switches in the UI
+          document
+            .querySelectorAll('#taskConfigTable input[type="checkbox"]')
+            .forEach((checkbox) => {
+              checkbox.checked = false;
+            });
+
           window.notificationManager.show("All tasks disabled", "success");
-          taskManager.loadTaskConfig();
+          setTimeout(() => taskManager.loadTaskConfig(), 500);
         } catch (error) {
           hideLoadingOverlay();
           console.error("Error disabling tasks:", error);
-          window.notificationManager.show("Failed to disable tasks", "danger");
+          window.notificationManager.show(
+            "Failed to disable tasks: " + error.message,
+            "danger"
+          );
         }
       });
     }
@@ -1037,12 +1208,33 @@
         const config = taskManager.gatherTaskConfigFromUI();
         taskManager
           .submitTaskConfigUpdate(config)
-          .then(() =>
-            window.notificationManager.show("Global disable toggled", "success")
-          )
-          .catch(() =>
+          .then(() => {
+            const status = this.checked ? "disabled" : "enabled";
             window.notificationManager.show(
-              "Failed to toggle global disable",
+              `Global tasks ${status}`,
+              "success"
+            );
+
+            // If disabled, update status of all running tasks
+            if (this.checked) {
+              // Stop all polling/monitoring
+              if (taskManager.pollingInterval) {
+                clearInterval(taskManager.pollingInterval);
+              }
+
+              // Start polling with a small delay to reflect updated status
+              setTimeout(() => {
+                taskManager.setupPolling();
+                taskManager.loadTaskConfig();
+              }, 500);
+            } else {
+              // If enabled, just refresh the display
+              taskManager.loadTaskConfig();
+            }
+          })
+          .catch((error) =>
+            window.notificationManager.show(
+              `Failed to toggle global task state: ${error.message}`,
               "danger"
             )
           );
