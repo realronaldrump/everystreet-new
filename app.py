@@ -1,10 +1,3 @@
-"""
-Main FastAPI application for EveryStreet.
-
-This module provides the web server, API endpoints, and webhook handlers
-for the application.
-"""
-
 import os
 import json
 import logging
@@ -58,8 +51,6 @@ from celery_app import app as celery_app
 from db import (
     db_manager,
     SerializationHelper,
-    serialize_datetime,
-    serialize_trip,
     ensure_street_coverage_indexes,
     init_task_history_collection,
     find_one_with_retry,
@@ -74,6 +65,7 @@ from db import (
     parse_query_date,
     build_query_from_request,
 )
+
 from export_helpers import create_geojson, create_gpx
 from street_coverage_calculation import compute_coverage_for_location
 from live_tracking import (
@@ -110,18 +102,18 @@ API_BASE_URL = "https://api.bouncie.dev/v1"
 OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
 # Database collections - using db_manager to access the database
-trips_collection = db_manager.get_collection("trips")
-matched_trips_collection = db_manager.get_collection("matched_trips")
-uploaded_trips_collection = db_manager.get_collection("uploaded_trips")
-places_collection = db_manager.get_collection("places")
-osm_data_collection = db_manager.get_collection("osm_data")
-streets_collection = db_manager.get_collection("streets")
-coverage_metadata_collection = db_manager.get_collection("coverage_metadata")
-live_trips_collection = db_manager.get_collection("live_trips")
-archived_live_trips_collection = db_manager.get_collection("archived_live_trips")
-task_config_collection = db_manager.get_collection("task_config")
-task_history_collection = db_manager.get_collection("task_history")
-progress_collection = db_manager.get_collection("progress_status")
+trips_collection = db_manager.db["trips"]
+matched_trips_collection = db_manager.db["matched_trips"]
+uploaded_trips_collection = db_manager.db["uploaded_trips"]
+places_collection = db_manager.db["places"]
+osm_data_collection = db_manager.db["osm_data"]
+streets_collection = db_manager.db["streets"]
+coverage_metadata_collection = db_manager.db["coverage_metadata"]
+live_trips_collection = db_manager.db["live_trips"]
+archived_live_trips_collection = db_manager.db["archived_live_trips"]
+task_config_collection = db_manager.db["task_config"]
+task_history_collection = db_manager.db["task_history"]
+progress_collection = db_manager.db["progress_status"]
 
 # Initialize live tracking module
 initialize_db(live_trips_collection, archived_live_trips_collection)
@@ -493,6 +485,7 @@ async def get_task_details(task_id: str):
             "interval_minutes": task_config.get(
                 "interval_minutes", task_def["default_interval_minutes"]
             ),
+            # Use SerializationHelper instead of serialize_datetime
             "last_run": SerializationHelper.serialize_datetime(
                 task_config.get("last_run")
             ),
@@ -532,6 +525,7 @@ async def get_task_history(page: int = 1, limit: int = 10):
         history = []
         for entry in entries:
             entry["_id"] = str(entry["_id"])
+            # Use SerializationHelper instead of serialize_datetime
             entry["timestamp"] = SerializationHelper.serialize_datetime(
                 entry.get("timestamp")
             )
@@ -581,6 +575,7 @@ async def get_edit_trips(request: Request):
         )
 
         trips = await find_with_retry(collection, query)
+        # Use SerializationHelper instead of serialize_trip
         serialized_trips = [SerializationHelper.serialize_trip(trip) for trip in trips]
 
         return {"status": "success", "trips": serialized_trips}
@@ -686,33 +681,11 @@ async def get_street_coverage(request: Request):
         if not location or not isinstance(location, dict):
             raise HTTPException(status_code=400, detail="Invalid location data.")
         task_id = str(uuid.uuid4())
-
-        # Create background task with proper error handling
-        task = asyncio.create_task(process_coverage_calculation(location, task_id))
-
-        # Add error handling for the background task
-        task.add_done_callback(
-            lambda t: handle_task_exception(t, f"coverage_calculation_{task_id}")
-        )
-
+        asyncio.create_task(process_coverage_calculation(location, task_id))
         return {"task_id": task_id, "status": "processing"}
     except Exception as e:
         logger.exception("Error in street coverage calculation.")
         raise HTTPException(status_code=500, detail=str(e))
-
-
-def handle_task_exception(task: asyncio.Task, task_name: str) -> None:
-    """Handle exceptions from background tasks."""
-    if task.cancelled():
-        logger.warning(f"Background task {task_name} was cancelled")
-        return
-
-    exception = task.exception()
-    if exception:
-        logger.error(
-            f"Error in background task {task_name}: {str(exception)}",
-            exc_info=exception,
-        )
 
 
 async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
@@ -722,8 +695,7 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
     """
     try:
         # Initialize progress tracking
-        await update_one_with_retry(
-            progress_collection,
+        await progress_collection.update_one(
             {"_id": task_id},
             {
                 "$set": {
@@ -750,8 +722,7 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                 )
 
                 # Update progress with error
-                await update_one_with_retry(
-                    progress_collection,
+                await progress_collection.update_one(
                     {"_id": task_id},
                     {
                         "$set": {
@@ -764,8 +735,7 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                 )
 
                 # Update coverage metadata with error status
-                await update_one_with_retry(
-                    coverage_metadata_collection,
+                await coverage_metadata_collection.update_one(
                     {"location.display_name": display_name},
                     {
                         "$set": {
@@ -788,8 +758,7 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                             []))} street features"
             )
 
-            await update_one_with_retry(
-                coverage_metadata_collection,
+            await coverage_metadata_collection.update_one(
                 {"location.display_name": display_name},
                 {
                     "$set": {
@@ -808,8 +777,7 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
             )
 
             # Update progress status
-            await update_one_with_retry(
-                progress_collection,
+            await progress_collection.update_one(
                 {"_id": task_id},
                 {
                     "$set": {
@@ -831,8 +799,7 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
             error_msg = "No result returned from coverage calculation"
             logger.error(f"Coverage calculation error: {error_msg}")
 
-            await update_one_with_retry(
-                coverage_metadata_collection,
+            await coverage_metadata_collection.update_one(
                 {"location.display_name": display_name},
                 {
                     "$set": {
@@ -845,8 +812,7 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                 upsert=True,
             )
 
-            await update_one_with_retry(
-                progress_collection,
+            await progress_collection.update_one(
                 {"_id": task_id},
                 {
                     "$set": {
@@ -858,17 +824,13 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                 },
             )
     except Exception as e:
-        logger.exception(
-            f"Error in coverage calculation for task {task_id}: {
-                str(e)}"
-        )
+        logger.exception(f"Error in coverage calculation for task {task_id}: {str(e)}")
 
         try:
             display_name = location.get("display_name", "Unknown")
 
             # Update coverage metadata with error
-            await update_one_with_retry(
-                coverage_metadata_collection,
+            await coverage_metadata_collection.update_one(
                 {"location.display_name": display_name},
                 {
                     "$set": {
@@ -882,8 +844,7 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
             )
 
             # Update progress with error
-            await update_one_with_retry(
-                progress_collection,
+            await progress_collection.update_one(
                 {"_id": task_id},
                 {
                     "$set": {
@@ -896,8 +857,7 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
             )
         except Exception as inner_e:
             logger.exception(
-                f"Error updating progress after calculation error: {
-                    str(inner_e)}"
+                f"Error updating progress after calculation error: {str(inner_e)}"
             )
 
 
@@ -1286,7 +1246,6 @@ async def process_single_trip(trip_id: str, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# New endpoint for bulk trip processing
 @app.post("/api/bulk_process_trips")
 async def bulk_process_trips(request: Request):
     """
@@ -1319,8 +1278,7 @@ async def bulk_process_trips(request: Request):
                 "count": 0,
             }
 
-        # Process trips in batches to prevent memory issues
-        batch_size = 20
+        # Process trips
         results = {
             "total": len(trips),
             "validated": 0,
@@ -1330,60 +1288,53 @@ async def bulk_process_trips(request: Request):
             "skipped": 0,
         }
 
-        for i in range(0, len(trips), batch_size):
-            batch = trips[i : i + batch_size]
-            for trip in batch:
-                try:
-                    processor = TripProcessor(
-                        mapbox_token=MAPBOX_ACCESS_TOKEN,
-                        source="api" if collection == trips_collection else "upload",
-                    )
-                    processor.set_trip_data(trip)
+        for trip in trips:
+            try:
+                processor = TripProcessor(
+                    mapbox_token=MAPBOX_ACCESS_TOKEN,
+                    source="api" if collection == trips_collection else "upload",
+                )
+                processor.set_trip_data(trip)
 
-                    # Run the appropriate processing steps based on options
-                    if do_validate:
-                        await processor.validate()
-                        if processor.state == TripState.VALIDATED:
-                            results["validated"] += 1
-                        else:
-                            results["failed"] += 1
-                            continue
-
-                    if do_geocode and processor.state == TripState.VALIDATED:
-                        await processor.process_basic()
-                        if processor.state == TripState.PROCESSED:
-                            await processor.geocode()
-                            if processor.state == TripState.GEOCODED:
-                                results["geocoded"] += 1
-                            else:
-                                results["failed"] += 1
-                                continue
-                        else:
-                            results["failed"] += 1
-                            continue
-
-                    if do_map_match and processor.state == TripState.GEOCODED:
-                        await processor.map_match()
-                        if processor.state == TripState.MAP_MATCHED:
-                            results["map_matched"] += 1
-                        else:
-                            results["failed"] += 1
-                            continue
-
-                    # Save the changes
-                    saved_id = await processor.save(map_match_result=do_map_match)
-                    if not saved_id:
+                # Run the appropriate processing steps based on options
+                if do_validate:
+                    await processor.validate()
+                    if processor.state == TripState.VALIDATED:
+                        results["validated"] += 1
+                    else:
                         results["failed"] += 1
-                except Exception as e:
-                    logger.error(
-                        f"Error processing trip {
-                            trip.get('transactionId')}: {
-                            str(e)}"
-                    )
-                    results["failed"] += 1
+                        continue
 
-            # Allow other tasks to run between batches
-            await asyncio.sleep(0)
+                if do_geocode and processor.state == TripState.VALIDATED:
+                    await processor.process_basic()
+                    if processor.state == TripState.PROCESSED:
+                        await processor.geocode()
+                        if processor.state == TripState.GEOCODED:
+                            results["geocoded"] += 1
+                        else:
+                            results["failed"] += 1
+                            continue
+                    else:
+                        results["failed"] += 1
+                        continue
+
+                if do_map_match and processor.state == TripState.GEOCODED:
+                    await processor.map_match()
+                    if processor.state == TripState.MAP_MATCHED:
+                        results["map_matched"] += 1
+                    else:
+                        results["failed"] += 1
+                        continue
+
+                # Save the changes
+                saved_id = await processor.save(map_match_result=do_map_match)
+                if not saved_id:
+                    results["failed"] += 1
+            except Exception as e:
+                logger.error(
+                    f"Error processing trip {trip.get('transactionId')}: {str(e)}"
+                )
+                results["failed"] += 1
 
         return {
             "status": "success",
@@ -1420,10 +1371,19 @@ async def get_trip_status(trip_id: str):
             "processing_history": trip.get("processing_history", []),
             "validation_status": trip.get("validation_status", "unknown"),
             "validation_message": trip.get("validation_message", ""),
-            "validated_at": trip.get("validated_at"),
-            "geocoded_at": trip.get("geocoded_at"),
-            "matched_at": trip.get("matched_at"),
-            "last_processed": trip.get("saved_at"),
+            # Use SerializationHelper for all datetime fields
+            "validated_at": SerializationHelper.serialize_datetime(
+                trip.get("validated_at")
+            ),
+            "geocoded_at": SerializationHelper.serialize_datetime(
+                trip.get("geocoded_at")
+            ),
+            "matched_at": SerializationHelper.serialize_datetime(
+                trip.get("matched_at")
+            ),
+            "last_processed": SerializationHelper.serialize_datetime(
+                trip.get("saved_at")
+            ),
         }
 
         return status_info
@@ -1463,6 +1423,7 @@ async def export_geojson(request: Request):
                 "geometry": gps_data,
                 "properties": {
                     "transactionId": t["transactionId"],
+                    # Use SerializationHelper instead of serialize_datetime
                     "startTime": SerializationHelper.serialize_datetime(
                         t.get("startTime")
                     )
@@ -1726,38 +1687,27 @@ async def map_match_trips_endpoint(request: Request):
         # Use the TripProcessor for map matching
         processed_count = 0
         failed_count = 0
+        for trip in trips_list:
+            try:
+                processor = TripProcessor(
+                    mapbox_token=MAPBOX_ACCESS_TOKEN, source="api"
+                )
+                processor.set_trip_data(trip)
+                await processor.process(do_map_match=True)
+                result = await processor.save(map_match_result=True)
 
-        # Process in batches to prevent memory issues
-        batch_size = 10
-        for i in range(0, len(trips_list), batch_size):
-            batch = trips_list[i : i + batch_size]
-            for trip in batch:
-                try:
-                    processor = TripProcessor(
-                        mapbox_token=MAPBOX_ACCESS_TOKEN, source="api"
-                    )
-                    processor.set_trip_data(trip)
-                    await processor.process(do_map_match=True)
-                    result = await processor.save(map_match_result=True)
-
-                    if result:
-                        processed_count += 1
-                    else:
-                        failed_count += 1
-                        logger.warning(
-                            f"Failed to save matched trip {
-                                trip.get('transactionId')}"
-                        )
-                except Exception as e:
+                if result:
+                    processed_count += 1
+                else:
                     failed_count += 1
-                    logger.error(
-                        f"Error processing trip {
-                            trip.get('transactionId')}: {
-                            str(e)}"
+                    logger.warning(
+                        f"Failed to save matched trip {trip.get('transactionId')}"
                     )
-
-            # Allow other tasks to run between batches
-            await asyncio.sleep(0)
+            except Exception as e:
+                failed_count += 1
+                logger.error(
+                    f"Error processing trip {trip.get('transactionId')}: {str(e)}"
+                )
 
         return {
             "status": "success",
@@ -1789,6 +1739,7 @@ async def get_matched_trips(request: Request):
                     properties={
                         "transactionId": trip["transactionId"],
                         "imei": trip.get("imei", ""),
+                        # Use SerializationHelper instead of serialize_datetime
                         "startTime": SerializationHelper.serialize_datetime(
                             trip.get("startTime")
                         )
@@ -1873,50 +1824,22 @@ async def remap_matched_trips(request: Request):
             start_date = parse_query_date(start_date_str)
             end_date = parse_query_date(end_date_str, end_of_day=True)
 
-        # Transaction for safety
-        async def delete_matched():
-            await delete_many_with_retry(
-                matched_trips_collection,
-                {"startTime": {"$gte": start_date, "$lte": end_date}},
-            )
+        await delete_many_with_retry(
+            matched_trips_collection,
+            {"startTime": {"$gte": start_date, "$lte": end_date}},
+        )
 
-        await delete_matched()
-
-        # Process in batches for memory efficiency
         trips_list = await find_with_retry(
             trips_collection, {"startTime": {"$gte": start_date, "$lte": end_date}}
         )
 
-        batch_size = 10
-        processed_count = 0
-        failed_count = 0
+        for trip in trips_list:
+            processor = TripProcessor(mapbox_token=MAPBOX_ACCESS_TOKEN, source="api")
+            processor.set_trip_data(trip)
+            await processor.process(do_map_match=True)
+            await processor.save(map_match_result=True)
 
-        for i in range(0, len(trips_list), batch_size):
-            batch = trips_list[i : i + batch_size]
-            for trip in batch:
-                try:
-                    processor = TripProcessor(
-                        mapbox_token=MAPBOX_ACCESS_TOKEN, source="api"
-                    )
-                    processor.set_trip_data(trip)
-                    await processor.process(do_map_match=True)
-                    await processor.save(map_match_result=True)
-                    processed_count += 1
-                except Exception as e:
-                    logger.error(
-                        f"Error remapping trip {trip.get('transactionId')}: {e}"
-                    )
-                    failed_count += 1
-
-            # Allow other tasks to run between batches
-            await asyncio.sleep(0)
-
-        return {
-            "status": "success",
-            "message": "Re-matching completed.",
-            "processed": processed_count,
-            "failed": failed_count,
-        }
+        return {"status": "success", "message": "Re-matching completed."}
     except Exception as e:
         logger.exception("Error in remap_matched_trips")
         raise HTTPException(status_code=500, detail=f"Error re-matching trips: {e}")
@@ -1943,10 +1866,8 @@ async def export_single_trip(trip_id: str, request: Request):
             "geometry": gps_data,
             "properties": {
                 "transactionId": t["transactionId"],
-                "startTime": SerializationHelper.serialize_datetime(t.get("startTime"))
-                or "",
-                "endTime": SerializationHelper.serialize_datetime(t.get("endTime"))
-                or "",
+                "startTime": SerializationHelper.serialize_datetime(t.get("startTime")) or "",
+                "endTime": SerializationHelper.serialize_datetime(t.get("endTime")) or "",
                 "distance": t.get("distance", 0),
                 "imei": t["imei"],
             },
@@ -2271,16 +2192,8 @@ async def preprocess_streets_route(request: Request):
                     status_code=400, detail="This area is already being processed"
                 )
             raise
-
         task_id = str(uuid.uuid4())
-        # Create background task with proper error handling
-        task = asyncio.create_task(process_area(validated_location, task_id))
-
-        # Add error handling for the background task
-        task.add_done_callback(
-            lambda t: handle_task_exception(t, f"process_area_{task_id}")
-        )
-
+        asyncio.create_task(process_area(validated_location, task_id))
         return {"status": "success", "task_id": task_id}
     except Exception as e:
         logger.exception("Error in preprocess_streets")
@@ -2296,8 +2209,7 @@ async def process_area(location: Dict[str, Any], task_id: str):
     """
     try:
         # Initialize progress
-        await update_one_with_retry(
-            progress_collection,
+        await progress_collection.update_one(
             {"_id": task_id},
             {
                 "$set": {
@@ -2312,8 +2224,7 @@ async def process_area(location: Dict[str, Any], task_id: str):
 
         # Update metadata to show processing status
         display_name = location.get("display_name", "Unknown")
-        await update_one_with_retry(
-            coverage_metadata_collection,
+        await coverage_metadata_collection.update_one(
             {"location.display_name": display_name},
             {
                 "$set": {
@@ -2329,8 +2240,7 @@ async def process_area(location: Dict[str, Any], task_id: str):
         await async_preprocess_streets(location)
 
         # Update progress
-        await update_one_with_retry(
-            progress_collection,
+        await progress_collection.update_one(
             {"_id": task_id},
             {
                 "$set": {
@@ -2347,8 +2257,7 @@ async def process_area(location: Dict[str, Any], task_id: str):
 
         if result:
             # Update with results
-            await update_one_with_retry(
-                coverage_metadata_collection,
+            await coverage_metadata_collection.update_one(
                 {"location.display_name": display_name},
                 {
                     "$set": {
@@ -2364,8 +2273,7 @@ async def process_area(location: Dict[str, Any], task_id: str):
                 },
             )
 
-            await update_one_with_retry(
-                progress_collection,
+            await progress_collection.update_one(
                 {"_id": task_id},
                 {
                     "$set": {
@@ -2382,8 +2290,7 @@ async def process_area(location: Dict[str, Any], task_id: str):
             error_msg = "Failed to calculate coverage"
             logger.error("Coverage calculation error: %s", error_msg)
 
-            await update_one_with_retry(
-                coverage_metadata_collection,
+            await coverage_metadata_collection.update_one(
                 {"location.display_name": display_name},
                 {
                     "$set": {
@@ -2394,8 +2301,7 @@ async def process_area(location: Dict[str, Any], task_id: str):
                 },
             )
 
-            await update_one_with_retry(
-                progress_collection,
+            await progress_collection.update_one(
                 {"_id": task_id},
                 {
                     "$set": {
@@ -2412,8 +2318,7 @@ async def process_area(location: Dict[str, Any], task_id: str):
 
         try:
             # Update both collections with error information
-            await update_one_with_retry(
-                coverage_metadata_collection,
+            await coverage_metadata_collection.update_one(
                 {"location.display_name": location["display_name"]},
                 {
                     "$set": {
@@ -2424,8 +2329,7 @@ async def process_area(location: Dict[str, Any], task_id: str):
                 },
             )
 
-            await update_one_with_retry(
-                progress_collection,
+            await progress_collection.update_one(
                 {"_id": task_id},
                 {
                     "$set": {
@@ -2488,6 +2392,7 @@ async def get_single_trip(trip_id: str):
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
 
+        # Use SerializationHelper instead of serialize_trip
         return {"status": "success", "trip": SerializationHelper.serialize_trip(trip)}
     except HTTPException:
         raise
@@ -2582,7 +2487,12 @@ async def get_first_trip_date():
         if earliest_trip_date.tzinfo is None:
             earliest_trip_date = earliest_trip_date.replace(tzinfo=timezone.utc)
 
-        return {"first_trip_date": earliest_trip_date.isoformat()}
+        # Use SerializationHelper instead of direct iso formatting
+        return {
+            "first_trip_date": SerializationHelper.serialize_datetime(
+                earliest_trip_date
+            )
+        }
     except Exception as e:
         logger.exception("get_first_trip_date error")
         raise HTTPException(status_code=500, detail=str(e))
@@ -2595,7 +2505,8 @@ async def get_first_trip_date():
 async def get_uploaded_trips():
     try:
         trips = await find_with_retry(uploaded_trips_collection, {})
-        serialized_trips = [serialize_trip(trip) for trip in trips]
+        # Use SerializationHelper instead of serialize_trip
+        serialized_trips = [SerializationHelper.serialize_trip(trip) for trip in trips]
         return {"status": "success", "trips": serialized_trips}
     except Exception as e:
         logger.exception("Error get_uploaded_trips")
@@ -3111,8 +3022,8 @@ async def get_place_statistics(place_id: str):
         return {
             "totalVisits": total_visits,
             "averageTimeSpent": avg_duration_str,
-            "firstVisit": serialize_datetime(first_visit),
-            "lastVisit": serialize_datetime(last_visit),
+            "firstVisit": SerializationHelper.serialize_datetime(first_visit),
+            "lastVisit": SerializationHelper.serialize_datetime(last_visit),
             "averageTimeSinceLastVisit": avg_time_since_last,
             "name": place["name"],
         }
@@ -3246,8 +3157,8 @@ async def get_non_custom_places_visits():
                 {
                     "name": doc["_id"],
                     "totalVisits": doc["totalVisits"],
-                    "firstVisit": serialize_datetime(doc.get("firstVisit")),
-                    "lastVisit": serialize_datetime(doc.get("lastVisit")),
+                    "firstVisit": SerializationHelper.serialize_datetime(doc.get("firstVisit")),
+                    "lastVisit": SerializationHelper.serialize_datetime(doc.get("lastVisit")),
                 }
             )
 
@@ -3743,7 +3654,6 @@ async def get_storage_info():
         return {"used_mb": 0, "limit_mb": 512, "usage_percent": 0, "error": str(e)}
 
 
-# New endpoint to get location coverage details for the dashboard
 @app.get("/api/coverage_areas/{location_id}")
 async def get_coverage_area_details(location_id: str):
     try:
@@ -3757,8 +3667,7 @@ async def get_coverage_area_details(location_id: str):
             )
         except Exception as e:
             logger.warning(
-                f"Error looking up by ObjectId: {
-                    str(e)}, trying by display name"
+                f"Error looking up by ObjectId: {str(e)}, trying by display name"
             )
             # If that fails, try to find by display name (fallback)
             coverage_doc = await find_one_with_retry(
@@ -3772,7 +3681,10 @@ async def get_coverage_area_details(location_id: str):
         # Extract basic info
         location_name = coverage_doc.get("location", {}).get("display_name", "Unknown")
         location_obj = coverage_doc.get("location", {})
-        last_updated = coverage_doc.get("last_updated")
+        # Use SerializationHelper instead of serialize_datetime
+        last_updated = SerializationHelper.serialize_datetime(
+            coverage_doc.get("last_updated")
+        )
         total_length = coverage_doc.get("total_length", 0)
         driven_length = coverage_doc.get("driven_length", 0)
         coverage_percentage = coverage_doc.get("coverage_percentage", 0)
@@ -3846,8 +3758,7 @@ async def get_coverage_area_details(location_id: str):
         return result
     except Exception as e:
         logger.error(
-            f"Error fetching coverage area details: {
-                str(e)}",
+            f"Error fetching coverage area details: {str(e)}",
             exc_info=True,
         )
         return {"success": False, "error": str(e)}

@@ -35,11 +35,9 @@ from celery_app import app
 from db import (
     DatabaseManager,
     trips_collection,
-    matched_trips_collection,
-    streets_collection,
     coverage_metadata_collection,
-    task_history_collection,
-    progress_collection,
+    task_history_collection
+
 )
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from preprocess_streets import preprocess_streets as async_preprocess_streets
