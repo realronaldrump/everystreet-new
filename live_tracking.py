@@ -5,18 +5,20 @@ This module handles real-time tracking of vehicles using the Bouncie API.
 It manages data storage and retrieval for real-time updates, processed via
 polling from clients rather than WebSocket connections.
 
-Key components:
-- Trip data management: Store active and archived trip data
-- Data processing: Handle incoming webhook events from Bouncie
-- API endpoints: Provide data retrieval for polling clients
+Key features:
+- Transaction safety for critical operations
+- Consistent data serialization
+- Memory-efficient processing
+- Proper error handling
 """
 
 import os
 import logging
 import time
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union, Set
 
+from db import SerializationHelper, db_manager, run_transaction
 from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinates
 from utils import haversine
 from trip_processor import TripProcessor
@@ -50,7 +52,8 @@ def initialize_db(db_live_trips, db_archived_live_trips):
 
 async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Convert MongoDB document to JSON-serializable dict for live trips
+    Convert MongoDB document to JSON-serializable dict for live trips.
+    Uses the common serialization helper for consistency.
 
     Args:
         trip_data: The trip document from MongoDB
@@ -61,25 +64,10 @@ async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
     if not trip_data:
         return None
 
-    serialized = dict(trip_data)
+    # Use common serialization helper for basic fields
+    serialized = SerializationHelper.serialize_document(trip_data)
 
-    # Convert ObjectId to string
-    if "_id" in serialized:
-        serialized["_id"] = str(serialized["_id"])
-
-    # Convert datetime objects to ISO format strings
-    for key in ("startTime", "lastUpdate", "endTime"):
-        if key in serialized and isinstance(serialized[key], datetime):
-            serialized[key] = serialized[key].isoformat()
-
-    # Convert timestamps in coordinates
-    if "coordinates" in serialized and serialized["coordinates"]:
-        for coord in serialized["coordinates"]:
-            ts = coord.get("timestamp")
-            if isinstance(ts, datetime):
-                coord["timestamp"] = ts.isoformat()
-
-    # Ensure all required fields are present with defaults
+    # Additional format-specific processing for live trip data
     serialized.setdefault("distance", 0)  # miles
     serialized.setdefault("currentSpeed", 0)  # mph
     serialized.setdefault("maxSpeed", 0)  # mph
@@ -97,8 +85,10 @@ async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
     # Format time values for display
     if "startTime" in serialized:
         try:
-            start_time = datetime.fromisoformat(
-                serialized["startTime"].replace("Z", "+00:00")
+            start_time = (
+                datetime.fromisoformat(serialized["startTime"].replace("Z", "+00:00"))
+                if isinstance(serialized["startTime"], str)
+                else serialized["startTime"]
             )
             serialized["startTimeFormatted"] = start_time.strftime("%Y-%m-%d %H:%M:%S")
         except (ValueError, AttributeError):
@@ -121,16 +111,24 @@ async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
             # Recalculate speeds if needed
             if "startTime" in serialized and "lastUpdate" in serialized:
                 try:
-                    start = datetime.fromisoformat(
-                        serialized["startTime"].replace("Z", "+00:00")
+                    start = (
+                        datetime.fromisoformat(
+                            serialized["startTime"].replace("Z", "+00:00")
+                        )
+                        if isinstance(serialized["startTime"], str)
+                        else serialized["startTime"]
                     )
-                    last = datetime.fromisoformat(
-                        serialized["lastUpdate"].replace("Z", "+00:00")
+                    last = (
+                        datetime.fromisoformat(
+                            serialized["lastUpdate"].replace("Z", "+00:00")
+                        )
+                        if isinstance(serialized["lastUpdate"], str)
+                        else serialized["lastUpdate"]
                     )
                     duration_hours = (last - start).total_seconds() / 3600
                     if duration_hours > 0:
                         serialized["avgSpeed"] = total_distance / duration_hours
-                except (ValueError, AttributeError):
+                except (ValueError, AttributeError, TypeError):
                     pass
 
     # Add a sequence number for client tracking if not present
@@ -175,18 +173,6 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
     else:
         logger.info("Creating new active trip: %s", transaction_id)
 
-    # Clear any existing active trips with this transaction ID
-    delete_result = await live_trips_collection.delete_many(
-        {"transactionId": transaction_id, "status": "active"}
-    )
-
-    if delete_result.deleted_count > 0:
-        logger.info(
-            "Deleted %d existing active trip records for %s",
-            delete_result.deleted_count,
-            transaction_id,
-        )
-
     # Create new trip with a sequence number for tracking updates
     sequence = int(time.time() * 1000)  # Millisecond timestamp as sequence
 
@@ -206,25 +192,25 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
         "sequence": sequence,
     }
 
-    result = await live_trips_collection.insert_one(new_trip)
-
-    # Verify the trip was actually inserted
-    if result.inserted_id:
-        inserted_trip = await live_trips_collection.find_one(
-            {"_id": result.inserted_id}
+    # Transaction-safe operation: delete any existing active trips with this ID and insert new one
+    async def operation_a():
+        await live_trips_collection.delete_many(
+            {"transactionId": transaction_id, "status": "active"}
         )
-        if inserted_trip:
-            logger.info(
-                "Trip started: %s (verified in database with seq=%s)",
-                transaction_id,
-                sequence,
-            )
-        else:
-            logger.warning(
-                "Trip inserted but not found on verification: %s", transaction_id
-            )
+
+    async def operation_b():
+        await live_trips_collection.insert_one(new_trip)
+
+    success = await run_transaction([operation_a, operation_b])
+
+    if success:
+        logger.info(
+            "Trip started: %s (verified in database with seq=%s)",
+            transaction_id,
+            sequence,
+        )
     else:
-        logger.error("Failed to insert trip: %s", transaction_id)
+        logger.error("Failed to start trip: %s (transaction failed)", transaction_id)
 
 
 async def process_trip_data(data: Dict[str, Any]) -> None:
@@ -279,129 +265,132 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
 
         sequence = int(time.time() * 1000)
 
-        await live_trips_collection.insert_one(
-            {
-                "transactionId": transaction_id,
-                "status": "active",
-                "startTime": start_time,
-                "coordinates": [],
-                "lastUpdate": now,
-                "distance": 0,
-                "currentSpeed": 0,
-                "maxSpeed": 0,
-                "avgSpeed": 0,
-                "sequence": sequence,
-                "created_from_data": True,  # Flag to indicate this was created from a data event
-            }
-        )
-        trip_doc = await live_trips_collection.find_one(
-            {"transactionId": transaction_id, "status": "active"}
-        )
+        # Insert new trip document
+        trip_doc = {
+            "transactionId": transaction_id,
+            "status": "active",
+            "startTime": start_time,
+            "coordinates": [],
+            "lastUpdate": now,
+            "distance": 0,
+            "currentSpeed": 0,
+            "maxSpeed": 0,
+            "avgSpeed": 0,
+            "sequence": sequence,
+            "created_from_data": True,  # Flag to indicate this was created from a data event
+        }
+
+        await live_trips_collection.insert_one(trip_doc)
         logger.info(f"Created new trip for existing trip data: {transaction_id}")
 
     # Process trip data
-    if "data" in data:
-        # First process the coordinates using the existing function
-        new_coords = sort_and_filter_trip_coordinates(data["data"])
+    if "data" not in data:
+        logger.warning(f"No data in tripData event for {transaction_id}")
+        return
 
-        # Update with the current coordinates
-        all_coords = trip_doc.get("coordinates", []) + new_coords
-        all_coords.sort(key=lambda c: c["timestamp"])
+    # First process the coordinates using the existing function
+    new_coords = sort_and_filter_trip_coordinates(data["data"])
+    if not new_coords:
+        logger.warning(f"No valid coordinates in tripData event for {transaction_id}")
+        return
 
-        # Use the TripProcessor to handle metrics calculations
-        # First, create a trip-like object
-        trip_like = {
-            "transactionId": transaction_id,
-            "startTime": trip_doc["startTime"],
-            "gps": {
-                "type": "LineString",
-                "coordinates": [[c["lon"], c["lat"]] for c in all_coords],
-            },
-        }
+    # Update with the current coordinates
+    all_coords = trip_doc.get("coordinates", []) + new_coords
 
-        # Process it
-        processor = TripProcessor(source="live")
-        processor.set_trip_data(trip_like)
-        await processor.validate()
-        await processor.process_basic()
+    # Sort by timestamp to ensure correct order
+    all_coords.sort(key=lambda c: c["timestamp"])
 
-        # Extract calculated metrics
-        current_speed = 0
-        total_distance = processor.processed_data.get("distance", 0)
+    # Use the TripProcessor to handle metrics calculations
+    # First, create a trip-like object
+    trip_like = {
+        "transactionId": transaction_id,
+        "startTime": trip_doc["startTime"],
+        "gps": {
+            "type": "LineString",
+            "coordinates": [[c["lon"], c["lat"]] for c in all_coords],
+        },
+    }
 
-        # Calculate current speed from last two points if available
-        if len(all_coords) >= 2:
-            last_point = all_coords[-1]
-            prev_point = all_coords[-2]
+    # Process it
+    processor = TripProcessor(source="live")
+    processor.set_trip_data(trip_like)
+    await processor.validate()
+    await processor.process_basic()
 
-            # Calculate time difference in hours
-            time_diff = (
-                last_point["timestamp"] - prev_point["timestamp"]
-            ).total_seconds() / 3600
+    # Extract calculated metrics
+    current_speed = 0
+    total_distance = processor.processed_data.get("distance", 0)
 
-            if time_diff > 0:
-                # Calculate distance for just this segment
-                distance = haversine(
-                    prev_point["lon"],
-                    prev_point["lat"],
-                    last_point["lon"],
-                    last_point["lat"],
-                    unit="miles",
-                )
-                current_speed = distance / time_diff
+    # Calculate current speed from last two points if available
+    if len(all_coords) >= 2:
+        last_point = all_coords[-1]
+        prev_point = all_coords[-2]
 
-        # Update max speed if needed
-        max_speed = max(trip_doc.get("maxSpeed", 0), current_speed)
+        # Calculate time difference in hours
+        time_diff = (
+            last_point["timestamp"] - prev_point["timestamp"]
+        ).total_seconds() / 3600
 
-        # Calculate duration
-        duration_seconds = (
-            (all_coords[-1]["timestamp"] - trip_doc["startTime"]).total_seconds()
-            if all_coords
-            else 0
-        )
+        if time_diff > 0:
+            # Calculate distance for just this segment
+            distance = haversine(
+                prev_point["lon"],
+                prev_point["lat"],
+                last_point["lon"],
+                last_point["lat"],
+                unit="miles",
+            )
+            current_speed = distance / time_diff
 
-        # Calculate average speed (in mph)
-        avg_speed = 0
-        if duration_seconds > 0:
-            # Convert seconds to hours for mph calculation
-            duration_hours = duration_seconds / 3600
-            avg_speed = total_distance / duration_hours if duration_hours > 0 else 0
+    # Update max speed if needed
+    max_speed = max(trip_doc.get("maxSpeed", 0), current_speed)
 
-        # Get the current highest sequence number and increment it
-        highest_sequence = trip_doc.get("sequence", 0)
-        sequence = max(highest_sequence + 1, int(time.time() * 1000))
+    # Calculate duration
+    duration_seconds = (
+        (all_coords[-1]["timestamp"] - trip_doc["startTime"]).total_seconds()
+        if all_coords
+        else 0
+    )
 
-        # Update trip in database
-        await live_trips_collection.update_one(
-            {"_id": trip_doc["_id"]},
-            {
-                "$set": {
-                    "coordinates": all_coords,
-                    "lastUpdate": (
-                        all_coords[-1]["timestamp"]
-                        if all_coords
-                        else trip_doc["startTime"]
-                    ),
-                    "distance": total_distance,
-                    "currentSpeed": current_speed,
-                    "maxSpeed": max_speed,
-                    "avgSpeed": avg_speed,
-                    "duration": duration_seconds,
-                    "sequence": sequence,
-                    "pointsRecorded": len(all_coords),
-                }
-            },
-        )
-        logger.info(
-            f"Updated trip data: {transaction_id} with {
-                len(new_coords)} new points (total: {
-                len(all_coords)})"
-        )
+    # Calculate average speed (in mph)
+    avg_speed = 0
+    if duration_seconds > 0:
+        # Convert seconds to hours for mph calculation
+        duration_hours = duration_seconds / 3600
+        avg_speed = total_distance / duration_hours if duration_hours > 0 else 0
+
+    # Get the current highest sequence number and increment it
+    highest_sequence = trip_doc.get("sequence", 0)
+    sequence = max(highest_sequence + 1, int(time.time() * 1000))
+
+    # Update trip in database
+    await live_trips_collection.update_one(
+        {"_id": trip_doc["_id"]},
+        {
+            "$set": {
+                "coordinates": all_coords,
+                "lastUpdate": (
+                    all_coords[-1]["timestamp"] if all_coords else trip_doc["startTime"]
+                ),
+                "distance": total_distance,
+                "currentSpeed": current_speed,
+                "maxSpeed": max_speed,
+                "avgSpeed": avg_speed,
+                "duration": duration_seconds,
+                "sequence": sequence,
+                "pointsRecorded": len(all_coords),
+            }
+        },
+    )
+    logger.info(
+        f"Updated trip data: {transaction_id} with {len(new_coords)} new points (total: {len(all_coords)})"
+    )
 
 
 async def process_trip_end(data: Dict[str, Any]) -> None:
     """
-    Process a tripEnd event from the Bouncie webhook
+    Process a tripEnd event from the Bouncie webhook with transaction safety.
+    Archives a trip and removes it from active trips atomically.
 
     Args:
         data: The webhook payload
@@ -419,51 +408,49 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
         end_time = datetime.now(timezone.utc)
 
     trip = await live_trips_collection.find_one({"transactionId": transaction_id})
-    if trip:
-        trip_id = trip["_id"]
-        start_time = trip.get("startTime")
-
-        # Calculate trip metrics for logging
-        duration = (end_time - start_time).total_seconds() if start_time else 0
-        distance = trip.get("distance", 0)
-        avg_speed = trip.get("avgSpeed", 0)
-        max_speed = trip.get("maxSpeed", 0)
-
-        logger.info(
-            f"Ending trip {transaction_id}: duration={duration:.1f}s, "
-            f"distance={distance:.2f}mi, avg_speed={avg_speed:.1f}mph, "
-            f"max_speed={max_speed:.1f}mph"
-        )
-
-        # Remove _id field before archiving to avoid MongoDB error
-        trip_to_archive = trip.copy()
-        del trip_to_archive["_id"]
-
-        # Update with end data
-        trip_to_archive["endTime"] = end_time
-        trip_to_archive["status"] = "completed"
-        trip_to_archive["closed_reason"] = "normal"
-        # Set final sequence number before archiving
-        trip_to_archive["sequence"] = int(time.time() * 1000)
-
-        try:
-            # Archive the trip
-            archive_result = await archived_live_trips_collection.insert_one(
-                trip_to_archive
-            )
-
-            # Only delete from live collection after successful archive
-            if archive_result.inserted_id:
-                delete_result = await live_trips_collection.delete_one({"_id": trip_id})
-                logger.info(
-                    f"Trip {transaction_id} successfully archived (deleted={delete_result.deleted_count})"
-                )
-            else:
-                logger.warning(f"Failed to archive trip {transaction_id}")
-        except Exception as e:
-            logger.exception(f"Error archiving trip {transaction_id}: {str(e)}")
-    else:
+    if not trip:
         logger.warning(f"Received tripEnd event for unknown trip: {transaction_id}")
+        return
+
+    trip_id = trip["_id"]
+    start_time = trip.get("startTime")
+
+    # Calculate trip metrics for logging
+    duration = (end_time - start_time).total_seconds() if start_time else 0
+    distance = trip.get("distance", 0)
+    avg_speed = trip.get("avgSpeed", 0)
+    max_speed = trip.get("maxSpeed", 0)
+
+    logger.info(
+        f"Ending trip {transaction_id}: duration={duration:.1f}s, "
+        f"distance={distance:.2f}mi, avg_speed={avg_speed:.1f}mph, "
+        f"max_speed={max_speed:.1f}mph"
+    )
+
+    # Remove _id field before archiving to avoid MongoDB error
+    trip_to_archive = trip.copy()
+    del trip_to_archive["_id"]
+
+    # Update with end data
+    trip_to_archive["endTime"] = end_time
+    trip_to_archive["status"] = "completed"
+    trip_to_archive["closed_reason"] = "normal"
+    # Set final sequence number before archiving
+    trip_to_archive["sequence"] = int(time.time() * 1000)
+
+    # Use transaction to ensure atomicity
+    async def archive_operation():
+        await archived_live_trips_collection.insert_one(trip_to_archive)
+
+    async def delete_operation():
+        await live_trips_collection.delete_one({"_id": trip_id})
+
+    success = await run_transaction([archive_operation, delete_operation])
+
+    if success:
+        logger.info(f"Trip {transaction_id} successfully archived")
+    else:
+        logger.error(f"Transaction failed when archiving trip {transaction_id}")
 
 
 async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
@@ -510,9 +497,6 @@ async def get_active_trip(since_sequence: Optional[int] = None) -> Dict[str, Any
 
     Returns:
         Dict: The active trip data, serialized for JSON response, or None if no update
-
-    Raises:
-        HTTPException: If no active trip is found
     """
     query = {"status": "active"}
 
@@ -548,7 +532,9 @@ async def get_active_trip(since_sequence: Optional[int] = None) -> Dict[str, Any
     return None
 
 
-async def cleanup_stale_trips(stale_minutes: int = 5, max_archive_age_days: int = 30):
+async def cleanup_stale_trips(
+    stale_minutes: int = 5, max_archive_age_days: int = 30
+) -> Dict[str, int]:
     """
     Cleanup trips that haven't been updated recently and limit archived trips
 
@@ -565,9 +551,9 @@ async def cleanup_stale_trips(stale_minutes: int = 5, max_archive_age_days: int 
     cleanup_count = 0
     archive_cleanup_count = 0
 
-    # Cleanup stale active trips
+    # Cleanup stale active trips with transaction safety
     try:
-        # Instead of one at a time, find all stale trips in a single query
+        # Find all stale trips
         stale_trips = await live_trips_collection.find(
             {"lastUpdate": {"$lt": stale_threshold}, "status": "active"}
         ).to_list(
@@ -589,17 +575,23 @@ async def cleanup_stale_trips(stale_minutes: int = 5, max_archive_age_days: int 
                 trip["duration"] = duration_seconds
 
             # Remove _id to avoid duplicate key issues
-            del trip["_id"]
+            trip_to_archive = trip.copy()
+            del trip_to_archive["_id"]
 
-            # Archive the trip
-            try:
-                await archived_live_trips_collection.insert_one(trip)
-                # Only delete from live collection after successful archive
+            # Use transaction for safety
+            async def archive_stale_op():
+                await archived_live_trips_collection.insert_one(trip_to_archive)
+
+            async def delete_stale_op():
                 await live_trips_collection.delete_one({"_id": trip_id})
+
+            success = await run_transaction([archive_stale_op, delete_stale_op])
+
+            if success:
                 cleanup_count += 1
                 logger.info(f"Archived stale trip: {transaction_id}")
-            except Exception as e:
-                logger.error(f"Error archiving stale trip {transaction_id}: {str(e)}")
+            else:
+                logger.error(f"Failed to archive stale trip: {transaction_id}")
 
         # Also cleanup old archived trips
         old_archive_result = await archived_live_trips_collection.delete_many(

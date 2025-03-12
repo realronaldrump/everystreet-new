@@ -1,3 +1,10 @@
+"""
+Main FastAPI application for EveryStreet.
+
+This module provides the web server, API endpoints, and webhook handlers
+for the application.
+"""
+
 import os
 import json
 import logging
@@ -50,10 +57,9 @@ from celery_app import app as celery_app
 
 from db import (
     db_manager,
+    SerializationHelper,
     ensure_street_coverage_indexes,
     init_task_history_collection,
-    serialize_trip,
-    serialize_datetime,
     find_one_with_retry,
     find_with_retry,
     update_one_with_retry,
@@ -102,18 +108,18 @@ API_BASE_URL = "https://api.bouncie.dev/v1"
 OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
 # Database collections - using db_manager to access the database
-trips_collection = db_manager.db["trips"]
-matched_trips_collection = db_manager.db["matched_trips"]
-uploaded_trips_collection = db_manager.db["uploaded_trips"]
-places_collection = db_manager.db["places"]
-osm_data_collection = db_manager.db["osm_data"]
-streets_collection = db_manager.db["streets"]
-coverage_metadata_collection = db_manager.db["coverage_metadata"]
-live_trips_collection = db_manager.db["live_trips"]
-archived_live_trips_collection = db_manager.db["archived_live_trips"]
-task_config_collection = db_manager.db["task_config"]
-task_history_collection = db_manager.db["task_history"]
-progress_collection = db_manager.db["progress_status"]
+trips_collection = db_manager.get_collection("trips")
+matched_trips_collection = db_manager.get_collection("matched_trips")
+uploaded_trips_collection = db_manager.get_collection("uploaded_trips")
+places_collection = db_manager.get_collection("places")
+osm_data_collection = db_manager.get_collection("osm_data")
+streets_collection = db_manager.get_collection("streets")
+coverage_metadata_collection = db_manager.get_collection("coverage_metadata")
+live_trips_collection = db_manager.get_collection("live_trips")
+archived_live_trips_collection = db_manager.get_collection("archived_live_trips")
+task_config_collection = db_manager.get_collection("task_config")
+task_history_collection = db_manager.get_collection("task_history")
+progress_collection = db_manager.get_collection("progress_status")
 
 # Initialize live tracking module
 initialize_db(live_trips_collection, archived_live_trips_collection)
@@ -461,7 +467,9 @@ async def get_task_details(task_id: str):
             entry["_id"] = str(entry["_id"])
             history.append(
                 {
-                    "timestamp": serialize_datetime(entry.get("timestamp")),
+                    "timestamp": SerializationHelper.serialize_datetime(
+                        entry.get("timestamp")
+                    ),
                     "status": entry["status"],
                     "runtime": entry.get("runtime"),
                     "error": entry.get("error"),
@@ -483,10 +491,18 @@ async def get_task_details(task_id: str):
             "interval_minutes": task_config.get(
                 "interval_minutes", task_def["default_interval_minutes"]
             ),
-            "last_run": serialize_datetime(task_config.get("last_run")),
-            "next_run": serialize_datetime(task_config.get("next_run")),
-            "start_time": serialize_datetime(task_config.get("start_time")),
-            "end_time": serialize_datetime(task_config.get("end_time")),
+            "last_run": SerializationHelper.serialize_datetime(
+                task_config.get("last_run")
+            ),
+            "next_run": SerializationHelper.serialize_datetime(
+                task_config.get("next_run")
+            ),
+            "start_time": SerializationHelper.serialize_datetime(
+                task_config.get("start_time")
+            ),
+            "end_time": SerializationHelper.serialize_datetime(
+                task_config.get("end_time")
+            ),
             "last_error": task_config.get("last_error"),
             "history": history,
         }
@@ -514,7 +530,9 @@ async def get_task_history(page: int = 1, limit: int = 10):
         history = []
         for entry in entries:
             entry["_id"] = str(entry["_id"])
-            entry["timestamp"] = serialize_datetime(entry.get("timestamp"))
+            entry["timestamp"] = SerializationHelper.serialize_datetime(
+                entry.get("timestamp")
+            )
             if "runtime" in entry:
                 entry["runtime"] = float(entry["runtime"]) if entry["runtime"] else None
             history.append(entry)
@@ -561,7 +579,7 @@ async def get_edit_trips(request: Request):
         )
 
         trips = await find_with_retry(collection, query)
-        serialized_trips = [serialize_trip(trip) for trip in trips]
+        serialized_trips = [SerializationHelper.serialize_trip(trip) for trip in trips]
 
         return {"status": "success", "trips": serialized_trips}
     except Exception as e:
@@ -666,11 +684,33 @@ async def get_street_coverage(request: Request):
         if not location or not isinstance(location, dict):
             raise HTTPException(status_code=400, detail="Invalid location data.")
         task_id = str(uuid.uuid4())
-        asyncio.create_task(process_coverage_calculation(location, task_id))
+
+        # Create background task with proper error handling
+        task = asyncio.create_task(process_coverage_calculation(location, task_id))
+
+        # Add error handling for the background task
+        task.add_done_callback(
+            lambda t: handle_task_exception(t, f"coverage_calculation_{task_id}")
+        )
+
         return {"task_id": task_id, "status": "processing"}
     except Exception as e:
         logger.exception("Error in street coverage calculation.")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def handle_task_exception(task: asyncio.Task, task_name: str) -> None:
+    """Handle exceptions from background tasks."""
+    if task.cancelled():
+        logger.warning(f"Background task {task_name} was cancelled")
+        return
+
+    exception = task.exception()
+    if exception:
+        logger.error(
+            f"Error in background task {task_name}: {str(exception)}",
+            exc_info=exception,
+        )
 
 
 async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
@@ -1277,7 +1317,8 @@ async def bulk_process_trips(request: Request):
                 "count": 0,
             }
 
-        # Process trips
+        # Process trips in batches to prevent memory issues
+        batch_size = 20
         results = {
             "total": len(trips),
             "validated": 0,
@@ -1287,55 +1328,60 @@ async def bulk_process_trips(request: Request):
             "skipped": 0,
         }
 
-        for trip in trips:
-            try:
-                processor = TripProcessor(
-                    mapbox_token=MAPBOX_ACCESS_TOKEN,
-                    source="api" if collection == trips_collection else "upload",
-                )
-                processor.set_trip_data(trip)
+        for i in range(0, len(trips), batch_size):
+            batch = trips[i : i + batch_size]
+            for trip in batch:
+                try:
+                    processor = TripProcessor(
+                        mapbox_token=MAPBOX_ACCESS_TOKEN,
+                        source="api" if collection == trips_collection else "upload",
+                    )
+                    processor.set_trip_data(trip)
 
-                # Run the appropriate processing steps based on options
-                if do_validate:
-                    await processor.validate()
-                    if processor.state == TripState.VALIDATED:
-                        results["validated"] += 1
-                    else:
-                        results["failed"] += 1
-                        continue
-
-                if do_geocode and processor.state == TripState.VALIDATED:
-                    await processor.process_basic()
-                    if processor.state == TripState.PROCESSED:
-                        await processor.geocode()
-                        if processor.state == TripState.GEOCODED:
-                            results["geocoded"] += 1
+                    # Run the appropriate processing steps based on options
+                    if do_validate:
+                        await processor.validate()
+                        if processor.state == TripState.VALIDATED:
+                            results["validated"] += 1
                         else:
                             results["failed"] += 1
                             continue
-                    else:
-                        results["failed"] += 1
-                        continue
 
-                if do_map_match and processor.state == TripState.GEOCODED:
-                    await processor.map_match()
-                    if processor.state == TripState.MAP_MATCHED:
-                        results["map_matched"] += 1
-                    else:
-                        results["failed"] += 1
-                        continue
+                    if do_geocode and processor.state == TripState.VALIDATED:
+                        await processor.process_basic()
+                        if processor.state == TripState.PROCESSED:
+                            await processor.geocode()
+                            if processor.state == TripState.GEOCODED:
+                                results["geocoded"] += 1
+                            else:
+                                results["failed"] += 1
+                                continue
+                        else:
+                            results["failed"] += 1
+                            continue
 
-                # Save the changes
-                saved_id = await processor.save(map_match_result=do_map_match)
-                if not saved_id:
+                    if do_map_match and processor.state == TripState.GEOCODED:
+                        await processor.map_match()
+                        if processor.state == TripState.MAP_MATCHED:
+                            results["map_matched"] += 1
+                        else:
+                            results["failed"] += 1
+                            continue
+
+                    # Save the changes
+                    saved_id = await processor.save(map_match_result=do_map_match)
+                    if not saved_id:
+                        results["failed"] += 1
+                except Exception as e:
+                    logger.error(
+                        f"Error processing trip {
+                            trip.get('transactionId')}: {
+                            str(e)}"
+                    )
                     results["failed"] += 1
-            except Exception as e:
-                logger.error(
-                    f"Error processing trip {
-                        trip.get('transactionId')}: {
-                        str(e)}"
-                )
-                results["failed"] += 1
+
+            # Allow other tasks to run between batches
+            await asyncio.sleep(0)
 
         return {
             "status": "success",
@@ -1415,8 +1461,12 @@ async def export_geojson(request: Request):
                 "geometry": gps_data,
                 "properties": {
                     "transactionId": t["transactionId"],
-                    "startTime": serialize_datetime(t.get("startTime")) or "",
-                    "endTime": serialize_datetime(t.get("endTime")) or "",
+                    "startTime": SerializationHelper.serialize_datetime(
+                        t.get("startTime")
+                    )
+                    or "",
+                    "endTime": SerializationHelper.serialize_datetime(t.get("endTime"))
+                    or "",
                     "distance": t.get("distance", 0),
                     "imei": t["imei"],
                 },
@@ -1674,30 +1724,38 @@ async def map_match_trips_endpoint(request: Request):
         # Use the TripProcessor for map matching
         processed_count = 0
         failed_count = 0
-        for trip in trips_list:
-            try:
-                processor = TripProcessor(
-                    mapbox_token=MAPBOX_ACCESS_TOKEN, source="api"
-                )
-                processor.set_trip_data(trip)
-                await processor.process(do_map_match=True)
-                result = await processor.save(map_match_result=True)
 
-                if result:
-                    processed_count += 1
-                else:
-                    failed_count += 1
-                    logger.warning(
-                        f"Failed to save matched trip {
-                            trip.get('transactionId')}"
+        # Process in batches to prevent memory issues
+        batch_size = 10
+        for i in range(0, len(trips_list), batch_size):
+            batch = trips_list[i : i + batch_size]
+            for trip in batch:
+                try:
+                    processor = TripProcessor(
+                        mapbox_token=MAPBOX_ACCESS_TOKEN, source="api"
                     )
-            except Exception as e:
-                failed_count += 1
-                logger.error(
-                    f"Error processing trip {
-                        trip.get('transactionId')}: {
-                        str(e)}"
-                )
+                    processor.set_trip_data(trip)
+                    await processor.process(do_map_match=True)
+                    result = await processor.save(map_match_result=True)
+
+                    if result:
+                        processed_count += 1
+                    else:
+                        failed_count += 1
+                        logger.warning(
+                            f"Failed to save matched trip {
+                                trip.get('transactionId')}"
+                        )
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(
+                        f"Error processing trip {
+                            trip.get('transactionId')}: {
+                            str(e)}"
+                    )
+
+            # Allow other tasks to run between batches
+            await asyncio.sleep(0)
 
         return {
             "status": "success",
@@ -1729,8 +1787,14 @@ async def get_matched_trips(request: Request):
                     properties={
                         "transactionId": trip["transactionId"],
                         "imei": trip.get("imei", ""),
-                        "startTime": serialize_datetime(trip.get("startTime")) or "",
-                        "endTime": serialize_datetime(trip.get("endTime")) or "",
+                        "startTime": SerializationHelper.serialize_datetime(
+                            trip.get("startTime")
+                        )
+                        or "",
+                        "endTime": SerializationHelper.serialize_datetime(
+                            trip.get("endTime")
+                        )
+                        or "",
                         "distance": trip.get("distance", 0),
                         "timeZone": trip.get("timeZone", "UTC"),
                         "destination": trip.get("destination", "N/A"),
@@ -1807,22 +1871,50 @@ async def remap_matched_trips(request: Request):
             start_date = parse_query_date(start_date_str)
             end_date = parse_query_date(end_date_str, end_of_day=True)
 
-        await delete_many_with_retry(
-            matched_trips_collection,
-            {"startTime": {"$gte": start_date, "$lte": end_date}},
-        )
+        # Transaction for safety
+        async def delete_matched():
+            await delete_many_with_retry(
+                matched_trips_collection,
+                {"startTime": {"$gte": start_date, "$lte": end_date}},
+            )
 
+        await delete_matched()
+
+        # Process in batches for memory efficiency
         trips_list = await find_with_retry(
             trips_collection, {"startTime": {"$gte": start_date, "$lte": end_date}}
         )
 
-        for trip in trips_list:
-            processor = TripProcessor(mapbox_token=MAPBOX_ACCESS_TOKEN, source="api")
-            processor.set_trip_data(trip)
-            await processor.process(do_map_match=True)
-            await processor.save(map_match_result=True)
+        batch_size = 10
+        processed_count = 0
+        failed_count = 0
 
-        return {"status": "success", "message": "Re-matching completed."}
+        for i in range(0, len(trips_list), batch_size):
+            batch = trips_list[i : i + batch_size]
+            for trip in batch:
+                try:
+                    processor = TripProcessor(
+                        mapbox_token=MAPBOX_ACCESS_TOKEN, source="api"
+                    )
+                    processor.set_trip_data(trip)
+                    await processor.process(do_map_match=True)
+                    await processor.save(map_match_result=True)
+                    processed_count += 1
+                except Exception as e:
+                    logger.error(
+                        f"Error remapping trip {trip.get('transactionId')}: {e}"
+                    )
+                    failed_count += 1
+
+            # Allow other tasks to run between batches
+            await asyncio.sleep(0)
+
+        return {
+            "status": "success",
+            "message": "Re-matching completed.",
+            "processed": processed_count,
+            "failed": failed_count,
+        }
     except Exception as e:
         logger.exception("Error in remap_matched_trips")
         raise HTTPException(status_code=500, detail=f"Error re-matching trips: {e}")
@@ -1849,8 +1941,10 @@ async def export_single_trip(trip_id: str, request: Request):
             "geometry": gps_data,
             "properties": {
                 "transactionId": t["transactionId"],
-                "startTime": serialize_datetime(t.get("startTime")) or "",
-                "endTime": serialize_datetime(t.get("endTime")) or "",
+                "startTime": SerializationHelper.serialize_datetime(t.get("startTime"))
+                or "",
+                "endTime": SerializationHelper.serialize_datetime(t.get("endTime"))
+                or "",
                 "distance": t.get("distance", 0),
                 "imei": t["imei"],
             },
@@ -2175,8 +2269,16 @@ async def preprocess_streets_route(request: Request):
                     status_code=400, detail="This area is already being processed"
                 )
             raise
+
         task_id = str(uuid.uuid4())
-        asyncio.create_task(process_area(validated_location, task_id))
+        # Create background task with proper error handling
+        task = asyncio.create_task(process_area(validated_location, task_id))
+
+        # Add error handling for the background task
+        task.add_done_callback(
+            lambda t: handle_task_exception(t, f"process_area_{task_id}")
+        )
+
         return {"status": "success", "task_id": task_id}
     except Exception as e:
         logger.exception("Error in preprocess_streets")
@@ -2384,7 +2486,7 @@ async def get_single_trip(trip_id: str):
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
 
-        return {"status": "success", "trip": serialize_trip(trip)}
+        return {"status": "success", "trip": SerializationHelper.serialize_trip(trip)}
     except HTTPException:
         raise
     except Exception as e:
