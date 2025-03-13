@@ -517,8 +517,13 @@ class TripProcessor:
                         and "coordinates" in start_place["geometry"]
                     ):
                         coords = start_place["geometry"]["coordinates"]
-                        structured_start["coordinates"]["lng"] = coords[0]
-                        structured_start["coordinates"]["lat"] = coords[1]
+                        if len(coords) >= 2:
+                            structured_start["coordinates"]["lng"] = coords[0]
+                            structured_start["coordinates"]["lat"] = coords[1]
+                        else:
+                            logger.warning(f"Invalid coordinates in start_place geometry for trip {transaction_id}: {coords}")
+                            structured_start["coordinates"]["lng"] = start_coord[0]
+                            structured_start["coordinates"]["lat"] = start_coord[1]
                     else:
                         structured_start["coordinates"]["lng"] = start_coord[0]
                         structured_start["coordinates"]["lat"] = start_coord[1]
@@ -602,8 +607,13 @@ class TripProcessor:
                         and "coordinates" in end_place["geometry"]
                     ):
                         coords = end_place["geometry"]["coordinates"]
-                        structured_dest["coordinates"]["lng"] = coords[0]
-                        structured_dest["coordinates"]["lat"] = coords[1]
+                        if len(coords) >= 2:
+                            structured_dest["coordinates"]["lng"] = coords[0]
+                            structured_dest["coordinates"]["lat"] = coords[1]
+                        else:
+                            logger.warning(f"Invalid coordinates in end_place geometry for trip {transaction_id}: {coords}")
+                            structured_dest["coordinates"]["lng"] = end_coord[0]
+                            structured_dest["coordinates"]["lat"] = end_coord[1]
                     else:
                         structured_dest["coordinates"]["lng"] = end_coord[0]
                         structured_dest["coordinates"]["lat"] = end_coord[1]
