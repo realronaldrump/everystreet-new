@@ -1,0 +1,234 @@
+{% extends "base.html" %} {% block title %}AI-Powered Driving Insights{%
+endblock %} {% block content %}
+<div class="container-fluid">
+  <!-- Date Range Filter Controls -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div
+          class="card-header d-flex justify-content-between align-items-center"
+        >
+          <h2 class="h5 mb-0">AI-Powered Insights</h2>
+        </div>
+        <div class="card-body">
+          <p class="text-muted">
+            Select a date range to analyze your driving data with artificial
+            intelligence.
+          </p>
+          <form id="filter-form" class="row g-3">
+            <div class="col-md-4">
+              <label for="start-date" class="form-label">Start Date</label>
+              <input
+                type="date"
+                class="form-control datepicker"
+                id="start-date"
+                name="start_date"
+              />
+            </div>
+            <div class="col-md-4">
+              <label for="end-date" class="form-label">End Date</label>
+              <input
+                type="date"
+                class="form-control datepicker"
+                id="end-date"
+                name="end_date"
+              />
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <button
+                type="button"
+                class="btn btn-primary me-2"
+                id="analyze-button"
+              >
+                <i class="bi bi-robot"></i> Analyze with AI
+              </button>
+              <div class="btn-group" role="group">
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary quick-select-btn"
+                  data-range="last-week"
+                >
+                  7 Days
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary quick-select-btn"
+                  data-range="last-month"
+                >
+                  30 Days
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary quick-select-btn"
+                  data-range="quarter"
+                >
+                  90 Days
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Indicator -->
+  <div id="loading-container" class="row mb-4 d-none">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-3 mb-0">Analyzing your driving data with AI...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Summary Section -->
+  <div id="insights-container" class="d-none">
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="h5 mb-0">AI Summary</h2>
+          </div>
+          <div class="card-body">
+            <p id="ai-summary" class="lead"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3D Visualization Section -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card">
+          <div
+            class="card-header d-flex justify-content-between align-items-center"
+          >
+            <h2 class="h5 mb-0">3D Trip Visualization</h2>
+            <div class="btn-group">
+              <button
+                id="toggle-heatmap"
+                class="btn btn-sm btn-outline-primary"
+              >
+                Toggle Heatmap
+              </button>
+              <button id="toggle-paths" class="btn btn-sm btn-outline-primary">
+                Toggle Paths
+              </button>
+              <button id="reset-camera" class="btn btn-sm btn-outline-primary">
+                Reset Camera
+              </button>
+            </div>
+          </div>
+          <div class="card-body p-0">
+            <div id="three-container" style="height: 500px; width: 100%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Maps and Insights Section -->
+    <div class="row mb-4">
+      <div class="col-lg-6 mb-4 mb-lg-0">
+        <div class="card h-100">
+          <div class="card-header">
+            <h2 class="h5 mb-0">Trip Overview Map</h2>
+          </div>
+          <div class="card-body p-0">
+            <div id="map-container" style="height: 400px; width: 100%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header">
+            <h2 class="h5 mb-0">Driving Patterns</h2>
+          </div>
+          <div class="card-body">
+            <ul
+              id="driving-patterns-list"
+              class="list-group list-group-flush"
+            ></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Additional Insights Sections -->
+    <div class="row mb-4">
+      <div class="col-md-4 mb-4 mb-md-0">
+        <div class="card h-100">
+          <div class="card-header bg-success-subtle">
+            <h2 class="h5 mb-0">Efficiency Tips</h2>
+          </div>
+          <div class="card-body">
+            <ul
+              id="efficiency-tips-list"
+              class="list-group list-group-flush"
+            ></ul>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 mb-4 mb-md-0">
+        <div class="card h-100">
+          <div class="card-header bg-primary-subtle">
+            <h2 class="h5 mb-0">Route Insights</h2>
+          </div>
+          <div class="card-body">
+            <ul
+              id="route-insights-list"
+              class="list-group list-group-flush"
+            ></ul>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100">
+          <div class="card-header bg-warning-subtle">
+            <h2 class="h5 mb-0">Safety Insights</h2>
+          </div>
+          <div class="card-body">
+            <ul
+              id="safety-insights-list"
+              class="list-group list-group-flush"
+            ></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Data Message -->
+  <div id="no-data-container" class="row mb-4 d-none">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body text-center py-5">
+          <div class="mb-4">
+            <i class="fas fa-route fa-4x text-muted"></i>
+          </div>
+          <h3>No Trip Data Available</h3>
+          <p class="text-muted">
+            Select a different date range or add more trips to see AI-powered
+            insights.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<!-- Google Maps JavaScript API -->
+<script src="https://maps.googleapis.com/maps/api/js?key={{ environ.get('GOOGLE_MAPS_API_KEY', '') }}&libraries=visualization"></script>
+
+<!-- Three.js libraries -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
+
+<!-- Application specific JavaScript -->
+<script src="{{ url_for('static', path='js/ai_insights.js') | replace('http://', '//') }}"></script>
+{% endblock %}

@@ -26,6 +26,7 @@ from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+import google.generativeai as genai
 
 # Local module imports
 from update_geo_points import update_geo_points
@@ -4053,6 +4054,165 @@ async def create_csv_export(
         writer.writerow(flat_trip)
 
     return output.getvalue()
+
+
+@app.get("/ai-insights", response_class=HTMLResponse)
+async def ai_insights_page(request: Request):
+    """Render the AI-powered insights page"""
+    return templates.TemplateResponse("ai_insights.html", {"request": request, "environ": os.environ})
+
+
+@app.get("/api/ai-insights", response_class=JSONResponse)
+async def get_ai_insights(request: Request):
+    try:
+        # Get date range from request, similar to other analytics endpoints
+        query = await build_query_from_request(request)
+        
+        # Fetch trip data from both collections using the query
+        regular_future = find_with_retry(trips_collection, query)
+        uploaded_future = find_with_retry(uploaded_trips_collection, query)
+        regular, uploaded = await asyncio.gather(regular_future, uploaded_future)
+        
+        all_trips = regular + uploaded
+        
+        # Format data for AI analysis
+        trip_data = []
+        for trip in all_trips:
+            # Extract key information
+            try:
+                st = trip.get("startTime")
+                et = trip.get("endTime")
+                
+                if not st or not et:
+                    continue
+                    
+                # Parse datetime fields if needed
+                if isinstance(st, str):
+                    st = dateutil_parser.isoparse(st)
+                if isinstance(et, str):
+                    et = dateutil_parser.isoparse(et)
+                if st.tzinfo is None:
+                    st = st.replace(tzinfo=timezone.utc)
+                if et.tzinfo is None:
+                    et = et.replace(tzinfo=timezone.utc)
+                
+                # Create a simplified trip record
+                trip_record = {
+                    "transaction_id": trip.get("transactionId", "unknown"),
+                    "start_time": st.isoformat(),
+                    "end_time": et.isoformat(),
+                    "start_location": trip.get("startLocation", "Unknown"),
+                    "destination": trip.get("destination", "Unknown"),
+                    "distance": float(trip.get("distance", 0)),
+                    "max_speed": float(trip.get("maxSpeed", 0)),
+                    "average_speed": float(trip.get("averageSpeed", 0)) if trip.get("averageSpeed") else 0,
+                    "idle_duration": trip.get("totalIdleDuration", 0),
+                    "fuel_consumed": float(trip.get("fuelConsumed", 0)),
+                    "hard_braking_count": int(trip.get("hardBrakingCount", 0)) if trip.get("hardBrakingCount") else 0,
+                    "hard_acceleration_count": int(trip.get("hardAccelerationCount", 0)) if trip.get("hardAccelerationCount") else 0,
+                }
+                
+                # Extract coordinates if available
+                geom = trip.get("gps")
+                if isinstance(geom, str):
+                    geom = json.loads(geom)
+                    
+                if geom and isinstance(geom, dict) and geom.get("type") == "LineString":
+                    trip_record["coordinates"] = geom.get("coordinates", [])
+                
+                trip_data.append(trip_record)
+            except Exception as e:
+                logger.warning(f"Error processing trip for AI analysis: {str(e)}")
+                continue
+                
+        # Get insights from Google Gemini API
+        ai_insights = await get_gemini_insights(trip_data)
+        
+        # Return combined data
+        return JSONResponse(content={
+            "trip_data": trip_data,
+            "ai_insights": ai_insights
+        })
+    except Exception as e:
+        logger.exception("Error in get_ai_insights")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def get_gemini_insights(trip_data):
+    """Process trip data with Google Gemini to get insights"""
+    try:
+        # Configure the Gemini API with your key
+        genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
+        
+        # If no trips, return empty insights
+        if not trip_data:
+            return {
+                "summary": "No trip data available for the selected time period.",
+                "driving_patterns": [],
+                "efficiency_tips": [],
+                "route_insights": [],
+                "safety_insights": []
+            }
+            
+        # Prepare data for Gemini
+        prompt = f"""
+        Analyze the following driving data and provide insights. 
+        Focus on patterns, efficiency, safety, and route optimization.
+        
+        Trip data: {json.dumps(trip_data, indent=2)}
+        
+        Provide the following insights:
+        1. A summary of overall driving patterns
+        2. Efficiency recommendations based on the data
+        3. Route insights and optimization suggestions
+        4. Safety insights based on hard braking and acceleration patterns
+        
+        Format the response as a JSON object with the following structure:
+        {{
+            "summary": "Overall summary of the driving data",
+            "driving_patterns": ["pattern1", "pattern2", ...],
+            "efficiency_tips": ["tip1", "tip2", ...],
+            "route_insights": ["insight1", "insight2", ...],
+            "safety_insights": ["insight1", "insight2", ...]
+        }}
+        
+        Only include the JSON in your response, no other text.
+        """
+        
+        # Generate content with Gemini
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content(prompt)
+        
+        # Parse the response
+        try:
+            content_text = response.text
+            # Clean up the response in case it contains markdown code blocks
+            if "```json" in content_text:
+                content_text = content_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in content_text:
+                content_text = content_text.split("```")[1].split("```")[0].strip()
+                
+            insights = json.loads(content_text)
+            return insights
+        except json.JSONDecodeError:
+            # Fallback if JSON parsing fails
+            logger.warning("Failed to parse Gemini response as JSON")
+            return {
+                "summary": "AI analysis unavailable at this time.",
+                "driving_patterns": ["Data analysis unsuccessful"],
+                "efficiency_tips": ["Check back later for efficiency tips"],
+                "route_insights": ["Route analysis unavailable"],
+                "safety_insights": ["Safety analysis unavailable"]
+            }
+    except Exception as e:
+        logger.exception("Error in get_gemini_insights: %s", str(e))
+        return {
+            "summary": "AI analysis encountered an error.",
+            "driving_patterns": ["Data analysis incomplete due to an error"],
+            "efficiency_tips": ["Unable to generate efficiency tips at this time"],
+            "route_insights": ["Route analysis unavailable"],
+            "safety_insights": ["Safety analysis unavailable"]
+        }
 
 
 if __name__ == "__main__":
