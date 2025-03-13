@@ -948,6 +948,55 @@ async def ensure_street_coverage_indexes() -> None:
         raise
 
 
+async def ensure_location_indexes():
+    """
+    Ensure indexes exist for the new location structure.
+    This includes indexes on address components and coordinates.
+    """
+    try:
+        collections = ["trips", "matched_trips", "uploaded_trips"]
+
+        for collection_name in collections:
+            # Index on city for city-level analytics
+            await db_manager.safe_create_index(
+                collection_name,
+                [("startLocation.address_components.city", 1)],
+                name=f"{collection_name}_start_city_idx",
+                background=True,
+            )
+
+            await db_manager.safe_create_index(
+                collection_name,
+                [("destination.address_components.city", 1)],
+                name=f"{collection_name}_dest_city_idx",
+                background=True,
+            )
+
+            # Index on state for regional analytics
+            await db_manager.safe_create_index(
+                collection_name,
+                [("startLocation.address_components.state", 1)],
+                name=f"{collection_name}_start_state_idx",
+                background=True,
+            )
+
+            await db_manager.safe_create_index(
+                collection_name,
+                [("destination.address_components.state", 1)],
+                name=f"{collection_name}_dest_state_idx",
+                background=True,
+            )
+
+            # Use existing GeoJSON fields for geospatial queries instead of the coordinates in the structured location
+            # This avoids issues with the format of the coordinates field
+            logger.info("Using existing GeoJSON fields for geospatial indexes")
+
+        logger.info("Location structure indexes created successfully")
+    except Exception as e:
+        logger.error("Error creating location structure indexes: %s", e)
+        raise
+
+
 # Transaction handling
 async def run_transaction(operations: List[Callable[[], Awaitable[Any]]]) -> bool:
     """
@@ -969,3 +1018,46 @@ async def run_transaction(operations: List[Callable[[], Awaitable[Any]]]) -> boo
         return False
     finally:
         await session.end_session()
+
+
+async def init_database() -> None:
+    """Initialize the database and create collections and indexes."""
+    try:
+        logger.info("Initializing database...")
+
+        # Get database handle
+        db = db_manager.db
+
+        # List of collections to ensure exist
+        collections = [
+            "trips",
+            "matched_trips",
+            "places",
+            "vehicles",
+            "settings",
+            "task_history",
+            "streets",
+            "coverage_metadata",
+            "uploaded_trips",
+        ]
+
+        # Get existing collections
+        existing_collections = await db.list_collection_names()
+
+        # Create collections that don't exist yet
+        for collection_name in collections:
+            if collection_name not in existing_collections:
+                await db.create_collection(collection_name)
+                logger.info(f"Created collection: {collection_name}")
+            else:
+                logger.info(f"Collection already exists: {collection_name}")
+
+        # Initialize indexes
+        await init_task_history_collection()
+        await ensure_street_coverage_indexes()
+        await ensure_location_indexes()
+
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error("Error initializing database: %s", e)
+        raise

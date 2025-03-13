@@ -64,6 +64,7 @@ from db import (
     get_trip_from_all_collections,
     parse_query_date,
     build_query_from_request,
+    init_database,
 )
 
 from export_helpers import (
@@ -3365,9 +3366,9 @@ async def startup_event():
     Initialize database indexes and components on application startup.
     """
     try:
-        await ensure_street_coverage_indexes()  # From db.py
-        await init_task_history_collection()  # From db.py
-        logger.info("Database indexes initialized successfully.")
+        # Initialize database with all required collections and indexes
+        await init_database()  # Comprehensive database initialization
+        logger.info("Database initialized successfully.")
 
         # Initialize TripProcessor settings
         # This is just a dummy initialization to pre-load the module
@@ -3377,24 +3378,6 @@ async def startup_event():
         # Additional initialization
         used_mb, limit_mb = await db_manager.check_quota()
         if not db_manager.quota_exceeded:
-            await db_manager.safe_create_index(
-                "uploaded_trips", "transactionId", unique=True
-            )
-            await db_manager.safe_create_index(
-                "matched_trips", "transactionId", unique=True
-            )
-            await db_manager.safe_create_index(
-                "osm_data", [("location", 1), ("type", 1)], unique=True
-            )
-            await db_manager.safe_create_index("streets", [("geometry", "2dsphere")])
-            await db_manager.safe_create_index("streets", [("properties.location", 1)])
-            await db_manager.safe_create_index(
-                "coverage_metadata", [("location", 1)], unique=True
-            )
-
-            # Note: task_manager.start() removed since Celery workers
-            # are managed separately in Railway services
-
             logger.info("Application startup completed successfully")
         else:
             logger.warning(

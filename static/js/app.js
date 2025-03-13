@@ -985,19 +985,31 @@
 
     // Add location information if available
     if (props.startLocation) {
+      // Handle structured location format
+      const startLocationText =
+        typeof props.startLocation === "object"
+          ? props.startLocation.formatted_address || "Unknown location"
+          : props.startLocation;
+
       html += `
         <tr>
           <th>Start Location:</th>
-          <td>${props.startLocation}</td>
+          <td>${startLocationText}</td>
         </tr>
       `;
     }
 
     if (props.destination) {
+      // Handle structured location format
+      const destinationText =
+        typeof props.destination === "object"
+          ? props.destination.formatted_address || "Unknown destination"
+          : props.destination;
+
       html += `
         <tr>
           <th>Destination:</th>
-          <td>${props.destination}</td>
+          <td>${destinationText}</td>
         </tr>
       `;
     }

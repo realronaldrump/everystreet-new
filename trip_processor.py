@@ -436,6 +436,7 @@ class TripProcessor:
     async def geocode(self) -> bool:
         """
         Perform geocoding for trip start and end points.
+        Stores location data in structured format optimized for analytics.
 
         Returns:
             True if geocoding succeeded, False otherwise
@@ -468,12 +469,62 @@ class TripProcessor:
             start_pt = Point(start_coord[0], start_coord[1])
             end_pt = Point(end_coord[0], end_coord[1])
 
-            # Determine start location if not already set
+            # Define the base location schema
+            LOCATION_SCHEMA = {
+                "formatted_address": "",
+                "address_components": {
+                    "street_number": "",
+                    "street": "",
+                    "city": "",
+                    "county": "",
+                    "state": "",
+                    "postal_code": "",
+                    "country": "",
+                },
+                "coordinates": {"lat": 0.0, "lng": 0.0},
+            }
+
+            # Process start location - always in structured format
             if not self.processed_data.get("startLocation"):
                 # First check for custom places
                 start_place = await self.get_place_at_point(start_pt)
                 if start_place:
-                    self.processed_data["startLocation"] = start_place.get("name", "")
+                    # Create structured location
+                    structured_start = LOCATION_SCHEMA.copy()
+                    structured_start["formatted_address"] = start_place.get("name", "")
+
+                    # Extract address components if available
+                    for component in [
+                        "address",
+                        "city",
+                        "state",
+                        "postal_code",
+                        "country",
+                    ]:
+                        if component in start_place:
+                            if component == "address":
+                                structured_start["address_components"]["street"] = (
+                                    start_place[component]
+                                )
+                            else:
+                                structured_start["address_components"][component] = (
+                                    start_place[component]
+                                )
+
+                    # Set coordinates
+                    if (
+                        "geometry" in start_place
+                        and "coordinates" in start_place["geometry"]
+                    ):
+                        coords = start_place["geometry"]["coordinates"]
+                        structured_start["coordinates"]["lng"] = coords[0]
+                        structured_start["coordinates"]["lat"] = coords[1]
+                    else:
+                        structured_start["coordinates"]["lng"] = start_coord[0]
+                        structured_start["coordinates"]["lat"] = start_coord[1]
+
+                    # Store structured location
+                    self.processed_data["startLocation"] = structured_start
                     self.processed_data["startPlaceId"] = str(
                         start_place.get("_id", "")
                     )
@@ -483,16 +534,82 @@ class TripProcessor:
                         start_coord[1], start_coord[0]
                     )
                     if rev_start:
-                        self.processed_data["startLocation"] = rev_start.get(
+                        # Create structured location
+                        structured_start = LOCATION_SCHEMA.copy()
+                        structured_start["formatted_address"] = rev_start.get(
                             "display_name", ""
                         )
 
-            # Determine end location if not already set
+                        # Extract address components from Nominatim response
+                        if "address" in rev_start:
+                            addr = rev_start["address"]
+                            # Map Nominatim address components to our schema
+                            component_mapping = {
+                                "house_number": "street_number",
+                                "road": "street",
+                                "city": "city",
+                                "town": "city",  # Fallback
+                                "village": "city",  # Fallback
+                                "county": "county",
+                                "state": "state",
+                                "postcode": "postal_code",
+                                "country": "country",
+                            }
+
+                            for nominatim_key, our_key in component_mapping.items():
+                                if nominatim_key in addr:
+                                    structured_start["address_components"][our_key] = (
+                                        addr[nominatim_key]
+                                    )
+
+                        # Set coordinates
+                        structured_start["coordinates"]["lng"] = start_coord[0]
+                        structured_start["coordinates"]["lat"] = start_coord[1]
+
+                        # Store structured location
+                        self.processed_data["startLocation"] = structured_start
+
+            # Process destination location - always in structured format
             if not self.processed_data.get("destination"):
                 # First check for custom places
                 end_place = await self.get_place_at_point(end_pt)
                 if end_place:
-                    self.processed_data["destination"] = end_place.get("name", "")
+                    # Create structured location
+                    structured_dest = LOCATION_SCHEMA.copy()
+                    structured_dest["formatted_address"] = end_place.get("name", "")
+
+                    # Extract address components if available
+                    for component in [
+                        "address",
+                        "city",
+                        "state",
+                        "postal_code",
+                        "country",
+                    ]:
+                        if component in end_place:
+                            if component == "address":
+                                structured_dest["address_components"]["street"] = (
+                                    end_place[component]
+                                )
+                            else:
+                                structured_dest["address_components"][component] = (
+                                    end_place[component]
+                                )
+
+                    # Set coordinates
+                    if (
+                        "geometry" in end_place
+                        and "coordinates" in end_place["geometry"]
+                    ):
+                        coords = end_place["geometry"]["coordinates"]
+                        structured_dest["coordinates"]["lng"] = coords[0]
+                        structured_dest["coordinates"]["lat"] = coords[1]
+                    else:
+                        structured_dest["coordinates"]["lng"] = end_coord[0]
+                        structured_dest["coordinates"]["lat"] = end_coord[1]
+
+                    # Store structured location
+                    self.processed_data["destination"] = structured_dest
                     self.processed_data["destinationPlaceId"] = str(
                         end_place.get("_id", "")
                     )
@@ -502,9 +619,43 @@ class TripProcessor:
                         end_coord[1], end_coord[0]
                     )
                     if rev_end:
-                        self.processed_data["destination"] = rev_end.get(
+                        # Create structured location
+                        structured_dest = LOCATION_SCHEMA.copy()
+                        structured_dest["formatted_address"] = rev_end.get(
                             "display_name", ""
                         )
+
+                        # Extract address components from Nominatim response
+                        if "address" in rev_end:
+                            addr = rev_end["address"]
+                            # Map Nominatim address components to our schema
+                            component_mapping = {
+                                "house_number": "street_number",
+                                "road": "street",
+                                "city": "city",
+                                "town": "city",  # Fallback
+                                "village": "city",  # Fallback
+                                "county": "county",
+                                "state": "state",
+                                "postcode": "postal_code",
+                                "country": "country",
+                            }
+
+                            for nominatim_key, our_key in component_mapping.items():
+                                if nominatim_key in addr:
+                                    structured_dest["address_components"][our_key] = (
+                                        addr[nominatim_key]
+                                    )
+
+                        # Set coordinates
+                        structured_dest["coordinates"]["lng"] = end_coord[0]
+                        structured_dest["coordinates"]["lat"] = end_coord[1]
+
+                        # Store structured location
+                        self.processed_data["destination"] = structured_dest
+
+            # Add location schema version
+            self.processed_data["location_schema_version"] = 2
 
             # Add geocoding timestamp
             self.processed_data["geocoded_at"] = datetime.now(timezone.utc)

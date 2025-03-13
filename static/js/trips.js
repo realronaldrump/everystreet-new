@@ -384,14 +384,26 @@ function createEditableCell(data, type, field, inputType = "text") {
           {
             data: "startLocation",
             title: "Start Location",
-            render: (data, type) =>
-              createEditableCell(data, type, "startLocation"),
+            render: (data, type) => {
+              // Handle structured location format
+              let displayValue = data;
+              if (typeof data === "object" && data !== null) {
+                displayValue = data.formatted_address || "Unknown location";
+              }
+              return createEditableCell(displayValue, type, "startLocation");
+            },
           },
           {
             data: "destination",
             title: "Destination",
-            render: (data, type) =>
-              createEditableCell(data, type, "destination"),
+            render: (data, type) => {
+              // Handle structured location format
+              let displayValue = data;
+              if (typeof data === "object" && data !== null) {
+                displayValue = data.formatted_address || "Unknown destination";
+              }
+              return createEditableCell(displayValue, type, "destination");
+            },
           },
           {
             data: "maxSpeed",
@@ -694,10 +706,24 @@ function createEditableCell(data, type, field, inputType = "text") {
      * @returns {Object} Formatted trip data
      */
     formatTripData(trip) {
+      // Process location data to handle structured format
+      let startLocation = trip.properties.startLocation;
+      let destination = trip.properties.destination;
+
+      // Extract the formatted address from structured location objects
+      if (startLocation && typeof startLocation === "object") {
+        startLocation = startLocation.formatted_address || "Unknown location";
+      }
+
+      if (destination && typeof destination === "object") {
+        destination = destination.formatted_address || "Unknown destination";
+      }
+
       return {
         ...trip.properties,
         gps: trip.geometry,
-        destination: trip.properties.destination || "N/A",
+        startLocation: startLocation,
+        destination: destination || "N/A",
         isCustomPlace: trip.properties.isCustomPlace || false,
         distance: parseFloat(trip.properties.distance).toFixed(2),
         maxSpeed:
