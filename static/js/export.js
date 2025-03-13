@@ -88,22 +88,22 @@
 
     // Cache validate buttons
     elements.validateButtons = document.querySelectorAll(
-      ".validate-location-btn"
+      ".validate-location-btn",
     );
 
     // Cache advanced export elements
     elements.exportAllDates = document.getElementById("export-all-dates");
     elements.saveExportSettings = document.getElementById(
-      "save-export-settings"
+      "save-export-settings",
     );
 
     // Cache data source checkboxes
     elements.includeTrips = document.getElementById("include-trips");
     elements.includeMatchedTrips = document.getElementById(
-      "include-matched-trips"
+      "include-matched-trips",
     );
     elements.includeUploadedTrips = document.getElementById(
-      "include-uploaded-trips"
+      "include-uploaded-trips",
     );
 
     // Cache data field checkboxes
@@ -325,7 +325,7 @@
     if (activeExports[formType]) {
       showNotification(
         `Already exporting ${config.name}. Please wait...`,
-        "info"
+        "info",
       );
       return;
     }
@@ -379,7 +379,7 @@
 
         const locationData = locationInput.getAttribute("data-location");
         url = `${config.endpoint}?location=${encodeURIComponent(
-          locationData
+          locationData,
         )}&format=${format}`;
       } else if (formType === "advanced") {
         // Advanced export with configurable options
@@ -424,7 +424,7 @@
 
           if (!startDate || !endDate) {
             throw new Error(
-              "Please select both start and end dates or check 'Export all dates'"
+              "Please select both start and end dates or check 'Export all dates'",
             );
           }
 
@@ -457,7 +457,7 @@
       console.error(`Export error:`, error);
       showNotification(
         `Export failed: ${error.message || "Unknown error"}`,
-        "error"
+        "error",
       );
     } finally {
       activeExports[formType] = false;
@@ -660,7 +660,7 @@
     try {
       showNotification(
         `Validating location: "${locationInput.value}"...`,
-        "info"
+        "info",
       );
 
       const response = await fetch("/api/validate_location", {
@@ -684,7 +684,7 @@
         locationInput.setAttribute("data-location", JSON.stringify(data));
         locationInput.setAttribute(
           "data-display-name",
-          data.display_name || data.name || locationInput.value
+          data.display_name || data.name || locationInput.value,
         );
 
         // Update the input value with the canonical name
@@ -705,14 +705,14 @@
           `Location validated: "${
             data.display_name || data.name || locationInput.value
           }"`,
-          "success"
+          "success",
         );
       } else {
         locationInput.classList.add("is-invalid");
         locationInput.classList.remove("is-valid");
         showNotification(
           "Location not found. Please try a different search term",
-          "warning"
+          "warning",
         );
       }
     } catch (error) {
@@ -831,7 +831,7 @@
         if (totalSize) {
           const progress = Math.min(
             Math.round((receivedLength / totalSize) * 100),
-            100
+            100,
           );
 
           // Try to update progress through different possible interfaces
@@ -886,7 +886,7 @@
     } catch (error) {
       if (error.name === "AbortError") {
         throw new Error(
-          "Export timed out. The file might be too large or the server is busy."
+          "Export timed out. The file might be too large or the server is busy.",
         );
       }
       throw error;
