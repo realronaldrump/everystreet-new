@@ -66,7 +66,14 @@ from db import (
     build_query_from_request,
 )
 
-from export_helpers import create_geojson, create_gpx
+from export_helpers import (
+    create_export_response,
+    export_geojson_response,
+    export_gpx_response,
+    extract_date_range_string,
+    get_location_filename,
+)
+
 from street_coverage_calculation import compute_coverage_for_location
 from live_tracking import (
     initialize_db,
@@ -1397,51 +1404,15 @@ async def get_trip_status(trip_id: str):
 
 @app.get("/export/geojson")
 async def export_geojson(request: Request):
+    """Export trips as GeoJSON."""
     try:
         query = await build_query_from_request(request)
-
         trips = await find_with_retry(trips_collection, query)
 
         if not trips:
             raise HTTPException(status_code=404, detail="No trips found for filters.")
 
-        fc = {"type": "FeatureCollection", "features": []}
-
-        for t in trips:
-            gps_data = t["gps"]
-            if isinstance(gps_data, str):
-                try:
-                    gps_data = json.loads(gps_data)
-                except json.JSONDecodeError:
-                    logger.warning(
-                        f"Invalid GPS data for trip {t.get('transactionId', 'unknown')}"
-                    )
-                    continue
-
-            feature = {
-                "type": "Feature",
-                "geometry": gps_data,
-                "properties": {
-                    "transactionId": t["transactionId"],
-                    # Use SerializationHelper instead of serialize_datetime
-                    "startTime": SerializationHelper.serialize_datetime(
-                        t.get("startTime")
-                    )
-                    or "",
-                    "endTime": SerializationHelper.serialize_datetime(t.get("endTime"))
-                    or "",
-                    "distance": t.get("distance", 0),
-                    "imei": t["imei"],
-                },
-            }
-            fc["features"].append(feature)
-
-        content = json.dumps(fc)
-        return StreamingResponse(
-            io.BytesIO(content.encode()),
-            media_type="application/geo+json",
-            headers={"Content-Disposition": 'attachment; filename="all_trips.geojson"'},
-        )
+        return await export_geojson_response(trips, "all_trips")
     except Exception as e:
         logger.exception("Error exporting GeoJSON")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1449,57 +1420,15 @@ async def export_geojson(request: Request):
 
 @app.get("/export/gpx")
 async def export_gpx(request: Request):
+    """Export trips as GPX."""
     try:
         query = await build_query_from_request(request)
-
         trips = await find_with_retry(trips_collection, query)
 
         if not trips:
             raise HTTPException(status_code=404, detail="No trips found.")
 
-        gpx_obj = gpxpy.gpx.GPX()
-
-        for t in trips:
-            track = gpxpy.gpx.GPXTrack()
-            gpx_obj.tracks.append(track)
-            seg = gpxpy.gpx.GPXTrackSegment()
-            track.segments.append(seg)
-
-            gps_data = t["gps"]
-            if isinstance(gps_data, str):
-                try:
-                    gps_data = json.loads(gps_data)
-                except json.JSONDecodeError:
-                    logger.warning(
-                        f"Invalid GPS data for trip {t.get('transactionId', 'unknown')}"
-                    )
-                    continue
-
-            if gps_data.get("type") == "LineString":
-                for coord in gps_data.get("coordinates", []):
-                    lon, lat = coord[0], coord[1]
-                    seg.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
-            elif gps_data.get("type") == "Point":
-                coords = gps_data.get("coordinates", [])
-                if len(coords) >= 2:
-                    lon, lat = coords[0], coords[1]
-                    seg.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
-
-            track.name = t.get("transactionId", "Unnamed Trip")
-            track.description = f"Trip from {
-                t.get(
-                    'startLocation',
-                    'Unknown')} to {
-                t.get(
-                    'destination',
-                    'Unknown')}"
-
-        gpx_xml = gpx_obj.to_xml()
-        return StreamingResponse(
-            io.BytesIO(gpx_xml.encode()),
-            media_type="application/gpx+xml",
-            headers={"Content-Disposition": 'attachment; filename="trips.gpx"'},
-        )
+        return await export_gpx_response(trips, "trips")
     except Exception as e:
         logger.exception("Error exporting GPX")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1847,7 +1776,9 @@ async def remap_matched_trips(request: Request):
 
 @app.get("/api/export/trip/{trip_id}")
 async def export_single_trip(trip_id: str, request: Request):
+    """Export a single trip by ID."""
     fmt = request.query_params.get("format", "geojson")
+
     t = await find_one_with_retry(trips_collection, {"transactionId": trip_id})
 
     if not t:
@@ -1857,53 +1788,13 @@ async def export_single_trip(trip_id: str, request: Request):
     date_str = start_date.strftime("%Y%m%d") if start_date else "unknown_date"
     filename_base = f"trip_{trip_id}_{date_str}"
 
-    if fmt == "geojson":
-        gps_data = t["gps"]
-        if isinstance(gps_data, str):
-            gps_data = json.loads(gps_data)
-        feature = {
-            "type": "Feature",
-            "geometry": gps_data,
-            "properties": {
-                "transactionId": t["transactionId"],
-                "startTime": SerializationHelper.serialize_datetime(t.get("startTime")) or "",
-                "endTime": SerializationHelper.serialize_datetime(t.get("endTime")) or "",
-                "distance": t.get("distance", 0),
-                "imei": t["imei"],
-            },
-        }
-        fc = {"type": "FeatureCollection", "features": [feature]}
-        content = json.dumps(fc)
-        return StreamingResponse(
-            io.BytesIO(content.encode()),
-            media_type="application/geo+json",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
-            },
-        )
-    if fmt == "gpx":
-        gpx_obj = gpxpy.gpx.GPX()
-        track = gpxpy.gpx.GPXTrack()
-        gpx_obj.tracks.append(track)
-        seg = gpxpy.gpx.GPXTrackSegment()
-        track.segments.append(seg)
-        gps_data = t["gps"]
-        if isinstance(gps_data, str):
-            gps_data = json.loads(gps_data)
-        if gps_data.get("type") == "LineString":
-            for coord in gps_data.get("coordinates", []):
-                lon, lat = coord
-                seg.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
-        track.name = t["transactionId"]
-        gpx_xml = gpx_obj.to_xml()
-        return StreamingResponse(
-            io.BytesIO(gpx_xml.encode()),
-            media_type="application/gpx+xml",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
-            },
-        )
-    raise HTTPException(status_code=400, detail="Unsupported format")
+    try:
+        return await create_export_response([t], fmt, filename_base)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Error exporting trip {trip_id}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.delete("/api/matched_trips/{trip_id}")
@@ -1932,39 +1823,29 @@ async def fetch_all_trips_no_filter() -> List[dict]:
 
 @app.get("/api/export/all_trips")
 async def export_all_trips(request: Request):
+    """Export all trips in various formats."""
     fmt = request.query_params.get("format", "geojson").lower()
     all_trips = await fetch_all_trips_no_filter()
 
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename_base = f"all_trips_{current_time}"
 
-    if fmt == "geojson":
-        geojson_data = await create_geojson(all_trips)
-        return StreamingResponse(
-            io.BytesIO(geojson_data.encode()),
-            media_type="application/geo+json",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
-            },
-        )
-    if fmt == "gpx":
-        gpx_data = await create_gpx(all_trips)
-        return StreamingResponse(
-            io.BytesIO(gpx_data.encode()),
-            media_type="application/gpx+xml",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
-            },
-        )
     if fmt == "json":
         return JSONResponse(content=all_trips)
-    raise HTTPException(status_code=400, detail="Invalid export format")
+
+    try:
+        return await create_export_response(all_trips, fmt, filename_base)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Error exporting all trips")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/export/trips")
 async def export_trips_within_range(request: Request):
+    """Export trips within a date range."""
     fmt = request.query_params.get("format", "geojson").lower()
-
     query = await build_query_from_request(request)
 
     # Check if date range is valid by checking if query has startTime filter
@@ -1976,46 +1857,23 @@ async def export_trips_within_range(request: Request):
     ups_data = await find_with_retry(uploaded_trips_collection, query)
     all_trips = trips_data + ups_data
 
-    # Extract the start and end dates from query for filename
-    start_date = (
-        query["startTime"].get("$gte") if isinstance(query["startTime"], dict) else None
-    )
-    end_date = (
-        query["startTime"].get("$lte") if isinstance(query["startTime"], dict) else None
-    )
-
-    if start_date and end_date:
-        date_range = f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
-    else:
-        date_range = datetime.now().strftime("%Y%m%d")
-
+    # Create filename from date range
+    date_range = extract_date_range_string(query)
     filename_base = f"trips_{date_range}"
 
-    if fmt == "geojson":
-        geojson_data = await create_geojson(all_trips)
-        return StreamingResponse(
-            io.BytesIO(geojson_data.encode()),
-            media_type="application/geo+json",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
-            },
-        )
-    if fmt == "gpx":
-        gpx_data = await create_gpx(all_trips)
-        return StreamingResponse(
-            io.BytesIO(gpx_data.encode()),
-            media_type="application/gpx+xml",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
-            },
-        )
-    raise HTTPException(status_code=400, detail="Invalid export format")
+    try:
+        return await create_export_response(all_trips, fmt, filename_base)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Error exporting trips within range")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/export/matched_trips")
 async def export_matched_trips_within_range(request: Request):
+    """Export matched trips within a date range."""
     fmt = request.query_params.get("format", "geojson").lower()
-
     query = await build_query_from_request(request)
 
     # Check if date range is valid by checking if query has startTime filter
@@ -2024,132 +1882,75 @@ async def export_matched_trips_within_range(request: Request):
 
     matched = await find_with_retry(matched_trips_collection, query)
 
-    # Extract the start and end dates from query for filename
-    start_date = (
-        query["startTime"].get("$gte") if isinstance(query["startTime"], dict) else None
-    )
-    end_date = (
-        query["startTime"].get("$lte") if isinstance(query["startTime"], dict) else None
-    )
-
-    if start_date and end_date:
-        date_range = f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
-    else:
-        date_range = datetime.now().strftime("%Y%m%d")
-
+    # Create filename from date range
+    date_range = extract_date_range_string(query)
     filename_base = f"matched_trips_{date_range}"
 
-    if fmt == "geojson":
-        geojson_data = await create_geojson(matched)
-        return StreamingResponse(
-            io.BytesIO(json.dumps(geojson_data).encode()),
-            media_type="application/geo+json",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
-            },
-        )
-    if fmt == "gpx":
-        gpx_data = await create_gpx(matched)
-        return StreamingResponse(
-            io.BytesIO(gpx_data.encode()),
-            media_type="application/gpx+xml",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
-            },
-        )
-    raise HTTPException(status_code=400, detail="Invalid export format")
+    try:
+        return await create_export_response(matched, fmt, filename_base)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Error exporting matched trips")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/export/streets")
 async def export_streets(request: Request):
+    """Export streets data for a location."""
     location_param = request.query_params.get("location")
     fmt = request.query_params.get("format", "geojson").lower()
+
     if not location_param:
         raise HTTPException(status_code=400, detail="No location param")
-    loc = json.loads(location_param)
-    data, _ = await generate_geojson_osm(loc, streets_only=True)
-    if not data:
-        raise HTTPException(status_code=500, detail="No data returned from Overpass")
 
-    location_name = (
-        loc.get("display_name", "").split(",")[0].strip().replace(" ", "_").lower()
-    )
+    loc = json.loads(location_param)
+    data, error = await generate_geojson_osm(loc, streets_only=True)
+
+    if not data:
+        raise HTTPException(
+            status_code=500, detail=error or "No data returned from Overpass"
+        )
+
+    location_name = get_location_filename(loc)
     filename_base = f"streets_{location_name}"
 
-    if fmt == "geojson":
-        return StreamingResponse(
-            io.BytesIO(json.dumps(data).encode()),
-            media_type="application/geo+json",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
-            },
-        )
-    if fmt == "shapefile":
-        gdf = gpd.GeoDataFrame.from_features(data["features"])
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            out_path = os.path.join(tmp_dir, "streets.shp")
-            gdf.to_file(out_path, driver="ESRI Shapefile")
-            buf = io.BytesIO()
-            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-                for f in os.listdir(tmp_dir):
-                    with open(os.path.join(tmp_dir, f), "rb") as fh:
-                        zf.writestr(f"{filename_base}/{f}", fh.read())
-            buf.seek(0)
-            return StreamingResponse(
-                buf,
-                media_type="application/zip",
-                headers={
-                    "Content-Disposition": f'attachment; filename="{filename_base}.zip"'
-                },
-            )
-    else:
-        raise HTTPException(status_code=400, detail="Invalid export format")
+    try:
+        return await create_export_response(data, fmt, filename_base)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Error exporting streets data")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/export/boundary")
 async def export_boundary(request: Request):
+    """Export boundary data for a location."""
     location_param = request.query_params.get("location")
     fmt = request.query_params.get("format", "geojson").lower()
+
     if not location_param:
         raise HTTPException(status_code=400, detail="No location provided")
-    loc = json.loads(location_param)
-    data, _ = await generate_geojson_osm(loc, streets_only=False)
-    if not data:
-        raise HTTPException(status_code=500, detail="No boundary data from Overpass")
 
-    location_name = (
-        loc.get("display_name", "").split(",")[0].strip().replace(" ", "_").lower()
-    )
+    loc = json.loads(location_param)
+    data, error = await generate_geojson_osm(loc, streets_only=False)
+
+    if not data:
+        raise HTTPException(
+            status_code=500, detail=error or "No boundary data from Overpass"
+        )
+
+    location_name = get_location_filename(loc)
     filename_base = f"boundary_{location_name}"
 
-    if fmt == "geojson":
-        return StreamingResponse(
-            io.BytesIO(json.dumps(data).encode()),
-            media_type="application/geo+json",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
-            },
-        )
-    if fmt == "shapefile":
-        gdf = gpd.GeoDataFrame.from_features(data["features"])
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            out_path = os.path.join(tmp_dir, "boundary.shp")
-            gdf.to_file(out_path, driver="ESRI Shapefile")
-            buf = io.BytesIO()
-            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-                for f in os.listdir(tmp_dir):
-                    with open(os.path.join(tmp_dir, f), "rb") as fh:
-                        zf.writestr(f"{filename_base}/{f}", fh.read())
-            buf.seek(0)
-            return StreamingResponse(
-                buf,
-                media_type="application/zip",
-                headers={
-                    "Content-Disposition": f'attachment; filename="{filename_base}.zip"'
-                },
-            )
-    else:
-        raise HTTPException(status_code=400, detail="Invalid export format")
+    try:
+        return await create_export_response(data, fmt, filename_base)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Error exporting boundary data")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # PREPROCESS_STREETS / STREET SEGMENT
@@ -3157,8 +2958,12 @@ async def get_non_custom_places_visits():
                 {
                     "name": doc["_id"],
                     "totalVisits": doc["totalVisits"],
-                    "firstVisit": SerializationHelper.serialize_datetime(doc.get("firstVisit")),
-                    "lastVisit": SerializationHelper.serialize_datetime(doc.get("lastVisit")),
+                    "firstVisit": SerializationHelper.serialize_datetime(
+                        doc.get("firstVisit")
+                    ),
+                    "lastVisit": SerializationHelper.serialize_datetime(
+                        doc.get("lastVisit")
+                    ),
                 }
             )
 

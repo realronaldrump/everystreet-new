@@ -2,17 +2,24 @@
 Export utilities for trip data.
 
 Provides functions to convert lists of trip dictionaries into standard
-geospatial formats (GeoJSON and GPX) for export and interoperability
+geospatial formats (GeoJSON, GPX, and Shapefile) for export and interoperability
 with other mapping tools and applications.
 """
 
 import json
 import logging
+import io
+import os
+import zipfile
+import tempfile
 from datetime import datetime
-from typing import List, Dict, Any
-from bson import ObjectId
+from typing import List, Dict, Any, Optional, Tuple, Union, BinaryIO
+from bson import ObjectId, json_util
 import gpxpy
 import gpxpy.gpx
+import geopandas as gpd
+import geojson as geojson_module
+from fastapi.responses import StreamingResponse
 
 logger = logging.getLogger(__name__)
 
@@ -141,9 +148,9 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
 
             # Add description if available
             if trip.get("startLocation") and trip.get("destination"):
-                track.description = f"From {
-                    trip.get('startLocation')} to {
-                    trip.get('destination')}"
+                track.description = (
+                    f"From {trip.get('startLocation')} to {trip.get('destination')}"
+                )
 
             gpx.tracks.append(track)
 
@@ -179,3 +186,185 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
         logger.info("Created GPX with %d tracks from %d trips", trip_count, len(trips))
 
     return gpx.to_xml()
+
+
+async def create_shapefile(
+    geojson_data: Dict[str, Any], output_name: str
+) -> io.BytesIO:
+    """
+    Convert GeoJSON data to a shapefile ZIP archive.
+
+    Args:
+        geojson_data: GeoJSON data dictionary
+        output_name: Base name for the output files
+
+    Returns:
+        io.BytesIO: Buffer containing the zipped shapefile
+    """
+    try:
+        gdf = gpd.GeoDataFrame.from_features(geojson_data["features"])
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_path = os.path.join(tmp_dir, f"{output_name}.shp")
+            gdf.to_file(out_path, driver="ESRI Shapefile")
+
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                for f in os.listdir(tmp_dir):
+                    with open(os.path.join(tmp_dir, f), "rb") as fh:
+                        zf.writestr(f"{output_name}/{f}", fh.read())
+
+            buf.seek(0)
+            return buf
+    except Exception as e:
+        logger.error("Error creating shapefile: %s", e)
+        raise
+
+
+async def export_geojson_response(data, filename: str) -> StreamingResponse:
+    """
+    Create a StreamingResponse with GeoJSON content.
+
+    Args:
+        data: Trip data or GeoJSON data
+        filename: Filename for the download
+
+    Returns:
+        StreamingResponse: Formatted response with GeoJSON content
+    """
+    if isinstance(data, list):
+        # It's a list of trips
+        content = await create_geojson(data)
+    else:
+        # It's already a GeoJSON dict
+        content = json.dumps(data, default=default_serializer)
+
+    return StreamingResponse(
+        io.BytesIO(content.encode()),
+        media_type="application/geo+json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.geojson"'},
+    )
+
+
+async def export_gpx_response(data, filename: str) -> StreamingResponse:
+    """
+    Create a StreamingResponse with GPX content.
+
+    Args:
+        data: Trip data
+        filename: Filename for the download
+
+    Returns:
+        StreamingResponse: Formatted response with GPX content
+    """
+    if isinstance(data, list):
+        # It's a list of trips
+        content = await create_gpx(data)
+    else:
+        # It's a GeoJSON dict, convert features to trips
+        trips = []
+        for feature in data.get("features", []):
+            trips.append(
+                {
+                    "transactionId": feature.get("properties", {}).get("id", "unknown"),
+                    "gps": feature.get("geometry"),
+                    "startLocation": feature.get("properties", {}).get("startLocation"),
+                    "destination": feature.get("properties", {}).get("destination"),
+                }
+            )
+        content = await create_gpx(trips)
+
+    return StreamingResponse(
+        io.BytesIO(content.encode()),
+        media_type="application/gpx+xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.gpx"'},
+    )
+
+
+async def export_shapefile_response(geojson_data, filename: str) -> StreamingResponse:
+    """
+    Create a StreamingResponse with Shapefile content (ZIP).
+
+    Args:
+        geojson_data: GeoJSON data to convert to shapefile
+        filename: Filename for the download
+
+    Returns:
+        StreamingResponse: Formatted response with zipped shapefile content
+    """
+    buffer = await create_shapefile(geojson_data, filename)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.zip"'},
+    )
+
+
+async def create_export_response(
+    data: Union[List[Dict[str, Any]], Dict[str, Any]], fmt: str, filename_base: str
+) -> StreamingResponse:
+    """
+    Create a response with exported data in the requested format.
+
+    Args:
+        data: Trip data or GeoJSON data
+        fmt: Format to export ('geojson', 'gpx', 'shapefile')
+        filename_base: Base filename without extension
+
+    Returns:
+        StreamingResponse: Formatted response with the exported content
+    """
+    if fmt == "geojson":
+        return await export_geojson_response(data, filename_base)
+    elif fmt == "gpx":
+        return await export_gpx_response(data, filename_base)
+    elif fmt == "shapefile":
+        if isinstance(data, list):
+            # Convert list of trips to GeoJSON first
+            geojson_str = await create_geojson(data)
+            geojson_data = json.loads(geojson_str)
+        else:
+            # It's already GeoJSON data
+            geojson_data = data
+        return await export_shapefile_response(geojson_data, filename_base)
+    else:
+        raise ValueError(f"Unsupported export format: {fmt}")
+
+
+def extract_date_range_string(query: Dict[str, Any]) -> str:
+    """
+    Extract a date range string from a query dictionary for use in filenames.
+
+    Args:
+        query: MongoDB query dictionary
+
+    Returns:
+        str: Formatted date range string (YYYYMMDD-YYYYMMDD)
+    """
+    start_date = (
+        query["startTime"].get("$gte") if isinstance(query["startTime"], dict) else None
+    )
+    end_date = (
+        query["startTime"].get("$lte") if isinstance(query["startTime"], dict) else None
+    )
+
+    if start_date and end_date:
+        return f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
+    else:
+        return datetime.now().strftime("%Y%m%d")
+
+
+def get_location_filename(location: Dict[str, Any]) -> str:
+    """
+    Create a safe filename from a location dictionary.
+
+    Args:
+        location: Location dictionary with display_name
+
+    Returns:
+        str: Safe filename string
+    """
+    return (
+        location.get("display_name", "").split(",")[0].strip().replace(" ", "_").lower()
+    )
