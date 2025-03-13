@@ -269,12 +269,34 @@ class DatabaseManager:
             return None
 
         try:
-            # Skip if index already exists
+            # Get existing indexes
+            existing_indexes = await self.get_collection(
+                collection_name
+            ).index_information()
+
+            # Check if an index with the same keys already exists regardless of name
+            # Convert keys to a more comparable format
+            keys_tuple = (
+                [(k, v) for k, v in keys] if isinstance(keys, list) else [(keys, 1)]
+            )
+
+            # Check against existing indexes
+            for idx_name, idx_info in existing_indexes.items():
+                if idx_name == "_id_":  # Skip the default _id index
+                    continue
+
+                # Compare key patterns
+                idx_keys = [(k, v) for k, v in idx_info.get("key", [])]
+                if idx_keys == keys_tuple:
+                    logger.info(
+                        f"Index with keys {keys_tuple} already exists as '{idx_name}' on {collection_name}, skipping creation"
+                    )
+                    return idx_name
+
+            # If we get here, no matching index was found
+            # Skip if index with this name already exists
             if "name" in kwargs:
                 index_name = kwargs["name"]
-                existing_indexes = await self.get_collection(
-                    collection_name
-                ).index_information()
                 if index_name in existing_indexes:
                     logger.debug(
                         f"Index {index_name} already exists, skipping creation"
