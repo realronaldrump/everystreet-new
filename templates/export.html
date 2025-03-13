@@ -1,6 +1,5 @@
-{% extends "base.html" %}
-{% block title %}Every Street - Export Data{% endblock %}
-{% block content %}
+{% extends "base.html" %} {% block title %}Every Street - Export Data{% endblock
+%} {% block content %}
 <div class="container mt-4">
   <h1 class="mb-4">Export Data</h1>
   <div class="row">
@@ -10,12 +9,24 @@
         <div class="card-body">
           <form id="export-trips-form">
             <div class="mb-3">
-              <label for="trips-start-date" class="form-label">Start Date</label>
-              <input type="date" class="form-control" id="trips-start-date" required />
+              <label for="trips-start-date" class="form-label"
+                >Start Date</label
+              >
+              <input
+                type="date"
+                class="form-control"
+                id="trips-start-date"
+                required
+              />
             </div>
             <div class="mb-3">
               <label for="trips-end-date" class="form-label">End Date</label>
-              <input type="date" class="form-control" id="trips-end-date" required />
+              <input
+                type="date"
+                class="form-control"
+                id="trips-end-date"
+                required
+              />
             </div>
             <div class="mb-3">
               <label for="trips-format" class="form-label">Format</label>
@@ -57,7 +68,9 @@
               />
             </div>
             <div class="mb-3">
-              <label for="matched-trips-format" class="form-label">Format</label>
+              <label for="matched-trips-format" class="form-label"
+                >Format</label
+              >
               <select class="form-select" id="matched-trips-format" required>
                 <option value="geojson">GeoJSON</option>
                 <option value="gpx">GPX</option>
@@ -162,14 +175,15 @@
                 <option value="json">Raw JSON</option>
               </select>
             </div>
-            <button type="submit" class="btn btn-primary">Export All Trips</button>
+            <button type="submit" class="btn btn-primary">
+              Export All Trips
+            </button>
           </form>
         </div>
       </div>
     </div>
   </div>
 </div>
-{% endblock %}
-{% block extra_js %}
-<script src="{{ url_for('static', path='js/export.js') }}"></script>
+{% endblock %} {% block extra_js %}
+<script src="{{ url_for('static', path='js/export.js') | replace('http://', '//') }}"></script>
 {% endblock %}
