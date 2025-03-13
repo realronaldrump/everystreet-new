@@ -3634,6 +3634,14 @@ async def export_advanced(request: Request):
         request.query_params.get("include_custom", "true").lower() == "true"
     )
 
+    # Get CSV-specific options
+    include_gps_in_csv = (
+        request.query_params.get("include_gps_in_csv", "false").lower() == "true"
+    )
+    flatten_location_fields = (
+        request.query_params.get("flatten_location_fields", "true").lower() == "true"
+    )
+
     # Date filtering
     start_date_str = request.query_params.get("start_date")
     end_date_str = request.query_params.get("end_date")
@@ -3722,7 +3730,11 @@ async def export_advanced(request: Request):
 
         # If CSV format is requested, build the CSV data
         if fmt == "csv":
-            csv_data = await create_csv_export(trips)
+            csv_data = await create_csv_export(
+                trips,
+                include_gps_in_csv=include_gps_in_csv,
+                flatten_location_fields=flatten_location_fields,
+            )
             return StreamingResponse(
                 io.StringIO(csv_data),
                 media_type="text/csv",
@@ -3739,7 +3751,13 @@ async def export_advanced(request: Request):
 
         # For other formats (GeoJSON, GPX, Shapefile), use the existing export response creator
         try:
-            return await create_export_response(trips, fmt, filename_base)
+            return await create_export_response(
+                trips,
+                fmt,
+                filename_base,
+                include_gps_in_csv=include_gps_in_csv,
+                flatten_location_fields=flatten_location_fields,
+            )
         except ValueError as e:
             logger.error("Export error: %s", e)
             raise HTTPException(status_code=400, detail=str(e))
@@ -3851,12 +3869,18 @@ async def process_trip_for_export(
     return result
 
 
-async def create_csv_export(trips: List[Dict[str, Any]]) -> str:
+async def create_csv_export(
+    trips: List[Dict[str, Any]],
+    include_gps_in_csv: bool = False,
+    flatten_location_fields: bool = True,
+) -> str:
     """
     Convert trip dictionaries to CSV format.
 
     Args:
         trips: List of trip dictionaries
+        include_gps_in_csv: Whether to include GPS data as JSON strings
+        flatten_location_fields: Whether to flatten location fields into separate columns
 
     Returns:
         str: CSV data as a string
@@ -3870,10 +3894,45 @@ async def create_csv_export(trips: List[Dict[str, Any]]) -> str:
     # Create CSV buffer
     output = StringIO()
 
+    # Prepare flattened fieldnames if needed
+    location_fields = []
+    if flatten_location_fields:
+        location_fields = [
+            "startLocation_formatted_address",
+            "startLocation_street_number",
+            "startLocation_street",
+            "startLocation_city",
+            "startLocation_county",
+            "startLocation_state",
+            "startLocation_postal_code",
+            "startLocation_country",
+            "startLocation_lat",
+            "startLocation_lng",
+            "destination_formatted_address",
+            "destination_street_number",
+            "destination_street",
+            "destination_city",
+            "destination_county",
+            "destination_state",
+            "destination_postal_code",
+            "destination_country",
+            "destination_lat",
+            "destination_lng",
+        ]
+
     # Collect all possible field names from all trips
     fieldnames = set()
     for trip in trips:
         fieldnames.update(trip.keys())
+
+    # Add location fields if flattening
+    if flatten_location_fields:
+        fieldnames.update(location_fields)
+        # Remove the original location fields since we'll flatten them
+        if "startLocation" in fieldnames:
+            fieldnames.remove("startLocation")
+        if "destination" in fieldnames:
+            fieldnames.remove("destination")
 
     # Sort fields for consistent order
     fieldnames = sorted(fieldnames)
@@ -3886,7 +3945,8 @@ async def create_csv_export(trips: List[Dict[str, Any]]) -> str:
         "trip_type",
         "startTime",
         "endTime",
-    ]
+    ] + (location_fields if flatten_location_fields else [])
+
     for field in reversed(priority_fields):
         if field in fieldnames:
             fieldnames.remove(field)
@@ -3900,9 +3960,17 @@ async def create_csv_export(trips: List[Dict[str, Any]]) -> str:
     for trip in trips:
         flat_trip = {}
         for key, value in trip.items():
-            # Skip GPS and geometry fields as they don't work well in CSV
+            # Handle GPS and geometry fields based on user preference
             if key in ["gps", "geometry", "path", "simplified_path", "route"]:
-                flat_trip[key] = "[Geometry data not included in CSV format]"
+                if include_gps_in_csv:
+                    # Include as JSON string if requested
+                    flat_trip[key] = json.dumps(value, default=default_serializer)
+                else:
+                    flat_trip[key] = "[Geometry data not included in CSV format]"
+            # Handle location fields if flattening is enabled
+            elif flatten_location_fields and key in ["startLocation", "destination"]:
+                # Skip the original field, we'll add flattened versions below
+                pass
             # Handle nested objects by converting to JSON string
             elif isinstance(value, (dict, list)):
                 flat_trip[key] = json.dumps(value, default=default_serializer)
@@ -3911,6 +3979,77 @@ async def create_csv_export(trips: List[Dict[str, Any]]) -> str:
                 flat_trip[key] = value.isoformat()
             else:
                 flat_trip[key] = value
+
+        # Add flattened location fields if needed
+        if flatten_location_fields:
+            # Process startLocation
+            start_loc = trip.get("startLocation", {})
+            if isinstance(start_loc, str):
+                try:
+                    start_loc = json.loads(start_loc)
+                except:
+                    start_loc = {}
+
+            if isinstance(start_loc, dict):
+                flat_trip["startLocation_formatted_address"] = start_loc.get(
+                    "formatted_address", ""
+                )
+
+                # Extract address components
+                addr_comps = start_loc.get("address_components", {})
+                if isinstance(addr_comps, dict):
+                    flat_trip["startLocation_street_number"] = addr_comps.get(
+                        "street_number", ""
+                    )
+                    flat_trip["startLocation_street"] = addr_comps.get("street", "")
+                    flat_trip["startLocation_city"] = addr_comps.get("city", "")
+                    flat_trip["startLocation_county"] = addr_comps.get("county", "")
+                    flat_trip["startLocation_state"] = addr_comps.get("state", "")
+                    flat_trip["startLocation_postal_code"] = addr_comps.get(
+                        "postal_code", ""
+                    )
+                    flat_trip["startLocation_country"] = addr_comps.get("country", "")
+
+                # Extract coordinates
+                coords = start_loc.get("coordinates", {})
+                if isinstance(coords, dict):
+                    flat_trip["startLocation_lat"] = coords.get("lat", "")
+                    flat_trip["startLocation_lng"] = coords.get("lng", "")
+
+            # Process destination
+            dest = trip.get("destination", {})
+            if isinstance(dest, str):
+                try:
+                    dest = json.loads(dest)
+                except:
+                    dest = {}
+
+            if isinstance(dest, dict):
+                flat_trip["destination_formatted_address"] = dest.get(
+                    "formatted_address", ""
+                )
+
+                # Extract address components
+                addr_comps = dest.get("address_components", {})
+                if isinstance(addr_comps, dict):
+                    flat_trip["destination_street_number"] = addr_comps.get(
+                        "street_number", ""
+                    )
+                    flat_trip["destination_street"] = addr_comps.get("street", "")
+                    flat_trip["destination_city"] = addr_comps.get("city", "")
+                    flat_trip["destination_county"] = addr_comps.get("county", "")
+                    flat_trip["destination_state"] = addr_comps.get("state", "")
+                    flat_trip["destination_postal_code"] = addr_comps.get(
+                        "postal_code", ""
+                    )
+                    flat_trip["destination_country"] = addr_comps.get("country", "")
+
+                # Extract coordinates
+                coords = dest.get("coordinates", {})
+                if isinstance(coords, dict):
+                    flat_trip["destination_lat"] = coords.get("lat", "")
+                    flat_trip["destination_lng"] = coords.get("lng", "")
+
         writer.writerow(flat_trip)
 
     return output.getvalue()

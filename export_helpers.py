@@ -302,18 +302,24 @@ async def export_shapefile_response(geojson_data, filename: str) -> StreamingRes
 
 
 async def create_export_response(
-    data: Union[List[Dict[str, Any]], Dict[str, Any]], fmt: str, filename_base: str
+    data: Union[List[Dict[str, Any]], Dict[str, Any]],
+    fmt: str,
+    filename_base: str,
+    include_gps_in_csv: bool = False,
+    flatten_location_fields: bool = True,
 ) -> StreamingResponse:
     """
-    Create a formatted export response based on the requested format.
+    Create a StreamingResponse with data in the requested format.
 
     Args:
-        data: Trip data (list of trips or GeoJSON data)
-        fmt: Format of the export ('geojson', 'gpx', 'shapefile', etc.)
-        filename_base: Base name for the export file
+        data: Trip data
+        fmt: Format to export (geojson, gpx, json, csv, shapefile)
+        filename_base: Base filename for the download
+        include_gps_in_csv: Whether to include GPS data in CSV exports
+        flatten_location_fields: Whether to flatten location fields in CSV exports
 
     Returns:
-        StreamingResponse: Formatted response with appropriate headers and content
+        StreamingResponse: Response with appropriate content and headers
     """
     fmt = fmt.lower()
 
@@ -349,8 +355,7 @@ async def create_export_response(
         # Convert trips to CSV
         from io import StringIO
         import csv
-
-        output = StringIO()
+        from app import create_csv_export
 
         # Ensure we have a list of trips
         if not isinstance(data, list):
@@ -365,50 +370,18 @@ async def create_export_response(
                 data = [data]
 
         if not data:
-            output.write("No data to export")
+            output = StringIO("No data to export")
         else:
-            # Collect all fields
-            fields = set()
-            for trip in data:
-                fields.update(trip.keys())
-
-            # Sort fields for consistent output
-            fieldnames = sorted(fields)
-
-            # Move important fields to the beginning for better readability
-            priority_fields = [
-                "_id",
-                "transactionId",
-                "trip_id",
-                "trip_type",
-                "startTime",
-                "endTime",
-            ]
-            for field in reversed(priority_fields):
-                if field in fieldnames:
-                    fieldnames.remove(field)
-                    fieldnames.insert(0, field)
-
-            # Create CSV writer and write data
-            writer = csv.DictWriter(output, fieldnames=fieldnames)
-            writer.writeheader()
-
-            for trip in data:
-                # Handle complex field types like objects and arrays
-                row = {}
-                for key, value in trip.items():
-                    if key in ["gps", "geometry", "route"]:
-                        row[key] = "[Geometry data omitted]"
-                    elif isinstance(value, (dict, list)):
-                        row[key] = json.dumps(value, default=default_serializer)
-                    elif isinstance(value, datetime):
-                        row[key] = value.isoformat()
-                    else:
-                        row[key] = value
-                writer.writerow(row)
+            # Use the enhanced create_csv_export function from app.py
+            csv_content = await create_csv_export(
+                data,
+                include_gps_in_csv=include_gps_in_csv,
+                flatten_location_fields=flatten_location_fields,
+            )
+            output = StringIO(csv_content)
 
         return StreamingResponse(
-            StringIO(output.getvalue()),
+            output,
             media_type="text/csv",
             headers={
                 "Content-Disposition": f'attachment; filename="{filename_base}.csv"'

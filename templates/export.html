@@ -366,6 +366,43 @@
                     Note: Some formats may not support all selected data fields
                   </small>
                 </div>
+
+                <!-- CSV Export Options -->
+                <div id="csv-options" class="mt-3" style="display: none">
+                  <h6>CSV Options</h6>
+                  <div class="form-check mb-2">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="include-gps-in-csv"
+                    />
+                    <label class="form-check-label" for="include-gps-in-csv">
+                      Include GPS route data
+                    </label>
+                    <small class="form-text text-muted d-block">
+                      GPS data will be included as JSON strings (increases file
+                      size)
+                    </small>
+                  </div>
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="flatten-location-fields"
+                      checked
+                    />
+                    <label
+                      class="form-check-label"
+                      for="flatten-location-fields"
+                    >
+                      Flatten location fields
+                    </label>
+                    <small class="form-text text-muted d-block">
+                      Breaks down location objects into separate columns
+                      (address, city, state, etc.)
+                    </small>
+                  </div>
+                </div>
               </div>
             </div>
 

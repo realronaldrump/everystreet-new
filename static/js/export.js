@@ -60,6 +60,16 @@
     initEventListeners();
     initDatePickers();
     loadSavedExportSettings();
+
+    // Show/hide CSV options based on initial format selection
+    const formatSelect = document.getElementById("adv-format");
+    if (formatSelect) {
+      const initialFormat = formatSelect.value;
+      if (elements.csvOptionsContainer) {
+        elements.csvOptionsContainer.style.display =
+          initialFormat === "csv" ? "block" : "none";
+      }
+    }
   }
 
   /**
@@ -113,6 +123,13 @@
     elements.includeGeometry = document.getElementById("include-geometry");
     elements.includeMeta = document.getElementById("include-meta");
     elements.includeCustom = document.getElementById("include-custom");
+
+    // Cache CSV options
+    elements.csvOptionsContainer = document.getElementById("csv-options");
+    elements.includeGpsInCsv = document.getElementById("include-gps-in-csv");
+    elements.flattenLocationFields = document.getElementById(
+      "flatten-location-fields"
+    );
   }
 
   /**
@@ -247,6 +264,12 @@
       }
     });
 
+    // Show/hide CSV options based on format
+    if (elements.csvOptionsContainer) {
+      elements.csvOptionsContainer.style.display =
+        format === "csv" ? "block" : "none";
+    }
+
     // Apply format-specific limitations
     switch (format) {
       case "geojson":
@@ -310,6 +333,59 @@
         // JSON supports all data types
         // No limitations
         break;
+    }
+
+    // Add data fields parameters
+    if (elements.includeBasicInfo) {
+      url += `&include_basic_info=${elements.includeBasicInfo.checked}`;
+    }
+    if (elements.includeLocations) {
+      url += `&include_locations=${elements.includeLocations.checked}`;
+    }
+    if (elements.includeTelemetry) {
+      url += `&include_telemetry=${elements.includeTelemetry.checked}`;
+    }
+    if (elements.includeGeometry) {
+      url += `&include_geometry=${elements.includeGeometry.checked}`;
+    }
+    if (elements.includeMeta) {
+      url += `&include_meta=${elements.includeMeta.checked}`;
+    }
+    if (elements.includeCustom) {
+      url += `&include_custom=${elements.includeCustom.checked}`;
+    }
+
+    // Add CSV-specific options when format is CSV
+    if (format === "csv") {
+      if (elements.includeGpsInCsv) {
+        url += `&include_gps_in_csv=${elements.includeGpsInCsv.checked}`;
+      }
+      if (elements.flattenLocationFields) {
+        url += `&flatten_location_fields=${elements.flattenLocationFields.checked}`;
+      }
+    }
+
+    // Add date range if not using all dates
+    if (elements.exportAllDates && !elements.exportAllDates.checked) {
+      const startDate = elements[config.dateStart]?.value;
+      const endDate = elements[config.dateEnd]?.value;
+
+      if (!startDate || !endDate) {
+        throw new Error(
+          "Please select both start and end dates or check 'Export all dates'"
+        );
+      }
+
+      if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
+        throw new Error("Start date must be before or equal to end date");
+      }
+
+      url += `&start_date=${startDate}&end_date=${endDate}`;
+    }
+
+    // Save settings if option is checked
+    if (elements.saveExportSettings && elements.saveExportSettings.checked) {
+      saveExportSettings();
     }
   }
 
@@ -415,6 +491,16 @@
         }
         if (elements.includeCustom) {
           url += `&include_custom=${elements.includeCustom.checked}`;
+        }
+
+        // Add CSV-specific options when format is CSV
+        if (format === "csv") {
+          if (elements.includeGpsInCsv) {
+            url += `&include_gps_in_csv=${elements.includeGpsInCsv.checked}`;
+          }
+          if (elements.flattenLocationFields) {
+            url += `&flatten_location_fields=${elements.flattenLocationFields.checked}`;
+          }
         }
 
         // Add date range if not using all dates
