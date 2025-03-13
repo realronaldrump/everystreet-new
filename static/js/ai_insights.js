@@ -75,7 +75,7 @@
       const savedStartDate =
         localStorage.getItem("startDate") ||
         DateUtils.formatDate(
-          DateUtils.getDateRangeForPreset("30days").startDate
+          DateUtils.getDateRangeForPreset("30days").startDate,
         );
       const savedEndDate =
         localStorage.getItem("endDate") || DateUtils.getCurrentDate();
@@ -124,7 +124,7 @@
             startDateInput,
             endDateInput,
             DateUtils.formatDate(startDate),
-            DateUtils.formatDate(endDate)
+            DateUtils.formatDate(endDate),
           );
           return;
       }
@@ -141,7 +141,7 @@
           startDateInput,
           endDateInput,
           DateUtils.formatDate(startDate),
-          DateUtils.formatDate(endDate)
+          DateUtils.formatDate(endDate),
         );
       }
     } catch (error) {
@@ -173,7 +173,7 @@
     const startDate =
       localStorage.getItem("startDate") ||
       DateUtils.formatDate(
-        new Date(new Date().setDate(new Date().getDate() - 30))
+        new Date(new Date().setDate(new Date().getDate() - 30)),
       );
     const endDate =
       localStorage.getItem("endDate") || DateUtils.formatDate(new Date());
@@ -196,7 +196,7 @@
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch AI insights: ${response.status} ${response.statusText}`
+          `Failed to fetch AI insights: ${response.status} ${response.statusText}`,
         );
       }
 
@@ -223,7 +223,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           "AI analysis completed successfully",
-          "success"
+          "success",
         );
       }
     } catch (error) {
@@ -236,7 +236,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           `Error analyzing driving data: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     } finally {
@@ -468,7 +468,7 @@
       // Setup controls
       threeControls = new THREE.OrbitControls(
         threeCamera,
-        threeRenderer.domElement
+        threeRenderer.domElement,
       );
       threeControls.enableDamping = true;
       threeControls.dampingFactor = 0.25;
@@ -537,7 +537,7 @@
         Math.min(points.length * 2, 100),
         0.05,
         8,
-        false
+        false,
       );
       const material = new THREE.MeshPhongMaterial({
         color: new THREE.Color().setHSL(Math.random(), 0.7, 0.5),
@@ -723,7 +723,7 @@
     // Render lists of insights
     renderInsightsList(
       "driving-patterns-list",
-      insights.driving_patterns || []
+      insights.driving_patterns || [],
     );
     renderInsightsList("efficiency-tips-list", insights.efficiency_tips || []);
     renderInsightsList("route-insights-list", insights.route_insights || []);
