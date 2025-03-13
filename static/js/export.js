@@ -448,11 +448,23 @@
         url = `${config.endpoint}?format=${format}`;
       }
 
-      // Start download
-      const signal = new AbortController().signal;
-      await downloadFile(url, config.name, signal);
+      // Create an AbortController for timeout management
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => {
+        abortController.abort();
+        console.log(
+          `Export operation timed out after 120 seconds: ${config.name}`
+        );
+      }, 120000); // 2 minute timeout
 
-      showNotification(`${config.name} export completed`, "success");
+      try {
+        // Start download with timeout
+        await downloadFile(url, config.name, abortController.signal);
+        showNotification(`${config.name} export completed`, "success");
+      } finally {
+        // Clear timeout regardless of success or failure
+        clearTimeout(timeoutId);
+      }
     } catch (error) {
       console.error(`Export error:`, error);
       showNotification(
@@ -742,9 +754,16 @@
    * @param {AbortSignal} [signal] - AbortSignal for timeout control
    */
   async function downloadFile(url, exportName, signal) {
+    // Add timestamp parameter to URL to prevent caching issues
+    const urlWithTimestamp =
+      url +
+      (url.includes("?") ? "&" : "?") +
+      "timestamp=" +
+      new Date().getTime();
+
     try {
       showNotification(`Requesting ${exportName} data...`, "info");
-      console.log(`Requesting export from: ${url}`);
+      console.log(`Requesting export from: ${urlWithTimestamp}`);
 
       // Show loading indicator if available
       // Check for various loading indicator implementations
@@ -773,7 +792,11 @@
       // Add fetch options including abort signal for timeout
       const fetchOptions = { signal };
 
-      const response = await fetch(url, fetchOptions);
+      console.log(`Starting fetch for ${exportName} export...`);
+      const response = await fetch(urlWithTimestamp, fetchOptions);
+      console.log(
+        `Received response: status=${response.status}, ok=${response.ok}`
+      );
 
       if (!response.ok) {
         let errorMsg = `Server error (${response.status})`;
@@ -781,7 +804,7 @@
         try {
           // Try to get detailed error message
           const errorText = await response.text();
-          console.error(`Server error details: ${errorText}`);
+          console.error(`Server error details for ${exportName}: ${errorText}`);
 
           if (errorText) {
             try {
@@ -792,7 +815,7 @@
             }
           }
         } catch (e) {
-          console.error("Error parsing server error:", e);
+          console.error(`Error parsing server error for ${exportName}:`, e);
         }
 
         throw new Error(errorMsg);
@@ -801,94 +824,175 @@
       // Get content length if available
       const contentLength = response.headers.get("Content-Length");
       const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
+      console.log(
+        `Content-Length: ${contentLength}, parsed size: ${totalSize}`
+      );
 
-      // Get filename from Content-Disposition header
+      // Log headers for debugging
+      console.log("Response headers:");
+      response.headers.forEach((value, name) => {
+        console.log(`${name}: ${value}`);
+      });
+
+      // Extract format from URL
+      const formatMatch = urlWithTimestamp.match(/format=([^&]+)/);
+      const format = formatMatch ? formatMatch[1] : null;
+
+      // Get filename from Content-Disposition header with better parsing
       const contentDisposition = response.headers.get("Content-Disposition");
-      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
-      const filename = filenameMatch
-        ? filenameMatch[1]
-        : `${exportName}-export.file`;
+      let filename = null;
 
-      showNotification(`Downloading ${filename}...`, "info");
-
-      // Create a reader to read the stream and keep track of progress
-      const reader = response.body.getReader();
-      let receivedLength = 0;
-      const chunks = [];
-
-      // Function to process chunks
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) {
-          break;
-        }
-
-        chunks.push(value);
-        receivedLength += value.length;
-
-        // Update progress if we know the total size
-        if (totalSize) {
-          const progress = Math.min(
-            Math.round((receivedLength / totalSize) * 100),
-            100
-          );
-
-          // Try to update progress through different possible interfaces
-          if (
-            window.loadingManager &&
-            typeof window.loadingManager.updateProgress === "function"
-          ) {
-            window.loadingManager.updateProgress(progress);
-          } else if (
-            window.LoadingManager &&
-            typeof window.LoadingManager.updateProgress === "function"
-          ) {
-            window.LoadingManager.updateProgress(progress);
-          } else {
-            // Try to find progress bar element directly
-            const progressBar = document.getElementById("loading-progress-bar");
-            if (progressBar) {
-              progressBar.style.width = `${progress}%`;
-            }
+      if (contentDisposition) {
+        // Try different regex patterns to match filename
+        // First try quoted filename
+        const quotedMatch = contentDisposition.match(/filename="([^"]+)"/);
+        if (quotedMatch) {
+          filename = quotedMatch[1];
+        } else {
+          // Try unquoted filename as fallback
+          const unquotedMatch = contentDisposition.match(/filename=([^;]+)/);
+          if (unquotedMatch) {
+            filename = unquotedMatch[1].trim();
           }
         }
       }
 
-      // Combine chunks into a single Uint8Array
-      const chunksAll = new Uint8Array(receivedLength);
-      let position = 0;
-      for (const chunk of chunks) {
-        chunksAll.set(chunk, position);
-        position += chunk.length;
+      // If still no filename, generate one with proper extension based on format
+      if (!filename) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const extension = getExtensionForFormat(format);
+        filename = `${exportName}-${timestamp}${extension}`;
       }
 
-      // Convert to blob
-      const blob = new Blob([chunksAll]);
-      const blobUrl = URL.createObjectURL(blob);
+      // Ensure filename has the correct extension based on format
+      if (format && !filename.endsWith(getExtensionForFormat(format))) {
+        filename = `${filename}${getExtensionForFormat(format)}`;
+      }
 
-      // Create and trigger download
-      const downloadLink = document.createElement("a");
-      downloadLink.style.display = "none";
-      downloadLink.href = blobUrl;
-      downloadLink.download = filename;
+      showNotification(`Downloading ${filename}...`, "info");
+      console.log(`Starting download of ${filename}...`);
 
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
+      try {
+        // Create a reader to read the stream and keep track of progress
+        const reader = response.body.getReader();
+        let receivedLength = 0;
+        const chunks = [];
 
-      // Clean up
-      setTimeout(() => {
-        document.body.removeChild(downloadLink);
-        URL.revokeObjectURL(blobUrl);
-      }, 100);
+        // Function to process chunks
+        while (true) {
+          const { done, value } = await reader.read();
 
-      showNotification(`Successfully exported ${filename}`, "success");
+          if (done) {
+            console.log(
+              `Finished reading response body, total size: ${receivedLength} bytes`
+            );
+            break;
+          }
+
+          chunks.push(value);
+          receivedLength += value.length;
+
+          // Log progress periodically (only on significant changes)
+          if (
+            totalSize &&
+            receivedLength % Math.max(totalSize / 10, 1024 * 1024) <
+              value.length
+          ) {
+            console.log(
+              `Download progress: ${Math.round(
+                (receivedLength / totalSize) * 100
+              )}% (${receivedLength}/${totalSize} bytes)`
+            );
+          }
+
+          // Update progress if we know the total size
+          if (totalSize) {
+            const progress = Math.min(
+              Math.round((receivedLength / totalSize) * 100),
+              100
+            );
+
+            // Try to update progress through different possible interfaces
+            if (
+              window.loadingManager &&
+              typeof window.loadingManager.updateProgress === "function"
+            ) {
+              window.loadingManager.updateProgress(progress);
+            } else if (
+              window.LoadingManager &&
+              typeof window.LoadingManager.updateProgress === "function"
+            ) {
+              window.LoadingManager.updateProgress(progress);
+            } else {
+              // Try to find progress bar element directly
+              const progressBar = document.getElementById(
+                "loading-progress-bar"
+              );
+              if (progressBar) {
+                progressBar.style.width = `${progress}%`;
+              }
+            }
+          }
+        }
+
+        // Combine chunks into a single Uint8Array
+        console.log(`Combining ${chunks.length} chunks into final blob...`);
+        const chunksAll = new Uint8Array(receivedLength);
+        let position = 0;
+        for (const chunk of chunks) {
+          chunksAll.set(chunk, position);
+          position += chunk.length;
+        }
+
+        // Convert to blob with proper content type
+        const contentType = getContentTypeForFormat(format);
+        console.log(`Creating blob with type: ${contentType}`);
+        const blob = new Blob([chunksAll], { type: contentType });
+        const blobUrl = URL.createObjectURL(blob);
+        console.log(`Blob URL created: ${blobUrl.substring(0, 30)}...`);
+
+        // Create and trigger download
+        console.log(`Triggering download of ${filename}`);
+        const downloadLink = document.createElement("a");
+        downloadLink.style.display = "none";
+        downloadLink.href = blobUrl;
+        downloadLink.download = filename;
+
+        // Explicitly set mimetype attribute if supported by browser
+        if ("download" in downloadLink) {
+          downloadLink.type = contentType;
+        }
+
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(downloadLink);
+          URL.revokeObjectURL(blobUrl);
+          console.log(`Download cleanup completed for ${filename}`);
+        }, 100);
+
+        showNotification(`Successfully exported ${filename}`, "success");
+      } catch (streamError) {
+        console.error(
+          `Error processing download stream for ${exportName}:`,
+          streamError
+        );
+        throw new Error(`Error while downloading: ${streamError.message}`);
+      }
     } catch (error) {
+      console.error(`Export error for ${exportName}:`, error);
+
       if (error.name === "AbortError") {
         throw new Error(
           "Export timed out. The file might be too large or the server is busy."
         );
       }
+
+      // Add more context to the error message
+      const errorMsg = `Export failed: ${error.message || "Unknown error"}`;
+      showNotification(errorMsg, "error");
       throw error;
     } finally {
       // Hide loading indicator - checking for all possible implementations
@@ -909,6 +1013,58 @@
           loadingOverlay.style.display = "none";
         }
       }
+    }
+  }
+
+  /**
+   * Get file extension for the given format
+   * @param {string} format - Export format
+   * @returns {string} Appropriate file extension with leading dot
+   */
+  function getExtensionForFormat(format) {
+    if (!format) return ".dat";
+
+    switch (format.toLowerCase()) {
+      case "json":
+        return ".json";
+      case "geojson":
+        return ".geojson";
+      case "gpx":
+        return ".gpx";
+      case "csv":
+        return ".csv";
+      case "shapefile":
+        return ".zip"; // Shapefiles are typically zipped
+      case "kml":
+        return ".kml";
+      default:
+        return `.${format.toLowerCase()}`;
+    }
+  }
+
+  /**
+   * Get content type for the given format
+   * @param {string} format - Export format
+   * @returns {string} MIME type for the format
+   */
+  function getContentTypeForFormat(format) {
+    if (!format) return "application/octet-stream";
+
+    switch (format.toLowerCase()) {
+      case "json":
+        return "application/json";
+      case "geojson":
+        return "application/geo+json";
+      case "gpx":
+        return "application/gpx+xml";
+      case "csv":
+        return "text/csv";
+      case "shapefile":
+        return "application/zip";
+      case "kml":
+        return "application/vnd.google-earth.kml+xml";
+      default:
+        return "application/octet-stream";
     }
   }
 
