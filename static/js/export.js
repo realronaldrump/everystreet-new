@@ -193,11 +193,15 @@
     const formElement = elements[config.id];
     if (!formElement) return;
 
+    // Define originalText outside the try block so it's available in finally
+    let submitButton = null;
+    let originalText = "";
+
     // Show export in progress
-    const submitButton = formElement.querySelector('button[type="submit"]');
+    submitButton = formElement.querySelector('button[type="submit"]');
     if (submitButton) {
+      originalText = submitButton.textContent || `Export ${config.name}`;
       submitButton.disabled = true;
-      const originalText = submitButton.textContent;
       submitButton.innerHTML =
         '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Exporting...';
     }
@@ -268,7 +272,7 @@
       // Reset button state
       if (submitButton) {
         submitButton.disabled = false;
-        submitButton.innerHTML = originalText || `Export ${config.name}`;
+        submitButton.innerHTML = originalText;
       }
     }
   }
@@ -310,13 +314,17 @@
       return;
     }
 
+    // Define these variables outside the try block so they're accessible in finally
+    let validateButton = null;
+    let originalText = "";
+
     // Show validation in progress
     const form = locationInput.closest("form");
-    const validateButton = form?.querySelector(".validate-location-btn");
+    validateButton = form?.querySelector(".validate-location-btn");
 
     if (validateButton) {
+      originalText = validateButton.textContent || "Validate";
       validateButton.disabled = true;
-      const originalText = validateButton.textContent;
       validateButton.innerHTML =
         '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Validating...';
     }
@@ -394,7 +402,7 @@
       // Reset button state
       if (validateButton) {
         validateButton.disabled = false;
-        validateButton.innerHTML = originalText || "Validate";
+        validateButton.innerHTML = originalText;
       }
     }
   }
@@ -409,9 +417,28 @@
     try {
       showNotification(`Requesting ${exportName} data...`, "info");
 
-      // Show loading indicator using global LoadingManager if available
-      if (window.loadingManager) {
+      // Show loading indicator if available
+      // Check for various loading indicator implementations
+      if (
+        window.loadingManager &&
+        typeof window.loadingManager.show === "function"
+      ) {
         window.loadingManager.show(`Exporting ${exportName}...`);
+      } else if (
+        window.LoadingManager &&
+        typeof window.LoadingManager.show === "function"
+      ) {
+        window.LoadingManager.show(`Exporting ${exportName}...`);
+      } else {
+        // Find the loading overlay element directly if it exists
+        const loadingOverlay = document.querySelector(".loading-overlay");
+        if (loadingOverlay) {
+          loadingOverlay.style.display = "flex";
+          const loadingText = loadingOverlay.querySelector(".loading-text");
+          if (loadingText) {
+            loadingText.textContent = `Exporting ${exportName}...`;
+          }
+        }
       }
 
       // Add fetch options including abort signal for timeout
@@ -470,12 +497,30 @@
         receivedLength += value.length;
 
         // Update progress if we know the total size
-        if (totalSize && window.loadingManager) {
+        if (totalSize) {
           const progress = Math.min(
             Math.round((receivedLength / totalSize) * 100),
             100
           );
-          window.loadingManager.updateProgress(progress);
+
+          // Try to update progress through different possible interfaces
+          if (
+            window.loadingManager &&
+            typeof window.loadingManager.updateProgress === "function"
+          ) {
+            window.loadingManager.updateProgress(progress);
+          } else if (
+            window.LoadingManager &&
+            typeof window.LoadingManager.updateProgress === "function"
+          ) {
+            window.LoadingManager.updateProgress(progress);
+          } else {
+            // Try to find progress bar element directly
+            const progressBar = document.getElementById("loading-progress-bar");
+            if (progressBar) {
+              progressBar.style.width = `${progress}%`;
+            }
+          }
         }
       }
 
@@ -515,9 +560,23 @@
       }
       throw error;
     } finally {
-      // Hide loading indicator if used
-      if (window.loadingManager) {
+      // Hide loading indicator - checking for all possible implementations
+      if (
+        window.loadingManager &&
+        typeof window.loadingManager.hide === "function"
+      ) {
         window.loadingManager.hide();
+      } else if (
+        window.LoadingManager &&
+        typeof window.LoadingManager.hide === "function"
+      ) {
+        window.LoadingManager.hide();
+      } else {
+        // Find the loading overlay element directly if it exists
+        const loadingOverlay = document.querySelector(".loading-overlay");
+        if (loadingOverlay) {
+          loadingOverlay.style.display = "none";
+        }
       }
     }
   }
