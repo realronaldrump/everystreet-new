@@ -10,3 +10,4 @@ package-lock.json
 .cursor/
 celerybeat-schedule.db
 exports/
+flower.db

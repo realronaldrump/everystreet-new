@@ -101,14 +101,14 @@ endblock %} {% block content %}
       </div>
     </div>
 
-    <!-- 3D Visualization Section -->
+    <!-- Enhanced Trip Visualization Section -->
     <div class="row mb-4">
       <div class="col-12">
         <div class="card">
           <div
             class="card-header d-flex justify-content-between align-items-center"
           >
-            <h2 class="h5 mb-0">3D Trip Visualization</h2>
+            <h2 class="h5 mb-0">Enhanced Trip Visualization</h2>
             <div class="btn-group">
               <button
                 id="toggle-heatmap"
@@ -119,13 +119,18 @@ endblock %} {% block content %}
               <button id="toggle-paths" class="btn btn-sm btn-outline-primary">
                 Toggle Paths
               </button>
-              <button id="reset-camera" class="btn btn-sm btn-outline-primary">
-                Reset Camera
+              <button id="animate-paths" class="btn btn-sm btn-outline-primary">
+                Animate Trips
               </button>
             </div>
           </div>
           <div class="card-body p-0">
-            <div id="three-container" style="height: 500px; width: 100%"></div>
+            <div id="advanced-viz-container" style="height: 500px; width: 100%">
+              <canvas
+                id="trip-timeline-canvas"
+                style="width: 100%; height: 100%"
+              ></canvas>
+            </div>
           </div>
         </div>
       </div>
@@ -160,20 +165,7 @@ endblock %} {% block content %}
 
     <!-- Additional Insights Sections -->
     <div class="row mb-4">
-      <div class="col-md-4 mb-4 mb-md-0">
-        <div class="card h-100">
-          <div class="card-header bg-success-subtle">
-            <h2 class="h5 mb-0">Efficiency Tips</h2>
-          </div>
-          <div class="card-body">
-            <ul
-              id="efficiency-tips-list"
-              class="list-group list-group-flush"
-            ></ul>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 mb-4 mb-md-0">
+      <div class="col-md-6 mb-4 mb-md-0">
         <div class="card h-100">
           <div class="card-header bg-primary-subtle">
             <h2 class="h5 mb-0">Route Insights</h2>
@@ -186,14 +178,14 @@ endblock %} {% block content %}
           </div>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-6">
         <div class="card h-100">
-          <div class="card-header bg-warning-subtle">
-            <h2 class="h5 mb-0">Safety Insights</h2>
+          <div class="card-header bg-info-subtle">
+            <h2 class="h5 mb-0">Predictive Insights</h2>
           </div>
           <div class="card-body">
             <ul
-              id="safety-insights-list"
+              id="predictive-insights-list"
               class="list-group list-group-flush"
             ></ul>
           </div>
@@ -222,12 +214,14 @@ endblock %} {% block content %}
 </div>
 {% endblock %} {% block extra_js %}
 <!-- Google Maps JavaScript API -->
-<script src="https://maps.googleapis.com/maps/api/js?key={{ environ.get('GOOGLE_MAPS_API_KEY', '') }}&libraries=visualization"></script>
+<script
+  async
+  defer
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBBLTaQF9KKVhsQXn-7FQZ6Mz9L-XICgZ8&libraries=visualization"
+></script>
 
-<!-- Three.js libraries -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
+<!-- Chart.js for enhanced visualizations -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <!-- Application specific JavaScript -->
 <script src="{{ url_for('static', path='js/ai_insights.js') | replace('http://', '//') }}"></script>

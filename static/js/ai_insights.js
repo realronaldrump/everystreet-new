@@ -1,4 +1,4 @@
-/* global THREE, google, DateUtils */
+/* global google, DateUtils, Chart */
 
 "use strict";
 
@@ -7,11 +7,10 @@
   let map;
   let heatmap;
   let tripPathsLayer = [];
-  let threeScene, threeCamera, threeRenderer, threeControls;
-  let threePaths = [];
-  let threeHeatmap;
   let showHeatmap = true;
   let showPaths = true;
+  let timelineChart;
+  let animationInterval;
 
   // Main geographic bounds for centering the visualizations
   let bounds;
@@ -51,7 +50,7 @@
       });
     });
 
-    // 3D controls
+    // Enhanced visualization controls
     document
       .getElementById("toggle-heatmap")
       ?.addEventListener("click", toggleHeatmap);
@@ -59,11 +58,18 @@
       .getElementById("toggle-paths")
       ?.addEventListener("click", togglePaths);
     document
-      .getElementById("reset-camera")
-      ?.addEventListener("click", resetCamera);
+      .getElementById("animate-paths")
+      ?.addEventListener("click", animateTrips);
 
-    // Handle resize events for Three.js
-    window.addEventListener("resize", onWindowResize, false);
+    // Handle resize events
+    window.addEventListener("resize", handleResize, false);
+  }
+
+  function handleResize() {
+    // Resize chart if it exists
+    if (timelineChart) {
+      timelineChart.resize();
+    }
   }
 
   function initializeDatepickers() {
@@ -145,7 +151,7 @@
         );
       }
     } catch (error) {
-      console.error("Error setting date range:", error);
+      console.error("Error setting date range: %s", error);
     }
   }
 
@@ -183,6 +189,12 @@
 
   // MAIN DATA FETCHING FUNCTION
   async function analyzeData() {
+    // Reset any active animations
+    if (animationInterval) {
+      clearInterval(animationInterval);
+      animationInterval = null;
+    }
+
     // Show loading state
     document.getElementById("loading-container").classList.remove("d-none");
     document.getElementById("insights-container").classList.add("d-none");
@@ -213,7 +225,7 @@
       // Process and display data
       renderAiInsights(data.ai_insights);
       initializeGoogleMap(data.trip_data);
-      initializeThreeJsVisualization(data.trip_data);
+      initializeEnhancedVisualization(data.trip_data);
 
       // Show insights container
       document.getElementById("loading-container").classList.add("d-none");
@@ -227,7 +239,7 @@
         );
       }
     } catch (error) {
-      console.error("Error analyzing data:", error);
+      console.error("Error analyzing data: %s", error);
 
       // Show error message
       document.getElementById("loading-container").classList.add("d-none");
@@ -250,6 +262,12 @@
   function initializeGoogleMap(tripData) {
     const mapContainer = document.getElementById("map-container");
     if (!mapContainer) return;
+
+    // Clear existing paths
+    tripPathsLayer.forEach((path) => {
+      if (path.setMap) path.setMap(null);
+    });
+    tripPathsLayer = [];
 
     // Process coordinates for heatmap and paths
     const heatmapPoints = [];
@@ -374,26 +392,30 @@
       });
     }
 
-    // Create heatmap
-    heatmap = new google.maps.visualization.HeatmapLayer({
-      data: heatmapPoints,
-      map: map,
-      radius: 15,
-      opacity: 0.7,
-      gradient: [
-        "rgba(0, 0, 255, 0)",
-        "rgba(65, 105, 225, 1)",
-        "rgba(30, 144, 255, 1)",
-        "rgba(0, 191, 255, 1)",
-        "rgba(0, 255, 255, 1)",
-        "rgba(0, 255, 127, 1)",
-        "rgba(173, 255, 47, 1)",
-        "rgba(255, 255, 0, 1)",
-        "rgba(255, 165, 0, 1)",
-        "rgba(255, 69, 0, 1)",
-        "rgba(255, 0, 0, 1)",
-      ],
-    });
+    // Create or update heatmap
+    if (heatmap) {
+      heatmap.setData(heatmapPoints);
+    } else {
+      heatmap = new google.maps.visualization.HeatmapLayer({
+        data: heatmapPoints,
+        map: map,
+        radius: 15,
+        opacity: 0.7,
+        gradient: [
+          "rgba(0, 0, 255, 0)",
+          "rgba(65, 105, 225, 1)",
+          "rgba(30, 144, 255, 1)",
+          "rgba(0, 191, 255, 1)",
+          "rgba(0, 255, 255, 1)",
+          "rgba(0, 255, 127, 1)",
+          "rgba(173, 255, 47, 1)",
+          "rgba(255, 255, 0, 1)",
+          "rgba(255, 165, 0, 1)",
+          "rgba(255, 69, 0, 1)",
+          "rgba(255, 0, 0, 1)",
+        ],
+      });
+    }
 
     // Add paths to map
     tripPathsLayer.forEach((path) => path.setMap(map));
@@ -410,10 +432,10 @@
       const endCoord = trip.coordinates[trip.coordinates.length - 1];
 
       // Start marker
-      new google.maps.Marker({
+      const startMarker = new google.maps.Marker({
         position: { lat: startCoord[1], lng: startCoord[0] },
         map: map,
-        title: `Start: ${trip.start_location}`,
+        title: `Start: ${trip.start_location || "Unknown"}`,
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
           scale: 7,
@@ -424,11 +446,13 @@
         },
       });
 
+      tripPathsLayer.push(startMarker);
+
       // End marker
-      new google.maps.Marker({
+      const endMarker = new google.maps.Marker({
         position: { lat: endCoord[1], lng: endCoord[0] },
         map: map,
-        title: `Destination: ${trip.destination}`,
+        title: `Destination: ${trip.destination || "Unknown"}`,
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
           scale: 7,
@@ -438,236 +462,252 @@
           strokeColor: "#FFFFFF",
         },
       });
+
+      tripPathsLayer.push(endMarker);
     });
   }
 
-  // Three.js Visualization
-  function initializeThreeJsVisualization(tripData) {
-    const container = document.getElementById("three-container");
-    if (!container) return;
+  // Chart.js Enhanced Visualization
+  function initializeEnhancedVisualization(tripData) {
+    const canvas = document.getElementById("trip-timeline-canvas");
+    if (!canvas) return;
 
-    // Get dimensions
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    // Destroy existing chart if it exists
+    if (timelineChart) {
+      timelineChart.destroy();
+    }
 
-    // Initialize Three.js scene if not already created
-    if (!threeScene) {
-      threeScene = new THREE.Scene();
-      threeScene.background = new THREE.Color(0x1a1a2e);
+    // Process trip data for visualization
+    const tripsByDay = aggregateTripsByDay(tripData);
 
-      // Setup camera
-      threeCamera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-      threeCamera.position.set(0, 20, 30);
+    // Create datasets for Chart.js
+    const datasets = createTimelineDatasets(tripsByDay);
 
-      // Setup renderer
-      threeRenderer = new THREE.WebGLRenderer({ antialias: true });
-      threeRenderer.setSize(width, height);
-      threeRenderer.setPixelRatio(window.devicePixelRatio);
-      container.appendChild(threeRenderer.domElement);
+    // Initialize Chart.js
+    timelineChart = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: Object.keys(tripsByDay),
+        datasets: datasets,
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "top",
+            labels: {
+              color: "#fff",
+            },
+          },
+          tooltip: {
+            callbacks: {
+              label: function (context) {
+                return `${context.dataset.label}: ${context.raw.toFixed(
+                  1
+                )} miles`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: {
+              color: "rgba(255, 255, 255, 0.1)",
+            },
+            ticks: {
+              color: "#ccc",
+            },
+          },
+          y: {
+            grid: {
+              color: "rgba(255, 255, 255, 0.1)",
+            },
+            ticks: {
+              color: "#ccc",
+            },
+            title: {
+              display: true,
+              text: "Distance (miles)",
+              color: "#fff",
+            },
+          },
+        },
+        animation: {
+          duration: 1000,
+        },
+        backgroundColor: "rgba(13, 17, 23, 0.75)",
+      },
+    });
+  }
 
-      // Setup controls
-      threeControls = new THREE.OrbitControls(
-        threeCamera,
-        threeRenderer.domElement
-      );
-      threeControls.enableDamping = true;
-      threeControls.dampingFactor = 0.25;
+  function aggregateTripsByDay(tripData) {
+    const tripsByDay = {};
 
-      // Add lights
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-      threeScene.add(ambientLight);
+    tripData.forEach((trip) => {
+      // Skip if no timestamp
+      if (!trip.timestamp) return;
 
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-      directionalLight.position.set(5, 10, 7.5);
-      threeScene.add(directionalLight);
+      const date = new Date(trip.timestamp);
+      const dateString = date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
 
-      // Add grid for reference
-      const gridHelper = new THREE.GridHelper(50, 50, 0x555555, 0x333333);
-      threeScene.add(gridHelper);
-
-      // Start animation loop
-      animate();
-    } else {
-      // Clear existing paths
-      threePaths.forEach((path) => threeScene.remove(path));
-      threePaths = [];
-
-      if (threeHeatmap) {
-        threeScene.remove(threeHeatmap);
-        threeHeatmap = null;
+      if (!tripsByDay[dateString]) {
+        tripsByDay[dateString] = [];
       }
-    }
 
-    // Extract coordinates, normalize them for 3D space
-    if (!bounds || !center) return;
-
-    const centerLat = center.lat();
-    const centerLng = center.lng();
-
-    // Calculate scale factor based on bounds size
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
-    const boundsWidth = Math.abs(ne.lng() - sw.lng());
-    const boundsHeight = Math.abs(ne.lat() - sw.lat());
-    const scale = 50 / Math.max(boundsWidth, boundsHeight);
-
-    // Process trip data to create 3D paths
-    tripData.forEach((trip) => {
-      if (!trip.coordinates || trip.coordinates.length < 2) return;
-
-      const points = [];
-      const heatmapPoints = [];
-
-      // Convert coordinates to 3D points
-      trip.coordinates.forEach((coord) => {
-        const x = (coord[0] - centerLng) * scale;
-        const z = (coord[1] - centerLat) * scale * -1; // Invert lat for correct orientation
-
-        // Use distance as height (y) for visual interest
-        const y = trip.distance / 100 + Math.random() * 0.5;
-
-        points.push(new THREE.Vector3(x, y, z));
-        heatmapPoints.push({ x, y: 0, z }); // For heatmap, keep y at ground level
-      });
-
-      // Create path
-      const curve = new THREE.CatmullRomCurve3(points);
-      const geometry = new THREE.TubeGeometry(
-        curve,
-        Math.min(points.length * 2, 100),
-        0.05,
-        8,
-        false
-      );
-      const material = new THREE.MeshPhongMaterial({
-        color: new THREE.Color().setHSL(Math.random(), 0.7, 0.5),
-        emissive: 0x072534,
-        side: THREE.DoubleSide,
-        flatShading: true,
-      });
-
-      const path = new THREE.Mesh(geometry, material);
-      threeScene.add(path);
-      threePaths.push(path);
-
-      // Add small spheres for start and end points
-      const startGeometry = new THREE.SphereGeometry(0.2, 16, 16);
-      const startMaterial = new THREE.MeshPhongMaterial({ color: 0x4caf50 });
-      const startSphere = new THREE.Mesh(startGeometry, startMaterial);
-      startSphere.position.copy(points[0]);
-      threeScene.add(startSphere);
-      threePaths.push(startSphere);
-
-      const endGeometry = new THREE.SphereGeometry(0.2, 16, 16);
-      const endMaterial = new THREE.MeshPhongMaterial({ color: 0xf44336 });
-      const endSphere = new THREE.Mesh(endGeometry, endMaterial);
-      endSphere.position.copy(points[points.length - 1]);
-      threeScene.add(endSphere);
-      threePaths.push(endSphere);
+      tripsByDay[dateString].push(trip);
     });
 
-    // Create heatmap
-    createThreeJsHeatmap(tripData, centerLat, centerLng, scale);
-
-    // Reset camera
-    resetCamera();
+    return tripsByDay;
   }
 
-  function createThreeJsHeatmap(tripData, centerLat, centerLng, scale) {
-    // Extract all coordinates for heatmap
-    const points = [];
+  function createTimelineDatasets(tripsByDay) {
+    // Create four different types of measurements for visual interest
+    const distanceData = [];
+    const avgSpeedData = [];
+    const durationData = [];
 
-    tripData.forEach((trip) => {
-      if (!trip.coordinates) return;
+    Object.keys(tripsByDay).forEach((date) => {
+      const trips = tripsByDay[date];
 
-      trip.coordinates.forEach((coord) => {
-        const x = (coord[0] - centerLng) * scale;
-        const z = (coord[1] - centerLat) * scale * -1;
-        points.push(new THREE.Vector2(x, z)); // 2D points for heatmap
+      // Calculate total distance for the day
+      const totalDistance = trips.reduce((sum, trip) => {
+        return sum + (trip.distance || 0);
+      }, 0);
+
+      // Calculate average speed across all trips for the day
+      const avgSpeed =
+        trips.reduce((sum, trip) => {
+          return sum + (trip.avg_speed || 0);
+        }, 0) / trips.length;
+
+      // Calculate total duration in minutes
+      const totalDuration = trips.reduce((sum, trip) => {
+        return sum + (trip.duration_minutes || 0);
+      }, 0);
+
+      distanceData.push(totalDistance);
+      avgSpeedData.push(Math.min(avgSpeed, 60)); // Cap at 60 for visualization
+      durationData.push(Math.min(totalDuration / 10, 20)); // Scale down and cap for visualization
+    });
+
+    return [
+      {
+        label: "Trip Distance",
+        data: distanceData,
+        backgroundColor: "rgba(54, 162, 235, 0.7)",
+        borderColor: "rgba(54, 162, 235, 1)",
+        borderWidth: 1,
+      },
+      {
+        label: "Avg Speed (scaled)",
+        data: avgSpeedData,
+        backgroundColor: "rgba(75, 192, 192, 0.7)",
+        borderColor: "rgba(75, 192, 192, 1)",
+        borderWidth: 1,
+      },
+      {
+        label: "Duration (scaled)",
+        data: durationData,
+        backgroundColor: "rgba(255, 159, 64, 0.7)",
+        borderColor: "rgba(255, 159, 64, 1)",
+        borderWidth: 1,
+      },
+    ];
+  }
+
+  function animateTrips() {
+    if (animationInterval) {
+      clearInterval(animationInterval);
+      animationInterval = null;
+      return;
+    }
+
+    // Get trip paths
+    const paths = tripPathsLayer.filter((path) => path.getPath);
+    if (paths.length === 0) return;
+
+    // Reset all paths to be fully visible
+    paths.forEach((path) => {
+      path.setOptions({
+        strokeOpacity: 0.8,
       });
     });
 
-    if (points.length === 0) return;
+    let currentPathIndex = 0;
+    let stepCount = 0;
+    const maxSteps = 50; // Number of steps to animate the full path
 
-    // Create a canvas for the heatmap
-    const size = 512;
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext("2d");
+    // Animate one path at a time
+    animationInterval = setInterval(() => {
+      const path = paths[currentPathIndex];
 
-    // Clear canvas
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, size, size);
+      if (!path || !path.getPath) {
+        // Skip to next path if this one is invalid
+        currentPathIndex++;
+        stepCount = 0;
+        if (currentPathIndex >= paths.length) {
+          clearInterval(animationInterval);
+          animationInterval = null;
+        }
+        return;
+      }
 
-    // Draw points with a gradient
-    points.forEach((point) => {
-      const x = ((point.x / 50 + 1) * size) / 2; // Scale to canvas
-      const y = ((point.y / 50 + 1) * size) / 2;
+      const originalPath = path.getPath();
+      if (!originalPath) return;
 
-      const gradient = ctx.createRadialGradient(x, y, 0, x, y, size / 30);
-      gradient.addColorStop(0, "rgba(255, 0, 0, 1)");
-      gradient.addColorStop(0.2, "rgba(255, 255, 0, 0.8)");
-      gradient.addColorStop(0.4, "rgba(0, 255, 0, 0.6)");
-      gradient.addColorStop(0.6, "rgba(0, 255, 255, 0.4)");
-      gradient.addColorStop(0.8, "rgba(0, 0, 255, 0.2)");
-      gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+      const numPoints = originalPath.getLength();
+      if (numPoints < 2) {
+        currentPathIndex++;
+        stepCount = 0;
+        return;
+      }
 
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(x, y, size / 15, 0, Math.PI * 2);
-      ctx.fill();
-    });
+      // Calculate how many points to show based on step count
+      const pointsToShow = Math.ceil((stepCount / maxSteps) * numPoints);
 
-    // Apply blur for smoother effect
-    ctx.filter = "blur(4px)";
-    ctx.drawImage(canvas, 0, 0);
-    ctx.filter = "none";
+      if (pointsToShow >= numPoints) {
+        // This path animation is complete, move to next path
+        stepCount = 0;
+        currentPathIndex++;
 
-    // Create texture from canvas
-    const texture = new THREE.CanvasTexture(canvas);
+        if (currentPathIndex >= paths.length) {
+          clearInterval(animationInterval);
+          animationInterval = null;
+        }
+        return;
+      }
 
-    // Create a plane for the heatmap
-    const geometry = new THREE.PlaneGeometry(50, 50);
-    const material = new THREE.MeshBasicMaterial({
-      map: texture,
-      transparent: true,
-      opacity: 0.7,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
+      // Create a new path with only a portion of the points
+      const newPath = new google.maps.MVCArray();
+      for (let i = 0; i < pointsToShow; i++) {
+        newPath.push(originalPath.getAt(i));
+      }
 
-    threeHeatmap = new THREE.Mesh(geometry, material);
-    threeHeatmap.rotation.x = -Math.PI / 2; // Rotate to lay flat
-    threeHeatmap.position.y = 0.05; // Slightly above the grid
+      // Update the path with the partial set of points
+      path.setPath(newPath);
 
-    threeScene.add(threeHeatmap);
-  }
+      // Make this path more visible and fade others
+      paths.forEach((p, idx) => {
+        if (idx === currentPathIndex) {
+          p.setOptions({
+            strokeOpacity: 1.0,
+            strokeWeight: 4,
+          });
+        } else {
+          p.setOptions({
+            strokeOpacity: 0.3,
+            strokeWeight: 2,
+          });
+        }
+      });
 
-  function animate() {
-    requestAnimationFrame(animate);
-
-    if (threeControls) {
-      threeControls.update();
-    }
-
-    if (threeRenderer && threeScene && threeCamera) {
-      threeRenderer.render(threeScene, threeCamera);
-    }
-  }
-
-  function onWindowResize() {
-    if (!threeRenderer || !threeCamera) return;
-
-    const container = document.getElementById("three-container");
-    if (!container) return;
-
-    const width = container.clientWidth;
-    const height = container.clientHeight;
-
-    threeCamera.aspect = width / height;
-    threeCamera.updateProjectionMatrix();
-    threeRenderer.setSize(width, height);
+      // Increment step counter
+      stepCount++;
+    }, 100); // Update every 100ms
   }
 
   // UI CONTROL FUNCTIONS
@@ -679,11 +719,6 @@
     if (heatmap) {
       heatmap.setMap(showHeatmap ? map : null);
     }
-
-    // Three.js heatmap
-    if (threeHeatmap) {
-      threeHeatmap.visible = showHeatmap;
-    }
   }
 
   function togglePaths() {
@@ -691,21 +726,10 @@
 
     // Google Maps paths
     tripPathsLayer.forEach((path) => {
-      path.setMap(showPaths ? map : null);
+      if (path.setMap) {
+        path.setMap(showPaths ? map : null);
+      }
     });
-
-    // Three.js paths
-    threePaths.forEach((path) => {
-      path.visible = showPaths;
-    });
-  }
-
-  function resetCamera() {
-    if (!threeCamera || !threeControls) return;
-
-    threeCamera.position.set(0, 20, 30);
-    threeCamera.lookAt(0, 0, 0);
-    threeControls.update();
   }
 
   // AI INSIGHTS RENDERING
@@ -725,9 +749,11 @@
       "driving-patterns-list",
       insights.driving_patterns || []
     );
-    renderInsightsList("efficiency-tips-list", insights.efficiency_tips || []);
     renderInsightsList("route-insights-list", insights.route_insights || []);
-    renderInsightsList("safety-insights-list", insights.safety_insights || []);
+    renderInsightsList(
+      "predictive-insights-list",
+      insights.predictive_insights || []
+    );
   }
 
   function renderInsightsList(elementId, insights) {
@@ -744,9 +770,9 @@
 
       // Add icon based on list type
       let icon = "fa-lightbulb";
-      if (elementId === "efficiency-tips-list") icon = "fa-leaf";
+      if (elementId === "driving-patterns-list") icon = "fa-location-dot";
       if (elementId === "route-insights-list") icon = "fa-route";
-      if (elementId === "safety-insights-list") icon = "fa-shield-alt";
+      if (elementId === "predictive-insights-list") icon = "fa-chart-line";
 
       li.innerHTML = `<i class="fas ${icon} me-2 text-primary"></i> ${insight}`;
       element.appendChild(li);
