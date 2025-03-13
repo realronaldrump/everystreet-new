@@ -42,11 +42,13 @@
       endpoint: "/api/export/boundary",
       name: "boundary",
     },
-    all: {
-      id: "export-all-form",
-      format: "all-format",
-      endpoint: "/api/export/all_trips",
-      name: "all trips",
+    advanced: {
+      id: "advanced-export-form",
+      dateStart: "adv-start-date",
+      dateEnd: "adv-end-date",
+      format: "adv-format",
+      endpoint: "/api/export/advanced",
+      name: "advanced export",
     },
   };
 
@@ -57,6 +59,7 @@
     cacheElements();
     initEventListeners();
     initDatePickers();
+    loadSavedExportSettings();
   }
 
   /**
@@ -87,6 +90,29 @@
     elements.validateButtons = document.querySelectorAll(
       ".validate-location-btn"
     );
+
+    // Cache advanced export elements
+    elements.exportAllDates = document.getElementById("export-all-dates");
+    elements.saveExportSettings = document.getElementById(
+      "save-export-settings"
+    );
+
+    // Cache data source checkboxes
+    elements.includeTrips = document.getElementById("include-trips");
+    elements.includeMatchedTrips = document.getElementById(
+      "include-matched-trips"
+    );
+    elements.includeUploadedTrips = document.getElementById(
+      "include-uploaded-trips"
+    );
+
+    // Cache data field checkboxes
+    elements.includeBasicInfo = document.getElementById("include-basic-info");
+    elements.includeLocations = document.getElementById("include-locations");
+    elements.includeTelemetry = document.getElementById("include-telemetry");
+    elements.includeGeometry = document.getElementById("include-geometry");
+    elements.includeMeta = document.getElementById("include-meta");
+    elements.includeCustom = document.getElementById("include-custom");
   }
 
   /**
@@ -171,6 +197,120 @@
         }
       });
     });
+
+    // Handle export date checkbox
+    if (elements.exportAllDates) {
+      elements.exportAllDates.addEventListener("change", (event) => {
+        const checked = event.target.checked;
+        const startDateInput = document.getElementById("adv-start-date");
+        const endDateInput = document.getElementById("adv-end-date");
+
+        if (startDateInput && endDateInput) {
+          startDateInput.disabled = checked;
+          endDateInput.disabled = checked;
+        }
+      });
+    }
+
+    // Handle format change to update UI based on format limitations
+    const formatSelect = document.getElementById("adv-format");
+    if (formatSelect) {
+      formatSelect.addEventListener("change", (event) => {
+        updateUIBasedOnFormat(event.target.value);
+      });
+
+      // Initialize UI based on default format
+      updateUIBasedOnFormat(formatSelect.value);
+    }
+  }
+
+  /**
+   * Update UI elements based on selected format
+   * @param {string} format - Selected export format
+   */
+  function updateUIBasedOnFormat(format) {
+    // Get all data field checkboxes
+    const checkboxes = [
+      elements.includeBasicInfo,
+      elements.includeLocations,
+      elements.includeTelemetry,
+      elements.includeGeometry,
+      elements.includeMeta,
+      elements.includeCustom,
+    ];
+
+    // Reset all checkboxes (enable all)
+    checkboxes.forEach((checkbox) => {
+      if (checkbox) {
+        checkbox.disabled = false;
+        checkbox.parentElement.classList.remove("text-muted");
+      }
+    });
+
+    // Apply format-specific limitations
+    switch (format) {
+      case "geojson":
+        // GeoJSON always includes geometry and basic info but has limitations on other data
+        if (elements.includeGeometry) {
+          elements.includeGeometry.checked = true;
+          elements.includeGeometry.disabled = true;
+        }
+        break;
+
+      case "gpx":
+        // GPX has more significant limitations - primarily for geospatial data
+        if (elements.includeGeometry) {
+          elements.includeGeometry.checked = true;
+          elements.includeGeometry.disabled = true;
+        }
+        if (elements.includeTelemetry) {
+          elements.includeTelemetry.disabled = true;
+          elements.includeTelemetry.parentElement.classList.add("text-muted");
+          elements.includeTelemetry.title =
+            "Limited telemetry support in GPX format";
+        }
+        if (elements.includeMeta) {
+          elements.includeMeta.disabled = true;
+          elements.includeMeta.parentElement.classList.add("text-muted");
+          elements.includeMeta.title = "Limited metadata support in GPX format";
+        }
+        if (elements.includeCustom) {
+          elements.includeCustom.disabled = true;
+          elements.includeCustom.parentElement.classList.add("text-muted");
+          elements.includeCustom.title =
+            "Custom data not supported in GPX format";
+        }
+        break;
+
+      case "shapefile":
+        // Shapefiles are similar to GeoJSON in limitations
+        if (elements.includeGeometry) {
+          elements.includeGeometry.checked = true;
+          elements.includeGeometry.disabled = true;
+        }
+        if (elements.includeCustom) {
+          elements.includeCustom.disabled = true;
+          elements.includeCustom.parentElement.classList.add("text-muted");
+          elements.includeCustom.title =
+            "Custom data may have limited support in Shapefile format";
+        }
+        break;
+
+      case "csv":
+        // CSV is best for tabular data but not ideal for geometry
+        if (elements.includeGeometry) {
+          elements.includeGeometry.disabled = true;
+          elements.includeGeometry.parentElement.classList.add("text-muted");
+          elements.includeGeometry.title =
+            "Complex geometry not fully supported in CSV format";
+        }
+        break;
+
+      case "json":
+        // JSON supports all data types
+        // No limitations
+        break;
+    }
   }
 
   /**
@@ -241,39 +381,227 @@
         url = `${config.endpoint}?location=${encodeURIComponent(
           locationData
         )}&format=${format}`;
+      } else if (formType === "advanced") {
+        // Advanced export with configurable options
+        const format = elements[config.format]?.value;
+        url = `${config.endpoint}?format=${format}`;
+
+        // Add data sources parameters
+        if (elements.includeTrips) {
+          url += `&include_trips=${elements.includeTrips.checked}`;
+        }
+        if (elements.includeMatchedTrips) {
+          url += `&include_matched_trips=${elements.includeMatchedTrips.checked}`;
+        }
+        if (elements.includeUploadedTrips) {
+          url += `&include_uploaded_trips=${elements.includeUploadedTrips.checked}`;
+        }
+
+        // Add data fields parameters
+        if (elements.includeBasicInfo) {
+          url += `&include_basic_info=${elements.includeBasicInfo.checked}`;
+        }
+        if (elements.includeLocations) {
+          url += `&include_locations=${elements.includeLocations.checked}`;
+        }
+        if (elements.includeTelemetry) {
+          url += `&include_telemetry=${elements.includeTelemetry.checked}`;
+        }
+        if (elements.includeGeometry) {
+          url += `&include_geometry=${elements.includeGeometry.checked}`;
+        }
+        if (elements.includeMeta) {
+          url += `&include_meta=${elements.includeMeta.checked}`;
+        }
+        if (elements.includeCustom) {
+          url += `&include_custom=${elements.includeCustom.checked}`;
+        }
+
+        // Add date range if not using all dates
+        if (elements.exportAllDates && !elements.exportAllDates.checked) {
+          const startDate = elements[config.dateStart]?.value;
+          const endDate = elements[config.dateEnd]?.value;
+
+          if (!startDate || !endDate) {
+            throw new Error(
+              "Please select both start and end dates or check 'Export all dates'"
+            );
+          }
+
+          if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
+            throw new Error("Start date must be before or equal to end date");
+          }
+
+          url += `&start_date=${startDate}&end_date=${endDate}`;
+        }
+
+        // Save settings if option is checked
+        if (
+          elements.saveExportSettings &&
+          elements.saveExportSettings.checked
+        ) {
+          saveExportSettings();
+        }
       } else {
-        // Simple format-only exports (all)
+        // Simple format-only exports
         const format = elements[config.format]?.value;
         url = `${config.endpoint}?format=${format}`;
       }
 
-      // Show user the format they're exporting
-      const format = elements[config.format]?.value || "default";
-      showNotification(`Preparing ${format.toUpperCase()} export...`, "info");
+      // Start download
+      const signal = new AbortController().signal;
+      await downloadFile(url, config.name, signal);
 
-      // Request timeout for large exports
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
-
-      await downloadFile(url, config.name, controller.signal);
-      clearTimeout(timeoutId);
+      showNotification(`${config.name} export completed`, "success");
     } catch (error) {
-      // Use the centralized error handler from utils.js
-      if (window.handleError) {
-        window.handleError(error, `exporting ${config.name}`);
-      } else {
-        console.error(`Error exporting ${config.name}:`, error);
-        showNotification(`Export failed: ${error.message}`, "danger");
-      }
+      console.error(`Export error:`, error);
+      showNotification(
+        `Export failed: ${error.message || "Unknown error"}`,
+        "error"
+      );
     } finally {
-      // Clean up
       activeExports[formType] = false;
-
-      // Reset button state
       if (submitButton) {
         submitButton.disabled = false;
         submitButton.innerHTML = originalText;
       }
+    }
+  }
+
+  /**
+   * Save current export settings to localStorage
+   */
+  function saveExportSettings() {
+    try {
+      const settings = {
+        dataSources: {
+          includeTrips: elements.includeTrips?.checked,
+          includeMatchedTrips: elements.includeMatchedTrips?.checked,
+          includeUploadedTrips: elements.includeUploadedTrips?.checked,
+        },
+        dataFields: {
+          includeBasicInfo: elements.includeBasicInfo?.checked,
+          includeLocations: elements.includeLocations?.checked,
+          includeTelemetry: elements.includeTelemetry?.checked,
+          includeGeometry: elements.includeGeometry?.checked,
+          includeMeta: elements.includeMeta?.checked,
+          includeCustom: elements.includeCustom?.checked,
+        },
+        dateSettings: {
+          exportAllDates: elements.exportAllDates?.checked,
+        },
+        format: elements["adv-format"]?.value,
+      };
+
+      localStorage.setItem("advancedExportSettings", JSON.stringify(settings));
+    } catch (error) {
+      console.warn("Error saving export settings:", error);
+    }
+  }
+
+  /**
+   * Load saved export settings from localStorage
+   */
+  function loadSavedExportSettings() {
+    try {
+      const savedSettingsJSON = localStorage.getItem("advancedExportSettings");
+      if (!savedSettingsJSON) return;
+
+      const settings = JSON.parse(savedSettingsJSON);
+
+      // Apply data sources settings
+      if (settings.dataSources) {
+        if (
+          elements.includeTrips &&
+          settings.dataSources.includeTrips !== undefined
+        ) {
+          elements.includeTrips.checked = settings.dataSources.includeTrips;
+        }
+        if (
+          elements.includeMatchedTrips &&
+          settings.dataSources.includeMatchedTrips !== undefined
+        ) {
+          elements.includeMatchedTrips.checked =
+            settings.dataSources.includeMatchedTrips;
+        }
+        if (
+          elements.includeUploadedTrips &&
+          settings.dataSources.includeUploadedTrips !== undefined
+        ) {
+          elements.includeUploadedTrips.checked =
+            settings.dataSources.includeUploadedTrips;
+        }
+      }
+
+      // Apply data fields settings
+      if (settings.dataFields) {
+        if (
+          elements.includeBasicInfo &&
+          settings.dataFields.includeBasicInfo !== undefined
+        ) {
+          elements.includeBasicInfo.checked =
+            settings.dataFields.includeBasicInfo;
+        }
+        if (
+          elements.includeLocations &&
+          settings.dataFields.includeLocations !== undefined
+        ) {
+          elements.includeLocations.checked =
+            settings.dataFields.includeLocations;
+        }
+        if (
+          elements.includeTelemetry &&
+          settings.dataFields.includeTelemetry !== undefined
+        ) {
+          elements.includeTelemetry.checked =
+            settings.dataFields.includeTelemetry;
+        }
+        if (
+          elements.includeGeometry &&
+          settings.dataFields.includeGeometry !== undefined
+        ) {
+          elements.includeGeometry.checked =
+            settings.dataFields.includeGeometry;
+        }
+        if (
+          elements.includeMeta &&
+          settings.dataFields.includeMeta !== undefined
+        ) {
+          elements.includeMeta.checked = settings.dataFields.includeMeta;
+        }
+        if (
+          elements.includeCustom &&
+          settings.dataFields.includeCustom !== undefined
+        ) {
+          elements.includeCustom.checked = settings.dataFields.includeCustom;
+        }
+      }
+
+      // Apply date settings
+      if (
+        settings.dateSettings &&
+        elements.exportAllDates &&
+        settings.dateSettings.exportAllDates !== undefined
+      ) {
+        elements.exportAllDates.checked = settings.dateSettings.exportAllDates;
+
+        // Enable/disable date inputs based on setting
+        const startDateInput = document.getElementById("adv-start-date");
+        const endDateInput = document.getElementById("adv-end-date");
+        if (startDateInput && endDateInput) {
+          startDateInput.disabled = settings.dateSettings.exportAllDates;
+          endDateInput.disabled = settings.dateSettings.exportAllDates;
+        }
+      }
+
+      // Apply format setting
+      if (settings.format && elements["adv-format"]) {
+        elements["adv-format"].value = settings.format;
+        // Update UI based on format
+        updateUIBasedOnFormat(settings.format);
+      }
+    } catch (error) {
+      console.warn("Error loading saved export settings:", error);
     }
   }
 
@@ -416,6 +744,7 @@
   async function downloadFile(url, exportName, signal) {
     try {
       showNotification(`Requesting ${exportName} data...`, "info");
+      console.log(`Requesting export from: ${url}`);
 
       // Show loading indicator if available
       // Check for various loading indicator implementations
@@ -452,6 +781,8 @@
         try {
           // Try to get detailed error message
           const errorText = await response.text();
+          console.error(`Server error details: ${errorText}`);
+
           if (errorText) {
             try {
               const errorJson = JSON.parse(errorText);
@@ -461,7 +792,7 @@
             }
           }
         } catch (e) {
-          // Ignore error parsing error
+          console.error("Error parsing server error:", e);
         }
 
         throw new Error(errorMsg);

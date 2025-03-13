@@ -305,30 +305,117 @@ async def create_export_response(
     data: Union[List[Dict[str, Any]], Dict[str, Any]], fmt: str, filename_base: str
 ) -> StreamingResponse:
     """
-    Create a response with exported data in the requested format.
+    Create a formatted export response based on the requested format.
 
     Args:
-        data: Trip data or GeoJSON data
-        fmt: Format to export ('geojson', 'gpx', 'shapefile')
-        filename_base: Base filename without extension
+        data: Trip data (list of trips or GeoJSON data)
+        fmt: Format of the export ('geojson', 'gpx', 'shapefile', etc.)
+        filename_base: Base name for the export file
 
     Returns:
-        StreamingResponse: Formatted response with the exported content
+        StreamingResponse: Formatted response with appropriate headers and content
     """
+    fmt = fmt.lower()
+
     if fmt == "geojson":
         return await export_geojson_response(data, filename_base)
     elif fmt == "gpx":
         return await export_gpx_response(data, filename_base)
     elif fmt == "shapefile":
-        if isinstance(data, list):
-            # Convert list of trips to GeoJSON first
-            geojson_str = await create_geojson(data)
-            geojson_data = json.loads(geojson_str)
-        else:
-            # It's already GeoJSON data
+        # Handle shapefiles from GeoJSON
+        if isinstance(data, dict) and data.get("type") == "FeatureCollection":
             geojson_data = data
+        else:
+            # Convert trip data to GeoJSON first
+            geojson_string = await create_geojson(data)
+            geojson_data = json.loads(geojson_string)
+
         return await export_shapefile_response(geojson_data, filename_base)
+    elif fmt == "json":
+        # Return JSON directly
+        if isinstance(data, list):
+            content = json.dumps(data, default=default_serializer)
+        else:
+            content = json.dumps(data, default=default_serializer)
+
+        return StreamingResponse(
+            io.BytesIO(content.encode()),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename_base}.json"'
+            },
+        )
+    elif fmt == "csv":
+        # Convert trips to CSV
+        from io import StringIO
+        import csv
+
+        output = StringIO()
+
+        # Ensure we have a list of trips
+        if not isinstance(data, list):
+            if isinstance(data, dict) and data.get("type") == "FeatureCollection":
+                # Extract trip data from GeoJSON
+                trips = []
+                for feature in data.get("features", []):
+                    if feature.get("properties"):
+                        trips.append(feature["properties"])
+                data = trips
+            else:
+                data = [data]
+
+        if not data:
+            output.write("No data to export")
+        else:
+            # Collect all fields
+            fields = set()
+            for trip in data:
+                fields.update(trip.keys())
+
+            # Sort fields for consistent output
+            fieldnames = sorted(fields)
+
+            # Move important fields to the beginning for better readability
+            priority_fields = [
+                "_id",
+                "transactionId",
+                "trip_id",
+                "trip_type",
+                "startTime",
+                "endTime",
+            ]
+            for field in reversed(priority_fields):
+                if field in fieldnames:
+                    fieldnames.remove(field)
+                    fieldnames.insert(0, field)
+
+            # Create CSV writer and write data
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+
+            for trip in data:
+                # Handle complex field types like objects and arrays
+                row = {}
+                for key, value in trip.items():
+                    if key in ["gps", "geometry", "route"]:
+                        row[key] = "[Geometry data omitted]"
+                    elif isinstance(value, (dict, list)):
+                        row[key] = json.dumps(value, default=default_serializer)
+                    elif isinstance(value, datetime):
+                        row[key] = value.isoformat()
+                    else:
+                        row[key] = value
+                writer.writerow(row)
+
+        return StreamingResponse(
+            StringIO(output.getvalue()),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename_base}.csv"'
+            },
+        )
     else:
+        # Invalid format
         raise ValueError(f"Unsupported export format: {fmt}")
 
 

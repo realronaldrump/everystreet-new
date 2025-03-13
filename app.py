@@ -50,6 +50,7 @@ from celery_app import app as celery_app
 
 from db import (
     db_manager,
+    DatabaseManager,
     SerializationHelper,
     ensure_street_coverage_indexes,
     init_task_history_collection,
@@ -69,6 +70,7 @@ from db import (
 
 from export_helpers import (
     create_export_response,
+    default_serializer,
     export_geojson_response,
     export_gpx_response,
     extract_date_range_string,
@@ -3592,6 +3594,326 @@ def collect_street_type_stats(features):
     # Sort by total length descending
     result.sort(key=lambda x: x["length"], reverse=True)
     return result
+
+
+@app.get("/api/export/advanced")
+async def export_advanced(request: Request):
+    """
+    Advanced configurable export for trips data.
+
+    Allows fine-grained control over data sources, fields to include,
+    date range, and export format.
+    """
+    # Get export format
+    fmt = request.query_params.get("format", "json").lower()
+
+    # Get data source preferences
+    include_trips = request.query_params.get("include_trips", "true").lower() == "true"
+    include_matched_trips = (
+        request.query_params.get("include_matched_trips", "true").lower() == "true"
+    )
+    include_uploaded_trips = (
+        request.query_params.get("include_uploaded_trips", "true").lower() == "true"
+    )
+
+    # Get data field preferences
+    include_basic_info = (
+        request.query_params.get("include_basic_info", "true").lower() == "true"
+    )
+    include_locations = (
+        request.query_params.get("include_locations", "true").lower() == "true"
+    )
+    include_telemetry = (
+        request.query_params.get("include_telemetry", "true").lower() == "true"
+    )
+    include_geometry = (
+        request.query_params.get("include_geometry", "true").lower() == "true"
+    )
+    include_meta = request.query_params.get("include_meta", "true").lower() == "true"
+    include_custom = (
+        request.query_params.get("include_custom", "true").lower() == "true"
+    )
+
+    # Date filtering
+    start_date_str = request.query_params.get("start_date")
+    end_date_str = request.query_params.get("end_date")
+
+    # Prepare date filter if dates provided
+    date_filter = None
+    if start_date_str and end_date_str:
+        start_date = parse_query_date(start_date_str)
+        end_date = parse_query_date(end_date_str, end_of_day=True)
+        if start_date and end_date:
+            date_filter = {"startTime": {"$gte": start_date, "$lte": end_date}}
+
+    # Fetch trips based on selected data sources
+    trips = []
+
+    # Database access
+    db_manager = DatabaseManager()
+
+    try:
+        # Get trips from regular trips collection
+        if include_trips:
+            trips_collection = db_manager.get_collection("trips")
+            query = date_filter or {}
+            regular_trips = await find_with_retry(trips_collection, query)
+
+            # Process each trip based on field preferences
+            for trip in regular_trips:
+                processed_trip = await process_trip_for_export(
+                    trip,
+                    include_basic_info,
+                    include_locations,
+                    include_telemetry,
+                    include_geometry,
+                    include_meta,
+                    include_custom,
+                )
+                if processed_trip:
+                    processed_trip["trip_type"] = "regular"
+                    trips.append(processed_trip)
+
+        # Get trips from map-matched trips collection
+        if include_matched_trips:
+            matched_trips_collection = db_manager.get_collection("matched_trips")
+            query = date_filter or {}
+            matched_trips = await find_with_retry(matched_trips_collection, query)
+
+            # Process each matched trip based on field preferences
+            for trip in matched_trips:
+                processed_trip = await process_trip_for_export(
+                    trip,
+                    include_basic_info,
+                    include_locations,
+                    include_telemetry,
+                    include_geometry,
+                    include_meta,
+                    include_custom,
+                )
+                if processed_trip:
+                    processed_trip["trip_type"] = "map_matched"
+                    trips.append(processed_trip)
+
+        # Get trips from uploaded trips collection
+        if include_uploaded_trips:
+            uploaded_trips_collection = db_manager.get_collection("uploaded_trips")
+            query = date_filter or {}
+            uploaded_trips = await find_with_retry(uploaded_trips_collection, query)
+
+            # Process each uploaded trip based on field preferences
+            for trip in uploaded_trips:
+                processed_trip = await process_trip_for_export(
+                    trip,
+                    include_basic_info,
+                    include_locations,
+                    include_telemetry,
+                    include_geometry,
+                    include_meta,
+                    include_custom,
+                )
+                if processed_trip:
+                    processed_trip["trip_type"] = "uploaded"
+                    trips.append(processed_trip)
+
+        # Format timestamp for filename
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename_base = f"trips_export_{current_time}"
+
+        # If CSV format is requested, build the CSV data
+        if fmt == "csv":
+            csv_data = await create_csv_export(trips)
+            return StreamingResponse(
+                io.StringIO(csv_data),
+                media_type="text/csv",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.csv"'
+                },
+            )
+
+        # If JSON format is requested, return JSON data directly
+        if fmt == "json":
+            return JSONResponse(
+                content=json.loads(json.dumps(trips, default=default_serializer))
+            )
+
+        # For other formats (GeoJSON, GPX, Shapefile), use the existing export response creator
+        try:
+            return await create_export_response(trips, fmt, filename_base)
+        except ValueError as e:
+            logger.error("Export error: %s", e)
+            raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception as e:
+        logger.error("Error in advanced export: %s", str(e))
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+
+async def process_trip_for_export(
+    trip: Dict[str, Any],
+    include_basic_info: bool = True,
+    include_locations: bool = True,
+    include_telemetry: bool = True,
+    include_geometry: bool = True,
+    include_meta: bool = True,
+    include_custom: bool = True,
+) -> Dict[str, Any]:
+    """
+    Process a trip dictionary based on field preferences for export.
+
+    Args:
+        trip: Original trip dictionary
+        include_*: Booleans indicating which fields to include
+
+    Returns:
+        Dict: Processed trip with only the requested fields
+    """
+    result = {}
+
+    # Define field mappings for each category
+    basic_info_fields = [
+        "_id",
+        "transactionId",
+        "trip_id",
+        "startTime",
+        "endTime",
+        "duration",
+        "durationInMinutes",
+        "completed",
+        "active",
+    ]
+
+    location_fields = [
+        "startLocation",
+        "destination",
+        "startAddress",
+        "endAddress",
+        "startPoint",
+        "endPoint",
+        "state",
+        "city",
+    ]
+
+    telemetry_fields = [
+        "distance",
+        "distanceInMiles",
+        "startOdometer",
+        "endOdometer",
+        "maxSpeed",
+        "averageSpeed",
+        "idleTime",
+        "fuelConsumed",
+        "fuelEconomy",
+        "speedingEvents",
+    ]
+
+    geometry_fields = ["gps", "path", "simplified_path", "route", "geometry"]
+
+    meta_fields = [
+        "deviceId",
+        "imei",
+        "vehicleId",
+        "source",
+        "processingStatus",
+        "processingTime",
+        "mapMatchStatus",
+        "confidence",
+        "insertedAt",
+        "updatedAt",
+    ]
+
+    custom_fields = ["notes", "tags", "category", "purpose", "customFields"]
+
+    # Copy fields according to preferences
+    all_fields = []
+    if include_basic_info:
+        all_fields.extend(basic_info_fields)
+    if include_locations:
+        all_fields.extend(location_fields)
+    if include_telemetry:
+        all_fields.extend(telemetry_fields)
+    if include_geometry:
+        all_fields.extend(geometry_fields)
+    if include_meta:
+        all_fields.extend(meta_fields)
+    if include_custom:
+        all_fields.extend(custom_fields)
+
+    # Copy fields from original trip
+    for field in all_fields:
+        if field in trip:
+            result[field] = trip[field]
+
+    # Always include _id for reference
+    if "_id" not in result and "_id" in trip:
+        result["_id"] = trip["_id"]
+
+    return result
+
+
+async def create_csv_export(trips: List[Dict[str, Any]]) -> str:
+    """
+    Convert trip dictionaries to CSV format.
+
+    Args:
+        trips: List of trip dictionaries
+
+    Returns:
+        str: CSV data as a string
+    """
+    if not trips:
+        return "No data to export"
+
+    import csv
+    from io import StringIO
+
+    # Create CSV buffer
+    output = StringIO()
+
+    # Collect all possible field names from all trips
+    fieldnames = set()
+    for trip in trips:
+        fieldnames.update(trip.keys())
+
+    # Sort fields for consistent order
+    fieldnames = sorted(fieldnames)
+
+    # Move important fields to the beginning for better readability
+    priority_fields = [
+        "_id",
+        "transactionId",
+        "trip_id",
+        "trip_type",
+        "startTime",
+        "endTime",
+    ]
+    for field in reversed(priority_fields):
+        if field in fieldnames:
+            fieldnames.remove(field)
+            fieldnames.insert(0, field)
+
+    # Create CSV writer
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+
+    # Write each trip as a row, handling nested objects
+    for trip in trips:
+        flat_trip = {}
+        for key, value in trip.items():
+            # Skip GPS and geometry fields as they don't work well in CSV
+            if key in ["gps", "geometry", "path", "simplified_path", "route"]:
+                flat_trip[key] = "[Geometry data not included in CSV format]"
+            # Handle nested objects by converting to JSON string
+            elif isinstance(value, (dict, list)):
+                flat_trip[key] = json.dumps(value, default=default_serializer)
+            # Handle dates
+            elif isinstance(value, datetime):
+                flat_trip[key] = value.isoformat()
+            else:
+                flat_trip[key] = value
+        writer.writerow(flat_trip)
+
+    return output.getvalue()
 
 
 if __name__ == "__main__":
