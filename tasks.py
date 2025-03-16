@@ -10,10 +10,11 @@ import asyncio
 import os
 import uuid
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
-from typing import Dict, Any, cast, Optional, Callable, Awaitable, TypeVar
+from typing import Dict, Any, cast, Optional, Callable, Awaitable, TypeVar, List
 
 # Try to import psutil for memory monitoring, but make it optional
 try:
@@ -164,10 +165,18 @@ class AsyncTask(Task):
             if thread_id in self._event_loops:
                 loop = self._event_loops[thread_id]
                 # Check if the loop is still usable
-                if loop.is_running() or not loop.is_closed():
+                if not loop.is_closed():
                     task_id = self.request.id if hasattr(self, "request") else "unknown"
                     self._loop_owners[thread_id] = task_id
                     return loop
+                else:
+                    # The loop is closed, remove it so we create a new one
+                    logger.info(
+                        f"Found closed event loop for thread {thread_id}, will create a new one"
+                    )
+                    del self._event_loops[thread_id]
+                    if thread_id in self._loop_owners:
+                        del self._loop_owners[thread_id]
 
             # Create a new event loop
             try:
@@ -184,47 +193,60 @@ class AsyncTask(Task):
                 logger.error(f"Error creating event loop: {e}")
                 raise
 
-    def run_async(self, coro: Awaitable[T]) -> T:
+    def run_async(self, coro_func: Callable[[], Awaitable[T]]) -> T:
         """
-        Run an async coroutine from a Celery task.
-        Properly handles event loop lifecycle.
+        Run an async coroutine function from a Celery task.
+        Accepts a function that returns a coroutine, not the coroutine itself.
 
         Args:
-            coro: The coroutine to run
+            coro_func: A function that returns a coroutine when called
 
         Returns:
             The result of the coroutine
         """
         # Get the event loop for the current thread
-        try:
-            loop = self.get_event_loop()
-
-            # Run the coroutine and get the result
-            if loop.is_running():
-                # If the loop is already running (nested call), use run_coroutine_threadsafe
-                future = asyncio.run_coroutine_threadsafe(coro, loop)
-                return future.result()
-            else:
-                # Otherwise, use run_until_complete
-                return loop.run_until_complete(coro)
-        except RuntimeError as e:
-            if "Event loop is closed" in str(e):
-                # The loop was closed - create a new one and retry
-                logger.warning("Event loop was closed, creating a new one and retrying")
-                thread_id = threading.get_ident()
-                with self._event_loops_lock:
-                    if thread_id in self._event_loops:
-                        del self._event_loops[thread_id]
-
-                # Get a new loop and retry
+        for attempt in range(3):  # Try up to 3 times if we encounter event loop issues
+            try:
                 loop = self.get_event_loop()
-                return loop.run_until_complete(coro)
-            else:
-                # Some other RuntimeError, re-raise
+
+                # Create a fresh coroutine by calling the function
+                coro = coro_func()
+
+                # Run the coroutine and get the result
+                if loop.is_running():
+                    # If the loop is already running (nested call), use run_coroutine_threadsafe
+                    future = asyncio.run_coroutine_threadsafe(coro, loop)
+                    return future.result()
+                else:
+                    # Otherwise, use run_until_complete
+                    return loop.run_until_complete(coro)
+            except RuntimeError as e:
+                if (
+                    "Event loop is closed" in str(e) and attempt < 2
+                ):  # Don't try on last attempt
+                    # The loop was closed - create a new one and retry
+                    logger.warning(
+                        f"Event loop was closed (attempt {attempt+1}/3), creating a new one and retrying"
+                    )
+                    thread_id = threading.get_ident()
+                    with self._event_loops_lock:
+                        if thread_id in self._event_loops:
+                            del self._event_loops[thread_id]
+                        if thread_id in self._loop_owners:
+                            del self._loop_owners[thread_id]
+
+                    # Sleep briefly to allow resources to be cleaned up
+                    time.sleep(0.1)
+                    continue  # Try again with a new loop
+                else:
+                    # Some other RuntimeError or we're on our last attempt, re-raise
+                    logger.error(
+                        f"RuntimeError in run_async (attempt {attempt+1}/3): {e}"
+                    )
+                    raise
+            except Exception as e:
+                logger.error(f"Error in run_async (attempt {attempt+1}/3): {e}")
                 raise
-        except Exception as e:
-            logger.error(f"Error in run_async: {e}")
-            raise
 
     def __del__(self):
         """
@@ -737,7 +759,8 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
             raise self.retry(exc=e, countdown=60)
 
     # Use the custom run_async method from AsyncTask
-    return cast(AsyncTask, self).run_async(_execute())
+    # Pass a lambda that returns a fresh coroutine each time it's called
+    return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
 @shared_task(
@@ -818,7 +841,8 @@ def preprocess_streets(self) -> Dict[str, Any]:
         }
 
     # Use the custom run_async method from AsyncTask
-    return cast(AsyncTask, self).run_async(_execute())
+    # Pass a lambda that returns a fresh coroutine each time it's called
+    return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
 @shared_task(
@@ -870,7 +894,8 @@ def update_coverage_for_all_locations_task(self) -> Dict[str, Any]:
             raise self.retry(exc=e, countdown=300)
 
     # Use the custom run_async method from AsyncTask
-    return cast(AsyncTask, self).run_async(_execute())
+    # Pass a lambda that returns a fresh coroutine each time it's called
+    return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
 @shared_task(
@@ -911,7 +936,8 @@ def cleanup_stale_trips_task(self) -> Dict[str, Any]:
         }
 
     # Use the custom run_async method from AsyncTask
-    return cast(AsyncTask, self).run_async(_execute())
+    # Pass a lambda that returns a fresh coroutine each time it's called
+    return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
 @shared_task(
@@ -987,7 +1013,8 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
         }
 
     # Use the custom run_async method from AsyncTask
-    return cast(AsyncTask, self).run_async(_execute())
+    # Pass a lambda that returns a fresh coroutine each time it's called
+    return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
 @shared_task(
@@ -1081,7 +1108,8 @@ def update_geocoding(self) -> Dict[str, Any]:
         }
 
     # Use the custom run_async method from AsyncTask
-    return cast(AsyncTask, self).run_async(_execute())
+    # Pass a lambda that returns a fresh coroutine each time it's called
+    return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
 @shared_task(
@@ -1172,7 +1200,8 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
         }
 
     # Use the custom run_async method from AsyncTask
-    return cast(AsyncTask, self).run_async(_execute())
+    # Pass a lambda that returns a fresh coroutine each time it's called
+    return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
 @shared_task(
@@ -1264,7 +1293,8 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
         }
 
     # Use the custom run_async method from AsyncTask
-    return cast(AsyncTask, self).run_async(_execute())
+    # Pass a lambda that returns a fresh coroutine each time it's called
+    return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
 # Task execution helper
@@ -1351,8 +1381,8 @@ def execute_task(self, task_name: str, is_manual: bool = False) -> Dict[str, Any
                 "message": f"Error executing task: {str(e)}",
             }
 
-    # Use the custom run_async method
-    return cast(AsyncTask, self).run_async(_execute())
+    # Use the custom run_async method - pass lambda to get a fresh coroutine
+    return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
 # API functions for app.py to interact with Celery
