@@ -147,6 +147,13 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
     Args:
         data: The webhook payload
     """
+    global live_trips_collection
+
+    # Check if live_trips_collection is initialized
+    if live_trips_collection is None:
+        logger.error("Live trips collection not initialized")
+        return
+
     transaction_id = data.get("transactionId")
     if not transaction_id:
         logger.error("Missing transactionId in tripStart event")
@@ -217,6 +224,13 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
     """
     Process a tripData event from the Bouncie webhook using the TripProcessor
     """
+    global live_trips_collection
+
+    # Check if live_trips_collection is initialized
+    if live_trips_collection is None:
+        logger.error("Live trips collection not initialized")
+        return
+
     transaction_id = data.get("transactionId")
     if not transaction_id:
         logger.error("Missing transactionId in tripData event")
@@ -228,9 +242,12 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
     )
     if not trip_doc:
         # Check if a tripStart event was missed by looking for this transaction ID in archived trips
-        archived_trip = await archived_live_trips_collection.find_one(
-            {"transactionId": transaction_id}
-        )
+        archived_trip = None
+        if archived_live_trips_collection is not None:
+            archived_trip = await archived_live_trips_collection.find_one(
+                {"transactionId": transaction_id}
+            )
+
         if archived_trip:
             logger.warning(
                 f"Received data for archived trip: {transaction_id}, ignoring"
@@ -395,6 +412,13 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     Args:
         data: The webhook payload
     """
+    global live_trips_collection, archived_live_trips_collection
+
+    # Check if collections are initialized
+    if live_trips_collection is None or archived_live_trips_collection is None:
+        logger.error("Live trip collections not initialized")
+        return
+
     transaction_id = data.get("transactionId")
     if not transaction_id:
         logger.error("Missing transactionId in tripEnd event")
@@ -498,6 +522,13 @@ async def get_active_trip(since_sequence: Optional[int] = None) -> Dict[str, Any
     Returns:
         Dict: The active trip data, serialized for JSON response, or None if no update
     """
+    global live_trips_collection
+
+    # Check if live_trips_collection is initialized
+    if live_trips_collection is None:
+        logger.error("Live trips collection not initialized")
+        return None
+
     query = {"status": "active"}
 
     # If a sequence number is provided, only return newer data
@@ -545,6 +576,13 @@ async def cleanup_stale_trips(
     Returns:
         Dict: Containing counts of stale trips moved and old archived trips removed
     """
+    global live_trips_collection, archived_live_trips_collection
+
+    # Check if collections are initialized
+    if live_trips_collection is None or archived_live_trips_collection is None:
+        logger.error("Live trip collections not initialized")
+        return {"stale_trips_archived": 0, "old_archives_removed": 0}
+
     now = datetime.now(timezone.utc)
     stale_threshold = now - timedelta(minutes=stale_minutes)
     archive_threshold = now - timedelta(days=max_archive_age_days)
@@ -624,6 +662,17 @@ async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
     Returns:
         Dict: Contains status, has_update flag, and trip data if available
     """
+    global live_trips_collection
+
+    # Check if live_trips_collection is initialized
+    if live_trips_collection is None:
+        logger.error("Live trips collection not initialized")
+        return {
+            "status": "error",
+            "has_update": False,
+            "message": "Database not initialized",
+        }
+
     try:
         logger.info("Getting trip updates since sequence: %d", last_sequence)
 

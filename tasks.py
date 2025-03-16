@@ -9,10 +9,11 @@ and FastAPI's asynchronous code patterns.
 import asyncio
 import os
 import uuid
+import threading
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
-from typing import Dict, Any, cast
+from typing import Dict, Any, cast, Optional, Callable, Awaitable, TypeVar
 
 # Try to import psutil for memory monitoring, but make it optional
 try:
@@ -51,6 +52,9 @@ logger = get_task_logger(__name__)
 # Memory thresholds for task management
 MEMORY_WARN_THRESHOLD = 70.0
 MEMORY_CRITICAL_THRESHOLD = 85.0
+
+# Type variable for async function return
+T = TypeVar("T")
 
 
 # Task priorities for UI display
@@ -139,40 +143,108 @@ db_manager = DatabaseManager()
 
 # Custom AsyncTask base class for better async handling
 class AsyncTask(Task):
-    """Base class for Celery tasks that need to run async code."""
+    """
+    Base class for Celery tasks that need to run async code.
+    Uses thread-local event loops that are kept alive between tasks.
+    """
 
+    _event_loops_lock = threading.RLock()
     _event_loops: Dict[int, asyncio.AbstractEventLoop] = {}
+    _loop_owners: Dict[int, str] = {}  # track which task is using which loop
 
     def get_event_loop(self) -> asyncio.AbstractEventLoop:
-        """Get an isolated event loop for this task."""
-        import threading
-
+        """
+        Get an event loop for the current thread.
+        Creates a new one if needed or reuses an existing one.
+        """
         thread_id = threading.get_ident()
 
-        if thread_id not in self._event_loops:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            self._event_loops[thread_id] = loop
+        with self._event_loops_lock:
+            # Check if we already have a loop for this thread
+            if thread_id in self._event_loops:
+                loop = self._event_loops[thread_id]
+                # Check if the loop is still usable
+                if loop.is_running() or not loop.is_closed():
+                    task_id = self.request.id if hasattr(self, "request") else "unknown"
+                    self._loop_owners[thread_id] = task_id
+                    return loop
 
-        return self._event_loops[thread_id]
+            # Create a new event loop
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                self._event_loops[thread_id] = loop
+                task_id = self.request.id if hasattr(self, "request") else "unknown"
+                self._loop_owners[thread_id] = task_id
+                logger.info(
+                    f"Created new event loop for thread {thread_id} (task: {task_id})"
+                )
+                return loop
+            except Exception as e:
+                logger.error(f"Error creating event loop: {e}")
+                raise
 
-    def run_async(self, coro):
-        """Run an async coroutine from a Celery task."""
-        loop = self.get_event_loop()
-        return loop.run_until_complete(coro)
+    def run_async(self, coro: Awaitable[T]) -> T:
+        """
+        Run an async coroutine from a Celery task.
+        Properly handles event loop lifecycle.
+
+        Args:
+            coro: The coroutine to run
+
+        Returns:
+            The result of the coroutine
+        """
+        # Get the event loop for the current thread
+        try:
+            loop = self.get_event_loop()
+
+            # Run the coroutine and get the result
+            if loop.is_running():
+                # If the loop is already running (nested call), use run_coroutine_threadsafe
+                future = asyncio.run_coroutine_threadsafe(coro, loop)
+                return future.result()
+            else:
+                # Otherwise, use run_until_complete
+                return loop.run_until_complete(coro)
+        except RuntimeError as e:
+            if "Event loop is closed" in str(e):
+                # The loop was closed - create a new one and retry
+                logger.warning("Event loop was closed, creating a new one and retrying")
+                thread_id = threading.get_ident()
+                with self._event_loops_lock:
+                    if thread_id in self._event_loops:
+                        del self._event_loops[thread_id]
+
+                # Get a new loop and retry
+                loop = self.get_event_loop()
+                return loop.run_until_complete(coro)
+            else:
+                # Some other RuntimeError, re-raise
+                raise
+        except Exception as e:
+            logger.error(f"Error in run_async: {e}")
+            raise
+
+    def __del__(self):
+        """
+        Cleanup when the task object is garbage collected.
+        We don't close loops here to avoid the "Event loop is closed" errors.
+        """
+        pass
 
 
-# Task hooks for tracking task execution in MongoDB
+# Signal to create an event loop before a task runs
 @task_prerun.connect
 def task_started(task_id=None, task=None, *args, **kwargs):
-    """Record when a task starts running."""
+    """Record when a task starts running and initialize any necessary resources."""
     if not task:
         return
 
     task_name = task.name.split(".")[-1] if task and task.name else "unknown"
 
+    # Create a new event loop for this signal handler
     try:
-        # Create a new event loop for this task signal
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
@@ -186,22 +258,34 @@ def task_started(task_id=None, task=None, *args, **kwargs):
 
         # Store task start information in MongoDB
         async def update_records():
-            await task_history_collection.update_one(
-                {"_id": str(task_id)}, {"$set": update_data}, upsert=True
-            )
+            try:
+                await task_history_collection.update_one(
+                    {"_id": str(task_id)}, {"$set": update_data}, upsert=True
+                )
 
-            # Update task config status
-            await update_task_config(
-                task_name,
-                {
-                    "status": TaskStatus.RUNNING.value,
-                    "start_time": datetime.now(timezone.utc),
-                    "last_updated": datetime.now(timezone.utc),
-                },
-            )
+                # Update task config status
+                await update_task_config(
+                    task_name,
+                    {
+                        "status": TaskStatus.RUNNING.value,
+                        "start_time": datetime.now(timezone.utc),
+                        "last_updated": datetime.now(timezone.utc),
+                    },
+                )
+            except Exception as e:
+                logger.error(f"Error updating task history: {str(e)}")
 
-        loop.run_until_complete(update_records())
-        loop.close()
+        # Run the update
+        try:
+            loop.run_until_complete(update_records())
+        except Exception as e:
+            logger.error(f"Error recording task start: {str(e)}")
+        finally:
+            # Close this temporary loop when done - it's not the main task loop
+            try:
+                loop.close()
+            except Exception:
+                pass
 
         logger.info(f"Task {task_name} ({task_id}) started")
     except Exception as e:
@@ -217,69 +301,83 @@ def task_finished(task_id=None, task=None, retval=None, state=None, *args, **kwa
     task_name = task.name.split(".")[-1] if task and task.name else "unknown"
 
     try:
-        # Create a new event loop for this task signal
+        # Create a temporary event loop for this signal handler
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
         async def update_records():
-            # Get task info from MongoDB
-            task_info = await task_history_collection.find_one({"_id": str(task_id)})
+            try:
+                # Get task info from MongoDB
+                task_info = await task_history_collection.find_one(
+                    {"_id": str(task_id)}
+                )
 
-            start_time = task_info.get("start_time") if task_info else None
-            runtime = None
-            if start_time:
-                end_time = datetime.now(timezone.utc)
-                runtime = (
-                    end_time - start_time
-                ).total_seconds() * 1000  # Convert to ms
+                start_time = task_info.get("start_time") if task_info else None
+                runtime = None
+                if start_time:
+                    end_time = datetime.now(timezone.utc)
+                    runtime = (
+                        end_time - start_time
+                    ).total_seconds() * 1000  # Convert to ms
 
-            # Update task history
-            status = (
-                TaskStatus.COMPLETED.value
-                if state == "SUCCESS"
-                else TaskStatus.FAILED.value
-            )
+                # Update task history
+                status = (
+                    TaskStatus.COMPLETED.value
+                    if state == "SUCCESS"
+                    else TaskStatus.FAILED.value
+                )
 
-            await task_history_collection.update_one(
-                {"_id": str(task_id)},
-                {
-                    "$set": {
+                await task_history_collection.update_one(
+                    {"_id": str(task_id)},
+                    {
+                        "$set": {
+                            "status": status,
+                            "end_time": datetime.now(timezone.utc),
+                            "runtime": runtime,
+                            "result": state == "SUCCESS",
+                        }
+                    },
+                    upsert=True,
+                )
+
+                # Calculate next run time based on schedule
+                next_run = None
+                # Find the task entry in the beat schedule
+                for schedule_name, schedule_entry in app.conf.beat_schedule.items():
+                    if (
+                        schedule_name.startswith(task_name)
+                        or schedule_entry.get("task") == f"tasks.{task_name}"
+                    ):
+                        schedule = schedule_entry.get("schedule")
+                        if hasattr(schedule, "seconds"):  # timedelta object
+                            next_run = datetime.now(timezone.utc) + schedule
+                            break
+
+                # Update task config
+                await update_task_config(
+                    task_name,
+                    {
                         "status": status,
+                        "last_run": datetime.now(timezone.utc),
+                        "next_run": next_run,
                         "end_time": datetime.now(timezone.utc),
-                        "runtime": runtime,
-                        "result": state == "SUCCESS",
-                    }
-                },
-                upsert=True,
-            )
+                        "last_updated": datetime.now(timezone.utc),
+                    },
+                )
+            except Exception as e:
+                logger.error(f"Error updating task records: {str(e)}")
 
-            # Calculate next run time based on schedule
-            next_run = None
-            # Find the task entry in the beat schedule
-            for schedule_name, schedule_entry in app.conf.beat_schedule.items():
-                if (
-                    schedule_name.startswith(task_name)
-                    or schedule_entry.get("task") == f"tasks.{task_name}"
-                ):
-                    schedule = schedule_entry.get("schedule")
-                    if hasattr(schedule, "seconds"):  # timedelta object
-                        next_run = datetime.now(timezone.utc) + schedule
-                        break
-
-            # Update task config
-            await update_task_config(
-                task_name,
-                {
-                    "status": status,
-                    "last_run": datetime.now(timezone.utc),
-                    "next_run": next_run,
-                    "end_time": datetime.now(timezone.utc),
-                    "last_updated": datetime.now(timezone.utc),
-                },
-            )
-
-        loop.run_until_complete(update_records())
-        loop.close()
+        # Run the update
+        try:
+            loop.run_until_complete(update_records())
+        except Exception as e:
+            logger.error(f"Error recording task completion: {str(e)}")
+        finally:
+            # Close this temporary loop
+            try:
+                loop.close()
+            except Exception:
+                pass
 
         logger.info(f"Task {task_name} ({task_id}) finished with status {state}")
 
@@ -296,39 +394,51 @@ def task_failed(task_id=None, task=None, exception=None, *args, **kwargs):
     task_name = task.name.split(".")[-1] if task.name else "unknown"
 
     try:
-        # Create a new event loop for this task signal
+        # Create a temporary event loop for this signal handler
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
         error_msg = str(exception) if exception else "Unknown error"
 
         async def update_records():
-            # Update task history with error
-            await task_history_collection.update_one(
-                {"_id": str(task_id)},
-                {
-                    "$set": {
+            try:
+                # Update task history with error
+                await task_history_collection.update_one(
+                    {"_id": str(task_id)},
+                    {
+                        "$set": {
+                            "status": TaskStatus.FAILED.value,
+                            "error": error_msg,
+                            "end_time": datetime.now(timezone.utc),
+                        }
+                    },
+                    upsert=True,
+                )
+
+                # Update task config
+                await update_task_config(
+                    task_name,
+                    {
                         "status": TaskStatus.FAILED.value,
-                        "error": error_msg,
+                        "last_error": error_msg,
                         "end_time": datetime.now(timezone.utc),
-                    }
-                },
-                upsert=True,
-            )
+                        "last_updated": datetime.now(timezone.utc),
+                    },
+                )
+            except Exception as e:
+                logger.error(f"Error updating failure records: {str(e)}")
 
-            # Update task config
-            await update_task_config(
-                task_name,
-                {
-                    "status": TaskStatus.FAILED.value,
-                    "last_error": error_msg,
-                    "end_time": datetime.now(timezone.utc),
-                    "last_updated": datetime.now(timezone.utc),
-                },
-            )
-
-        loop.run_until_complete(update_records())
-        loop.close()
+        # Run the update
+        try:
+            loop.run_until_complete(update_records())
+        except Exception as e:
+            logger.error(f"Error recording task failure: {str(e)}")
+        finally:
+            # Close this temporary loop
+            try:
+                loop.close()
+            except Exception:
+                pass
 
         logger.error(f"Task {task_name} ({task_id}) failed: {error_msg}")
 
@@ -530,6 +640,12 @@ def async_task_wrapper(func):
 
         try:
             logger.info(f"Starting async task {task_name}")
+            # Add additional context for easier debugging
+            memory_info = await check_memory_usage()
+            logger.info(
+                f"Memory usage: {memory_info.get('memory_mb', 0):.2f} MB ({memory_info.get('memory_percent', 0):.2f}% of system memory)"
+            )
+
             result = await func(*args, **kwargs)
 
             # Log successful completion
