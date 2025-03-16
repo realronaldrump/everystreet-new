@@ -433,6 +433,42 @@ class TripProcessor:
             logger.error(f"Error finding place at point: {str(e)}")
             return None
 
+    def _extract_coords_from_geometry(self, geometry, fallback_coords, transaction_id):
+        """Extract a simple [lng, lat] point from various geometry types."""
+        if not geometry or "coordinates" not in geometry:
+            return fallback_coords
+
+        geom_type = geometry.get("type", "Point")
+        coords = geometry["coordinates"]
+
+        if geom_type == "Point":
+            # Point format: [lng, lat]
+            if isinstance(coords, list) and len(coords) >= 2:
+                return coords
+        elif geom_type == "Polygon":
+            # Polygon format: [[[lng, lat], [lng, lat], ...]]
+            # Use the first point of the first ring as a representative point
+            if (
+                isinstance(coords, list)
+                and coords
+                and isinstance(coords[0], list)
+                and coords[0]
+                and isinstance(coords[0][0], list)
+                and len(coords[0][0]) >= 2
+            ):
+                return coords[0][0]  # First point of the first ring
+            else:
+                logger.warning(
+                    f"Invalid polygon format in geometry for trip {transaction_id}: {coords}"
+                )
+        else:
+            logger.warning(
+                f"Unsupported geometry type '{geom_type}' in place for trip {transaction_id}"
+            )
+
+        # Default fallback for unsupported types or invalid structures
+        return fallback_coords
+
     async def geocode(self) -> bool:
         """
         Perform geocoding for trip start and end points.
@@ -512,20 +548,14 @@ class TripProcessor:
                                 )
 
                     # Set coordinates
-                    if (
-                        "geometry" in start_place
-                        and "coordinates" in start_place["geometry"]
-                    ):
-                        coords = start_place["geometry"]["coordinates"]
-                        if len(coords) >= 2:
-                            structured_start["coordinates"]["lng"] = coords[0]
-                            structured_start["coordinates"]["lat"] = coords[1]
-                        else:
-                            logger.warning(
-                                f"Invalid coordinates in start_place geometry for trip {transaction_id}: {coords}"
-                            )
-                            structured_start["coordinates"]["lng"] = start_coord[0]
-                            structured_start["coordinates"]["lat"] = start_coord[1]
+                    if "geometry" in start_place:
+                        extracted_coords = self._extract_coords_from_geometry(
+                            start_place["geometry"],
+                            [start_coord[0], start_coord[1]],
+                            transaction_id,
+                        )
+                        structured_start["coordinates"]["lng"] = extracted_coords[0]
+                        structured_start["coordinates"]["lat"] = extracted_coords[1]
                     else:
                         structured_start["coordinates"]["lng"] = start_coord[0]
                         structured_start["coordinates"]["lat"] = start_coord[1]
@@ -604,20 +634,14 @@ class TripProcessor:
                                 )
 
                     # Set coordinates
-                    if (
-                        "geometry" in end_place
-                        and "coordinates" in end_place["geometry"]
-                    ):
-                        coords = end_place["geometry"]["coordinates"]
-                        if len(coords) >= 2:
-                            structured_dest["coordinates"]["lng"] = coords[0]
-                            structured_dest["coordinates"]["lat"] = coords[1]
-                        else:
-                            logger.warning(
-                                f"Invalid coordinates in end_place geometry for trip {transaction_id}: {coords}"
-                            )
-                            structured_dest["coordinates"]["lng"] = end_coord[0]
-                            structured_dest["coordinates"]["lat"] = end_coord[1]
+                    if "geometry" in end_place:
+                        extracted_coords = self._extract_coords_from_geometry(
+                            end_place["geometry"],
+                            [end_coord[0], end_coord[1]],
+                            transaction_id,
+                        )
+                        structured_dest["coordinates"]["lng"] = extracted_coords[0]
+                        structured_dest["coordinates"]["lat"] = extracted_coords[1]
                     else:
                         structured_dest["coordinates"]["lng"] = end_coord[0]
                         structured_dest["coordinates"]["lat"] = end_coord[1]
