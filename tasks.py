@@ -840,8 +840,7 @@ def preprocess_streets(self) -> Dict[str, Any]:
             "message": f"Processed {processed_count} areas, {error_count} errors",
         }
 
-    # Use the custom run_async method from AsyncTask
-    # Pass a lambda that returns a fresh coroutine each time it's called
+    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -893,8 +892,7 @@ def update_coverage_for_all_locations_task(self) -> Dict[str, Any]:
             logger.error(error_msg)
             raise self.retry(exc=e, countdown=300)
 
-    # Use the custom run_async method from AsyncTask
-    # Pass a lambda that returns a fresh coroutine each time it's called
+    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -935,8 +933,7 @@ def cleanup_stale_trips_task(self) -> Dict[str, Any]:
             "details": cleanup_result,
         }
 
-    # Use the custom run_async method from AsyncTask
-    # Pass a lambda that returns a fresh coroutine each time it's called
+    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -1012,8 +1009,7 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
             "updated_count": processed_count,
         }
 
-    # Use the custom run_async method from AsyncTask
-    # Pass a lambda that returns a fresh coroutine each time it's called
+    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -1107,8 +1103,7 @@ def update_geocoding(self) -> Dict[str, Any]:
             "message": f"Geocoded {geocoded_count} trips ({failed_count} failed)",
         }
 
-    # Use the custom run_async method from AsyncTask
-    # Pass a lambda that returns a fresh coroutine each time it's called
+    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -1199,8 +1194,7 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
             "message": f"Remapped {remap_count} trips ({failed_count} failed)",
         }
 
-    # Use the custom run_async method from AsyncTask
-    # Pass a lambda that returns a fresh coroutine each time it's called
+    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -1292,8 +1286,7 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
             "message": f"Validated {processed_count} trips ({failed_count} failed)",
         }
 
-    # Use the custom run_async method from AsyncTask
-    # Pass a lambda that returns a fresh coroutine each time it's called
+    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -1381,7 +1374,7 @@ def execute_task(self, task_name: str, is_manual: bool = False) -> Dict[str, Any
                 "message": f"Error executing task: {str(e)}",
             }
 
-    # Use the custom run_async method - pass lambda to get a fresh coroutine
+    # Use the custom run_async method - pass a lambda that returns a fresh coroutine
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
