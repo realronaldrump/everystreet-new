@@ -207,40 +207,6 @@
     return DateUtils.getCurrentDate();
   }
 
-  function getFilterParams() {
-    return new URLSearchParams({
-      start_date: getStartDate(),
-      end_date: getEndDate(),
-    });
-  }
-
-  function updateDatePickersAndStore(startDate, endDate) {
-    const startDateString = DateUtils.formatDate(startDate);
-    const endDateString = DateUtils.formatDate(endDate);
-
-    if (!startDateString || !endDateString) {
-      console.warn("Invalid date values provided to updateDatePickersAndStore");
-      return;
-    }
-
-    const { startDateInput, endDateInput } = AppState.dom;
-
-    if (startDateInput?._flatpickr) {
-      startDateInput._flatpickr.setDate(startDateString);
-    } else if (startDateInput) {
-      startDateInput.value = startDateString;
-    }
-
-    if (endDateInput?._flatpickr) {
-      endDateInput._flatpickr.setDate(endDateString);
-    } else if (endDateInput) {
-      endDateInput.value = endDateString;
-    }
-
-    setStorageItem(CONFIG.STORAGE_KEYS.startDate, startDateString);
-    setStorageItem(CONFIG.STORAGE_KEYS.endDate, endDateString);
-  }
-
   // ==============================
   // Trip Styling Functions
   // ==============================
@@ -1654,8 +1620,6 @@
     handleError,
     getStartDate,
     getEndDate,
-    getFilterParams,
-    updateDatePickersAndStore,
     fitMapBounds,
     mapMatchTrips,
     fetchTripsInRange,
