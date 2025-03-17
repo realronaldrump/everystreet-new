@@ -247,6 +247,11 @@
                       ><i class="fas fa-upload"></i> Upload GPX</a
                     >
                   </li>
+                  <li>
+                    <a class="dropdown-item" href="/ai-insights"
+                      ><i class="fas fa-robot"></i> AI Insights</a
+                    >
+                  </li>
                   <li><hr class="dropdown-divider" /></li>
                   <li>
                     <a class="dropdown-item" href="/database-management"
@@ -323,6 +328,13 @@
                 href="/driving-insights"
                 class="{% if request.path == '/driving-insights' %}active{% endif %}"
                 ><i class="fas fa-chart-line"></i> Driving Insights</a
+              >
+            </li>
+            <li>
+              <a
+                href="/ai-insights"
+                class="{% if request.path == '/ai-insights' %}active{% endif %}"
+                ><i class="fas fa-robot me-2"></i> AI Insights</a
               >
             </li>
             <li>
