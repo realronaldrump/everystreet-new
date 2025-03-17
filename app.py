@@ -39,6 +39,7 @@ from trip_processor import TripProcessor, TripState
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from preprocess_streets import preprocess_streets as async_preprocess_streets
 from tasks import (
+    TaskStatus,
     manual_run_task,
     get_task_config,
     update_task_schedule,
@@ -54,7 +55,7 @@ from db import (
     DatabaseManager,
     SerializationHelper,
     ensure_street_coverage_indexes,
-    init_task_history_collection,
+    update_many_with_retry,
     find_one_with_retry,
     find_with_retry,
     update_one_with_retry,
@@ -266,8 +267,12 @@ async def add_header(request: Request, call_next):
 # BACKGROUND TASKS CONFIG / CONTROL
 
 
+# Updated API endpoints for background tasks in app.py
+
+
 @app.get("/api/background_tasks/config")
 async def get_background_tasks_config():
+    """Get the current configuration of background tasks."""
     try:
         config = await get_task_config()
         task_metadata = await get_all_task_metadata()
@@ -310,6 +315,7 @@ async def get_background_tasks_config():
 
 @app.post("/api/background_tasks/config")
 async def update_background_tasks_config(request: Request):
+    """Update the configuration of background tasks."""
     try:
         data = await request.json()
         result = await update_task_schedule(data)
@@ -325,16 +331,13 @@ async def update_background_tasks_config(request: Request):
 
 @app.post("/api/background_tasks/pause")
 async def pause_background_tasks(request: Request):
+    """Pause all background tasks for a specified duration."""
     try:
         data = await request.json()
         minutes = data.get("minutes", 30)
-        config = await get_task_config()
-        config["disabled"] = True
 
+        # Just set the global disabled flag
         await update_task_schedule({"globalDisable": True})
-
-        # Cancel any running tasks - optional depending on your requirements
-        # This is more complex with Celery, so we'll just update the config
 
         return {
             "status": "success",
@@ -347,6 +350,7 @@ async def pause_background_tasks(request: Request):
 
 @app.post("/api/background_tasks/resume")
 async def resume_background_tasks():
+    """Resume all paused background tasks."""
     try:
         await update_task_schedule({"globalDisable": False})
         return {"status": "success", "message": "Background tasks resumed"}
@@ -357,13 +361,10 @@ async def resume_background_tasks():
 
 @app.post("/api/background_tasks/stop_all")
 async def stop_all_background_tasks():
+    """Stop all currently running background tasks."""
     try:
         # In Celery, we don't have a direct "stop all" but we can disable them
         await update_task_schedule({"globalDisable": True})
-
-        # More advanced: revoke all currently running tasks
-        # This is optional and might not be needed
-
         return {"status": "success", "message": "All background tasks stopped"}
     except Exception as e:
         logger.exception("Error stopping all tasks.")
@@ -372,6 +373,7 @@ async def stop_all_background_tasks():
 
 @app.post("/api/background_tasks/enable")
 async def enable_all_background_tasks():
+    """Enable all background tasks."""
     try:
         config = await get_task_config()
         tasks_update = {}
@@ -388,6 +390,7 @@ async def enable_all_background_tasks():
 
 @app.post("/api/background_tasks/disable")
 async def disable_all_background_tasks():
+    """Disable all background tasks."""
     try:
         config = await get_task_config()
         tasks_update = {}
@@ -404,14 +407,13 @@ async def disable_all_background_tasks():
 
 @app.post("/api/background_tasks/manual_run")
 async def manually_run_tasks(request: Request):
+    """Manually trigger execution of specified tasks."""
     try:
         data = await request.json()
         tasks_to_run = data.get("tasks", [])
 
         if not tasks_to_run:
             raise HTTPException(status_code=400, detail="No tasks specified to run")
-
-        results = []
 
         if "ALL" in tasks_to_run:
             result = await manual_run_task("ALL")
@@ -420,6 +422,7 @@ async def manually_run_tasks(request: Request):
             else:
                 raise HTTPException(status_code=500, detail=result["message"])
         else:
+            results = []
             for task_id in tasks_to_run:
                 if task_id in TASK_METADATA:
                     result = await manual_run_task(task_id)
@@ -428,6 +431,7 @@ async def manually_run_tasks(request: Request):
                             "task": task_id,
                             "success": result["status"] == "success",
                             "message": result["message"],
+                            "task_id": result.get("task_id"),
                         }
                     )
                 else:
@@ -439,11 +443,11 @@ async def manually_run_tasks(request: Request):
                         }
                     )
 
-        return {
-            "status": "success",
-            "message": f"Triggered {len(results)} tasks",
-            "results": results,
-        }
+            return {
+                "status": "success",
+                "message": f"Triggered {len(results)} tasks",
+                "results": results,
+            }
     except Exception as e:
         logger.exception("Error in manually_run_tasks")
         raise HTTPException(status_code=500, detail=str(e))
@@ -451,6 +455,7 @@ async def manually_run_tasks(request: Request):
 
 @app.get("/api/background_tasks/task/{task_id}")
 async def get_task_details(task_id: str):
+    """Get detailed information about a specific task."""
     try:
         if task_id not in TASK_METADATA:
             raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
@@ -496,7 +501,6 @@ async def get_task_details(task_id: str):
             "interval_minutes": task_config.get(
                 "interval_minutes", task_def["default_interval_minutes"]
             ),
-            # Use SerializationHelper instead of serialize_datetime
             "last_run": SerializationHelper.serialize_datetime(
                 task_config.get("last_run")
             ),
@@ -517,11 +521,9 @@ async def get_task_details(task_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# TASK HISTORY ENDPOINTS
-
-
 @app.get("/api/background_tasks/history")
 async def get_task_history(page: int = 1, limit: int = 10):
+    """Get paginated task execution history."""
     try:
         total_count = await count_documents_with_retry(task_history_collection, {})
         skip = (page - 1) * limit
@@ -558,6 +560,7 @@ async def get_task_history(page: int = 1, limit: int = 10):
 
 @app.post("/api/background_tasks/history/clear")
 async def clear_task_history():
+    """Clear all task execution history."""
     try:
         result = await delete_many_with_retry(task_history_collection, {})
         return {
@@ -566,6 +569,47 @@ async def clear_task_history():
         }
     except Exception as e:
         logger.exception("Error clearing task history.")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/background_tasks/reset")
+async def reset_task_states():
+    """Reset any stuck 'RUNNING' tasks to 'FAILED' state."""
+    try:
+        # Update task history entries
+        history_result = await update_many_with_retry(
+            task_history_collection,
+            {"status": TaskStatus.RUNNING.value},
+            {
+                "$set": {
+                    "status": TaskStatus.FAILED.value,
+                    "error": "Task reset by user",
+                    "end_time": datetime.now(timezone.utc),
+                }
+            },
+        )
+
+        # Update task config entries
+        config = await get_task_config()
+        updates = {}
+
+        for task_id, task_config in config.get("tasks", {}).items():
+            if task_config.get("status") == TaskStatus.RUNNING.value:
+                updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value
+                updates[f"tasks.{task_id}.last_error"] = "Task reset by user"
+                updates[f"tasks.{task_id}.end_time"] = datetime.now(timezone.utc)
+
+        if updates:
+            await task_config_collection.update_one(
+                {"_id": "global_background_task_config"}, {"$set": updates}
+            )
+
+        return {
+            "status": "success",
+            "message": f"Reset {history_result.modified_count} stuck tasks",
+        }
+    except Exception as e:
+        logger.exception("Error resetting task states")
         raise HTTPException(status_code=500, detail=str(e))
 
 

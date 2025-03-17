@@ -9,26 +9,17 @@ and FastAPI's asynchronous code patterns.
 import asyncio
 import os
 import uuid
-import threading
-import time
+import logging
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
 from typing import Dict, Any, cast, Optional, Callable, Awaitable, TypeVar, List
 
-# Try to import psutil for memory monitoring, but make it optional
-try:
-    import psutil
-
-    HAVE_PSUTIL = True
-except ImportError:
-    HAVE_PSUTIL = False
-
 from bson import ObjectId
 from celery import shared_task, Task
 from celery.signals import task_prerun, task_postrun, task_failure
 from celery.utils.log import get_task_logger
-from pymongo import UpdateOne
+from pymongo import UpdateOne, MongoClient
 
 # Import Celery app
 from celery_app import app
@@ -39,6 +30,7 @@ from db import (
     trips_collection,
     coverage_metadata_collection,
     task_history_collection,
+    task_config_collection,
 )
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from preprocess_streets import preprocess_streets as async_preprocess_streets
@@ -49,10 +41,6 @@ from live_tracking import cleanup_stale_trips
 
 # Set up task-specific logger
 logger = get_task_logger(__name__)
-
-# Memory thresholds for task management
-MEMORY_WARN_THRESHOLD = 70.0
-MEMORY_CRITICAL_THRESHOLD = 85.0
 
 # Type variable for async function return
 T = TypeVar("T")
@@ -142,350 +130,263 @@ TASK_METADATA = {
 db_manager = DatabaseManager()
 
 
-# Custom AsyncTask base class for better async handling
+# Simplified AsyncTask base class for better async handling
 class AsyncTask(Task):
     """
     Base class for Celery tasks that need to run async code.
-    Uses thread-local event loops that are kept alive between tasks.
+    Creates and manages a dedicated event loop for the duration of the task.
     """
 
-    _event_loops_lock = threading.RLock()
-    _event_loops: Dict[int, asyncio.AbstractEventLoop] = {}
-    _loop_owners: Dict[int, str] = {}  # track which task is using which loop
-
-    def get_event_loop(self) -> asyncio.AbstractEventLoop:
-        """
-        Get an event loop for the current thread.
-        Creates a new one if needed or reuses an existing one.
-        """
-        thread_id = threading.get_ident()
-
-        with self._event_loops_lock:
-            # Check if we already have a loop for this thread
-            if thread_id in self._event_loops:
-                loop = self._event_loops[thread_id]
-                # Check if the loop is still usable
-                if not loop.is_closed():
-                    task_id = self.request.id if hasattr(self, "request") else "unknown"
-                    self._loop_owners[thread_id] = task_id
-                    return loop
-                else:
-                    # The loop is closed, remove it so we create a new one
-                    logger.info(
-                        f"Found closed event loop for thread {thread_id}, will create a new one"
-                    )
-                    del self._event_loops[thread_id]
-                    if thread_id in self._loop_owners:
-                        del self._loop_owners[thread_id]
-
-            # Create a new event loop
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                self._event_loops[thread_id] = loop
-                task_id = self.request.id if hasattr(self, "request") else "unknown"
-                self._loop_owners[thread_id] = task_id
-                logger.info(
-                    f"Created new event loop for thread {thread_id} (task: {task_id})"
-                )
-                return loop
-            except Exception as e:
-                logger.error(f"Error creating event loop: {e}")
-                raise
+    _event_loops = {}
 
     def run_async(self, coro_func: Callable[[], Awaitable[T]]) -> T:
         """
         Run an async coroutine function from a Celery task.
-        Accepts a function that returns a coroutine, not the coroutine itself.
+        Ensures the event loop stays open for the entire duration of the task.
 
         Args:
-            coro_func: A function that returns a coroutine when called
+            coro_func: Function that returns a coroutine when called
 
         Returns:
             The result of the coroutine
         """
-        # Get the event loop for the current thread
-        for attempt in range(3):  # Try up to 3 times if we encounter event loop issues
-            try:
-                loop = self.get_event_loop()
+        task_id = self.request.id
 
-                # Create a fresh coroutine by calling the function
-                coro = coro_func()
+        # Create a new event loop and store it in the class dictionary
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        self._event_loops[task_id] = loop
 
-                # Run the coroutine and get the result
-                if loop.is_running():
-                    # If the loop is already running (nested call), use run_coroutine_threadsafe
-                    future = asyncio.run_coroutine_threadsafe(coro, loop)
-                    return future.result()
-                else:
-                    # Otherwise, use run_until_complete
-                    return loop.run_until_complete(coro)
-            except RuntimeError as e:
-                if (
-                    "Event loop is closed" in str(e) and attempt < 2
-                ):  # Don't try on last attempt
-                    # The loop was closed - create a new one and retry
-                    logger.warning(
-                        f"Event loop was closed (attempt {attempt+1}/3), creating a new one and retrying"
-                    )
-                    thread_id = threading.get_ident()
-                    with self._event_loops_lock:
-                        if thread_id in self._event_loops:
-                            del self._event_loops[thread_id]
-                        if thread_id in self._loop_owners:
-                            del self._loop_owners[thread_id]
+        try:
+            # Create a fresh coroutine and run it
+            coro = coro_func()
+            return loop.run_until_complete(coro)
+        finally:
+            # Only close and remove the loop when the task is completely done
+            if task_id in self._event_loops:
+                try:
+                    # Explicitly run any remaining callbacks
+                    pending = asyncio.all_tasks(loop)
+                    if pending:
+                        loop.run_until_complete(asyncio.gather(*pending))
+                except Exception:
+                    pass
 
-                    # Sleep briefly to allow resources to be cleaned up
-                    time.sleep(0.1)
-                    continue  # Try again with a new loop
-                else:
-                    # Some other RuntimeError or we're on our last attempt, re-raise
-                    logger.error(
-                        f"RuntimeError in run_async (attempt {attempt+1}/3): {e}"
-                    )
-                    raise
-            except Exception as e:
-                logger.error(f"Error in run_async (attempt {attempt+1}/3): {e}")
-                raise
-
-    def __del__(self):
-        """
-        Cleanup when the task object is garbage collected.
-        We don't close loops here to avoid the "Event loop is closed" errors.
-        """
-        pass
+                loop.close()
+                del self._event_loops[task_id]
 
 
-# Signal to create an event loop before a task runs
+# Signal to set task status before it runs
 @task_prerun.connect
-def task_started(task_id=None, task=None, *args, **kwargs):
-    """Record when a task starts running and initialize any necessary resources."""
+def task_started(task_id=None, task=None, **kwargs):
+    """Record when a task starts running and update its status."""
     if not task:
         return
 
     task_name = task.name.split(".")[-1] if task and task.name else "unknown"
 
-    # Create a new event loop for this signal handler
+    # Use synchronous MongoDB client to avoid event loop issues in signal handlers
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # Connect to database
+        mongo_uri = os.getenv("MONGO_URI")
+        if not mongo_uri:
+            logger.error("MONGO_URI environment variable not set")
+            return
 
-        # Update task history
-        update_data = {
-            "task_id": task_name,
-            "status": TaskStatus.RUNNING.value,
-            "timestamp": datetime.now(timezone.utc),
-            "start_time": datetime.now(timezone.utc),
-        }
+        now = datetime.now(timezone.utc)
 
-        # Store task start information in MongoDB
-        async def update_records():
-            try:
-                await task_history_collection.update_one(
-                    {"_id": str(task_id)}, {"$set": update_data}, upsert=True
-                )
+        # Use PyMongo directly (synchronous client)
+        client = MongoClient(mongo_uri)
+        db = client[os.getenv("MONGODB_DATABASE", "every_street")]
 
-                # Update task config status
-                await update_task_config(
-                    task_name,
-                    {
-                        "status": TaskStatus.RUNNING.value,
-                        "start_time": datetime.now(timezone.utc),
-                        "last_updated": datetime.now(timezone.utc),
-                    },
-                )
-            except Exception as e:
-                logger.error(f"Error updating task history: {str(e)}")
+        # Update history
+        db.task_history.update_one(
+            {"_id": str(task_id)},
+            {
+                "$set": {
+                    "task_id": task_name,
+                    "status": TaskStatus.RUNNING.value,
+                    "timestamp": now,
+                    "start_time": now,
+                }
+            },
+            upsert=True,
+        )
 
-        # Run the update
-        try:
-            loop.run_until_complete(update_records())
-        except Exception as e:
-            logger.error(f"Error recording task start: {str(e)}")
-        finally:
-            # Close this temporary loop when done - it's not the main task loop
-            try:
-                loop.close()
-            except Exception:
-                pass
+        # Update task config
+        db.task_config.update_one(
+            {"_id": "global_background_task_config"},
+            {
+                "$set": {
+                    f"tasks.{task_name}.status": TaskStatus.RUNNING.value,
+                    f"tasks.{task_name}.start_time": now,
+                    f"tasks.{task_name}.last_updated": now,
+                }
+            },
+            upsert=True,
+        )
 
         logger.info(f"Task {task_name} ({task_id}) started")
+
+        # Close MongoDB connection
+        client.close()
     except Exception as e:
-        logger.error(f"Error recording task start: {str(e)}")
+        logger.error(f"Error updating task start status: {e}")
 
 
 @task_postrun.connect
-def task_finished(task_id=None, task=None, retval=None, state=None, *args, **kwargs):
-    """Record when a task finishes running."""
+def task_finished(task_id=None, task=None, retval=None, state=None, **kwargs):
+    """Record when a task finishes running and update its status."""
     if not task:
         return
 
     task_name = task.name.split(".")[-1] if task and task.name else "unknown"
 
     try:
-        # Create a temporary event loop for this signal handler
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # Connect to database using synchronous client
+        mongo_uri = os.getenv("MONGO_URI")
+        if not mongo_uri:
+            logger.error("MONGO_URI environment variable not set")
+            return
 
-        async def update_records():
-            try:
-                # Get task info from MongoDB
-                task_info = await task_history_collection.find_one(
-                    {"_id": str(task_id)}
-                )
+        now = datetime.now(timezone.utc)
 
-                start_time = task_info.get("start_time") if task_info else None
-                runtime = None
-                if start_time:
-                    end_time = datetime.now(timezone.utc)
-                    runtime = (
-                        end_time - start_time
-                    ).total_seconds() * 1000  # Convert to ms
+        # Use PyMongo directly (synchronous client)
+        client = MongoClient(mongo_uri)
+        db = client[os.getenv("MONGODB_DATABASE", "every_street")]
 
-                # Update task history
-                status = (
-                    TaskStatus.COMPLETED.value
-                    if state == "SUCCESS"
-                    else TaskStatus.FAILED.value
-                )
+        # Get task info to calculate runtime
+        task_info = db.task_history.find_one({"_id": str(task_id)})
 
-                await task_history_collection.update_one(
-                    {"_id": str(task_id)},
-                    {
-                        "$set": {
-                            "status": status,
-                            "end_time": datetime.now(timezone.utc),
-                            "runtime": runtime,
-                            "result": state == "SUCCESS",
-                        }
-                    },
-                    upsert=True,
-                )
+        # Calculate runtime if we have a start time
+        start_time = task_info.get("start_time") if task_info else None
+        runtime = None
+        if start_time:
+            # Ensure start_time has timezone info
+            if start_time.tzinfo is None:
+                start_time = start_time.replace(tzinfo=timezone.utc)
+            runtime = (now - start_time).total_seconds() * 1000  # Convert to ms
 
-                # Calculate next run time based on schedule
-                next_run = None
-                # Find the task entry in the beat schedule
-                for schedule_name, schedule_entry in app.conf.beat_schedule.items():
-                    if (
-                        schedule_name.startswith(task_name)
-                        or schedule_entry.get("task") == f"tasks.{task_name}"
-                    ):
-                        schedule = schedule_entry.get("schedule")
-                        if hasattr(schedule, "seconds"):  # timedelta object
-                            next_run = datetime.now(timezone.utc) + schedule
-                            break
+        # Determine status
+        status = (
+            TaskStatus.COMPLETED.value
+            if state == "SUCCESS"
+            else TaskStatus.FAILED.value
+        )
 
-                # Update task config
-                await update_task_config(
-                    task_name,
-                    {
-                        "status": status,
-                        "last_run": datetime.now(timezone.utc),
-                        "next_run": next_run,
-                        "end_time": datetime.now(timezone.utc),
-                        "last_updated": datetime.now(timezone.utc),
-                    },
-                )
-            except Exception as e:
-                logger.error(f"Error updating task records: {str(e)}")
+        # Calculate next scheduled run
+        next_run = None
+        for schedule_name, schedule_entry in app.conf.beat_schedule.items():
+            task_path = f"tasks.{task_name}"
+            if schedule_entry.get("task") == task_path:
+                schedule = schedule_entry.get("schedule")
+                if hasattr(schedule, "seconds"):  # timedelta object
+                    next_run = now + schedule
+                    break
 
-        # Run the update
-        try:
-            loop.run_until_complete(update_records())
-        except Exception as e:
-            logger.error(f"Error recording task completion: {str(e)}")
-        finally:
-            # Close this temporary loop
-            try:
-                loop.close()
-            except Exception:
-                pass
+        # Update history
+        db.task_history.update_one(
+            {"_id": str(task_id)},
+            {
+                "$set": {
+                    "status": status,
+                    "end_time": now,
+                    "runtime": runtime,
+                    "result": state == "SUCCESS",
+                }
+            },
+            upsert=True,
+        )
+
+        # Update task config
+        update_fields = {
+            f"tasks.{task_name}.status": status,
+            f"tasks.{task_name}.last_run": now,
+            f"tasks.{task_name}.end_time": now,
+            f"tasks.{task_name}.last_updated": now,
+        }
+
+        if next_run:
+            update_fields[f"tasks.{task_name}.next_run"] = next_run
+
+        db.task_config.update_one(
+            {"_id": "global_background_task_config"},
+            {"$set": update_fields},
+            upsert=True,
+        )
 
         logger.info(f"Task {task_name} ({task_id}) finished with status {state}")
 
+        # Close MongoDB connection
+        client.close()
     except Exception as e:
-        logger.error(f"Error recording task completion: {str(e)}")
+        logger.error(f"Error updating task completion status: {e}")
 
 
 @task_failure.connect
-def task_failed(task_id=None, task=None, exception=None, *args, **kwargs):
-    """Record when a task fails."""
+def task_failed(task_id=None, task=None, exception=None, **kwargs):
+    """Record when a task fails with detailed error information."""
     if not task:
         return
 
-    task_name = task.name.split(".")[-1] if task.name else "unknown"
+    task_name = task.name.split(".")[-1] if task and task.name else "unknown"
+    error_msg = str(exception) if exception else "Unknown error"
 
     try:
-        # Create a temporary event loop for this signal handler
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # Connect to database using synchronous client
+        mongo_uri = os.getenv("MONGO_URI")
+        if not mongo_uri:
+            logger.error("MONGO_URI environment variable not set")
+            return
 
-        error_msg = str(exception) if exception else "Unknown error"
+        now = datetime.now(timezone.utc)
 
-        async def update_records():
-            try:
-                # Update task history with error
-                await task_history_collection.update_one(
-                    {"_id": str(task_id)},
-                    {
-                        "$set": {
-                            "status": TaskStatus.FAILED.value,
-                            "error": error_msg,
-                            "end_time": datetime.now(timezone.utc),
-                        }
-                    },
-                    upsert=True,
-                )
+        # Use PyMongo directly (synchronous client)
+        client = MongoClient(mongo_uri)
+        db = client[os.getenv("MONGODB_DATABASE", "every_street")]
 
-                # Update task config
-                await update_task_config(
-                    task_name,
-                    {
-                        "status": TaskStatus.FAILED.value,
-                        "last_error": error_msg,
-                        "end_time": datetime.now(timezone.utc),
-                        "last_updated": datetime.now(timezone.utc),
-                    },
-                )
-            except Exception as e:
-                logger.error(f"Error updating failure records: {str(e)}")
+        # Update history with error details
+        db.task_history.update_one(
+            {"_id": str(task_id)},
+            {
+                "$set": {
+                    "status": TaskStatus.FAILED.value,
+                    "error": error_msg,
+                    "end_time": now,
+                }
+            },
+            upsert=True,
+        )
 
-        # Run the update
-        try:
-            loop.run_until_complete(update_records())
-        except Exception as e:
-            logger.error(f"Error recording task failure: {str(e)}")
-        finally:
-            # Close this temporary loop
-            try:
-                loop.close()
-            except Exception:
-                pass
+        # Update task config with error information
+        db.task_config.update_one(
+            {"_id": "global_background_task_config"},
+            {
+                "$set": {
+                    f"tasks.{task_name}.status": TaskStatus.FAILED.value,
+                    f"tasks.{task_name}.last_error": error_msg,
+                    f"tasks.{task_name}.end_time": now,
+                    f"tasks.{task_name}.last_updated": now,
+                }
+            },
+            upsert=True,
+        )
 
         logger.error(f"Task {task_name} ({task_id}) failed: {error_msg}")
 
+        # Close MongoDB connection
+        client.close()
     except Exception as e:
-        logger.error(f"Error recording task failure: {str(e)}")
+        logger.error(f"Error updating task failure status: {e}")
 
 
 # Task configuration helpers
-async def update_task_config(task_id: str, updates: Dict[str, Any]) -> None:
-    """Update the configuration for a specific task."""
-    update_dict = {f"tasks.{task_id}.{k}": v for k, v in updates.items()}
-    try:
-        task_config = db_manager.db["task_config"]
-        await task_config.update_one(
-            {"_id": "global_background_task_config"}, {"$set": update_dict}, upsert=True
-        )
-    except Exception as e:
-        logger.error(f"Error updating task config for {task_id}: {str(e)}")
-
-
 async def get_task_config() -> Dict[str, Any]:
     """Get the current task configuration."""
     try:
-        task_config = db_manager.db["task_config"]
-        cfg = await task_config.find_one({"_id": "global_background_task_config"})
+        cfg = await task_config_collection.find_one(
+            {"_id": "global_background_task_config"}
+        )
 
         if not cfg:
             # Create default config if not exists
@@ -501,7 +402,7 @@ async def get_task_config() -> Dict[str, Any]:
                     for t_id, t_def in TASK_METADATA.items()
                 },
             }
-            await task_config.update_one(
+            await task_config_collection.update_one(
                 {"_id": "global_background_task_config"}, {"$set": cfg}, upsert=True
             )
 
@@ -524,131 +425,35 @@ async def get_task_config() -> Dict[str, Any]:
 
 
 async def check_dependencies(task_id: str) -> bool:
-    """Check if all dependencies for a task are satisfied using DAG traversal."""
+    """Simplified dependency check - just verifies that dependency tasks aren't running."""
     try:
+        # Get task dependencies
         if task_id not in TASK_METADATA:
             return True
 
-        # Create a graph for traversal
-        graph = {
-            t_id: meta.get("dependencies", []) for t_id, meta in TASK_METADATA.items()
-        }
+        dependencies = TASK_METADATA[task_id]["dependencies"]
+        if not dependencies:
+            return True
 
-        # Use depth-first search to check all dependencies
-        visited = set()
+        # Get current task configurations
+        config = await get_task_config()
+        tasks_config = config.get("tasks", {})
 
-        async def check_dep(dep_id: str) -> bool:
-            if dep_id in visited:
-                return True  # Already checked
-
-            visited.add(dep_id)
-
-            # Get current task status
-            config = await get_task_config()
-            tasks_config = config.get("tasks", {})
-
+        # Check if any dependency is currently running
+        for dep_id in dependencies:
             if dep_id not in tasks_config:
-                logger.warning(
-                    f"Dependency {dep_id} for task {task_id} not found in config"
-                )
-                return False
+                continue
 
-            # Check if dependency is running (can't proceed)
-            dep_status = tasks_config[dep_id].get("status")
-            if dep_status == TaskStatus.RUNNING.value:
+            if tasks_config[dep_id].get("status") == TaskStatus.RUNNING.value:
                 logger.info(
                     f"Task {task_id} waiting for dependency {dep_id} to complete"
                 )
                 return False
 
-            # Check if dependency has ever completed successfully
-            dep_history = await task_history_collection.find_one(
-                {"task_id": dep_id, "status": TaskStatus.COMPLETED.value},
-                sort=[("timestamp", -1)],
-            )
-
-            if not dep_history:
-                logger.info(
-                    f"Dependency {dep_id} for task {task_id} has never completed successfully"
-                )
-                return False
-
-            # Check nested dependencies
-            for nested_dep in graph.get(dep_id, []):
-                if not await check_dep(nested_dep):
-                    return False
-
-            return True
-
-        # Check immediate dependencies first
-        dependencies = TASK_METADATA[task_id]["dependencies"]
-        for dep_id in dependencies:
-            if not await check_dep(dep_id):
-                return False
-
         return True
     except Exception as e:
         logger.error(f"Error checking dependencies for {task_id}: {str(e)}")
-        return False
-
-
-async def check_memory_usage() -> Dict[str, Any]:
-    """
-    Check system memory usage and return status information.
-    """
-    if not HAVE_PSUTIL:
-        return {
-            "status": "unknown",
-            "memory_percent": 0,
-            "warning": False,
-            "critical": False,
-        }
-
-    try:
-        # Check memory usage
-        process = psutil.Process()
-        memory_info = process.memory_info()
-        memory_percent = process.memory_percent()
-
-        logger.info(
-            f"Memory usage: {memory_info.rss / (1024 * 1024):.2f} MB "
-            f"({memory_percent:.2f}% of system memory)"
-        )
-
-        result = {
-            "status": "ok",
-            "memory_percent": memory_percent,
-            "memory_mb": memory_info.rss / (1024 * 1024),
-            "warning": memory_percent > MEMORY_WARN_THRESHOLD,
-            "critical": memory_percent > MEMORY_CRITICAL_THRESHOLD,
-        }
-
-        if memory_percent > MEMORY_CRITICAL_THRESHOLD:
-            # Critical memory usage
-            logger.warning(
-                f"Critical memory usage ({memory_percent:.2f}%) - "
-                "waiting for memory to be freed"
-            )
-            # Force garbage collection
-            import gc
-
-            gc.collect()
-            # Let MongoDB connections be cleaned up
-            await db_manager.handle_memory_error()
-            result["action_taken"] = "gc_and_db_reset"
-
-        elif memory_percent > MEMORY_WARN_THRESHOLD:
-            # High memory usage
-            logger.warning(
-                f"High memory usage ({memory_percent:.2f}%) - "
-                "proceeding with caution"
-            )
-            result["action_taken"] = "warning_only"
-
-        return result
-    except Exception as e:
-        logger.error(f"Error checking memory usage: {str(e)}")
-        return {"status": "error", "error": str(e), "warning": False, "critical": False}
+        return True  # Default to allowing execution if check fails
 
 
 # Decorator for better async task handling
@@ -662,12 +467,6 @@ def async_task_wrapper(func):
 
         try:
             logger.info(f"Starting async task {task_name}")
-            # Add additional context for easier debugging
-            memory_info = await check_memory_usage()
-            logger.info(
-                f"Memory usage: {memory_info.get('memory_mb', 0):.2f} MB ({memory_info.get('memory_percent', 0):.2f}% of system memory)"
-            )
-
             result = await func(*args, **kwargs)
 
             # Log successful completion
@@ -709,18 +508,7 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-        # Check memory usage first
-        memory_status = await check_memory_usage()
-
-        if memory_status.get("critical", False):
-            logger.warning("Memory usage is critical, deferring fetch")
-            return {
-                "status": "deferred",
-                "message": "Memory usage critical, task deferred",
-                "memory_status": memory_status,
-            }
-
-        # Last successful fetch time is saved in task config
+        # Get last successful fetch time
         task_config = await db_manager.db["task_config"].find_one(
             {"task_id": "periodic_fetch_trips"}
         )
@@ -753,13 +541,9 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
         except Exception as e:
             error_msg = f"Error in periodic fetch: {str(e)}"
             logger.error(error_msg)
-            # If we have memory issues, try to recover
-            if "Cannot allocate memory" in str(e):
-                await db_manager.handle_memory_error()
             raise self.retry(exc=e, countdown=60)
 
     # Use the custom run_async method from AsyncTask
-    # Pass a lambda that returns a fresh coroutine each time it's called
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -788,14 +572,6 @@ def preprocess_streets(self) -> Dict[str, Any]:
         if not can_proceed:
             return {"status": "deferred", "message": "Dependencies not satisfied"}
 
-        memory_status = await check_memory_usage()
-        if memory_status.get("critical", False):
-            return {
-                "status": "deferred",
-                "message": "Memory usage critical, task deferred",
-                "memory_status": memory_status,
-            }
-
         # Find areas that need processing
         processing_areas = await coverage_metadata_collection.find(
             {"status": "processing"}
@@ -810,13 +586,6 @@ def preprocess_streets(self) -> Dict[str, Any]:
             try:
                 await async_preprocess_streets(area["location"])
                 processed_count += 1
-
-                # Check memory after each area to prevent OOM
-                if processed_count % 5 == 0:
-                    memory_status = await check_memory_usage()
-                    if memory_status.get("critical", False):
-                        logger.warning("Memory critical during preprocessing, pausing")
-                        break
             except Exception as e:
                 error_count += 1
                 logger.error(
@@ -840,7 +609,7 @@ def preprocess_streets(self) -> Dict[str, Any]:
             "message": f"Processed {processed_count} areas, {error_count} errors",
         }
 
-    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
+    # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -869,16 +638,6 @@ def update_coverage_for_all_locations_task(self) -> Dict[str, Any]:
         if not can_proceed:
             return {"status": "deferred", "message": "Dependencies not satisfied"}
 
-        # Check memory
-        memory_status = await check_memory_usage()
-        if memory_status.get("critical", False):
-            logger.warning("Memory usage is critical, deferring coverage update")
-            return {
-                "status": "deferred",
-                "message": "Memory usage critical, task deferred",
-                "memory_status": memory_status,
-            }
-
         # Call the original function
         try:
             results = await update_coverage_for_all_locations()
@@ -892,7 +651,7 @@ def update_coverage_for_all_locations_task(self) -> Dict[str, Any]:
             logger.error(error_msg)
             raise self.retry(exc=e, countdown=300)
 
-    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
+    # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -916,11 +675,6 @@ def cleanup_stale_trips_task(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-        # Check memory
-        memory_status = await check_memory_usage()
-        if memory_status.get("warning", False):
-            logger.warning("Memory usage is high, proceeding with caution")
-
         # Call the actual cleanup function
         cleanup_result = await cleanup_stale_trips()
 
@@ -933,7 +687,7 @@ def cleanup_stale_trips_task(self) -> Dict[str, Any]:
             "details": cleanup_result,
         }
 
-    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
+    # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -993,23 +747,16 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
                 logger.info(f"Marked {result.modified_count} invalid trips in batch")
                 update_ops = []  # Reset for next batch
 
-            # Check memory after each batch
-            if processed_count % (batch_size * 5) == 0:
-                memory_status = await check_memory_usage()
-                if memory_status.get("critical", False):
-                    logger.warning("Memory critical during cleanup, pausing")
-                    break
-
         if not processed_count:
             return {"status": "success", "message": "No trips to process"}
 
         return {
             "status": "success",
             "message": f"Processed {processed_count} trips",
-            "updated_count": processed_count,
+            "processed_count": processed_count,
         }
 
-    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
+    # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -1043,14 +790,6 @@ def update_geocoding(self) -> Dict[str, Any]:
             ]
         }
         limit = 100
-
-        # Check memory
-        memory_status = await check_memory_usage()
-        if memory_status.get("critical", False):
-            return {
-                "status": "deferred",
-                "message": "Memory usage critical, task deferred",
-            }
 
         trips_to_process = (
             await trips_collection.find(query).limit(limit).to_list(length=limit)
@@ -1088,13 +827,6 @@ def update_geocoding(self) -> Dict[str, Any]:
             # Sleep briefly to avoid rate limiting
             await asyncio.sleep(0.2)
 
-            # Check memory periodically
-            if (geocoded_count + failed_count) % 20 == 0:
-                memory_status = await check_memory_usage()
-                if memory_status.get("critical", False):
-                    logger.warning("Memory critical during geocoding, pausing")
-                    break
-
         logger.info(f"Geocoded {geocoded_count} trips ({failed_count} failed)")
         return {
             "status": "success",
@@ -1103,7 +835,7 @@ def update_geocoding(self) -> Dict[str, Any]:
             "message": f"Geocoded {geocoded_count} trips ({failed_count} failed)",
         }
 
-    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
+    # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -1131,14 +863,6 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
         can_proceed = await check_dependencies("remap_unmatched_trips")
         if not can_proceed:
             return {"status": "deferred", "message": "Dependencies not satisfied"}
-
-        # Check memory status
-        memory_status = await check_memory_usage()
-        if memory_status.get("critical", False):
-            return {
-                "status": "deferred",
-                "message": "Memory usage critical, task deferred",
-            }
 
         # Find trips that need map matching
         query = {"$or": [{"matchedGps": {"$exists": False}}, {"matchedGps": None}]}
@@ -1179,13 +903,6 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
             # Sleep briefly to avoid rate limiting
             await asyncio.sleep(0.5)
 
-            # Check memory periodically
-            if (remap_count + failed_count) % 10 == 0:
-                memory_status = await check_memory_usage()
-                if memory_status.get("critical", False):
-                    logger.warning("Memory critical during remapping, pausing")
-                    break
-
         logger.info(f"Remapped {remap_count} trips ({failed_count} failed)")
         return {
             "status": "success",
@@ -1194,7 +911,7 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
             "message": f"Remapped {remap_count} trips ({failed_count} failed)",
         }
 
-    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
+    # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
@@ -1221,14 +938,6 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
         # Fetch trips to validate
         query = {"validated_at": {"$exists": False}}
         limit = 100  # Process in batches
-
-        # Check memory status
-        memory_status = await check_memory_usage()
-        if memory_status.get("critical", False):
-            return {
-                "status": "deferred",
-                "message": "Memory usage critical, task deferred",
-            }
 
         trips_to_process = (
             await trips_collection.find(query).limit(limit).to_list(length=limit)
@@ -1271,13 +980,6 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
                 logger.error(f"Error validating trip {trip.get('_id')}: {str(e)}")
                 failed_count += 1
 
-            # Check memory periodically
-            if (processed_count + failed_count) % 25 == 0:
-                memory_status = await check_memory_usage()
-                if memory_status.get("critical", False):
-                    logger.warning("Memory critical during validation, pausing")
-                    break
-
         logger.info(f"Validated {processed_count} trips ({failed_count} failed)")
         return {
             "status": "success",
@@ -1286,19 +988,22 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
             "message": f"Validated {processed_count} trips ({failed_count} failed)",
         }
 
-    # Use the custom run_async method from AsyncTask - pass a lambda that returns a fresh coroutine
+    # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
 
 
-# Task execution helper
-@shared_task(bind=True, base=AsyncTask, name="tasks.execute_task")
-def execute_task(self, task_name: str, is_manual: bool = False) -> Dict[str, Any]:
+# API functions for app.py to interact with Celery
+async def get_all_task_metadata():
+    """Return all task metadata for the UI."""
+    return TASK_METADATA
+
+
+async def manual_run_task(task_id: str) -> Dict[str, Any]:
     """
-    Execute a named task with dependency validation.
+    Run a task manually directly from the API.
 
     Args:
-        task_name: Name of the task to execute
-        is_manual: Whether this is a manual execution
+        task_id: ID of the task to run
 
     Returns:
         Dict with status information
@@ -1314,125 +1019,53 @@ def execute_task(self, task_name: str, is_manual: bool = False) -> Dict[str, Any
         "validate_trip_data": validate_trip_data_task,
     }
 
-    @async_task_wrapper
-    async def _execute():
-        if task_name not in task_mapping:
-            logger.error(f"Unknown task: {task_name}")
-            return {"status": "error", "message": f"Unknown task: {task_name}"}
-
-        try:
-            # Check for task configuration
-            config = await get_task_config()
-            tasks_config = config.get("tasks", {})
-
-            # Check if the task is enabled
-            if (
-                task_name in tasks_config
-                and not tasks_config[task_name].get("enabled", True)
-                and not is_manual
-            ):
-                return {"status": "skipped", "message": f"Task {task_name} is disabled"}
-
-            # Check dependencies for non-manual runs
-            if not is_manual:
-                can_proceed = await check_dependencies(task_name)
-                if not can_proceed:
-                    return {
-                        "status": "deferred",
-                        "message": f"Dependencies not satisfied for {task_name}",
-                    }
-
-            # Apply task_id suffix for manual runs to track separately
-            task_id = (
-                f"{task_name}_{'manual' if is_manual else 'scheduled'}_{uuid.uuid4()}"
-            )
-
-            # Launch the task with appropriate queue
-            task_func = task_mapping[task_name]
-            priority = TASK_METADATA.get(task_name, {}).get(
-                "priority", TaskPriority.MEDIUM
-            )
-
-            queue = "default"
-            if priority == TaskPriority.HIGH:
-                queue = "high_priority"
-            elif priority == TaskPriority.LOW:
-                queue = "low_priority"
-
-            # Execute the task
-            result = task_func.apply_async(task_id=task_id, queue=queue)
-
-            return {
-                "status": "success",
-                "message": f"Task {task_name} scheduled for execution",
-                "task_id": result.id,
-            }
-        except Exception as e:
-            logger.error(f"Error executing task {task_name}: {str(e)}")
-            return {
-                "status": "error",
-                "message": f"Error executing task: {str(e)}",
-            }
-
-    # Use the custom run_async method - pass a lambda that returns a fresh coroutine
-    return cast(AsyncTask, self).run_async(lambda: _execute())
-
-
-# API functions for app.py to interact with Celery
-async def get_all_task_metadata():
-    """Return all task metadata for the UI."""
-    return TASK_METADATA
-
-
-async def manual_run_task(task_id: str, is_manual: bool = True) -> Dict[str, Any]:
-    """
-    Run a task manually.
-
-    Args:
-        task_id: ID of the task to run
-        is_manual: Whether this is a manual execution
-
-    Returns:
-        Dict with status information
-    """
     if task_id == "ALL":
         # Get enabled tasks
         config = await get_task_config()
         enabled_tasks = []
         for task_name, task_config in config.get("tasks", {}).items():
-            if task_config.get("enabled", True):
+            if task_config.get("enabled", True) and task_name in task_mapping:
                 enabled_tasks.append(task_name)
 
         # Execute all enabled tasks
         results = []
         for task_name in enabled_tasks:
-            # Create a unique task ID for each execution
-            task_instance_id = f"{task_name}_manual_{uuid.uuid4()}"
+            try:
+                # Create a unique task ID for each execution
+                task_instance_id = f"{task_name}_manual_{uuid.uuid4()}"
 
-            # Use execute_task.apply_async to run asynchronously with the task_id
-            result = execute_task.apply_async(
-                args=[task_name, True], task_id=task_instance_id, queue="default"
-            )
+                # Apply the task asynchronously
+                result = task_mapping[task_name].apply_async(task_id=task_instance_id)
 
-            results.append({"task": task_name, "success": True, "task_id": result.id})
+                results.append(
+                    {"task": task_name, "success": True, "task_id": result.id}
+                )
+            except Exception as e:
+                results.append({"task": task_name, "success": False, "error": str(e)})
 
         return {
             "status": "success",
             "message": f"Triggered {len(results)} tasks",
             "results": results,
         }
-    else:
+    elif task_id in task_mapping:
         # Execute single task
-        task_instance_id = f"{task_id}_manual_{uuid.uuid4()}"
-        result = execute_task.apply_async(
-            args=[task_id, is_manual], task_id=task_instance_id, queue="default"
-        )
+        try:
+            task_instance_id = f"{task_id}_manual_{uuid.uuid4()}"
+            result = task_mapping[task_id].apply_async(task_id=task_instance_id)
 
-        return {
-            "status": "success",
-            "message": f"Task {task_id} scheduled for execution",
-            "task_id": result.id,
-        }
+            return {
+                "status": "success",
+                "message": f"Task {task_id} scheduled for execution",
+                "task_id": result.id,
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Failed to schedule task {task_id}: {str(e)}",
+            }
+    else:
+        return {"status": "error", "message": f"Unknown task: {task_id}"}
 
 
 async def update_task_schedule(task_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -1485,7 +1118,6 @@ async def update_task_schedule(task_config: Dict[str, Any]) -> Dict[str, Any]:
                     current_config["tasks"][task_id]["interval_minutes"] = new_value
 
         # Save updated config
-        task_config_collection = db_manager.db["task_config"]
         await task_config_collection.update_one(
             {"_id": "global_background_task_config"},
             {"$set": current_config},

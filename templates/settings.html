@@ -42,6 +42,9 @@ content %}
             <button class="btn btn-info" id="manualRunAllBtn">
               <i class="fas fa-play-circle"></i> Run All Now
             </button>
+            <button class="btn btn-warning" id="resetTasksBtn">
+              <i class="fas fa-sync"></i> Reset Tasks
+            </button>
           </div>
         </div>
       </div>
@@ -200,42 +203,6 @@ content %}
           </button>
           <div id="remap-status" class="mt-2"></div>
         </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Pause Modal -->
-<div class="modal fade" id="pauseModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content bg-dark text-white">
-      <div class="modal-header">
-        <h5 class="modal-title">Pause Background Tasks</h5>
-        <button
-          type="button"
-          class="btn-close btn-close-white"
-          data-bs-dismiss="modal"
-        ></button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label for="pauseDuration">Pause Duration (minutes)</label>
-          <input
-            type="number"
-            class="form-control"
-            id="pauseDuration"
-            value="30"
-            min="1"
-          />
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-          Cancel
-        </button>
-        <button type="button" class="btn btn-primary" id="confirmPause">
-          Confirm Pause
-        </button>
       </div>
     </div>
   </div>

@@ -30,6 +30,7 @@
       this.historyLimit = 10;
       this.historyTotalPages = 1;
       this.pollingInterval = null;
+      this.configRefreshTimeout = null;
 
       // Setup polling for regular updates
       this.setupPolling();
@@ -45,274 +46,7 @@
       this.pollingInterval = setInterval(() => {
         this.loadTaskConfig();
         this.updateTaskHistory();
-        // Check for active tasks status updates
-        this.checkActiveTasksStatus();
-      }, 5000); // Poll every 5 seconds for more responsive UI
-    }
-
-    // Better task status checking with Celery API
-    async checkActiveTasksStatus() {
-      try {
-        const activeTaskIds = Array.from(this.activeTasksMap.keys());
-        if (activeTaskIds.length === 0) return;
-
-        // Fetch the current status of all active tasks
-        const configResponse = await fetch("/api/background_tasks/config");
-        if (!configResponse.ok) {
-          throw new Error("Failed to fetch task configuration");
-        }
-        const config = await configResponse.json();
-
-        // Update UI for each active task
-        for (const taskId of activeTaskIds) {
-          const taskConfig = config.tasks[taskId];
-          if (!taskConfig) continue;
-
-          const currentStatus = taskConfig.status;
-          const previousStatus = this.activeTasksMap.get(taskId);
-
-          if (currentStatus !== previousStatus) {
-            this.activeTasksMap.set(taskId, currentStatus);
-            this.handleTaskUpdate({
-              task_id: taskId,
-              status: currentStatus,
-              last_run: taskConfig.last_run,
-              next_run: taskConfig.next_run,
-            });
-
-            // If task completed or failed, show a notification
-            if (
-              previousStatus === "RUNNING" &&
-              (currentStatus === "COMPLETED" || currentStatus === "FAILED")
-            ) {
-              const statusType =
-                currentStatus === "COMPLETED" ? "success" : "danger";
-              this.notifier.show(
-                "Task Update",
-                `Task ${taskId} ${currentStatus.toLowerCase()}`,
-                statusType
-              );
-
-              // Also update UI for completed tasks
-              this.loadTaskConfig();
-              this.updateTaskHistory();
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error checking active tasks status:", error);
-      }
-    }
-
-    // Updated function to check task status with the Celery API
-    async checkTaskStatus(taskId) {
-      try {
-        const response = await fetch(`/api/background_tasks/task/${taskId}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch task status");
-        }
-        const taskInfo = await response.json();
-
-        // Update UI with new task status
-        const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
-        if (row) {
-          const statusCell = row.querySelector(".task-status");
-          const lastRunCell = row.querySelector(".task-last-run");
-          const nextRunCell = row.querySelector(".task-next-run");
-
-          if (statusCell)
-            statusCell.innerHTML = this.getStatusHTML(taskInfo.status);
-          if (lastRunCell && taskInfo.last_run)
-            lastRunCell.textContent = this.formatDateTime(taskInfo.last_run);
-          if (nextRunCell && taskInfo.next_run)
-            nextRunCell.textContent = this.formatDateTime(taskInfo.next_run);
-
-          const runButton = row.querySelector(".run-now-btn");
-          if (runButton) {
-            runButton.disabled = taskInfo.status === "RUNNING";
-          }
-        }
-
-        return taskInfo.status;
-      } catch (error) {
-        console.error(`Error checking status for task ${taskId}:`, error);
-        return null;
-      }
-    }
-
-    // Improved polling with exponential backoff
-    async pollTaskStatus(taskId, maxAttempts = 30, initialInterval = 1000) {
-      let attempts = 0;
-      let interval = initialInterval;
-
-      const poll = async () => {
-        attempts++;
-        const status = await this.checkTaskStatus(taskId);
-
-        if (status === "RUNNING" && attempts < maxAttempts) {
-          // Task still running, continue polling with exponential backoff
-          interval = Math.min(interval * 1.5, 10000); // Cap at 10 seconds
-          setTimeout(poll, interval);
-        } else if (status === "FAILED") {
-          // Task failed, show error notification
-          this.notifier.show(
-            "Task Error",
-            `Task ${taskId} failed to complete`,
-            "danger"
-          );
-          this.activeTasksMap.delete(taskId);
-          this.updateTaskHistory();
-        } else if (status === "COMPLETED") {
-          // Task completed successfully
-          this.notifier.show(
-            "Task Completed",
-            `Task ${taskId} completed successfully`,
-            "success"
-          );
-          this.activeTasksMap.delete(taskId);
-          this.updateTaskHistory();
-        } else if (attempts >= maxAttempts) {
-          // Reached max attempts, but still no completion
-          this.notifier.show(
-            "Task Timeout",
-            `Task ${taskId} is taking longer than expected`,
-            "warning"
-          );
-          // Keep in active tasks map to continue checking
-        }
-      };
-
-      // Start polling
-      setTimeout(poll, initialInterval);
-    }
-
-    handleTaskUpdate(data) {
-      const row = document.querySelector(`tr[data-task-id="${data.task_id}"]`);
-      if (row) {
-        const statusCell = row.querySelector(".task-status");
-        const lastRunCell = row.querySelector(".task-last-run");
-        const nextRunCell = row.querySelector(".task-next-run");
-
-        if (statusCell) statusCell.innerHTML = this.getStatusHTML(data.status);
-        if (lastRunCell && data.last_run)
-          lastRunCell.textContent = this.formatDateTime(data.last_run);
-        if (nextRunCell && data.next_run)
-          nextRunCell.textContent = this.formatDateTime(data.next_run);
-
-        const runButton = row.querySelector(".run-now-btn");
-        if (runButton) {
-          runButton.disabled = data.status === "RUNNING";
-        }
-      }
-    }
-
-    getStatusHTML(status) {
-      const statusColors = {
-        RUNNING: "primary",
-        COMPLETED: "success",
-        FAILED: "danger",
-        PAUSED: "warning",
-        IDLE: "secondary",
-      };
-
-      const color = statusColors[status] || "secondary";
-
-      if (status === "RUNNING") {
-        return `
-            <div class="d-flex align-items-center">
-              <div class="spinner-border spinner-border-sm me-2" role="status">
-                <span class="visually-hidden">Running...</span>
-              </div>
-              <span class="status-text">Running</span>
-            </div>
-          `;
-      }
-
-      return `<span class="badge bg-${color}">${status}</span>`;
-    }
-
-    getStatusColor(status) {
-      const statusColors = {
-        RUNNING: "primary",
-        COMPLETED: "success",
-        FAILED: "danger",
-        PAUSED: "warning",
-        IDLE: "secondary",
-      };
-      return statusColors[status] || "secondary";
-    }
-
-    // Enhanced runTask function for Celery integration
-    async runTask(taskId) {
-      try {
-        // Show loading overlay while starting task
-        showLoadingOverlay();
-
-        const response = await fetch("/api/background_tasks/manual_run", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tasks: [taskId] }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to start task");
-        }
-
-        const result = await response.json();
-
-        // Hide loading overlay
-        hideLoadingOverlay();
-
-        if (result.status === "success") {
-          this.activeTasksMap.set(taskId, "RUNNING");
-          this.notifier.show(
-            "Task Started",
-            `Task ${taskId} has been started`,
-            "info"
-          );
-
-          // Update UI to show running status
-          const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
-          if (row) {
-            const statusCell = row.querySelector(".task-status");
-            if (statusCell) {
-              statusCell.innerHTML = this.getStatusHTML("RUNNING");
-            }
-
-            const runButton = row.querySelector(".run-now-btn");
-            if (runButton) {
-              runButton.disabled = true;
-            }
-          }
-
-          // Start polling for status updates
-          if (result.results && result.results.length > 0) {
-            // If we have multiple tasks, poll each one
-            for (const taskResult of result.results) {
-              if (taskResult.success && taskResult.task) {
-                this.activeTasksMap.set(taskResult.task, "RUNNING");
-                this.pollTaskStatus(taskResult.task);
-              }
-            }
-          } else {
-            // Single task
-            this.pollTaskStatus(taskId);
-          }
-
-          return true;
-        } else {
-          throw new Error(result.message || "Failed to start task");
-        }
-      } catch (error) {
-        console.error(`Error running task ${taskId}:`, error);
-        hideLoadingOverlay();
-        this.notifier.show(
-          "Error",
-          `Failed to start task ${taskId}: ${error.message}`,
-          "danger"
-        );
-        return false;
-      }
+      }, 5000); // Poll every 5 seconds
     }
 
     async loadTaskConfig() {
@@ -329,6 +63,10 @@
         }
 
         this.updateTaskConfigTable(config);
+
+        // Update active tasks map based on current config
+        this.updateActiveTasksMap(config);
+
         await this.updateTaskHistory();
       } catch (error) {
         console.error("Error loading task configuration:", error);
@@ -337,6 +75,27 @@
           "Failed to load task configuration: " + error.message,
           "danger"
         );
+      }
+    }
+
+    // Track which tasks are running
+    updateActiveTasksMap(config) {
+      // Clear tasks that no longer exist or are not running
+      for (const [taskId, status] of this.activeTasksMap.entries()) {
+        const taskConfig = config.tasks[taskId];
+        if (!taskConfig || taskConfig.status !== "RUNNING") {
+          this.activeTasksMap.delete(taskId);
+        }
+      }
+
+      // Add newly running tasks
+      for (const [taskId, taskConfig] of Object.entries(config.tasks)) {
+        if (
+          taskConfig.status === "RUNNING" &&
+          !this.activeTasksMap.has(taskId)
+        ) {
+          this.activeTasksMap.set(taskId, "RUNNING");
+        }
       }
     }
 
@@ -466,7 +225,7 @@
         let detailsContent = "N/A";
         if (entry.error) {
           detailsContent = `<button class="btn btn-sm btn-danger view-error-btn"
-                    data-error="${entry.error}">
+                    data-error="${this.escapeHtml(entry.error)}">
                     <i class="fas fa-exclamation-circle"></i> View Error
                   </button>`;
         } else if (entry.status === "COMPLETED") {
@@ -500,6 +259,17 @@
           this.showErrorModal(errorMessage);
         });
       });
+    }
+
+    // Escape HTML for security
+    escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
 
     showErrorModal(errorMessage) {
@@ -600,6 +370,120 @@
       });
     }
 
+    getStatusHTML(status) {
+      const statusColors = {
+        RUNNING: "primary",
+        COMPLETED: "success",
+        FAILED: "danger",
+        PAUSED: "warning",
+        IDLE: "secondary",
+      };
+
+      const color = statusColors[status] || "secondary";
+
+      if (status === "RUNNING") {
+        return `
+            <div class="d-flex align-items-center">
+              <div class="spinner-border spinner-border-sm me-2" role="status">
+                <span class="visually-hidden">Running...</span>
+              </div>
+              <span class="status-text">Running</span>
+            </div>
+          `;
+      }
+
+      return `<span class="badge bg-${color}">${status}</span>`;
+    }
+
+    getStatusColor(status) {
+      const statusColors = {
+        RUNNING: "primary",
+        COMPLETED: "success",
+        FAILED: "danger",
+        PAUSED: "warning",
+        IDLE: "secondary",
+      };
+      return statusColors[status] || "secondary";
+    }
+
+    async runTask(taskId) {
+      try {
+        // Show loading overlay while starting task
+        showLoadingOverlay();
+
+        const response = await fetch("/api/background_tasks/manual_run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tasks: [taskId] }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to start task");
+        }
+
+        const result = await response.json();
+
+        // Hide loading overlay
+        hideLoadingOverlay();
+
+        if (result.status === "success") {
+          this.activeTasksMap.set(taskId, "RUNNING");
+          this.notifier.show(
+            "Task Started",
+            `Task ${taskId} has been started`,
+            "info"
+          );
+
+          // Update UI to show running status
+          const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
+          if (row) {
+            const statusCell = row.querySelector(".task-status");
+            if (statusCell) {
+              statusCell.innerHTML = this.getStatusHTML("RUNNING");
+            }
+
+            const runButton = row.querySelector(".run-now-btn");
+            if (runButton) {
+              runButton.disabled = true;
+            }
+          }
+
+          // Force a config refresh soon to catch completion
+          this.scheduleConfigRefresh();
+
+          return true;
+        } else {
+          throw new Error(result.message || "Failed to start task");
+        }
+      } catch (error) {
+        console.error(`Error running task ${taskId}:`, error);
+        hideLoadingOverlay();
+        this.notifier.show(
+          "Error",
+          `Failed to start task ${taskId}: ${error.message}`,
+          "danger"
+        );
+        return false;
+      }
+    }
+
+    // Schedule a quicker config refresh after starting a task
+    scheduleConfigRefresh() {
+      if (this.configRefreshTimeout) {
+        clearTimeout(this.configRefreshTimeout);
+      }
+
+      // Check status more frequently right after starting a task
+      this.configRefreshTimeout = setTimeout(() => {
+        this.loadTaskConfig();
+
+        // Check again after another 2 seconds
+        this.configRefreshTimeout = setTimeout(() => {
+          this.loadTaskConfig();
+        }, 2000);
+      }, 1000);
+    }
+
     formatDateTime(date) {
       if (!date) return "";
       try {
@@ -613,6 +497,9 @@
       const seconds = Math.floor(ms / 1000);
       const minutes = Math.floor(seconds / 60);
       const hours = Math.floor(minutes / 60);
+
+      if (isNaN(seconds)) return "Unknown";
+
       return hours > 0
         ? `${hours}h ${minutes % 60}m ${seconds % 60}s`
         : minutes > 0
@@ -623,15 +510,19 @@
     gatherTaskConfigFromUI() {
       const tasks = {};
       document.querySelectorAll("#taskConfigTable tbody tr").forEach((row) => {
+        const taskId = row.dataset.taskId;
+        if (!taskId) return;
+
         const sel = row.querySelector("select");
         const check = row.querySelector('input[type="checkbox"]');
         if (!sel || !check) return;
-        const taskId = sel.dataset.taskId;
+
         tasks[taskId] = {
           interval_minutes: parseInt(sel.value, 10),
           enabled: check.checked,
         };
       });
+
       return {
         globalDisable: document.getElementById("globalDisableSwitch")?.checked,
         tasks: tasks,
@@ -734,7 +625,9 @@
                 ? `
             <div class="mb-3">
               <h6>Last Error</h6>
-              <pre class="bg-dark text-danger p-2 rounded">${taskDetails.last_error}</pre>
+              <pre class="bg-dark text-danger p-2 rounded">${this.escapeHtml(
+                taskDetails.last_error
+              )}</pre>
             </div>`
                 : ""
             }
@@ -823,7 +716,6 @@
           paginationContainer.innerHTML = "";
         }
 
-        this.task_history = [];
         this.notifier.show(
           "Success",
           "Task history cleared successfully",
@@ -845,6 +737,11 @@
       if (this.pollingInterval) {
         clearInterval(this.pollingInterval);
         this.pollingInterval = null;
+      }
+
+      if (this.configRefreshTimeout) {
+        clearTimeout(this.configRefreshTimeout);
+        this.configRefreshTimeout = null;
       }
     }
   }
@@ -904,36 +801,27 @@
       });
     }
 
-    if (confirmPauseBtn) {
-      confirmPauseBtn.addEventListener("click", async () => {
-        const mins = parseInt(
-          document.getElementById("pauseDuration").value,
-          10
-        );
+    // Reset Tasks Button Handler
+    const resetTasksBtn = document.getElementById("resetTasksBtn");
+    if (resetTasksBtn) {
+      resetTasksBtn.addEventListener("click", async () => {
         try {
           showLoadingOverlay();
-          const response = await fetch("/api/background_tasks/pause", {
+          const response = await fetch("/api/background_tasks/reset", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ minutes: mins }),
           });
 
           hideLoadingOverlay();
 
-          if (!response.ok) throw new Error("Failed to pause tasks");
+          if (!response.ok) throw new Error("Failed to reset tasks");
 
-          bootstrap.Modal.getInstance(
-            document.getElementById("pauseModal")
-          ).hide();
-          window.notificationManager.show(
-            `Tasks paused for ${mins} minutes`,
-            "success"
-          );
+          const result = await response.json();
+          window.notificationManager.show(result.message, "success");
           taskManager.loadTaskConfig();
         } catch (error) {
           hideLoadingOverlay();
-          console.error("Error pausing tasks:", error);
-          window.notificationManager.show("Failed to pause tasks", "danger");
+          console.error("Error resetting tasks:", error);
+          window.notificationManager.show("Failed to reset tasks", "danger");
         }
       });
     }
@@ -972,7 +860,10 @@
 
           if (!response.ok) throw new Error("Failed to stop tasks");
 
-          window.notificationManager.show("All tasks stopped", "success");
+          window.notificationManager.show(
+            "All running tasks stopped",
+            "success"
+          );
           taskManager.loadTaskConfig();
         } catch (error) {
           hideLoadingOverlay();

@@ -11,3 +11,4 @@ package-lock.json
 celerybeat-schedule.db
 exports/
 flower.db
+vibes.md
