@@ -317,15 +317,15 @@ class CoverageCalculator:
             # Recreate the transformers in the worker process
             project_to_utm = Transformer.from_wkt(project_to_utm_wkt)
             project_to_wgs84 = Transformer.from_wkt(project_to_wgs84_wkt)
-            
+
             trip_line = LineString(coords)
             if len(trip_line.coords) < 2:
                 return covered
-                
+
             trip_line_utm = transform(project_to_utm, trip_line)
             trip_buffer = trip_line_utm.buffer(match_buffer)
             trip_buffer_wgs84 = transform(project_to_wgs84, trip_buffer)
-            
+
             # Find streets that intersect with the trip buffer
             for i, street_bound in enumerate(streets_bounds):
                 # Skip if bounds don't intersect
@@ -336,12 +336,12 @@ class CoverageCalculator:
                     or trip_buffer_wgs84.bounds[1] > street_bound[3]
                 ):
                     continue
-                
+
                 street = street_properties[i]
                 street_geom = shape(street["geometry"])
                 street_utm = transform(project_to_utm, street_geom)
                 intersection = trip_buffer.intersection(street_utm)
-                
+
                 if (
                     not intersection.is_empty
                     and intersection.length >= min_match_length
@@ -381,7 +381,7 @@ class CoverageCalculator:
                         # Convert transformers to WKT strings
                         project_to_utm_wkt = self.project_to_utm.to_wkt()
                         project_to_wgs84_wkt = self.project_to_wgs84.to_wkt()
-                        
+
                         # Prepare street data
                         streets_bounds = []
                         street_properties = []
@@ -389,7 +389,7 @@ class CoverageCalculator:
                             street = self.streets_lookup[idx]
                             streets_bounds.append(shape(street["geometry"]).bounds)
                             street_properties.append(street)
-                        
+
                         # Submit all trips in the sub-batch to the process pool
                         futures = [
                             self.process_pool.submit(
@@ -404,7 +404,7 @@ class CoverageCalculator:
                             )
                             for coords in sub_batch
                         ]
-                        
+
                         # Gather results as they complete
                         for future in futures:
                             covered_segments = future.result()
