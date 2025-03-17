@@ -24,15 +24,24 @@
   <div id="sidebar-content" class="sidebar-body">
     <!-- Navigation Menu -->
     <div class="sidebar-nav p-2">
-      <ul class="nav flex-column list-unstyled" role="menu">
+      <ul class="nav flex-column list-unstyled" role="list">
+        <!-- Changed role to list -->
         <li class="nav-item mb-2" role="none">
           <a
             href="/"
             class="nav-link text-white d-flex align-items-center"
-            role="menuitem"
-            aria-current="{% if request.path == '/' %}page{% endif %}"
-            title="View Map"
+            role="link"
+            <!--
+            Changed
+            role
+            to
+            link
+            --
           >
+            aria-current="{% if request.endpoint == 'index' %}page{% endif %}"
+            title="Map"
+            <!-- Simplified title -->
+            >
             <i class="fas fa-map me-2" aria-hidden="true"></i>
             <span class="nav-link-text">Map</span>
           </a>
@@ -41,20 +50,21 @@
           <a
             href="/trips"
             class="nav-link text-white d-flex align-items-center"
-            role="menuitem"
-            aria-current="{% if request.path == '/trips' %}page{% endif %}"
-            title="View Trips"
+            role="link"
+            aria-current="{% if request.endpoint == 'trips' %}page{% endif %}"
+            title="Trips"
           >
             <i class="fas fa-road me-2" aria-hidden="true"></i>
             <span class="nav-link-text">Trips</span>
           </a>
         </li>
+        <!--  Repeat the aria-current fix and title simplification for other links -->
         <li class="nav-item mb-2" role="none">
           <a
             href="/edit_trips"
             class="nav-link text-white d-flex align-items-center"
-            role="menuitem"
-            aria-current="{% if request.path == '/edit_trips' %}page{% endif %}"
+            role="link"
+            aria-current="{% if request.endpoint == 'edit_trips' %}page{% endif %}"
             title="Edit Trip Data"
           >
             <i class="fas fa-edit me-2" aria-hidden="true"></i>
@@ -65,8 +75,8 @@
           <a
             href="/driving-insights"
             class="nav-link text-white d-flex align-items-center"
-            role="menuitem"
-            aria-current="{% if request.path == '/driving-insights' %}page{% endif %}"
+            role="link"
+            aria-current="{% if request.endpoint == 'driving_insights' %}page{% endif %}"
             title="View Driving Statistics"
           >
             <i class="fas fa-chart-line me-2" aria-hidden="true"></i>
@@ -77,8 +87,8 @@
           <a
             href="/ai-insights"
             class="nav-link text-white d-flex align-items-center"
-            role="menuitem"
-            aria-current="{% if request.path == '/ai-insights' %}page{% endif %}"
+            role="link"
+            aria-current="{% if request.endpoint == 'ai_insights' %}page{% endif %}"
             title="AI-Powered Driving Analysis"
           >
             <i class="fas fa-robot me-2" aria-hidden="true"></i>
@@ -89,8 +99,8 @@
           <a
             href="/export"
             class="nav-link text-white d-flex align-items-center"
-            role="menuitem"
-            aria-current="{% if request.path == '/export' %}page{% endif %}"
+            role="link"
+            aria-current="{% if request.endpoint == 'export' %}page{% endif %}"
             title="Export Your Data"
           >
             <i class="fas fa-file-export me-2" aria-hidden="true"></i>
@@ -101,8 +111,8 @@
           <a
             href="/coverage-management"
             class="nav-link text-white d-flex align-items-center"
-            role="menuitem"
-            aria-current="{% if request.path == '/coverage-management' %}page{% endif %}"
+            role="link"
+            aria-current="{% if request.endpoint == 'coverage_management' %}page{% endif %}"
             title="Manage Coverage Areas"
           >
             <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
@@ -113,8 +123,8 @@
           <a
             href="/upload"
             class="nav-link text-white d-flex align-items-center"
-            role="menuitem"
-            aria-current="{% if request.path == '/upload' %}page{% endif %}"
+            role="link"
+            aria-current="{% if request.endpoint == 'upload' %}page{% endif %}"
             title="Upload GPX Files"
           >
             <i class="fas fa-upload me-2" aria-hidden="true"></i>
@@ -125,8 +135,8 @@
           <a
             href="/visits"
             class="nav-link text-white d-flex align-items-center"
-            role="menuitem"
-            aria-current="{% if request.path == '/visits' %}page{% endif %}"
+            role="link"
+            aria-current="{% if request.endpoint == 'visits' %}page{% endif %}"
             title="View Place Visits"
           >
             <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>
@@ -137,8 +147,8 @@
           <a
             href="/database-management"
             class="nav-link text-white d-flex align-items-center"
-            role="menuitem"
-            aria-current="{% if request.path == '/database-management' %}page{% endif %}"
+            role="link"
+            aria-current="{% if request.endpoint == 'database_management' %}page{% endif %}"
             title="Database Management"
           >
             <i class="fas fa-database me-2" aria-hidden="true"></i>
@@ -149,8 +159,8 @@
           <a
             href="/settings"
             class="nav-link text-white d-flex align-items-center"
-            role="menuitem"
-            aria-current="{% if request.path == '/settings' %}page{% endif %}"
+            role="link"
+            aria-current="{% if request.endpoint == 'settings' %}page{% endif %}"
             title="App Settings"
           >
             <i class="fas fa-cog me-2" aria-hidden="true"></i>
@@ -161,134 +171,6 @@
     </div>
 
     <hr class="sidebar-divider my-3" />
-
-    <!-- Filters Section -->
-    <div class="sidebar-filters p-3">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="h5 mb-0">Filters</h2>
-        <button
-          class="btn btn-sm btn-link text-white p-1"
-          id="toggle-filters"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#filters-content"
-          aria-expanded="true"
-          aria-controls="filters-content"
-          title="Toggle filters visibility"
-        >
-          <i class="fas fa-chevron-up" aria-hidden="true"></i>
-          <span class="visually-hidden">Toggle Filters</span>
-        </button>
-      </div>
-
-      <div id="filters-content" class="collapse show">
-        <form id="filters-form" aria-label="Trip filters">
-          <div class="mb-3">
-            <label for="start-date" class="form-label">Start Date</label>
-            <input
-              type="text"
-              id="start-date"
-              class="form-control datepicker"
-              placeholder="Select Start Date"
-              aria-label="Start date filter"
-            />
-          </div>
-          <div class="mb-3">
-            <label for="end-date" class="form-label">End Date</label>
-            <input
-              type="text"
-              id="end-date"
-              class="form-control datepicker"
-              placeholder="Select End Date"
-              aria-label="End date filter"
-            />
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label d-block">Preset Ranges</label>
-            <div
-              class="date-presets-grid"
-              role="group"
-              aria-label="Date range presets"
-            >
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm date-preset"
-                data-range="today"
-              >
-                Today
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm date-preset"
-                data-range="yesterday"
-              >
-                Yesterday
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm date-preset"
-                data-range="last-week"
-              >
-                Last 7 Days
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm date-preset"
-                data-range="last-month"
-              >
-                Last 30 Days
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm date-preset"
-                data-range="last-6-months"
-              >
-                Last 6 Months
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm date-preset"
-                data-range="last-year"
-              >
-                Last 12 Months
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm date-preset"
-                data-range="all-time"
-              >
-                All Time
-              </button>
-            </div>
-          </div>
-        </form>
-
-        <!-- Action Buttons -->
-        <div class="d-grid gap-2">
-          <button id="apply-filters" class="btn btn-primary" type="button">
-            <i class="fas fa-filter me-1" aria-hidden="true"></i> Apply Filters
-          </button>
-          <button
-            id="fetch-trips-range"
-            class="btn btn-secondary"
-            type="button"
-          >
-            <i class="fas fa-sync me-1" aria-hidden="true"></i> Fetch Trips in
-            Range
-          </button>
-          <div
-            class="btn-group w-100"
-            role="group"
-            aria-label="Map Matching Options"
-          >
-            <button id="map-match-trips" class="btn btn-warning" type="button">
-              Map Match Trips
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </nav>
 
