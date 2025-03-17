@@ -59,6 +59,8 @@ class CoverageCalculator:
         self.streets_index = rtree.index.Index()
         self.streets_lookup: Dict[int, Dict[str, Any]] = {}
         self.utm_proj: Optional[pyproj.CRS] = None
+        self.utm_transformer = None
+        self.wgs84_transformer = None
         self.project_to_utm = None
         self.project_to_wgs84 = None
 
@@ -88,12 +90,16 @@ class CoverageCalculator:
         self.utm_proj = pyproj.CRS(
             f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84"
         )
-        self.project_to_utm = pyproj.Transformer.from_crs(
+        # Store both the transformer object and its transform function
+        self.utm_transformer = pyproj.Transformer.from_crs(
             WGS84, self.utm_proj, always_xy=True
-        ).transform
-        self.project_to_wgs84 = pyproj.Transformer.from_crs(
+        )
+        self.project_to_utm = self.utm_transformer.transform
+        
+        self.wgs84_transformer = pyproj.Transformer.from_crs(
             self.utm_proj, WGS84, always_xy=True
-        ).transform
+        )
+        self.project_to_wgs84 = self.wgs84_transformer.transform
 
     def _get_location_center(self) -> Tuple[float, float]:
         """Get the center coordinates of the location."""
@@ -301,8 +307,8 @@ class CoverageCalculator:
     @staticmethod
     def _process_trip_sync_worker(
         coords: List[Any],
-        project_to_utm_wkt: str,
-        project_to_wgs84_wkt: str,
+        utm_proj_string: str,
+        wgs84_proj_string: str,
         streets_bounds: List[Tuple[float, float, float, float]],
         street_properties: List[Dict],
         match_buffer: float,
@@ -315,8 +321,17 @@ class CoverageCalculator:
         covered: Set[str] = set()
         try:
             # Recreate the transformers in the worker process
-            project_to_utm = Transformer.from_wkt(project_to_utm_wkt)
-            project_to_wgs84 = Transformer.from_wkt(project_to_wgs84_wkt)
+            utm_proj = pyproj.CRS.from_string(utm_proj_string)
+            wgs84_proj = pyproj.CRS.from_string(wgs84_proj_string)
+            
+            # Create transform functions
+            project_to_utm = pyproj.Transformer.from_crs(
+                wgs84_proj, utm_proj, always_xy=True
+            ).transform
+            
+            project_to_wgs84 = pyproj.Transformer.from_crs(
+                utm_proj, wgs84_proj, always_xy=True
+            ).transform
             
             trip_line = LineString(coords)
             if len(trip_line.coords) < 2:
@@ -378,9 +393,9 @@ class CoverageCalculator:
                 if self.process_pool is not None:
                     try:
                         # Prepare data for multiprocessing (must be picklable)
-                        # Convert transformers to WKT strings
-                        project_to_utm_wkt = self.project_to_utm.to_wkt()
-                        project_to_wgs84_wkt = self.project_to_wgs84.to_wkt()
+                        # Convert projections to strings
+                        utm_proj_string = self.utm_proj.to_string()
+                        wgs84_proj_string = WGS84.to_string()
                         
                         # Prepare street data
                         streets_bounds = []
@@ -395,8 +410,8 @@ class CoverageCalculator:
                             self.process_pool.submit(
                                 self._process_trip_sync_worker,
                                 coords,
-                                project_to_utm_wkt,
-                                project_to_wgs84_wkt,
+                                utm_proj_string,
+                                wgs84_proj_string,
                                 streets_bounds,
                                 street_properties,
                                 self.match_buffer,
