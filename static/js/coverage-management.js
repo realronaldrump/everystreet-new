@@ -721,7 +721,7 @@
         this.showProgressModal("Requesting coverage update...");
 
         // Call the update endpoint
-        const response = await fetch("/api/coverage", {
+        const response = await fetch("/api/street_coverage", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

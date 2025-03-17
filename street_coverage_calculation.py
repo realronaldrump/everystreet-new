@@ -18,6 +18,7 @@ import pyproj
 import rtree
 from shapely.geometry import box, LineString, shape
 from shapely.ops import transform
+from pyproj import Transformer
 from dotenv import load_dotenv
 
 from db import (
@@ -297,6 +298,62 @@ class CoverageCalculator:
             logger.error("Error processing trip synchronously: %s", e, exc_info=True)
         return covered
 
+    @staticmethod
+    def _process_trip_sync_worker(
+        coords: List[Any],
+        project_to_utm_wkt: str,
+        project_to_wgs84_wkt: str,
+        streets_bounds: List[Tuple[float, float, float, float]],
+        street_properties: List[Dict],
+        match_buffer: float,
+        min_match_length: float,
+    ) -> Set[str]:
+        """
+        Static worker function that can be pickled for multiprocessing.
+        All dependencies are passed as arguments.
+        """
+        covered: Set[str] = set()
+        try:
+            # Recreate the transformers in the worker process
+            project_to_utm = Transformer.from_wkt(project_to_utm_wkt)
+            project_to_wgs84 = Transformer.from_wkt(project_to_wgs84_wkt)
+            
+            trip_line = LineString(coords)
+            if len(trip_line.coords) < 2:
+                return covered
+                
+            trip_line_utm = transform(project_to_utm, trip_line)
+            trip_buffer = trip_line_utm.buffer(match_buffer)
+            trip_buffer_wgs84 = transform(project_to_wgs84, trip_buffer)
+            
+            # Find streets that intersect with the trip buffer
+            for i, street_bound in enumerate(streets_bounds):
+                # Skip if bounds don't intersect
+                if (
+                    trip_buffer_wgs84.bounds[2] < street_bound[0]
+                    or trip_buffer_wgs84.bounds[0] > street_bound[2]
+                    or trip_buffer_wgs84.bounds[3] < street_bound[1]
+                    or trip_buffer_wgs84.bounds[1] > street_bound[3]
+                ):
+                    continue
+                
+                street = street_properties[i]
+                street_geom = shape(street["geometry"])
+                street_utm = transform(project_to_utm, street_geom)
+                intersection = trip_buffer.intersection(street_utm)
+                
+                if (
+                    not intersection.is_empty
+                    and intersection.length >= min_match_length
+                ):
+                    seg_id = street["properties"].get("segment_id")
+                    if seg_id:
+                        covered.add(seg_id)
+        except Exception as e:
+            # Use string formatting with % for logging as per requirements
+            logger.error("Error processing trip in worker: %s", e, exc_info=True)
+        return covered
+
     async def process_trip_batch(self, trips: List[Dict[str, Any]]) -> None:
         """Process a batch of trips to update coverage statistics."""
         valid_trips = []
@@ -319,18 +376,49 @@ class CoverageCalculator:
 
                 # Use process pool for CPU-intensive work
                 if self.process_pool is not None:
-                    # Submit all trips in the sub-batch to the process pool
-                    futures = [
-                        self.process_pool.submit(self._process_trip_sync, coords)
-                        for coords in sub_batch
-                    ]
-
-                    # Gather results as they complete
-                    for future in futures:
-                        covered_segments = future.result()
-                        for seg in covered_segments:
-                            self.covered_segments.add(seg)
-                            self.segment_coverage[seg] += 1
+                    try:
+                        # Prepare data for multiprocessing (must be picklable)
+                        # Convert transformers to WKT strings
+                        project_to_utm_wkt = self.project_to_utm.to_wkt()
+                        project_to_wgs84_wkt = self.project_to_wgs84.to_wkt()
+                        
+                        # Prepare street data
+                        streets_bounds = []
+                        street_properties = []
+                        for idx in self.streets_lookup:
+                            street = self.streets_lookup[idx]
+                            streets_bounds.append(shape(street["geometry"]).bounds)
+                            street_properties.append(street)
+                        
+                        # Submit all trips in the sub-batch to the process pool
+                        futures = [
+                            self.process_pool.submit(
+                                self._process_trip_sync_worker,
+                                coords,
+                                project_to_utm_wkt,
+                                project_to_wgs84_wkt,
+                                streets_bounds,
+                                street_properties,
+                                self.match_buffer,
+                                self.min_match_length,
+                            )
+                            for coords in sub_batch
+                        ]
+                        
+                        # Gather results as they complete
+                        for future in futures:
+                            covered_segments = future.result()
+                            for seg in covered_segments:
+                                self.covered_segments.add(seg)
+                                self.segment_coverage[seg] += 1
+                    except Exception as e:
+                        logger.error("Error in multiprocessing: %s", e, exc_info=True)
+                        # Fall back to sequential processing
+                        for coords in sub_batch:
+                            covered = self._process_trip_sync(coords)
+                            for seg in covered:
+                                self.covered_segments.add(seg)
+                                self.segment_coverage[seg] += 1
                 else:
                     # Fall back to sequential processing if pool unavailable
                     for coords in sub_batch:
