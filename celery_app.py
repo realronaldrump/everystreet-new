@@ -154,6 +154,11 @@ app.conf.update(
             "schedule": timedelta(hours=12),
             "options": {"queue": "low_priority"},
         },
+        "update_coverage_incremental": {
+            "task": "tasks.update_coverage_for_new_trips",
+            "schedule": timedelta(hours=2),  # Run every 2 hours
+            "options": {"queue": "default"},
+        },
     },
     # Worker monitoring settings
     worker_send_task_events=True,

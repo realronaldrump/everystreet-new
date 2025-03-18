@@ -837,25 +837,27 @@ async def update_coverage_for_new_trips():
     using the incremental algorithm (only processes new trips).
     """
     logger.info("Starting automated incremental coverage updates")
-    
+
     try:
         # Get all coverage areas
         coverage_areas = await coverage_metadata_collection.find({}).to_list(100)
-        
+
         for area in coverage_areas:
             try:
                 location = area.get("location")
                 if not location:
                     continue
-                    
+
                 # Generate a task ID for tracking progress
                 task_id = f"auto_update_{str(area.get('_id'))}"
-                
-                logger.info(f"Processing incremental update for {location.get('display_name')}")
-                
+
+                logger.info(
+                    f"Processing incremental update for {location.get('display_name')}"
+                )
+
                 # Calculate coverage incrementally
                 result = await compute_incremental_coverage(location, task_id)
-                
+
                 if result:
                     logger.info(
                         f"Updated coverage for {location.get('display_name')}: "
@@ -865,22 +867,25 @@ async def update_coverage_for_new_trips():
                     logger.warning(
                         f"Failed to update coverage for {location.get('display_name')}"
                     )
-                    
+
                 # Sleep briefly to avoid overloading the server
                 await asyncio.sleep(1)
-                
+
             except Exception as e:
                 logger.error(
                     f"Error updating coverage for {area.get('location', {}).get('display_name', 'Unknown')}: {str(e)}"
                 )
                 continue
-                
-        logger.info(f"Completed automated incremental updates for {len(coverage_areas)} areas")
+
+        logger.info(
+            f"Completed automated incremental updates for {len(coverage_areas)} areas"
+        )
         return {"status": "success", "areas_processed": len(coverage_areas)}
-        
+
     except Exception as e:
         logger.exception(f"Error in automated coverage update: {str(e)}")
         return {"status": "error", "message": str(e)}
+
 
 @shared_task(
     bind=True,

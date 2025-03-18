@@ -248,7 +248,7 @@ class CoverageCalculator:
                 street_utm = transform(self.project_to_utm, geom)
                 street["properties"]["segment_length"] = street_utm.length
                 self.total_length += street_utm.length
-                
+
                 # Add segment to covered_segments if it's already marked as driven
                 if essential_props["driven"]:
                     segment_id = essential_props["segment_id"]
@@ -666,8 +666,10 @@ class CoverageCalculator:
             )
             processed_trip_ids = []
             if metadata and "processed_trips" in metadata:
-                processed_trip_ids = metadata.get("processed_trips", {}).get("trip_ids", [])
-            
+                processed_trip_ids = metadata.get("processed_trips", {}).get(
+                    "trip_ids", []
+                )
+
             # Count trips before processing to support progress reporting
             await self.update_progress("counting_trips", 30, "Counting trips...")
             bbox = self.boundary_box.bounds
@@ -690,13 +692,15 @@ class CoverageCalculator:
                     },
                 ],
             }
-            
+
             # Exclude already processed trips if available
             if processed_trip_ids:
                 str_ids = [str(id) for id in processed_trip_ids]
-                trip_filter["_id"] = {"$nin": [ObjectId(id) for id in str_ids if ObjectId.is_valid(id)]}
+                trip_filter["_id"] = {
+                    "$nin": [ObjectId(id) for id in str_ids if ObjectId.is_valid(id)]
+                }
                 trip_filter["transactionId"] = {"$nin": str_ids}
-            
+
             try:
                 self.total_trips = await trips_collection.count_documents(trip_filter)
             except Exception as e:
@@ -787,7 +791,7 @@ class CoverageCalculator:
                             },
                         }
                         features.append(feature)
-                        
+
                         # Update the street document with driven status
                         if is_covered:
                             await streets_collection.update_one(
@@ -795,9 +799,11 @@ class CoverageCalculator:
                                 {
                                     "$set": {
                                         "properties.driven": True,
-                                        "properties.last_coverage_update": datetime.now(timezone.utc)
+                                        "properties.last_coverage_update": datetime.now(
+                                            timezone.utc
+                                        ),
                                     }
-                                }
+                                },
                             )
 
                     # Yield to event loop occasionally and run GC periodically
@@ -852,17 +858,19 @@ class CoverageCalculator:
                     "updated_at": datetime.now().isoformat(),
                 },
             }
-            
+
             # Update processed trips in metadata
             await coverage_metadata_collection.update_one(
                 {"location.display_name": self.location.get("display_name")},
                 {
                     "$set": {
                         "processed_trips.trip_ids": processed_trip_ids,
-                        "processed_trips.last_processed_timestamp": datetime.now(timezone.utc)
+                        "processed_trips.last_processed_timestamp": datetime.now(
+                            timezone.utc
+                        ),
                     }
                 },
-                upsert=True
+                upsert=True,
             )
 
             await self.update_progress("complete", 100, "Coverage calculation complete")
@@ -943,14 +951,16 @@ async def compute_coverage_for_location(
         gc.collect()
 
 
-async def compute_incremental_coverage(location: Dict[str, Any], task_id: str) -> Optional[Dict[str, Any]]:
+async def compute_incremental_coverage(
+    location: Dict[str, Any], task_id: str
+) -> Optional[Dict[str, Any]]:
     """
     Compute coverage only for new trips since the last update.
-    
+
     Args:
         location: Location dictionary containing display_name and boundary info
         task_id: Task identifier for progress tracking
-        
+
     Returns:
         Dictionary with coverage statistics or None if error
     """
@@ -959,37 +969,60 @@ async def compute_incremental_coverage(location: Dict[str, Any], task_id: str) -
         metadata = await coverage_metadata_collection.find_one(
             {"location.display_name": location.get("display_name")}
         )
-        
+
         if not metadata:
-            logger.warning(f"No metadata found for {location.get('display_name')}, running full calculation")
+            logger.warning(
+                f"No metadata found for {location.get('display_name')}, running full calculation"
+            )
             return await compute_coverage_for_location(location, task_id)
-            
+
         # Get latest timestamp or default to very old date
         last_processed = metadata.get("processed_trips", {}).get(
-            "last_processed_timestamp", 
-            datetime(1970, 1, 1, tzinfo=timezone.utc)
+            "last_processed_timestamp", datetime(1970, 1, 1, tzinfo=timezone.utc)
         )
-        
-        processed_trip_ids = set(metadata.get("processed_trips", {}).get("trip_ids", []))
+
+        processed_trip_ids = set(
+            metadata.get("processed_trips", {}).get("trip_ids", [])
+        )
         logger.info(f"Found {len(processed_trip_ids)} previously processed trips")
-        
+
         # Get boundary box for location
         bbox = location.get("boundingbox", [])
         if len(bbox) != 4:
             raise ValueError("Invalid bounding box in location data")
-            
+
         # Create boundary box for geospatial queries
-        boundary_box = box(float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3]))
-        
+        boundary_box = box(
+            float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
+        )
+
         # Find only new trips since the last update
         new_trips_query = {
             "startTime": {"$gt": last_processed},
             "$or": [
-                {"startGeoPoint": {"$geoWithin": {"$box": [[float(bbox[0]), float(bbox[1])], [float(bbox[2]), float(bbox[3])]]}}},
-                {"destinationGeoPoint": {"$geoWithin": {"$box": [[float(bbox[0]), float(bbox[1])], [float(bbox[2]), float(bbox[3])]]}}},
-            ]
+                {
+                    "startGeoPoint": {
+                        "$geoWithin": {
+                            "$box": [
+                                [float(bbox[0]), float(bbox[1])],
+                                [float(bbox[2]), float(bbox[3])],
+                            ]
+                        }
+                    }
+                },
+                {
+                    "destinationGeoPoint": {
+                        "$geoWithin": {
+                            "$box": [
+                                [float(bbox[0]), float(bbox[1])],
+                                [float(bbox[2]), float(bbox[3])],
+                            ]
+                        }
+                    }
+                },
+            ],
         }
-        
+
         # Update progress
         await progress_collection.update_one(
             {"_id": task_id},
@@ -1002,11 +1035,11 @@ async def compute_incremental_coverage(location: Dict[str, Any], task_id: str) -
                 }
             },
         )
-        
+
         # Count new trips for progress reporting
         new_trips_count = await trips_collection.count_documents(new_trips_query)
         logger.info(f"Found {new_trips_count} new trips to process")
-        
+
         # No new trips to process
         if new_trips_count == 0:
             await progress_collection.update_one(
@@ -1020,7 +1053,7 @@ async def compute_incremental_coverage(location: Dict[str, Any], task_id: str) -
                     }
                 },
             )
-            
+
             # Return current coverage stats
             return {
                 "total_length": metadata.get("total_length", 0),
@@ -1029,12 +1062,12 @@ async def compute_incremental_coverage(location: Dict[str, Any], task_id: str) -
                 "total_segments": metadata.get("total_segments", 0),
                 "street_types": metadata.get("street_types", []),
             }
-            
+
         # Process new trips in batches
         new_trips_cursor = trips_collection.find(new_trips_query)
         processed_count = 0
         new_covered_segments = set()
-        
+
         # Update progress
         await progress_collection.update_one(
             {"_id": task_id},
@@ -1047,22 +1080,20 @@ async def compute_incremental_coverage(location: Dict[str, Any], task_id: str) -
                 }
             },
         )
-        
+
         # Process trips in batches
         async for trip_batch in batch_cursor(new_trips_cursor, 50):
             batch_covered_segments = await process_trip_batch_for_coverage(
-                trip_batch, 
-                location.get("display_name"), 
-                boundary_box
+                trip_batch, location.get("display_name"), boundary_box
             )
-            
+
             # Track newly processed trips and covered segments
             for trip in trip_batch:
                 processed_trip_ids.add(str(trip.get("_id")))
-            
+
             new_covered_segments.update(batch_covered_segments)
             processed_count += len(trip_batch)
-            
+
             # Update progress
             progress = 30 + (processed_count / new_trips_count * 50)
             await progress_collection.update_one(
@@ -1075,10 +1106,10 @@ async def compute_incremental_coverage(location: Dict[str, Any], task_id: str) -
                     }
                 },
             )
-            
+
             # Allow event loop to process other tasks
             await asyncio.sleep(0.1)
-        
+
         # Update progress
         await progress_collection.update_one(
             {"_id": task_id},
@@ -1091,10 +1122,10 @@ async def compute_incremental_coverage(location: Dict[str, Any], task_id: str) -
                 }
             },
         )
-        
+
         # Calculate updated coverage statistics
         coverage_stats = await calculate_coverage_summary(location.get("display_name"))
-        
+
         # Update metadata with new processed trips list
         await coverage_metadata_collection.update_one(
             {"location.display_name": location.get("display_name")},
@@ -1107,11 +1138,13 @@ async def compute_incremental_coverage(location: Dict[str, Any], task_id: str) -
                     "total_segments": coverage_stats["total_segments"],
                     "last_updated": datetime.now(timezone.utc),
                     "processed_trips.trip_ids": list(processed_trip_ids),
-                    "processed_trips.last_processed_timestamp": datetime.now(timezone.utc)
+                    "processed_trips.last_processed_timestamp": datetime.now(
+                        timezone.utc
+                    ),
                 }
-            }
+            },
         )
-        
+
         # Mark calculation complete
         await progress_collection.update_one(
             {"_id": task_id},
@@ -1125,10 +1158,12 @@ async def compute_incremental_coverage(location: Dict[str, Any], task_id: str) -
                 }
             },
         )
-        
-        logger.info(f"Completed incremental coverage update for {location.get('display_name')}")
+
+        logger.info(
+            f"Completed incremental coverage update for {location.get('display_name')}"
+        )
         return coverage_stats
-        
+
     except Exception as e:
         logger.exception(f"Error in incremental coverage calculation: {str(e)}")
         await progress_collection.update_one(
@@ -1151,45 +1186,49 @@ async def process_trip_batch_for_coverage(
     location_name: str,
     boundary_box: box,
     buffer_distance: float = 15.0,
-    min_match_length: float = 5.0
+    min_match_length: float = 5.0,
 ) -> Set[str]:
     """
     Process a batch of trips to update street coverage.
-    
+
     Args:
         trip_batch: List of trip documents
         location_name: Name of location for filtering streets
         boundary_box: Shapely box representing location boundary
         buffer_distance: Buffer around trip lines (meters)
         min_match_length: Minimum intersection length to consider covered (meters)
-        
+
     Returns:
         Set of segment IDs that were covered by these trips
     """
     covered_segments = set()
-    
+
     # Prepare projection for distance calculations
     wgs84 = pyproj.CRS("EPSG:4326")
-    
+
     # Get center of boundary box for appropriate UTM projection
     center_lat = (boundary_box.bounds[1] + boundary_box.bounds[3]) / 2
     center_lon = (boundary_box.bounds[0] + boundary_box.bounds[2]) / 2
-    
+
     # Determine UTM zone from center coordinates
     utm_zone = int((center_lon + 180) / 6) + 1
     hemisphere = "north" if center_lat >= 0 else "south"
-    
+
     # Create UTM projection
     utm_proj = pyproj.CRS(f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84")
-    
+
     # Create transformers
-    project_to_utm = pyproj.Transformer.from_crs(wgs84, utm_proj, always_xy=True).transform
-    project_to_wgs84 = pyproj.Transformer.from_crs(utm_proj, wgs84, always_xy=True).transform
-    
+    project_to_utm = pyproj.Transformer.from_crs(
+        wgs84, utm_proj, always_xy=True
+    ).transform
+    project_to_wgs84 = pyproj.Transformer.from_crs(
+        utm_proj, wgs84, always_xy=True
+    ).transform
+
     # Process each trip
     for trip in trip_batch:
         trip_id = str(trip.get("_id"))
-        
+
         # Extract GPS data
         gps_data = trip.get("gps")
         if isinstance(gps_data, str):
@@ -1198,74 +1237,81 @@ async def process_trip_batch_for_coverage(
             except json.JSONDecodeError:
                 logger.warning(f"Could not parse GPS data for trip {trip_id}")
                 continue
-        
+
         # Get coordinates
         if not gps_data or "coordinates" not in gps_data:
             logger.warning(f"No coordinates in GPS data for trip {trip_id}")
             continue
-            
+
         coordinates = gps_data.get("coordinates", [])
         if len(coordinates) < 2:
             logger.warning(f"Insufficient coordinates for trip {trip_id}")
             continue
-        
+
         # Create trip line
         try:
             trip_line = LineString(coordinates)
-            
+
             # Skip if trip doesn't intersect boundary
             if not boundary_box.intersects(trip_line):
                 continue
-                
+
             # Convert to UTM for proper distance measurements
             trip_line_utm = transform(project_to_utm, trip_line)
             trip_buffer = trip_line_utm.buffer(buffer_distance)
             trip_buffer_wgs84 = transform(project_to_wgs84, trip_buffer)
-            
+
             # Find streets that might be covered using spatial query
             streets_query = {
                 "properties.location": location_name,
-                "geometry": {"$geoIntersects": {"$geometry": trip_buffer_wgs84.__geo_interface__}}
+                "geometry": {
+                    "$geoIntersects": {"$geometry": trip_buffer_wgs84.__geo_interface__}
+                },
             }
-            
+
             streets = await streets_collection.find(streets_query).to_list(length=1000)
-            
+
             # Check each street for coverage
             for street in streets:
                 try:
                     street_geom = shape(street.get("geometry"))
                     street_utm = transform(project_to_utm, street_geom)
-                    
+
                     # Test intersection
                     intersection = trip_buffer.intersection(street_utm)
-                    
-                    if not intersection.is_empty and intersection.length >= min_match_length:
+
+                    if (
+                        not intersection.is_empty
+                        and intersection.length >= min_match_length
+                    ):
                         # This street segment is covered
                         segment_id = street.get("properties", {}).get("segment_id")
                         if segment_id:
                             covered_segments.add(segment_id)
-                            
+
                             # Update street document to mark as driven
                             await streets_collection.update_one(
                                 {"properties.segment_id": segment_id},
                                 {
                                     "$set": {
                                         "properties.driven": True,
-                                        "properties.last_coverage_update": datetime.now(timezone.utc)
+                                        "properties.last_coverage_update": datetime.now(
+                                            timezone.utc
+                                        ),
                                     },
                                     "$addToSet": {
                                         "properties.covered_by_trips": trip_id
-                                    }
-                                }
+                                    },
+                                },
                             )
                 except Exception as e:
                     logger.error(f"Error checking street coverage: {str(e)}")
                     continue
-                
+
         except Exception as e:
             logger.error(f"Error processing trip {trip_id}: {str(e)}")
             continue
-    
+
     return covered_segments
 
 
@@ -1273,59 +1319,80 @@ async def calculate_coverage_summary(location_name: str) -> Dict[str, Any]:
     """
     Calculate coverage metrics from street data without reprocessing all trips.
     Uses aggregation pipeline for efficiency.
-    
+
     Args:
         location_name: Name of location to calculate coverage for
-        
+
     Returns:
         Dictionary with coverage statistics
     """
     # Use MongoDB aggregation pipeline for efficient calculation
     pipeline = [
         {"$match": {"properties.location": location_name}},
-        {"$group": {
-            "_id": "$properties.highway",
-            "total_count": {"$sum": 1},
-            "driven_count": {"$sum": {"$cond": [{"$eq": ["$properties.driven", True]}, 1, 0]}},
-            "total_length": {"$sum": "$properties.segment_length"},
-            "driven_length": {"$sum": {"$cond": [{"$eq": ["$properties.driven", True]}, "$properties.segment_length", 0]}}
-        }},
-        {"$project": {
-            "type": "$_id",
-            "total": "$total_count",
-            "covered": "$driven_count",
-            "length": "$total_length",
-            "covered_length": "$driven_length",
-            "coverage_percentage": {
-                "$cond": [
-                    {"$eq": ["$total_length", 0]},
-                    0,
-                    {"$multiply": [{"$divide": ["$driven_length", "$total_length"]}, 100]}
-                ]
+        {
+            "$group": {
+                "_id": "$properties.highway",
+                "total_count": {"$sum": 1},
+                "driven_count": {
+                    "$sum": {"$cond": [{"$eq": ["$properties.driven", True]}, 1, 0]}
+                },
+                "total_length": {"$sum": "$properties.segment_length"},
+                "driven_length": {
+                    "$sum": {
+                        "$cond": [
+                            {"$eq": ["$properties.driven", True]},
+                            "$properties.segment_length",
+                            0,
+                        ]
+                    }
+                },
             }
-        }},
-        {"$sort": {"length": -1}}
+        },
+        {
+            "$project": {
+                "type": "$_id",
+                "total": "$total_count",
+                "covered": "$driven_count",
+                "length": "$total_length",
+                "covered_length": "$driven_length",
+                "coverage_percentage": {
+                    "$cond": [
+                        {"$eq": ["$total_length", 0]},
+                        0,
+                        {
+                            "$multiply": [
+                                {"$divide": ["$driven_length", "$total_length"]},
+                                100,
+                            ]
+                        },
+                    ]
+                },
+            }
+        },
+        {"$sort": {"length": -1}},
     ]
-    
+
     street_types = await streets_collection.aggregate(pipeline).to_list(100)
-    
+
     # Calculate overall metrics
     total_segments = 0
     total_length = 0
     covered_length = 0
-    
+
     for st in street_types:
         total_segments += st.get("total", 0)
         total_length += st.get("length", 0)
         covered_length += st.get("covered_length", 0)
-    
-    coverage_percentage = (covered_length / total_length * 100) if total_length > 0 else 0
-    
+
+    coverage_percentage = (
+        (covered_length / total_length * 100) if total_length > 0 else 0
+    )
+
     # Prepare GeoJSON streets data
     streets_query = {"properties.location": location_name}
     streets_cursor = streets_collection.find(streets_query)
     features = []
-    
+
     async for street in streets_cursor:
         feature = {
             "type": "Feature",
@@ -1338,7 +1405,7 @@ async def calculate_coverage_summary(location_name: str) -> Dict[str, Any]:
             },
         }
         features.append(feature)
-    
+
     streets_geojson = {
         "type": "FeatureCollection",
         "features": features,
@@ -1352,7 +1419,7 @@ async def calculate_coverage_summary(location_name: str) -> Dict[str, Any]:
             "updated_at": datetime.now().isoformat(),
         },
     }
-    
+
     # Build the complete summary
     return {
         "total_length": total_length,

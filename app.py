@@ -933,6 +933,7 @@ async def get_coverage_status(task_id: str):
         "message": progress.get("message", ""),
     }
 
+
 @app.post("/api/street_coverage/incremental")
 async def get_incremental_street_coverage(request: Request):
     """
@@ -943,7 +944,7 @@ async def get_incremental_street_coverage(request: Request):
         location = data.get("location")
         if not location or not isinstance(location, dict):
             raise HTTPException(status_code=400, detail="Invalid location data.")
-        
+
         task_id = str(uuid.uuid4())
         asyncio.create_task(process_incremental_coverage_calculation(location, task_id))
         return {"task_id": task_id, "status": "processing"}
@@ -951,7 +952,10 @@ async def get_incremental_street_coverage(request: Request):
         logger.exception("Error in incremental street coverage calculation.")
         raise HTTPException(status_code=500, detail=str(e))
 
-async def process_incremental_coverage_calculation(location: Dict[str, Any], task_id: str):
+
+async def process_incremental_coverage_calculation(
+    location: Dict[str, Any], task_id: str
+):
     """
     Process incremental coverage calculation in the background.
     """
@@ -971,10 +975,10 @@ async def process_incremental_coverage_calculation(location: Dict[str, Any], tas
         )
 
         display_name = location.get("display_name", "Unknown")
-        
+
         # Run the incremental calculation
         result = await compute_incremental_coverage(location, task_id)
-        
+
         if result:
             # Update with successful results
             await coverage_metadata_collection.update_one(
@@ -1000,7 +1004,9 @@ async def process_incremental_coverage_calculation(location: Dict[str, Any], tas
                 },
             )
 
-            logger.info(f"Incremental coverage calculation completed for {display_name}")
+            logger.info(
+                f"Incremental coverage calculation completed for {display_name}"
+            )
         else:
             error_msg = "Failed to calculate incremental coverage"
             logger.error(f"Coverage calculation error: {error_msg}")
@@ -1054,6 +1060,7 @@ async def process_incremental_coverage_calculation(location: Dict[str, Any], tas
             )
         except Exception as update_error:
             logger.error(f"Failed to update status after error: {update_error}")
+
 
 # TRIPS (REGULAR, UPLOADED)
 
