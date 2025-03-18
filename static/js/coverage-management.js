@@ -19,7 +19,7 @@
       // Check for notification manager
       if (typeof window.notificationManager === "undefined") {
         console.warn(
-          "notificationManager not found, fallbacks will use console.log"
+          "notificationManager not found, fallbacks will use console.log",
         );
       }
 
@@ -45,7 +45,7 @@
       document
         .getElementById("cancel-processing")
         ?.addEventListener("click", () =>
-          this.cancelProcessing(this.currentProcessingLocation)
+          this.cancelProcessing(this.currentProcessingLocation),
         );
 
       // Minimize and reopen modal
@@ -120,7 +120,7 @@
       // Dashboard event delegation for the coverage map area
       document.addEventListener("click", (e) => {
         const updateMissingDataBtn = e.target.closest(
-          ".update-missing-data-btn"
+          ".update-missing-data-btn",
         );
         if (updateMissingDataBtn) {
           e.preventDefault();
@@ -172,7 +172,7 @@
       if (!locationInput) {
         window.notificationManager.show(
           "Please enter a location to validate.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -181,7 +181,7 @@
       if (!locType?.value) {
         window.notificationManager.show(
           "Please select a location type.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -202,7 +202,7 @@
         if (!data) {
           window.notificationManager.show(
             "Location not found. Please check your input.",
-            "warning"
+            "warning",
           );
           return;
         }
@@ -212,13 +212,13 @@
         if (addButton) addButton.disabled = false;
         window.notificationManager.show(
           "Location validated successfully!",
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error validating location:", error);
         window.notificationManager.show(
           "Failed to validate location. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -227,7 +227,7 @@
       if (!this.validatedLocation) {
         window.notificationManager.show(
           "Please validate a location first.",
-          "danger"
+          "danger",
         );
         return;
       }
@@ -239,13 +239,13 @@
 
         const exists = areas.some(
           (area) =>
-            area.location.display_name === this.validatedLocation.display_name
+            area.location.display_name === this.validatedLocation.display_name,
         );
 
         if (exists) {
           window.notificationManager.show(
             "This area is already being tracked.",
-            "warning"
+            "warning",
           );
           return;
         }
@@ -284,7 +284,7 @@
 
         window.notificationManager.show(
           "Coverage area processing started. You can check the status in the table.",
-          "success"
+          "success",
         );
 
         // Reset input and validated state
@@ -299,7 +299,7 @@
         console.error("Error adding coverage area:", error);
         window.notificationManager.show(
           "Failed to add coverage area. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         this.hideProgressModal();
@@ -311,7 +311,7 @@
       if (!locationToCancel) {
         window.notificationManager.show(
           "No active processing to cancel.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -327,7 +327,7 @@
 
         window.notificationManager.show(
           "Processing cancelled successfully.",
-          "success"
+          "success",
         );
         this.hideProgressModal();
         await this.loadCoverageAreas();
@@ -335,7 +335,7 @@
         console.error("Error cancelling processing:", error);
         window.notificationManager.show(
           "Failed to cancel processing. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -416,7 +416,7 @@
 
       const currentProgress = parseInt(
         progressBar.getAttribute("aria-valuenow"),
-        10
+        10,
       );
 
       if (
@@ -432,7 +432,7 @@
           const progressPerSecond = progressDelta / timeDelta;
           const remainingProgress = 100 - currentProgress;
           const estimatedRemainingSeconds = Math.ceil(
-            remainingProgress / progressPerSecond
+            remainingProgress / progressPerSecond,
           );
 
           // Format estimated time
@@ -634,7 +634,7 @@
         console.error("Error loading coverage areas: %s", error);
         window.notificationManager.show(
           "Failed to load coverage areas. Please refresh the page.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -693,12 +693,12 @@
           <td>
             <div class="btn-group" role="group">
               <button class="btn btn-sm btn-success update-coverage-btn" data-location='${JSON.stringify(
-                area.location
+                area.location,
               ).replace(/'/g, "&#39;")}'>
                 <i class="fas fa-sync-alt"></i>
               </button>
               <button class="btn btn-sm btn-danger delete-area-btn" data-location='${JSON.stringify(
-                area.location
+                area.location,
               ).replace(/'/g, "&#39;")}'>
                 <i class="fas fa-trash-alt"></i>
               </button>
@@ -746,7 +746,7 @@
           this.hideProgressModal();
           showNotification(
             `Error updating coverage: ${data.detail || "Unknown error"}`,
-            "error"
+            "error",
           );
           return;
         }
@@ -766,7 +766,7 @@
         console.error("Error updating coverage:", error);
         showNotification(
           "An error occurred while updating coverage. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         this.hideProgressModal();
@@ -788,7 +788,7 @@
         });
       } else {
         confirmed = confirm(
-          `Are you sure you want to delete coverage for ${location.display_name}?`
+          `Are you sure you want to delete coverage for ${location.display_name}?`,
         );
       }
 
@@ -799,7 +799,7 @@
       try {
         window.notificationManager.show(
           `Deleting coverage area for ${location.display_name}...`,
-          "info"
+          "info",
         );
 
         const response = await fetch("/api/coverage_areas/delete", {
@@ -830,13 +830,13 @@
 
         window.notificationManager.show(
           `Coverage area deleted successfully`,
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error deleting coverage area:", error);
         window.notificationManager.show(
           `Error deleting coverage area: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -887,7 +887,7 @@
       try {
         // Show loading indicator
         const dashboardLocationName = document.getElementById(
-          "dashboard-location-name"
+          "dashboard-location-name",
         );
         const coverageDashboard = document.getElementById("coverage-dashboard");
 
@@ -953,7 +953,7 @@
               ${statusMessage}
               <p>Try updating the coverage for this location:</p>
               <button class="update-missing-data-btn btn btn-primary" data-location='${JSON.stringify(
-                data.coverage.location || {}
+                data.coverage.location || {},
               ).replace(/'/g, "&#39;")}'>
                 <i class="fas fa-sync-alt me-1"></i> Update Coverage Data
               </button>
@@ -971,12 +971,12 @@
           if (hasError) {
             window.notificationManager.show(
               `Error in coverage calculation for ${data.coverage.location_name}`,
-              "danger"
+              "danger",
             );
           } else {
             window.notificationManager.show(
               `No street data available for ${data.coverage.location_name}. Try updating the coverage.`,
-              "warning"
+              "warning",
             );
           }
 
@@ -990,7 +990,7 @@
         // Show success toast
         window.notificationManager.show(
           `Loaded coverage data for ${data.coverage.location_name}`,
-          "success"
+          "success",
         );
 
         // Initialize and populate the map
@@ -1007,7 +1007,7 @@
         console.error("Error displaying coverage dashboard:", error);
 
         const dashboardLocationName = document.getElementById(
-          "dashboard-location-name"
+          "dashboard-location-name",
         );
         const coverageMapContainer = document.getElementById("coverage-map");
 
@@ -1024,7 +1024,7 @@
 
         window.notificationManager.show(
           `Error loading coverage data: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -1034,7 +1034,7 @@
 
       // Set the location name
       const dashboardLocationName = document.getElementById(
-        "dashboard-location-name"
+        "dashboard-location-name",
       );
       if (dashboardLocationName)
         dashboardLocationName.textContent = coverage.location_name;
@@ -1064,7 +1064,7 @@
       }
 
       const coveragePercentageText = document.getElementById(
-        "dashboard-coverage-percentage-text"
+        "dashboard-coverage-percentage-text",
       );
       if (coveragePercentageText)
         coveragePercentageText.textContent = `${coveragePercentage}%`;
@@ -1094,7 +1094,7 @@
     // Display coverage breakdown by street type
     updateStreetTypeCoverage(streetTypes) {
       const streetTypeCoverageEl = document.getElementById(
-        "street-type-coverage"
+        "street-type-coverage",
       );
       if (!streetTypeCoverageEl) return;
 
@@ -1167,7 +1167,7 @@
           attribution: "",
           subdomains: "abcd",
           maxZoom: 19,
-        }
+        },
       ).addTo(this.coverageMap);
 
       // Add scale control
@@ -1392,7 +1392,7 @@
         onAdd: () => {
           const container = L.DomUtil.create(
             "div",
-            "coverage-summary-control leaflet-bar"
+            "coverage-summary-control leaflet-bar",
           );
 
           const coveragePercentage = coverage.coverage_percentage.toFixed(1);
@@ -1472,10 +1472,10 @@
       // Prepare data for the chart
       const labels = topTypes.map((t) => this.formatStreetType(t.type));
       const totalLengths = topTypes.map((t) =>
-        (t.length * 0.000621371).toFixed(2)
+        (t.length * 0.000621371).toFixed(2),
       );
       const drivenLengths = topTypes.map((t) =>
-        (t.covered_length * 0.000621371).toFixed(2)
+        (t.covered_length * 0.000621371).toFixed(2),
       );
 
       // Check if Chart.js is loaded
@@ -1516,7 +1516,7 @@
             {
               label: "Not Driven (miles)",
               data: totalLengths.map((total, i) =>
-                (total - drivenLengths[i]).toFixed(2)
+                (total - drivenLengths[i]).toFixed(2),
               ),
               backgroundColor: notDrivenColor,
               borderColor: "rgba(211, 47, 47, 1)",
@@ -1646,7 +1646,7 @@
       if (!this.coverageMap || typeof leafletImage === "undefined") {
         window.notificationManager.show(
           "Export functionality not available. Please take a screenshot instead.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -1695,7 +1695,7 @@
                 console.error("Error generating map image: %s", err);
                 window.notificationManager.show(
                   "Failed to generate map image",
-                  "danger"
+                  "danger",
                 );
                 return;
               }
@@ -1708,20 +1708,20 @@
               // Notify success
               window.notificationManager.show(
                 "Map image generated successfully",
-                "success"
+                "success",
               );
 
               // Trigger download
               link.click();
             },
-            options
+            options,
           );
         }, 600);
       } catch (error) {
         console.error("Error exporting map: %s", error);
         window.notificationManager.show(
           `Error exporting map: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
