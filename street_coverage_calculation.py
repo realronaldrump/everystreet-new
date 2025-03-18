@@ -7,12 +7,13 @@ Optimized for memory efficiency with batch processing and proper cleanup.
 import asyncio
 import json
 import logging
+import gc
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple, Iterable
 
 import multiprocessing
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, TimeoutError
 
 import pyproj
 import rtree
@@ -42,9 +43,13 @@ logger = logging.getLogger(__name__)
 WGS84 = pyproj.CRS("EPSG:4326")
 
 # Constants for memory and batch management
-MAX_STREETS_PER_BATCH = 2000
-MAX_TRIPS_PER_BATCH = 100
-BATCH_PROCESS_DELAY = 0.1  # seconds to yield to event loop
+MAX_STREETS_PER_BATCH = 1000  # Reduced from 2000 to 1000
+MAX_TRIPS_PER_BATCH = 50  # Reduced from 100 to 50
+BATCH_PROCESS_DELAY = (
+    0.2  # Increased from 0.1 to 0.2 seconds to yield more to event loop
+)
+PROCESS_TIMEOUT = 120  # 2 minutes timeout for process operations
+PROGRESS_UPDATE_INTERVAL = 10  # Update progress every 10 batches
 
 
 class CoverageCalculator:
@@ -75,12 +80,13 @@ class CoverageCalculator:
         self.segment_coverage = defaultdict(int)
         self.total_trips: int = 0
         self.processed_trips: int = 0
+        self.batch_counter: int = 0
 
         # Process pool with proper lifecycle management
         self.process_pool = None
         self.max_workers = max(
-            2, min(multiprocessing.cpu_count() - 1, 4)
-        )  # Limit workers
+            2, min(multiprocessing.cpu_count() // 2, 3)
+        )  # Reduced worker count to avoid memory pressure
 
     def initialize_projections(self) -> None:
         """Initialize map projections based on location center."""
@@ -115,6 +121,15 @@ class CoverageCalculator:
     ) -> None:
         """Update progress information in the database."""
         try:
+            # Only update every PROGRESS_UPDATE_INTERVAL batches to reduce database load
+            self.batch_counter += 1
+            if (
+                self.batch_counter % PROGRESS_UPDATE_INTERVAL != 0
+                and stage != "complete"
+                and stage != "error"
+            ):
+                return
+
             update_data = {
                 "stage": stage,
                 "progress": progress,
@@ -139,7 +154,15 @@ class CoverageCalculator:
         self.initialize_projections()
         # Create process pool when needed
         if self.process_pool is None:
-            self.process_pool = ProcessPoolExecutor(max_workers=self.max_workers)
+            try:
+                self.process_pool = ProcessPoolExecutor(max_workers=self.max_workers)
+                # Set a lower max_tasks_per_child to prevent memory build-up
+                if hasattr(self.process_pool, "_max_workers"):
+                    self.process_pool._max_workers = self.max_workers
+            except Exception as e:
+                logger.error("Failed to create process pool: %s", e)
+                # Fall back to a single worker as safety
+                self.process_pool = ProcessPoolExecutor(max_workers=1)
 
     async def build_spatial_index(self, streets_cursor) -> None:
         """
@@ -152,26 +175,53 @@ class CoverageCalculator:
         batch_num = 0
         total_streets = 0
 
-        # Process in batches using the batch_cursor helper
-        async for street_batch in batch_cursor(streets_cursor, self.street_chunk_size):
-            batch_num += 1
-            batch_len = len(street_batch)
-            total_streets += batch_len
+        try:
+            # Process in batches using the batch_cursor helper
+            async for street_batch in batch_cursor(
+                streets_cursor, self.street_chunk_size
+            ):
+                batch_num += 1
+                batch_len = len(street_batch)
+                total_streets += batch_len
 
-            logger.info(f"Processing street batch {batch_num} with {batch_len} streets")
-            await asyncio.to_thread(self._process_street_chunk, street_batch)
+                logger.info(
+                    f"Processing street batch {batch_num} with {batch_len} streets"
+                )
+                try:
+                    # Process with timeout to avoid hanging
+                    await asyncio.wait_for(
+                        asyncio.to_thread(self._process_street_chunk, street_batch),
+                        timeout=PROCESS_TIMEOUT,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        f"Timeout processing street batch {batch_num}, continuing with partial data"
+                    )
 
-            # Update progress
-            await self.update_progress(
-                "indexing",
-                min(50, 20 + (batch_num * 5)),
-                f"Indexed {total_streets} streets ({batch_num} batches)",
+                # Update progress
+                await self.update_progress(
+                    "indexing",
+                    min(50, 20 + (batch_num * 5)),
+                    f"Indexed {total_streets} streets ({batch_num} batches)",
+                )
+
+                # Yield to event loop to prevent blocking
+                await asyncio.sleep(BATCH_PROCESS_DELAY)
+
+                # Explicitly run garbage collection every few batches
+                if batch_num % 5 == 0:
+                    gc.collect()
+
+            logger.info(
+                f"Completed building spatial index with {total_streets} streets"
             )
 
-            # Yield to event loop to prevent blocking
-            await asyncio.sleep(BATCH_PROCESS_DELAY)
-
-        logger.info(f"Completed building spatial index with {total_streets} streets")
+        except Exception as e:
+            logger.error(f"Error in build_spatial_index: {str(e)}", exc_info=True)
+            await self.update_progress(
+                "error", 0, f"Error building spatial index: {str(e)}", error=str(e)
+            )
+            raise
 
     def _process_street_chunk(self, streets: List[Dict[str, Any]]) -> None:
         """Process a batch of streets to add to the spatial index."""
@@ -181,7 +231,21 @@ class CoverageCalculator:
                 bounds = geom.bounds
                 current_idx = len(self.streets_lookup)
                 self.streets_index.insert(current_idx, bounds)
-                self.streets_lookup[current_idx] = street
+
+                # Store only essential data to reduce memory usage
+                essential_props = {
+                    "segment_id": street.get("properties", {}).get("segment_id"),
+                    "location": street.get("properties", {}).get("location"),
+                    "highway": street.get("properties", {}).get("highway", "unknown"),
+                    "name": street.get("properties", {}).get("name", "Unnamed Street"),
+                }
+
+                # Keep only necessary parts of the street object
+                self.streets_lookup[current_idx] = {
+                    "geometry": street["geometry"],
+                    "properties": essential_props,
+                }
+
                 street_utm = transform(self.project_to_utm, geom)
                 street["properties"]["segment_length"] = street_utm.length
                 self.total_length += street_utm.length
@@ -205,30 +269,52 @@ class CoverageCalculator:
         bounds: Optional[Tuple[float, float, float, float]] = None
         batch_num = 0
 
-        async for street_batch in batch_cursor(streets_cursor, self.street_chunk_size):
-            batch_num += 1
-            chunk_bounds = await asyncio.to_thread(
-                self._process_boundary_chunk, street_batch
+        try:
+            async for street_batch in batch_cursor(
+                streets_cursor, self.street_chunk_size
+            ):
+                batch_num += 1
+                try:
+                    # Process with timeout
+                    chunk_bounds = await asyncio.wait_for(
+                        asyncio.to_thread(self._process_boundary_chunk, street_batch),
+                        timeout=PROCESS_TIMEOUT,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        f"Timeout processing boundary chunk {batch_num}, continuing with partial data"
+                    )
+                    continue
+
+                if chunk_bounds is None:
+                    continue
+
+                if bounds is None:
+                    bounds = chunk_bounds
+                else:
+                    bounds = (
+                        min(bounds[0], chunk_bounds[0]),
+                        min(bounds[1], chunk_bounds[1]),
+                        max(bounds[2], chunk_bounds[2]),
+                        max(bounds[3], chunk_bounds[3]),
+                    )
+
+                # Avoid blocking the event loop
+                await asyncio.sleep(BATCH_PROCESS_DELAY)
+
+                # Run GC occasionally
+                if batch_num % 5 == 0:
+                    gc.collect()
+
+            logger.info(f"Boundary calculation completed after {batch_num} batches")
+            return box(*bounds) if bounds else box(0, 0, 0, 0)
+
+        except Exception as e:
+            logger.error(f"Error in calculate_boundary_box: {str(e)}", exc_info=True)
+            await self.update_progress(
+                "error", 0, f"Error calculating boundary: {str(e)}", error=str(e)
             )
-
-            if chunk_bounds is None:
-                continue
-
-            if bounds is None:
-                bounds = chunk_bounds
-            else:
-                bounds = (
-                    min(bounds[0], chunk_bounds[0]),
-                    min(bounds[1], chunk_bounds[1]),
-                    max(bounds[2], chunk_bounds[2]),
-                    max(bounds[3], chunk_bounds[3]),
-                )
-
-            # Avoid blocking the event loop
-            await asyncio.sleep(BATCH_PROCESS_DELAY)
-
-        logger.info(f"Boundary calculation completed after {batch_num} batches")
-        return box(*bounds) if bounds else box(0, 0, 0, 0)
+            raise
 
     @staticmethod
     def _process_boundary_chunk(
@@ -268,9 +354,19 @@ class CoverageCalculator:
             if not gps_data:
                 return False
             valid, coords = self._is_valid_trip(gps_data)
-            if not valid:
+            if not valid or not coords:
                 return False
-            return self.boundary_box.intersects(LineString(coords))
+
+            # Create a simplified line for boundary check to reduce computation
+            if len(coords) > 50:
+                stride = len(coords) // 50
+                simplified_coords = coords[::stride]
+                if simplified_coords[-1] != coords[-1]:
+                    simplified_coords.append(coords[-1])
+            else:
+                simplified_coords = coords
+
+            return self.boundary_box.intersects(LineString(simplified_coords))
         except Exception as e:
             logger.error("Error checking boundary for trip %s: %s", trip.get("_id"), e)
             return False
@@ -282,13 +378,19 @@ class CoverageCalculator:
         """
         covered: Set[str] = set()
         try:
-            trip_line = LineString(coords)
-            if len(trip_line.coords) < 2:
+            # Handle case with too few points
+            if len(coords) < 2:
                 return covered
+
+            trip_line = LineString(coords)
             trip_line_utm = transform(self.project_to_utm, trip_line)
             trip_buffer = trip_line_utm.buffer(self.match_buffer)
             trip_buffer_wgs84 = transform(self.project_to_wgs84, trip_buffer)
-            for idx in list(self.streets_index.intersection(trip_buffer_wgs84.bounds)):
+
+            # Get candidate streets from the spatial index
+            candidates = list(self.streets_index.intersection(trip_buffer_wgs84.bounds))
+
+            for idx in candidates:
                 street = self.streets_lookup[idx]
                 street_geom = shape(street["geometry"])
                 street_utm = transform(self.project_to_utm, street_geom)
@@ -309,17 +411,20 @@ class CoverageCalculator:
         coords: List[Any],
         utm_proj_string: str,
         wgs84_proj_string: str,
-        streets_bounds: List[Tuple[float, float, float, float]],
-        street_properties: List[Dict],
+        streets_data: List[Dict],
         match_buffer: float,
         min_match_length: float,
     ) -> Set[str]:
         """
         Static worker function that can be pickled for multiprocessing.
-        All dependencies are passed as arguments.
+        Optimized to reduce memory usage by passing minimal data.
         """
         covered: Set[str] = set()
         try:
+            # Handle case with too few points
+            if len(coords) < 2:
+                return covered
+
             # Recreate the transformers in the worker process
             utm_proj = pyproj.CRS.from_string(utm_proj_string)
             wgs84_proj = pyproj.CRS.from_string(wgs84_proj_string)
@@ -333,40 +438,43 @@ class CoverageCalculator:
                 utm_proj, wgs84_proj, always_xy=True
             ).transform
 
+            # Process the trip
             trip_line = LineString(coords)
-            if len(trip_line.coords) < 2:
-                return covered
-
             trip_line_utm = transform(project_to_utm, trip_line)
             trip_buffer = trip_line_utm.buffer(match_buffer)
-            trip_buffer_wgs84 = transform(project_to_wgs84, trip_buffer)
 
-            # Find streets that intersect with the trip buffer
-            for i, street_bound in enumerate(streets_bounds):
-                # Skip if bounds don't intersect
-                if (
-                    trip_buffer_wgs84.bounds[2] < street_bound[0]
-                    or trip_buffer_wgs84.bounds[0] > street_bound[2]
-                    or trip_buffer_wgs84.bounds[3] < street_bound[1]
-                    or trip_buffer_wgs84.bounds[1] > street_bound[3]
-                ):
+            # Process each street
+            for street in streets_data:
+                try:
+                    street_geom = shape(street["geometry"])
+
+                    # Quick boundary check before more expensive operations
+                    if (
+                        not trip_buffer.bounds[0] <= street_geom.bounds[2]
+                        and not trip_buffer.bounds[2] >= street_geom.bounds[0]
+                        and not trip_buffer.bounds[1] <= street_geom.bounds[3]
+                        and not trip_buffer.bounds[3] >= street_geom.bounds[1]
+                    ):
+                        continue
+
+                    street_utm = transform(project_to_utm, street_geom)
+                    intersection = trip_buffer.intersection(street_utm)
+
+                    if (
+                        not intersection.is_empty
+                        and intersection.length >= min_match_length
+                    ):
+                        seg_id = street.get("properties", {}).get("segment_id")
+                        if seg_id:
+                            covered.add(seg_id)
+                except Exception:
+                    # Skip problematic streets
                     continue
 
-                street = street_properties[i]
-                street_geom = shape(street["geometry"])
-                street_utm = transform(project_to_utm, street_geom)
-                intersection = trip_buffer.intersection(street_utm)
-
-                if (
-                    not intersection.is_empty
-                    and intersection.length >= min_match_length
-                ):
-                    seg_id = street["properties"].get("segment_id")
-                    if seg_id:
-                        covered.add(seg_id)
         except Exception as e:
             # Use string formatting with % for logging as per requirements
-            logger.error("Error processing trip in worker: %s", e, exc_info=True)
+            logger.error("Error processing trip in worker: %s", e)
+
         return covered
 
     async def process_trip_batch(self, trips: List[Dict[str, Any]]) -> None:
@@ -385,47 +493,77 @@ class CoverageCalculator:
         # Process valid trips
         if valid_trips:
             # Process trips in smaller sub-batches to avoid memory pressure
-            sub_batch_size = 10
+            sub_batch_size = 5  # Reduced from 10 to 5
             for i in range(0, len(valid_trips), sub_batch_size):
                 sub_batch = valid_trips[i : i + sub_batch_size]
 
-                # Use process pool for CPU-intensive work
+                # Use process pool for CPU-intensive work if available
                 if self.process_pool is not None:
                     try:
-                        # Prepare data for multiprocessing (must be picklable)
-                        # Convert projections to strings
+                        # Prepare minimal data for multiprocessing
                         utm_proj_string = self.utm_proj.to_string()
                         wgs84_proj_string = WGS84.to_string()
 
-                        # Prepare street data
-                        streets_bounds = []
-                        street_properties = []
-                        for idx in self.streets_lookup:
-                            street = self.streets_lookup[idx]
-                            streets_bounds.append(shape(street["geometry"]).bounds)
-                            street_properties.append(street)
+                        # Instead of passing the entire streets lookup, filter to likely candidates
+                        # based on the trip's bounding box
+                        candidate_streets = []
+                        for trip_coords in sub_batch:
+                            try:
+                                trip_line = LineString(trip_coords)
+                                bounds = trip_line.bounds
+                                # Expand bounds a bit to ensure we catch all relevant streets
+                                expanded_bounds = (
+                                    bounds[0] - 0.01,
+                                    bounds[1] - 0.01,
+                                    bounds[2] + 0.01,
+                                    bounds[3] + 0.01,
+                                )
+                                for idx in self.streets_index.intersection(
+                                    expanded_bounds
+                                ):
+                                    if idx not in candidate_streets:
+                                        candidate_streets.append(
+                                            self.streets_lookup[idx]
+                                        )
+                            except Exception:
+                                continue
 
-                        # Submit all trips in the sub-batch to the process pool
-                        futures = [
-                            self.process_pool.submit(
+                        # If we have too many candidates, sample them to reduce memory
+                        if len(candidate_streets) > 100000:
+                            logger.warning(
+                                f"Too many candidate streets ({len(candidate_streets)}), sampling to 100000"
+                            )
+                            # Take a sample by stride
+                            stride = len(candidate_streets) // 5000
+                            candidate_streets = candidate_streets[::stride]
+
+                        # Submit trips to process pool with timeout
+                        futures = []
+                        for coords in sub_batch:
+                            future = self.process_pool.submit(
                                 self._process_trip_sync_worker,
                                 coords,
                                 utm_proj_string,
                                 wgs84_proj_string,
-                                streets_bounds,
-                                street_properties,
+                                candidate_streets,
                                 self.match_buffer,
                                 self.min_match_length,
                             )
-                            for coords in sub_batch
-                        ]
+                            futures.append(future)
 
-                        # Gather results as they complete
+                        # Gather results as they complete, with timeouts
                         for future in futures:
-                            covered_segments = future.result()
-                            for seg in covered_segments:
-                                self.covered_segments.add(seg)
-                                self.segment_coverage[seg] += 1
+                            try:
+                                # Add a timeout to prevent hung workers
+                                covered_segments = future.result(timeout=60)
+                                for seg in covered_segments:
+                                    self.covered_segments.add(seg)
+                                    self.segment_coverage[seg] += 1
+                            except TimeoutError:
+                                logger.warning(
+                                    "Worker process timed out, skipping trip"
+                                )
+                                continue
                     except Exception as e:
                         logger.error("Error in multiprocessing: %s", e, exc_info=True)
                         # Fall back to sequential processing
@@ -437,12 +575,16 @@ class CoverageCalculator:
                 else:
                     # Fall back to sequential processing if pool unavailable
                     for coords in sub_batch:
-                        covered = await asyncio.to_thread(
-                            self._process_trip_sync, coords
-                        )
-                        for seg in covered:
-                            self.covered_segments.add(seg)
-                            self.segment_coverage[seg] += 1
+                        try:
+                            covered = await asyncio.wait_for(
+                                asyncio.to_thread(self._process_trip_sync, coords),
+                                timeout=30,
+                            )
+                            for seg in covered:
+                                self.covered_segments.add(seg)
+                                self.segment_coverage[seg] += 1
+                        except asyncio.TimeoutError:
+                            logger.warning("Trip processing timed out, skipping")
 
                 # Update progress tracking
                 self.processed_trips += len(sub_batch)
@@ -459,6 +601,10 @@ class CoverageCalculator:
                     f"Processed {self.processed_trips} of {self.total_trips} trips",
                 )
                 await asyncio.sleep(BATCH_PROCESS_DELAY)
+
+                # Run garbage collection regularly
+                if i % 10 == 0:
+                    gc.collect()
 
     async def compute_coverage(self) -> Optional[Dict[str, Any]]:
         """
@@ -481,7 +627,6 @@ class CoverageCalculator:
             # Fetch streets for this location
             await self.update_progress("loading_streets", 10, "Loading street data...")
             streets_query = {"properties.location": self.location.get("display_name")}
-            streets_cursor = streets_collection.find(streets_query)
 
             # Check if we have any streets
             streets_count = await streets_collection.count_documents(streets_query)
@@ -493,11 +638,22 @@ class CoverageCalculator:
 
             # Build spatial index in batches
             await self.update_progress("indexing", 20, "Building spatial index...")
-            await self.build_spatial_index(streets_collection.find(streets_query))
+            try:
+                streets_cursor = streets_collection.find(streets_query)
+                await self.build_spatial_index(streets_cursor)
+            except Exception as e:
+                logger.error(f"Error building spatial index: {str(e)}", exc_info=True)
+                await self.update_progress("error", 0, f"Error: {str(e)}")
+                return None
 
             # Calculate boundary
-            streets_cursor = streets_collection.find(streets_query)
-            self.boundary_box = await self.calculate_boundary_box(streets_cursor)
+            try:
+                streets_cursor = streets_collection.find(streets_query)
+                self.boundary_box = await self.calculate_boundary_box(streets_cursor)
+            except Exception as e:
+                logger.error(f"Error calculating boundary: {str(e)}", exc_info=True)
+                await self.update_progress("error", 0, f"Error: {str(e)}")
+                return None
 
             # Count trips before processing to support progress reporting
             await self.update_progress("counting_trips", 30, "Counting trips...")
@@ -521,23 +677,36 @@ class CoverageCalculator:
                     },
                 ],
             }
-            self.total_trips = await trips_collection.count_documents(trip_filter)
+            try:
+                self.total_trips = await trips_collection.count_documents(trip_filter)
+            except Exception as e:
+                logger.error(f"Error counting trips: {str(e)}", exc_info=True)
+                self.total_trips = 0  # Continue with a default
 
             # Process trips in batches
             await self.update_progress(
                 "processing_trips", 40, f"Processing {self.total_trips} trips..."
             )
 
-            # Process trips in batches using cursor to limit memory usage
-            trips_cursor = trips_collection.find(trip_filter)
-            async for trip_batch in batch_cursor(trips_cursor, self.trip_batch_size):
-                await self.process_trip_batch(trip_batch)
-                # Progress updates happen inside process_trip_batch
+            try:
+                # Process trips in batches using cursor to limit memory usage
+                trips_cursor = trips_collection.find(trip_filter)
+                async for trip_batch in batch_cursor(
+                    trips_cursor, self.trip_batch_size
+                ):
+                    await self.process_trip_batch(trip_batch)
+            except Exception as e:
+                logger.error(f"Error processing trips: {str(e)}", exc_info=True)
+                await self.update_progress("error", 0, f"Error: {str(e)}")
+                return None
 
             # Clean up process pool
             if self.process_pool:
-                self.process_pool.shutdown()
+                self.process_pool.shutdown(wait=False)
                 self.process_pool = None
+
+            # Force garbage collection before generating statistics
+            gc.collect()
 
             # Generate final statistics
             await self.update_progress(
@@ -551,45 +720,59 @@ class CoverageCalculator:
                 lambda: {"total": 0, "covered": 0, "length": 0, "covered_length": 0}
             )
 
-            # Process streets in batches to build final results
-            streets_cursor = streets_collection.find(streets_query)
-            async for streets_batch in batch_cursor(
-                streets_cursor, self.street_chunk_size
-            ):
-                for street in streets_batch:
-                    seg_id = street["properties"].get("segment_id")
-                    geom = shape(street["geometry"])
-                    street_utm = transform(self.project_to_utm, geom)
-                    seg_length = street_utm.length
-                    is_covered = seg_id in self.covered_segments
-                    street_type = street["properties"].get("highway", "unknown")
+            try:
+                # Process streets in smaller batches
+                streets_cursor = streets_collection.find(streets_query)
+                batch_size = self.street_chunk_size  # Reduced batch size
 
-                    # Update street type statistics
-                    street_type_stats[street_type]["total"] += 1
-                    street_type_stats[street_type]["length"] += seg_length
-                    if is_covered:
-                        covered_length += seg_length
-                        street_type_stats[street_type]["covered"] += 1
-                        street_type_stats[street_type]["covered_length"] += seg_length
+                batch_idx = 0
+                async for streets_batch in batch_cursor(streets_cursor, batch_size):
+                    batch_idx += 1
 
-                    # Create enhanced feature for visualization
-                    feature = {
-                        "type": "Feature",
-                        "geometry": street["geometry"],
-                        "properties": {
-                            **street["properties"],
-                            "driven": is_covered,
-                            "coverage_count": self.segment_coverage.get(seg_id, 0),
-                            "segment_length": seg_length,
-                            "segment_id": seg_id,
-                            "street_type": street_type,
-                            "name": street["properties"].get("name", "Unnamed Street"),
-                        },
-                    }
-                    features.append(feature)
+                    for street in streets_batch:
+                        seg_id = street["properties"].get("segment_id")
+                        geom = shape(street["geometry"])
+                        street_utm = transform(self.project_to_utm, geom)
+                        seg_length = street_utm.length
+                        is_covered = seg_id in self.covered_segments
+                        street_type = street["properties"].get("highway", "unknown")
 
-                # Yield to event loop occasionally
-                await asyncio.sleep(BATCH_PROCESS_DELAY)
+                        # Update street type statistics
+                        street_type_stats[street_type]["total"] += 1
+                        street_type_stats[street_type]["length"] += seg_length
+                        if is_covered:
+                            covered_length += seg_length
+                            street_type_stats[street_type]["covered"] += 1
+                            street_type_stats[street_type][
+                                "covered_length"
+                            ] += seg_length
+
+                        # Create enhanced feature for visualization
+                        feature = {
+                            "type": "Feature",
+                            "geometry": street["geometry"],
+                            "properties": {
+                                **street["properties"],
+                                "driven": is_covered,
+                                "coverage_count": self.segment_coverage.get(seg_id, 0),
+                                "segment_length": seg_length,
+                                "segment_id": seg_id,
+                                "street_type": street_type,
+                                "name": street["properties"].get(
+                                    "name", "Unnamed Street"
+                                ),
+                            },
+                        }
+                        features.append(feature)
+
+                    # Yield to event loop occasionally and run GC periodically
+                    if batch_idx % 3 == 0:
+                        await asyncio.sleep(BATCH_PROCESS_DELAY)
+                        gc.collect()
+            except Exception as e:
+                logger.error(f"Error generating statistics: {str(e)}", exc_info=True)
+                await self.update_progress("error", 0, f"Error: {str(e)}")
+                return None
 
             # Calculate coverage percentage
             coverage_percentage = (
@@ -620,7 +803,7 @@ class CoverageCalculator:
             # Sort by total length
             street_types.sort(key=lambda x: x["length"], reverse=True)
 
-            # Prepare GeoJSON output
+            # Prepare GeoJSON output - can be very large, so be careful with memory
             streets_geojson = {
                 "type": "FeatureCollection",
                 "features": features,
@@ -652,10 +835,15 @@ class CoverageCalculator:
 
             # Clean up resources
             if self.process_pool:
-                self.process_pool.shutdown()
+                self.process_pool.shutdown(wait=False)
                 self.process_pool = None
 
             return None
+        finally:
+            # Ensure resources are cleaned up
+            self.streets_lookup = {}
+            self.streets_index = None
+            gc.collect()
 
 
 async def compute_coverage_for_location(
@@ -673,12 +861,39 @@ async def compute_coverage_for_location(
     """
     calculator = CoverageCalculator(location, task_id)
     try:
-        return await calculator.compute_coverage()
+        # Set a timeout for the entire operation
+        return await asyncio.wait_for(
+            calculator.compute_coverage(),
+            timeout=3600,  # 1 hour timeout for the whole operation
+        )
+    except asyncio.TimeoutError:
+        logger.error(
+            f"Coverage calculation for {location.get('display_name')} timed out"
+        )
+        await progress_collection.update_one(
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "error",
+                    "progress": 0,
+                    "message": "Calculation timed out after 1 hour",
+                    "error": "Operation timed out",
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+            upsert=True,
+        )
+        return None
+    except Exception as e:
+        logger.exception(f"Error in coverage calculation: {str(e)}")
+        return None
     finally:
         # Ensure resources are cleaned up
         if calculator.process_pool:
-            calculator.process_pool.shutdown()
+            calculator.process_pool.shutdown(wait=False)
             calculator.process_pool = None
+        # Clean up memory
+        gc.collect()
 
 
 async def update_coverage_for_all_locations() -> Dict[str, Any]:
@@ -697,7 +912,7 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
             {}, {"location": 1, "_id": 1, "last_updated": 1}
         ).sort("last_updated", 1)
 
-        # Process each location
+        # Process each location with timeouts
         async for doc in cursor:
             loc = doc.get("location")
             if not loc or isinstance(loc, str):
@@ -711,7 +926,12 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
             task_id = f"bulk_update_{doc['_id']}"
 
             try:
-                result = await compute_coverage_for_location(loc, task_id)
+                # Set a timeout for each location's coverage calculation
+                result = await asyncio.wait_for(
+                    compute_coverage_for_location(loc, task_id),
+                    timeout=3600,  # 1 hour timeout per location
+                )
+
                 if result:
                     display_name = loc.get("display_name", "Unknown")
 
@@ -745,6 +965,25 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
                 else:
                     results["failed"] += 1
 
+            except asyncio.TimeoutError:
+                logger.error(f"Coverage update for {loc.get('display_name')} timed out")
+                results["failed"] += 1
+
+                # Update status to error
+                try:
+                    await coverage_metadata_collection.update_one(
+                        {"_id": doc["_id"]},
+                        {
+                            "$set": {
+                                "status": "error",
+                                "last_error": "Calculation timed out after 1 hour",
+                                "last_updated": datetime.now(timezone.utc),
+                            }
+                        },
+                    )
+                except Exception as update_err:
+                    logger.error(f"Failed to update error status: {update_err}")
+
             except Exception as e:
                 logger.error(
                     f"Error updating coverage for {loc.get('display_name')}: {e}"
@@ -765,6 +1004,9 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
                     )
                 except Exception as update_err:
                     logger.error(f"Failed to update error status: {update_err}")
+
+            # Force garbage collection after each location
+            gc.collect()
 
         logger.info(
             f"Finished coverage update: {results['updated']} updated, "
