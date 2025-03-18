@@ -48,14 +48,22 @@
           this.cancelProcessing(this.currentProcessingLocation)
         );
 
+      // Minimize and reopen modal
+      document
+        .getElementById("minimize-modal")
+        ?.addEventListener("click", () => this.minimizeModal());
+
+      document
+        .getElementById("reopen-modal")
+        ?.addEventListener("click", () => this.reopenModal());
+
+      // Real-time progress updates
+      this.progressTimer = setInterval(() => this.updateProgress(), 1000);
+
       // Disable "Add Area" button when location input changes
       document
         .getElementById("location-input")
-        ?.addEventListener("input", () => {
-          const addButton = document.getElementById("add-coverage-area");
-          if (addButton) addButton.disabled = true;
-          this.validatedLocation = null;
-        });
+        ?.addEventListener("input", () => this.toggleAddButton());
 
       // Refresh coverage areas when the modal is closed
       document
@@ -1782,6 +1790,30 @@
 
       // Add active class to clicked button
       clickedButton.classList.add("active");
+    }
+
+    minimizeModal() {
+      const modal = document.getElementById("taskProgressModal");
+      modal.style.display = "none";
+    }
+
+    reopenModal() {
+      const modal = document.getElementById("taskProgressModal");
+      modal.style.display = "block";
+    }
+
+    updateProgress() {
+      const progressElement = document.getElementById("progress-status");
+      if (progressElement) {
+        // Fetch and update progress data
+        const progressData = this.getProgressData();
+        progressElement.innerText = `Progress: ${progressData}%`;
+      }
+    }
+
+    getProgressData() {
+      // Placeholder for fetching real progress data
+      return Math.floor(Math.random() * 100); // Simulated progress
     }
   }
 
