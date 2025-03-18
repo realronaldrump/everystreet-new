@@ -51,14 +51,10 @@ class TaskPriority(Enum):
     LOW = 1
     MEDIUM = 2
     HIGH = 3
-    
+
     @classmethod
     def from_string(cls, priority_str):
-        priority_map = {
-            'LOW': cls.LOW,
-            'MEDIUM': cls.MEDIUM,
-            'HIGH': cls.HIGH
-        }
+        priority_map = {"LOW": cls.LOW, "MEDIUM": cls.MEDIUM, "HIGH": cls.HIGH}
         return priority_map.get(priority_str, cls.MEDIUM)
 
 
@@ -197,16 +193,16 @@ def task_started(task_id=None, task=None, **kwargs):
     try:
         # Update task status using our synchronous function
         update_task_status_sync(task_name, TaskStatus.RUNNING.value)
-        
+
         # Record history entry
         now = datetime.now(timezone.utc)
-        
+
         # Use PyMongo directly for history (synchronous client)
         mongo_uri = os.getenv("MONGO_URI")
         if not mongo_uri:
             logger.error("MONGO_URI environment variable not set")
             return
-            
+
         client = MongoClient(mongo_uri)
         db = client[os.getenv("MONGODB_DATABASE", "every_street")]
 
@@ -219,7 +215,7 @@ def task_started(task_id=None, task=None, **kwargs):
                     "status": TaskStatus.RUNNING.value,
                     "timestamp": now,
                     "start_time": now,
-                    "manual_run": False
+                    "manual_run": False,
                 }
             },
             upsert=True,
@@ -272,18 +268,18 @@ def task_finished(task_id=None, task=None, retval=None, state=None, **kwargs):
             if state == "SUCCESS"
             else TaskStatus.FAILED.value
         )
-        
+
         # Use our synchronous function to update task status
         error_msg = None
         if status == TaskStatus.FAILED.value:
             # Extract error from retval if possible
-            if isinstance(retval, dict) and 'error' in retval:
-                error_msg = retval['error']
+            if isinstance(retval, dict) and "error" in retval:
+                error_msg = retval["error"]
             elif isinstance(retval, Exception):
                 error_msg = str(retval)
             else:
                 error_msg = f"Task failed with state {state}"
-                
+
             update_task_status_sync(task_name, status, error=error_msg)
         else:
             update_task_status_sync(task_name, status)
@@ -297,7 +293,7 @@ def task_finished(task_id=None, task=None, retval=None, state=None, **kwargs):
                     "end_time": now,
                     "runtime": runtime,
                     "result": state == "SUCCESS",
-                    **(({"error": error_msg}) if error_msg else {})
+                    **(({"error": error_msg}) if error_msg else {}),
                 }
             },
             upsert=True,
@@ -323,7 +319,7 @@ def task_failed(task_id=None, task=None, exception=None, **kwargs):
     try:
         # Use our synchronous function to update status
         update_task_status_sync(task_name, TaskStatus.FAILED.value, error=error_msg)
-        
+
         # Connect to database using synchronous client for history
         mongo_uri = os.getenv("MONGO_URI")
         if not mongo_uri:
@@ -403,21 +399,21 @@ async def get_task_config() -> Dict[str, Any]:
 
 async def check_dependencies(task_id: str) -> Dict[str, Any]:
     """Check if a task's dependencies are satisfied before running it.
-    
+
     Args:
         task_id: ID of the task to check
-        
+
     Returns:
         Dict with 'can_run' boolean and 'reason' string if can_run is False
     """
     try:
         # Get task dependencies
         if task_id not in TASK_METADATA:
-            return {'can_run': False, 'reason': f"Unknown task: {task_id}"}
+            return {"can_run": False, "reason": f"Unknown task: {task_id}"}
 
         dependencies = TASK_METADATA[task_id].get("dependencies", [])
         if not dependencies:
-            return {'can_run': True}
+            return {"can_run": True}
 
         # Get current task configurations
         config = await get_task_config()
@@ -426,17 +422,21 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
         # Check if any dependency is currently running or recently failed
         for dep_id in dependencies:
             if dep_id not in tasks_config:
-                logger.warning(f"Task {task_id} has dependency {dep_id} which is not configured")
+                logger.warning(
+                    f"Task {task_id} has dependency {dep_id} which is not configured"
+                )
                 continue
 
             # Check if dependency is running
             if tasks_config[dep_id].get("status") == TaskStatus.RUNNING.value:
-                logger.info(f"Task {task_id} waiting for dependency {dep_id} to complete")
+                logger.info(
+                    f"Task {task_id} waiting for dependency {dep_id} to complete"
+                )
                 return {
-                    'can_run': False, 
-                    'reason': f"Dependency {dep_id} is currently running"
+                    "can_run": False,
+                    "reason": f"Dependency {dep_id} is currently running",
                 }
-                
+
             # Check for failed dependencies within the last hour
             if tasks_config[dep_id].get("status") == TaskStatus.FAILED.value:
                 last_updated = tasks_config[dep_id].get("last_updated")
@@ -444,58 +444,64 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
                     # If the failure was recent (< 1 hour ago), don't run dependent tasks
                     now = datetime.now(timezone.utc)
                     if isinstance(last_updated, str):
-                        last_updated = datetime.fromisoformat(last_updated.replace('Z', '+00:00'))
-                    
+                        last_updated = datetime.fromisoformat(
+                            last_updated.replace("Z", "+00:00")
+                        )
+
                     # Add timezone if missing
                     if last_updated.tzinfo is None:
                         last_updated = last_updated.replace(tzinfo=timezone.utc)
-                        
+
                     if now - last_updated < timedelta(hours=1):
-                        logger.warning(f"Task {task_id} depends on recently failed task {dep_id}")
+                        logger.warning(
+                            f"Task {task_id} depends on recently failed task {dep_id}"
+                        )
                         return {
-                            'can_run': False,
-                            'reason': f"Dependency {dep_id} recently failed (less than 1 hour ago)"
+                            "can_run": False,
+                            "reason": f"Dependency {dep_id} recently failed (less than 1 hour ago)",
                         }
 
-        return {'can_run': True}
+        return {"can_run": True}
     except Exception as e:
         logger.exception(f"Error checking dependencies for {task_id}: {e}")
-        return {'can_run': False, 'reason': f"Error checking dependencies: {str(e)}"}
+        return {"can_run": False, "reason": f"Error checking dependencies: {str(e)}"}
 
 
 def check_dependencies_sync(task_id: str) -> Dict[str, Any]:
     """Synchronous version of check_dependencies for use in signal handlers.
-    
+
     Args:
         task_id: ID of the task to check
-        
+
     Returns:
         Dict with 'can_run' boolean and 'reason' string if can_run is False
     """
     try:
         # Get task dependencies
         if task_id not in TASK_METADATA:
-            return {'can_run': False, 'reason': f"Unknown task: {task_id}"}
+            return {"can_run": False, "reason": f"Unknown task: {task_id}"}
 
         dependencies = TASK_METADATA[task_id].get("dependencies", [])
         if not dependencies:
-            return {'can_run': True}
+            return {"can_run": True}
 
         # For synchronous version, we can't check real-time status
         # Just log that we're skipping detailed checks
         if dependencies:
-            logger.info(f"Task {task_id} has dependencies {dependencies}, but detailed checking skipped in sync context")
+            logger.info(
+                f"Task {task_id} has dependencies {dependencies}, but detailed checking skipped in sync context"
+            )
 
-        return {'can_run': True}
+        return {"can_run": True}
     except Exception as e:
         logger.exception(f"Error in sync dependency check for {task_id}: {e}")
-        return {'can_run': False, 'reason': f"Error checking dependencies: {str(e)}"}
+        return {"can_run": False, "reason": f"Error checking dependencies: {str(e)}"}
 
 
 # Synchronous versions of status update functions for signal handlers
 def update_task_status_sync(task_id: str, status: str, error: str = None):
     """Synchronous version of update_task_status_async for use in signal handlers.
-    
+
     Args:
         task_id: ID of the task to update
         status: New status for the task
@@ -505,34 +511,32 @@ def update_task_status_sync(task_id: str, status: str, error: str = None):
         now = datetime.now(timezone.utc)
         update_data = {
             f"tasks.{task_id}.status": status,
-            f"tasks.{task_id}.last_updated": now
+            f"tasks.{task_id}.last_updated": now,
         }
-        
+
         if status == TaskStatus.COMPLETED.value:
             update_data[f"tasks.{task_id}.last_run"] = now
-            
+
         elif status == TaskStatus.FAILED.value:
             update_data[f"tasks.{task_id}.last_error"] = error
             update_data[f"tasks.{task_id}.last_run"] = now
-            
+
         elif status == TaskStatus.RUNNING.value:
             update_data[f"tasks.{task_id}.start_time"] = now
-            
+
         # Use PyMongo directly (synchronous client)
         mongo_uri = os.getenv("MONGO_URI")
         if not mongo_uri:
             logger.error("MONGO_URI environment variable not set")
             return
-            
+
         client = MongoClient(mongo_uri)
         db = client[os.getenv("MONGODB_DATABASE", "every_street")]
-        
+
         db.task_config.update_one(
-            {"_id": "global_background_task_config"},
-            {"$set": update_data},
-            upsert=True
+            {"_id": "global_background_task_config"}, {"$set": update_data}, upsert=True
         )
-        
+
         client.close()
     except Exception as e:
         logger.exception(f"Error updating task status: {e}")
@@ -541,7 +545,7 @@ def update_task_status_sync(task_id: str, status: str, error: str = None):
 # Task status management functions
 async def update_task_status_async(task_id: str, status: str, error: str = None):
     """Update the status of a task in the database.
-    
+
     Args:
         task_id: ID of the task to update
         status: New status for the task
@@ -551,41 +555,45 @@ async def update_task_status_async(task_id: str, status: str, error: str = None)
         now = datetime.now(timezone.utc)
         update_data = {
             f"tasks.{task_id}.status": status,
-            f"tasks.{task_id}.last_updated": now
+            f"tasks.{task_id}.last_updated": now,
         }
-        
+
         if status == TaskStatus.COMPLETED.value:
             update_data[f"tasks.{task_id}.last_run"] = now
             # Calculate next run based on interval
             config = await get_task_config()
             task_config = config.get("tasks", {}).get(task_id, {})
             interval_minutes = task_config.get(
-                "interval_minutes", 
-                TASK_METADATA.get(task_id, {}).get("default_interval_minutes", 60)
+                "interval_minutes",
+                TASK_METADATA.get(task_id, {}).get("default_interval_minutes", 60),
             )
             next_run = now + timedelta(minutes=interval_minutes)
             update_data[f"tasks.{task_id}.next_run"] = next_run
-            
+
         elif status == TaskStatus.FAILED.value:
             update_data[f"tasks.{task_id}.last_error"] = error
             update_data[f"tasks.{task_id}.last_run"] = now
-            
+
         elif status == TaskStatus.RUNNING.value:
             update_data[f"tasks.{task_id}.start_time"] = now
-            
+
         await task_config_collection.update_one(
-            {"_id": "global_background_task_config"},
-            {"$set": update_data},
-            upsert=True
+            {"_id": "global_background_task_config"}, {"$set": update_data}, upsert=True
         )
     except Exception as e:
         logger.exception(f"Error updating task status: {e}")
 
 
-async def update_task_history(task_id: str, status: str, manual_run: bool = False, 
-                             celery_task_id: str = None, result: Any = None, error: str = None):
+async def update_task_history(
+    task_id: str,
+    status: str,
+    manual_run: bool = False,
+    celery_task_id: str = None,
+    result: Any = None,
+    error: str = None,
+):
     """Add a new entry to the task history collection.
-    
+
     Args:
         task_id: ID of the task
         status: Status of the task
@@ -600,23 +608,23 @@ async def update_task_history(task_id: str, status: str, manual_run: bool = Fals
             "task_id": task_id,
             "status": status,
             "timestamp": now,
-            "manual_run": manual_run
+            "manual_run": manual_run,
         }
-        
+
         if celery_task_id:
             history_entry["celery_task_id"] = celery_task_id
-            
+
         if status == TaskStatus.RUNNING.value:
             history_entry["start_time"] = now
-            
+
         elif status == TaskStatus.COMPLETED.value:
             history_entry["end_time"] = now
             history_entry["result"] = result
-            
+
         elif status == TaskStatus.FAILED.value:
             history_entry["end_time"] = now
             history_entry["error"] = error
-            
+
         await task_history_collection.insert_one(history_entry)
     except Exception as e:
         logger.exception(f"Error updating task history: {e}")
@@ -625,7 +633,7 @@ async def update_task_history(task_id: str, status: str, manual_run: bool = Fals
 # Decorator for better async task handling
 def async_task_wrapper(func):
     """Decorator to handle async tasks more robustly with proper error tracking.
-    
+
     This decorator wraps an async function and adds status updates and error handling.
     """
 
@@ -636,43 +644,57 @@ def async_task_wrapper(func):
 
         try:
             logger.info(f"Starting async task {task_name}")
-            
+
             # Update task status to running - handle async operations safely
             try:
                 await update_task_status_async(task_name, TaskStatus.RUNNING.value)
                 await update_task_history(task_name, TaskStatus.RUNNING.value)
             except Exception as status_error:
-                logger.error(f"Error updating start status for {task_name}: {status_error}")
+                logger.error(
+                    f"Error updating start status for {task_name}: {status_error}"
+                )
                 # Continue with task execution even if status update fails
-            
+
             # Execute the task
             result = await func(*args, **kwargs)
 
             # Log successful completion
             runtime = (datetime.now(timezone.utc) - start_time).total_seconds()
             logger.info(f"Completed async task {task_name} in {runtime:.2f}s")
-            
+
             # Update task status to completed - handle async operations safely
             try:
                 await update_task_status_async(task_name, TaskStatus.COMPLETED.value)
-                await update_task_history(task_name, TaskStatus.COMPLETED.value, result=result)
+                await update_task_history(
+                    task_name, TaskStatus.COMPLETED.value, result=result
+                )
             except Exception as status_error:
-                logger.error(f"Error updating completion status for {task_name}: {status_error}")
+                logger.error(
+                    f"Error updating completion status for {task_name}: {status_error}"
+                )
                 # Continue returning result even if status update fails
 
             return result
         except Exception as e:
             # Log error details
             runtime = (datetime.now(timezone.utc) - start_time).total_seconds()
-            error_msg = f"Error in async task {task_name} after {runtime:.2f}s: {str(e)}"
+            error_msg = (
+                f"Error in async task {task_name} after {runtime:.2f}s: {str(e)}"
+            )
             logger.exception(error_msg)
-            
+
             # Update task status to failed - handle async operations safely
             try:
-                await update_task_status_async(task_name, TaskStatus.FAILED.value, error=str(e))
-                await update_task_history(task_name, TaskStatus.FAILED.value, error=str(e))
+                await update_task_status_async(
+                    task_name, TaskStatus.FAILED.value, error=str(e)
+                )
+                await update_task_history(
+                    task_name, TaskStatus.FAILED.value, error=str(e)
+                )
             except Exception as status_error:
-                logger.error(f"Error updating failure status for {task_name}: {status_error}")
+                logger.error(
+                    f"Error updating failure status for {task_name}: {status_error}"
+                )
                 # Continue raising the original exception
 
             # Re-raise to let the task framework handle the failure
@@ -763,9 +785,9 @@ def preprocess_streets(self) -> Dict[str, Any]:
     async def _execute():
         # Check dependencies
         dependency_check = await check_dependencies("preprocess_streets")
-        if not dependency_check['can_run']:
+        if not dependency_check["can_run"]:
             logger.info(f"Deferring preprocess_streets: {dependency_check['reason']}")
-            return {"status": "deferred", "message": dependency_check['reason']}
+            return {"status": "deferred", "message": dependency_check["reason"]}
 
         # Find areas that need processing
         processing_areas = await coverage_metadata_collection.find(
@@ -830,9 +852,11 @@ def update_coverage_for_all_locations_task(self) -> Dict[str, Any]:
     async def _execute():
         # Check dependencies
         dependency_check = await check_dependencies("update_coverage_for_all_locations")
-        if not dependency_check['can_run']:
-            logger.info(f"Deferring update_coverage_for_all_locations: {dependency_check['reason']}")
-            return {"status": "deferred", "message": dependency_check['reason']}
+        if not dependency_check["can_run"]:
+            logger.info(
+                f"Deferring update_coverage_for_all_locations: {dependency_check['reason']}"
+            )
+            return {"status": "deferred", "message": dependency_check["reason"]}
 
         # Call the original function
         try:
@@ -847,9 +871,9 @@ def update_coverage_for_all_locations_task(self) -> Dict[str, Any]:
             logger.error(error_msg)
             # Update task status to FAILED before retrying
             await update_task_status_async(
-                "update_coverage_for_all_locations", 
-                TaskStatus.FAILED.value, 
-                error=str(e)
+                "update_coverage_for_all_locations",
+                TaskStatus.FAILED.value,
+                error=str(e),
             )
             raise self.retry(exc=e, countdown=300)
 
@@ -1198,41 +1222,45 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
 async def get_all_task_metadata():
     """
     Return all task metadata for the UI with additional status information.
-    
+
     Returns:
         Dict containing task metadata with current state information
     """
     try:
         # Get current task configuration first
         task_config = await get_task_config()
-        
+
         # Create a copy of task metadata to avoid modifying the original
         task_metadata = {}
-        
+
         for task_id, metadata in TASK_METADATA.items():
             # Start with the static metadata
             task_metadata[task_id] = metadata.copy()
-            
+
             # Add runtime information from config if available
-            if 'tasks' in task_config and task_id in task_config['tasks']:
-                config_data = task_config['tasks'][task_id]
-                task_metadata[task_id].update({
-                    'enabled': config_data.get('enabled', True),
-                    'interval_minutes': config_data.get('interval_minutes', metadata.get('default_interval_minutes')),
-                    'status': config_data.get('status', 'IDLE'),
-                    'last_run': config_data.get('last_run'),
-                    'next_run': config_data.get('next_run'),
-                    'last_error': config_data.get('last_error')
-                })
-                
+            if "tasks" in task_config and task_id in task_config["tasks"]:
+                config_data = task_config["tasks"][task_id]
+                task_metadata[task_id].update(
+                    {
+                        "enabled": config_data.get("enabled", True),
+                        "interval_minutes": config_data.get(
+                            "interval_minutes", metadata.get("default_interval_minutes")
+                        ),
+                        "status": config_data.get("status", "IDLE"),
+                        "last_run": config_data.get("last_run"),
+                        "next_run": config_data.get("next_run"),
+                        "last_error": config_data.get("last_error"),
+                    }
+                )
+
             # Ensure all entries have consistent fields
-            if 'enabled' not in task_metadata[task_id]:
-                task_metadata[task_id]['enabled'] = True
-            if 'status' not in task_metadata[task_id]:
-                task_metadata[task_id]['status'] = 'IDLE'
-                
+            if "enabled" not in task_metadata[task_id]:
+                task_metadata[task_id]["enabled"] = True
+            if "status" not in task_metadata[task_id]:
+                task_metadata[task_id]["status"] = "IDLE"
+
         return task_metadata
-        
+
     except Exception as e:
         logger.exception(f"Error getting task metadata: {e}")
         # Return the basic metadata if there was an error
@@ -1274,14 +1302,16 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
             try:
                 # Check dependencies before running
                 dependency_check = await check_dependencies(task_name)
-                if not dependency_check['can_run']:
-                    results.append({
-                        "task": task_name, 
-                        "success": False, 
-                        "error": dependency_check['reason']
-                    })
+                if not dependency_check["can_run"]:
+                    results.append(
+                        {
+                            "task": task_name,
+                            "success": False,
+                            "error": dependency_check["reason"],
+                        }
+                    )
                     continue
-                
+
                 # Create a unique task ID for each execution
                 task_instance_id = f"{task_name}_manual_{uuid.uuid4()}"
 
@@ -1293,7 +1323,7 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
                     task_name,
                     TaskStatus.RUNNING.value,
                     manual_run=True,
-                    celery_task_id=result.id
+                    celery_task_id=result.id,
                 )
 
                 results.append(
@@ -1313,12 +1343,12 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
         try:
             # Check dependencies before running
             dependency_check = await check_dependencies(task_id)
-            if not dependency_check['can_run']:
+            if not dependency_check["can_run"]:
                 return {
                     "status": "error",
-                    "message": dependency_check['reason'],
+                    "message": dependency_check["reason"],
                 }
-            
+
             task_instance_id = f"{task_id}_manual_{uuid.uuid4()}"
             result = task_mapping[task_id].apply_async(task_id=task_instance_id)
 
@@ -1327,7 +1357,7 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
                 task_id,
                 TaskStatus.RUNNING.value,
                 manual_run=True,
-                celery_task_id=result.id
+                celery_task_id=result.id,
             )
 
             return {
