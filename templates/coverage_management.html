@@ -311,21 +311,20 @@ block head_content %}
   aria-labelledby="taskProgressModalLabel"
   aria-hidden="true"
 >
-  <div class="modal-dialog modal-lg" role="document">
+  <div class="modal-dialog">
     <div class="modal-content bg-dark text-white">
       <div class="modal-header">
-        <h5 class="modal-title" id="taskProgressModalLabel">Task Progress</h5>
+        <h5 class="modal-title" id="taskProgressModalLabel">
+          Processing Coverage Update
+        </h5>
         <button
           type="button"
-          class="close"
-          id="minimize-modal"
-          aria-label="Minimize"
-        >
-          <span aria-hidden="true">&minus;</span>
-        </button>
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        ></button>
       </div>
       <div class="modal-body">
-        <p id="progress-status">Progress: 0%</p>
         <!-- Progress Steps -->
         <div class="steps-container mb-3 d-flex justify-content-between">
           <div class="step step-initializing">
@@ -381,13 +380,6 @@ block head_content %}
       <div class="modal-footer">
         <button type="button" class="btn btn-danger" id="cancel-processing">
           <i class="fas fa-stop-circle"></i> Cancel
-        </button>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          id="reopen-modal"
-        >
-          Reopen
         </button>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
           Close

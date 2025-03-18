@@ -48,22 +48,14 @@
           this.cancelProcessing(this.currentProcessingLocation)
         );
 
-      // Minimize and reopen modal
-      document
-        .getElementById("minimize-modal")
-        ?.addEventListener("click", () => this.minimizeModal());
-
-      document
-        .getElementById("reopen-modal")
-        ?.addEventListener("click", () => this.reopenModal());
-
-      // Real-time progress updates
-      this.progressTimer = setInterval(() => this.updateProgress(), 1000);
-
       // Disable "Add Area" button when location input changes
       document
         .getElementById("location-input")
-        ?.addEventListener("input", () => this.toggleAddButton());
+        ?.addEventListener("input", () => {
+          const addButton = document.getElementById("add-coverage-area");
+          if (addButton) addButton.disabled = true;
+          this.validatedLocation = null;
+        });
 
       // Refresh coverage areas when the modal is closed
       document
@@ -87,10 +79,15 @@
           try {
             const location = JSON.parse(locationStr);
 
-            // Update coverage button
+            // Full update button
             if (target.classList.contains("update-coverage-btn")) {
               e.preventDefault();
-              this.updateCoverageForArea(location);
+              this.updateCoverageForArea(location, "full");
+            }
+            // Incremental update button
+            else if (target.classList.contains("update-incremental-btn")) {
+              e.preventDefault();
+              this.updateCoverageForArea(location, "incremental");
             }
             // Delete area button
             else if (target.classList.contains("delete-area-btn")) {
@@ -692,10 +689,15 @@
           <td>${lastUpdated}</td>
           <td>
             <div class="btn-group" role="group">
-              <button class="btn btn-sm btn-success update-coverage-btn" data-location='${JSON.stringify(
+              <button class="btn btn-sm btn-success update-coverage-btn" title="Full Update" data-location='${JSON.stringify(
                 area.location
               ).replace(/'/g, "&#39;")}'>
                 <i class="fas fa-sync-alt"></i>
+              </button>
+              <button class="btn btn-sm btn-info update-incremental-btn" title="Quick Update (new trips only)" data-location='${JSON.stringify(
+                area.location
+              ).replace(/'/g, "&#39;")}'>
+                <i class="fas fa-bolt"></i>
               </button>
               <button class="btn btn-sm btn-danger delete-area-btn" data-location='${JSON.stringify(
                 area.location
@@ -709,7 +711,7 @@
       });
     }
 
-    async updateCoverageForArea(location) {
+    async updateCoverageForArea(location, mode = "full") {
       if (!location) return;
 
       try {
@@ -726,10 +728,15 @@
           ? this.selectedLocation._id
           : null;
 
-        this.showProgressModal("Requesting coverage update...");
+        this.showProgressModal(`Requesting coverage update (${mode} mode)...`);
 
-        // Call the update endpoint
-        const response = await fetch("/api/street_coverage", {
+        // Call the appropriate endpoint based on mode
+        const endpoint =
+          mode === "incremental"
+            ? "/api/street_coverage/incremental"
+            : "/api/street_coverage";
+
+        const response = await fetch(endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1790,30 +1797,6 @@
 
       // Add active class to clicked button
       clickedButton.classList.add("active");
-    }
-
-    minimizeModal() {
-      const modal = document.getElementById("taskProgressModal");
-      modal.style.display = "none";
-    }
-
-    reopenModal() {
-      const modal = document.getElementById("taskProgressModal");
-      modal.style.display = "block";
-    }
-
-    updateProgress() {
-      const progressElement = document.getElementById("progress-status");
-      if (progressElement) {
-        // Fetch and update progress data
-        const progressData = this.getProgressData();
-        progressElement.innerText = `Progress: ${progressData}%`;
-      }
-    }
-
-    getProgressData() {
-      // Placeholder for fetching real progress data
-      return Math.floor(Math.random() * 100); // Simulated progress
     }
   }
 

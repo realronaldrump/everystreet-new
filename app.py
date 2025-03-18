@@ -933,6 +933,127 @@ async def get_coverage_status(task_id: str):
         "message": progress.get("message", ""),
     }
 
+@app.post("/api/street_coverage/incremental")
+async def get_incremental_street_coverage(request: Request):
+    """
+    Update street coverage incrementally, processing only new trips since last update.
+    """
+    try:
+        data = await request.json()
+        location = data.get("location")
+        if not location or not isinstance(location, dict):
+            raise HTTPException(status_code=400, detail="Invalid location data.")
+        
+        task_id = str(uuid.uuid4())
+        asyncio.create_task(process_incremental_coverage_calculation(location, task_id))
+        return {"task_id": task_id, "status": "processing"}
+    except Exception as e:
+        logger.exception("Error in incremental street coverage calculation.")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def process_incremental_coverage_calculation(location: Dict[str, Any], task_id: str):
+    """
+    Process incremental coverage calculation in the background.
+    """
+    try:
+        # Initialize progress tracking
+        await progress_collection.update_one(
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "initializing",
+                    "progress": 0,
+                    "message": "Starting incremental coverage calculation...",
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+            upsert=True,
+        )
+
+        display_name = location.get("display_name", "Unknown")
+        
+        # Run the incremental calculation
+        result = await compute_incremental_coverage(location, task_id)
+        
+        if result:
+            # Update with successful results
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": display_name},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "last_updated": datetime.now(timezone.utc),
+                    }
+                },
+            )
+
+            # Final progress update
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "complete",
+                        "progress": 100,
+                        "result": result,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+
+            logger.info(f"Incremental coverage calculation completed for {display_name}")
+        else:
+            error_msg = "Failed to calculate incremental coverage"
+            logger.error(f"Coverage calculation error: {error_msg}")
+
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": display_name},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": error_msg,
+                        "last_updated": datetime.now(timezone.utc),
+                    }
+                },
+            )
+
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "error",
+                        "error": error_msg,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+    except Exception as e:
+        logger.exception(f"Error in incremental coverage calculation: {str(e)}")
+
+        try:
+            # Update with error information
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": location.get("display_name", "Unknown")},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": str(e),
+                        "last_updated": datetime.now(timezone.utc),
+                    }
+                },
+            )
+
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "error",
+                        "error": str(e),
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+        except Exception as update_error:
+            logger.error(f"Failed to update status after error: {update_error}")
 
 # TRIPS (REGULAR, UPLOADED)
 
