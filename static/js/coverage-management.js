@@ -759,8 +759,27 @@
         }
 
         if (data.task_id) {
-          this.pollCoverageProgress(data.task_id);
+          try {
+            // Wait for polling to complete before continuing
+            await this.pollCoverageProgress(data.task_id);
+
+            // Success notification
+            window.notificationManager.show(
+              "Coverage calculation completed successfully!",
+              "success"
+            );
+          } catch (error) {
+            console.error("Error during coverage calculation:", error);
+            window.notificationManager.show(
+              `Coverage calculation failed: ${error.message}`,
+              "danger"
+            );
+            this.hideProgressModal();
+            return; // Exit early on polling failure
+          }
         }
+
+        // Only reach here if polling completed successfully
 
         // Reload data after processing completes
         await this.loadCoverageAreas();
@@ -769,14 +788,18 @@
         if (lastLocationId) {
           await this.displayCoverageDashboard(lastLocationId);
         }
+
+        // Only hide modal after everything is complete
+        this.hideProgressModal();
       } catch (error) {
         console.error("Error updating coverage:", error);
-        showNotification(
+        window.notificationManager.show(
           "An error occurred while updating coverage. Please try again.",
           "danger"
         );
-      } finally {
         this.hideProgressModal();
+      } finally {
+        // Reset the current processing location regardless of outcome
         this.currentProcessingLocation = null;
       }
     }
