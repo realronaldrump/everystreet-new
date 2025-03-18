@@ -417,16 +417,31 @@
           body: JSON.stringify({ tasks: [taskId] }),
         });
 
-        if (!response.ok) {
-          throw new Error("Failed to start task");
-        }
-
+        // Get the result regardless of response status
         const result = await response.json();
-
+        
         // Hide loading overlay
         hideLoadingOverlay();
 
+        if (!response.ok) {
+          // API returned an error
+          throw new Error(result.detail || "Failed to start task");
+        }
+
+        // Handle successful API call but potential dependency issues
         if (result.status === "success") {
+          // Check for detailed results from specific tasks
+          if (result.results && result.results.length > 0) {
+            const taskResult = result.results.find(r => r.task === taskId);
+            
+            if (taskResult && !taskResult.success) {
+              // Task couldn't start, likely a dependency issue
+              this.showDependencyErrorModal(taskId, taskResult.message);
+              return false;
+            }
+          }
+          
+          // If we get here, task started successfully
           this.activeTasksMap.set(taskId, "RUNNING");
           this.notifier.show(
             "Task Started",
@@ -601,6 +616,18 @@
               <p>${taskDetails.priority || "MEDIUM"}</p>
             </div>
             <div class="mb-3">
+              <h6>Dependencies</h6>
+              ${taskDetails.dependencies && taskDetails.dependencies.length > 0 ? 
+                `<div>
+                   <p>${taskDetails.dependencies.join(", ")}</p>
+                   <div class="alert alert-info small mt-2">
+                     <i class="fas fa-info-circle"></i> 
+                     Dependencies will be checked before task execution. This task will wait for any running dependencies to complete.
+                   </div>
+                 </div>` : 
+                '<p>None</p>'}
+            </div>
+            <div class="mb-3">
               <h6>Last Run</h6>
               <p>${
                 taskDetails.last_run
@@ -733,6 +760,52 @@
     }
 
     // Clean up resources when page is unloaded
+    showDependencyErrorModal(taskId, errorMessage) {
+      // Create modal if it doesn't exist
+      let modal = document.getElementById("dependencyErrorModal");
+      if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "dependencyErrorModal";
+        modal.className = "modal fade";
+        modal.setAttribute("tabindex", "-1");
+        modal.innerHTML = `
+          <div class="modal-dialog">
+            <div class="modal-content bg-dark text-white">
+              <div class="modal-header">
+                <h5 class="modal-title">Dependency Check Failed</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <div class="alert alert-warning">
+                  <i class="fas fa-exclamation-triangle"></i> 
+                  <span class="dependency-error-message"></span>
+                </div>
+                <p>The task cannot run because one or more dependencies are not satisfied.</p>
+                <div class="dependency-details"></div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              </div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      }
+
+      // Set content
+      const errorMessageEl = modal.querySelector(".dependency-error-message");
+      if (errorMessageEl) {
+        errorMessageEl.textContent = errorMessage;
+      }
+
+      // Show modal
+      const bsModal = new bootstrap.Modal(modal);
+      bsModal.show();
+
+      // Refresh task config to show accurate status
+      this.loadTaskConfig();
+    }
+
     cleanup() {
       if (this.pollingInterval) {
         clearInterval(this.pollingInterval);
