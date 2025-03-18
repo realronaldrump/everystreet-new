@@ -73,7 +73,7 @@
         this.notifier.show(
           "Error",
           "Failed to load task configuration: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -125,11 +125,11 @@
                   .map(
                     (opt) => `
                   <option value="${opt.value}" ${
-                      opt.value === task.interval_minutes ? "selected" : ""
-                    }>
+                    opt.value === task.interval_minutes ? "selected" : ""
+                  }>
                     ${opt.label}
                   </option>
-                `
+                `,
                   )
                   .join("")}
               </select>
@@ -143,7 +143,7 @@
             </td>
             <td>${task.priority || "MEDIUM"}</td>
             <td class="task-status">${this.getStatusHTML(
-              task.status || "IDLE"
+              task.status || "IDLE",
             )}</td>
             <td class="task-last-run">${
               task.last_run ? this.formatDateTime(task.last_run) : "Never"
@@ -175,7 +175,7 @@
     async updateTaskHistory() {
       try {
         const response = await fetch(
-          `/api/background_tasks/history?page=${this.currentHistoryPage}&limit=${this.historyLimit}`
+          `/api/background_tasks/history?page=${this.currentHistoryPage}&limit=${this.historyLimit}`,
         );
         if (!response.ok) {
           throw new Error("Failed to fetch task history");
@@ -189,7 +189,7 @@
         this.notifier.show(
           "Error",
           "Failed to update task history: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -310,7 +310,7 @@
 
     updateHistoryPagination() {
       const paginationContainer = document.querySelector(
-        "#taskHistoryPagination"
+        "#taskHistoryPagination",
       );
       if (!paginationContainer) return;
 
@@ -419,7 +419,7 @@
 
         // Get the result regardless of response status
         const result = await response.json();
-        
+
         // Hide loading overlay
         hideLoadingOverlay();
 
@@ -432,21 +432,21 @@
         if (result.status === "success") {
           // Check for detailed results from specific tasks
           if (result.results && result.results.length > 0) {
-            const taskResult = result.results.find(r => r.task === taskId);
-            
+            const taskResult = result.results.find((r) => r.task === taskId);
+
             if (taskResult && !taskResult.success) {
               // Task couldn't start, likely a dependency issue
               this.showDependencyErrorModal(taskId, taskResult.message);
               return false;
             }
           }
-          
+
           // If we get here, task started successfully
           this.activeTasksMap.set(taskId, "RUNNING");
           this.notifier.show(
             "Task Started",
             `Task ${taskId} has been started`,
-            "info"
+            "info",
           );
 
           // Update UI to show running status
@@ -476,7 +476,7 @@
         this.notifier.show(
           "Error",
           `Failed to start task ${taskId}: ${error.message}`,
-          "danger"
+          "danger",
         );
         return false;
       }
@@ -518,8 +518,8 @@
       return hours > 0
         ? `${hours}h ${minutes % 60}m ${seconds % 60}s`
         : minutes > 0
-        ? `${minutes}m ${seconds % 60}s`
-        : `${seconds}s`;
+          ? `${minutes}m ${seconds % 60}s`
+          : `${seconds}s`;
     }
 
     gatherTaskConfigFromUI() {
@@ -575,7 +575,7 @@
 
         // First get the task metadata
         const taskResponse = await fetch(
-          `/api/background_tasks/task/${taskId}`
+          `/api/background_tasks/task/${taskId}`,
         );
         if (!taskResponse.ok) throw new Error("Failed to fetch task details");
         const taskDetails = await taskResponse.json();
@@ -607,7 +607,7 @@
               <h6>Interval</h6>
               <p>${
                 this.intervalOptions.find(
-                  (opt) => opt.value === taskDetails.interval_minutes
+                  (opt) => opt.value === taskDetails.interval_minutes,
                 )?.label || taskDetails.interval_minutes + " minutes"
               }</p>
             </div>
@@ -617,15 +617,17 @@
             </div>
             <div class="mb-3">
               <h6>Dependencies</h6>
-              ${taskDetails.dependencies && taskDetails.dependencies.length > 0 ? 
-                `<div>
+              ${
+                taskDetails.dependencies && taskDetails.dependencies.length > 0
+                  ? `<div>
                    <p>${taskDetails.dependencies.join(", ")}</p>
                    <div class="alert alert-info small mt-2">
                      <i class="fas fa-info-circle"></i> 
                      Dependencies will be checked before task execution. This task will wait for any running dependencies to complete.
                    </div>
-                 </div>` : 
-                '<p>None</p>'}
+                 </div>`
+                  : "<p>None</p>"
+              }
             </div>
             <div class="mb-3">
               <h6>Last Run</h6>
@@ -653,7 +655,7 @@
             <div class="mb-3">
               <h6>Last Error</h6>
               <pre class="bg-dark text-danger p-2 rounded">${this.escapeHtml(
-                taskDetails.last_error
+                taskDetails.last_error,
               )}</pre>
             </div>`
                 : ""
@@ -678,7 +680,7 @@
                     <tr>
                       <td>${this.formatDateTime(entry.timestamp)}</td>
                       <td><span class="badge bg-${this.getStatusColor(
-                        entry.status
+                        entry.status,
                       )}">${entry.status}</span></td>
                       <td>${
                         entry.runtime
@@ -686,7 +688,7 @@
                           : "N/A"
                       }</td>
                     </tr>
-                  `
+                  `,
                     )
                     .join("")}
                 </tbody>
@@ -707,7 +709,7 @@
         this.notifier.show(
           "Error",
           "Failed to fetch task details: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -737,7 +739,7 @@
         this.currentHistoryPage = 1;
         this.historyTotalPages = 1;
         const paginationContainer = document.querySelector(
-          "#taskHistoryPagination"
+          "#taskHistoryPagination",
         );
         if (paginationContainer) {
           paginationContainer.innerHTML = "";
@@ -746,7 +748,7 @@
         this.notifier.show(
           "Success",
           "Task history cleared successfully",
-          "success"
+          "success",
         );
       } catch (error) {
         hideLoadingOverlay();
@@ -754,7 +756,7 @@
         this.notifier.show(
           "Error",
           `Failed to clear task history: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -860,7 +862,7 @@
           .then(() => {
             window.notificationManager.show(
               "Task configuration updated successfully",
-              "success"
+              "success",
             );
             taskManager.loadTaskConfig();
           })
@@ -868,7 +870,7 @@
             console.error("Error updating task config:", error);
             window.notificationManager.show(
               `Error updating task config: ${error.message}`,
-              "danger"
+              "danger",
             );
           });
       });
@@ -935,7 +937,7 @@
 
           window.notificationManager.show(
             "All running tasks stopped",
-            "success"
+            "success",
           );
           taskManager.loadTaskConfig();
         } catch (error) {
@@ -992,7 +994,7 @@
 
     if (manualRunAllBtn) {
       manualRunAllBtn.addEventListener("click", () =>
-        taskManager.runTask("ALL")
+        taskManager.runTask("ALL"),
       );
     }
 
@@ -1002,13 +1004,16 @@
         taskManager
           .submitTaskConfigUpdate(config)
           .then(() =>
-            window.notificationManager.show("Global disable toggled", "success")
+            window.notificationManager.show(
+              "Global disable toggled",
+              "success",
+            ),
           )
           .catch(() =>
             window.notificationManager.show(
               "Failed to toggle global disable",
-              "danger"
-            )
+              "danger",
+            ),
           );
       });
     }
@@ -1016,7 +1021,7 @@
     if (clearHistoryBtn) {
       clearHistoryBtn.addEventListener("click", () => {
         const modal = new bootstrap.Modal(
-          document.getElementById("clearHistoryModal")
+          document.getElementById("clearHistoryModal"),
         );
         modal.show();
       });
@@ -1027,7 +1032,7 @@
       confirmClearHistory.addEventListener("click", async () => {
         await taskManager.clearTaskHistory();
         const modal = bootstrap.Modal.getInstance(
-          document.getElementById("clearHistoryModal")
+          document.getElementById("clearHistoryModal"),
         );
         modal.hide();
       });
@@ -1151,14 +1156,14 @@
         if (!start_date || !end_date) {
           window.notificationManager.show(
             "Please select both start and end dates",
-            "danger"
+            "danger",
           );
           return;
         }
       } else {
         interval_days = parseInt(
           document.getElementById("remap-interval-select").value,
-          10
+          10,
         );
         start_date = new Date();
         start_date.setDate(start_date.getDate() - interval_days);
