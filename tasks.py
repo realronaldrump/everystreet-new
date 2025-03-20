@@ -191,13 +191,7 @@ def task_started(task_id=None, task=None, **kwargs):
     task_name = task.name.split(".")[-1] if task and task.name else "unknown"
 
     try:
-        # Update task status using our synchronous function
-        update_task_status_sync(task_name, TaskStatus.RUNNING.value)
-
-        # Record history entry
-        now = datetime.now(timezone.utc)
-
-        # Use PyMongo directly for history (synchronous client)
+        # First, check if this task is disabled in configuration
         mongo_uri = os.getenv("MONGO_URI")
         if not mongo_uri:
             logger.error("MONGO_URI environment variable not set")
@@ -205,6 +199,28 @@ def task_started(task_id=None, task=None, **kwargs):
 
         client = MongoClient(mongo_uri)
         db = client[os.getenv("MONGODB_DATABASE", "every_street")]
+        
+        # Get task configuration
+        config = db.task_config_collection.find_one({})
+        
+        # Check if tasks are globally disabled or this specific task is disabled
+        if config:
+            globally_disabled = config.get("disabled", False)
+            task_config = config.get("tasks", {}).get(task_name, {})
+            task_disabled = not task_config.get("enabled", True)
+            
+            if globally_disabled or task_disabled:
+                logger.info(f"Task {task_name} ({task_id}) is disabled, skipping execution")
+                # Raise an exception to prevent task execution
+                # This will be caught by Celery and the task will be marked as failed
+                client.close()
+                raise Exception(f"Task {task_name} is disabled in configuration")
+        
+        # Update task status using our synchronous function
+        update_task_status_sync(task_name, TaskStatus.RUNNING.value)
+
+        # Record history entry
+        now = datetime.now(timezone.utc)
 
         # Update history
         db.task_history.update_one(
