@@ -412,7 +412,8 @@ class TripProcessor:
             self._set_state(TripState.FAILED, error_message)
             return False
 
-    async def get_place_at_point(self, point: Point) -> Optional[Dict[str, Any]]:
+    @staticmethod
+    async def get_place_at_point(point: Point) -> Optional[Dict[str, Any]]:
         """
         Find a custom place that contains the given point.
 
@@ -431,7 +432,8 @@ class TripProcessor:
             logger.error(f"Error finding place at point: {str(e)}")
             return None
 
-    def _extract_coords_from_geometry(self, geometry, fallback_coords, transaction_id):
+    @staticmethod
+    def _extract_coords_from_geometry(geometry, fallback_coords, transaction_id):
         """Extract a simple [lng, lat] point from various geometry types."""
         if not geometry or "coordinates" not in geometry:
             return fallback_coords
@@ -1256,7 +1258,8 @@ class TripProcessor:
             return None
 
     # Utility methods moved from trip_processing.py
-    def format_idle_time(self, seconds: Any) -> str:
+    @staticmethod
+    def format_idle_time(seconds: Any) -> str:
         """Convert idle time in seconds to a HH:MM:SS string."""
         if not seconds:
             return "00:00:00"

@@ -216,9 +216,8 @@ class TaskStatusManager:
                 except Exception as e:
                     logger.error(f"Error closing event loop: {e}")
 
-    def _fallback_sync_update(
-        self, task_id: str, status: str, error: Optional[str] = None
-    ):
+    @staticmethod
+    def _fallback_sync_update(task_id: str, status: str, error: Optional[str] = None):
         """Emergency fallback using direct MongoDB connection."""
         try:
             client = get_mongo_client()
@@ -263,7 +262,8 @@ class DatabaseConnectionPool:
                 cls._instance = DatabaseConnectionPool()
             return cls._instance
 
-    def get_client(self) -> MongoClient:
+    @staticmethod
+    def get_client() -> MongoClient:
         """Get a MongoDB client with proper connection settings."""
         mongo_uri = os.environ.get("MONGO_URI")
         if not mongo_uri:
@@ -313,7 +313,8 @@ class AsyncTask(Task):
     Enhanced base class for Celery tasks that need to run async code.
     """
 
-    def run_async(self, coro_func: Callable[[], Awaitable[T]]) -> T:
+    @staticmethod
+    def run_async(coro_func: Callable[[], Awaitable[T]]) -> T:
         """Run an async coroutine function from a Celery task with proper lifecycle management."""
         loop = None
         should_close_loop = False
@@ -796,12 +797,16 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
                 # Don't go back more than 24 hours to avoid excessive data
                 min_start_date = now_utc - timedelta(hours=24)
                 start_date = max(
-                    start_date.replace(tzinfo=timezone.utc)
-                    if start_date.tzinfo is None
-                    else start_date,
-                    min_start_date.replace(tzinfo=timezone.utc)
-                    if min_start_date.tzinfo is None
-                    else min_start_date,
+                    (
+                        start_date.replace(tzinfo=timezone.utc)
+                        if start_date.tzinfo is None
+                        else start_date
+                    ),
+                    (
+                        min_start_date.replace(tzinfo=timezone.utc)
+                        if min_start_date.tzinfo is None
+                        else min_start_date
+                    ),
                 )
             else:
                 # Default to 3 hours ago if no previous state
@@ -871,7 +876,9 @@ def preprocess_streets(self) -> Dict[str, Any]:
             # Find areas that need processing
             processing_areas = await coverage_metadata_collection.find(
                 {"status": "processing"}
-            ).to_list(length=20)  # Process in smaller batches
+            ).to_list(
+                length=20
+            )  # Process in smaller batches
 
             processed_count = 0
             error_count = 0
