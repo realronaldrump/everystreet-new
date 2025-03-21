@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pyproj
 import rtree
+from bson.objectid import ObjectId
 from db import (
     batch_cursor,
     coverage_metadata_collection,
@@ -433,10 +434,6 @@ class CoverageCalculator:
             # Create transform functions
             project_to_utm = pyproj.Transformer.from_crs(
                 wgs84_proj, utm_proj, always_xy=True
-            ).transform
-
-            project_to_wgs84 = pyproj.Transformer.from_crs(
-                utm_proj, wgs84_proj, always_xy=True
             ).transform
 
             # Process the trip
