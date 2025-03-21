@@ -29,6 +29,7 @@ from street_coverage_calculation import (
 )
 from trip_processor import TripProcessor, TripState
 from utils import validate_trip_data
+from celery_app import app as celery_app
 
 # Set up task-specific logger
 logger = get_task_logger(__name__)
@@ -407,7 +408,7 @@ async def get_task_config() -> Dict[str, Any]:
     """Get the current task configuration."""
     client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
     db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
-    task_config_collection = db["task_config"]  # Keep this line
+    task_config_collection = db["task_config"]
     try:
         cfg = await task_config_collection.find_one(
             {"_id": "global_background_task_config"}
@@ -537,7 +538,6 @@ async def update_task_status_async(
     """
     client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
     db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
-    # task_config_collection = db["task_config"]  <-- REMOVE THIS LINE.  Directly use db["task_config"] below.
     try:
         now = datetime.now(timezone.utc)
         update_data = {
@@ -564,7 +564,7 @@ async def update_task_status_async(
         elif status == TaskStatus.RUNNING.value:
             update_data[f"tasks.{task_id}.start_time"] = now
 
-        await db["task_config"].update_one(  # Directly access here.
+        await db["task_config"].update_one(
             {"_id": "global_background_task_config"}, {"$set": update_data}, upsert=True
         )
     except Exception as e:
@@ -1426,6 +1426,15 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
         "validate_trip_data": validate_trip_data_task,
     }
 
+    # Get Redis URL from environment
+    redis_url = os.environ.get("REDIS_URL")
+    if not redis_url:
+        logger.error("REDIS_URL environment variable is not set")
+        return {
+            "status": "error",
+            "message": "REDIS_URL environment variable is not set",
+        }
+
     if task_id == "ALL":
         # Get enabled tasks
         config = await get_task_config()
@@ -1453,8 +1462,16 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
                 # Create a unique task ID for each execution
                 task_instance_id = f"{task_name}_manual_{uuid.uuid4()}"
 
-                # Apply the task asynchronously
-                result = task_mapping[task_name].apply_async(task_id=task_instance_id)
+                # Get correct queue based on task priority
+                queue = f"{TASK_METADATA[task_name]['priority'].name.lower()}_priority"
+
+                # Use the Celery app instance from celery_app.py and specify the broker
+                result = celery_app.send_task(
+                    f"tasks.{task_name}",
+                    task_id=task_instance_id,
+                    queue=queue,
+                    kwargs={},
+                )
 
                 # Record that the task was started manually
                 await update_task_history(
@@ -1487,8 +1504,19 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
                     "message": dependency_check["reason"],
                 }
 
+            # Get correct queue based on task priority
+            queue = f"{TASK_METADATA[task_id]['priority'].name.lower()}_priority"
+
+            # Create a unique task ID
             task_instance_id = f"{task_id}_manual_{uuid.uuid4()}"
-            result = task_mapping[task_id].apply_async(task_id=task_instance_id)
+
+            # Use the Celery app instance from celery_app.py and specify the broker
+            result = celery_app.send_task(
+                f"tasks.{task_id}",
+                task_id=task_instance_id,
+                queue=queue,
+                kwargs={},
+            )
 
             # Record that the task was started manually
             await update_task_history(

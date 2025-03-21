@@ -51,7 +51,7 @@ if not REDIS_URL:
 logger.info(
     f"Configuring Celery with broker: {REDIS_URL.split('@')[-1] if '@' in REDIS_URL else REDIS_URL}"
 )
-
+os.environ['CELERY_BROKER_URL'] = REDIS_URL
 # Max retry attempts for Redis connection
 MAX_RETRIES = 10
 RETRY_DELAY = 5  # seconds
