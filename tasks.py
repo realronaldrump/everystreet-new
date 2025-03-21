@@ -21,6 +21,7 @@ from celery.signals import task_failure, task_postrun, task_prerun
 from celery.utils.log import get_task_logger
 
 # Import Celery app
+from celery_app import app
 
 # Local module imports
 from db import (
@@ -136,6 +137,27 @@ TASK_METADATA = {
 db_manager = DatabaseManager()
 
 
+# Helper function to get MongoDB connection with proper settings
+def get_mongo_client():
+    """Create a MongoDB client with proper connection settings."""
+    mongo_uri = os.getenv("MONGO_URI")
+    if not mongo_uri:
+        raise ValueError("MONGO_URI environment variable not set")
+
+    # Use consistent connection settings from environment variables
+    return MongoClient(
+        mongo_uri,
+        serverSelectionTimeoutMS=int(
+            os.getenv("MONGODB_SERVER_SELECTION_TIMEOUT_MS", "10000")
+        ),
+        connectTimeoutMS=int(os.getenv("MONGODB_CONNECTION_TIMEOUT_MS", "5000")),
+        socketTimeoutMS=int(os.getenv("MONGODB_SOCKET_TIMEOUT_MS", "30000")),
+        retryWrites=True,
+        retryReads=True,
+        appname="EveryStreet-Tasks",
+    )
+
+
 # Simplified AsyncTask base class for better async handling
 class AsyncTask(Task):
     """
@@ -217,7 +239,7 @@ def task_started(task_id=None, task=None, **kwargs):
             logger.error("MONGO_URI environment variable not set")
             return
 
-        client = MongoClient(mongo_uri)
+        client = get_mongo_client()
         db = client[os.getenv("MONGODB_DATABASE", "every_street")]
 
         # Get task configuration
@@ -277,15 +299,10 @@ def task_finished(task_id=None, task=None, retval=None, state=None, **kwargs):
 
     try:
         # Connect to database using synchronous client
-        mongo_uri = os.getenv("MONGO_URI")
-        if not mongo_uri:
-            logger.error("MONGO_URI environment variable not set")
-            return
-
         now = datetime.now(timezone.utc)
 
         # Use PyMongo directly (synchronous client)
-        client = MongoClient(mongo_uri)
+        client = get_mongo_client()
         db = client[os.getenv("MONGODB_DATABASE", "every_street")]
 
         # Get task info to calculate runtime
@@ -358,16 +375,10 @@ def task_failed(task_id=None, task=None, exception=None, **kwargs):
         # Use our synchronous function to update status
         update_task_status_sync(task_name, TaskStatus.FAILED.value, error=error_msg)
 
-        # Connect to database using synchronous client for history
-        mongo_uri = os.getenv("MONGO_URI")
-        if not mongo_uri:
-            logger.error("MONGO_URI environment variable not set")
-            return
-
         now = datetime.now(timezone.utc)
 
         # Use PyMongo directly (synchronous client)
-        client = MongoClient(mongo_uri)
+        client = get_mongo_client()
         db = client[os.getenv("MONGODB_DATABASE", "every_street")]
 
         # Update history with error details
@@ -389,6 +400,45 @@ def task_failed(task_id=None, task=None, exception=None, **kwargs):
         client.close()
     except Exception as e:
         logger.error(f"Error updating task failure status: {e}")
+
+
+# Synchronous versions of status update functions for signal handlers
+def update_task_status_sync(task_id: str, status: str, error: str = None):
+    """Synchronous version of update_task_status_async for use in signal handlers.
+
+    Args:
+        task_id: ID of the task to update
+        status: New status for the task
+        error: Optional error message if status is FAILED
+    """
+    try:
+        now = datetime.now(timezone.utc)
+        update_data = {
+            f"tasks.{task_id}.status": status,
+            f"tasks.{task_id}.last_updated": now,
+        }
+
+        if status == TaskStatus.COMPLETED.value:
+            update_data[f"tasks.{task_id}.last_run"] = now
+
+        elif status == TaskStatus.FAILED.value:
+            update_data[f"tasks.{task_id}.last_error"] = error
+            update_data[f"tasks.{task_id}.last_run"] = now
+
+        elif status == TaskStatus.RUNNING.value:
+            update_data[f"tasks.{task_id}.start_time"] = now
+
+        # Use PyMongo directly (synchronous client) with improved connection handling
+        client = get_mongo_client()
+        db = client[os.getenv("MONGODB_DATABASE", "every_street")]
+
+        db.task_config.update_one(
+            {"_id": "global_background_task_config"}, {"$set": update_data}, upsert=True
+        )
+
+        client.close()
+    except Exception as e:
+        logger.exception(f"Error updating task status: {e}")
 
 
 # Task configuration helpers
@@ -534,50 +584,6 @@ def check_dependencies_sync(task_id: str) -> Dict[str, Any]:
     except Exception as e:
         logger.exception(f"Error in sync dependency check for {task_id}: {e}")
         return {"can_run": False, "reason": f"Error checking dependencies: {str(e)}"}
-
-
-# Synchronous versions of status update functions for signal handlers
-def update_task_status_sync(task_id: str, status: str, error: str = None):
-    """Synchronous version of update_task_status_async for use in signal handlers.
-
-    Args:
-        task_id: ID of the task to update
-        status: New status for the task
-        error: Optional error message if status is FAILED
-    """
-    try:
-        now = datetime.now(timezone.utc)
-        update_data = {
-            f"tasks.{task_id}.status": status,
-            f"tasks.{task_id}.last_updated": now,
-        }
-
-        if status == TaskStatus.COMPLETED.value:
-            update_data[f"tasks.{task_id}.last_run"] = now
-
-        elif status == TaskStatus.FAILED.value:
-            update_data[f"tasks.{task_id}.last_error"] = error
-            update_data[f"tasks.{task_id}.last_run"] = now
-
-        elif status == TaskStatus.RUNNING.value:
-            update_data[f"tasks.{task_id}.start_time"] = now
-
-        # Use PyMongo directly (synchronous client)
-        mongo_uri = os.getenv("MONGO_URI")
-        if not mongo_uri:
-            logger.error("MONGO_URI environment variable not set")
-            return
-
-        client = MongoClient(mongo_uri)
-        db = client[os.getenv("MONGODB_DATABASE", "every_street")]
-
-        db.task_config.update_one(
-            {"_id": "global_background_task_config"}, {"$set": update_data}, upsert=True
-        )
-
-        client.close()
-    except Exception as e:
-        logger.exception(f"Error updating task status: {e}")
 
 
 # Task status management functions

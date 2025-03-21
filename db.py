@@ -83,7 +83,7 @@ class DatabaseManager:
                 30,
             ]  # Exponential backoff in seconds
 
-            # Configuration - could be moved to env vars
+            # Configuration from environment variables
             self._max_pool_size = int(os.getenv("MONGODB_MAX_POOL_SIZE", "10"))
             self._connection_timeout_ms = int(
                 os.getenv("MONGODB_CONNECTION_TIMEOUT_MS", "5000")
@@ -96,6 +96,11 @@ class DatabaseManager:
             )
             self._max_retry_attempts = int(os.getenv("MONGODB_MAX_RETRY_ATTEMPTS", "5"))
             self._db_name = os.getenv("MONGODB_DATABASE", "every_street")
+
+            # Log configuration
+            logger.info(
+                f"Database configuration initialized with pool size {self._max_pool_size}"
+            )
 
     def _initialize_client(self) -> None:
         """Initialize the MongoDB client with proper connection settings."""

@@ -29,14 +29,23 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # --- Redis Broker Configuration ---
-# Get Redis URL from environment variable.
+# Get Redis URL from environment variable or construct it
 REDIS_URL = os.getenv("REDIS_URL")
 if not REDIS_URL:
-    raise ValueError(
-        "REDIS_URL environment variable is not set! "
-        "This is required for Celery to connect to Redis broker. "
-        "Please configure REDIS_URL in your environment (e.g., Railway)."
-    )
+    # Try to construct from individual components
+    redis_host = os.getenv("REDISHOST") or os.getenv("RAILWAY_PRIVATE_DOMAIN")
+    redis_port = os.getenv("REDISPORT", "6379")
+    redis_password = os.getenv("REDISPASSWORD") or os.getenv("REDIS_PASSWORD")
+    redis_user = os.getenv("REDISUSER", "default")
+
+    if redis_host and redis_password:
+        REDIS_URL = f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
+    else:
+        raise ValueError(
+            "REDIS_URL environment variable is not set and cannot be constructed! "
+            "This is required for Celery to connect to Redis broker. "
+            "Please configure REDIS_URL in your environment (e.g., Railway)."
+        )
 
 logger.info(
     f"Configuring Celery with broker: {REDIS_URL.split('@')[-1] if '@' in REDIS_URL else REDIS_URL}"
@@ -115,8 +124,8 @@ app.conf.update(
     task_default_routing_key="default",  # Default routing key
     # --- Worker Concurrency and Resource Control ---
     worker_concurrency=int(
-        os.getenv("CELERY_WORKER_CONCURRENCY", "4")
-    ),  # Number of worker processes (adjust based on resources)
+        os.getenv("CELERY_WORKER_CONCURRENCY", "2")
+    ),  # Number of worker processes (adjusted for Railway)
     task_acks_late=True,  # Acknowledge tasks after they are completed (more reliable)
     task_reject_on_worker_lost=True,  # Re-queue tasks if a worker unexpectedly dies
     worker_prefetch_multiplier=1,  # Fetch only one task at a time per worker (for resource management)
