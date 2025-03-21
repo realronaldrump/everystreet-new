@@ -12,13 +12,12 @@ Key features:
 - Proper error handling
 """
 
-import os
 import logging
 import time
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, Optional, List, Union, Set
+from typing import Dict, Any, Optional
 
-from db import SerializationHelper, db_manager, run_transaction
+from db import SerializationHelper, run_transaction
 from timestamp_utils import get_trip_timestamps, sort_and_filter_trip_coordinates
 from utils import haversine
 from trip_processor import TripProcessor
