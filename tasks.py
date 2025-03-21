@@ -735,7 +735,14 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
                 start_date = task_config["last_success_time"]
                 # Don't go back more than 24 hours to avoid excessive data
                 min_start_date = now_utc - timedelta(hours=24)
-                start_date = max(start_date, min_start_date)
+                start_date = max(
+                    start_date.replace(tzinfo=timezone.utc)
+                    if start_date.tzinfo is None
+                    else start_date,
+                    min_start_date.replace(tzinfo=timezone.utc)
+                    if min_start_date.tzinfo is None
+                    else min_start_date,
+                )
             else:
                 # Default to 3 hours ago if no previous state
                 start_date = now_utc - timedelta(hours=3)
