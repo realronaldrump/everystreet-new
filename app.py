@@ -373,7 +373,7 @@ async def stop_all_background_tasks():
 async def enable_all_background_tasks():
     """Enable all background tasks."""
     try:
-        config = await get_task_config()
+        # No need to retrieve config as we're just setting all tasks to disabled
         tasks_update = {}
 
         for task_id in TASK_METADATA:
@@ -390,7 +390,7 @@ async def enable_all_background_tasks():
 async def disable_all_background_tasks():
     """Disable all background tasks."""
     try:
-        config = await get_task_config()
+        # No need to retrieve config as we're just setting all tasks to disabled
         tasks_update = {}
 
         for task_id in TASK_METADATA:
@@ -4158,7 +4158,7 @@ async def create_csv_export(
             if isinstance(start_loc, str):
                 try:
                     start_loc = json.loads(start_loc)
-                except:
+                except json.JSONDecodeError:
                     start_loc = {}
 
             if isinstance(start_loc, dict):
@@ -4192,7 +4192,7 @@ async def create_csv_export(
             if isinstance(dest, str):
                 try:
                     dest = json.loads(dest)
-                except:
+                except json.JSONDecodeError:
                     dest = {}
 
             if isinstance(dest, dict):
