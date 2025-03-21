@@ -49,23 +49,50 @@ if [ -z "$REDIS_URL" ]; then
   fi
 fi
 
+# Create a non-root user for Celery if we're running as root
+if [ "$(id -u)" -eq 0 ]; then
+  # Check if celery user exists, create if it doesn't
+  if ! id -u celery &>/dev/null; then
+    echo "Creating non-root user 'celery'..."
+    useradd -m celery
+  fi
+  CELERY_USER="celery"
+  # Ensure permissions on app directory
+  chown -R celery:celery .
+else
+  # Not running as root, use current user
+  CELERY_USER=$(id -un)
+fi
+
 # Start Gunicorn with the custom config
 echo "Starting Gunicorn with $GUNICORN_WORKERS workers..."
 gunicorn -c gunicorn_config.py app:app &
 echo $! >> $PID_FILE
 
-# Start Celery worker with proper concurrency
-echo "Starting Celery worker with concurrency=$CELERY_WORKER_CONCURRENCY..."
-celery -A celery_app worker --loglevel=info -n worker1@%h --concurrency=$CELERY_WORKER_CONCURRENCY &
+# Start Celery worker with proper concurrency and non-root user
+echo "Starting Celery worker with concurrency=$CELERY_WORKER_CONCURRENCY as user $CELERY_USER..."
+if [ "$(id -u)" -eq 0 ]; then
+  celery -A celery_app worker --loglevel=info -n worker1@%h --uid=$CELERY_USER --concurrency=$CELERY_WORKER_CONCURRENCY &
+else
+  celery -A celery_app worker --loglevel=info -n worker1@%h --concurrency=$CELERY_WORKER_CONCURRENCY &
+fi
 echo $! >> $PID_FILE
 
 echo "Starting Celery beat scheduler..."
-celery -A celery_app beat --loglevel=info &
+if [ "$(id -u)" -eq 0 ]; then
+  celery -A celery_app beat --loglevel=info --uid=$CELERY_USER &
+else
+  celery -A celery_app beat --loglevel=info &
+fi
 echo $! >> $PID_FILE
 
-# Start Flower on the correct port
+# Start Flower on the correct port with timeout settings
 echo "Starting Flower on port $FLOWER_PORT..."
-celery -A celery_app --broker="$REDIS_URL" flower --port="$FLOWER_PORT" --inspect-timeout=15000 --persistent=True &
+if [ "$(id -u)" -eq 0 ]; then
+  celery -A celery_app --broker="$REDIS_URL" flower --port="$FLOWER_PORT" --inspect-timeout=15000 --persistent=True --uid=$CELERY_USER &
+else
+  celery -A celery_app --broker="$REDIS_URL" flower --port="$FLOWER_PORT" --inspect-timeout=15000 --persistent=True &
+fi
 echo $! >> $PID_FILE
 
 echo "All services started. Press Ctrl+C to stop all."

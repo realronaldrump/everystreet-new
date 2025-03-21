@@ -140,6 +140,14 @@ app.conf.update(
     broker_connection_retry_on_startup=True,  # Retry connection on startup
     broker_connection_max_retries=10,  # Maximum retry attempts for broker connection
     broker_connection_timeout=30,  # Connection timeout for broker
+    # --- Flower Settings ---
+    flower_inspect_timeout=15000,  # Increase Flower inspection timeout (15 seconds)
+    worker_disable_rate_limits=True,  # Disable rate limits for better Railway performance
+    # --- Time Synchronization ---
+    event_time_to_system_time=True,  # Help with clock skew between workers
+    # --- Event Queues Settings ---
+    event_queue_expired=60,  # Expire the event queue after 60 seconds
+    event_queue_ttl=10,  # Event queue TTL of 10 seconds
     # --- Celery Beat Schedule (Periodic Tasks) ---
     beat_schedule={
         "fetch_trips_hourly": {
@@ -223,6 +231,16 @@ def beat_init_handler(**kwargs):
 @signals.setup_logging.connect
 def setup_celery_logging(**kwargs):
     return True  # Skip default Celery logging config, we are using basicConfig
+
+
+# --- Handle time synchronization issues ---
+@signals.worker_init.connect
+def worker_init(**kwargs):
+    # Log worker start time in UTC to help diagnose time drift issues
+    from datetime import datetime, timezone
+
+    current_time = datetime.now(timezone.utc)
+    logger.info(f"Worker starting at UTC time: {current_time.isoformat()}")
 
 
 # --- Run Celery App (for development/testing - not typically used in production deployments) ---
