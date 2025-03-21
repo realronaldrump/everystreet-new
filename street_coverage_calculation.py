@@ -5,32 +5,30 @@ Optimized for memory efficiency with batch processing, incremental updates and p
 """
 
 import asyncio
+import gc
 import json
 import logging
-import gc
-from collections import defaultdict
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple, Iterable
-
 import multiprocessing
+from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
+from datetime import datetime, timezone
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import pyproj
 import rtree
-from shapely.geometry import box, LineString, shape
-from shapely.ops import transform
-from pyproj import Transformer
-from dotenv import load_dotenv
-
 from db import (
+    batch_cursor,
+    coverage_metadata_collection,
     db_manager,
+    ensure_street_coverage_indexes,
+    progress_collection,
     streets_collection,
     trips_collection,
-    coverage_metadata_collection,
-    progress_collection,
-    ensure_street_coverage_indexes,
-    batch_cursor,
 )
+from dotenv import load_dotenv
+from pyproj import Transformer
+from shapely.geometry import LineString, box, shape
+from shapely.ops import transform
 
 load_dotenv()
 
