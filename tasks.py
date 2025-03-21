@@ -8,29 +8,17 @@ and FastAPI's asynchronous code patterns.
 
 import asyncio
 import os
-import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
-from typing import Any, Awaitable, Callable, Dict, TypeVar, cast
+from typing import Any, Awaitable, Callable, Dict, TypeVar, cast, Optional
 
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from celery import Task, shared_task
 from celery.signals import task_failure, task_postrun, task_prerun
 from celery.utils.log import get_task_logger
 
-# Import Celery app
-from celery_app import app
-
-# Local module imports
-from db import (
-    DatabaseManager,
-    coverage_metadata_collection,
-    task_config_collection,
-    task_history_collection,
-    trips_collection,
-)
 from live_tracking import cleanup_stale_trips
 from preprocess_streets import preprocess_streets as async_preprocess_streets
 from pymongo import MongoClient, UpdateOne
@@ -40,6 +28,7 @@ from street_coverage_calculation import (
 )
 from trip_processor import TripProcessor, TripState
 from utils import validate_trip_data
+from motor.motor_asyncio import AsyncIOMotorClient
 
 # Set up task-specific logger
 logger = get_task_logger(__name__)
@@ -55,7 +44,7 @@ class TaskPriority(Enum):
     HIGH = 3
 
     @classmethod
-    def from_string(cls, priority_str):
+    def from_string(cls, priority_str: str) -> "TaskPriority":
         priority_map = {"LOW": cls.LOW, "MEDIUM": cls.MEDIUM, "HIGH": cls.HIGH}
         return priority_map.get(priority_str, cls.MEDIUM)
 
@@ -132,15 +121,10 @@ TASK_METADATA = {
     },
 }
 
-
-# Database manager singleton for task operations
-db_manager = DatabaseManager()
-
-
 # Helper function to get MongoDB connection with proper settings
-def get_mongo_client():
+def get_mongo_client() -> MongoClient:
     """Create a MongoDB client with proper connection settings."""
-    mongo_uri = os.getenv("MONGO_URI")
+    mongo_uri = os.environ.get("MONGO_URI")
     if not mongo_uri:
         raise ValueError("MONGO_URI environment variable not set")
 
@@ -148,10 +132,10 @@ def get_mongo_client():
     return MongoClient(
         mongo_uri,
         serverSelectionTimeoutMS=int(
-            os.getenv("MONGODB_SERVER_SELECTION_TIMEOUT_MS", "10000")
+            os.environ.get("MONGODB_SERVER_SELECTION_TIMEOUT_MS", "10000")
         ),
-        connectTimeoutMS=int(os.getenv("MONGODB_CONNECTION_TIMEOUT_MS", "5000")),
-        socketTimeoutMS=int(os.getenv("MONGODB_SOCKET_TIMEOUT_MS", "30000")),
+        connectTimeoutMS=int(os.environ.get("MONGODB_CONNECTION_TIMEOUT_MS", "5000")),
+        socketTimeoutMS=int(os.environ.get("MONGODB_SOCKET_TIMEOUT_MS", "30000")),
         retryWrites=True,
         retryReads=True,
         appname="EveryStreet-Tasks",
@@ -162,16 +146,11 @@ def get_mongo_client():
 class AsyncTask(Task):
     """
     Base class for Celery tasks that need to run async code.
-    Creates and manages a dedicated event loop for the duration of the task.
     """
-
-    _event_loops = {}
-    _lock = threading.Lock()
 
     def run_async(self, coro_func: Callable[[], Awaitable[T]]) -> T:
         """
         Run an async coroutine function from a Celery task.
-        Ensures the event loop stays open for the entire duration of the task.
 
         Args:
             coro_func: Function that returns a coroutine when called
@@ -179,53 +158,23 @@ class AsyncTask(Task):
         Returns:
             The result of the coroutine
         """
-        task_id = self.request.id
-
-        # Use a lock to prevent race conditions when creating/accessing event loops
-        with self._lock:
-            # Check if an event loop already exists for this task
-            if (
-                task_id in self._event_loops
-                and not self._event_loops[task_id].is_closed()
-            ):
-                loop = self._event_loops[task_id]
-            else:
-                # Create a new event loop and store it
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                self._event_loops[task_id] = loop
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
         try:
-            # Create a fresh coroutine and run it
             coro = coro_func()
             return loop.run_until_complete(coro)
-        finally:
-            # Use the lock again when cleaning up
-            with self._lock:
-                # Only close and remove the loop when the task is completely done
-                if task_id in self._event_loops:
-                    try:
-                        # Check if there are any pending tasks
-                        if not loop.is_closed():
-                            pending = asyncio.all_tasks(loop)
-                            if pending:
-                                # Run them to completion
-                                loop.run_until_complete(asyncio.gather(*pending))
-                    except Exception as e:
-                        logger.warning(f"Error cleaning up pending tasks: {e}")
-
-                    try:
-                        # Close the loop and remove it from the dictionary
-                        if not loop.is_closed():
-                            loop.close()
-                        del self._event_loops[task_id]
-                    except Exception as e:
-                        logger.warning(f"Error closing event loop: {e}")
+        except Exception as e:
+            logger.exception(f"Error in run_async: {e}")
+            raise
 
 
 # Signal to set task status before it runs
 @task_prerun.connect
-def task_started(task_id=None, task=None, **kwargs):
+def task_started(task_id: Optional[str] = None, task: Optional[Task] = None, **kwargs):
     """Record when a task starts running and update its status."""
     if not task:
         return
@@ -234,16 +183,16 @@ def task_started(task_id=None, task=None, **kwargs):
 
     try:
         # First, check if this task is disabled in configuration
-        mongo_uri = os.getenv("MONGO_URI")
+        mongo_uri = os.environ.get("MONGO_URI")
         if not mongo_uri:
             logger.error("MONGO_URI environment variable not set")
             return
 
         client = get_mongo_client()
-        db = client[os.getenv("MONGODB_DATABASE", "every_street")]
+        db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
 
         # Get task configuration
-        config = db.task_config_collection.find_one({})
+        config = db.task_config.find_one({})
 
         # Check if tasks are globally disabled or this specific task is disabled
         if config:
@@ -290,7 +239,13 @@ def task_started(task_id=None, task=None, **kwargs):
 
 
 @task_postrun.connect
-def task_finished(task_id=None, task=None, retval=None, state=None, **kwargs):
+def task_finished(
+    task_id: Optional[str] = None,
+    task: Optional[Task] = None,
+    retval: Any = None,
+    state: Optional[str] = None,
+    **kwargs,
+):
     """Record when a task finishes running and update its status."""
     if not task:
         return
@@ -303,7 +258,7 @@ def task_finished(task_id=None, task=None, retval=None, state=None, **kwargs):
 
         # Use PyMongo directly (synchronous client)
         client = get_mongo_client()
-        db = client[os.getenv("MONGODB_DATABASE", "every_street")]
+        db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
 
         # Get task info to calculate runtime
         task_info = db.task_history.find_one({"_id": str(task_id)})
@@ -363,7 +318,12 @@ def task_finished(task_id=None, task=None, retval=None, state=None, **kwargs):
 
 
 @task_failure.connect
-def task_failed(task_id=None, task=None, exception=None, **kwargs):
+def task_failed(
+    task_id: Optional[str] = None,
+    task: Optional[Task] = None,
+    exception: Optional[Exception] = None,
+    **kwargs,
+):
     """Record when a task fails with detailed error information."""
     if not task:
         return
@@ -379,7 +339,7 @@ def task_failed(task_id=None, task=None, exception=None, **kwargs):
 
         # Use PyMongo directly (synchronous client)
         client = get_mongo_client()
-        db = client[os.getenv("MONGODB_DATABASE", "every_street")]
+        db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
 
         # Update history with error details
         db.task_history.update_one(
@@ -403,7 +363,7 @@ def task_failed(task_id=None, task=None, exception=None, **kwargs):
 
 
 # Synchronous versions of status update functions for signal handlers
-def update_task_status_sync(task_id: str, status: str, error: str = None):
+def update_task_status_sync(task_id: str, status: str, error: Optional[str] = None):
     """Synchronous version of update_task_status_async for use in signal handlers.
 
     Args:
@@ -430,7 +390,7 @@ def update_task_status_sync(task_id: str, status: str, error: str = None):
 
         # Use PyMongo directly (synchronous client) with improved connection handling
         client = get_mongo_client()
-        db = client[os.getenv("MONGODB_DATABASE", "every_street")]
+        db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
 
         db.task_config.update_one(
             {"_id": "global_background_task_config"}, {"$set": update_data}, upsert=True
@@ -444,6 +404,9 @@ def update_task_status_sync(task_id: str, status: str, error: str = None):
 # Task configuration helpers
 async def get_task_config() -> Dict[str, Any]:
     """Get the current task configuration."""
+    client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+    db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+    task_config_collection = db["task_config"]
     try:
         cfg = await task_config_collection.find_one(
             {"_id": "global_background_task_config"}
@@ -483,6 +446,8 @@ async def get_task_config() -> Dict[str, Any]:
                 for t_id, t_def in TASK_METADATA.items()
             },
         }
+    finally:
+        client.close()
 
 
 async def check_dependencies(task_id: str) -> Dict[str, Any]:
@@ -494,6 +459,9 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
     Returns:
         Dict with 'can_run' boolean and 'reason' string if can_run is False
     """
+    client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+    db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+    task_config_collection = db["task_config"]
     try:
         # Get task dependencies
         if task_id not in TASK_METADATA:
@@ -553,41 +521,14 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
     except Exception as e:
         logger.exception(f"Error checking dependencies for {task_id}: {e}")
         return {"can_run": False, "reason": f"Error checking dependencies: {str(e)}"}
-
-
-def check_dependencies_sync(task_id: str) -> Dict[str, Any]:
-    """Synchronous version of check_dependencies for use in signal handlers.
-
-    Args:
-        task_id: ID of the task to check
-
-    Returns:
-        Dict with 'can_run' boolean and 'reason' string if can_run is False
-    """
-    try:
-        # Get task dependencies
-        if task_id not in TASK_METADATA:
-            return {"can_run": False, "reason": f"Unknown task: {task_id}"}
-
-        dependencies = TASK_METADATA[task_id].get("dependencies", [])
-        if not dependencies:
-            return {"can_run": True}
-
-        # For synchronous version, we can't check real-time status
-        # Just log that we're skipping detailed checks
-        if dependencies:
-            logger.info(
-                f"Task {task_id} has dependencies {dependencies}, but detailed checking skipped in sync context"
-            )
-
-        return {"can_run": True}
-    except Exception as e:
-        logger.exception(f"Error in sync dependency check for {task_id}: {e}")
-        return {"can_run": False, "reason": f"Error checking dependencies: {str(e)}"}
+    finally:
+        client.close()
 
 
 # Task status management functions
-async def update_task_status_async(task_id: str, status: str, error: str = None):
+async def update_task_status_async(
+    task_id: str, status: str, error: Optional[str] = None
+):
     """Update the status of a task in the database.
 
     Args:
@@ -595,6 +536,9 @@ async def update_task_status_async(task_id: str, status: str, error: str = None)
         status: New status for the task
         error: Optional error message if status is FAILED
     """
+    client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+    db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+    task_config_collection = db["task_config"]
     try:
         now = datetime.now(timezone.utc)
         update_data = {
@@ -626,15 +570,17 @@ async def update_task_status_async(task_id: str, status: str, error: str = None)
         )
     except Exception as e:
         logger.exception(f"Error updating task status: {e}")
+    finally:
+        client.close()
 
 
 async def update_task_history(
     task_id: str,
     status: str,
     manual_run: bool = False,
-    celery_task_id: str = None,
+    celery_task_id: Optional[str] = None,
     result: Any = None,
-    error: str = None,
+    error: Optional[str] = None,
 ):
     """Add a new entry to the task history collection.
 
@@ -646,6 +592,9 @@ async def update_task_history(
         result: Optional result data
         error: Optional error message
     """
+    client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+    db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+    task_history_collection = db["task_history"]
     try:
         now = datetime.now(timezone.utc)
         history_entry = {
@@ -672,6 +621,8 @@ async def update_task_history(
         await task_history_collection.insert_one(history_entry)
     except Exception as e:
         logger.exception(f"Error updating task history: {e}")
+    finally:
+        client.close()
 
 
 # Decorator for better async task handling
@@ -768,40 +719,50 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-        # Get last successful fetch time
-        task_config = await db_manager.db["task_config"].find_one(
-            {"task_id": "periodic_fetch_trips"}
-        )
-
-        now_utc = datetime.now(timezone.utc)
-
-        if task_config and "last_success_time" in task_config:
-            start_date = task_config["last_success_time"]
-            # Don't go back more than 24 hours to avoid excessive data
-            min_start_date = now_utc - timedelta(hours=24)
-            start_date = max(start_date, min_start_date)
-        else:
-            # Default to 3 hours ago if no previous state
-            start_date = now_utc - timedelta(hours=3)
-
-        logger.info(f"Periodic fetch: from {start_date} to {now_utc}")
+        # Create a new client connection *within* the task.
+        client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+        db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+        task_config_collection = db["task_config"]
 
         try:
-            # Fetch trips in the date range
-            await fetch_bouncie_trips_in_range(start_date, now_utc, do_map_match=True)
-
-            # Update the last success time
-            await db_manager.db["task_config"].update_one(
-                {"task_id": "periodic_fetch_trips"},
-                {"$set": {"last_success_time": now_utc}},
-                upsert=True,
+            # Get last successful fetch time
+            task_config = await task_config_collection.find_one(
+                {"task_id": "periodic_fetch_trips"}
             )
 
-            return {"status": "success", "message": "Trips fetched successfully"}
-        except Exception as e:
-            error_msg = f"Error in periodic fetch: {str(e)}"
-            logger.error(error_msg)
-            raise self.retry(exc=e, countdown=60)
+            now_utc = datetime.now(timezone.utc)
+
+            if task_config and "last_success_time" in task_config:
+                start_date = task_config["last_success_time"]
+                # Don't go back more than 24 hours to avoid excessive data
+                min_start_date = now_utc - timedelta(hours=24)
+                start_date = max(start_date, min_start_date)
+            else:
+                # Default to 3 hours ago if no previous state
+                start_date = now_utc - timedelta(hours=3)
+
+            logger.info(f"Periodic fetch: from {start_date} to {now_utc}")
+
+            try:
+                # Fetch trips in the date range
+                await fetch_bouncie_trips_in_range(
+                    start_date, now_utc, do_map_match=True
+                )
+
+                # Update the last success time
+                await task_config_collection.update_one(
+                    {"task_id": "periodic_fetch_trips"},
+                    {"$set": {"last_success_time": now_utc}},
+                    upsert=True,
+                )
+
+                return {"status": "success", "message": "Trips fetched successfully"}
+            except Exception as e:
+                error_msg = f"Error in periodic fetch: {str(e)}"
+                logger.error(error_msg)
+                raise self.retry(exc=e, countdown=60)
+        finally:
+            client.close()  # Always close in finally
 
     # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
@@ -827,48 +788,58 @@ def preprocess_streets(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-        # Check dependencies
-        dependency_check = await check_dependencies("preprocess_streets")
-        if not dependency_check["can_run"]:
-            logger.info(f"Deferring preprocess_streets: {dependency_check['reason']}")
-            return {"status": "deferred", "message": dependency_check["reason"]}
+        # Create a new client connection *within* the task.
+        client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+        db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+        coverage_metadata_collection = db["coverage_metadata"]
 
-        # Find areas that need processing
-        processing_areas = await coverage_metadata_collection.find(
-            {"status": "processing"}
-        ).to_list(
-            length=20
-        )  # Process in smaller batches
-
-        processed_count = 0
-        error_count = 0
-
-        for area in processing_areas:
-            try:
-                await async_preprocess_streets(area["location"])
-                processed_count += 1
-            except Exception as e:
-                error_count += 1
-                logger.error(
-                    f"Error preprocessing streets for {area['location'].get('display_name')}: {str(e)}"
+        try:
+            # Check dependencies
+            dependency_check = await check_dependencies("preprocess_streets")
+            if not dependency_check["can_run"]:
+                logger.info(
+                    f"Deferring preprocess_streets: {dependency_check['reason']}"
                 )
-                await coverage_metadata_collection.update_one(
-                    {"_id": area["_id"]},
-                    {
-                        "$set": {
-                            "status": "error",
-                            "last_error": str(e),
-                            "last_updated": datetime.now(timezone.utc),
-                        }
-                    },
-                )
+                return {"status": "deferred", "message": dependency_check["reason"]}
 
-        return {
-            "status": "success",
-            "processed_count": processed_count,
-            "error_count": error_count,
-            "message": f"Processed {processed_count} areas, {error_count} errors",
-        }
+            # Find areas that need processing
+            processing_areas = await coverage_metadata_collection.find(
+                {"status": "processing"}
+            ).to_list(
+                length=20
+            )  # Process in smaller batches
+
+            processed_count = 0
+            error_count = 0
+
+            for area in processing_areas:
+                try:
+                    await async_preprocess_streets(area["location"])
+                    processed_count += 1
+                except Exception as e:
+                    error_count += 1
+                    logger.error(
+                        f"Error preprocessing streets for {area['location'].get('display_name')}: {str(e)}"
+                    )
+                    await coverage_metadata_collection.update_one(
+                        {"_id": area["_id"]},
+                        {
+                            "$set": {
+                                "status": "error",
+                                "last_error": str(e),
+                                "last_updated": datetime.now(timezone.utc),
+                            }
+                        },
+                    )
+
+            return {
+                "status": "success",
+                "processed_count": processed_count,
+                "error_count": error_count,
+                "message": f"Processed {processed_count} areas, {error_count} errors",
+            }
+        finally:
+            client.close()
 
     # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
@@ -894,6 +865,10 @@ def update_coverage_for_new_trips(self) -> Dict[str, Any]:
     async def _execute():
         logger.info("Starting automated incremental coverage updates")
 
+        # Create a new client connection *within* the task.
+        client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+        db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+        coverage_metadata_collection = db["coverage_metadata"]
         try:
             # Get all coverage areas
             coverage_areas = await coverage_metadata_collection.find({}).to_list(100)
@@ -943,6 +918,8 @@ def update_coverage_for_new_trips(self) -> Dict[str, Any]:
         except Exception as e:
             logger.exception(f"Error in automated coverage update: {str(e)}")
             return {"status": "error", "message": str(e)}
+        finally:
+            client.close()
 
     # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
@@ -968,32 +945,40 @@ def update_coverage_for_all_locations_task(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-        # Check dependencies
-        dependency_check = await check_dependencies("update_coverage_for_all_locations")
-        if not dependency_check["can_run"]:
-            logger.info(
-                f"Deferring update_coverage_for_all_locations: {dependency_check['reason']}"
-            )
-            return {"status": "deferred", "message": dependency_check["reason"]}
-
-        # Call the original function
+        # Create a new client connection *within* the task.
+        client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+        # No need for a global db -- access db through the client
         try:
-            results = await update_coverage_for_all_locations()
-            return {
-                "status": "success",
-                "message": "Coverage update completed",
-                "results": results,
-            }
-        except Exception as e:
-            error_msg = f"Error updating coverage: {str(e)}"
-            logger.error(error_msg)
-            # Update task status to FAILED before retrying
-            await update_task_status_async(
-                "update_coverage_for_all_locations",
-                TaskStatus.FAILED.value,
-                error=str(e),
+            # Check dependencies
+            dependency_check = await check_dependencies(
+                "update_coverage_for_all_locations"
             )
-            raise self.retry(exc=e, countdown=300)
+            if not dependency_check["can_run"]:
+                logger.info(
+                    f"Deferring update_coverage_for_all_locations: {dependency_check['reason']}"
+                )
+                return {"status": "deferred", "message": dependency_check["reason"]}
+
+            # Call the original function
+            try:
+                results = await update_coverage_for_all_locations()
+                return {
+                    "status": "success",
+                    "message": "Coverage update completed",
+                    "results": results,
+                }
+            except Exception as e:
+                error_msg = f"Error updating coverage: {str(e)}"
+                logger.error(error_msg)
+                # Update task status to FAILED before retrying
+                await update_task_status_async(
+                    "update_coverage_for_all_locations",
+                    TaskStatus.FAILED.value,
+                    error=str(e),
+                )
+                raise self.retry(exc=e, countdown=300)
+        finally:
+            client.close()  # Always close in finally
 
     # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
@@ -1019,8 +1004,11 @@ def cleanup_stale_trips_task(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
+        # No more global db_manager, create a new client.
         # Call the actual cleanup function
-        cleanup_result = await cleanup_stale_trips()
+        cleanup_result = (
+            await cleanup_stale_trips()
+        )  # This function must also be updated to take a db connection.
 
         logger.info(
             f"Cleaned up {cleanup_result.get('stale_trips_archived', 0)} stale trips"
@@ -1055,50 +1043,59 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-        update_ops = []
-        processed_count = 0
-        batch_size = 500  # Process in batches to avoid memory issues
 
-        # Process trips in batches
-        cursor = db_manager.db["trips"].find(
-            {}, {"startTime": 1, "endTime": 1, "gps": 1}
-        )
-        while True:
-            batch = await cursor.to_list(length=batch_size)
-            if not batch:
-                break
+        # Create a new client connection *within* the task.
+        client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+        db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+        trips_collection = db["trips"]
 
-            for trip in batch:
-                valid, message = validate_trip_data(trip)
-                if not valid:
-                    update_ops.append(
-                        UpdateOne(
-                            {"_id": trip["_id"]},
-                            {
-                                "$set": {
-                                    "invalid": True,
-                                    "validation_message": message,
-                                    "validated_at": datetime.now(timezone.utc),
-                                }
-                            },
+        try:
+            update_ops = []
+            processed_count = 0
+            batch_size = 500  # Process in batches to avoid memory issues
+
+            # Process trips in batches
+            cursor = trips_collection.find({}, {"startTime": 1, "endTime": 1, "gps": 1})
+            while True:
+                batch = await cursor.to_list(length=batch_size)
+                if not batch:
+                    break
+
+                for trip in batch:
+                    valid, message = validate_trip_data(trip)
+                    if not valid:
+                        update_ops.append(
+                            UpdateOne(
+                                {"_id": trip["_id"]},
+                                {
+                                    "$set": {
+                                        "invalid": True,
+                                        "validation_message": message,
+                                        "validated_at": datetime.now(timezone.utc),
+                                    }
+                                },
+                            )
                         )
+                    processed_count += 1
+
+                # Execute batch update
+                if update_ops:
+                    result = await trips_collection.bulk_write(update_ops)
+                    logger.info(
+                        f"Marked {result.modified_count} invalid trips in batch"
                     )
-                processed_count += 1
+                    update_ops = []  # Reset for next batch
 
-            # Execute batch update
-            if update_ops:
-                result = await db_manager.db["trips"].bulk_write(update_ops)
-                logger.info(f"Marked {result.modified_count} invalid trips in batch")
-                update_ops = []  # Reset for next batch
+            if not processed_count:
+                return {"status": "success", "message": "No trips to process"}
 
-        if not processed_count:
-            return {"status": "success", "message": "No trips to process"}
-
-        return {
-            "status": "success",
-            "message": f"Processed {processed_count} trips",
-            "processed_count": processed_count,
-        }
+            return {
+                "status": "success",
+                "message": f"Processed {processed_count} trips",
+                "processed_count": processed_count,
+            }
+        finally:
+            client.close()
 
     # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
@@ -1124,60 +1121,70 @@ def update_geocoding(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-        # Find trips that need geocoding
-        query = {
-            "$or": [
-                {"startLocation": {"$exists": False}},
-                {"destination": {"$exists": False}},
-                {"startLocation": ""},
-                {"destination": ""},
-            ]
-        }
-        limit = 100
 
-        trips_to_process = (
-            await trips_collection.find(query).limit(limit).to_list(length=limit)
-        )
-        geocoded_count = 0
-        failed_count = 0
+        # Create a new client connection *within* the task.
+        client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+        db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+        trips_collection = db["trips"]  # Access this way so we don't depend on db.py
 
-        for trip in trips_to_process:
-            try:
-                # Use the unified processor
-                processor = TripProcessor(
-                    mapbox_token=os.getenv("MAPBOX_ACCESS_TOKEN", ""), source="api"
-                )
-                processor.set_trip_data(trip)
+        try:
+            # Find trips that need geocoding
+            query = {
+                "$or": [
+                    {"startLocation": {"$exists": False}},
+                    {"destination": {"$exists": False}},
+                    {"startLocation": ""},
+                    {"destination": ""},
+                ]
+            }
+            limit = 100
 
-                # Just validate and geocode, don't map match
-                await processor.validate()
-                if processor.state == TripState.VALIDATED:
-                    await processor.process_basic()
-                    if processor.state == TripState.PROCESSED:
-                        await processor.geocode()
-                        if processor.state == TripState.GEOCODED:
-                            result = await processor.save()
-                            if result:
-                                geocoded_count += 1
-                                continue
+            trips_to_process = (
+                await trips_collection.find(query).limit(limit).to_list(length=limit)
+            )
+            geocoded_count = 0
+            failed_count = 0
 
-                failed_count += 1
-            except Exception as e:
-                logger.error(
-                    f"Error geocoding trip {trip.get('transactionId')}: {str(e)}"
-                )
-                failed_count += 1
+            for trip in trips_to_process:
+                try:
+                    # Use the unified processor
+                    processor = TripProcessor(
+                        mapbox_token=os.environ.get("MAPBOX_ACCESS_TOKEN", ""),
+                        source="api",
+                    )
+                    processor.set_trip_data(trip)
 
-            # Sleep briefly to avoid rate limiting
-            await asyncio.sleep(0.2)
+                    # Just validate and geocode, don't map match
+                    await processor.validate()
+                    if processor.state == TripState.VALIDATED:
+                        await processor.process_basic()
+                        if processor.state == TripState.PROCESSED:
+                            await processor.geocode()
+                            if processor.state == TripState.GEOCODED:
+                                result = await processor.save()
+                                if result:
+                                    geocoded_count += 1
+                                    continue
 
-        logger.info(f"Geocoded {geocoded_count} trips ({failed_count} failed)")
-        return {
-            "status": "success",
-            "geocoded_count": geocoded_count,
-            "failed_count": failed_count,
-            "message": f"Geocoded {geocoded_count} trips ({failed_count} failed)",
-        }
+                    failed_count += 1
+                except Exception as e:
+                    logger.error(
+                        f"Error geocoding trip {trip.get('transactionId')}: {str(e)}"
+                    )
+                    failed_count += 1
+
+                # Sleep briefly to avoid rate limiting
+                await asyncio.sleep(0.2)
+
+            logger.info(f"Geocoded {geocoded_count} trips ({failed_count} failed)")
+            return {
+                "status": "success",
+                "geocoded_count": geocoded_count,
+                "failed_count": failed_count,
+                "message": f"Geocoded {geocoded_count} trips ({failed_count} failed)",
+            }
+        finally:
+            client.close()
 
     # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
@@ -1203,57 +1210,67 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-        # Check dependencies
-        can_proceed = await check_dependencies("remap_unmatched_trips")
-        if not can_proceed:
-            return {"status": "deferred", "message": "Dependencies not satisfied"}
 
-        # Find trips that need map matching
-        query = {"$or": [{"matchedGps": {"$exists": False}}, {"matchedGps": None}]}
-        limit = 50  # Process in smaller batches due to API constraints
+        # Create a new client connection *within* the task.
+        client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+        db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+        trips_collection = db["trips"]
 
-        trips_to_process = (
-            await trips_collection.find(query).limit(limit).to_list(length=limit)
-        )
-        remap_count = 0
-        failed_count = 0
+        try:
+            # Check dependencies
+            can_proceed = await check_dependencies("remap_unmatched_trips")
+            if not can_proceed:
+                return {"status": "deferred", "message": "Dependencies not satisfied"}
 
-        for trip in trips_to_process:
-            try:
-                # Use the unified processor
-                processor = TripProcessor(
-                    mapbox_token=os.getenv("MAPBOX_ACCESS_TOKEN", ""), source="api"
-                )
-                processor.set_trip_data(trip)
+            # Find trips that need map matching
+            query = {"$or": [{"matchedGps": {"$exists": False}}, {"matchedGps": None}]}
+            limit = 50  # Process in smaller batches due to API constraints
 
-                # Process with map matching
-                await processor.process(do_map_match=True)
-                result = await processor.save(map_match_result=True)
+            trips_to_process = (
+                await trips_collection.find(query).limit(limit).to_list(length=limit)
+            )
+            remap_count = 0
+            failed_count = 0
 
-                if result:
-                    remap_count += 1
-                else:
-                    failed_count += 1
-                    status = processor.get_processing_status()
-                    logger.warning(
-                        f"Failed to remap trip {trip.get('transactionId')}: {status}"
+            for trip in trips_to_process:
+                try:
+                    # Use the unified processor
+                    processor = TripProcessor(
+                        mapbox_token=os.environ.get("MAPBOX_ACCESS_TOKEN", ""),
+                        source="api",
                     )
-            except Exception as e:
-                logger.warning(
-                    f"Failed to remap trip {trip.get('transactionId')}: {str(e)}"
-                )
-                failed_count += 1
+                    processor.set_trip_data(trip)
 
-            # Sleep briefly to avoid rate limiting
-            await asyncio.sleep(0.5)
+                    # Process with map matching
+                    await processor.process(do_map_match=True)
+                    result = await processor.save(map_match_result=True)
 
-        logger.info(f"Remapped {remap_count} trips ({failed_count} failed)")
-        return {
-            "status": "success",
-            "remapped_count": remap_count,
-            "failed_count": failed_count,
-            "message": f"Remapped {remap_count} trips ({failed_count} failed)",
-        }
+                    if result:
+                        remap_count += 1
+                    else:
+                        failed_count += 1
+                        status = processor.get_processing_status()
+                        logger.warning(
+                            f"Failed to remap trip {trip.get('transactionId')}: {status}"
+                        )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to remap trip {trip.get('transactionId')}: {str(e)}"
+                    )
+                    failed_count += 1
+
+                # Sleep briefly to avoid rate limiting
+                await asyncio.sleep(0.5)
+
+            logger.info(f"Remapped {remap_count} trips ({failed_count} failed)")
+            return {
+                "status": "success",
+                "remapped_count": remap_count,
+                "failed_count": failed_count,
+                "message": f"Remapped {remap_count} trips ({failed_count} failed)",
+            }
+        finally:
+            client.close()
 
     # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
@@ -1279,58 +1296,68 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-        # Fetch trips to validate
-        query = {"validated_at": {"$exists": False}}
-        limit = 100  # Process in batches
 
-        trips_to_process = (
-            await trips_collection.find(query).limit(limit).to_list(length=limit)
-        )
-        processed_count = 0
-        failed_count = 0
+        # Create a new client connection *within* the task.
+        client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+        db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+        trips_collection = db["trips"]
 
-        for trip in trips_to_process:
-            try:
-                # Use the unified processor
-                processor = TripProcessor(
-                    mapbox_token=os.getenv("MAPBOX_ACCESS_TOKEN", ""), source="api"
-                )
-                processor.set_trip_data(trip)
+        try:
+            # Fetch trips to validate
+            query = {"validated_at": {"$exists": False}}
+            limit = 100  # Process in batches
 
-                # Just validate, don't process fully
-                await processor.validate()
+            trips_to_process = (
+                await trips_collection.find(query).limit(limit).to_list(length=limit)
+            )
+            processed_count = 0
+            failed_count = 0
 
-                # Update trip with validation status
-                status = processor.get_processing_status()
-                update_data = {
-                    "validated_at": datetime.now(timezone.utc),
-                    "validation_status": status["state"],
-                }
-
-                if status["state"] == TripState.FAILED.value:
-                    update_data["invalid"] = True
-                    update_data["validation_message"] = status.get("errors", {}).get(
-                        TripState.NEW.value, "Validation failed"
+            for trip in trips_to_process:
+                try:
+                    # Use the unified processor
+                    processor = TripProcessor(
+                        mapbox_token=os.environ.get("MAPBOX_ACCESS_TOKEN", ""),
+                        source="api",
                     )
-                else:
-                    update_data["invalid"] = False
+                    processor.set_trip_data(trip)
 
-                await trips_collection.update_one(
-                    {"_id": trip["_id"]}, {"$set": update_data}
-                )
+                    # Just validate, don't process fully
+                    await processor.validate()
 
-                processed_count += 1
-            except Exception as e:
-                logger.error(f"Error validating trip {trip.get('_id')}: {str(e)}")
-                failed_count += 1
+                    # Update trip with validation status
+                    status = processor.get_processing_status()
+                    update_data = {
+                        "validated_at": datetime.now(timezone.utc),
+                        "validation_status": status["state"],
+                    }
 
-        logger.info(f"Validated {processed_count} trips ({failed_count} failed)")
-        return {
-            "status": "success",
-            "validated_count": processed_count,
-            "failed_count": failed_count,
-            "message": f"Validated {processed_count} trips ({failed_count} failed)",
-        }
+                    if status["state"] == TripState.FAILED.value:
+                        update_data["invalid"] = True
+                        update_data["validation_message"] = status.get(
+                            "errors", {}
+                        ).get(TripState.NEW.value, "Validation failed")
+                    else:
+                        update_data["invalid"] = False
+
+                    await trips_collection.update_one(
+                        {"_id": trip["_id"]}, {"$set": update_data}
+                    )
+
+                    processed_count += 1
+                except Exception as e:
+                    logger.error(f"Error validating trip {trip.get('_id')}: {str(e)}")
+                    failed_count += 1
+
+            logger.info(f"Validated {processed_count} trips ({failed_count} failed)")
+            return {
+                "status": "success",
+                "validated_count": processed_count,
+                "failed_count": failed_count,
+                "message": f"Validated {processed_count} trips ({failed_count} failed)",
+            }
+        finally:
+            client.close()
 
     # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
@@ -1503,6 +1530,9 @@ async def update_task_schedule(task_config: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Dict with status information
     """
+    client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+    db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+    task_config_collection = db["task_config"]
     try:
         global_disabled = task_config.get("globalDisable", False)
         tasks_config = task_config.get("tasks", {})
@@ -1563,3 +1593,5 @@ async def update_task_schedule(task_config: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error updating task schedule: {str(e)}")
         return {"status": "error", "message": f"Error updating task schedule: {str(e)}"}
+    finally:
+        client.close()
