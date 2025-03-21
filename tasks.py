@@ -143,6 +143,7 @@ class AsyncTask(Task):
     """
 
     _event_loops = {}
+    _lock = threading.Lock()
 
     def run_async(self, coro_func: Callable[[], Awaitable[T]]) -> T:
         """
@@ -157,28 +158,43 @@ class AsyncTask(Task):
         """
         task_id = self.request.id
 
-        # Create a new event loop and store it in the class dictionary
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        self._event_loops[task_id] = loop
+        # Use a lock to prevent race conditions when creating/accessing event loops
+        with self._lock:
+            # Check if an event loop already exists for this task
+            if task_id in self._event_loops and not self._event_loops[task_id].is_closed():
+                loop = self._event_loops[task_id]
+            else:
+                # Create a new event loop and store it
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                self._event_loops[task_id] = loop
 
         try:
             # Create a fresh coroutine and run it
             coro = coro_func()
             return loop.run_until_complete(coro)
         finally:
-            # Only close and remove the loop when the task is completely done
-            if task_id in self._event_loops:
-                try:
-                    # Explicitly run any remaining callbacks
-                    pending = asyncio.all_tasks(loop)
-                    if pending:
-                        loop.run_until_complete(asyncio.gather(*pending))
-                except Exception:
-                    pass
+            # Use the lock again when cleaning up
+            with self._lock:
+                # Only close and remove the loop when the task is completely done
+                if task_id in self._event_loops:
+                    try:
+                        # Check if there are any pending tasks
+                        if not loop.is_closed():
+                            pending = asyncio.all_tasks(loop)
+                            if pending:
+                                # Run them to completion
+                                loop.run_until_complete(asyncio.gather(*pending))
+                    except Exception as e:
+                        logger.warning(f"Error cleaning up pending tasks: {e}")
 
-                loop.close()
-                del self._event_loops[task_id]
+                    try:
+                        # Close the loop and remove it from the dictionary
+                        if not loop.is_closed():
+                            loop.close()
+                        del self._event_loops[task_id]
+                    except Exception as e:
+                        logger.warning(f"Error closing event loop: {e}")
 
 
 # Signal to set task status before it runs
