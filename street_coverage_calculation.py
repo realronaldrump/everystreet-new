@@ -174,9 +174,9 @@ class CoverageCalculator:
         total_streets = 0
 
         try:
-            # Process in batches using the batch_cursor helper
+            # Process in batches using the batch_cursor helper with no_timeout
             async for street_batch in batch_cursor(
-                streets_cursor, self.street_chunk_size
+                streets_cursor, self.street_chunk_size, no_timeout=True
             ):
                 batch_num += 1
                 batch_len = len(street_batch)
@@ -276,7 +276,7 @@ class CoverageCalculator:
 
         try:
             async for street_batch in batch_cursor(
-                streets_cursor, self.street_chunk_size
+                streets_cursor, self.street_chunk_size, no_timeout=True
             ):
                 batch_num += 1
                 try:
@@ -716,7 +716,7 @@ class CoverageCalculator:
                 # Process trips in batches using cursor to limit memory usage
                 trips_cursor = trips_collection.find(trip_filter)
                 async for trip_batch in batch_cursor(
-                    trips_cursor, self.trip_batch_size
+                    trips_cursor, self.trip_batch_size, no_timeout=True
                 ):
                     await self.process_trip_batch(trip_batch)
                     # Add processed trip IDs to the list
@@ -753,7 +753,9 @@ class CoverageCalculator:
                 batch_size = self.street_chunk_size  # Reduced batch size
 
                 batch_idx = 0
-                async for streets_batch in batch_cursor(streets_cursor, batch_size):
+                async for streets_batch in batch_cursor(
+                    streets_cursor, batch_size, no_timeout=True
+                ):
                     batch_idx += 1
 
                     for street in streets_batch:
@@ -1082,7 +1084,7 @@ async def compute_incremental_coverage(
         )
 
         # Process trips in batches
-        async for trip_batch in batch_cursor(new_trips_cursor, 50):
+        async for trip_batch in batch_cursor(new_trips_cursor, 50, no_timeout=True):
             batch_covered_segments = await process_trip_batch_for_coverage(
                 trip_batch, location.get("display_name"), boundary_box
             )
@@ -1393,7 +1395,7 @@ async def calculate_coverage_summary(location_name: str) -> Dict[str, Any]:
     streets_cursor = streets_collection.find(streets_query)
     features = []
 
-    async for street in streets_cursor:
+    async for street in batch_cursor(streets_cursor, 500, no_timeout=True):
         feature = {
             "type": "Feature",
             "geometry": street["geometry"],
@@ -1448,7 +1450,7 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
         ).sort("last_updated", 1)
 
         # Process each location with timeouts
-        async for doc in cursor:
+        async for doc in batch_cursor(cursor, 10, no_timeout=True):
             loc = doc.get("location")
             if not loc or isinstance(loc, str):
                 logger.warning(
