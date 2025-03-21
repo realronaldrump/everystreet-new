@@ -37,7 +37,7 @@ echo "Starting services..."
 # Set default environment variables if not provided
 export GUNICORN_WORKERS=${GUNICORN_WORKERS:-2}
 export CELERY_WORKER_CONCURRENCY=${CELERY_WORKER_CONCURRENCY:-2}
-export FLOWER_PORT=${PORT:-5555}
+export FLOWER_PORT=5555
 
 # Ensure REDIS_URL is constructed properly if not set
 if [ -z "$REDIS_URL" ]; then
