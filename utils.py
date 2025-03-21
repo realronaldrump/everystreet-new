@@ -1,9 +1,9 @@
-import json
 import asyncio
-import logging
-from typing import Optional, Tuple, Dict, Any, TypeVar
-import math
 import functools
+import json
+import logging
+import math
+from typing import Any, Dict, Optional, Tuple, TypeVar
 
 import aiohttp
 from aiohttp import ClientConnectorError, ClientResponseError

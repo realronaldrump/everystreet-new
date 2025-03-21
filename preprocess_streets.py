@@ -3,22 +3,21 @@ Preprocess streets module.
 Fetches OSM data from Overpass, segments street geometries in parallel, and updates the database.
 """
 
-import logging
+import asyncio
 import gc
+import logging
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor, TimeoutError
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-import multiprocessing
-import asyncio
-from concurrent.futures import ProcessPoolExecutor, TimeoutError
-
 import aiohttp
 import pyproj
+from dotenv import load_dotenv
 from shapely.geometry import LineString, mapping
 from shapely.ops import transform
-from dotenv import load_dotenv
 
-from db import streets_collection, coverage_metadata_collection
+from db import coverage_metadata_collection, streets_collection
 
 load_dotenv()
 
@@ -68,7 +67,7 @@ async def fetch_osm_data(
     else:
         query = f"""
         [out:json];
-        ({location['osm_type']}({location['osm_id']});
+        ({location["osm_type"]}({location["osm_id"]});
         >;
         );
         out geom;
@@ -81,9 +80,10 @@ async def fetch_osm_data(
 
     while current_try < retry_count:
         try:
-            async with aiohttp.ClientSession(timeout=timeout) as session, session.get(
-                OVERPASS_URL, params={"data": query}
-            ) as response:
+            async with (
+                aiohttp.ClientSession(timeout=timeout) as session,
+                session.get(OVERPASS_URL, params={"data": query}) as response,
+            ):
                 response.raise_for_status()
                 osm_data = await response.json()
                 return osm_data
@@ -289,7 +289,7 @@ async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -
                     # Log progress every few batches
                     if (batch_idx + 1) % 5 == 0 or batch_idx == len(batches) - 1:
                         logger.info(
-                            f"Processed batch {batch_idx+1}/{len(batches)} with {len(batch_features)} street segments"
+                            f"Processed batch {batch_idx + 1}/{len(batches)} with {len(batch_features)} street segments"
                         )
 
                     # Run garbage collection periodically
@@ -301,10 +301,10 @@ async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -
 
                 except TimeoutError:
                     logger.warning(
-                        f"Batch {batch_idx+1} processing timed out, continuing with next batch"
+                        f"Batch {batch_idx + 1} processing timed out, continuing with next batch"
                     )
                 except Exception as e:
-                    logger.error(f"Error processing batch {batch_idx+1}: {str(e)}")
+                    logger.error(f"Error processing batch {batch_idx + 1}: {str(e)}")
 
         # Update coverage metadata once at the end
         if features:

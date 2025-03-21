@@ -7,27 +7,27 @@ It uses a state machine approach to track processing status and ensures consiste
 handling of all trip data.
 """
 
+import asyncio
 import json
 import logging
-import asyncio
 import time
+import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, Any, Optional, Tuple, List
-import uuid
+from typing import Any, Dict, List, Optional, Tuple
 
-from shapely.geometry import Point
 import aiohttp
 import pyproj
 from pymongo.errors import DuplicateKeyError
+from shapely.geometry import Point
 
 from db import (
-    trips_collection,
     matched_trips_collection,
-    uploaded_trips_collection,
     places_collection,
+    trips_collection,
+    uploaded_trips_collection,
 )
-from utils import reverse_geocode_nominatim, haversine
+from utils import haversine, reverse_geocode_nominatim
 
 logger = logging.getLogger(__name__)
 
@@ -861,9 +861,10 @@ class TripProcessor:
                 async with map_match_semaphore:
                     for retry_attempt in range(1, max_attempts_for_429 + 1):
                         # Check rate limiting before making request
-                        should_wait, wait_time = (
-                            await mapbox_rate_limiter.check_rate_limit()
-                        )
+                        (
+                            should_wait,
+                            wait_time,
+                        ) = await mapbox_rate_limiter.check_rate_limit()
                         if should_wait:
                             logger.info(
                                 "Rate limit approaching - waiting %.2f seconds before API call",
@@ -1296,8 +1297,8 @@ class TripProcessor:
         Returns:
             Processed trip data
         """
-        from datetime import datetime, timezone
         import json
+        from datetime import datetime, timezone
 
         # Sort coordinates by timestamp
         if len(coords_data) > 0 and "timestamp" in coords_data[0]:

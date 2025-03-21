@@ -10,10 +10,11 @@ is set up to run Celery workers as a non-root user. You can use the `--uid` opti
 when starting Celery workers to specify a different user.
 """
 
-import os
 import logging
+import os
 import time
 from datetime import timedelta
+
 from celery import Celery, signals
 from dotenv import load_dotenv
 from kombu import Queue

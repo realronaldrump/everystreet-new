@@ -5,9 +5,10 @@ Provides a clean wrapper around TripProcessor for backward compatibility.
 
 import logging
 import os
-from typing import Dict, Any
+from typing import Any, Dict
 
 from dotenv import load_dotenv
+
 from trip_processor import TripProcessor
 
 load_dotenv()

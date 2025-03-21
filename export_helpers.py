@@ -6,18 +6,19 @@ geospatial formats (GeoJSON, GPX, and Shapefile) for export and interoperability
 with other mapping tools and applications.
 """
 
+import io
 import json
 import logging
-import io
 import os
-import zipfile
 import tempfile
+import zipfile
 from datetime import datetime
-from typing import List, Dict, Any, Union
-from bson import ObjectId
+from typing import Any, Dict, List, Union
+
+import geopandas as gpd
 import gpxpy
 import gpxpy.gpx
-import geopandas as gpd
+from bson import ObjectId
 from fastapi.responses import StreamingResponse
 
 logger = logging.getLogger(__name__)
@@ -353,6 +354,7 @@ async def create_export_response(
     elif fmt == "csv":
         # Convert trips to CSV
         from io import StringIO
+
         from app import create_csv_export
 
         # Ensure we have a list of trips

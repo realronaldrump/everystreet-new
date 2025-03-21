@@ -805,10 +805,8 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
             # Update coverage metadata
             logger.info(
                 f"Saving coverage data for {display_name} with {
-                    len(
-                        result['streets_data'].get(
-                            'features',
-                            []))} street features"
+                    len(result['streets_data'].get('features', []))
+                } street features"
             )
 
             await coverage_metadata_collection.update_one(
@@ -1682,7 +1680,7 @@ async def generate_geojson_osm(
         else:
             query = f"""
             [out:json];
-            ({location['osm_type']}({location['osm_id']});
+            ({location["osm_type"]}({location["osm_id"]});
             >;
             );
             out geom;
@@ -2687,10 +2685,7 @@ async def process_and_store_trip(trip: dict):
                 processor.processed_data["gps"] = gps_data
             except json.JSONDecodeError:
                 logger.warning(
-                    f"Invalid GPS data for trip {
-                        trip.get(
-                            'transactionId',
-                            'unknown')}"
+                    f"Invalid GPS data for trip {trip.get('transactionId', 'unknown')}"
                 )
                 return
 
