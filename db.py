@@ -496,7 +496,7 @@ class SerializationHelper:
 
 # Helper for iterating through cursors in batches
 async def batch_cursor(
-    cursor: AsyncIOMotorCursor, batch_size: int = 100
+    cursor: AsyncIOMotorCursor, batch_size: int = 100, no_timeout: bool = True
 ) -> Iterator[List[Dict[str, Any]]]:
     """
     Process an AsyncIOMotorCursor in manageable batches to limit memory usage.
@@ -504,10 +504,15 @@ async def batch_cursor(
     Args:
         cursor: The MongoDB cursor to iterate through
         batch_size: Number of documents to fetch at once
+        no_timeout: If True, prevents cursor from timing out during long operations
 
     Yields:
         Lists of documents, batch_size at a time
     """
+    # Apply no_timeout option if requested
+    if no_timeout and hasattr(cursor, "cursor_id"):
+        cursor = cursor.add_option(196)  # 196 is the no_timeout option
+
     batch = []
     async for document in cursor:
         batch.append(document)
