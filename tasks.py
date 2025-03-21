@@ -217,9 +217,7 @@ class TaskStatusManager:
                     logger.error(f"Error closing event loop: {e}")
 
     @staticmethod
-    def _fallback_sync_update(
-        task_id: str, status: str, error: Optional[str] = None
-    ):
+    def _fallback_sync_update(task_id: str, status: str, error: Optional[str] = None):
         """Emergency fallback using direct MongoDB connection."""
         try:
             client = get_mongo_client()
@@ -799,12 +797,16 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
                 # Don't go back more than 24 hours to avoid excessive data
                 min_start_date = now_utc - timedelta(hours=24)
                 start_date = max(
-                    start_date.replace(tzinfo=timezone.utc)
-                    if start_date.tzinfo is None
-                    else start_date,
-                    min_start_date.replace(tzinfo=timezone.utc)
-                    if min_start_date.tzinfo is None
-                    else min_start_date,
+                    (
+                        start_date.replace(tzinfo=timezone.utc)
+                        if start_date.tzinfo is None
+                        else start_date
+                    ),
+                    (
+                        min_start_date.replace(tzinfo=timezone.utc)
+                        if min_start_date.tzinfo is None
+                        else min_start_date
+                    ),
                 )
             else:
                 # Default to 3 hours ago if no previous state
@@ -874,7 +876,9 @@ def preprocess_streets(self) -> Dict[str, Any]:
             # Find areas that need processing
             processing_areas = await coverage_metadata_collection.find(
                 {"status": "processing"}
-            ).to_list(length=20)  # Process in smaller batches
+            ).to_list(
+                length=20
+            )  # Process in smaller batches
 
             processed_count = 0
             error_count = 0
