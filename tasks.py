@@ -161,7 +161,10 @@ class AsyncTask(Task):
         # Use a lock to prevent race conditions when creating/accessing event loops
         with self._lock:
             # Check if an event loop already exists for this task
-            if task_id in self._event_loops and not self._event_loops[task_id].is_closed():
+            if (
+                task_id in self._event_loops
+                and not self._event_loops[task_id].is_closed()
+            ):
                 loop = self._event_loops[task_id]
             else:
                 # Create a new event loop and store it
@@ -215,23 +218,25 @@ def task_started(task_id=None, task=None, **kwargs):
 
         client = MongoClient(mongo_uri)
         db = client[os.getenv("MONGODB_DATABASE", "every_street")]
-        
+
         # Get task configuration
         config = db.task_config_collection.find_one({})
-        
+
         # Check if tasks are globally disabled or this specific task is disabled
         if config:
             globally_disabled = config.get("disabled", False)
             task_config = config.get("tasks", {}).get(task_name, {})
             task_disabled = not task_config.get("enabled", True)
-            
+
             if globally_disabled or task_disabled:
-                logger.info(f"Task {task_name} ({task_id}) is disabled, skipping execution")
+                logger.info(
+                    f"Task {task_name} ({task_id}) is disabled, skipping execution"
+                )
                 # Raise an exception to prevent task execution
                 # This will be caught by Celery and the task will be marked as failed
                 client.close()
                 raise Exception(f"Task {task_name} is disabled in configuration")
-        
+
         # Update task status using our synchronous function
         update_task_status_sync(task_name, TaskStatus.RUNNING.value)
 
