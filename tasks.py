@@ -804,9 +804,7 @@ def preprocess_streets(self) -> Dict[str, Any]:
             # Find areas that need processing
             processing_areas = await coverage_metadata_collection.find(
                 {"status": "processing"}
-            ).to_list(
-                length=20
-            )  # Process in smaller batches
+            ).to_list(length=20)  # Process in smaller batches
 
             processed_count = 0
             error_count = 0
@@ -1042,7 +1040,6 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-
         # Create a new client connection *within* the task.
         client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
         db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
@@ -1120,7 +1117,6 @@ def update_geocoding(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-
         # Create a new client connection *within* the task.
         client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
         db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
@@ -1209,7 +1205,6 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-
         # Create a new client connection *within* the task.
         client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
         db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
@@ -1295,7 +1290,6 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-
         # Create a new client connection *within* the task.
         client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
         db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
