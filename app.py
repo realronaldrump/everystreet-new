@@ -572,31 +572,68 @@ async def clear_task_history():
 
 @app.post("/api/background_tasks/reset")
 async def reset_task_states():
-    """Reset any stuck 'RUNNING' tasks to 'FAILED' state."""
+    """
+    Reset any stuck 'RUNNING' tasks to 'FAILED' state with safeguards.
+    """
     try:
-        # Update task history entries
+        now = datetime.now(timezone.utc)
+        stuck_threshold = timedelta(hours=2)  # Consider tasks running over 2 hours as stuck
+        reset_count = 0
+        skipped_count = 0
+        
+        # Get current task configuration
+        config = await get_task_config()
+        tasks_config = config.get("tasks", {})
+        
+        # Identify actually stuck tasks
+        updates = {}
+        for task_id, task_info in tasks_config.items():
+            if task_info.get("status") != TaskStatus.RUNNING.value:
+                continue
+                
+            start_time = task_info.get("start_time")
+            if not start_time:
+                # No start time but status is RUNNING, consider it stuck
+                updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value
+                updates[f"tasks.{task_id}.last_error"] = "Task reset: status was RUNNING but no start_time found"
+                updates[f"tasks.{task_id}.end_time"] = now
+                reset_count += 1
+                continue
+                
+            # Ensure start_time has timezone info
+            if start_time.tzinfo is None:
+                start_time = start_time.replace(tzinfo=timezone.utc)
+                
+            # Check if task has been running too long
+            runtime = now - start_time
+            if runtime > stuck_threshold:
+                # Task has been running too long, consider it stuck
+                updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value
+                updates[f"tasks.{task_id}.last_error"] = f"Task reset: running for {runtime.total_seconds()/3600:.2f} hours"
+                updates[f"tasks.{task_id}.end_time"] = now
+                reset_count += 1
+            else:
+                # Task is running but not considered stuck yet
+                logger.info(f"Task {task_id} is running for {runtime.total_seconds()/60:.2f} minutes, not considered stuck")
+                skipped_count += 1
+
+        # Also check for any history entries stuck in RUNNING state
         history_result = await update_many_with_retry(
             task_history_collection,
-            {"status": TaskStatus.RUNNING.value},
+            {
+                "status": TaskStatus.RUNNING.value,
+                "start_time": {"$lt": now - stuck_threshold}
+            },
             {
                 "$set": {
                     "status": TaskStatus.FAILED.value,
-                    "error": "Task reset by user",
-                    "end_time": datetime.now(timezone.utc),
+                    "error": "Task reset: task history entry stuck in RUNNING state",
+                    "end_time": now,
                 }
             },
         )
-
-        # Update task config entries
-        config = await get_task_config()
-        updates = {}
-
-        for task_id, task_config in config.get("tasks", {}).items():
-            if task_config.get("status") == TaskStatus.RUNNING.value:
-                updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value
-                updates[f"tasks.{task_id}.last_error"] = "Task reset by user"
-                updates[f"tasks.{task_id}.end_time"] = datetime.now(timezone.utc)
-
+        
+        # Apply updates to task configuration
         if updates:
             await task_config_collection.update_one(
                 {"_id": "global_background_task_config"}, {"$set": updates}
@@ -604,7 +641,10 @@ async def reset_task_states():
 
         return {
             "status": "success",
-            "message": f"Reset {history_result.modified_count} stuck tasks",
+            "message": f"Reset {reset_count} stuck tasks, skipped {skipped_count} running tasks",
+            "reset_count": reset_count,
+            "skipped_count": skipped_count,
+            "history_reset_count": history_result.modified_count if history_result else 0
         }
     except Exception as e:
         logger.exception("Error resetting task states")
@@ -636,6 +676,50 @@ async def get_edit_trips(request: Request):
         logger.exception("Error fetching trips for editing.")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+
+@app.get("/api/background_tasks/sse")
+async def background_tasks_sse(request: Request):
+    """
+    Provides server-sent events for real-time task status updates.
+    """
+    async def event_generator():
+        try:
+            while True:
+                # Get latest task config
+                config = await get_task_config()
+                
+                # Format task status updates
+                updates = {}
+                for task_id, task_config in config.get("tasks", {}).items():
+                    status = task_config.get("status", "IDLE")
+                    updates[task_id] = {
+                        "status": status,
+                        "last_updated": SerializationHelper.serialize_datetime(
+                            task_config.get("last_updated")
+                        ),
+                        "last_error": task_config.get("last_error"),
+                    }
+                
+                # Send formatted update
+                yield f"data: {json.dumps(updates)}\n\n"
+                
+                # Wait before checking again
+                await asyncio.sleep(2)
+        except asyncio.CancelledError:
+            # Handle disconnection
+            logger.info("SSE connection closed")
+        except Exception as e:
+            logger.error(f"Error in SSE generator: {e}")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
 
 @app.put("/api/trips/{trip_id}")
 async def update_trip(trip_id: str, request: Request):

@@ -9,6 +9,7 @@ and FastAPI's asynchronous code patterns.
 import asyncio
 import os
 import uuid
+import threading
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
@@ -123,6 +124,168 @@ TASK_METADATA = {
 }
 
 
+# Central task status manager with unified interface for async/sync operations
+class TaskStatusManager:
+    """Centralized task status management with unified sync/async interfaces."""
+
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = TaskStatusManager()
+        return cls._instance
+
+    def __init__(self):
+        self._lock = asyncio.Lock()
+
+    async def update_status(
+        self, task_id: str, status: str, error: Optional[str] = None
+    ):
+        """Update task status with async-friendly implementation."""
+        async with self._lock:
+            try:
+                now = datetime.now(timezone.utc)
+                update_data = {
+                    f"tasks.{task_id}.status": status,
+                    f"tasks.{task_id}.last_updated": now,
+                }
+
+                if status == TaskStatus.COMPLETED.value:
+                    update_data[f"tasks.{task_id}.last_run"] = now
+                    # Calculate next run based on interval
+                    config = await get_task_config()
+                    task_config = config.get("tasks", {}).get(task_id, {})
+                    interval_minutes = task_config.get(
+                        "interval_minutes",
+                        TASK_METADATA.get(task_id, {}).get(
+                            "default_interval_minutes", 60
+                        ),
+                    )
+                    next_run = now + timedelta(minutes=interval_minutes)
+                    update_data[f"tasks.{task_id}.next_run"] = next_run
+
+                elif status == TaskStatus.FAILED.value:
+                    update_data[f"tasks.{task_id}.last_error"] = error
+                    update_data[f"tasks.{task_id}.last_run"] = now
+
+                elif status == TaskStatus.RUNNING.value:
+                    update_data[f"tasks.{task_id}.start_time"] = now
+
+                # Create a dedicated client for this operation
+                client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
+                db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+
+                await db["task_config"].update_one(
+                    {"_id": "global_background_task_config"},
+                    {"$set": update_data},
+                    upsert=True,
+                )
+
+                client.close()
+                return True
+            except Exception as e:
+                logger.exception(f"Error updating task status: {e}")
+                return False
+
+    def sync_update_status(
+        self, task_id: str, status: str, error: Optional[str] = None
+    ):
+        """Synchronous wrapper for status updates (for Celery signals)."""
+        loop = None
+        should_close_loop = False
+
+        try:
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                should_close_loop = True
+
+            future = asyncio.ensure_future(self.update_status(task_id, status, error))
+            return loop.run_until_complete(future)
+        except Exception as e:
+            logger.exception(f"Error in sync_update_status: {e}")
+            self._fallback_sync_update(task_id, status, error)
+            return False
+        finally:
+            if should_close_loop and loop:
+                try:
+                    loop.close()
+                except Exception as e:
+                    logger.error(f"Error closing event loop: {e}")
+
+    def _fallback_sync_update(
+        self, task_id: str, status: str, error: Optional[str] = None
+    ):
+        """Emergency fallback using direct MongoDB connection."""
+        try:
+            client = get_mongo_client()
+            db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
+
+            now = datetime.now(timezone.utc)
+            update_data = {
+                f"tasks.{task_id}.status": status,
+                f"tasks.{task_id}.last_updated": now,
+            }
+
+            if status == TaskStatus.FAILED.value:
+                update_data[f"tasks.{task_id}.last_error"] = error
+                update_data[f"tasks.{task_id}.last_run"] = now
+            elif status == TaskStatus.COMPLETED.value:
+                update_data[f"tasks.{task_id}.last_run"] = now
+            elif status == TaskStatus.RUNNING.value:
+                update_data[f"tasks.{task_id}.start_time"] = now
+
+            db.task_config.update_one(
+                {"_id": "global_background_task_config"},
+                {"$set": update_data},
+                upsert=True,
+            )
+            client.close()
+        except Exception as e:
+            logger.error(f"Emergency fallback for task {task_id} failed: {e}")
+
+
+# Database connection pooling manager
+class DatabaseConnectionPool:
+    """Manages MongoDB connections with proper pooling for tasks."""
+
+    _instance = None
+    _clients = {}
+    _lock = threading.Lock()
+
+    @classmethod
+    def get_instance(cls):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = DatabaseConnectionPool()
+            return cls._instance
+
+    def get_client(self) -> MongoClient:
+        """Get a MongoDB client with proper connection settings."""
+        mongo_uri = os.environ.get("MONGO_URI")
+        if not mongo_uri:
+            raise ValueError("MONGO_URI environment variable not set")
+
+        # Use consistent connection settings from environment variables
+        client = MongoClient(
+            mongo_uri,
+            serverSelectionTimeoutMS=int(
+                os.environ.get("MONGODB_SERVER_SELECTION_TIMEOUT_MS", "10000")
+            ),
+            connectTimeoutMS=int(
+                os.environ.get("MONGODB_CONNECTION_TIMEOUT_MS", "5000")
+            ),
+            socketTimeoutMS=int(os.environ.get("MONGODB_SOCKET_TIMEOUT_MS", "30000")),
+            retryWrites=True,
+            retryReads=True,
+            appname="EveryStreet-Tasks",
+        )
+        return client
+
+
 # Helper function to get MongoDB connection with proper settings
 def get_mongo_client() -> MongoClient:
     """Create a MongoDB client with proper connection settings."""
@@ -144,34 +307,36 @@ def get_mongo_client() -> MongoClient:
     )
 
 
-# Simplified AsyncTask base class for better async handling
+# Improved AsyncTask base class for better async handling
 class AsyncTask(Task):
     """
-    Base class for Celery tasks that need to run async code.
+    Enhanced base class for Celery tasks that need to run async code.
     """
 
     def run_async(self, coro_func: Callable[[], Awaitable[T]]) -> T:
-        """
-        Run an async coroutine function from a Celery task.
-
-        Args:
-            coro_func: Function that returns a coroutine when called
-
-        Returns:
-            The result of the coroutine
-        """
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        """Run an async coroutine function from a Celery task with proper lifecycle management."""
+        loop = None
+        should_close_loop = False
 
         try:
-            coro = coro_func()
-            return loop.run_until_complete(coro)
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                should_close_loop = True
+
+            result = loop.run_until_complete(coro_func())
+            return result
         except Exception as e:
             logger.exception(f"Error in run_async: {e}")
             raise
+        finally:
+            if should_close_loop and loop:
+                try:
+                    loop.close()
+                except Exception as e:
+                    logger.error(f"Error closing event loop: {e}")
 
 
 # Signal to set task status before it runs
@@ -211,8 +376,9 @@ def task_started(task_id: Optional[str] = None, task: Optional[Task] = None, **k
                 client.close()
                 raise Exception(f"Task {task_name} is disabled in configuration")
 
-        # Update task status using our synchronous function
-        update_task_status_sync(task_name, TaskStatus.RUNNING.value)
+        # Use TaskStatusManager for consistent status updates
+        status_manager = TaskStatusManager.get_instance()
+        status_manager.sync_update_status(task_name, TaskStatus.RUNNING.value)
 
         # Record history entry
         now = datetime.now(timezone.utc)
@@ -281,7 +447,9 @@ def task_finished(
             else TaskStatus.FAILED.value
         )
 
-        # Use our synchronous function to update task status
+        # Use TaskStatusManager for updates
+        status_manager = TaskStatusManager.get_instance()
+
         error_msg = None
         if status == TaskStatus.FAILED.value:
             # Extract error from retval if possible
@@ -292,9 +460,9 @@ def task_finished(
             else:
                 error_msg = f"Task failed with state {state}"
 
-            update_task_status_sync(task_name, status, error=error_msg)
+            status_manager.sync_update_status(task_name, status, error=error_msg)
         else:
-            update_task_status_sync(task_name, status)
+            status_manager.sync_update_status(task_name, status)
 
         # Update history
         db.task_history.update_one(
@@ -334,8 +502,11 @@ def task_failed(
     error_msg = str(exception) if exception else "Unknown error"
 
     try:
-        # Use our synchronous function to update status
-        update_task_status_sync(task_name, TaskStatus.FAILED.value, error=error_msg)
+        # Use TaskStatusManager for consistent status updates
+        status_manager = TaskStatusManager.get_instance()
+        status_manager.sync_update_status(
+            task_name, TaskStatus.FAILED.value, error=error_msg
+        )
 
         now = datetime.now(timezone.utc)
 
@@ -362,45 +533,6 @@ def task_failed(
         client.close()
     except Exception as e:
         logger.error(f"Error updating task failure status: {e}")
-
-
-# Synchronous versions of status update functions for signal handlers
-def update_task_status_sync(task_id: str, status: str, error: Optional[str] = None):
-    """Synchronous version of update_task_status_async for use in signal handlers.
-
-    Args:
-        task_id: ID of the task to update
-        status: New status for the task
-        error: Optional error message if status is FAILED
-    """
-    try:
-        now = datetime.now(timezone.utc)
-        update_data = {
-            f"tasks.{task_id}.status": status,
-            f"tasks.{task_id}.last_updated": now,
-        }
-
-        if status == TaskStatus.COMPLETED.value:
-            update_data[f"tasks.{task_id}.last_run"] = now
-
-        elif status == TaskStatus.FAILED.value:
-            update_data[f"tasks.{task_id}.last_error"] = error
-            update_data[f"tasks.{task_id}.last_run"] = now
-
-        elif status == TaskStatus.RUNNING.value:
-            update_data[f"tasks.{task_id}.start_time"] = now
-
-        # Use PyMongo directly (synchronous client) with improved connection handling
-        client = get_mongo_client()
-        db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
-
-        db.task_config.update_one(
-            {"_id": "global_background_task_config"}, {"$set": update_data}, upsert=True
-        )
-
-        client.close()
-    except Exception as e:
-        logger.exception(f"Error updating task status: {e}")
 
 
 # Task configuration helpers
@@ -536,41 +668,8 @@ async def update_task_status_async(
         status: New status for the task
         error: Optional error message if status is FAILED
     """
-    client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
-    db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
-    try:
-        now = datetime.now(timezone.utc)
-        update_data = {
-            f"tasks.{task_id}.status": status,
-            f"tasks.{task_id}.last_updated": now,
-        }
-
-        if status == TaskStatus.COMPLETED.value:
-            update_data[f"tasks.{task_id}.last_run"] = now
-            # Calculate next run based on interval
-            config = await get_task_config()
-            task_config = config.get("tasks", {}).get(task_id, {})
-            interval_minutes = task_config.get(
-                "interval_minutes",
-                TASK_METADATA.get(task_id, {}).get("default_interval_minutes", 60),
-            )
-            next_run = now + timedelta(minutes=interval_minutes)
-            update_data[f"tasks.{task_id}.next_run"] = next_run
-
-        elif status == TaskStatus.FAILED.value:
-            update_data[f"tasks.{task_id}.last_error"] = error
-            update_data[f"tasks.{task_id}.last_run"] = now
-
-        elif status == TaskStatus.RUNNING.value:
-            update_data[f"tasks.{task_id}.start_time"] = now
-
-        await db["task_config"].update_one(
-            {"_id": "global_background_task_config"}, {"$set": update_data}, upsert=True
-        )
-    except Exception as e:
-        logger.exception(f"Error updating task status: {e}")
-    finally:
-        client.close()
+    status_manager = TaskStatusManager.get_instance()
+    await status_manager.update_status(task_id, status, error)
 
 
 async def update_task_history(
@@ -626,10 +725,7 @@ async def update_task_history(
 
 # Decorator for better async task handling
 def async_task_wrapper(func):
-    """Decorator to handle async tasks more robustly with proper error tracking.
-
-    This decorator wraps an async function and adds status updates and error handling.
-    """
+    """Decorator to handle async tasks with logging but without redundant status tracking."""
 
     @wraps(func)
     async def wrapped_async_func(*args, **kwargs):
@@ -639,34 +735,12 @@ def async_task_wrapper(func):
         try:
             logger.info(f"Starting async task {task_name}")
 
-            # Update task status to running - handle async operations safely
-            try:
-                await update_task_status_async(task_name, TaskStatus.RUNNING.value)
-                await update_task_history(task_name, TaskStatus.RUNNING.value)
-            except Exception as status_error:
-                logger.error(
-                    f"Error updating start status for {task_name}: {status_error}"
-                )
-                # Continue with task execution even if status update fails
-
-            # Execute the task
+            # Execute the task (all status tracking handled by Celery signals)
             result = await func(*args, **kwargs)
 
             # Log successful completion
             runtime = (datetime.now(timezone.utc) - start_time).total_seconds()
             logger.info(f"Completed async task {task_name} in {runtime:.2f}s")
-
-            # Update task status to completed - handle async operations safely
-            try:
-                await update_task_status_async(task_name, TaskStatus.COMPLETED.value)
-                await update_task_history(
-                    task_name, TaskStatus.COMPLETED.value, result=result
-                )
-            except Exception as status_error:
-                logger.error(
-                    f"Error updating completion status for {task_name}: {status_error}"
-                )
-                # Continue returning result even if status update fails
 
             return result
         except Exception as e:
@@ -677,21 +751,7 @@ def async_task_wrapper(func):
             )
             logger.exception(error_msg)
 
-            # Update task status to failed - handle async operations safely
-            try:
-                await update_task_status_async(
-                    task_name, TaskStatus.FAILED.value, error=str(e)
-                )
-                await update_task_history(
-                    task_name, TaskStatus.FAILED.value, error=str(e)
-                )
-            except Exception as status_error:
-                logger.error(
-                    f"Error updating failure status for {task_name}: {status_error}"
-                )
-                # Continue raising the original exception
-
-            # Re-raise to let the task framework handle the failure
+            # Re-raise to let Celery's task_failure signal handle the failure
             raise
 
     return wrapped_async_func
@@ -1219,9 +1279,19 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
 
         try:
             # Check dependencies
-            can_proceed = await check_dependencies("remap_unmatched_trips")
-            if not can_proceed:
-                return {"status": "deferred", "message": "Dependencies not satisfied"}
+            dependency_check = await check_dependencies("remap_unmatched_trips")
+            if not dependency_check.get(
+                "can_run", False
+            ):  # Fixed bug: properly check can_run
+                logger.info(
+                    f"Deferring remap_unmatched_trips: {dependency_check.get('reason', 'Unknown reason')}"
+                )
+                return {
+                    "status": "deferred",
+                    "message": dependency_check.get(
+                        "reason", "Dependencies not satisfied"
+                    ),
+                }
 
             # Find trips that need map matching
             query = {"$or": [{"matchedGps": {"$exists": False}}, {"matchedGps": None}]}

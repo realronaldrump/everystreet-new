@@ -31,9 +31,153 @@
       this.historyTotalPages = 1;
       this.pollingInterval = null;
       this.configRefreshTimeout = null;
+      this.eventSource = null;
 
-      // Setup polling for regular updates
+      // Set up real-time event source for task updates
+      this.setupEventSource();
+
+      // Setup polling as fallback
       this.setupPolling();
+    }
+
+    setupEventSource() {
+      // Close existing event source if any
+      if (this.eventSource) {
+        this.eventSource.close();
+      }
+
+      try {
+        this.eventSource = new EventSource("/api/background_tasks/sse");
+
+        this.eventSource.onmessage = (event) => {
+          try {
+            const updates = JSON.parse(event.data);
+
+            // Process each task update
+            Object.entries(updates).forEach(([taskId, update]) => {
+              const row = document.querySelector(
+                `tr[data-task-id="${taskId}"]`
+              );
+              if (!row) return;
+
+              // Update status cell
+              const statusCell = row.querySelector(".task-status");
+              if (statusCell) {
+                const currentStatus = statusCell.dataset.status;
+                const newStatus = update.status;
+
+                if (currentStatus !== newStatus) {
+                  statusCell.innerHTML = this.getStatusHTML(newStatus);
+                  statusCell.dataset.status = newStatus;
+
+                  // Update run button state
+                  const runButton = row.querySelector(".run-now-btn");
+                  if (runButton) {
+                    runButton.disabled = newStatus === "RUNNING";
+                  }
+
+                  // Handle task completion notifications
+                  if (
+                    currentStatus === "RUNNING" &&
+                    (newStatus === "COMPLETED" || newStatus === "FAILED")
+                  ) {
+                    const taskName =
+                      row.querySelector(".task-name-display").textContent;
+                    const notificationType =
+                      newStatus === "COMPLETED" ? "success" : "danger";
+                    const message =
+                      newStatus === "COMPLETED"
+                        ? `Task ${taskName} completed successfully`
+                        : `Task ${taskName} failed: ${
+                            update.last_error || "Unknown error"
+                          }`;
+
+                    this.notifier.show(
+                      newStatus === "COMPLETED" ? "Success" : "Error",
+                      message,
+                      notificationType
+                    );
+                  }
+                }
+              }
+
+              // Update last run time
+              const lastRunCell = row.querySelector(".task-last-run");
+              if (lastRunCell && update.last_updated) {
+                lastRunCell.textContent = this.formatDateTime(
+                  update.last_updated
+                );
+              }
+
+              // Update next run time
+              const nextRunCell = row.querySelector(".task-next-run");
+              if (nextRunCell && update.next_run) {
+                nextRunCell.textContent = this.formatDateTime(update.next_run);
+              }
+            });
+
+            // Update active tasks map based on latest data
+            this.updateActiveTasksMapFromUpdates(updates);
+          } catch (error) {
+            console.error("Error processing SSE update:", error);
+          }
+        };
+
+        this.eventSource.onerror = (error) => {
+          console.error("SSE connection error:", error);
+          // Try to reconnect after delay
+          setTimeout(() => this.setupEventSource(), 5000);
+        };
+      } catch (error) {
+        console.error("Error setting up EventSource:", error);
+        // If EventSource fails, rely on polling
+        this.setupPolling();
+      }
+    }
+
+    updateActiveTasksMapFromUpdates(updates) {
+      const runningTasks = new Set();
+
+      // Add tasks that are currently running
+      for (const [taskId, taskData] of Object.entries(updates)) {
+        if (taskData.status === "RUNNING") {
+          runningTasks.add(taskId);
+          if (!this.activeTasksMap.has(taskId)) {
+            this.activeTasksMap.set(taskId, "RUNNING");
+          }
+        }
+      }
+
+      // Check for tasks that have finished
+      for (const [taskId, status] of this.activeTasksMap.entries()) {
+        if (!runningTasks.has(taskId) && updates[taskId]) {
+          const taskStatus = updates[taskId].status;
+          if (taskStatus !== "RUNNING") {
+            this.activeTasksMap.delete(taskId);
+
+            // Don't notify if task wasn't previously known to be running
+            if (status !== "RUNNING") continue;
+
+            // Notify about task completion
+            const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
+            if (row) {
+              const displayName =
+                row.querySelector(".task-name-display")?.textContent || taskId;
+              if (taskStatus === "COMPLETED" || taskStatus === "FAILED") {
+                const type = taskStatus === "COMPLETED" ? "success" : "danger";
+                const message =
+                  taskStatus === "COMPLETED"
+                    ? `Task ${displayName} completed successfully`
+                    : `Task ${displayName} failed: ${
+                        updates[taskId].last_error || "Unknown error"
+                      }`;
+
+                this.notifier.show(taskStatus, message, type);
+              }
+            }
+          }
+        }
+      }
     }
 
     setupPolling() {
@@ -42,11 +186,17 @@
         clearInterval(this.pollingInterval);
       }
 
-      // Increase polling frequency for better responsiveness
+      // Poll less frequently when we have EventSource
+      const pollInterval =
+        this.eventSource && this.eventSource.readyState === EventSource.OPEN
+          ? 15000
+          : 5000;
+
+      // Polling as backup
       this.pollingInterval = setInterval(() => {
         this.loadTaskConfig();
         this.updateTaskHistory();
-      }, 5000); // Poll every 5 seconds
+      }, pollInterval);
     }
 
     async loadTaskConfig() {
@@ -78,22 +228,52 @@
       }
     }
 
-    // Track which tasks are running
+    // Enhanced active task tracking
     updateActiveTasksMap(config) {
-      // Clear tasks that no longer exist or are not running
-      for (const [taskId, status] of this.activeTasksMap.entries()) {
-        const taskConfig = config.tasks[taskId];
-        if (!taskConfig || taskConfig.status !== "RUNNING") {
-          this.activeTasksMap.delete(taskId);
+      // Build a set of currently running tasks from latest config
+      const runningTasks = new Set();
+
+      for (const [taskId, taskConfig] of Object.entries(config.tasks)) {
+        if (taskConfig.status === "RUNNING") {
+          runningTasks.add(taskId);
         }
       }
 
-      // Add newly running tasks
-      for (const [taskId, taskConfig] of Object.entries(config.tasks)) {
+      // Check for tasks that have recently finished
+      const recentlyFinished = [];
+      for (const [taskId, status] of this.activeTasksMap.entries()) {
+        if (!runningTasks.has(taskId)) {
+          recentlyFinished.push(taskId);
+        }
+      }
+
+      // Remove finished tasks
+      for (const taskId of recentlyFinished) {
+        const displayName = config.tasks[taskId]?.display_name || taskId;
+        const status = config.tasks[taskId]?.status || "COMPLETED";
+
+        // Only notify on transitions from RUNNING to COMPLETED/FAILED
         if (
-          taskConfig.status === "RUNNING" &&
-          !this.activeTasksMap.has(taskId)
+          this.activeTasksMap.get(taskId) === "RUNNING" &&
+          (status === "COMPLETED" || status === "FAILED")
         ) {
+          const type = status === "COMPLETED" ? "success" : "danger";
+          const message =
+            status === "COMPLETED"
+              ? `Task ${displayName} completed successfully`
+              : `Task ${displayName} failed: ${
+                  config.tasks[taskId]?.last_error || "Unknown error"
+                }`;
+
+          this.notifier.show(status, message, type);
+        }
+
+        this.activeTasksMap.delete(taskId);
+      }
+
+      // Add newly running tasks
+      for (const taskId of runningTasks) {
+        if (!this.activeTasksMap.has(taskId)) {
           this.activeTasksMap.set(taskId, "RUNNING");
         }
       }
@@ -142,9 +322,9 @@
               </div>
             </td>
             <td>${task.priority || "MEDIUM"}</td>
-            <td class="task-status">${this.getStatusHTML(
+            <td class="task-status" data-status="${
               task.status || "IDLE"
-            )}</td>
+            }">${this.getStatusHTML(task.status || "IDLE")}</td>
             <td class="task-last-run">${
               task.last_run ? this.formatDateTime(task.last_run) : "Never"
             }</td>
@@ -419,7 +599,7 @@
 
         // Get the result regardless of response status
         const result = await response.json();
-        
+
         // Hide loading overlay
         hideLoadingOverlay();
 
@@ -432,15 +612,15 @@
         if (result.status === "success") {
           // Check for detailed results from specific tasks
           if (result.results && result.results.length > 0) {
-            const taskResult = result.results.find(r => r.task === taskId);
-            
+            const taskResult = result.results.find((r) => r.task === taskId);
+
             if (taskResult && !taskResult.success) {
               // Task couldn't start, likely a dependency issue
               this.showDependencyErrorModal(taskId, taskResult.message);
               return false;
             }
           }
-          
+
           // If we get here, task started successfully
           this.activeTasksMap.set(taskId, "RUNNING");
           this.notifier.show(
@@ -455,6 +635,7 @@
             const statusCell = row.querySelector(".task-status");
             if (statusCell) {
               statusCell.innerHTML = this.getStatusHTML("RUNNING");
+              statusCell.dataset.status = "RUNNING";
             }
 
             const runButton = row.querySelector(".run-now-btn");
@@ -463,8 +644,8 @@
             }
           }
 
-          // Force a config refresh soon to catch completion
-          this.scheduleConfigRefresh();
+          // Load the config once immediately after starting
+          await this.loadTaskConfig();
 
           return true;
         } else {
@@ -480,23 +661,6 @@
         );
         return false;
       }
-    }
-
-    // Schedule a quicker config refresh after starting a task
-    scheduleConfigRefresh() {
-      if (this.configRefreshTimeout) {
-        clearTimeout(this.configRefreshTimeout);
-      }
-
-      // Check status more frequently right after starting a task
-      this.configRefreshTimeout = setTimeout(() => {
-        this.loadTaskConfig();
-
-        // Check again after another 2 seconds
-        this.configRefreshTimeout = setTimeout(() => {
-          this.loadTaskConfig();
-        }, 2000);
-      }, 1000);
     }
 
     formatDateTime(date) {
@@ -617,15 +781,17 @@
             </div>
             <div class="mb-3">
               <h6>Dependencies</h6>
-              ${taskDetails.dependencies && taskDetails.dependencies.length > 0 ? 
-                `<div>
+              ${
+                taskDetails.dependencies && taskDetails.dependencies.length > 0
+                  ? `<div>
                    <p>${taskDetails.dependencies.join(", ")}</p>
                    <div class="alert alert-info small mt-2">
                      <i class="fas fa-info-circle"></i> 
                      Dependencies will be checked before task execution. This task will wait for any running dependencies to complete.
                    </div>
-                 </div>` : 
-                '<p>None</p>'}
+                 </div>`
+                  : "<p>None</p>"
+              }
             </div>
             <div class="mb-3">
               <h6>Last Run</h6>
@@ -815,6 +981,12 @@
       if (this.configRefreshTimeout) {
         clearTimeout(this.configRefreshTimeout);
         this.configRefreshTimeout = null;
+      }
+
+      // Close EventSource
+      if (this.eventSource) {
+        this.eventSource.close();
+        this.eventSource = null;
       }
     }
   }
