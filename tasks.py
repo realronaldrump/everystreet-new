@@ -9,13 +9,12 @@ and FastAPI's asynchronous code patterns.
 import asyncio
 import os
 import uuid
-import logging
+import threading
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
-from typing import Dict, Any, cast, Optional, Callable, Awaitable, TypeVar, List
+from typing import Dict, Any, cast, Callable, Awaitable, TypeVar
 
-from bson import ObjectId
 from celery import shared_task, Task
 from celery.signals import task_prerun, task_postrun, task_failure
 from celery.utils.log import get_task_logger
@@ -34,7 +33,10 @@ from db import (
 )
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from preprocess_streets import preprocess_streets as async_preprocess_streets
-from street_coverage_calculation import update_coverage_for_all_locations
+from street_coverage_calculation import (
+    update_coverage_for_all_locations,
+    compute_incremental_coverage,
+)
 from utils import validate_trip_data
 from trip_processor import TripProcessor, TripState
 from live_tracking import cleanup_stale_trips
