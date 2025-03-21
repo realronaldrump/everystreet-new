@@ -121,6 +121,7 @@ TASK_METADATA = {
     },
 }
 
+
 # Helper function to get MongoDB connection with proper settings
 def get_mongo_client() -> MongoClient:
     """Create a MongoDB client with proper connection settings."""
