@@ -13,17 +13,15 @@ import asyncio
 import time
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, Any, Optional, Tuple, List, Union, Set
+from typing import Dict, Any, Optional, Tuple, List
 import uuid
 
-from shapely.geometry import Point, LineString
+from shapely.geometry import Point
 import aiohttp
 import pyproj
 from pymongo.errors import DuplicateKeyError
 
 from db import (
-    db_manager,
-    SerializationHelper,
     trips_collection,
     matched_trips_collection,
     uploaded_trips_collection,

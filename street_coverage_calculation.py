@@ -12,21 +12,19 @@ import multiprocessing
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pyproj
 import rtree
 from db import (
     batch_cursor,
     coverage_metadata_collection,
-    db_manager,
     ensure_street_coverage_indexes,
     progress_collection,
     streets_collection,
     trips_collection,
 )
 from dotenv import load_dotenv
-from pyproj import Transformer
 from shapely.geometry import LineString, box, shape
 from shapely.ops import transform
 
@@ -770,9 +768,9 @@ class CoverageCalculator:
                         if is_covered:
                             covered_length += seg_length
                             street_type_stats[street_type]["covered"] += 1
-                            street_type_stats[street_type][
-                                "covered_length"
-                            ] += seg_length
+                            street_type_stats[street_type]["covered_length"] += (
+                                seg_length
+                            )
 
                         # Create enhanced feature for visualization
                         feature = {

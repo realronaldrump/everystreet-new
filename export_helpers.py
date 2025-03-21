@@ -13,12 +13,11 @@ import os
 import zipfile
 import tempfile
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Tuple, Union, BinaryIO
-from bson import ObjectId, json_util
+from typing import List, Dict, Any, Union
+from bson import ObjectId
 import gpxpy
 import gpxpy.gpx
 import geopandas as gpd
-import geojson as geojson_module
 from fastapi.responses import StreamingResponse
 
 logger = logging.getLogger(__name__)
@@ -354,7 +353,6 @@ async def create_export_response(
     elif fmt == "csv":
         # Convert trips to CSV
         from io import StringIO
-        import csv
         from app import create_csv_export
 
         # Ensure we have a list of trips

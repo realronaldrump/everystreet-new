@@ -5,7 +5,7 @@ Provides a clean wrapper around TripProcessor for backward compatibility.
 
 import logging
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from dotenv import load_dotenv
 from trip_processor import TripProcessor

@@ -2,10 +2,8 @@ import os
 import json
 import logging
 import asyncio
-import zipfile
 import io
 import uuid
-import tempfile
 from datetime import datetime, timedelta, timezone
 from math import ceil
 from typing import List, Dict, Any, Optional
@@ -47,14 +45,11 @@ from tasks import (
     TASK_METADATA,
 )
 
-from celery.result import AsyncResult
-from celery_app import app as celery_app
 
 from db import (
     db_manager,
     DatabaseManager,
     SerializationHelper,
-    ensure_street_coverage_indexes,
     update_many_with_retry,
     find_one_with_retry,
     find_with_retry,
@@ -79,7 +74,7 @@ from export_helpers import (
     get_location_filename,
 )
 
-from street_coverage_calculation import compute_coverage_for_location
+from street_coverage_calculation import compute_coverage_for_location, compute_incremental_coverage
 from live_tracking import (
     initialize_db,
     handle_bouncie_webhook,
@@ -634,7 +629,7 @@ async def get_edit_trips(request: Request):
         serialized_trips = [SerializationHelper.serialize_trip(trip) for trip in trips]
 
         return {"status": "success", "trips": serialized_trips}
-    except Exception as e:
+    except Exception:
         logger.exception("Error fetching trips for editing.")
         raise HTTPException(status_code=500, detail="Internal server error")
 
@@ -1134,7 +1129,7 @@ async def get_trips(request: Request):
                 # Create GeoJSON feature
                 feature = geojson_module.Feature(geometry=geom, properties=props)
                 features.append(feature)
-            except Exception as e:
+            except Exception:
                 logger.exception(
                     "Error processing trip for transactionId: %s",
                     trip.get("transactionId"),
@@ -1144,7 +1139,7 @@ async def get_trips(request: Request):
         # Create FeatureCollection
         fc = geojson_module.FeatureCollection(features)
         return JSONResponse(content=fc)
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/trips endpoint")
         raise HTTPException(status_code=500, detail="Failed to retrieve trips")
 
@@ -1742,7 +1737,7 @@ async def generate_geojson_osm(
                 )
             return geojson_data, None
         return None, "No features found"
-    except aiohttp.ClientError as e:
+    except aiohttp.ClientError:
         logger.exception("Error generating geojson from Overpass")
         return None, "Error communicating with Overpass API"
     except Exception as e:
@@ -1860,7 +1855,7 @@ async def get_matched_trips(request: Request):
                     },
                 )
                 features.append(feature)
-            except Exception as e:
+            except Exception:
                 logger.exception(
                     "Error processing matched trip %s", trip.get("transactionId")
                 )
@@ -2159,7 +2154,7 @@ async def preprocess_streets_route(request: Request):
                 },
                 upsert=True,
             )
-        except Exception as ex:
+        except Exception:
             existing = await find_one_with_retry(
                 coverage_metadata_collection,
                 {"location.display_name": validated_location["display_name"]},
@@ -2351,7 +2346,7 @@ async def get_last_trip_point():
         if "coordinates" not in gps_data or not gps_data["coordinates"]:
             return {"lastPoint": None}
         return {"lastPoint": gps_data["coordinates"][-1]}
-    except Exception as e:
+    except Exception:
         logger.exception("Error get_last_trip_point")
         raise HTTPException(
             status_code=500, detail="Failed to retrieve last trip point"
@@ -2671,7 +2666,7 @@ def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
                 }
             )
         return trips
-    except Exception as e:
+    except Exception:
         logger.exception("Error in process_geojson_trip")
         return None
 
@@ -2702,7 +2697,7 @@ async def process_and_store_trip(trip: dict):
 
     except bson.errors.DuplicateKeyError:
         logger.warning("Duplicate trip ID %s; skipping.", trip.get("transactionId"))
-    except Exception as e:
+    except Exception:
         logger.exception("process_and_store_trip error")
         raise
 
@@ -2978,7 +2973,7 @@ async def get_place_statistics(place_id: str):
                             time_since_last_visits.append(hrs_since_last)
 
                 visits.append(t_end)
-            except Exception as ex:
+            except Exception:
                 logger.exception("Issue processing trip for place %s", place_id)
                 continue
 
@@ -3560,7 +3555,7 @@ async def startup_event():
                 used_mb,
                 limit_mb,
             )
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to initialize database indexes.")
         raise  # Crash the application; we can't continue without indexes.
 

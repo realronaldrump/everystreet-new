@@ -18,14 +18,11 @@ from typing import (
     Awaitable,
     Callable,
     Dict,
-    Iterable,
     Iterator,
     List,
     Optional,
     Tuple,
     TypeVar,
-    Union,
-    cast,
 )
 
 import certifi
@@ -185,7 +182,6 @@ class DatabaseManager:
                         self._initialize_client()
                     return await operation()
             except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-                last_exception = e
                 self._connection_healthy = False
                 logger.warning(
                     "Attempt %d/%d for %s failed: %s. Retrying in %ds...",

@@ -21,7 +21,6 @@ from celery.signals import task_failure, task_postrun, task_prerun
 from celery.utils.log import get_task_logger
 
 # Import Celery app
-from celery_app import app
 
 # Local module imports
 from db import (
