@@ -12,23 +12,23 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
-from typing import Any, Awaitable, Callable, Dict, TypeVar, cast, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional, TypeVar, cast
 
-from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from celery import Task, shared_task
 from celery.signals import task_failure, task_postrun, task_prerun
 from celery.utils.log import get_task_logger
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import MongoClient, UpdateOne
 
+from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from live_tracking import cleanup_stale_trips
 from preprocess_streets import preprocess_streets as async_preprocess_streets
-from pymongo import MongoClient, UpdateOne
 from street_coverage_calculation import (
     compute_incremental_coverage,
     update_coverage_for_all_locations,
 )
 from trip_processor import TripProcessor, TripState
 from utils import validate_trip_data
-from motor.motor_asyncio import AsyncIOMotorClient
 
 # Set up task-specific logger
 logger = get_task_logger(__name__)
@@ -120,6 +120,7 @@ TASK_METADATA = {
         "description": "Validates and corrects trip data inconsistencies",
     },
 }
+
 
 # Helper function to get MongoDB connection with proper settings
 def get_mongo_client() -> MongoClient:
@@ -406,7 +407,7 @@ async def get_task_config() -> Dict[str, Any]:
     """Get the current task configuration."""
     client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
     db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
-    task_config_collection = db["task_config"]
+    task_config_collection = db["task_config"]  # Keep this line
     try:
         cfg = await task_config_collection.find_one(
             {"_id": "global_background_task_config"}
@@ -460,8 +461,6 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
         Dict with 'can_run' boolean and 'reason' string if can_run is False
     """
     client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
-    db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
-    task_config_collection = db["task_config"]
     try:
         # Get task dependencies
         if task_id not in TASK_METADATA:
@@ -538,7 +537,7 @@ async def update_task_status_async(
     """
     client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
     db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
-    task_config_collection = db["task_config"]
+    # task_config_collection = db["task_config"]  <-- REMOVE THIS LINE.  Directly use db["task_config"] below.
     try:
         now = datetime.now(timezone.utc)
         update_data = {
@@ -565,7 +564,7 @@ async def update_task_status_async(
         elif status == TaskStatus.RUNNING.value:
             update_data[f"tasks.{task_id}.start_time"] = now
 
-        await task_config_collection.update_one(
+        await db["task_config"].update_one(  # Directly access here.
             {"_id": "global_background_task_config"}, {"$set": update_data}, upsert=True
         )
     except Exception as e:
