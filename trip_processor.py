@@ -1221,7 +1221,7 @@ class TripProcessor:
             transaction_id = trip_to_save.get("transactionId")
 
             # Upsert the trip
-            result = await collection.update_one(
+            await collection.update_one(
                 {"transactionId": transaction_id},
                 {"$set": trip_to_save},
                 upsert=True,

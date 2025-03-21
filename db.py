@@ -173,7 +173,6 @@ class DatabaseManager:
             max_attempts = self._max_retry_attempts
 
         attempts = 0
-        last_exception = None
 
         while attempts < max_attempts:
             attempts += 1

@@ -137,8 +137,6 @@ async def validate_location_osm(
 
 def validate_trip_data(trip: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """Validate that a trip dictionary contains the required fields."""
-    transaction_id = trip.get("transactionId", "?")
-
     # Check required fields
     required = ["transactionId", "startTime", "endTime", "gps"]
     for field in required:
