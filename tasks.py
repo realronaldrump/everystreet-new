@@ -8,17 +8,17 @@ and FastAPI's asynchronous code patterns.
 
 import asyncio
 import os
-import uuid
 import threading
+import uuid
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
-from typing import Dict, Any, cast, Callable, Awaitable, TypeVar
+from typing import Any, Awaitable, Callable, Dict, TypeVar, cast
 
-from celery import shared_task, Task
-from celery.signals import task_prerun, task_postrun, task_failure
+from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
+from celery import Task, shared_task
+from celery.signals import task_failure, task_postrun, task_prerun
 from celery.utils.log import get_task_logger
-from pymongo import UpdateOne, MongoClient
 
 # Import Celery app
 from celery_app import app
@@ -26,20 +26,20 @@ from celery_app import app
 # Local module imports
 from db import (
     DatabaseManager,
-    trips_collection,
     coverage_metadata_collection,
-    task_history_collection,
     task_config_collection,
+    task_history_collection,
+    trips_collection,
 )
-from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
-from preprocess_streets import preprocess_streets as async_preprocess_streets
-from street_coverage_calculation import (
-    update_coverage_for_all_locations,
-    compute_incremental_coverage,
-)
-from utils import validate_trip_data
-from trip_processor import TripProcessor, TripState
 from live_tracking import cleanup_stale_trips
+from preprocess_streets import preprocess_streets as async_preprocess_streets
+from pymongo import MongoClient, UpdateOne
+from street_coverage_calculation import (
+    compute_incremental_coverage,
+    update_coverage_for_all_locations,
+)
+from trip_processor import TripProcessor, TripState
+from utils import validate_trip_data
 
 # Set up task-specific logger
 logger = get_task_logger(__name__)
