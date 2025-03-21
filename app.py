@@ -74,7 +74,10 @@ from export_helpers import (
     get_location_filename,
 )
 
-from street_coverage_calculation import compute_coverage_for_location, compute_incremental_coverage
+from street_coverage_calculation import (
+    compute_coverage_for_location,
+    compute_incremental_coverage,
+)
 from live_tracking import (
     initialize_db,
     handle_bouncie_webhook,

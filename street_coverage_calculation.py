@@ -768,9 +768,9 @@ class CoverageCalculator:
                         if is_covered:
                             covered_length += seg_length
                             street_type_stats[street_type]["covered"] += 1
-                            street_type_stats[street_type]["covered_length"] += (
-                                seg_length
-                            )
+                            street_type_stats[street_type][
+                                "covered_length"
+                            ] += seg_length
 
                         # Create enhanced feature for visualization
                         feature = {
