@@ -7,42 +7,42 @@ with robust retry logic, connection pooling, and serialization helpers.
 
 from __future__ import annotations
 
-import os
-import certifi
-import logging
 import asyncio
-import threading
 import json
+import logging
+import os
+import threading
 from datetime import datetime, timezone
 from typing import (
-    Optional,
     Any,
-    Dict,
-    Tuple,
-    Callable,
-    TypeVar,
     Awaitable,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
     List,
+    Optional,
+    Tuple,
+    TypeVar,
     Union,
     cast,
-    Iterator,
-    Iterable,
 )
 
+import certifi
+import pymongo
+from bson import ObjectId, json_util
 from fastapi import Request
 from motor.motor_asyncio import (
     AsyncIOMotorClient,
-    AsyncIOMotorDatabase,
     AsyncIOMotorCollection,
     AsyncIOMotorCursor,
+    AsyncIOMotorDatabase,
 )
-import pymongo
-from bson import ObjectId, json_util
 from pymongo.errors import (
     ConnectionFailure,
-    ServerSelectionTimeoutError,
-    OperationFailure,
     DuplicateKeyError,
+    OperationFailure,
+    ServerSelectionTimeoutError,
 )
 
 # Set up logging
