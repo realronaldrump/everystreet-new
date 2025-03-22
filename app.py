@@ -1967,6 +1967,17 @@ async def get_matched_trips(request: Request):
                         "timeZone": trip.get("timeZone", "UTC"),
                         "destination": trip.get("destination", "N/A"),
                         "startLocation": trip.get("startLocation", "N/A"),
+                        # Add speed metrics for consistent display in popups
+                        "maxSpeed": float(trip.get("maxSpeed", 0)),
+                        "averageSpeed": float(trip.get("averageSpeed", 0))
+                        if trip.get("averageSpeed") is not None
+                        else None,
+                        # Add any other relevant metrics that should be displayed consistently
+                        "hardBrakingCount": trip.get("hardBrakingCount", 0),
+                        "hardAccelerationCount": trip.get("hardAccelerationCount", 0),
+                        "totalIdleDurationFormatted": trip.get(
+                            "totalIdleDurationFormatted", None
+                        ),
                     },
                 )
                 features.append(feature)

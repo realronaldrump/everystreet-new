@@ -876,36 +876,93 @@
     const props = feature.properties;
     const isMatched = layerName === "matchedTrips";
 
-    // Get time values
-    const startTime = props.startTime;
-    const endTime = props.endTime;
+    // Add console logging to debug property structure
+    console.log("Trip properties:", props);
+    console.log("Layer name:", layerName);
+
+    // Normalize access to properties to ensure consistency
+    // between regular and matched trips
+    const tripData = {
+      // IDs
+      id: props.tripId || props.id || props.transactionId,
+
+      // Times
+      startTime: props.startTime || null,
+      endTime: props.endTime || null,
+
+      // Distances and Speed - access all possible property paths
+      distance: typeof props.distance === "number" ? props.distance : null,
+
+      // Check all possible paths for speed values with fallbacks
+      // Convert to number to ensure consistent handling
+      maxSpeed: (() => {
+        // Check all possible places speed might be stored
+        if (typeof props.maxSpeed === "number") return props.maxSpeed;
+        if (typeof props.max_speed === "number") return props.max_speed;
+        if (props.properties && typeof props.properties.maxSpeed === "number")
+          return props.properties.maxSpeed;
+        if (props.properties && typeof props.properties.max_speed === "number")
+          return props.properties.max_speed;
+        return null;
+      })(),
+
+      averageSpeed: (() => {
+        // Check all possible places average speed might be stored
+        if (typeof props.averageSpeed === "number") return props.averageSpeed;
+        if (typeof props.average_speed === "number") return props.average_speed;
+        if (
+          props.properties &&
+          typeof props.properties.averageSpeed === "number"
+        )
+          return props.properties.averageSpeed;
+        if (
+          props.properties &&
+          typeof props.properties.average_speed === "number"
+        )
+          return props.properties.average_speed;
+        return null;
+      })(),
+
+      // Locations
+      startLocation: props.startLocation || null,
+      destination: props.destination || null,
+
+      // Driving behavior
+      hardBrakingCount: parseInt(props.hardBrakingCount || 0, 10),
+      hardAccelerationCount: parseInt(props.hardAccelerationCount || 0, 10),
+      totalIdleDurationFormatted: props.totalIdleDurationFormatted || null,
+    };
+
+    // Log normalized data
+    console.log("Normalized trip data:", tripData);
 
     // Format times for display
-    const startTimeDisplay = startTime
-      ? DateUtils.formatForDisplay(startTime, {
+    const startTimeDisplay = tripData.startTime
+      ? DateUtils.formatForDisplay(tripData.startTime, {
           dateStyle: "medium",
           timeStyle: "short",
         })
       : "Unknown";
 
-    const endTimeDisplay = endTime
-      ? DateUtils.formatForDisplay(endTime, {
+    const endTimeDisplay = tripData.endTime
+      ? DateUtils.formatForDisplay(tripData.endTime, {
           dateStyle: "medium",
           timeStyle: "short",
         })
       : "Unknown";
 
-    // Format distance
-    const distance = props.distance
-      ? `${props.distance.toFixed(2)} mi`
-      : "Unknown";
+    // Format distance consistently
+    const distance =
+      tripData.distance !== null
+        ? `${tripData.distance.toFixed(2)} mi`
+        : "Unknown";
 
-    // Calculate duration
+    // Calculate duration consistently
     let durationDisplay = "Unknown";
-    if (startTime && endTime) {
+    if (tripData.startTime && tripData.endTime) {
       try {
-        const start = new Date(startTime);
-        const end = new Date(endTime);
+        const start = new Date(tripData.startTime);
+        const end = new Date(tripData.endTime);
         const durationMs = end - start;
         const hours = Math.floor(durationMs / (1000 * 60 * 60));
         const minutes = Math.floor(
@@ -917,14 +974,22 @@
       }
     }
 
-    // Format speed values
-    const maxSpeed = props.maxSpeed
-      ? `${(props.maxSpeed * 0.621371).toFixed(1)} mph`
-      : "Unknown";
+    // Format speed values consistently with more robust checks
+    const maxSpeed = (() => {
+      if (tripData.maxSpeed === null || tripData.maxSpeed === undefined)
+        return "Unknown";
+      const speedValue = parseFloat(tripData.maxSpeed);
+      if (isNaN(speedValue)) return "Unknown";
+      return `${(speedValue * 0.621371).toFixed(1)} mph`;
+    })();
 
-    const avgSpeed = props.averageSpeed
-      ? `${(props.averageSpeed * 0.621371).toFixed(1)} mph`
-      : "Unknown";
+    const avgSpeed = (() => {
+      if (tripData.averageSpeed === null || tripData.averageSpeed === undefined)
+        return "Unknown";
+      const speedValue = parseFloat(tripData.averageSpeed);
+      if (isNaN(speedValue)) return "Unknown";
+      return `${(speedValue * 0.621371).toFixed(1)} mph`;
+    })();
 
     // Create popup content
     let html = `
@@ -950,12 +1015,12 @@
     `;
 
     // Add location information if available
-    if (props.startLocation) {
-      // Handle structured location format
+    if (tripData.startLocation) {
+      // Handle structured location format consistently
       const startLocationText =
-        typeof props.startLocation === "object"
-          ? props.startLocation.formatted_address || "Unknown location"
-          : props.startLocation;
+        typeof tripData.startLocation === "object"
+          ? tripData.startLocation.formatted_address || "Unknown location"
+          : tripData.startLocation;
 
       html += `
         <tr>
@@ -965,12 +1030,12 @@
       `;
     }
 
-    if (props.destination) {
-      // Handle structured location format
+    if (tripData.destination) {
+      // Handle structured location format consistently
       const destinationText =
-        typeof props.destination === "object"
-          ? props.destination.formatted_address || "Unknown destination"
-          : props.destination;
+        typeof tripData.destination === "object"
+          ? tripData.destination.formatted_address || "Unknown destination"
+          : tripData.destination;
 
       html += `
         <tr>
@@ -993,30 +1058,30 @@
     `;
 
     // Add idle time if available
-    if (props.totalIdleDurationFormatted) {
+    if (tripData.totalIdleDurationFormatted) {
       html += `
         <tr>
           <th>Idle Time:</th>
-          <td>${props.totalIdleDurationFormatted}</td>
+          <td>${tripData.totalIdleDurationFormatted}</td>
         </tr>
       `;
     }
 
     // Add driving behavior metrics if greater than 0
-    if (props.hardBrakingCount > 0) {
+    if (tripData.hardBrakingCount > 0) {
       html += `
         <tr>
           <th>Hard Braking:</th>
-          <td>${props.hardBrakingCount}</td>
+          <td>${tripData.hardBrakingCount}</td>
         </tr>
       `;
     }
 
-    if (props.hardAccelerationCount > 0) {
+    if (tripData.hardAccelerationCount > 0) {
       html += `
         <tr>
           <th>Hard Accel:</th>
-          <td>${props.hardAccelerationCount}</td>
+          <td>${tripData.hardAccelerationCount}</td>
         </tr>
       `;
     }
@@ -1024,9 +1089,7 @@
     // Add trip ID for actions
     html += `
         </table>
-        <div class="trip-actions" data-trip-id="${
-          props.tripId || props.id || props.transactionId
-        }">
+        <div class="trip-actions" data-trip-id="${tripData.id}">
     `;
 
     // Add appropriate action buttons
