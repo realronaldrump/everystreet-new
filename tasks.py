@@ -867,7 +867,9 @@ def preprocess_streets(self) -> Dict[str, Any]:
             # Find areas that need processing
             processing_areas = await coverage_metadata_collection.find(
                 {"status": "processing"}
-            ).to_list(length=20)  # Process in smaller batches
+            ).to_list(
+                length=20
+            )  # Process in smaller batches
 
             processed_count = 0
             error_count = 0
