@@ -1,70 +1,50 @@
-import os
-import json
-import logging
 import asyncio
 import io
+import json
+import logging
+import os
 import uuid
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from math import ceil
-from typing import List, Dict, Any, Optional
-from collections import defaultdict
+from typing import Any, Dict, List, Optional
 
 # Third-party imports
 import aiohttp
-import geopandas as gpd
+import bson
 import geojson as geojson_module
+import geopandas as gpd
+import google.generativeai as genai
 import gpxpy
 import pytz
 from bson import ObjectId
-import bson
 from dateutil import parser as dateutil_parser
 from dotenv import load_dotenv
-from shapely.geometry import LineString, Polygon, shape
-from fastapi import FastAPI, Request, HTTPException, UploadFile, File
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-import google.generativeai as genai
+from fastapi.templating import Jinja2Templates
+from shapely.geometry import LineString, Polygon, shape
 
-# Local module imports
-from update_geo_points import update_geo_points
-from utils import (
-    validate_location_osm,
-    cleanup_session,
-    haversine as haversine_util,
-)
-from trip_processor import TripProcessor, TripState
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
-from preprocess_streets import preprocess_streets as async_preprocess_streets
-from tasks import (
-    TaskStatus,
-    manual_run_task,
-    get_task_config,
-    update_task_schedule,
-    get_all_task_metadata,
-    TASK_METADATA,
-)
-
-
 from db import (
-    db_manager,
     DatabaseManager,
     SerializationHelper,
-    update_many_with_retry,
+    aggregate_with_retry,
+    build_query_from_request,
+    count_documents_with_retry,
+    db_manager,
+    delete_many_with_retry,
+    delete_one_with_retry,
     find_one_with_retry,
     find_with_retry,
-    update_one_with_retry,
-    insert_one_with_retry,
-    delete_one_with_retry,
-    delete_many_with_retry,
-    aggregate_with_retry,
-    count_documents_with_retry,
     get_trip_from_all_collections,
-    parse_query_date,
-    build_query_from_request,
     init_database,
+    insert_one_with_retry,
+    parse_query_date,
+    update_many_with_retry,
+    update_one_with_retry,
 )
-
 from export_helpers import (
     create_export_response,
     default_serializer,
@@ -73,16 +53,35 @@ from export_helpers import (
     extract_date_range_string,
     get_location_filename,
 )
-
+from live_tracking import (
+    get_active_trip,
+    get_trip_updates,
+    handle_bouncie_webhook,
+    initialize_db,
+)
+from preprocess_streets import preprocess_streets as async_preprocess_streets
 from street_coverage_calculation import (
     compute_coverage_for_location,
     compute_incremental_coverage,
 )
-from live_tracking import (
-    initialize_db,
-    handle_bouncie_webhook,
-    get_active_trip,
-    get_trip_updates,
+from tasks import (
+    TASK_METADATA,
+    TaskStatus,
+    get_all_task_metadata,
+    get_task_config,
+    manual_run_task,
+    update_task_schedule,
+)
+from trip_processor import TripProcessor, TripState
+
+# Local module imports
+from update_geo_points import update_geo_points
+from utils import (
+    cleanup_session,
+    validate_location_osm,
+)
+from utils import (
+    haversine as haversine_util,
 )
 
 load_dotenv()
@@ -577,44 +576,60 @@ async def reset_task_states():
     """
     try:
         now = datetime.now(timezone.utc)
-        stuck_threshold = timedelta(hours=2)  # Consider tasks running over 2 hours as stuck
+        stuck_threshold = timedelta(
+            hours=2
+        )  # Consider tasks running over 2 hours as stuck
         reset_count = 0
         skipped_count = 0
-        
+
         # Get current task configuration
         config = await get_task_config()
         tasks_config = config.get("tasks", {})
-        
+
         # Identify actually stuck tasks
         updates = {}
         for task_id, task_info in tasks_config.items():
             if task_info.get("status") != TaskStatus.RUNNING.value:
                 continue
-                
+
             start_time = task_info.get("start_time")
             if not start_time:
                 # No start time but status is RUNNING, consider it stuck
                 updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value
-                updates[f"tasks.{task_id}.last_error"] = "Task reset: status was RUNNING but no start_time found"
+                updates[f"tasks.{task_id}.last_error"] = (
+                    "Task reset: status was RUNNING but no start_time found"
+                )
                 updates[f"tasks.{task_id}.end_time"] = now
                 reset_count += 1
                 continue
-                
+
             # Ensure start_time has timezone info
+            if isinstance(start_time, str):
+                try:
+                    start_time = datetime.fromisoformat(
+                        start_time.replace("Z", "+00:00")
+                    )
+                except ValueError:
+                    start_time = datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S.%f")
+
             if start_time.tzinfo is None:
                 start_time = start_time.replace(tzinfo=timezone.utc)
-                
+
             # Check if task has been running too long
             runtime = now - start_time
             if runtime > stuck_threshold:
                 # Task has been running too long, consider it stuck
                 updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value
-                updates[f"tasks.{task_id}.last_error"] = f"Task reset: running for {runtime.total_seconds()/3600:.2f} hours"
+                updates[f"tasks.{task_id}.last_error"] = (
+                    f"Task reset: running for {runtime.total_seconds() / 3600:.2f} hours"
+                )
                 updates[f"tasks.{task_id}.end_time"] = now
                 reset_count += 1
             else:
                 # Task is running but not considered stuck yet
-                logger.info(f"Task {task_id} is running for {runtime.total_seconds()/60:.2f} minutes, not considered stuck")
+                logger.info(
+                    f"Task {task_id} is running for {runtime.total_seconds() / 60:.2f} minutes, not considered stuck"
+                )
                 skipped_count += 1
 
         # Also check for any history entries stuck in RUNNING state
@@ -622,7 +637,7 @@ async def reset_task_states():
             task_history_collection,
             {
                 "status": TaskStatus.RUNNING.value,
-                "start_time": {"$lt": now - stuck_threshold}
+                "start_time": {"$lt": now - stuck_threshold},
             },
             {
                 "$set": {
@@ -632,7 +647,7 @@ async def reset_task_states():
                 }
             },
         )
-        
+
         # Apply updates to task configuration
         if updates:
             await task_config_collection.update_one(
@@ -644,7 +659,9 @@ async def reset_task_states():
             "message": f"Reset {reset_count} stuck tasks, skipped {skipped_count} running tasks",
             "reset_count": reset_count,
             "skipped_count": skipped_count,
-            "history_reset_count": history_result.modified_count if history_result else 0
+            "history_reset_count": history_result.modified_count
+            if history_result
+            else 0,
         }
     except Exception as e:
         logger.exception("Error resetting task states")
@@ -682,12 +699,18 @@ async def background_tasks_sse(request: Request):
     """
     Provides server-sent events for real-time task status updates.
     """
+
     async def event_generator():
         try:
             while True:
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    logger.info("SSE client disconnected")
+                    break
+
                 # Get latest task config
                 config = await get_task_config()
-                
+
                 # Format task status updates
                 updates = {}
                 for task_id, task_config in config.get("tasks", {}).items():
@@ -697,12 +720,18 @@ async def background_tasks_sse(request: Request):
                         "last_updated": SerializationHelper.serialize_datetime(
                             task_config.get("last_updated")
                         ),
+                        "last_run": SerializationHelper.serialize_datetime(
+                            task_config.get("last_run")
+                        ),
+                        "next_run": SerializationHelper.serialize_datetime(
+                            task_config.get("next_run")
+                        ),
                         "last_error": task_config.get("last_error"),
                     }
-                
+
                 # Send formatted update
                 yield f"data: {json.dumps(updates)}\n\n"
-                
+
                 # Wait before checking again
                 await asyncio.sleep(2)
         except asyncio.CancelledError:
@@ -711,15 +740,16 @@ async def background_tasks_sse(request: Request):
         except Exception as e:
             logger.error(f"Error in SSE generator: {e}")
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
-    
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-        }
+        },
     )
+
 
 @app.put("/api/trips/{trip_id}")
 async def update_trip(trip_id: str, request: Request):

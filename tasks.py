@@ -144,6 +144,7 @@ class TaskStatusManager:
     ):
         """Update task status with async-friendly implementation."""
         async with self._lock:
+            client = None
             try:
                 now = datetime.now(timezone.utc)
                 update_data = {
@@ -153,6 +154,7 @@ class TaskStatusManager:
 
                 if status == TaskStatus.COMPLETED.value:
                     update_data[f"tasks.{task_id}.last_run"] = now
+                    update_data[f"tasks.{task_id}.end_time"] = now
                     # Calculate next run based on interval
                     config = await get_task_config()
                     task_config = config.get("tasks", {}).get(task_id, {})
@@ -168,6 +170,7 @@ class TaskStatusManager:
                 elif status == TaskStatus.FAILED.value:
                     update_data[f"tasks.{task_id}.last_error"] = error
                     update_data[f"tasks.{task_id}.last_run"] = now
+                    update_data[f"tasks.{task_id}.end_time"] = now
 
                 elif status == TaskStatus.RUNNING.value:
                     update_data[f"tasks.{task_id}.start_time"] = now
@@ -182,11 +185,13 @@ class TaskStatusManager:
                     upsert=True,
                 )
 
-                client.close()
                 return True
             except Exception as e:
                 logger.exception(f"Error updating task status: {e}")
                 return False
+            finally:
+                if client:
+                    client.close()
 
     def sync_update_status(
         self, task_id: str, status: str, error: Optional[str] = None
@@ -219,6 +224,7 @@ class TaskStatusManager:
     @staticmethod
     def _fallback_sync_update(task_id: str, status: str, error: Optional[str] = None):
         """Emergency fallback using direct MongoDB connection."""
+        client = None
         try:
             client = get_mongo_client()
             db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
@@ -232,8 +238,10 @@ class TaskStatusManager:
             if status == TaskStatus.FAILED.value:
                 update_data[f"tasks.{task_id}.last_error"] = error
                 update_data[f"tasks.{task_id}.last_run"] = now
+                update_data[f"tasks.{task_id}.end_time"] = now
             elif status == TaskStatus.COMPLETED.value:
                 update_data[f"tasks.{task_id}.last_run"] = now
+                update_data[f"tasks.{task_id}.end_time"] = now
             elif status == TaskStatus.RUNNING.value:
                 update_data[f"tasks.{task_id}.start_time"] = now
 
@@ -242,9 +250,14 @@ class TaskStatusManager:
                 {"$set": update_data},
                 upsert=True,
             )
-            client.close()
         except Exception as e:
             logger.error(f"Emergency fallback for task {task_id} failed: {e}")
+        finally:
+            if client:
+                try:
+                    client.close()
+                except Exception as e:
+                    logger.error(f"Error closing MongoDB client in fallback: {e}")
 
 
 # Database connection pooling manager
@@ -586,14 +599,7 @@ async def get_task_config() -> Dict[str, Any]:
 
 
 async def check_dependencies(task_id: str) -> Dict[str, Any]:
-    """Check if a task's dependencies are satisfied before running it.
-
-    Args:
-        task_id: ID of the task to check
-
-    Returns:
-        Dict with 'can_run' boolean and 'reason' string if can_run is False
-    """
+    """Check if a task's dependencies are satisfied before running it."""
     client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
     try:
         # Get task dependencies
@@ -662,13 +668,7 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
 async def update_task_status_async(
     task_id: str, status: str, error: Optional[str] = None
 ):
-    """Update the status of a task in the database.
-
-    Args:
-        task_id: ID of the task to update
-        status: New status for the task
-        error: Optional error message if status is FAILED
-    """
+    """Update the status of a task in the database."""
     status_manager = TaskStatusManager.get_instance()
     await status_manager.update_status(task_id, status, error)
 
@@ -681,16 +681,7 @@ async def update_task_history(
     result: Any = None,
     error: Optional[str] = None,
 ):
-    """Add a new entry to the task history collection.
-
-    Args:
-        task_id: ID of the task
-        status: Status of the task
-        manual_run: Whether this was a manual run
-        celery_task_id: Optional Celery task ID
-        result: Optional result data
-        error: Optional error message
-    """
+    """Add a new entry to the task history collection."""
     client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
     db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
     task_history_collection = db["task_history"]
@@ -876,9 +867,7 @@ def preprocess_streets(self) -> Dict[str, Any]:
             # Find areas that need processing
             processing_areas = await coverage_metadata_collection.find(
                 {"status": "processing"}
-            ).to_list(
-                length=20
-            )  # Process in smaller batches
+            ).to_list(length=20)  # Process in smaller batches
 
             processed_count = 0
             error_count = 0
@@ -1287,9 +1276,7 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
         try:
             # Check dependencies
             dependency_check = await check_dependencies("remap_unmatched_trips")
-            if not dependency_check.get(
-                "can_run", False
-            ):  # Fixed bug: properly check can_run
+            if not dependency_check["can_run"]:  # Fixed bug: properly check can_run
                 logger.info(
                     f"Deferring remap_unmatched_trips: {dependency_check.get('reason', 'Unknown reason')}"
                 )

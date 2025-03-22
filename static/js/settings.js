@@ -103,10 +103,8 @@
 
               // Update last run time
               const lastRunCell = row.querySelector(".task-last-run");
-              if (lastRunCell && update.last_updated) {
-                lastRunCell.textContent = this.formatDateTime(
-                  update.last_updated
-                );
+              if (lastRunCell && update.last_run) {
+                lastRunCell.textContent = this.formatDateTime(update.last_run);
               }
 
               // Update next run time
@@ -142,39 +140,62 @@
       for (const [taskId, taskData] of Object.entries(updates)) {
         if (taskData.status === "RUNNING") {
           runningTasks.add(taskId);
+          // Track when task started running
           if (!this.activeTasksMap.has(taskId)) {
-            this.activeTasksMap.set(taskId, "RUNNING");
+            this.activeTasksMap.set(taskId, {
+              status: "RUNNING",
+              startTime: new Date(),
+            });
+
+            // Notify about task start
+            const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
+            if (row) {
+              const displayName =
+                row.querySelector(".task-name-display")?.textContent || taskId;
+              this.notifier.show(
+                "Task Started",
+                `Task ${displayName} is now running`,
+                "info"
+              );
+            }
           }
         }
       }
 
       // Check for tasks that have finished
-      for (const [taskId, status] of this.activeTasksMap.entries()) {
+      for (const [taskId, taskState] of this.activeTasksMap.entries()) {
         if (!runningTasks.has(taskId) && updates[taskId]) {
           const taskStatus = updates[taskId].status;
           if (taskStatus !== "RUNNING") {
-            this.activeTasksMap.delete(taskId);
-
             // Don't notify if task wasn't previously known to be running
-            if (status !== "RUNNING") continue;
+            if (taskState.status === "RUNNING") {
+              // Notify about task completion
+              const row = document.querySelector(
+                `tr[data-task-id="${taskId}"]`
+              );
+              if (row) {
+                const displayName =
+                  row.querySelector(".task-name-display")?.textContent ||
+                  taskId;
+                if (taskStatus === "COMPLETED" || taskStatus === "FAILED") {
+                  const type =
+                    taskStatus === "COMPLETED" ? "success" : "danger";
+                  const runTime = Math.round(
+                    (new Date() - taskState.startTime) / 1000
+                  );
+                  const message =
+                    taskStatus === "COMPLETED"
+                      ? `Task ${displayName} completed successfully in ${runTime}s`
+                      : `Task ${displayName} failed: ${
+                          updates[taskId].last_error || "Unknown error"
+                        }`;
 
-            // Notify about task completion
-            const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
-            if (row) {
-              const displayName =
-                row.querySelector(".task-name-display")?.textContent || taskId;
-              if (taskStatus === "COMPLETED" || taskStatus === "FAILED") {
-                const type = taskStatus === "COMPLETED" ? "success" : "danger";
-                const message =
-                  taskStatus === "COMPLETED"
-                    ? `Task ${displayName} completed successfully`
-                    : `Task ${displayName} failed: ${
-                        updates[taskId].last_error || "Unknown error"
-                      }`;
-
-                this.notifier.show(taskStatus, message, type);
+                  this.notifier.show(taskStatus, message, type);
+                }
               }
             }
+
+            this.activeTasksMap.delete(taskId);
           }
         }
       }
@@ -236,12 +257,19 @@
       for (const [taskId, taskConfig] of Object.entries(config.tasks)) {
         if (taskConfig.status === "RUNNING") {
           runningTasks.add(taskId);
+          // Add newly running tasks with timestamp
+          if (!this.activeTasksMap.has(taskId)) {
+            this.activeTasksMap.set(taskId, {
+              status: "RUNNING",
+              startTime: new Date(),
+            });
+          }
         }
       }
 
       // Check for tasks that have recently finished
       const recentlyFinished = [];
-      for (const [taskId, status] of this.activeTasksMap.entries()) {
+      for (const [taskId, taskState] of this.activeTasksMap.entries()) {
         if (!runningTasks.has(taskId)) {
           recentlyFinished.push(taskId);
         }
@@ -254,13 +282,16 @@
 
         // Only notify on transitions from RUNNING to COMPLETED/FAILED
         if (
-          this.activeTasksMap.get(taskId) === "RUNNING" &&
+          this.activeTasksMap.get(taskId).status === "RUNNING" &&
           (status === "COMPLETED" || status === "FAILED")
         ) {
           const type = status === "COMPLETED" ? "success" : "danger";
+          const runTime = Math.round(
+            (new Date() - this.activeTasksMap.get(taskId).startTime) / 1000
+          );
           const message =
             status === "COMPLETED"
-              ? `Task ${displayName} completed successfully`
+              ? `Task ${displayName} completed successfully in ${runTime}s`
               : `Task ${displayName} failed: ${
                   config.tasks[taskId]?.last_error || "Unknown error"
                 }`;
@@ -269,13 +300,6 @@
         }
 
         this.activeTasksMap.delete(taskId);
-      }
-
-      // Add newly running tasks
-      for (const taskId of runningTasks) {
-        if (!this.activeTasksMap.has(taskId)) {
-          this.activeTasksMap.set(taskId, "RUNNING");
-        }
       }
     }
 
@@ -622,7 +646,11 @@
           }
 
           // If we get here, task started successfully
-          this.activeTasksMap.set(taskId, "RUNNING");
+          this.activeTasksMap.set(taskId, {
+            status: "RUNNING",
+            startTime: new Date(),
+          });
+
           this.notifier.show(
             "Task Started",
             `Task ${taskId} has been started`,
@@ -925,7 +953,6 @@
       }
     }
 
-    // Clean up resources when page is unloaded
     showDependencyErrorModal(taskId, errorMessage) {
       // Create modal if it doesn't exist
       let modal = document.getElementById("dependencyErrorModal");
