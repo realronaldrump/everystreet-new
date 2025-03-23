@@ -3686,8 +3686,6 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    # Note: task_manager.stop() removed since Celery workers
-    # are managed separately in Railway services
 
     # Close database connections to free memory
     await db_manager.cleanup_connections()
