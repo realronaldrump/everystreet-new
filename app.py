@@ -14,7 +14,6 @@ import aiohttp
 import bson
 import geojson as geojson_module
 import geopandas as gpd
-import google.generativeai as genai
 import gpxpy
 import pytz
 from bson import ObjectId
@@ -659,9 +658,9 @@ async def reset_task_states():
             "message": f"Reset {reset_count} stuck tasks, skipped {skipped_count} running tasks",
             "reset_count": reset_count,
             "skipped_count": skipped_count,
-            "history_reset_count": history_result.modified_count
-            if history_result
-            else 0,
+            "history_reset_count": (
+                history_result.modified_count if history_result else 0
+            ),
         }
     except Exception as e:
         logger.exception("Error resetting task states")
@@ -1969,9 +1968,11 @@ async def get_matched_trips(request: Request):
                         "startLocation": trip.get("startLocation", "N/A"),
                         # Add speed metrics for consistent display in popups
                         "maxSpeed": float(trip.get("maxSpeed", 0)),
-                        "averageSpeed": float(trip.get("averageSpeed", 0))
-                        if trip.get("averageSpeed") is not None
-                        else None,
+                        "averageSpeed": (
+                            float(trip.get("averageSpeed", 0))
+                            if trip.get("averageSpeed") is not None
+                            else None
+                        ),
                         # Add any other relevant metrics that should be displayed consistently
                         "hardBrakingCount": trip.get("hardBrakingCount", 0),
                         "hardAccelerationCount": trip.get("hardAccelerationCount", 0),
@@ -4344,201 +4345,6 @@ async def create_csv_export(
         writer.writerow(flat_trip)
 
     return output.getvalue()
-
-
-@app.get("/ai-insights", response_class=HTMLResponse)
-async def ai_insights_page(request: Request):
-    """Render the AI-powered insights page"""
-    return templates.TemplateResponse(
-        "ai_insights.html", {"request": request, "environ": os.environ}
-    )
-
-
-@app.get("/api/ai-insights", response_class=JSONResponse)
-async def get_ai_insights(request: Request):
-    try:
-        # Get date range from request, similar to other analytics endpoints
-        query = await build_query_from_request(request)
-
-        # Fetch trip data from both collections using the query
-        regular_future = find_with_retry(trips_collection, query)
-        uploaded_future = find_with_retry(uploaded_trips_collection, query)
-        regular, uploaded = await asyncio.gather(regular_future, uploaded_future)
-
-        all_trips = regular + uploaded
-
-        # Format data for AI analysis
-        trip_data = []
-        for trip in all_trips:
-            # Extract key information
-            try:
-                st = trip.get("startTime")
-                et = trip.get("endTime")
-
-                if not st or not et:
-                    continue
-
-                # Parse datetime fields if needed
-                if isinstance(st, str):
-                    st = dateutil_parser.isoparse(st)
-                if isinstance(et, str):
-                    et = dateutil_parser.isoparse(et)
-                if st.tzinfo is None:
-                    st = st.replace(tzinfo=timezone.utc)
-                if et.tzinfo is None:
-                    et = et.replace(tzinfo=timezone.utc)
-
-                # Create a simplified trip record
-                trip_record = {
-                    "transaction_id": trip.get("transactionId", "unknown"),
-                    "start_time": st.isoformat(),
-                    "end_time": et.isoformat(),
-                    "start_location": trip.get("startLocation", "Unknown"),
-                    "destination": trip.get("destination", "Unknown"),
-                    "distance": float(trip.get("distance", 0)),
-                    "max_speed": float(trip.get("maxSpeed", 0)),
-                    "average_speed": (
-                        float(trip.get("averageSpeed", 0))
-                        if trip.get("averageSpeed")
-                        else 0
-                    ),
-                    "idle_duration": trip.get("totalIdleDuration", 0),
-                    "fuel_consumed": float(trip.get("fuelConsumed", 0)),
-                    "hard_braking_count": (
-                        int(trip.get("hardBrakingCount", 0))
-                        if trip.get("hardBrakingCount")
-                        else 0
-                    ),
-                    "hard_acceleration_count": (
-                        int(trip.get("hardAccelerationCount", 0))
-                        if trip.get("hardAccelerationCount")
-                        else 0
-                    ),
-                }
-
-                # Extract coordinates if available
-                geom = trip.get("gps")
-                if isinstance(geom, str):
-                    geom = json.loads(geom)
-
-                if geom and isinstance(geom, dict) and geom.get("type") == "LineString":
-                    trip_record["coordinates"] = geom.get("coordinates", [])
-
-                trip_data.append(trip_record)
-            except Exception as e:
-                logger.warning(f"Error processing trip for AI analysis: {str(e)}")
-                continue
-
-        # Get insights from Google Gemini API
-        ai_insights = await get_gemini_insights(trip_data)
-
-        # Return combined data
-        return JSONResponse(
-            content={"trip_data": trip_data, "ai_insights": ai_insights}
-        )
-    except Exception as e:
-        logger.exception("Error in get_ai_insights")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-async def get_gemini_insights(trip_data):
-    """Process trip data with Google Gemini to get insights"""
-    try:
-        # Configure the Gemini API with your key
-        genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
-
-        # If no trips, return empty insights
-        if not trip_data:
-            return {
-                "summary": "No trip data available for the selected time period.",
-                "driving_patterns": [],
-                "efficiency_tips": [],
-                "route_insights": [],
-                "safety_insights": [],
-            }
-
-        # Prepare data for Gemini
-        prompt = f"""
-        You are an advanced geospatial and location intelligence analyst tasked with discovering deep, meaningful patterns in driving data. Analyze the following trip data and provide sophisticated insights that would be impossible for a human to discern without machine learning algorithms. 
-        
-        IMPORTANT: Focus EXCLUSIVELY on location patterns, spatial relationships, temporal patterns, and route optimization. DO NOT include any analysis related to braking, acceleration, or other vehicle performance metrics as these are not reliable in this dataset.
-        
-        Trip data: {json.dumps(trip_data, indent=2)}
-        
-        Provide insights in these specific categories:
-        
-        1. SUMMARY: Create a comprehensive, data-driven summary of the overall driving patterns, identifying key locations, frequency of visits, and time patterns. Include specific locations, frequencies, and measurable patterns.
-        
-        2. LOCATION PATTERNS: Identify surprising or non-obvious location-based patterns, such as:
-           - Clusters of frequently visited locations
-           - Temporal patterns in location visits (time of day, day of week patterns)
-           - Potential correlations between locations visited
-           - Hidden "hub and spoke" patterns in movement
-           - Geographic boundaries or "territories" of movement
-
-        3. ROUTE OPTIMIZATION OPPORTUNITIES: Provide specific, data-driven route optimization suggestions based on:
-           - Redundant or overlapping route segments
-           - Traffic pattern analysis based on time/location data
-           - Potential route consolidation opportunities
-           - Specific shortcuts or alternate routes with precise location references
-           - Time-sensitive optimizations (e.g., different optimal routes at different times)
-        
-        4. PREDICTIVE INSIGHTS: Use the spatial and temporal patterns to make specific predictions:
-           - Future likely destinations based on time, day, and starting point
-           - Optimal departure times for common routes
-           - Location-based correlations and relationships
-           - Potential "missing" locations that fit the pattern but haven't been visited
-        
-        Format the response as a JSON object with the following structure:
-        {{
-            "summary": "Detailed, location-specific summary of the driving data",
-            "driving_patterns": ["specific pattern 1 with locations and frequencies", "specific pattern 2 with locations and frequencies", ...],
-            "route_insights": ["specific route insight 1 with exact locations", "specific route insight 2 with exact locations", ...],
-            "predictive_insights": ["specific prediction 1 with actionable detail", "specific prediction 2 with actionable detail", ...]
-        }}
-        
-        Make all insights HIGHLY SPECIFIC and DATA-DRIVEN:
-        - Include exact location names, frequencies, and measurable patterns
-        - Avoid generic advice like "reduce idle time" or "maintain consistent speed"
-        - Focus on non-obvious insights that would require machine learning to discover
-        - Provide actionable intelligence, not surface-level observations
-        - When suggesting route optimizations, reference specific roads, intersections, or shortcuts
-        
-        Only include the JSON in your response, no other text.
-        """
-
-        # Generate content with Gemini
-        model = genai.GenerativeModel("gemini-2.0-flash")
-        response = model.generate_content(prompt)
-
-        # Parse the response
-        try:
-            content_text = response.text
-            # Clean up the response in case it contains markdown code blocks
-            if "```json" in content_text:
-                content_text = content_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in content_text:
-                content_text = content_text.split("```")[1].split("```")[0].strip()
-
-            insights = json.loads(content_text)
-            return insights
-        except json.JSONDecodeError:
-            # Fallback if JSON parsing fails
-            logger.warning("Failed to parse Gemini response as JSON")
-            return {
-                "summary": "AI analysis unavailable at this time.",
-                "driving_patterns": ["Data analysis incomplete"],
-                "route_insights": ["Route analysis unavailable"],
-                "predictive_insights": ["Predictive analysis unavailable"],
-            }
-    except Exception as e:
-        logger.exception("Error in get_gemini_insights: %s", str(e))
-        return {
-            "summary": "AI analysis encountered an error.",
-            "driving_patterns": ["Data analysis incomplete due to an error"],
-            "route_insights": ["Route analysis unavailable"],
-            "predictive_insights": ["Predictive analysis unavailable"],
-        }
 
 
 if __name__ == "__main__":
