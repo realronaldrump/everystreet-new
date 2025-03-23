@@ -297,17 +297,17 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
         }
 
         await live_trips_collection.insert_one(trip_doc)
-        logger.info(f"Created new trip for existing trip data: {transaction_id}")
+        logger.info("Created new trip for existing trip data: %s", transaction_id)
 
     # Process trip data
     if "data" not in data:
-        logger.warning(f"No data in tripData event for {transaction_id}")
+        logger.warning("No data in tripData event for %s", transaction_id)
         return
 
     # First process the coordinates using the existing function
     new_coords = sort_and_filter_trip_coordinates(data["data"])
     if not new_coords:
-        logger.warning(f"No valid coordinates in tripData event for {transaction_id}")
+        logger.warning("No valid coordinates in tripData event for %s", transaction_id)
         return
 
     # Update with the current coordinates
@@ -386,7 +386,9 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
             "$set": {
                 "coordinates": all_coords,
                 "lastUpdate": (
-                    all_coords[-1]["timestamp"] if all_coords else trip_doc["startTime"]
+                    all_coords[-1]["timestamp"]
+                    if all_coords
+                    else trip_doc["startTime"]
                 ),
                 "distance": total_distance,
                 "currentSpeed": current_speed,
@@ -432,7 +434,7 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
 
     trip = await live_trips_collection.find_one({"transactionId": transaction_id})
     if not trip:
-        logger.warning(f"Received tripEnd event for unknown trip: {transaction_id}")
+        logger.warning("Received tripEnd event for unknown trip: %s", transaction_id)
         return
 
     trip_id = trip["_id"]
@@ -471,9 +473,9 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     success = await run_transaction([archive_operation, delete_operation])
 
     if success:
-        logger.info(f"Trip {transaction_id} successfully archived")
+        logger.info("Trip %s successfully archived", transaction_id)
     else:
-        logger.error(f"Transaction failed when archiving trip {transaction_id}")
+        logger.error("Transaction failed when archiving trip %s", transaction_id)
 
 
 async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
@@ -535,7 +537,9 @@ async def get_active_trip(since_sequence: Optional[int] = None) -> Dict[str, Any
         query["sequence"] = {"$gt": since_sequence}
 
     # Try to find an active trip
-    active_trip = await live_trips_collection.find_one(query, sort=[("lastUpdate", -1)])
+    active_trip = await live_trips_collection.find_one(
+        query, sort=[("lastUpdate", -1)]
+    )
 
     if active_trip:
         logger.info(
@@ -593,9 +597,7 @@ async def cleanup_stale_trips(
         # Find all stale trips
         stale_trips = await live_trips_collection.find(
             {"lastUpdate": {"$lt": stale_threshold}, "status": "active"}
-        ).to_list(
-            length=100
-        )  # Limit to avoid potential memory issues
+        ).to_list(length=100)  # Limit to avoid potential memory issues
 
         for trip in stale_trips:
             trip_id = trip.get("_id")
@@ -626,9 +628,9 @@ async def cleanup_stale_trips(
 
             if success:
                 cleanup_count += 1
-                logger.info(f"Archived stale trip: {transaction_id}")
+                logger.info("Archived stale trip: %s", transaction_id)
             else:
-                logger.error(f"Failed to archive stale trip: {transaction_id}")
+                logger.error("Failed to archive stale trip: %s", transaction_id)
 
         # Also cleanup old archived trips
         old_archive_result = await archived_live_trips_collection.delete_many(
@@ -642,9 +644,9 @@ async def cleanup_stale_trips(
             )
 
     except Exception as e:
-        logger.exception(f"Error during stale trip cleanup: {str(e)}")
+        logger.exception("Error during stale trip cleanup: %s", str(e))
 
-    logger.info(f"Cleaned up {cleanup_count} stale trips")
+    logger.info("Cleaned up %s stale trips", cleanup_count)
     return {
         "stale_trips_archived": cleanup_count,
         "old_archives_removed": archive_cleanup_count,

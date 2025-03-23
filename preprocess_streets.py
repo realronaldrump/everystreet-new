@@ -90,7 +90,9 @@ async def fetch_osm_data(
         except aiohttp.ClientError as e:
             current_try += 1
             if current_try >= retry_count:
-                logger.error(f"Failed to fetch OSM data after {retry_count} tries: {e}")
+                logger.error(
+                    "Failed to fetch OSM data after %s tries: %s", retry_count, e
+                )
                 raise
             logger.warning(
                 f"Error fetching OSM data (attempt {current_try}): {e}. Retrying..."
@@ -304,7 +306,9 @@ async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -
                         f"Batch {batch_idx + 1} processing timed out, continuing with next batch"
                     )
                 except Exception as e:
-                    logger.error(f"Error processing batch {batch_idx + 1}: {str(e)}")
+                    logger.error(
+                        "Error processing batch %s: %s", batch_idx + 1, str(e)
+                    )
 
         # Update coverage metadata once at the end
         if features:
@@ -331,7 +335,7 @@ async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -
             )
 
     except Exception as e:
-        logger.error(f"Error in process_osm_data: {str(e)}", exc_info=True)
+        logger.error("Error in process_osm_data: %s", str(e), exc_info=True)
         raise
 
 
@@ -402,7 +406,8 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
             return
 
         logger.info(
-            "Street preprocessing completed for %s.", validated_location["display_name"]
+            "Street preprocessing completed for %s.",
+            validated_location["display_name"],
         )
 
     except Exception as e:

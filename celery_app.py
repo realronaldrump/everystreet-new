@@ -78,7 +78,7 @@ def get_redis_connection_with_retry():
                 f"Redis connection failed (attempt {retry_count}/{MAX_RETRIES}): {e}"
             )
             if retry_count < MAX_RETRIES:
-                logger.info(f"Retrying Redis connection in {RETRY_DELAY} seconds...")
+                logger.info("Retrying Redis connection in %s seconds...", RETRY_DELAY)
                 time.sleep(RETRY_DELAY)
             else:
                 logger.error(
@@ -86,7 +86,7 @@ def get_redis_connection_with_retry():
                 )
                 raise  # Re-raise the exception to prevent Celery from starting without Redis
         except Exception as e:
-            logger.error(f"Unexpected error during Redis connection attempt: {e}")
+            logger.error("Unexpected error during Redis connection attempt: %s", e)
             raise  # Re-raise unexpected exceptions
 
 
@@ -208,7 +208,9 @@ app.conf.update(
 # --- Signal Handlers for Logging and Error Management ---
 @signals.task_failure.connect
 def task_failure_handler(sender=None, task_id=None, exception=None, **kwargs):
-    logger.error(f"Task {task_id} failed: {exception}")  # More informative error log
+    logger.error(
+        "Task %s failed: %s", task_id, exception
+    )  # More informative error log
 
 
 @signals.worker_ready.connect
@@ -225,7 +227,9 @@ def worker_shutdown_handler(**kwargs):
 
 @signals.beat_init.connect
 def beat_init_handler(**kwargs):
-    logger.info("Celery beat scheduler initialized and started.")  # Indicate beat start
+    logger.info(
+        "Celery beat scheduler initialized and started."
+    )  # Indicate beat start
 
 
 @signals.setup_logging.connect
@@ -240,7 +244,7 @@ def worker_init(**kwargs):
     from datetime import datetime, timezone
 
     current_time = datetime.now(timezone.utc)
-    logger.info(f"Worker starting at UTC time: {current_time.isoformat()}")
+    logger.info("Worker starting at UTC time: %s", current_time.isoformat())
 
 
 # --- Run Celery App (for development/testing - not typically used in production deployments) ---

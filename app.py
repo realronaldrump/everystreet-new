@@ -254,7 +254,9 @@ async def app_settings_page(request: Request):
 @app.middleware("http")
 async def add_header(request: Request, call_next):
     response = await call_next(request)
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Cache-Control"] = (
+        "no-store, no-cache, must-revalidate, max-age=0"
+    )
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
@@ -513,7 +515,7 @@ async def get_task_details(task_id: str):
             "history": history,
         }
     except Exception as e:
-        logger.exception(f"Error getting task details for {task_id}")
+        logger.exception("Error getting task details for %s", task_id)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -539,7 +541,9 @@ async def get_task_history(page: int = 1, limit: int = 10):
                 entry.get("timestamp")
             )
             if "runtime" in entry:
-                entry["runtime"] = float(entry["runtime"]) if entry["runtime"] else None
+                entry["runtime"] = (
+                    float(entry["runtime"]) if entry["runtime"] else None
+                )
             history.append(entry)
 
         return {
@@ -737,7 +741,7 @@ async def background_tasks_sse(request: Request):
             # Handle disconnection
             logger.info("SSE connection closed")
         except Exception as e:
-            logger.error(f"Error in SSE generator: {e}")
+            logger.error("Error in SSE generator: %s", e)
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(
@@ -958,10 +962,10 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                 },
             )
 
-            logger.info(f"Coverage calculation completed for {display_name}")
+            logger.info("Coverage calculation completed for %s", display_name)
         else:
             error_msg = "No result returned from coverage calculation"
-            logger.error(f"Coverage calculation error: {error_msg}")
+            logger.error("Coverage calculation error: %s", error_msg)
 
             await coverage_metadata_collection.update_one(
                 {"location.display_name": display_name},
@@ -988,7 +992,9 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str):
                 },
             )
     except Exception as e:
-        logger.exception(f"Error in coverage calculation for task {task_id}: {str(e)}")
+        logger.exception(
+            "Error in coverage calculation for task %s: %s", task_id, str(e)
+        )
 
         try:
             display_name = location.get("display_name", "Unknown")
@@ -1055,7 +1061,9 @@ async def get_incremental_street_coverage(request: Request):
             raise HTTPException(status_code=400, detail="Invalid location data.")
 
         task_id = str(uuid.uuid4())
-        asyncio.create_task(process_incremental_coverage_calculation(location, task_id))
+        asyncio.create_task(
+            process_incremental_coverage_calculation(location, task_id)
+        )
         return {"task_id": task_id, "status": "processing"}
     except Exception as e:
         logger.exception("Error in incremental street coverage calculation.")
@@ -1118,7 +1126,7 @@ async def process_incremental_coverage_calculation(
             )
         else:
             error_msg = "Failed to calculate incremental coverage"
-            logger.error(f"Coverage calculation error: {error_msg}")
+            logger.error("Coverage calculation error: %s", error_msg)
 
             await coverage_metadata_collection.update_one(
                 {"location.display_name": display_name},
@@ -1142,7 +1150,7 @@ async def process_incremental_coverage_calculation(
                 },
             )
     except Exception as e:
-        logger.exception(f"Error in incremental coverage calculation: {str(e)}")
+        logger.exception("Error in incremental coverage calculation: %s", str(e))
 
         try:
             # Update with error information
@@ -1168,7 +1176,7 @@ async def process_incremental_coverage_calculation(
                 },
             )
         except Exception as update_error:
-            logger.error(f"Failed to update status after error: {update_error}")
+            logger.error("Failed to update status after error: %s", update_error)
 
 
 # TRIPS (REGULAR, UPLOADED)
@@ -1328,7 +1336,8 @@ async def get_driving_insights(request: Request):
                 )
                 combined["total_idle_duration"] += r.get("total_idle_duration", 0)
                 combined["longest_trip_distance"] = max(
-                    combined["longest_trip_distance"], r.get("longest_trip_distance", 0)
+                    combined["longest_trip_distance"],
+                    r.get("longest_trip_distance", 0),
                 )
 
         # Process most visited
@@ -1534,7 +1543,7 @@ async def process_single_trip(trip_id: str, request: Request):
                 "saved_id": saved_id,
             }
     except Exception as e:
-        logger.exception(f"Error processing trip {trip_id}")
+        logger.exception("Error processing trip %s", trip_id)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1680,7 +1689,7 @@ async def get_trip_status(trip_id: str):
 
         return status_info
     except Exception as e:
-        logger.exception(f"Error getting trip status for {trip_id}")
+        logger.exception("Error getting trip status for %s", trip_id)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2091,7 +2100,7 @@ async def export_single_trip(trip_id: str, request: Request):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.exception(f"Error exporting trip {trip_id}")
+        logger.exception("Error exporting trip %s", trip_id)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2995,7 +3004,8 @@ async def handle_places(request: Request):
     if request.method == "GET":
         places = await find_with_retry(places_collection, {})
         return [
-            {"_id": str(p["_id"]), **CustomPlace.from_dict(p).to_dict()} for p in places
+            {"_id": str(p["_id"]), **CustomPlace.from_dict(p).to_dict()}
+            for p in places
         ]
 
     data = await request.json()
@@ -3202,7 +3212,9 @@ async def get_trips_for_place(place_id: str):
                 if prev_trip_end and prev_trip_end.tzinfo is None:
                     prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
                 if prev_trip_end and end_time > prev_trip_end:
-                    hrs_since_last = (end_time - prev_trip_end).total_seconds() / 3600.0
+                    hrs_since_last = (
+                        end_time - prev_trip_end
+                    ).total_seconds() / 3600.0
                     time_since_last_str = f"{hrs_since_last:.2f} hours"
 
             trips_data.append(
@@ -3445,7 +3457,9 @@ async def active_trip_endpoint():
         }
     except Exception as e:
         error_id = str(uuid.uuid4())
-        logger.exception("Error in get_active_trip endpoint [%s]: %s", error_id, str(e))
+        logger.exception(
+            "Error in get_active_trip endpoint [%s]: %s", error_id, str(e)
+        )
         return {
             "status": "error",
             "has_active_trip": False,
@@ -3601,7 +3615,9 @@ async def delete_coverage_area(request: Request):
 
         display_name = location.get("display_name")
         if not display_name:
-            raise HTTPException(status_code=400, detail="Invalid location display name")
+            raise HTTPException(
+                status_code=400, detail="Invalid location display name"
+            )
 
         delete_result = await delete_one_with_retry(
             coverage_metadata_collection, {"location.display_name": display_name}
@@ -3632,7 +3648,9 @@ async def cancel_coverage_area(request: Request):
 
         display_name = location.get("display_name")
         if not display_name:
-            raise HTTPException(status_code=400, detail="Invalid location display name")
+            raise HTTPException(
+                status_code=400, detail="Invalid location display name"
+            )
 
         await update_one_with_retry(
             coverage_metadata_collection,
@@ -3686,7 +3704,6 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-
     # Close database connections to free memory
     await db_manager.cleanup_connections()
 
@@ -3755,7 +3772,7 @@ async def get_coverage_area_details(location_id: str):
             )
 
         if not coverage_doc:
-            logger.error(f"Coverage area not found for id: {location_id}")
+            logger.error("Coverage area not found for id: %s", location_id)
             return {"success": False, "error": "Coverage area not found"}
 
         # Extract basic info

@@ -212,7 +212,7 @@ class CoverageCalculator:
             )
 
         except Exception as e:
-            logger.error(f"Error in build_spatial_index: {str(e)}", exc_info=True)
+            logger.error("Error in build_spatial_index: %s", str(e), exc_info=True)
             await self.update_progress(
                 "error", 0, f"Error building spatial index: {str(e)}", error=str(e)
             )
@@ -308,11 +308,11 @@ class CoverageCalculator:
                 if batch_num % 5 == 0:
                     gc.collect()
 
-            logger.info(f"Boundary calculation completed after {batch_num} batches")
+            logger.info("Boundary calculation completed after %s batches", batch_num)
             return box(*bounds) if bounds else box(0, 0, 0, 0)
 
         except Exception as e:
-            logger.error(f"Error in calculate_boundary_box: {str(e)}", exc_info=True)
+            logger.error("Error in calculate_boundary_box: %s", str(e), exc_info=True)
             await self.update_progress(
                 "error", 0, f"Error calculating boundary: {str(e)}", error=str(e)
             )
@@ -640,7 +640,7 @@ class CoverageCalculator:
                 streets_cursor = streets_collection.find(streets_query)
                 await self.build_spatial_index(streets_cursor)
             except Exception as e:
-                logger.error(f"Error building spatial index: {str(e)}", exc_info=True)
+                logger.error("Error building spatial index: %s", str(e), exc_info=True)
                 await self.update_progress("error", 0, f"Error: {str(e)}")
                 return None
 
@@ -649,7 +649,7 @@ class CoverageCalculator:
                 streets_cursor = streets_collection.find(streets_query)
                 self.boundary_box = await self.calculate_boundary_box(streets_cursor)
             except Exception as e:
-                logger.error(f"Error calculating boundary: {str(e)}", exc_info=True)
+                logger.error("Error calculating boundary: %s", str(e), exc_info=True)
                 await self.update_progress("error", 0, f"Error: {str(e)}")
                 return None
 
@@ -697,7 +697,7 @@ class CoverageCalculator:
             try:
                 self.total_trips = await trips_collection.count_documents(trip_filter)
             except Exception as e:
-                logger.error(f"Error counting trips: {str(e)}", exc_info=True)
+                logger.error("Error counting trips: %s", str(e), exc_info=True)
                 self.total_trips = 0  # Continue with a default
 
             # Process trips in batches
@@ -716,7 +716,7 @@ class CoverageCalculator:
                     for trip in trip_batch:
                         processed_trip_ids.append(str(trip.get("_id")))
             except Exception as e:
-                logger.error(f"Error processing trips: {str(e)}", exc_info=True)
+                logger.error("Error processing trips: %s", str(e), exc_info=True)
                 await self.update_progress("error", 0, f"Error: {str(e)}")
                 return None
 
@@ -765,9 +765,9 @@ class CoverageCalculator:
                         if is_covered:
                             covered_length += seg_length
                             street_type_stats[street_type]["covered"] += 1
-                            street_type_stats[street_type][
-                                "covered_length"
-                            ] += seg_length
+                            street_type_stats[street_type]["covered_length"] += (
+                                seg_length
+                            )
 
                         # Create enhanced feature for visualization
                         feature = {
@@ -806,7 +806,7 @@ class CoverageCalculator:
                         await asyncio.sleep(BATCH_PROCESS_DELAY)
                         gc.collect()
             except Exception as e:
-                logger.error(f"Error generating statistics: {str(e)}", exc_info=True)
+                logger.error("Error generating statistics: %s", str(e), exc_info=True)
                 await self.update_progress("error", 0, f"Error: {str(e)}")
                 return None
 
@@ -935,7 +935,7 @@ async def compute_coverage_for_location(
         )
         return None
     except Exception as e:
-        logger.exception(f"Error in coverage calculation: {str(e)}")
+        logger.exception("Error in coverage calculation: %s", str(e))
         return None
     finally:
         # Ensure resources are cleaned up
@@ -979,7 +979,7 @@ async def compute_incremental_coverage(
         processed_trip_ids = set(
             metadata.get("processed_trips", {}).get("trip_ids", [])
         )
-        logger.info(f"Found {len(processed_trip_ids)} previously processed trips")
+        logger.info("Found %s previously processed trips", len(processed_trip_ids))
 
         # Get boundary box for location
         bbox = location.get("boundingbox", [])
@@ -1033,7 +1033,7 @@ async def compute_incremental_coverage(
 
         # Count new trips for progress reporting
         new_trips_count = await trips_collection.count_documents(new_trips_query)
-        logger.info(f"Found {new_trips_count} new trips to process")
+        logger.info("Found %s new trips to process", new_trips_count)
 
         # No new trips to process
         if new_trips_count == 0:
@@ -1160,7 +1160,7 @@ async def compute_incremental_coverage(
         return coverage_stats
 
     except Exception as e:
-        logger.exception(f"Error in incremental coverage calculation: {str(e)}")
+        logger.exception("Error in incremental coverage calculation: %s", str(e))
         await progress_collection.update_one(
             {"_id": task_id},
             {
@@ -1230,17 +1230,17 @@ async def process_trip_batch_for_coverage(
             try:
                 gps_data = json.loads(gps_data)
             except json.JSONDecodeError:
-                logger.warning(f"Could not parse GPS data for trip {trip_id}")
+                logger.warning("Could not parse GPS data for trip %s", trip_id)
                 continue
 
         # Get coordinates
         if not gps_data or "coordinates" not in gps_data:
-            logger.warning(f"No coordinates in GPS data for trip {trip_id}")
+            logger.warning("No coordinates in GPS data for trip %s", trip_id)
             continue
 
         coordinates = gps_data.get("coordinates", [])
         if len(coordinates) < 2:
-            logger.warning(f"Insufficient coordinates for trip {trip_id}")
+            logger.warning("Insufficient coordinates for trip %s", trip_id)
             continue
 
         # Create trip line
@@ -1300,11 +1300,11 @@ async def process_trip_batch_for_coverage(
                                 },
                             )
                 except Exception as e:
-                    logger.error(f"Error checking street coverage: {str(e)}")
+                    logger.error("Error checking street coverage: %s", str(e))
                     continue
 
         except Exception as e:
-            logger.error(f"Error processing trip {trip_id}: {str(e)}")
+            logger.error("Error processing trip %s: %s", trip_id, str(e))
             continue
 
     return covered_segments
@@ -1496,7 +1496,9 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
                     results["failed"] += 1
 
             except asyncio.TimeoutError:
-                logger.error(f"Coverage update for {loc.get('display_name')} timed out")
+                logger.error(
+                    "Coverage update for %s timed out", loc.get("display_name")
+                )
                 results["failed"] += 1
 
                 # Update status to error
@@ -1512,7 +1514,7 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
                         },
                     )
                 except Exception as update_err:
-                    logger.error(f"Failed to update error status: {update_err}")
+                    logger.error("Failed to update error status: %s", update_err)
 
             except Exception as e:
                 logger.error(
@@ -1533,7 +1535,7 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
                         },
                     )
                 except Exception as update_err:
-                    logger.error(f"Failed to update error status: {update_err}")
+                    logger.error("Failed to update error status: %s", update_err)
 
             # Force garbage collection after each location
             gc.collect()
@@ -1545,5 +1547,5 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
         return results
 
     except Exception as e:
-        logger.error(f"Error updating coverage for all locations: {e}", exc_info=True)
+        logger.error("Error updating coverage for all locations: %s", e, exc_info=True)
         return {"error": str(e), "updated": 0, "failed": 0, "skipped": 0}

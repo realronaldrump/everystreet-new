@@ -94,7 +94,9 @@ class DatabaseManager:
             self._socket_timeout_ms = int(
                 os.getenv("MONGODB_SOCKET_TIMEOUT_MS", "30000")
             )
-            self._max_retry_attempts = int(os.getenv("MONGODB_MAX_RETRY_ATTEMPTS", "5"))
+            self._max_retry_attempts = int(
+                os.getenv("MONGODB_MAX_RETRY_ATTEMPTS", "5")
+            )
             self._db_name = os.getenv("MONGODB_DATABASE", "every_street")
 
             # Log configuration
@@ -489,7 +491,9 @@ class SerializationHelper:
             try:
                 json.loads(result["matchedGps"])
             except json.JSONDecodeError:
-                result["matchedGps"] = json.loads(json_util.dumps(result["matchedGps"]))
+                result["matchedGps"] = json.loads(
+                    json_util.dumps(result["matchedGps"])
+                )
 
         return result
 
