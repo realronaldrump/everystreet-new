@@ -268,13 +268,9 @@ async def export_gpx_response(data, filename: str) -> StreamingResponse:
         for feature in data.get("features", []):
             trips.append(
                 {
-                    "transactionId": feature.get("properties", {}).get(
-                        "id", "unknown"
-                    ),
+                    "transactionId": feature.get("properties", {}).get("id", "unknown"),
                     "gps": feature.get("geometry"),
-                    "startLocation": feature.get("properties", {}).get(
-                        "startLocation"
-                    ),
+                    "startLocation": feature.get("properties", {}).get("startLocation"),
                     "destination": feature.get("properties", {}).get("destination"),
                 }
             )
@@ -409,14 +405,10 @@ def extract_date_range_string(query: Dict[str, Any]) -> str:
         str: Formatted date range string (YYYYMMDD-YYYYMMDD)
     """
     start_date = (
-        query["startTime"].get("$gte")
-        if isinstance(query["startTime"], dict)
-        else None
+        query["startTime"].get("$gte") if isinstance(query["startTime"], dict) else None
     )
     end_date = (
-        query["startTime"].get("$lte")
-        if isinstance(query["startTime"], dict)
-        else None
+        query["startTime"].get("$lte") if isinstance(query["startTime"], dict) else None
     )
 
     if start_date and end_date:
@@ -436,9 +428,5 @@ def get_location_filename(location: Dict[str, Any]) -> str:
         str: Safe filename string
     """
     return (
-        location.get("display_name", "")
-        .split(",")[0]
-        .strip()
-        .replace(" ", "_")
-        .lower()
+        location.get("display_name", "").split(",")[0].strip().replace(" ", "_").lower()
     )

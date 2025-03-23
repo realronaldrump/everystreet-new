@@ -761,9 +761,7 @@ class TripProcessor:
                 return False
 
             # Store matched result
-            self.processed_data["matchedGps"] = match_result["matchings"][0][
-                "geometry"
-            ]
+            self.processed_data["matchedGps"] = match_result["matchings"][0]["geometry"]
             self.processed_data["matched_at"] = datetime.now(timezone.utc)
 
             # Update state
@@ -1092,9 +1090,7 @@ class TripProcessor:
                 )
                 result = await match_chunk(chunk_coords, depth=0)
                 if result is None:
-                    msg = (
-                        f"Chunk {cindex} of {len(chunk_indices)} failed map matching."
-                    )
+                    msg = f"Chunk {cindex} of {len(chunk_indices)} failed map matching."
                     logger.error(msg)
                     return {"code": "Error", "message": msg}
                 if not final_matched:
