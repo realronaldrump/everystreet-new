@@ -306,9 +306,7 @@ async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -
                         f"Batch {batch_idx + 1} processing timed out, continuing with next batch"
                     )
                 except Exception as e:
-                    logger.error(
-                        "Error processing batch %s: %s", batch_idx + 1, str(e)
-                    )
+                    logger.error("Error processing batch %s: %s", batch_idx + 1, str(e))
 
         # Update coverage metadata once at the end
         if features:
