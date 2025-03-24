@@ -23,6 +23,7 @@ from typing import (
     Optional,
     Tuple,
     TypeVar,
+    Union,
 )
 
 import certifi
@@ -41,6 +42,12 @@ from pymongo.errors import (
     OperationFailure,
     ServerSelectionTimeoutError,
 )
+from pymongo.results import (
+    DeleteResult,
+    InsertManyResult,
+    InsertOneResult,
+    UpdateResult,
+)
 
 # Set up logging
 logging.basicConfig(
@@ -56,10 +63,10 @@ T = TypeVar("T")
 class DatabaseManager:
     """Singleton class to manage the MongoDB client and database connection."""
 
-    _instance = None
+    _instance: Optional["DatabaseManager"] = None
     _lock = threading.Lock()
 
-    def __new__(cls) -> DatabaseManager:
+    def __new__(cls) -> "DatabaseManager":
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
@@ -68,20 +75,21 @@ class DatabaseManager:
 
     def __init__(self) -> None:
         if not getattr(self, "_initialized", False):
-            self._client = None
-            self._db = None
+            self._client: Optional[AsyncIOMotorClient] = None
+            self._db: Optional[AsyncIOMotorDatabase] = None
             self._quota_exceeded = False
             self._connection_healthy = True
             self._db_semaphore = asyncio.Semaphore(10)
             self._collections: Dict[str, AsyncIOMotorCollection] = {}
             self._initialized = True
+            # Exponential backoff in seconds
             self._conn_retry_backoff = [
                 1,
                 2,
                 5,
                 10,
                 30,
-            ]  # Exponential backoff in seconds
+            ]
 
             # Configuration from environment variables
             self._max_pool_size = int(os.getenv("MONGODB_MAX_POOL_SIZE", "10"))
@@ -136,7 +144,7 @@ class DatabaseManager:
             logger.info("MongoDB client initialized successfully")
         except Exception as e:
             self._connection_healthy = False
-            logger.error("Failed to initialize MongoDB client: %s", e)
+            logger.error("Failed to initialize MongoDB client: %s", str(e))
             raise
 
     @property
@@ -159,7 +167,15 @@ class DatabaseManager:
         return self._quota_exceeded
 
     def get_collection(self, collection_name: str) -> AsyncIOMotorCollection:
-        """Get a collection by name, cached for efficiency."""
+        """
+        Get a collection by name, cached for efficiency.
+
+        Args:
+            collection_name: Name of the collection
+
+        Returns:
+            MongoDB collection
+        """
         if collection_name not in self._collections or not self._connection_healthy:
             self._collections[collection_name] = self.db[collection_name]
         return self._collections[collection_name]
@@ -167,10 +183,23 @@ class DatabaseManager:
     async def execute_with_retry(
         self,
         operation: Callable[[], Awaitable[T]],
-        max_attempts: int = None,
+        max_attempts: Optional[int] = None,
         operation_name: str = "database operation",
     ) -> T:
-        """Execute a database operation with retry logic."""
+        """
+        Execute a database operation with retry logic.
+
+        Args:
+            operation: Async function to execute
+            max_attempts: Maximum number of retry attempts
+            operation_name: Name of operation for logging
+
+        Returns:
+            Result of the operation
+
+        Raises:
+            Exception: If operation fails after all attempts
+        """
         if max_attempts is None:
             max_attempts = self._max_retry_attempts
 
@@ -239,10 +268,15 @@ class DatabaseManager:
         )
 
     async def check_quota(self) -> Tuple[Optional[float], Optional[float]]:
-        """Check if the database quota is exceeded."""
+        """
+        Check if the database quota is exceeded.
+
+        Returns:
+            Tuple of (used_mb, limit_mb) or (None, None) on error
+        """
         try:
 
-            async def _check_quota():
+            async def _check_quota() -> Tuple[float, float]:
                 stats = await self.db.command("dbStats")
                 data_size = stats.get("dataSize", 0)
                 used_mb = data_size / (1024 * 1024)
@@ -256,13 +290,26 @@ class DatabaseManager:
         except Exception as e:
             if "over your space quota" in str(e).lower():
                 self._quota_exceeded = True
-            logger.error("Error checking database quota: %s", e)
+            logger.error("Error checking database quota: %s", str(e))
             return None, None
 
     async def safe_create_index(
-        self, collection_name: str, keys, **kwargs: Any
+        self,
+        collection_name: str,
+        keys: Union[str, List[Tuple[str, int]]],
+        **kwargs: Any,
     ) -> Optional[str]:
-        """Create an index on a collection if quota is not exceeded."""
+        """
+        Create an index on a collection if quota is not exceeded.
+
+        Args:
+            collection_name: Name of the collection
+            keys: Keys to index
+            **kwargs: Additional arguments for create_index
+
+        Returns:
+            Name of the created index or None
+        """
         if self._quota_exceeded:
             logger.warning(
                 "Skipping index creation for %s due to quota exceeded",
@@ -305,7 +352,7 @@ class DatabaseManager:
                     )
                     return index_name
 
-            async def _create_index():
+            async def _create_index() -> str:
                 return await self.get_collection(collection_name).create_index(
                     keys, **kwargs
                 )
@@ -345,7 +392,7 @@ class DatabaseManager:
                 self._connection_healthy = False
                 logger.info("MongoDB client connections closed")
             except Exception as e:
-                logger.error("Error closing MongoDB connections: %s", e)
+                logger.error("Error closing MongoDB connections: %s", str(e))
 
     async def handle_memory_error(self) -> None:
         """Handle memory-related errors by cleaning up connections."""
@@ -373,12 +420,12 @@ class DatabaseManager:
 
             logger.info("Connections reinitialized after memory error")
         except Exception as e:
-            logger.error("Error handling memory error: %s", e)
+            logger.error("Error handling memory error: %s", str(e))
 
     def __del__(self) -> None:
         """Ensure connections are closed when the manager is garbage collected."""
         # Don't use asyncio here as this might be called during shutdown
-        if self._client:
+        if hasattr(self, "_client") and self._client:
             try:
                 self._client.close()
                 self._client = None
@@ -412,17 +459,41 @@ class SerializationHelper:
 
     @staticmethod
     def serialize_datetime(dt: Optional[datetime]) -> Optional[str]:
-        """Return ISO formatted datetime string if dt is not None."""
+        """
+        Return ISO formatted datetime string if dt is not None.
+
+        Args:
+            dt: Datetime to serialize
+
+        Returns:
+            ISO formatted string or None
+        """
         return dt.isoformat() if dt else None
 
     @staticmethod
     def serialize_object_id(obj_id: Optional[ObjectId]) -> Optional[str]:
-        """Convert ObjectId to string if not None."""
+        """
+        Convert ObjectId to string if not None.
+
+        Args:
+            obj_id: ObjectId to serialize
+
+        Returns:
+            String representation or None
+        """
         return str(obj_id) if obj_id else None
 
     @staticmethod
     def serialize_document(doc: Dict[str, Any]) -> Dict[str, Any]:
-        """Convert MongoDB document to a JSON serializable dictionary."""
+        """
+        Convert MongoDB document to a JSON serializable dictionary.
+
+        Args:
+            doc: MongoDB document
+
+        Returns:
+            JSON serializable dictionary
+        """
         if not doc:
             return {}
 
@@ -443,7 +514,15 @@ class SerializationHelper:
 
     @staticmethod
     def serialize_list(items: List[Any]) -> List[Any]:
-        """Serialize a list of items."""
+        """
+        Serialize a list of items.
+
+        Args:
+            items: List to serialize
+
+        Returns:
+            Serialized list
+        """
         return [
             (
                 SerializationHelper.serialize_document(item)
@@ -470,6 +549,12 @@ class SerializationHelper:
         """
         Convert trip document to JSON serializable dictionary.
         Handles special fields specific to trip documents.
+
+        Args:
+            trip: Trip document
+
+        Returns:
+            JSON serializable trip dictionary
         """
         if not trip:
             return {}
@@ -536,6 +621,13 @@ def parse_query_date(
     """
     Parse a date string into a datetime object.
     Replaces trailing "Z" with "+00:00" for ISO8601 compatibility.
+
+    Args:
+        date_str: Date string to parse
+        end_of_day: If True, set time to end of day (23:59:59.999999)
+
+    Returns:
+        Datetime object or None if parsing fails
     """
     if not date_str:
         return None
@@ -570,12 +662,25 @@ class DateFilter:
         end_date: Optional[datetime] = None,
         field_name: str = "startTime",
     ):
+        """
+        Initialize date filter.
+
+        Args:
+            start_date: Start of date range
+            end_date: End of date range
+            field_name: Field name to filter on
+        """
         self.start_date = start_date
         self.end_date = end_date
         self.field_name = field_name
 
     def get_query_dict(self) -> dict:
-        """Get a MongoDB query filter for this date range."""
+        """
+        Get a MongoDB query filter for this date range.
+
+        Returns:
+            MongoDB query dictionary
+        """
         query = {}
         if self.start_date and self.end_date:
             query[self.field_name] = {"$gte": self.start_date, "$lte": self.end_date}
@@ -596,6 +701,16 @@ async def parse_date_params(
     """
     Parse start and end date parameters from a request.
     Returns a DateFilter object with parsed datetime objects.
+
+    Args:
+        request: FastAPI request
+        start_param: Name of start date parameter
+        end_param: Name of end date parameter
+        field_name: Field name for filtering
+        end_of_day: Whether to set end date to end of day
+
+    Returns:
+        DateFilter object
     """
     start_date_str = request.query_params.get(start_param)
     end_date_str = request.query_params.get(end_param)
@@ -649,7 +764,18 @@ async def find_one_with_retry(
     projection: Any = None,
     sort: Any = None,
 ) -> Optional[Dict[str, Any]]:
-    """Execute find_one with retry logic."""
+    """
+    Execute find_one with retry logic.
+
+    Args:
+        collection: MongoDB collection
+        query: Query filter
+        projection: Fields to include/exclude
+        sort: Sort specification
+
+    Returns:
+        Found document or None
+    """
 
     async def _operation():
         if sort:
@@ -670,7 +796,21 @@ async def find_with_retry(
     skip: Optional[int] = None,
     batch_size: int = 100,
 ) -> List[Dict[str, Any]]:
-    """Execute find with retry logic and return a list."""
+    """
+    Execute find with retry logic and return a list.
+
+    Args:
+        collection: MongoDB collection
+        query: Query filter
+        projection: Fields to include/exclude
+        sort: Sort specification
+        limit: Maximum number of documents to return
+        skip: Number of documents to skip
+        batch_size: Batch size for cursor
+
+    Returns:
+        List of documents
+    """
 
     async def _operation():
         cursor = collection.find(query, projection)
@@ -703,8 +843,19 @@ async def update_one_with_retry(
     filter_query: Dict[str, Any],
     update: Dict[str, Any],
     upsert: bool = False,
-) -> pymongo.results.UpdateResult:
-    """Execute update_one with retry logic."""
+) -> UpdateResult:
+    """
+    Execute update_one with retry logic.
+
+    Args:
+        collection: MongoDB collection
+        filter_query: Query filter
+        update: Update specification
+        upsert: Whether to insert if not found
+
+    Returns:
+        UpdateResult
+    """
 
     async def _operation():
         return await collection.update_one(filter_query, update, upsert=upsert)
@@ -719,8 +870,19 @@ async def update_many_with_retry(
     filter_query: Dict[str, Any],
     update: Dict[str, Any],
     upsert: bool = False,
-) -> pymongo.results.UpdateResult:
-    """Execute update_many with retry logic."""
+) -> UpdateResult:
+    """
+    Execute update_many with retry logic.
+
+    Args:
+        collection: MongoDB collection
+        filter_query: Query filter
+        update: Update specification
+        upsert: Whether to insert if not found
+
+    Returns:
+        UpdateResult
+    """
 
     async def _operation():
         return await collection.update_many(filter_query, update, upsert=upsert)
@@ -732,8 +894,17 @@ async def update_many_with_retry(
 
 async def insert_one_with_retry(
     collection: AsyncIOMotorCollection, document: Dict[str, Any]
-) -> pymongo.results.InsertOneResult:
-    """Execute insert_one with retry logic."""
+) -> InsertOneResult:
+    """
+    Execute insert_one with retry logic.
+
+    Args:
+        collection: MongoDB collection
+        document: Document to insert
+
+    Returns:
+        InsertOneResult
+    """
 
     async def _operation():
         return await collection.insert_one(document)
@@ -745,8 +916,17 @@ async def insert_one_with_retry(
 
 async def insert_many_with_retry(
     collection: AsyncIOMotorCollection, documents: List[Dict[str, Any]]
-) -> pymongo.results.InsertManyResult:
-    """Execute insert_many with retry logic."""
+) -> InsertManyResult:
+    """
+    Execute insert_many with retry logic.
+
+    Args:
+        collection: MongoDB collection
+        documents: Documents to insert
+
+    Returns:
+        InsertManyResult
+    """
 
     async def _operation():
         return await collection.insert_many(documents)
@@ -758,8 +938,17 @@ async def insert_many_with_retry(
 
 async def delete_one_with_retry(
     collection: AsyncIOMotorCollection, filter_query: Dict[str, Any]
-) -> pymongo.results.DeleteResult:
-    """Execute delete_one with retry logic."""
+) -> DeleteResult:
+    """
+    Execute delete_one with retry logic.
+
+    Args:
+        collection: MongoDB collection
+        filter_query: Query filter
+
+    Returns:
+        DeleteResult
+    """
 
     async def _operation():
         return await collection.delete_one(filter_query)
@@ -771,8 +960,17 @@ async def delete_one_with_retry(
 
 async def delete_many_with_retry(
     collection: AsyncIOMotorCollection, filter_query: Dict[str, Any]
-) -> pymongo.results.DeleteResult:
-    """Execute delete_many with retry logic."""
+) -> DeleteResult:
+    """
+    Execute delete_many with retry logic.
+
+    Args:
+        collection: MongoDB collection
+        filter_query: Query filter
+
+    Returns:
+        DeleteResult
+    """
 
     async def _operation():
         return await collection.delete_many(filter_query)
@@ -787,7 +985,17 @@ async def aggregate_with_retry(
     pipeline: List[Dict[str, Any]],
     batch_size: int = 100,
 ) -> List[Dict[str, Any]]:
-    """Execute aggregate with retry logic."""
+    """
+    Execute aggregate with retry logic.
+
+    Args:
+        collection: MongoDB collection
+        pipeline: Aggregation pipeline
+        batch_size: Batch size for cursor
+
+    Returns:
+        List of documents
+    """
 
     async def _operation():
         result = []
@@ -806,8 +1014,19 @@ async def replace_one_with_retry(
     filter_query: Dict[str, Any],
     replacement: Dict[str, Any],
     upsert: bool = False,
-) -> pymongo.results.UpdateResult:
-    """Execute replace_one with retry logic."""
+) -> UpdateResult:
+    """
+    Execute replace_one with retry logic.
+
+    Args:
+        collection: MongoDB collection
+        filter_query: Query filter
+        replacement: Replacement document
+        upsert: Whether to insert if not found
+
+    Returns:
+        UpdateResult
+    """
 
     async def _operation():
         return await collection.replace_one(filter_query, replacement, upsert=upsert)
@@ -820,7 +1039,16 @@ async def replace_one_with_retry(
 async def count_documents_with_retry(
     collection: AsyncIOMotorCollection, filter_query: Dict[str, Any]
 ) -> int:
-    """Execute count_documents with retry logic."""
+    """
+    Execute count_documents with retry logic.
+
+    Args:
+        collection: MongoDB collection
+        filter_query: Query filter
+
+    Returns:
+        Document count
+    """
 
     async def _operation():
         return await collection.count_documents(filter_query)
@@ -837,7 +1065,18 @@ async def get_trips_in_date_range(
     imei: Optional[str] = None,
     collection: Optional[AsyncIOMotorCollection] = None,
 ) -> List[Dict[str, Any]]:
-    """Get trips within a date range with optional IMEI filter."""
+    """
+    Get trips within a date range with optional IMEI filter.
+
+    Args:
+        start_date: Start of date range
+        end_date: End of date range
+        imei: Optional IMEI filter
+        collection: Optional collection (defaults to trips_collection)
+
+    Returns:
+        List of trip documents
+    """
     if collection is None:
         collection = trips_collection
 
@@ -853,7 +1092,17 @@ async def get_trip_by_id(
     collection: Optional[AsyncIOMotorCollection] = None,
     check_both_id_types: bool = True,
 ) -> Optional[Dict[str, Any]]:
-    """Get a trip by transaction ID or ObjectId."""
+    """
+    Get a trip by transaction ID or ObjectId.
+
+    Args:
+        trip_id: Transaction ID or ObjectId
+        collection: Optional collection (defaults to trips_collection)
+        check_both_id_types: Whether to check both transaction ID and ObjectId
+
+    Returns:
+        Trip document or None
+    """
     if collection is None:
         collection = trips_collection
 
@@ -874,7 +1123,15 @@ async def get_trip_by_id(
 async def get_trip_from_all_collections(
     trip_id: str,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[AsyncIOMotorCollection]]:
-    """Find a trip in any of the trip collections."""
+    """
+    Find a trip in any of the trip collections.
+
+    Args:
+        trip_id: Transaction ID or ObjectId
+
+    Returns:
+        Tuple of (trip document, collection) or (None, None)
+    """
     collections = [
         trips_collection,
         matched_trips_collection,
@@ -893,7 +1150,16 @@ async def get_trip_from_all_collections(
 async def get_latest_trips(
     limit: int = 10, collection: Optional[AsyncIOMotorCollection] = None
 ) -> List[Dict[str, Any]]:
-    """Get the most recent trips."""
+    """
+    Get the most recent trips.
+
+    Args:
+        limit: Maximum number of trips to return
+        collection: Optional collection (defaults to trips_collection)
+
+    Returns:
+        List of trip documents
+    """
     if collection is None:
         collection = trips_collection
 
@@ -913,7 +1179,7 @@ async def init_task_history_collection() -> None:
         )
         logger.info("Task history collection indexes created successfully")
     except Exception as e:
-        logger.error("Error creating task history indexes: %s", e)
+        logger.error("Error creating task history indexes: %s", str(e))
         raise
 
 
@@ -975,11 +1241,11 @@ async def ensure_street_coverage_indexes() -> None:
 
         logger.info("Street coverage indexes created successfully")
     except Exception as e:
-        logger.error("Error creating street coverage indexes: %s", e)
+        logger.error("Error creating street coverage indexes: %s", str(e))
         raise
 
 
-async def ensure_location_indexes():
+async def ensure_location_indexes() -> None:
     """
     Ensure indexes exist for the new location structure.
     This includes indexes on address components and coordinates.
@@ -1024,7 +1290,7 @@ async def ensure_location_indexes():
 
         logger.info("Location structure indexes created successfully")
     except Exception as e:
-        logger.error("Error creating location structure indexes: %s", e)
+        logger.error("Error creating location structure indexes: %s", str(e))
         raise
 
 
@@ -1032,7 +1298,12 @@ async def ensure_location_indexes():
 async def run_transaction(operations: List[Callable[[], Awaitable[Any]]]) -> bool:
     """
     Run a series of operations within a MongoDB transaction.
-    Returns True if transaction succeeded, False otherwise.
+
+    Args:
+        operations: List of async operations to execute
+
+    Returns:
+        True if transaction succeeded, False otherwise
     """
     # Use client directly for transaction
     client = db_manager.client
@@ -1069,6 +1340,11 @@ async def init_database() -> None:
             "streets",
             "coverage_metadata",
             "uploaded_trips",
+            "live_trips",
+            "archived_live_trips",
+            "task_config",
+            "progress_status",
+            "osm_data",
         ]
 
         # Get existing collections
@@ -1089,5 +1365,5 @@ async def init_database() -> None:
 
         logger.info("Database initialized successfully")
     except Exception as e:
-        logger.error("Error initializing database: %s", e)
+        logger.error("Error initializing database: %s", str(e))
         raise
