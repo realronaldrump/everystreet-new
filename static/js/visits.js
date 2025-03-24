@@ -16,7 +16,35 @@
       this.loadingManager =
         window.loadingManager || this.createFallbackLoadingManager();
       this.isDetailedView = false;
+      this.setupDurationSorting();
       this.initialize();
+    }
+    
+    // Helper function to convert duration strings like '5d', '2h 30m', etc. to seconds for proper sorting
+    convertDurationToSeconds(duration) {
+      if (!duration || duration === 'N/A' || duration === 'Unknown') return 0;
+      
+      let seconds = 0;
+      const dayMatch = duration.match(/(\d+)d/);
+      const hourMatch = duration.match(/(\d+)h/);
+      const minuteMatch = duration.match(/(\d+)m/);
+      const secondMatch = duration.match(/(\d+)s/);
+      
+      if (dayMatch) seconds += parseInt(dayMatch[1]) * 86400;
+      if (hourMatch) seconds += parseInt(hourMatch[1]) * 3600;
+      if (minuteMatch) seconds += parseInt(minuteMatch[1]) * 60;
+      if (secondMatch) seconds += parseInt(secondMatch[1]);
+      
+      return seconds;
+    }
+    
+    setupDurationSorting() {
+      // Add a custom sorting method for duration columns
+      if (window.$ && $.fn.dataTable) {
+        $.fn.dataTable.ext.type.order['duration-pre'] = (data) => {
+          return this.convertDurationToSeconds(data);
+        };
+      }
     }
 
     createFallbackLoadingManager() {
@@ -215,6 +243,7 @@
           {
             data: "avgTimeSpent",
             className: "numeric-cell",
+            type: "duration",
             render: (data) => data || "N/A",
           },
         ],
@@ -320,10 +349,12 @@
           {
             data: "timeSpent",
             className: "numeric-cell",
+            type: "duration",
           },
           {
             data: "timeSinceLastVisit",
             className: "numeric-cell",
+            type: "duration",
           },
         ],
         language: {
