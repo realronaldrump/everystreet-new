@@ -351,9 +351,7 @@ async def get_trips_for_place(place_id: str):
                 if prev_trip_end and prev_trip_end.tzinfo is None:
                     prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
                 if prev_trip_end and end_time > prev_trip_end:
-                    hrs_since_last = (
-                        end_time - prev_trip_end
-                    ).total_seconds() / 3600.0
+                    hrs_since_last = (end_time - prev_trip_end).total_seconds() / 3600.0
                     # Round to nearest tenth
                     hrs_since_last = round(hrs_since_last * 10) / 10
                     time_since_last_str = f"{hrs_since_last}h"
