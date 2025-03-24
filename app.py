@@ -39,7 +39,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
-from shapely.geometry import LineString, Polygon, shape
+from shapely.geometry import LineString, Polygon
 
 # Local module imports
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
@@ -74,6 +74,7 @@ from live_tracking import (
     handle_bouncie_webhook,
     initialize_db,
 )
+from visits import router as visits_router, init_collections
 from preprocess_streets import preprocess_streets as async_preprocess_streets
 from street_coverage_calculation import (
     compute_coverage_for_location,
@@ -106,6 +107,9 @@ app = FastAPI(title="Street Coverage Tracker")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# Include routers
+app.include_router(visits_router)
+
 # Environment variables
 CLIENT_ID = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
@@ -135,6 +139,9 @@ progress_collection = db_manager.db["progress_status"]
 # Initialize live tracking module
 initialize_db(live_trips_collection, archived_live_trips_collection)
 
+# Initialize visits module
+init_collections(places_collection, trips_collection, uploaded_trips_collection)
+
 
 # Pydantic models for request validation
 class LocationModel(BaseModel):
@@ -146,13 +153,6 @@ class LocationModel(BaseModel):
 
     class Config:
         extra = "allow"
-
-
-class PlaceModel(BaseModel):
-    """Model for custom place data."""
-
-    name: str
-    geometry: Dict[str, Any]
 
 
 class TripUpdateModel(BaseModel):
@@ -190,62 +190,6 @@ class TaskRunModel(BaseModel):
     """Model for manual task run."""
 
     tasks: List[str]
-
-
-class CustomPlace:
-    """
-    A utility class for user-defined places.
-    """
-
-    def __init__(
-        self, name: str, geometry: dict, created_at: Optional[datetime] = None
-    ):
-        """
-        Initialize a CustomPlace.
-
-        Args:
-            name: The name of the place
-            geometry: GeoJSON geometry object defining the place boundaries
-            created_at: When the place was created, defaults to current UTC time
-        """
-        self.name = name
-        self.geometry = geometry
-        self.created_at = created_at or datetime.now(timezone.utc)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert the CustomPlace to a dictionary for storage.
-
-        Returns:
-            Dict with the place's data
-        """
-        return {
-            "name": self.name,
-            "geometry": self.geometry,
-            "created_at": self.created_at.isoformat(),
-        }
-
-    @staticmethod
-    def from_dict(data: dict) -> "CustomPlace":
-        """
-        Create a CustomPlace from a dictionary.
-
-        Args:
-            data: Dictionary with place data
-
-        Returns:
-            CustomPlace instance
-        """
-        created_raw = data.get("created_at")
-        if isinstance(created_raw, str):
-            created = datetime.fromisoformat(created_raw)
-        elif isinstance(created_raw, datetime):
-            created = created_raw
-        else:
-            created = datetime.now(timezone.utc)
-        return CustomPlace(
-            name=data["name"], geometry=data["geometry"], created_at=created
-        )
 
 
 # Helper functions
@@ -3770,314 +3714,6 @@ async def upload_files(files: List[UploadFile] = File(...)):
         return {"status": "success", "message": f"Processed {count} trips"}
     except Exception as e:
         logger.exception("Error uploading files: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
-# PLACES ENDPOINTS
-@app.get("/api/places")
-async def get_places():
-    """Get all custom places."""
-    places = await find_with_retry(places_collection, {})
-    return [
-        {"_id": str(p["_id"]), **CustomPlace.from_dict(p).to_dict()} for p in places
-    ]
-
-
-@app.post("/api/places")
-async def create_place(place: PlaceModel):
-    """Create a new custom place."""
-    place_obj = CustomPlace(place.name, place.geometry)
-    result = await insert_one_with_retry(places_collection, place_obj.to_dict())
-    return {"_id": str(result.inserted_id), **place_obj.to_dict()}
-
-
-@app.delete("/api/places/{place_id}")
-async def delete_place(place_id: str):
-    """Delete a custom place."""
-    try:
-        await delete_one_with_retry(places_collection, {"_id": ObjectId(place_id)})
-        return {"status": "success", "message": "Place deleted"}
-    except Exception as e:
-        logger.exception("Error deleting place: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
-@app.get("/api/places/{place_id}/statistics")
-async def get_place_statistics(place_id: str):
-    """Get statistics about visits to a place."""
-    try:
-        place = await find_one_with_retry(
-            places_collection, {"_id": ObjectId(place_id)}
-        )
-        if not place:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Place not found"
-            )
-
-        query = {
-            "$or": [
-                {"destinationPlaceId": place_id},
-                {
-                    "destinationGeoPoint": {
-                        "$geoWithin": {"$geometry": place["geometry"]}
-                    }
-                },
-            ],
-            "endTime": {"$ne": None},
-        }
-
-        valid_trips = []
-        for coll in [trips_collection, uploaded_trips_collection]:
-            trips_list = await find_with_retry(coll, query)
-            valid_trips.extend(trips_list)
-
-        valid_trips.sort(key=lambda x: x["endTime"])
-        visits = []
-        durations = []
-        time_since_last_visits = []
-        first_visit = None
-        last_visit = None
-
-        for i, t in enumerate(valid_trips):
-            try:
-                t_end = t["endTime"]
-                if isinstance(t_end, str):
-                    t_end = dateutil_parser.isoparse(t_end)
-                if t_end.tzinfo is None:
-                    t_end = t_end.replace(tzinfo=timezone.utc)
-
-                if first_visit is None:
-                    first_visit = t_end
-                last_visit = t_end
-
-                if i < len(valid_trips) - 1:
-                    next_trip = valid_trips[i + 1]
-                    same_place = False
-                    if next_trip.get("startPlaceId") == place_id:
-                        same_place = True
-                    else:
-                        start_pt = next_trip.get("startGeoPoint")
-                        if (
-                            start_pt
-                            and isinstance(start_pt, dict)
-                            and "coordinates" in start_pt
-                        ):
-                            if shape(place["geometry"]).contains(shape(start_pt)):
-                                same_place = True
-
-                    if same_place:
-                        next_start = next_trip.get("startTime")
-                        if isinstance(next_start, str):
-                            next_start = dateutil_parser.isoparse(next_start)
-                        if next_start and next_start.tzinfo is None:
-                            next_start = next_start.replace(tzinfo=timezone.utc)
-                        if next_start and next_start > t_end:
-                            duration_minutes = (
-                                next_start - t_end
-                            ).total_seconds() / 60.0
-                            if duration_minutes > 0:
-                                durations.append(duration_minutes)
-
-                if i > 0:
-                    prev_trip_end = valid_trips[i - 1].get("endTime")
-                    if isinstance(prev_trip_end, str):
-                        prev_trip_end = dateutil_parser.isoparse(prev_trip_end)
-                    if prev_trip_end and prev_trip_end.tzinfo is None:
-                        prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
-                    if prev_trip_end and t_end > prev_trip_end:
-                        hrs_since_last = (
-                            t_end - prev_trip_end
-                        ).total_seconds() / 3600.0
-                        if hrs_since_last >= 0:
-                            time_since_last_visits.append(hrs_since_last)
-
-                visits.append(t_end)
-            except Exception as e:
-                logger.exception(
-                    "Issue processing trip for place %s: %s", place_id, str(e)
-                )
-                continue
-
-        total_visits = len(visits)
-        avg_duration = sum(durations) / len(durations) if durations else 0
-
-        def format_h_m(m: float) -> str:
-            hh = int(m // 60)
-            mm = int(m % 60)
-            return f"{hh}h {mm:02d}m"
-
-        avg_duration_str = format_h_m(avg_duration) if avg_duration > 0 else "0h 00m"
-        avg_time_since_last = (
-            sum(time_since_last_visits) / len(time_since_last_visits)
-            if time_since_last_visits
-            else 0
-        )
-        return {
-            "totalVisits": total_visits,
-            "averageTimeSpent": avg_duration_str,
-            "firstVisit": SerializationHelper.serialize_datetime(first_visit),
-            "lastVisit": SerializationHelper.serialize_datetime(last_visit),
-            "averageTimeSinceLastVisit": avg_time_since_last,
-            "name": place["name"],
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Error place stats %s: %s", place_id, str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
-@app.get("/api/places/{place_id}/trips")
-async def get_trips_for_place(place_id: str):
-    """Get trips that visited a specific place."""
-    try:
-        place = await find_one_with_retry(
-            places_collection, {"_id": ObjectId(place_id)}
-        )
-        if not place:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Place not found"
-            )
-
-        query = {
-            "$or": [
-                {"destinationPlaceId": place_id},
-                {
-                    "destinationGeoPoint": {
-                        "$geoWithin": {"$geometry": place["geometry"]}
-                    }
-                },
-            ],
-            "endTime": {"$ne": None},
-        }
-
-        valid_trips = []
-        for coll in [trips_collection, uploaded_trips_collection]:
-            trips_list = await find_with_retry(coll, query)
-            valid_trips.extend(trips_list)
-
-        valid_trips.sort(key=lambda x: x["endTime"])
-        trips_data = []
-
-        for i, trip in enumerate(valid_trips):
-            end_time = trip["endTime"]
-            if isinstance(end_time, str):
-                end_time = dateutil_parser.isoparse(end_time)
-            if end_time.tzinfo is None:
-                end_time = end_time.replace(tzinfo=timezone.utc)
-
-            duration_str = "0h 00m"
-            time_since_last_str = "N/A"
-
-            if i < len(valid_trips) - 1:
-                next_trip = valid_trips[i + 1]
-                same_place = False
-                if next_trip.get("startPlaceId") == place_id:
-                    same_place = True
-                else:
-                    start_pt = next_trip.get("startGeoPoint")
-                    if (
-                        start_pt
-                        and isinstance(start_pt, dict)
-                        and "coordinates" in start_pt
-                    ):
-                        if shape(place["geometry"]).contains(shape(start_pt)):
-                            same_place = True
-                    if same_place:
-                        next_start = next_trip.get("startTime")
-                        if isinstance(next_start, str):
-                            next_start = dateutil_parser.isoparse(next_start)
-                        if next_start and next_start.tzinfo is None:
-                            next_start = next_start.replace(tzinfo=timezone.utc)
-                        if next_start and next_start > end_time:
-                            duration_minutes = (
-                                next_start - end_time
-                            ).total_seconds() / 60.0
-                            hh = int(duration_minutes // 60)
-                            mm = int(duration_minutes % 60)
-                            duration_str = f"{hh}h {mm:02d}m"
-
-            if i > 0:
-                prev_trip_end = valid_trips[i - 1].get("endTime")
-                if isinstance(prev_trip_end, str):
-                    prev_trip_end = dateutil_parser.isoparse(prev_trip_end)
-                if prev_trip_end and prev_trip_end.tzinfo is None:
-                    prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
-                if prev_trip_end and end_time > prev_trip_end:
-                    hrs_since_last = (
-                        end_time - prev_trip_end
-                    ).total_seconds() / 3600.0
-                    time_since_last_str = f"{hrs_since_last:.2f} hours"
-
-            trips_data.append(
-                {
-                    "transactionId": trip["transactionId"],
-                    "endTime": end_time.isoformat(),
-                    "duration": duration_str,
-                    "timeSinceLastVisit": time_since_last_str,
-                }
-            )
-
-        return JSONResponse(content=trips_data)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Error fetching trips for place %s: %s", place_id, str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
-# NON-CUSTOM PLACE VISITS
-@app.get("/api/non_custom_places_visits")
-async def get_non_custom_places_visits():
-    """Get visits to non-custom places."""
-    try:
-        pipeline = [
-            {"$match": {"destination": {"$ne": None}, "destinationPlaceId": None}},
-            {
-                "$group": {
-                    "_id": "$destination",
-                    "totalVisits": {"$sum": 1},
-                    "firstVisit": {"$min": "$endTime"},
-                    "lastVisit": {"$max": "$endTime"},
-                }
-            },
-            {"$match": {"totalVisits": {"$gte": 5}}},
-            {"$sort": {"totalVisits": -1}},
-        ]
-
-        trips_results = await aggregate_with_retry(trips_collection, pipeline)
-        uploaded_results = await aggregate_with_retry(
-            uploaded_trips_collection, pipeline
-        )
-
-        combined_results = trips_results + uploaded_results
-        visits_data = []
-
-        for doc in combined_results:
-            visits_data.append(
-                {
-                    "name": doc["_id"],
-                    "totalVisits": doc["totalVisits"],
-                    "firstVisit": SerializationHelper.serialize_datetime(
-                        doc.get("firstVisit")
-                    ),
-                    "lastVisit": SerializationHelper.serialize_datetime(
-                        doc.get("lastVisit")
-                    ),
-                }
-            )
-
-        return JSONResponse(content=visits_data)
-    except Exception as e:
-        logger.exception("Error fetching non-custom place visits: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
