@@ -364,6 +364,16 @@ async def get_trips_for_place(place_id: str):
             if "_source" in trip and trip["_source"] == "bouncie":
                 trip_source = "Bouncie"
 
+            # Handling 'distance' field, checking if it's a dictionary or float
+            distance = trip.get(
+                "distance", 0
+            )  # Default to 0 if no "distance" key is found
+
+            # Check if distance is a dictionary and extract the value
+            if isinstance(distance, dict):
+                distance = distance.get("value", 0)
+
+            # Now, you can safely use distance
             trips_data.append(
                 {
                     "id": trip_id,
@@ -371,7 +381,7 @@ async def get_trips_for_place(place_id: str):
                     "timeSpent": duration_str,
                     "timeSinceLastVisit": time_since_last_str,
                     "source": trip_source,
-                    "distance": trip.get("distance", {}).get("value", 0),
+                    "distance": distance,
                 }
             )
 
