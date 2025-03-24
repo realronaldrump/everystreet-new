@@ -598,8 +598,8 @@ async def batch_cursor(
     Yields:
         Lists of documents, batch_size at a time
     """
-    # Apply no_timeout option if requested
-    if no_timeout and hasattr(cursor, "cursor_id"):
+    # Apply no_timeout option if requested and if the cursor supports it
+    if no_timeout and hasattr(cursor, "add_option"):
         cursor = cursor.add_option(196)  # 196 is the no_timeout option
 
     batch = []
