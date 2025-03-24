@@ -27,11 +27,11 @@
           console.log(`LoadingManager not available: ${opName}.${subName}`),
         updateSubOperation: (opName, subName, progress) =>
           console.log(
-            `LoadingManager not available: ${opName}.${subName} (${progress}%)`
+            `LoadingManager not available: ${opName}.${subName} (${progress}%)`,
           ),
         finish: (name) =>
           console.log(
-            `LoadingManager not available: finished ${name || "all"}`
+            `LoadingManager not available: finished ${name || "all"}`,
           ),
         error: (message) => {
           console.error(`LoadingManager not available: Error - ${message}`);
@@ -71,7 +71,7 @@
           "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
           {
             maxZoom: 19,
-          }
+          },
         ).addTo(this.map);
 
         this.customPlacesLayer = L.layerGroup().addTo(this.map);
@@ -373,12 +373,12 @@
           event.preventDefault();
           const placeId = $(event.target).data("place-id");
           this.toggleView(placeId);
-        }
+        },
       );
 
       // Toggle view button
       $("#visits-table-container").on("click", "#toggle-view-btn", () =>
-        this.toggleView()
+        this.toggleView(),
       );
     }
 
@@ -441,7 +441,7 @@
         } catch (error) {
           console.error(
             `Error fetching statistics for place ${place.name}:`,
-            error
+            error,
           );
           return null;
         }
@@ -454,7 +454,7 @@
       if (this.visitsChart) {
         this.visitsChart.data.labels = validResults.map((d) => d.name);
         this.visitsChart.data.datasets[0].data = validResults.map(
-          (d) => d.totalVisits
+          (d) => d.totalVisits,
         );
         this.visitsChart.update();
       }
@@ -470,7 +470,7 @@
       if (!placeName || !this.currentPolygon) {
         window.notificationManager?.show(
           "Please enter a name for this place",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -495,7 +495,7 @@
 
         window.notificationManager?.show(
           `Place "${placeName}" saved successfully`,
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error saving place:", error);
@@ -538,7 +538,7 @@
         await this.updateVisitsData();
         window.notificationManager?.show(
           "Place deleted successfully",
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error deleting place:", error);
@@ -589,7 +589,7 @@
             <p>Avg Time Spent: ${formatAvg(stats.averageTimeSpent)}</p>
             <p>Avg Time Since Last Visit: ${formatAvg(
               stats.averageTimeSinceLastVisit,
-              "hours"
+              "hours",
             )}</p>
           </div>
         `;
@@ -603,7 +603,7 @@
         console.error("Error fetching place statistics:", error);
         window.notificationManager?.show(
           "Failed to fetch place statistics",
-          "danger"
+          "danger",
         );
       }
     }
@@ -615,7 +615,7 @@
         visitsChart: document.getElementById("visitsChart"),
         visitsTableContainer: document.getElementById("visits-table-container"),
         tripsForPlaceContainer: document.getElementById(
-          "trips-for-place-container"
+          "trips-for-place-container",
         ),
         toggleViewBtn: document.getElementById("toggle-view-btn"),
       };
@@ -669,7 +669,7 @@
         console.error("Error fetching trips for place:", error);
         window.notificationManager?.show(
           "Failed to fetch trips for place",
-          "danger"
+          "danger",
         );
       }
     }
@@ -688,7 +688,7 @@
         console.error("Error fetching visits for non-custom places:", error);
         window.notificationManager?.show(
           "Failed to load non-custom places visits",
-          "danger"
+          "danger",
         );
       }
     }
