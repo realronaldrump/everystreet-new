@@ -290,7 +290,7 @@
         responsive: true,
         order: [[1, "desc"]], // Sort by endTime descending
         columns: [
-          { data: "transactionId" },
+          { data: "id" },
           {
             data: "endTime",
             className: "date-cell",
@@ -308,7 +308,7 @@
                 : data,
           },
           {
-            data: "duration",
+            data: "timeSpent",
             className: "numeric-cell",
           },
           {
