@@ -288,7 +288,7 @@
 
       this.tripsTable = $(el).DataTable({
         responsive: true,
-        order: [[1, "desc"]], // Sort by endTime descending
+        order: [[1, "desc"]], // Sort by arrival time descending
         columns: [
           { data: "id" },
           {
@@ -305,6 +305,16 @@
             render: (data, type) =>
               type === "display" || type === "filter"
                 ? DateUtils.formatForDisplay(data, { timeStyle: "short" })
+                : data,
+          },
+          {
+            data: "departureTime",
+            className: "date-cell",
+            render: (data, type) =>
+              type === "display" || type === "filter"
+                ? data
+                  ? DateUtils.formatForDisplay(data, { timeStyle: "short" })
+                  : "Unknown"
                 : data,
           },
           {
@@ -645,10 +655,6 @@
 
         const data = await response.json();
         const trips = data.trips || [];
-
-        if (trips.length > 0) {
-          trips.sort((a, b) => new Date(b.endTime) - new Date(a.endTime));
-        }
 
         if (this.tripsTable) {
           this.tripsTable.clear().rows.add(trips).draw();

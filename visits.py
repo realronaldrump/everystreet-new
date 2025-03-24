@@ -145,6 +145,49 @@ async def delete_place(place_id: str):
         )
 
 
+def format_duration(seconds):
+    """Format duration in seconds to a human-readable string."""
+    if seconds is None:
+        return "N/A"
+
+    if seconds < 60:  # Less than a minute
+        return f"{int(seconds)}s"
+    elif seconds < 3600:  # Less than an hour
+        mins = int(seconds // 60)
+        secs = int(seconds % 60)
+        return f"{mins}m {secs}s"
+    elif seconds < 86400:  # Less than a day
+        hrs = int(seconds // 3600)
+        mins = int((seconds % 3600) // 60)
+        return f"{hrs}h {mins:02d}m"
+    else:  # One or more days
+        days = int(seconds // 86400)
+        hrs = int((seconds % 86400) // 3600)
+        mins = int((seconds % 3600) // 60)
+        return f"{days}d {hrs}h {mins:02d}m"
+
+
+def is_point_in_place(point, place_geometry):
+    """Check if a point is within a place's geometry."""
+    if not point or not isinstance(point, dict) or "coordinates" not in point:
+        return False
+    try:
+        return shape(place_geometry).contains(shape(point))
+    except Exception:
+        return False
+
+
+def parse_time(time_value):
+    """Parse a time value into a timezone-aware datetime."""
+    if not time_value:
+        return None
+    if isinstance(time_value, str):
+        time_value = dateutil_parser.isoparse(time_value)
+    if time_value.tzinfo is None:
+        time_value = time_value.replace(tzinfo=timezone.utc)
+    return time_value
+
+
 @router.get("/places/{place_id}/statistics")
 async def get_place_statistics(place_id: str):
     """Get statistics about visits to a place."""
@@ -157,7 +200,8 @@ async def get_place_statistics(place_id: str):
                 status_code=status.HTTP_404_NOT_FOUND, detail="Place not found"
             )
 
-        query = {
+        # Find trips ending at this place
+        ended_at_place_query = {
             "$or": [
                 {"destinationPlaceId": place_id},
                 {
@@ -169,98 +213,141 @@ async def get_place_statistics(place_id: str):
             "endTime": {"$ne": None},
         }
 
-        valid_trips = []
+        # Find trips starting from this place
+        started_from_place_query = {
+            "$or": [
+                {"startPlaceId": place_id},
+                {"startGeoPoint": {"$geoWithin": {"$geometry": place["geometry"]}}},
+            ],
+            "startTime": {"$ne": None},
+        }
+
+        # Fetch all relevant trips
+        trips_ending_at_place = []
+        trips_starting_from_place = []
+
         for coll in [trips_collection, uploaded_trips_collection]:
-            trips_list = await find_with_retry(coll, query)
-            valid_trips.extend(trips_list)
+            ending_trips = await find_with_retry(coll, ended_at_place_query)
+            starting_trips = await find_with_retry(coll, started_from_place_query)
+            trips_ending_at_place.extend(ending_trips)
+            trips_starting_from_place.extend(starting_trips)
 
-        valid_trips.sort(key=lambda x: x["endTime"])
+        # Create a timeline of all events for visit calculation
+        timeline = []
+
+        for trip in trips_ending_at_place + trips_starting_from_place:
+            trip_id = str(trip["_id"])
+
+            # Add start event if it exists
+            if "startTime" in trip and trip["startTime"]:
+                start_time = parse_time(trip["startTime"])
+                if start_time:
+                    is_at_place = trip.get(
+                        "startPlaceId"
+                    ) == place_id or is_point_in_place(
+                        trip.get("startGeoPoint"), place["geometry"]
+                    )
+                    timeline.append(
+                        {
+                            "time": start_time,
+                            "type": "start",
+                            "trip_id": trip_id,
+                            "is_at_place": is_at_place,
+                        }
+                    )
+
+            # Add end event if it exists
+            if "endTime" in trip and trip["endTime"]:
+                end_time = parse_time(trip["endTime"])
+                if end_time:
+                    is_at_place = trip.get(
+                        "destinationPlaceId"
+                    ) == place_id or is_point_in_place(
+                        trip.get("destinationGeoPoint"), place["geometry"]
+                    )
+                    timeline.append(
+                        {
+                            "time": end_time,
+                            "type": "end",
+                            "trip_id": trip_id,
+                            "is_at_place": is_at_place,
+                        }
+                    )
+
+        # Sort timeline chronologically
+        timeline = sorted(timeline, key=lambda x: x["time"])
+
+        # Calculate visits
         visits = []
-        durations = []
-        time_since_last_visits = []
-        first_visit = None
-        last_visit = None
+        current_visit_start = None
+        last_visit_end = None
 
-        for i, t in enumerate(valid_trips):
-            try:
-                t_end = t["endTime"]
-                if isinstance(t_end, str):
-                    t_end = dateutil_parser.isoparse(t_end)
-                if t_end.tzinfo is None:
-                    t_end = t_end.replace(tzinfo=timezone.utc)
+        for i, event in enumerate(timeline):
+            # Trip ended at the place = start of a visit
+            if event["type"] == "end" and event["is_at_place"]:
+                current_visit_start = event["time"]
 
-                if first_visit is None:
-                    first_visit = t_end
-                last_visit = t_end
+                # Find when this visit ends (next trip start of any kind)
+                visit_end = None
+                for j in range(i + 1, len(timeline)):
+                    if timeline[j]["type"] == "start":
+                        visit_end = timeline[j]["time"]
+                        break
 
-                if i < len(valid_trips) - 1:
-                    next_trip = valid_trips[i + 1]
-                    same_place = False
-                    if next_trip.get("startPlaceId") == place_id:
-                        same_place = True
-                    else:
-                        start_pt = next_trip.get("startGeoPoint")
-                        if (
-                            start_pt
-                            and isinstance(start_pt, dict)
-                            and "coordinates" in start_pt
-                        ):
-                            if shape(place["geometry"]).contains(shape(start_pt)):
-                                same_place = True
+                # Calculate time since last visit
+                time_since_last = None
+                if last_visit_end is not None and current_visit_start is not None:
+                    time_since_last = (
+                        current_visit_start - last_visit_end
+                    ).total_seconds()
 
-                    if same_place:
-                        next_start = next_trip.get("startTime")
-                        if isinstance(next_start, str):
-                            next_start = dateutil_parser.isoparse(next_start)
-                        if next_start and next_start.tzinfo is None:
-                            next_start = next_start.replace(tzinfo=timezone.utc)
-                        if next_start and next_start > t_end:
-                            duration_minutes = (
-                                next_start - t_end
-                            ).total_seconds() / 60.0
-                            if duration_minutes > 0:
-                                durations.append(duration_minutes)
+                # Calculate visit duration
+                duration = None
+                if visit_end is not None and current_visit_start is not None:
+                    duration = (visit_end - current_visit_start).total_seconds()
 
-                if i > 0:
-                    prev_trip_end = valid_trips[i - 1].get("endTime")
-                    if isinstance(prev_trip_end, str):
-                        prev_trip_end = dateutil_parser.isoparse(prev_trip_end)
-                    if prev_trip_end and prev_trip_end.tzinfo is None:
-                        prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
-                    if prev_trip_end and t_end > prev_trip_end:
-                        hrs_since_last = (
-                            t_end - prev_trip_end
-                        ).total_seconds() / 3600.0
-                        if hrs_since_last >= 0:
-                            time_since_last_visits.append(hrs_since_last)
-
-                visits.append(t_end)
-            except Exception as e:
-                logger.exception(
-                    "Issue processing trip for place %s: %s", place_id, str(e)
+                visits.append(
+                    {
+                        "start": current_visit_start,
+                        "end": visit_end,
+                        "duration": duration,
+                        "time_since_last": time_since_last,
+                    }
                 )
-                continue
 
+            # Trip started from the place = end of current visit cycle
+            if event["type"] == "start" and event["is_at_place"]:
+                last_visit_end = event["time"]
+
+        # Calculate statistics
         total_visits = len(visits)
+        durations = [v["duration"] for v in visits if v["duration"] is not None]
+        time_between_visits = [
+            v["time_since_last"] for v in visits if v["time_since_last"] is not None
+        ]
+
         avg_duration = sum(durations) / len(durations) if durations else 0
-
-        def format_h_m(m: float) -> str:
-            hh = int(m // 60)
-            mm = int(m % 60)
-            return f"{hh}h {mm:02d}m"
-
-        avg_duration_str = format_h_m(avg_duration) if avg_duration > 0 else "0h 00m"
-        avg_time_since_last = (
-            sum(time_since_last_visits) / len(time_since_last_visits)
-            if time_since_last_visits
+        avg_time_between = (
+            sum(time_between_visits) / len(time_between_visits)
+            if time_between_visits
             else 0
         )
+
+        first_visit = (
+            min([v["start"] for v in visits], default=None) if visits else None
+        )
+        last_visit = (
+            max([v["start"] for v in visits], default=None) if visits else None
+        )
+
         return {
             "totalVisits": total_visits,
-            "averageTimeSpent": avg_duration_str,
+            "averageTimeSpent": format_duration(avg_duration),
             "firstVisit": SerializationHelper.serialize_datetime(first_visit),
             "lastVisit": SerializationHelper.serialize_datetime(last_visit),
-            "averageTimeSinceLastVisit": avg_time_since_last,
+            "averageTimeSinceLastVisit": avg_time_between / 3600
+            if avg_time_between
+            else 0,  # Convert to hours
             "name": place["name"],
         }
     except HTTPException:
@@ -284,7 +371,8 @@ async def get_trips_for_place(place_id: str):
                 status_code=status.HTTP_404_NOT_FOUND, detail="Place not found"
             )
 
-        query = {
+        # Find trips ending at this place
+        ended_at_place_query = {
             "$or": [
                 {"destinationPlaceId": place_id},
                 {
@@ -296,125 +384,163 @@ async def get_trips_for_place(place_id: str):
             "endTime": {"$ne": None},
         }
 
-        valid_trips = []
+        # Find trips starting from this place
+        started_from_place_query = {
+            "$or": [
+                {"startPlaceId": place_id},
+                {"startGeoPoint": {"$geoWithin": {"$geometry": place["geometry"]}}},
+            ],
+            "startTime": {"$ne": None},
+        }
+
+        # Fetch all relevant trips
+        trips_ending_at_place = []
+        trips_starting_from_place = []
+
         for coll in [trips_collection, uploaded_trips_collection]:
-            trips_list = await find_with_retry(coll, query)
-            valid_trips.extend(trips_list)
+            ending_trips = await find_with_retry(coll, ended_at_place_query)
+            starting_trips = await find_with_retry(coll, started_from_place_query)
+            trips_ending_at_place.extend(ending_trips)
+            trips_starting_from_place.extend(starting_trips)
 
-        valid_trips.sort(key=lambda x: x["endTime"])
-        trips_data = []
+        # Create a dictionary to look up trips by ID
+        trips_by_id = {
+            str(t["_id"]): t for t in trips_ending_at_place + trips_starting_from_place
+        }
 
-        for i, trip in enumerate(valid_trips):
-            end_time = trip["endTime"]
-            if isinstance(end_time, str):
-                end_time = dateutil_parser.isoparse(end_time)
-            if end_time.tzinfo is None:
-                end_time = end_time.replace(tzinfo=timezone.utc)
+        # Create a timeline of all events
+        timeline = []
 
-            duration_str = "0h 00m"
-            time_since_last_str = "N/A"
-
-            if i < len(valid_trips) - 1:
-                next_trip = valid_trips[i + 1]
-                same_place = False
-                if next_trip.get("startPlaceId") == place_id:
-                    same_place = True
-                else:
-                    start_pt = next_trip.get("startGeoPoint")
-                    if (
-                        start_pt
-                        and isinstance(start_pt, dict)
-                        and "coordinates" in start_pt
-                    ):
-                        if shape(place["geometry"]).contains(shape(start_pt)):
-                            same_place = True
-
-                if same_place:
-                    next_start = next_trip.get("startTime")
-                    if isinstance(next_start, str):
-                        next_start = dateutil_parser.isoparse(next_start)
-                    if next_start and next_start.tzinfo is None:
-                        next_start = next_start.replace(tzinfo=timezone.utc)
-                    if next_start and next_start > end_time:
-                        duration_seconds = (
-                            next_start - end_time
-                        ).total_seconds()
-                        if duration_seconds > 0:
-                            # Format duration in a more readable way
-                            if duration_seconds < 60:  # Less than a minute
-                                duration_str = f"{int(duration_seconds)}s"
-                            elif duration_seconds < 3600:  # Less than an hour
-                                mins = int(duration_seconds // 60)
-                                secs = int(duration_seconds % 60)
-                                duration_str = f"{mins}m {secs}s"
-                            elif duration_seconds < 86400:  # Less than a day
-                                hrs = int(duration_seconds // 3600)
-                                mins = int((duration_seconds % 3600) // 60)
-                                duration_str = f"{hrs}h {mins:02d}m"
-                            else:  # One or more days
-                                days = int(duration_seconds // 86400)
-                                hrs = int((duration_seconds % 86400) // 3600)
-                                mins = int((duration_seconds % 3600) // 60)
-                                duration_str = f"{days}d {hrs}h {mins:02d}m"
-
-            if i > 0:
-                prev_trip_end = valid_trips[i - 1].get("endTime")
-                if isinstance(prev_trip_end, str):
-                    prev_trip_end = dateutil_parser.isoparse(prev_trip_end)
-                if prev_trip_end and prev_trip_end.tzinfo is None:
-                    prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
-                if prev_trip_end and end_time > prev_trip_end:
-                    seconds_since_last = (
-                        end_time - prev_trip_end
-                    ).total_seconds()
-                    
-                    # Format in a more readable way
-                    if seconds_since_last < 60:  # Less than a minute
-                        time_since_last_str = f"{int(seconds_since_last)}s"
-                    elif seconds_since_last < 3600:  # Less than an hour
-                        mins = int(seconds_since_last // 60)
-                        secs = int(seconds_since_last % 60)
-                        time_since_last_str = f"{mins}m {secs}s"
-                    elif seconds_since_last < 86400:  # Less than a day
-                        hrs = int(seconds_since_last // 3600)
-                        mins = int((seconds_since_last % 3600) // 60)
-                        time_since_last_str = f"{hrs}h {mins:02d}m"
-                    else:  # One or more days
-                        days = int(seconds_since_last // 86400)
-                        if days < 30:  # Less than a month
-                            hrs = int((seconds_since_last % 86400) // 3600)
-                            time_since_last_str = f"{days}d {hrs}h"
-                        else:  # More than a month
-                            months = int(days // 30)
-                            days = days % 30
-                            time_since_last_str = f"{months}mo {days}d"
-
-            # Add trip data
+        for trip in trips_ending_at_place + trips_starting_from_place:
             trip_id = str(trip["_id"])
+
+            # Add start event if it exists
+            if "startTime" in trip and trip["startTime"]:
+                start_time = parse_time(trip["startTime"])
+                if start_time:
+                    is_at_place = trip.get(
+                        "startPlaceId"
+                    ) == place_id or is_point_in_place(
+                        trip.get("startGeoPoint"), place["geometry"]
+                    )
+                    timeline.append(
+                        {
+                            "time": start_time,
+                            "type": "start",
+                            "trip_id": trip_id,
+                            "is_at_place": is_at_place,
+                        }
+                    )
+
+            # Add end event if it exists
+            if "endTime" in trip and trip["endTime"]:
+                end_time = parse_time(trip["endTime"])
+                if end_time:
+                    is_at_place = trip.get(
+                        "destinationPlaceId"
+                    ) == place_id or is_point_in_place(
+                        trip.get("destinationGeoPoint"), place["geometry"]
+                    )
+                    timeline.append(
+                        {
+                            "time": end_time,
+                            "type": "end",
+                            "trip_id": trip_id,
+                            "is_at_place": is_at_place,
+                        }
+                    )
+
+        # Sort timeline chronologically
+        timeline = sorted(timeline, key=lambda x: x["time"])
+
+        # Calculate visits and create trips data
+        visits = []
+        current_visit_start = None
+        last_visit_end = None
+
+        for i, event in enumerate(timeline):
+            # Trip ended at the place = start of a visit
+            if event["type"] == "end" and event["is_at_place"]:
+                current_visit_start = event["time"]
+                arrival_trip_id = event["trip_id"]
+
+                # Find when this visit ends (next trip start of any kind)
+                visit_end = None
+                departure_trip_id = None
+                for j in range(i + 1, len(timeline)):
+                    if timeline[j]["type"] == "start":
+                        visit_end = timeline[j]["time"]
+                        departure_trip_id = timeline[j]["trip_id"]
+                        break
+
+                # Calculate time since last visit
+                time_since_last = None
+                if last_visit_end is not None and current_visit_start is not None:
+                    time_since_last = (
+                        current_visit_start - last_visit_end
+                    ).total_seconds()
+
+                # Calculate visit duration
+                duration = None
+                if visit_end is not None and current_visit_start is not None:
+                    duration = (visit_end - current_visit_start).total_seconds()
+
+                visits.append(
+                    {
+                        "arrival_trip_id": arrival_trip_id,
+                        "departure_trip_id": departure_trip_id,
+                        "arrival_time": current_visit_start,
+                        "departure_time": visit_end,
+                        "duration": duration,
+                        "time_since_last": time_since_last,
+                    }
+                )
+
+            # Trip started from the place = end of current visit cycle
+            if event["type"] == "start" and event["is_at_place"]:
+                last_visit_end = event["time"]
+
+        # Format visit data for display
+        trips_data = []
+        for visit in visits:
+            arrival_trip_id = visit["arrival_trip_id"]
+            trip = trips_by_id.get(arrival_trip_id)
+
+            if not trip:
+                continue
+
+            duration_str = format_duration(visit["duration"])
+            time_since_last_str = format_duration(visit["time_since_last"])
+
+            # Add to final data
             trip_source = "Uploaded"
             if "_source" in trip and trip["_source"] == "bouncie":
                 trip_source = "Bouncie"
 
-            # Handling 'distance' field, checking if it's a dictionary or float
-            distance = trip.get(
-                "distance", 0
-            )  # Default to 0 if no "distance" key is found
-
-            # Check if distance is a dictionary and extract the value
+            distance = trip.get("distance", 0)
             if isinstance(distance, dict):
                 distance = distance.get("value", 0)
 
-            # Now, you can safely use distance
             trips_data.append(
                 {
-                    "id": trip_id,
-                    "endTime": SerializationHelper.serialize_datetime(end_time),
+                    "id": arrival_trip_id,
+                    "endTime": SerializationHelper.serialize_datetime(
+                        visit["arrival_time"]
+                    ),
+                    "departureTime": SerializationHelper.serialize_datetime(
+                        visit["departure_time"]
+                    )
+                    if visit["departure_time"]
+                    else None,
                     "timeSpent": duration_str,
                     "timeSinceLastVisit": time_since_last_str,
                     "source": trip_source,
                     "distance": distance,
                 }
             )
+
+        # Sort by arrival time (when trip arrived at place) in descending order
+        trips_data.sort(key=lambda x: x["endTime"], reverse=True)
 
         return {"trips": trips_data, "name": place["name"]}
     except HTTPException:
