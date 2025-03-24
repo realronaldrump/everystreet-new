@@ -643,11 +643,21 @@
         const response = await fetch(`/api/places/${placeId}/trips`);
         if (!response.ok) throw new Error("Failed to fetch trips for place");
 
-        const trips = await response.json();
-        trips.sort((a, b) => new Date(b.endTime) - new Date(a.endTime));
+        const data = await response.json();
+        const trips = data.trips || [];
+
+        if (trips.length > 0) {
+          trips.sort((a, b) => new Date(b.endTime) - new Date(a.endTime));
+        }
 
         if (this.tripsTable) {
           this.tripsTable.clear().rows.add(trips).draw();
+        }
+
+        // Update place name if available
+        const placeNameElement = document.getElementById("selected-place-name");
+        if (placeNameElement && data.name) {
+          placeNameElement.textContent = data.name;
         }
       } catch (error) {
         console.error("Error fetching trips for place:", error);

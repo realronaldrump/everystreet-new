@@ -336,13 +336,26 @@ async def get_trips_for_place(place_id: str):
                     if next_start and next_start.tzinfo is None:
                         next_start = next_start.replace(tzinfo=timezone.utc)
                     if next_start and next_start > end_time:
-                        duration_minutes = (
+                        duration_seconds = (
                             next_start - end_time
-                        ).total_seconds() / 60.0
-                        if duration_minutes > 0:
-                            hrs = int(duration_minutes // 60)
-                            mins = int(duration_minutes % 60)
-                            duration_str = f"{hrs}h {mins:02d}m"
+                        ).total_seconds()
+                        if duration_seconds > 0:
+                            # Format duration in a more readable way
+                            if duration_seconds < 60:  # Less than a minute
+                                duration_str = f"{int(duration_seconds)}s"
+                            elif duration_seconds < 3600:  # Less than an hour
+                                mins = int(duration_seconds // 60)
+                                secs = int(duration_seconds % 60)
+                                duration_str = f"{mins}m {secs}s"
+                            elif duration_seconds < 86400:  # Less than a day
+                                hrs = int(duration_seconds // 3600)
+                                mins = int((duration_seconds % 3600) // 60)
+                                duration_str = f"{hrs}h {mins:02d}m"
+                            else:  # One or more days
+                                days = int(duration_seconds // 86400)
+                                hrs = int((duration_seconds % 86400) // 3600)
+                                mins = int((duration_seconds % 3600) // 60)
+                                duration_str = f"{days}d {hrs}h {mins:02d}m"
 
             if i > 0:
                 prev_trip_end = valid_trips[i - 1].get("endTime")
@@ -351,12 +364,30 @@ async def get_trips_for_place(place_id: str):
                 if prev_trip_end and prev_trip_end.tzinfo is None:
                     prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
                 if prev_trip_end and end_time > prev_trip_end:
-                    hrs_since_last = (
+                    seconds_since_last = (
                         end_time - prev_trip_end
-                    ).total_seconds() / 3600.0
-                    # Round to nearest tenth
-                    hrs_since_last = round(hrs_since_last * 10) / 10
-                    time_since_last_str = f"{hrs_since_last}h"
+                    ).total_seconds()
+                    
+                    # Format in a more readable way
+                    if seconds_since_last < 60:  # Less than a minute
+                        time_since_last_str = f"{int(seconds_since_last)}s"
+                    elif seconds_since_last < 3600:  # Less than an hour
+                        mins = int(seconds_since_last // 60)
+                        secs = int(seconds_since_last % 60)
+                        time_since_last_str = f"{mins}m {secs}s"
+                    elif seconds_since_last < 86400:  # Less than a day
+                        hrs = int(seconds_since_last // 3600)
+                        mins = int((seconds_since_last % 3600) // 60)
+                        time_since_last_str = f"{hrs}h {mins:02d}m"
+                    else:  # One or more days
+                        days = int(seconds_since_last // 86400)
+                        if days < 30:  # Less than a month
+                            hrs = int((seconds_since_last % 86400) // 3600)
+                            time_since_last_str = f"{days}d {hrs}h"
+                        else:  # More than a month
+                            months = int(days // 30)
+                            days = days % 30
+                            time_since_last_str = f"{months}mo {days}d"
 
             # Add trip data
             trip_id = str(trip["_id"])
