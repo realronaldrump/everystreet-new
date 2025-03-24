@@ -336,9 +336,7 @@ async def get_trips_for_place(place_id: str):
                     if next_start and next_start.tzinfo is None:
                         next_start = next_start.replace(tzinfo=timezone.utc)
                     if next_start and next_start > end_time:
-                        duration_seconds = (
-                            next_start - end_time
-                        ).total_seconds()
+                        duration_seconds = (next_start - end_time).total_seconds()
                         if duration_seconds > 0:
                             # Format duration in a more readable way
                             if duration_seconds < 60:  # Less than a minute
@@ -364,10 +362,8 @@ async def get_trips_for_place(place_id: str):
                 if prev_trip_end and prev_trip_end.tzinfo is None:
                     prev_trip_end = prev_trip_end.replace(tzinfo=timezone.utc)
                 if prev_trip_end and end_time > prev_trip_end:
-                    seconds_since_last = (
-                        end_time - prev_trip_end
-                    ).total_seconds()
-                    
+                    seconds_since_last = (end_time - prev_trip_end).total_seconds()
+
                     # Format in a more readable way
                     if seconds_since_last < 60:  # Less than a minute
                         time_since_last_str = f"{int(seconds_since_last)}s"
