@@ -6,9 +6,7 @@
 "use strict";
 
 (function () {
-  // ==============================
-  // Configuration & Constants
-  // ==============================
+  // Configuration
   const CONFIG = {
     MAP: {
       defaultCenter: [37.0902, -95.7129],
@@ -18,12 +16,8 @@
         light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
       },
       maxZoom: 19,
-      recentTripThreshold: 6 * 60 * 60 * 1000, // 6 hours in milliseconds
+      recentTripThreshold: 6 * 60 * 60 * 1000, // 6 hours in ms
       debounceDelay: 100,
-    },
-    REFRESH: {
-      minPollingInterval: 1000,
-      maxPollDelay: 8000,
     },
     STORAGE_KEYS: {
       startDate: "startDate",
@@ -32,8 +26,7 @@
       sidebarState: "sidebarCollapsed",
     },
     ERROR_MESSAGES: {
-      mapInitFailed:
-        "Failed to initialize map components. Please refresh the page.",
+      mapInitFailed: "Failed to initialize map. Please refresh the page.",
       fetchTripsFailed: "Error loading trips. Please try again.",
       locationValidationFailed: "Location not found. Please check your input.",
     },
@@ -66,20 +59,15 @@
     },
   };
 
-  // ==============================
   // Application State
-  // ==============================
   const AppState = {
     map: null,
     layerGroup: null,
     mapLayers: { ...LAYER_DEFAULTS },
     mapInitialized: false,
-    mapSettings: {
-      highlightRecentTrips: true,
-    },
+    mapSettings: { highlightRecentTrips: true },
     trips: [],
     selectedTripId: null,
-    lastPollingTimestamp: 0,
     polling: {
       active: true,
       interval: 5000,
@@ -88,129 +76,111 @@
     dom: {},
   };
 
-  // ==============================
-  // DOM Utility Functions
-  // ==============================
-  function getElement(selector, useCache = true, context = document) {
-    if (useCache && AppState.dom[selector]) {
-      return AppState.dom[selector];
-    }
+  // DOM Cache and Utilities
+  const getElement = (selector, useCache = true, context = document) => {
+    if (useCache && AppState.dom[selector]) return AppState.dom[selector];
+
     const normalizedSelector =
       selector.startsWith("#") || selector.includes(" ")
         ? selector
         : `#${selector}`;
     const element = context.querySelector(normalizedSelector);
-    if (useCache && element) {
-      AppState.dom[selector] = element;
-    }
+    if (useCache && element) AppState.dom[selector] = element;
     return element;
-  }
+  };
 
-  function showNotification(message, type = "info") {
-    if (
-      window.notificationManager &&
-      typeof window.notificationManager.show === "function"
-    ) {
+  const showNotification = (message, type = "info") => {
+    if (window.notificationManager?.show) {
       window.notificationManager.show(message, type);
       return true;
     }
-    // Fallback if no notification manager
     console.log(`${type.toUpperCase()}: ${message}`);
     return false;
-  }
+  };
 
-  function debounce(func, delay) {
-    let timeout;
-    return (...args) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(null, args), delay);
-    };
-  }
+  const handleError = (error, context) =>
+    window.handleError?.(error, context) ||
+    console.error(`Error in ${context}:`, error);
 
-  function addSingleEventListener(element, eventType, handler) {
+  const addSingleEventListener = (element, eventType, handler) => {
     const el = typeof element === "string" ? getElement(element) : element;
     if (!el) return false;
 
-    if (!el._eventHandlers) {
-      el._eventHandlers = {};
-    }
+    if (!el._eventHandlers) el._eventHandlers = {};
 
-    const handlerFunction = handler.toString();
-    const handlerKey = `${eventType}_${handlerFunction
+    const handlerKey = `${eventType}_${handler
+      .toString()
       .substring(0, 50)
       .replace(/\s+/g, "")}`;
-
-    if (el._eventHandlers[handlerKey]) {
-      return false;
-    }
+    if (el._eventHandlers[handlerKey]) return false;
 
     el.addEventListener(eventType, handler);
     el._eventHandlers[handlerKey] = handler;
     return true;
-  }
+  };
 
-  function getStorageItem(key, defaultValue = null) {
-    try {
-      const value = localStorage.getItem(key);
-      return value !== null ? value : defaultValue;
-    } catch (e) {
-      console.warn(`Error reading from localStorage: ${e.message}`);
-      return defaultValue;
-    }
-  }
+  // Use utils.js storage functions
+  const getStorageItem =
+    window.utils?.getStorage ||
+    ((key, defaultValue = null) => {
+      try {
+        const value = localStorage.getItem(key);
+        return value !== null ? value : defaultValue;
+      } catch (e) {
+        console.warn(`Error reading from localStorage: ${e.message}`);
+        return defaultValue;
+      }
+    });
 
-  function setStorageItem(key, value) {
-    try {
-      localStorage.setItem(key, value);
-    } catch (e) {
-      console.warn(`Error writing to localStorage: ${e.message}`);
-    }
-  }
+  const setStorageItem =
+    window.utils?.setStorage ||
+    ((key, value) => {
+      try {
+        localStorage.setItem(key, value);
+        return true;
+      } catch (e) {
+        console.warn(`Error writing to localStorage: ${e.message}`);
+        return false;
+      }
+    });
 
-  function handleError(error, context) {
-    console.error(`Error in ${context}:`, error);
-    showNotification(`Error in ${context}: ${error.message}`, "danger");
-    document.dispatchEvent(
-      new CustomEvent("appError", {
-        detail: { context, error: error.message },
-      })
-    );
-  }
+  const debounce =
+    window.utils?.debounce ||
+    ((func, delay) => {
+      let timeout;
+      return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(null, args), delay);
+      };
+    });
 
   const debouncedUpdateMap = debounce(updateMap, CONFIG.MAP.debounceDelay);
 
-  // ==============================
   // Date & Filter Functions
-  // ==============================
-  function getStartDate() {
+  const getStartDate = () => {
     const startDateInput =
       AppState.dom.startDateInput || getElement("start-date");
-    if (startDateInput?.value) {
+    if (startDateInput?.value)
       return DateUtils.formatDate(startDateInput.value);
-    }
+
     const storedDate = getStorageItem(CONFIG.STORAGE_KEYS.startDate);
-    if (storedDate) {
-      return DateUtils.formatDate(storedDate);
-    }
-    return DateUtils.getCurrentDate();
-  }
+    return storedDate
+      ? DateUtils.formatDate(storedDate)
+      : DateUtils.getCurrentDate();
+  };
 
-  function getEndDate() {
+  const getEndDate = () => {
     const endDateInput = AppState.dom.endDateInput || getElement("end-date");
-    if (endDateInput?.value) {
-      return DateUtils.formatDate(endDateInput.value);
-    }
-    const storedDate = getStorageItem(CONFIG.STORAGE_KEYS.endDate);
-    if (storedDate) {
-      return DateUtils.formatDate(storedDate);
-    }
-    return DateUtils.getCurrentDate();
-  }
+    if (endDateInput?.value) return DateUtils.formatDate(endDateInput.value);
 
-  // ==============================
+    const storedDate = getStorageItem(CONFIG.STORAGE_KEYS.endDate);
+    return storedDate
+      ? DateUtils.formatDate(storedDate)
+      : DateUtils.getCurrentDate();
+  };
+
   // Trip Styling Functions
-  // ==============================
-  function getTripFeatureStyle(feature, layerInfo) {
+  const getTripFeatureStyle = (feature, layerInfo) => {
     const { properties } = feature;
     const { transactionId, startTime } = properties;
     const sixHoursAgo = Date.now() - CONFIG.MAP.recentTripThreshold;
@@ -257,7 +227,7 @@
       className,
       zIndexOffset: isSelected || isMatchedPair ? 1000 : 0,
     };
-  }
+  };
 
   function refreshTripStyles() {
     if (!AppState.layerGroup) return;
@@ -266,13 +236,14 @@
       if (layer.eachLayer) {
         layer.eachLayer((featureLayer) => {
           if (featureLayer.feature?.properties && featureLayer.setStyle) {
-            let layerInfo = AppState.mapLayers.trips;
-            if (featureLayer.feature.properties.isMatched) {
-              layerInfo = AppState.mapLayers.matchedTrips;
-            }
+            const layerInfo = featureLayer.feature.properties.isMatched
+              ? AppState.mapLayers.matchedTrips
+              : AppState.mapLayers.trips;
+
             featureLayer.setStyle(
               getTripFeatureStyle(featureLayer.feature, layerInfo)
             );
+
             if (
               featureLayer.feature.properties.transactionId ===
               AppState.selectedTripId
@@ -285,20 +256,14 @@
     });
   }
 
-  // ==============================
   // Map Initialization & Controls
-  // ==============================
-  function isMapReady() {
-    return AppState.map && AppState.mapInitialized && AppState.layerGroup;
-  }
+  const isMapReady = () =>
+    AppState.map && AppState.mapInitialized && AppState.layerGroup;
 
   async function initializeMap() {
     try {
       const mapContainer = document.getElementById("map");
-      if (!mapContainer) {
-        console.warn("Map container not found");
-        return;
-      }
+      if (!mapContainer) return;
 
       mapContainer.style.height = "500px";
       mapContainer.style.position = "relative";
@@ -328,16 +293,12 @@
 
       AppState.layerGroup = L.layerGroup().addTo(AppState.map);
 
-      // Initialize layer containers for each map layer
+      // Initialize layer containers
       Object.keys(AppState.mapLayers).forEach((layerName) => {
-        if (layerName === "customPlaces") {
-          AppState.mapLayers[layerName].layer = L.layerGroup();
-        } else {
-          AppState.mapLayers[layerName].layer = {
-            type: "FeatureCollection",
-            features: [],
-          };
-        }
+        AppState.mapLayers[layerName].layer =
+          layerName === "customPlaces"
+            ? L.layerGroup()
+            : { type: "FeatureCollection", features: [] };
       });
 
       // Map click event
@@ -350,14 +311,11 @@
 
       // Theme change event
       document.addEventListener("themeChanged", (e) => {
-        const theme = e.detail?.theme || "dark";
-        updateMapTheme(theme);
+        updateMapTheme(e.detail?.theme || "dark");
       });
 
-      // Initialize live tracker
       initializeLiveTracker();
 
-      // Center map on last position
       try {
         await centerMapOnLastPosition();
       } catch (error) {
@@ -365,9 +323,7 @@
         AppState.map.setView(CONFIG.MAP.defaultCenter, CONFIG.MAP.defaultZoom);
       } finally {
         AppState.mapInitialized = true;
-        setTimeout(() => {
-          AppState.map.invalidateSize();
-        }, 100);
+        setTimeout(() => AppState.map.invalidateSize(), 100);
         document.dispatchEvent(new CustomEvent("mapInitialized"));
       }
     } catch (error) {
@@ -411,9 +367,7 @@
   async function centerMapOnLastPosition() {
     try {
       const response = await fetch("/api/last_trip_point");
-      if (!response.ok) {
-        throw new Error(`HTTP error ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
 
       const data = await response.json();
       if (data.lastPoint && AppState.map) {
@@ -437,10 +391,10 @@
     layerToggles.innerHTML = "";
 
     Object.entries(AppState.mapLayers).forEach(([name, info]) => {
-      const displayName = info.name || name;
       const div = document.createElement("div");
       div.className = "layer-control";
       div.dataset.layerName = name;
+
       div.innerHTML = `
         <label class="custom-checkbox">
           <input type="checkbox" id="${name}-toggle" ${
@@ -448,7 +402,7 @@
       }>
           <span class="checkmark"></span>
         </label>
-        <label for="${name}-toggle">${displayName}</label>
+        <label for="${name}-toggle">${info.name || name}</label>
       `;
 
       if (!["customPlaces"].includes(name)) {
@@ -476,28 +430,27 @@
       layerToggles.appendChild(div);
     });
 
-    addSingleEventListener(layerToggles, "change", handleLayerControlsChange);
-    addSingleEventListener(layerToggles, "input", handleLayerControlsInput);
+    // Use event delegation
+    layerToggles.addEventListener("change", (e) => {
+      const target = e.target;
+      if (target.matches('input[type="checkbox"]')) {
+        toggleLayer(target.id.replace("-toggle", ""), target.checked);
+      }
+    });
+
+    layerToggles.addEventListener("input", (e) => {
+      const target = e.target;
+      if (target.matches('input[type="color"]')) {
+        changeLayerColor(target.id.replace("-color", ""), target.value);
+      } else if (target.matches('input[type="range"]')) {
+        changeLayerOpacity(
+          target.id.replace("-opacity", ""),
+          parseFloat(target.value)
+        );
+      }
+    });
+
     updateLayerOrderUI();
-  }
-
-  function handleLayerControlsChange(e) {
-    const target = e.target;
-    if (target.matches('input[type="checkbox"]')) {
-      const layerName = target.id.replace("-toggle", "");
-      toggleLayer(layerName, target.checked);
-    }
-  }
-
-  function handleLayerControlsInput(e) {
-    const target = e.target;
-    if (target.matches('input[type="color"]')) {
-      const layerName = target.id.replace("-color", "");
-      changeLayerColor(layerName, target.value);
-    } else if (target.matches('input[type="range"]')) {
-      const layerName = target.id.replace("-opacity", "");
-      changeLayerOpacity(layerName, parseFloat(target.value));
-    }
   }
 
   function toggleLayer(name, visible) {
@@ -521,18 +474,14 @@
   }
 
   function changeLayerColor(name, color) {
-    const layerInfo = AppState.mapLayers[name];
-    if (!layerInfo) return;
-
-    layerInfo.color = color;
+    if (!AppState.mapLayers[name]) return;
+    AppState.mapLayers[name].color = color;
     debouncedUpdateMap();
   }
 
   function changeLayerOpacity(name, opacity) {
-    const layerInfo = AppState.mapLayers[name];
-    if (!layerInfo) return;
-
-    layerInfo.opacity = opacity;
+    if (!AppState.mapLayers[name]) return;
+    AppState.mapLayers[name].opacity = opacity;
     debouncedUpdateMap();
   }
 
@@ -572,9 +521,7 @@
     list.addEventListener("dragstart", (e) => {
       draggedItem = e.target;
       e.dataTransfer.effectAllowed = "move";
-      setTimeout(() => {
-        draggedItem.classList.add("dragging");
-      }, 0);
+      setTimeout(() => draggedItem.classList.add("dragging"), 0);
     });
 
     list.addEventListener("dragover", (e) => {
@@ -614,9 +561,7 @@
     debouncedUpdateMap();
   }
 
-  // ==============================
   // API Calls & Map Data
-  // ==============================
   async function withLoading(
     operationId,
     totalWeight = 100,
@@ -672,24 +617,20 @@
           return;
         }
 
-        if (AppState.dom.startDateInput) {
+        if (AppState.dom.startDateInput)
           AppState.dom.startDateInput.value = startDate;
-        }
-
-        if (AppState.dom.endDateInput) {
+        if (AppState.dom.endDateInput)
           AppState.dom.endDateInput.value = endDate;
-        }
 
         lm.updateSubOperation(opId, "Fetching Data", 25);
+
         const params = new URLSearchParams({
           start_date: startDate,
           end_date: endDate,
         });
-
         const response = await fetch(`/api/trips?${params.toString()}`);
-        if (!response.ok) {
+        if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);
-        }
 
         const geojson = await response.json();
         lm.updateSubOperation(opId, "Fetching Data", 50);
@@ -723,29 +664,23 @@
   async function updateTripsTable(geojson) {
     if (!window.tripsTable) return;
 
-    const formattedTrips = geojson.features.map((trip) => {
-      const startTimeFormatted = DateUtils.formatForDisplay(
+    const formattedTrips = geojson.features.map((trip) => ({
+      ...trip.properties,
+      gps: trip.geometry,
+      startTimeFormatted: DateUtils.formatForDisplay(
         trip.properties.startTime,
         { dateStyle: "short", timeStyle: "short" }
-      );
-
-      const endTimeFormatted = DateUtils.formatForDisplay(
-        trip.properties.endTime,
-        { dateStyle: "short", timeStyle: "short" }
-      );
-
-      return {
-        ...trip.properties,
-        gps: trip.geometry,
-        startTimeFormatted,
-        endTimeFormatted,
-        startTimeRaw: trip.properties.startTime,
-        endTimeRaw: trip.properties.endTime,
-        destination: trip.properties.destination || "N/A",
-        startLocation: trip.properties.startLocation || "N/A",
-        distance: Number(trip.properties.distance).toFixed(2),
-      };
-    });
+      ),
+      endTimeFormatted: DateUtils.formatForDisplay(trip.properties.endTime, {
+        dateStyle: "short",
+        timeStyle: "short",
+      }),
+      startTimeRaw: trip.properties.startTime,
+      endTimeRaw: trip.properties.endTime,
+      destination: trip.properties.destination || "N/A",
+      startLocation: trip.properties.startLocation || "N/A",
+      distance: Number(trip.properties.distance).toFixed(2),
+    }));
 
     return new Promise((resolve) => {
       window.tripsTable.clear().rows.add(formattedTrips).draw();
@@ -754,13 +689,11 @@
   }
 
   async function updateMapWithTrips(geojson) {
-    if (!geojson || !geojson.features) return;
-
+    if (!geojson?.features) return;
     AppState.mapLayers.trips.layer = {
       type: "FeatureCollection",
       features: geojson.features,
     };
-
     await updateMap();
   }
 
@@ -781,13 +714,10 @@
       start_date: startDate,
       end_date: endDate,
     });
+    const response = await fetch(`/api/matched_trips?${params.toString()}`);
 
-    const url = `/api/matched_trips?${params.toString()}`;
-    const response = await fetch(url);
-
-    if (!response.ok) {
+    if (!response.ok)
       throw new Error(`HTTP error fetching matched trips: ${response.status}`);
-    }
 
     const geojson = await response.json();
     AppState.mapLayers.matchedTrips.layer = geojson;
@@ -833,10 +763,7 @@
       tripLayers.get(AppState.selectedTripId)?.bringToFront();
     }
 
-    if (fitBounds) {
-      fitMapBounds();
-    }
-
+    if (fitBounds) fitMapBounds();
     document.dispatchEvent(new CustomEvent("mapUpdated"));
   }
 
@@ -851,9 +778,8 @@
     AppState.layerGroup.eachLayer((l) => l.closePopup && l.closePopup());
 
     if (!wasSelected) {
-      const popupContent = createTripPopupContent(feature, name);
       layer
-        .bindPopup(popupContent, {
+        .bindPopup(createTripPopupContent(feature, name), {
           className: "trip-popup",
           maxWidth: 300,
           autoPan: true,
@@ -876,94 +802,52 @@
     const props = feature.properties;
     const isMatched = layerName === "matchedTrips";
 
-    // Add console logging to debug property structure
-    console.log("Trip properties:", props);
-    console.log("Layer name:", layerName);
-
-    // Normalize access to properties to ensure consistency
-    // between regular and matched trips
+    // Normalize trip data
     const tripData = {
-      // IDs
       id: props.tripId || props.id || props.transactionId,
-
-      // Times
       startTime: props.startTime || null,
       endTime: props.endTime || null,
-
-      // Distances and Speed - access all possible property paths
       distance: typeof props.distance === "number" ? props.distance : null,
-
-      // Check all possible paths for speed values with fallbacks
-      // Convert to number to ensure consistent handling
-      maxSpeed: (() => {
-        // Check all possible places speed might be stored
-        if (typeof props.maxSpeed === "number") return props.maxSpeed;
-        if (typeof props.max_speed === "number") return props.max_speed;
-        if (props.properties && typeof props.properties.maxSpeed === "number")
-          return props.properties.maxSpeed;
-        if (props.properties && typeof props.properties.max_speed === "number")
-          return props.properties.max_speed;
-        return null;
-      })(),
-
-      averageSpeed: (() => {
-        // Check all possible places average speed might be stored
-        if (typeof props.averageSpeed === "number") return props.averageSpeed;
-        if (typeof props.average_speed === "number") return props.average_speed;
-        if (
-          props.properties &&
-          typeof props.properties.averageSpeed === "number"
-        )
-          return props.properties.averageSpeed;
-        if (
-          props.properties &&
-          typeof props.properties.average_speed === "number"
-        )
-          return props.properties.average_speed;
-        return null;
-      })(),
-
-      // Locations
+      maxSpeed:
+        props.maxSpeed ||
+        props.max_speed ||
+        (props.properties &&
+          (props.properties.maxSpeed || props.properties.max_speed)) ||
+        null,
+      averageSpeed:
+        props.averageSpeed ||
+        props.average_speed ||
+        (props.properties &&
+          (props.properties.averageSpeed || props.properties.average_speed)) ||
+        null,
       startLocation: props.startLocation || null,
       destination: props.destination || null,
-
-      // Driving behavior
       hardBrakingCount: parseInt(props.hardBrakingCount || 0, 10),
       hardAccelerationCount: parseInt(props.hardAccelerationCount || 0, 10),
       totalIdleDurationFormatted: props.totalIdleDurationFormatted || null,
     };
 
-    // Log normalized data
-    console.log("Normalized trip data:", tripData);
-
-    // Format times for display
-    const startTimeDisplay = tripData.startTime
-      ? DateUtils.formatForDisplay(tripData.startTime, {
-          dateStyle: "medium",
-          timeStyle: "short",
-        })
-      : "Unknown";
-
-    const endTimeDisplay = tripData.endTime
-      ? DateUtils.formatForDisplay(tripData.endTime, {
-          dateStyle: "medium",
-          timeStyle: "short",
-        })
-      : "Unknown";
-
-    // Format distance consistently
+    // Format values for display
+    const formatDate = (date) =>
+      date
+        ? DateUtils.formatForDisplay(date, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })
+        : "Unknown";
+    const startTimeDisplay = formatDate(tripData.startTime);
+    const endTimeDisplay = formatDate(tripData.endTime);
     const distance =
       tripData.distance !== null
         ? `${tripData.distance.toFixed(2)} mi`
         : "Unknown";
 
-    // Calculate duration consistently
+    // Calculate duration
     let durationDisplay = "Unknown";
     if (tripData.startTime && tripData.endTime) {
       try {
-        const start = new Date(tripData.startTime);
-        const end = new Date(tripData.endTime);
-        const durationMs = end - start;
+        const durationMs =
+          new Date(tripData.endTime) - new Date(tripData.startTime);
         const hours = Math.floor(durationMs / (1000 * 60 * 60));
         const minutes = Math.floor(
           (durationMs % (1000 * 60 * 60)) / (1000 * 60)
@@ -974,125 +858,72 @@
       }
     }
 
-    // Format speed values consistently with more robust checks
-    const maxSpeed = (() => {
-      if (tripData.maxSpeed === null || tripData.maxSpeed === undefined)
-        return "Unknown";
-      const speedValue = parseFloat(tripData.maxSpeed);
-      if (isNaN(speedValue)) return "Unknown";
-      return `${(speedValue * 0.621371).toFixed(1)} mph`;
-    })();
+    // Format speed values
+    const formatSpeed = (speed) => {
+      if (speed === null || speed === undefined) return "Unknown";
+      const speedValue = parseFloat(speed);
+      return isNaN(speedValue)
+        ? "Unknown"
+        : `${(speedValue * 0.621371).toFixed(1)} mph`;
+    };
 
-    const avgSpeed = (() => {
-      if (tripData.averageSpeed === null || tripData.averageSpeed === undefined)
-        return "Unknown";
-      const speedValue = parseFloat(tripData.averageSpeed);
-      if (isNaN(speedValue)) return "Unknown";
-      return `${(speedValue * 0.621371).toFixed(1)} mph`;
-    })();
+    const maxSpeed = formatSpeed(tripData.maxSpeed);
+    const avgSpeed = formatSpeed(tripData.averageSpeed);
 
     // Create popup content
     let html = `
       <div class="trip-popup">
         <h4>${isMatched ? "Matched Trip" : "Trip"}</h4>
         <table class="popup-data">
-          <tr>
-            <th>Start Time:</th>
-            <td>${startTimeDisplay}</td>
-          </tr>
-          <tr>
-            <th>End Time:</th>
-            <td>${endTimeDisplay}</td>
-          </tr>
-          <tr>
-            <th>Duration:</th>
-            <td>${durationDisplay}</td>
-          </tr>
-          <tr>
-            <th>Distance:</th>
-            <td>${distance}</td>
-          </tr>
+          <tr><th>Start Time:</th><td>${startTimeDisplay}</td></tr>
+          <tr><th>End Time:</th><td>${endTimeDisplay}</td></tr>
+          <tr><th>Duration:</th><td>${durationDisplay}</td></tr>
+          <tr><th>Distance:</th><td>${distance}</td></tr>
     `;
 
     // Add location information if available
     if (tripData.startLocation) {
-      // Handle structured location format consistently
       const startLocationText =
         typeof tripData.startLocation === "object"
           ? tripData.startLocation.formatted_address || "Unknown location"
           : tripData.startLocation;
-
-      html += `
-        <tr>
-          <th>Start Location:</th>
-          <td>${startLocationText}</td>
-        </tr>
-      `;
+      html += `<tr><th>Start Location:</th><td>${startLocationText}</td></tr>`;
     }
 
     if (tripData.destination) {
-      // Handle structured location format consistently
       const destinationText =
         typeof tripData.destination === "object"
           ? tripData.destination.formatted_address || "Unknown destination"
           : tripData.destination;
-
-      html += `
-        <tr>
-          <th>Destination:</th>
-          <td>${destinationText}</td>
-        </tr>
-      `;
+      html += `<tr><th>Destination:</th><td>${destinationText}</td></tr>`;
     }
 
     // Add speed information
     html += `
-      <tr>
-        <th>Max Speed:</th>
-        <td>${maxSpeed}</td>
-      </tr>
-      <tr>
-        <th>Avg Speed:</th>
-        <td>${avgSpeed}</td>
-      </tr>
+      <tr><th>Max Speed:</th><td>${maxSpeed}</td></tr>
+      <tr><th>Avg Speed:</th><td>${avgSpeed}</td></tr>
     `;
 
     // Add idle time if available
     if (tripData.totalIdleDurationFormatted) {
-      html += `
-        <tr>
-          <th>Idle Time:</th>
-          <td>${tripData.totalIdleDurationFormatted}</td>
-        </tr>
-      `;
+      html += `<tr><th>Idle Time:</th><td>${tripData.totalIdleDurationFormatted}</td></tr>`;
     }
 
     // Add driving behavior metrics if greater than 0
     if (tripData.hardBrakingCount > 0) {
-      html += `
-        <tr>
-          <th>Hard Braking:</th>
-          <td>${tripData.hardBrakingCount}</td>
-        </tr>
-      `;
+      html += `<tr><th>Hard Braking:</th><td>${tripData.hardBrakingCount}</td></tr>`;
     }
 
     if (tripData.hardAccelerationCount > 0) {
-      html += `
-        <tr>
-          <th>Hard Accel:</th>
-          <td>${tripData.hardAccelerationCount}</td>
-        </tr>
-      `;
+      html += `<tr><th>Hard Accel:</th><td>${tripData.hardAccelerationCount}</td></tr>`;
     }
 
-    // Add trip ID for actions
+    // Add action buttons
     html += `
         </table>
         <div class="trip-actions" data-trip-id="${tripData.id}">
     `;
 
-    // Add appropriate action buttons
     if (isMatched) {
       html += `<button class="btn btn-sm btn-danger delete-matched-trip">Delete Match</button>`;
     } else {
@@ -1102,11 +933,7 @@
       `;
     }
 
-    html += `
-        </div>
-      </div>
-    `;
-
+    html += `</div></div>`;
     return html;
   }
 
@@ -1115,13 +942,13 @@
     if (!popupEl) return;
 
     const handlePopupClick = async (e) => {
-      if (!e.target.closest("button")) return;
+      const target = e.target.closest("button");
+      if (!target) return;
 
       e.stopPropagation();
       L.DomEvent.stopPropagation(e);
 
-      const target = e.target.closest("button");
-      const tripId = target.closest(".trip-actions").dataset.tripId;
+      const tripId = target.closest(".trip-actions")?.dataset.tripId;
       if (!tripId) return;
 
       if (target.classList.contains("delete-matched-trip")) {
@@ -1137,25 +964,20 @@
     };
 
     popupEl.addEventListener("click", handlePopupClick);
-
-    layer.on("popupclose", () => {
-      popupEl.removeEventListener("click", handlePopupClick);
-    });
+    layer.on("popupclose", () =>
+      popupEl.removeEventListener("click", handlePopupClick)
+    );
   }
 
   async function handleDeleteMatchedTrip(tripId, layer) {
-    let confirmed = false;
-
-    if (!window.confirmationDialog) {
-      confirmed = confirm("Are you sure you want to delete this matched trip?");
-    } else {
-      confirmed = await window.confirmationDialog.show({
-        title: "Delete Matched Trip",
-        message: "Are you sure you want to delete this matched trip?",
-        confirmText: "Delete",
-        confirmButtonClass: "btn-danger",
-      });
-    }
+    const confirmed = window.confirmationDialog
+      ? await window.confirmationDialog.show({
+          title: "Delete Matched Trip",
+          message: "Are you sure you want to delete this matched trip?",
+          confirmText: "Delete",
+          confirmButtonClass: "btn-danger",
+        })
+      : confirm("Are you sure you want to delete this matched trip?");
 
     if (!confirmed) return;
 
@@ -1163,7 +985,6 @@
       const res = await fetch(`/api/matched_trips/${tripId}`, {
         method: "DELETE",
       });
-
       if (!res.ok) throw new Error("Failed to delete matched trip");
 
       layer.closePopup();
@@ -1175,29 +996,22 @@
   }
 
   async function handleDeleteTrip(tripId, layer) {
-    let confirmed = false;
-
-    if (!window.confirmationDialog) {
-      confirmed = confirm(
-        "Delete this trip? This will also delete its corresponding matched trip."
-      );
-    } else {
-      confirmed = await window.confirmationDialog.show({
-        title: "Delete Trip",
-        message:
-          "Delete this trip? This will also delete its corresponding matched trip.",
-        confirmText: "Delete",
-        confirmButtonClass: "btn-danger",
-      });
-    }
+    const confirmed = window.confirmationDialog
+      ? await window.confirmationDialog.show({
+          title: "Delete Trip",
+          message:
+            "Delete this trip? This will also delete its corresponding matched trip.",
+          confirmText: "Delete",
+          confirmButtonClass: "btn-danger",
+        })
+      : confirm(
+          "Delete this trip? This will also delete its corresponding matched trip."
+        );
 
     if (!confirmed) return;
 
     try {
-      const tripRes = await fetch(`/api/trips/${tripId}`, {
-        method: "DELETE",
-      });
-
+      const tripRes = await fetch(`/api/trips/${tripId}`, { method: "DELETE" });
       if (!tripRes.ok) throw new Error("Failed to delete trip");
 
       try {
@@ -1215,21 +1029,17 @@
   }
 
   async function handleRematchTrip(tripId, layer, feature) {
-    let confirmed = false;
-
-    if (!window.confirmationDialog) {
-      confirmed = confirm(
-        "Re-match this trip? This will delete the existing matched trip and create a new one."
-      );
-    } else {
-      confirmed = await window.confirmationDialog.show({
-        title: "Re-match Trip",
-        message:
-          "Re-match this trip? This will delete the existing matched trip and create a new one.",
-        confirmText: "Re-match",
-        confirmButtonClass: "btn-warning",
-      });
-    }
+    const confirmed = window.confirmationDialog
+      ? await window.confirmationDialog.show({
+          title: "Re-match Trip",
+          message:
+            "Re-match this trip? This will delete the existing matched trip and create a new one.",
+          confirmText: "Re-match",
+          confirmButtonClass: "btn-warning",
+        })
+      : confirm(
+          "Re-match this trip? This will delete the existing matched trip and create a new one."
+        );
 
     if (!confirmed) return;
 
@@ -1237,10 +1047,8 @@
       const deleteRes = await fetch(`/api/matched_trips/${tripId}`, {
         method: "DELETE",
       });
-
-      if (!deleteRes.ok) {
+      if (!deleteRes.ok)
         throw new Error("Failed to delete existing matched trip");
-      }
 
       const startTime = DateUtils.formatDate(feature.properties.startTime);
       const endTime = DateUtils.formatDate(feature.properties.endTime);
@@ -1292,9 +1100,7 @@
     if (validBounds) AppState.map.fitBounds(bounds);
   }
 
-  // ==============================
   // Map Matching & Metrics
-  // ==============================
   async function mapMatchTrips() {
     const startDate = DateUtils.formatDate(getStartDate());
     const endDate = DateUtils.formatDate(getEndDate());
@@ -1393,13 +1199,10 @@
       const response = await fetch(
         `/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`
       );
-
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
-      }
 
       const metrics = await response.json();
-
       const metricMap = {
         "total-trips": metrics.total_trips,
         "total-distance": metrics.total_distance,
@@ -1425,14 +1228,11 @@
     }
   }
 
-  // ==============================
   // Event Listeners & Date Presets
-  // ==============================
   function handleDatePresetClick() {
     const range = this.dataset.range;
     if (!range) return;
 
-    // Show loading indicator
     const loadingManager = window.loadingManager || {
       startOperation: () => {},
       finish: () => {},
@@ -1440,12 +1240,9 @@
 
     loadingManager.startOperation("DatePreset", 100);
 
-    // Get date range based on preset
     DateUtils.getDateRangePreset(range)
       .then(({ startDate, endDate }) => {
-        // These are already formatted as strings
         if (startDate && endDate) {
-          // Update date pickers directly with string values
           const startInput = getElement("#start-date");
           const endInput = getElement("#end-date");
 
@@ -1463,22 +1260,15 @@
             }
           }
 
-          // Store in localStorage
           setStorageItem(CONFIG.STORAGE_KEYS.startDate, startDate);
           setStorageItem(CONFIG.STORAGE_KEYS.endDate, endDate);
 
-          // Dispatch event to notify other components
           document.dispatchEvent(
             new CustomEvent("datePresetSelected", {
-              detail: {
-                preset: range,
-                startDate,
-                endDate,
-              },
+              detail: { preset: range, startDate, endDate },
             })
           );
 
-          // Fetch updated data with new date range
           fetchTripsInRange();
         } else {
           showNotification("Invalid date range returned", "warning");
@@ -1511,25 +1301,20 @@
       if (mapControls) {
         mapControls.classList.toggle("minimized");
 
-        // Animate the height transition
-        if (controlsContent) {
-          const bootstrap = window.bootstrap || {};
-          if (bootstrap.Collapse) {
-            const bsCollapse = bootstrap.Collapse.getInstance(controlsContent);
-            if (bsCollapse) {
-              mapControls.classList.contains("minimized")
-                ? bsCollapse.hide()
-                : bsCollapse.show();
-            } else {
-              new bootstrap.Collapse(controlsContent, {
-                toggle: !mapControls.classList.contains("minimized"),
-              });
-            }
+        if (controlsContent && window.bootstrap?.Collapse) {
+          const bsCollapse = bootstrap.Collapse.getInstance(controlsContent);
+          if (bsCollapse) {
+            mapControls.classList.contains("minimized")
+              ? bsCollapse.hide()
+              : bsCollapse.show();
+          } else {
+            new bootstrap.Collapse(controlsContent, {
+              toggle: !mapControls.classList.contains("minimized"),
+            });
           }
         }
       }
 
-      // Toggle the icon
       const icon = this.querySelector("i");
       if (icon) {
         icon.classList.toggle("fa-chevron-up");
@@ -1537,7 +1322,7 @@
       }
     });
 
-    addSingleEventListener("map-match-trips", "click", () => mapMatchTrips());
+    addSingleEventListener("map-match-trips", "click", mapMatchTrips);
 
     document.querySelectorAll(".date-preset").forEach((btn) => {
       addSingleEventListener(btn, "click", handleDatePresetClick);
@@ -1588,7 +1373,6 @@
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
 
-    // Initialize date pickers
     const config = {
       maxDate: tomorrow,
       static: false,
@@ -1616,7 +1400,6 @@
       config
     );
 
-    // Set initial values
     if (AppState.dom.startDatePicker) {
       AppState.dom.startDatePicker.setDate(storedStartDate);
     } else if (AppState.dom.startDateInput) {
@@ -1646,8 +1429,6 @@
           }
 
           initializeLayerControls();
-
-          // Fetch data after map initialization
           return Promise.all([fetchTrips(), fetchMetrics()]);
         })
         .then((results) => {

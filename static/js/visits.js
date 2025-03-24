@@ -13,32 +13,31 @@
       this.nonCustomVisitsTable = null;
       this.drawingEnabled = false;
       this.customPlacesLayer = null;
-      this.loadingManager = window.loadingManager || {
-        startOperation: (name) => {
-          console.log(`LoadingManager not available: ${name}`);
-        },
-        addSubOperation: (opName, subName) => {
-          console.log(`LoadingManager not available: ${opName}.${subName}`);
-        },
-        updateSubOperation: (opName, subName, progress) => {
-          console.log(
-            `LoadingManager not available: ${opName}.${subName} (${progress}%)`
-          );
-        },
-        finish: (name) => {
-          console.log(
-            `LoadingManager not available: finished ${name || "all"}`
-          );
-        },
-        error: (message) => {
-          console.error(`LoadingManager not available: Error - ${message}`);
-          if (window.notificationManager) {
-            window.notificationManager.show(message, "danger");
-          }
-        },
-      };
+      this.loadingManager =
+        window.loadingManager || this.createFallbackLoadingManager();
       this.isDetailedView = false;
       this.initialize();
+    }
+
+    createFallbackLoadingManager() {
+      return {
+        startOperation: (name) =>
+          console.log(`LoadingManager not available: ${name}`),
+        addSubOperation: (opName, subName) =>
+          console.log(`LoadingManager not available: ${opName}.${subName}`),
+        updateSubOperation: (opName, subName, progress) =>
+          console.log(
+            `LoadingManager not available: ${opName}.${subName} (${progress}%)`
+          ),
+        finish: (name) =>
+          console.log(
+            `LoadingManager not available: finished ${name || "all"}`
+          ),
+        error: (message) => {
+          console.error(`LoadingManager not available: Error - ${message}`);
+          window.notificationManager?.show(message, "danger");
+        },
+      };
     }
 
     async initialize() {
@@ -49,8 +48,10 @@
         this.initializeChart();
         this.initializeTables();
         this.setupEventListeners();
-        await this.loadPlaces();
-        await this.loadNonCustomPlacesVisits();
+        await Promise.all([
+          this.loadPlaces(),
+          this.loadNonCustomPlacesVisits(),
+        ]);
         this.loadingManager.finish();
       } catch (error) {
         console.error("Error initializing visits page:", error);
@@ -58,20 +59,21 @@
       }
     }
 
-    initializeMap() {
+    async initializeMap() {
       return new Promise((resolve) => {
         this.map = L.map("map", {
           center: [37.0902, -95.7129],
           zoom: 4,
           zoomControl: true,
         });
+
         L.tileLayer(
           "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
           {
             maxZoom: 19,
           }
         ).addTo(this.map);
-        // Create a layer group for custom places
+
         this.customPlacesLayer = L.layerGroup().addTo(this.map);
         resolve();
       });
@@ -127,33 +129,23 @@
               ticks: {
                 stepSize: 1,
                 color: "rgba(255, 255, 255, 0.75)",
-                font: {
-                  weight: "400",
-                },
+                font: { weight: "400" },
               },
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
-              },
+              grid: { color: "rgba(255, 255, 255, 0.1)" },
             },
             x: {
               ticks: {
                 color: "rgba(255, 255, 255, 0.8)",
-                font: {
-                  weight: "500",
-                },
+                font: { weight: "500" },
               },
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
-              },
+              grid: { color: "rgba(255, 255, 255, 0.1)" },
             },
           },
           plugins: {
             legend: {
               labels: {
                 color: "rgba(255, 255, 255, 0.9)",
-                font: {
-                  weight: "500",
-                },
+                font: { weight: "500" },
                 boxWidth: 12,
                 padding: 15,
               },
@@ -166,12 +158,8 @@
               borderWidth: 1,
               padding: 10,
               cornerRadius: 4,
-              titleFont: {
-                weight: "600",
-              },
-              bodyFont: {
-                weight: "400",
-              },
+              titleFont: { weight: "600" },
+              bodyFont: { weight: "400" },
             },
           },
         },
@@ -179,176 +167,169 @@
     }
 
     initializeTables() {
-      const visitsTableEl = document.getElementById("visits-table");
-      if (visitsTableEl && window.$) {
-        this.visitsTable = $(visitsTableEl).DataTable({
-          responsive: true,
-          order: [[3, "desc"]], // Sort by last visit (index 3) descending
-          columns: [
-            {
-              data: "name",
-              render: (data, type, row) =>
-                type === "display"
-                  ? `<a href="#" class="place-link" data-place-id="${row._id}">${data}</a>`
-                  : data,
-            },
-            {
-              data: "totalVisits",
-              className: "numeric-cell",
-              render: (data) => data || "0",
-            },
-            {
-              data: "firstVisit",
-              className: "date-cell",
-              render: (data, type) =>
-                type === "display" || type === "filter"
-                  ? data
-                    ? new Date(data).toLocaleDateString("en-US")
-                    : "N/A"
-                  : data,
-            },
-            {
-              data: "lastVisit",
-              className: "date-cell",
-              render: (data, type) =>
-                type === "display" || type === "filter"
-                  ? data
-                    ? new Date(data).toLocaleDateString("en-US")
-                    : "N/A"
-                  : data,
-            },
-            {
-              data: "avgTimeSpent",
-              className: "numeric-cell",
-              render: (data) => data || "N/A",
-            },
-          ],
-          language: {
-            emptyTable: "No visits recorded for custom places",
-            info: "_START_ to _END_ of _TOTAL_ places",
-            search: "Filter places:",
-            paginate: {
-              first: "First",
-              last: "Last",
-              next: "Next",
-              previous: "Prev",
-            },
-          },
-          dom:
-            "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
-            "<'row'<'col-sm-12'tr>>" +
-            "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
-        });
-      }
+      this.initVisitsTable();
+      this.initNonCustomVisitsTable();
+      this.initTripsTable();
+    }
 
-      const nonCustomTableEl = document.getElementById(
-        "non-custom-visits-table"
-      );
-      if (nonCustomTableEl && window.$) {
-        this.nonCustomVisitsTable = $(nonCustomTableEl).DataTable({
-          responsive: true,
-          order: [[3, "desc"]],
-          columns: [
-            { data: "name" },
-            {
-              data: "totalVisits",
-              className: "numeric-cell",
-            },
-            {
-              data: "firstVisit",
-              className: "date-cell",
-              render: (data, type) =>
-                type === "display" || type === "filter"
-                  ? data
-                    ? new Date(data).toLocaleDateString("en-US")
-                    : "N/A"
-                  : data,
-            },
-            {
-              data: "lastVisit",
-              className: "date-cell",
-              render: (data, type) =>
-                type === "display" || type === "filter"
-                  ? data
-                    ? new Date(data).toLocaleDateString("en-US")
-                    : "N/A"
-                  : data,
-            },
-          ],
-          language: {
-            emptyTable: "No visits recorded for non-custom places",
-            info: "_START_ to _END_ of _TOTAL_ places",
-            search: "Filter places:",
-            paginate: {
-              first: "First",
-              last: "Last",
-              next: "Next",
-              previous: "Prev",
-            },
-          },
-          dom:
-            "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
-            "<'row'<'col-sm-12'tr>>" +
-            "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
-        });
-      }
+    initVisitsTable() {
+      const el = document.getElementById("visits-table");
+      if (!el || !window.$) return;
 
-      const tripsTableEl = document.getElementById("trips-for-place-table");
-      if (tripsTableEl && window.$) {
-        this.tripsTable = $(tripsTableEl).DataTable({
-          responsive: true,
-          order: [[1, "desc"]], // Sort by endTime descending
-          columns: [
-            { data: "transactionId" },
-            {
-              data: "endTime",
-              className: "date-cell",
-              render: (data, type) =>
-                type === "display" || type === "filter"
-                  ? DateUtils.formatForDisplay(data, {
-                      dateStyle: "medium",
-                    })
-                  : data,
-            },
-            {
-              data: "endTime",
-              className: "date-cell",
-              render: (data, type, row) =>
-                type === "display" || type === "filter"
-                  ? DateUtils.formatForDisplay(data, {
-                      timeStyle: "short",
-                    })
-                  : data,
-            },
-            {
-              data: "duration",
-              className: "numeric-cell",
-            },
-            {
-              data: "timeSinceLastVisit",
-              className: "numeric-cell",
-            },
-          ],
-          language: {
-            emptyTable: "No trips found for this place",
-            info: "_START_ to _END_ of _TOTAL_ trips",
-            search: "Filter trips:",
-            paginate: {
-              first: "First",
-              last: "Last",
-              next: "Next",
-              previous: "Prev",
-            },
+      this.visitsTable = $(el).DataTable({
+        responsive: true,
+        order: [[3, "desc"]], // Sort by last visit descending
+        columns: [
+          {
+            data: "name",
+            render: (data, type, row) =>
+              type === "display"
+                ? `<a href="#" class="place-link" data-place-id="${row._id}">${data}</a>`
+                : data,
           },
-          dom:
-            "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
-            "<'row'<'col-sm-12'tr>>" +
-            "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
-        });
-      }
+          {
+            data: "totalVisits",
+            className: "numeric-cell",
+            render: (data) => data || "0",
+          },
+          {
+            data: "firstVisit",
+            className: "date-cell",
+            render: (data, type) =>
+              type === "display" || type === "filter"
+                ? data
+                  ? new Date(data).toLocaleDateString("en-US")
+                  : "N/A"
+                : data,
+          },
+          {
+            data: "lastVisit",
+            className: "date-cell",
+            render: (data, type) =>
+              type === "display" || type === "filter"
+                ? data
+                  ? new Date(data).toLocaleDateString("en-US")
+                  : "N/A"
+                : data,
+          },
+          {
+            data: "avgTimeSpent",
+            className: "numeric-cell",
+            render: (data) => data || "N/A",
+          },
+        ],
+        language: {
+          emptyTable: "No visits recorded for custom places",
+          info: "_START_ to _END_ of _TOTAL_ places",
+          search: "Filter places:",
+          paginate: {
+            first: "First",
+            last: "Last",
+            next: "Next",
+            previous: "Prev",
+          },
+        },
+        dom:
+          "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+          "<'row'<'col-sm-12'tr>>" +
+          "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+      });
+    }
+
+    initNonCustomVisitsTable() {
+      const el = document.getElementById("non-custom-visits-table");
+      if (!el || !window.$) return;
+
+      this.nonCustomVisitsTable = $(el).DataTable({
+        responsive: true,
+        order: [[3, "desc"]],
+        columns: [
+          { data: "name" },
+          {
+            data: "totalVisits",
+            className: "numeric-cell",
+          },
+          {
+            data: "firstVisit",
+            className: "date-cell",
+            render: (data, type) =>
+              type === "display" || type === "filter"
+                ? data
+                  ? new Date(data).toLocaleDateString("en-US")
+                  : "N/A"
+                : data,
+          },
+          {
+            data: "lastVisit",
+            className: "date-cell",
+            render: (data, type) =>
+              type === "display" || type === "filter"
+                ? data
+                  ? new Date(data).toLocaleDateString("en-US")
+                  : "N/A"
+                : data,
+          },
+        ],
+        language: {
+          emptyTable: "No visits recorded for non-custom places",
+          info: "_START_ to _END_ of _TOTAL_ places",
+          search: "Filter places:",
+        },
+        dom:
+          "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+          "<'row'<'col-sm-12'tr>>" +
+          "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+      });
+    }
+
+    initTripsTable() {
+      const el = document.getElementById("trips-for-place-table");
+      if (!el || !window.$) return;
+
+      this.tripsTable = $(el).DataTable({
+        responsive: true,
+        order: [[1, "desc"]], // Sort by endTime descending
+        columns: [
+          { data: "transactionId" },
+          {
+            data: "endTime",
+            className: "date-cell",
+            render: (data, type) =>
+              type === "display" || type === "filter"
+                ? DateUtils.formatForDisplay(data, { dateStyle: "medium" })
+                : data,
+          },
+          {
+            data: "endTime",
+            className: "date-cell",
+            render: (data, type) =>
+              type === "display" || type === "filter"
+                ? DateUtils.formatForDisplay(data, { timeStyle: "short" })
+                : data,
+          },
+          {
+            data: "duration",
+            className: "numeric-cell",
+          },
+          {
+            data: "timeSinceLastVisit",
+            className: "numeric-cell",
+          },
+        ],
+        language: {
+          emptyTable: "No trips found for this place",
+          info: "_START_ to _END_ of _TOTAL_ trips",
+          search: "Filter trips:",
+        },
+        dom:
+          "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+          "<'row'<'col-sm-12'tr>>" +
+          "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+      });
     }
 
     setupEventListeners() {
+      // Drawing controls
       document
         .getElementById("start-drawing")
         ?.addEventListener("click", () => {
@@ -363,19 +344,18 @@
       document
         .getElementById("save-place")
         ?.addEventListener("click", () => this.savePlace());
-
-      // Add back button event listener
       document
         .getElementById("back-to-places-btn")
         ?.addEventListener("click", () => this.toggleView());
 
+      // Map drawing events
       this.map.on(L.Draw.Event.CREATED, (e) => {
         this.currentPolygon = e.layer;
         this.map.addLayer(this.currentPolygon);
         document.getElementById("save-place").disabled = false;
       });
 
-      // Handle clicks on place links in both tables
+      // Table interactions using event delegation
       $("#visits-table, #non-custom-visits-table").on(
         "click",
         ".place-link",
@@ -386,7 +366,7 @@
         }
       );
 
-      // Toggle view button listener
+      // Toggle view button
       $("#visits-table-container").on("click", "#toggle-view-btn", () =>
         this.toggleView()
       );
@@ -396,8 +376,8 @@
       try {
         const response = await fetch("/api/places");
         if (!response.ok) throw new Error("Failed to fetch places");
-        const places = await response.json();
 
+        const places = await response.json();
         places.forEach((place) => {
           this.places.set(place._id, place);
           this.displayPlace(place);
@@ -406,9 +386,7 @@
         await this.updateVisitsData();
       } catch (error) {
         console.error("Error loading places:", error);
-        if (window.notificationManager) {
-          window.notificationManager.show("Failed to load places", "danger");
-        }
+        window.notificationManager?.show("Failed to load places", "danger");
       }
     }
 
@@ -416,14 +394,16 @@
       const polygon = L.geoJSON(place.geometry, {
         style: { color: "#BB86FC", fillColor: "#BB86FC", fillOpacity: 0.2 },
       });
+
       polygon.bindPopup(`
-          <div class="place-popup">
-            <h6>${place.name}</h6>
-            <button class="btn btn-sm btn-info" onclick="visitsManager.showPlaceStatistics('${place._id}')">
-              View Statistics
-            </button>
-          </div>
-        `);
+        <div class="place-popup">
+          <h6>${place.name}</h6>
+          <button class="btn btn-sm btn-info" onclick="visitsManager.showPlaceStatistics('${place._id}')">
+            View Statistics
+          </button>
+        </div>
+      `);
+
       polygon.on("click", () => this.showPlaceStatistics(place._id));
       this.customPlacesLayer.addLayer(polygon);
     }
@@ -431,100 +411,103 @@
     async updateVisitsData() {
       const visitsData = [];
 
-      for (const [id, place] of this.places) {
+      // Use Promise.all to fetch all statistics in parallel
+      const placeEntries = Array.from(this.places.entries());
+      const statsPromises = placeEntries.map(async ([id, place]) => {
         try {
           const response = await fetch(`/api/places/${id}/statistics`);
           if (!response.ok)
             throw new Error(`Failed to fetch statistics for place ${id}`);
+
           const stats = await response.json();
-          visitsData.push({
+          return {
             _id: id,
             name: place.name,
             totalVisits: stats.totalVisits,
             firstVisit: stats.firstVisit,
             lastVisit: stats.lastVisit,
             avgTimeSpent: stats.averageTimeSpent,
-          });
+          };
         } catch (error) {
           console.error(
             `Error fetching statistics for place ${place.name}:`,
             error
           );
+          return null;
         }
-      }
+      });
 
+      const results = await Promise.all(statsPromises);
+      const validResults = results.filter((result) => result !== null);
+
+      // Update chart
       if (this.visitsChart) {
-        this.visitsChart.data.labels = visitsData.map((d) => d.name);
-        this.visitsChart.data.datasets[0].data = visitsData.map(
+        this.visitsChart.data.labels = validResults.map((d) => d.name);
+        this.visitsChart.data.datasets[0].data = validResults.map(
           (d) => d.totalVisits
         );
         this.visitsChart.update();
       }
 
+      // Update table
       if (this.visitsTable) {
-        this.visitsTable.clear().rows.add(visitsData).draw();
+        this.visitsTable.clear().rows.add(validResults).draw();
       }
     }
 
     async savePlace() {
       const placeName = document.getElementById("place-name")?.value.trim();
       if (!placeName || !this.currentPolygon) {
-        if (window.notificationManager) {
-          window.notificationManager.show(
-            "Please enter a name for this place",
-            "warning"
-          );
-        }
+        window.notificationManager?.show(
+          "Please enter a name for this place",
+          "warning"
+        );
         return;
       }
-
-      const placeData = {
-        name: placeName,
-        geometry: this.currentPolygon.toGeoJSON().geometry,
-      };
 
       try {
         const response = await fetch("/api/places", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(placeData),
+          body: JSON.stringify({
+            name: placeName,
+            geometry: this.currentPolygon.toGeoJSON().geometry,
+          }),
         });
 
         if (!response.ok) throw new Error("Failed to save place");
-        const savedPlace = await response.json();
 
+        const savedPlace = await response.json();
         this.places.set(savedPlace._id, savedPlace);
         this.displayPlace(savedPlace);
         this.resetDrawing();
         this.updateVisitsData();
 
-        if (window.notificationManager) {
-          window.notificationManager.show(
-            `Place "${placeName}" saved successfully`,
-            "success"
-          );
-        }
+        window.notificationManager?.show(
+          `Place "${placeName}" saved successfully`,
+          "success"
+        );
       } catch (error) {
         console.error("Error saving place:", error);
-        if (window.notificationManager) {
-          window.notificationManager.show("Failed to save place", "danger");
-        }
+        window.notificationManager?.show("Failed to save place", "danger");
       }
     }
 
     async deletePlace(placeId) {
+      let confirmed = false;
+
       if (window.confirmationDialog) {
-        const confirmed = await window.confirmationDialog.show({
+        confirmed = await window.confirmationDialog.show({
           title: "Delete Place",
           message: "Are you sure you want to delete this place?",
           confirmText: "Delete",
           confirmButtonClass: "btn-danger",
         });
-
-        if (!confirmed) return;
-      } else if (!confirm("Are you sure you want to delete this place?")) {
-        return;
+      } else {
+        confirmed = confirm("Are you sure you want to delete this place?");
       }
+
+      if (!confirmed) return;
 
       try {
         const response = await fetch(`/api/places/${placeId}`, {
@@ -534,25 +517,22 @@
         if (!response.ok) throw new Error("Failed to delete place");
 
         this.places.delete(placeId);
+
+        // Remove from map
         this.map.eachLayer((layer) => {
           if (layer.feature && layer.feature.properties.placeId === placeId) {
             this.map.removeLayer(layer);
           }
         });
 
-        this.updateVisitsData();
-
-        if (window.notificationManager) {
-          window.notificationManager.show(
-            "Place deleted successfully",
-            "success"
-          );
-        }
+        await this.updateVisitsData();
+        window.notificationManager?.show(
+          "Place deleted successfully",
+          "success"
+        );
       } catch (error) {
         console.error("Error deleting place:", error);
-        if (window.notificationManager) {
-          window.notificationManager.show("Failed to delete place", "danger");
-        }
+        window.notificationManager?.show("Failed to delete place", "danger");
       }
     }
 
@@ -576,17 +556,33 @@
       try {
         const response = await fetch(`/api/places/${placeId}/statistics`);
         if (!response.ok) throw new Error("Failed to fetch place statistics");
+
         const stats = await response.json();
+        const place = this.places.get(placeId);
+        if (!place) throw new Error("Place not found");
+
+        const formatDate = (date) =>
+          date ? new Date(date).toLocaleDateString() : "N/A";
+        const formatAvg = (avg, unit = "") =>
+          avg
+            ? typeof avg === "number"
+              ? `${avg.toFixed(2)} ${unit}`.trim()
+              : avg
+            : "N/A";
+
         const popupContent = `
-            <div class="custom-place-popup">
-              <h6>${this.places.get(placeId).name}</h6>
-              <p>Total Visits: ${stats.totalVisits}</p>
-              <p>First Visit: ${stats.firstVisit ? new Date(stats.firstVisit).toLocaleDateString() : "N/A"}</p>
-              <p>Last Visit: ${stats.lastVisit ? new Date(stats.lastVisit).toLocaleDateString() : "N/A"}</p>
-              <p>Avg Time Spent: ${stats.averageTimeSpent || "N/A"}</p>
-              <p>Avg Time Since Last Visit: ${stats.averageTimeSinceLastVisit ? stats.averageTimeSinceLastVisit.toFixed(2) + " hours" : "N/A"}</p>
-            </div>
-          `;
+          <div class="custom-place-popup">
+            <h6>${place.name}</h6>
+            <p>Total Visits: ${stats.totalVisits}</p>
+            <p>First Visit: ${formatDate(stats.firstVisit)}</p>
+            <p>Last Visit: ${formatDate(stats.lastVisit)}</p>
+            <p>Avg Time Spent: ${formatAvg(stats.averageTimeSpent)}</p>
+            <p>Avg Time Since Last Visit: ${formatAvg(
+              stats.averageTimeSinceLastVisit,
+              "hours"
+            )}</p>
+          </div>
+        `;
 
         this.customPlacesLayer.eachLayer((layer) => {
           if (layer.feature && layer.feature.properties.placeId === placeId) {
@@ -595,45 +591,50 @@
         });
       } catch (error) {
         console.error("Error fetching place statistics:", error);
-        if (window.notificationManager) {
-          window.notificationManager.show(
-            "Failed to fetch place statistics",
-            "danger"
-          );
-        }
+        window.notificationManager?.show(
+          "Failed to fetch place statistics",
+          "danger"
+        );
       }
     }
 
     async toggleView(placeId = null) {
       this.isDetailedView = !this.isDetailedView;
-      const visitsChartEl = document.getElementById("visitsChart");
-      const visitsTableContainer = document.getElementById(
-        "visits-table-container"
-      );
-      const tripsForPlaceContainer = document.getElementById(
-        "trips-for-place-container"
-      );
-      const toggleViewBtn = document.getElementById("toggle-view-btn");
+
+      const elements = {
+        visitsChart: document.getElementById("visitsChart"),
+        visitsTableContainer: document.getElementById("visits-table-container"),
+        tripsForPlaceContainer: document.getElementById(
+          "trips-for-place-container"
+        ),
+        toggleViewBtn: document.getElementById("toggle-view-btn"),
+      };
 
       if (this.isDetailedView) {
-        if (visitsChartEl) visitsChartEl.style.display = "none";
+        if (elements.visitsChart) elements.visitsChart.style.display = "none";
+
         if (!placeId) {
           console.error("Place ID is undefined");
           this.isDetailedView = false;
           return;
         }
+
         await this.showTripsForPlace(placeId);
-        if (visitsTableContainer) visitsTableContainer.style.display = "none";
-        if (tripsForPlaceContainer)
-          tripsForPlaceContainer.style.display = "block";
-        if (toggleViewBtn) toggleViewBtn.textContent = "Show All Places";
+
+        if (elements.visitsTableContainer)
+          elements.visitsTableContainer.style.display = "none";
+        if (elements.tripsForPlaceContainer)
+          elements.tripsForPlaceContainer.style.display = "block";
+        if (elements.toggleViewBtn)
+          elements.toggleViewBtn.textContent = "Show All Places";
       } else {
-        if (visitsChartEl) visitsChartEl.style.display = "block";
-        if (visitsTableContainer) visitsTableContainer.style.display = "block";
-        if (tripsForPlaceContainer)
-          tripsForPlaceContainer.style.display = "none";
-        if (toggleViewBtn)
-          toggleViewBtn.textContent = "Show Trips for Selected Place";
+        if (elements.visitsChart) elements.visitsChart.style.display = "block";
+        if (elements.visitsTableContainer)
+          elements.visitsTableContainer.style.display = "block";
+        if (elements.tripsForPlaceContainer)
+          elements.tripsForPlaceContainer.style.display = "none";
+        if (elements.toggleViewBtn)
+          elements.toggleViewBtn.textContent = "Show Trips for Selected Place";
       }
     }
 
@@ -641,19 +642,19 @@
       try {
         const response = await fetch(`/api/places/${placeId}/trips`);
         if (!response.ok) throw new Error("Failed to fetch trips for place");
+
         const trips = await response.json();
         trips.sort((a, b) => new Date(b.endTime) - new Date(a.endTime));
+
         if (this.tripsTable) {
           this.tripsTable.clear().rows.add(trips).draw();
         }
       } catch (error) {
         console.error("Error fetching trips for place:", error);
-        if (window.notificationManager) {
-          window.notificationManager.show(
-            "Failed to fetch trips for place",
-            "danger"
-          );
-        }
+        window.notificationManager?.show(
+          "Failed to fetch trips for place",
+          "danger"
+        );
       }
     }
 
@@ -662,22 +663,22 @@
         const response = await fetch("/api/non_custom_places_visits");
         if (!response.ok)
           throw new Error("Failed to fetch visits for non-custom places");
+
         const visitsData = await response.json();
         if (this.nonCustomVisitsTable) {
           this.nonCustomVisitsTable.clear().rows.add(visitsData).draw();
         }
       } catch (error) {
         console.error("Error fetching visits for non-custom places:", error);
-        if (window.notificationManager) {
-          window.notificationManager.show(
-            "Failed to load non-custom places visits",
-            "danger"
-          );
-        }
+        window.notificationManager?.show(
+          "Failed to load non-custom places visits",
+          "danger"
+        );
       }
     }
   }
 
+  // Initialize on DOM content loaded
   document.addEventListener("DOMContentLoaded", () => {
     window.visitsManager = new VisitsManager();
   });

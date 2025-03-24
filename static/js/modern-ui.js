@@ -2,13 +2,10 @@
 
 /**
  * Modern UI - Main UI controller for the application
- * Handles theme, navigation, notifications, and interactive components
  */
 "use strict";
 (function () {
-  // ==============================
   // Configuration
-  // ==============================
   const CONFIG = {
     selectors: {
       themeToggle: "#theme-toggle-checkbox",
@@ -49,24 +46,15 @@
     mobileBreakpoint: 768,
   };
 
-  // ==============================
   // Application State
-  // ==============================
   const elements = {};
-  let timeout = null;
 
-  // ==============================
   // Main Initialization
-  // ==============================
-
-  /**
-   * Initialize the UI system
-   */
   function init() {
     try {
       cacheElements();
 
-      // Check if we're on a page that should have a map
+      // Check for map
       const shouldHaveMap = document.querySelector("#map") !== null;
       if (
         shouldHaveMap &&
@@ -86,51 +74,36 @@
       setupLegacyCodeBridge();
 
       // Handle resize events
-      window.addEventListener("resize", debounce(handleResize, 250));
+      window.addEventListener(
+        "resize",
+        window.utils?.debounce(handleResize, 250) || debounce(handleResize, 250)
+      );
       handleResize();
     } catch (error) {
       console.error("Error initializing Modern UI:", error);
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Error initializing UI: " + error.message,
-          "danger"
-        );
-      }
+      window.notificationManager?.show(
+        "Error initializing UI: " + error.message,
+        "danger"
+      );
     }
   }
 
-  /**
-   * Cache frequently accessed DOM elements
-   */
+  // Cache elements for better performance
   function cacheElements() {
     const selectors = CONFIG.selectors;
+    const selectorKeys = Object.keys(selectors).filter(
+      (key) => typeof selectors[key] === "string"
+    );
 
-    // Main UI elements
-    elements.themeToggle = document.querySelector(selectors.themeToggle);
-    elements.darkModeToggle = document.querySelector(selectors.darkModeToggle);
-    elements.mobileDrawer = document.querySelector(selectors.mobileDrawer);
-    elements.menuToggle = document.querySelector(selectors.menuToggle);
-    elements.closeBtn = document.querySelector(selectors.closeBtn);
-    elements.contentOverlay = document.querySelector(selectors.contentOverlay);
+    // Cache all elements in one loop
+    selectorKeys.forEach((key) => {
+      elements[key] = document.querySelector(selectors[key]);
+    });
 
-    // Filter elements
-    elements.filtersToggle = document.querySelector(selectors.filterToggle);
-    elements.filtersPanel = document.querySelector(selectors.filtersPanel);
-    elements.filtersClose = document.querySelector(selectors.filtersClose);
-    elements.startDateInput = document.querySelector(selectors.startDate);
-    elements.endDateInput = document.querySelector(selectors.endDate);
-    elements.applyFiltersBtn = document.querySelector(selectors.applyFilters);
-    elements.resetFiltersBtn = document.querySelector(selectors.resetFilters);
+    // These are collections that need special handling
     elements.quickSelectBtns = document.querySelectorAll(".quick-select-btn");
     elements.datepickers = document.querySelectorAll(selectors.datepicker);
-
-    // Action elements
-    elements.actionButton = document.querySelector(selectors.actionButton);
-    elements.actionMenu = document.querySelector(selectors.actionMenu);
     elements.actionItems = document.querySelectorAll(".action-menu-item");
-
-    // Other UI elements
-    elements.header = document.querySelector(selectors.header);
     elements.loadingOverlay = document.querySelector(".loading-overlay");
     elements.progressBar = document.querySelector(
       ".loading-overlay .progress-bar"
@@ -140,24 +113,16 @@
     );
   }
 
-  // ==============================
   // Theme Toggle Functionality
-  // ==============================
-
-  /**
-   * Initialize theme toggle functionality
-   */
   function initThemeToggle() {
     const { themeToggle, darkModeToggle } = elements;
     if (!themeToggle && !darkModeToggle) return;
 
-    // Check for saved theme preference or system preference
+    // Check preferences
     const savedTheme = localStorage.getItem(CONFIG.storage.theme);
     const prefersDarkScheme = window.matchMedia(
       "(prefers-color-scheme: dark)"
     ).matches;
-
-    // Apply theme
     const isLight =
       savedTheme === "light" || (!savedTheme && !prefersDarkScheme);
     const themeName = isLight ? "light" : "dark";
@@ -173,7 +138,7 @@
         applyTheme(newTheme);
         localStorage.setItem(CONFIG.storage.theme, newTheme);
 
-        // Sync with app settings dark mode toggle if it exists
+        // Sync with app settings dark mode toggle
         if (darkModeToggle) {
           darkModeToggle.checked = newTheme === "dark";
         }
@@ -185,10 +150,7 @@
     }
   }
 
-  /**
-   * Apply theme to document and map (if available)
-   * @param {string} theme - Theme name ('light' or 'dark')
-   */
+  // Apply theme to document and map
   function applyTheme(theme) {
     const isLight = theme === "light";
 
@@ -202,27 +164,17 @@
       themeColorMeta.setAttribute("content", isLight ? "#f8f9fa" : "#121212");
     }
 
-    // Update map theme if map exists
     updateMapTheme(theme);
   }
 
-  /**
-   * Update map theme if map exists
-   * @param {string} theme - Theme name ('light' or 'dark')
-   */
+  // Update map theme if map exists
   function updateMapTheme(theme) {
-    if (!window.map) return;
+    if (!window.map || typeof window.map.eachLayer !== "function") return;
 
     // Container background
     document.querySelectorAll(".leaflet-container").forEach((container) => {
       container.style.background = theme === "light" ? "#e0e0e0" : "#1a1a1a";
     });
-
-    // Make sure map is a valid Leaflet map with eachLayer method
-    if (!window.map || typeof window.map.eachLayer !== "function") {
-      console.warn("Map not fully initialized, skipping theme update");
-      return;
-    }
 
     // Remove existing tile layers
     window.map.eachLayer((layer) => {
@@ -247,23 +199,10 @@
     );
   }
 
-  // ==============================
   // Mobile Drawer Functionality
-  // ==============================
-
-  /**
-   * Initialize mobile navigation drawer
-   */
   function initMobileDrawer() {
     const { mobileDrawer, menuToggle, closeBtn, contentOverlay } = elements;
     if (!mobileDrawer || !menuToggle) return;
-
-    // Open drawer
-    menuToggle.addEventListener("click", () => {
-      mobileDrawer.classList.add(CONFIG.classes.open);
-      contentOverlay.classList.add(CONFIG.classes.visible);
-      document.body.style.overflow = "hidden";
-    });
 
     // Close drawer function
     const closeDrawer = () => {
@@ -271,6 +210,13 @@
       contentOverlay.classList.remove(CONFIG.classes.visible);
       document.body.style.overflow = "";
     };
+
+    // Open drawer
+    menuToggle.addEventListener("click", () => {
+      mobileDrawer.classList.add(CONFIG.classes.open);
+      contentOverlay.classList.add(CONFIG.classes.visible);
+      document.body.style.overflow = "hidden";
+    });
 
     // Close drawer with button
     closeBtn?.addEventListener("click", closeDrawer);
@@ -289,13 +235,7 @@
     });
   }
 
-  // ==============================
   // Filters Panel Functionality
-  // ==============================
-
-  /**
-   * Initialize filters panel
-   */
   function initFilterPanel() {
     const {
       filtersToggle,
@@ -307,7 +247,7 @@
       quickSelectBtns,
     } = elements;
 
-    // Add filter indicator to the header
+    // Add filter indicator
     addFilterIndicator();
 
     // Toggle filter panel
@@ -319,24 +259,17 @@
       });
     }
 
-    // Close with panel close button
-    if (filtersClose) {
-      filtersClose.addEventListener("click", () => {
-        filtersPanel.classList.remove(CONFIG.classes.open);
-        contentOverlay.classList.remove(CONFIG.classes.visible);
-      });
-    }
+    // Close panel handlers
+    const closePanel = () => {
+      filtersPanel?.classList.remove(CONFIG.classes.open);
+      contentOverlay?.classList.remove(CONFIG.classes.visible);
+    };
 
-    // Close with overlay
-    if (contentOverlay) {
-      contentOverlay.addEventListener("click", () => {
-        filtersPanel.classList.remove(CONFIG.classes.open);
-        contentOverlay.classList.remove(CONFIG.classes.visible);
-      });
-    }
+    filtersClose?.addEventListener("click", closePanel);
+    contentOverlay?.addEventListener("click", closePanel);
 
     // Handle quick select buttons
-    if (quickSelectBtns) {
+    if (quickSelectBtns?.length) {
       quickSelectBtns.forEach((btn) => {
         btn.addEventListener("click", () => {
           const range = btn.dataset.range;
@@ -354,19 +287,13 @@
     }
 
     // Apply filters button
-    if (applyFiltersBtn) {
-      applyFiltersBtn.addEventListener("click", () => applyFilters());
-    }
+    applyFiltersBtn?.addEventListener("click", applyFilters);
 
     // Reset filters button
-    if (resetFiltersBtn) {
-      resetFiltersBtn.addEventListener("click", () => resetFilters());
-    }
+    resetFiltersBtn?.addEventListener("click", resetFilters);
   }
 
-  /**
-   * Initialize all date pickers
-   */
+  // Initialize all date pickers
   function initDatePickers() {
     const { datepickers, startDateInput, endDateInput } = elements;
 
@@ -384,8 +311,8 @@
         : "dark",
     };
 
-    // Initialize all date pickers with the datepicker class
-    if (datepickers && datepickers.length > 0) {
+    // Initialize all date pickers
+    if (datepickers?.length) {
       datepickers.forEach((input) => {
         if (!input._flatpickr) {
           DateUtils.initDatePicker(input, dateConfig);
@@ -409,16 +336,10 @@
     }
   }
 
-  /**
-   * Add a persistent filter indicator to the header
-   */
+  // Add a persistent filter indicator to the header
   function addFilterIndicator() {
-    // Find the tools section in the header
     const toolsSection = document.querySelector(".tools-section");
-    if (!toolsSection) return;
-
-    // Create the filter indicator if it doesn't exist
-    if (document.getElementById("filter-indicator")) return;
+    if (!toolsSection || document.getElementById("filter-indicator")) return;
 
     const indicator = document.createElement("div");
     indicator.className = "filter-indicator";
@@ -430,7 +351,7 @@
     `;
 
     // Insert before the filters toggle
-    const filtersToggle = elements.filtersToggle;
+    const { filtersToggle } = elements;
     if (filtersToggle) {
       toolsSection.insertBefore(indicator, filtersToggle);
     } else {
@@ -449,9 +370,7 @@
     updateFilterIndicator();
   }
 
-  /**
-   * Update the filter indicator with current date range
-   */
+  // Update the filter indicator with current date range
   function updateFilterIndicator() {
     const indicator = document.getElementById("filter-indicator");
     if (!indicator) return;
@@ -475,24 +394,20 @@
     )} - ${formatDisplayDate(endDate)}`;
   }
 
-  /**
-   * Set date range based on preset
-   * @param {string} range - Range identifier
-   */
+  // Set date range based on preset
   function setDateRange(range) {
     const { startDateInput, endDateInput } = elements;
-
     if (!startDateInput || !endDateInput) {
       console.warn("Date inputs not found");
       return;
     }
 
-    // Show loading indicator if available
+    // Show loading indicator
     if (window.loadingManager) {
       window.loadingManager.startOperation("DateRangeSet", 100);
     }
 
-    // Use the unified DateUtils.getDateRangePreset
+    // Use DateUtils
     DateUtils.getDateRangePreset(range)
       .then(({ startDate, endDate }) => {
         if (startDate && endDate) {
@@ -500,19 +415,15 @@
           updateDateInputs(startDate, endDate);
           localStorage.setItem(CONFIG.storage.startDate, startDate);
           localStorage.setItem(CONFIG.storage.endDate, endDate);
-
-          // Update filter indicator
           updateFilterIndicator();
         }
       })
       .catch((error) => {
         console.error("Error setting date range:", error);
-        if (window.notificationManager) {
-          window.notificationManager.show(
-            "Error setting date range. Please try again.",
-            "error"
-          );
-        }
+        window.notificationManager?.show(
+          "Error setting date range. Please try again.",
+          "error"
+        );
       })
       .finally(() => {
         if (window.loadingManager) {
@@ -521,11 +432,7 @@
       });
   }
 
-  /**
-   * Update all instances of date inputs with the same ID
-   * @param {string} startStr - Start date string
-   * @param {string} endStr - End date string
-   */
+  // Update all instances of date inputs with the same ID
   function updateDateInputs(startStr, endStr) {
     // Update all start date inputs
     document.querySelectorAll("#start-date").forEach((input) => {
@@ -544,50 +451,43 @@
     });
   }
 
-  /**
-   * Apply the current filters
-   */
+  // Apply the current filters
   function applyFilters() {
     const { startDateInput, endDateInput, filtersPanel, contentOverlay } =
       elements;
+    if (!startDateInput || !endDateInput) return;
 
-    if (startDateInput && endDateInput) {
-      // Save to localStorage
-      localStorage.setItem(CONFIG.storage.startDate, startDateInput.value);
-      localStorage.setItem(CONFIG.storage.endDate, endDateInput.value);
+    // Save to localStorage
+    localStorage.setItem(CONFIG.storage.startDate, startDateInput.value);
+    localStorage.setItem(CONFIG.storage.endDate, endDateInput.value);
 
-      // Update the indicator
-      updateFilterIndicator();
+    // Update the indicator
+    updateFilterIndicator();
 
-      // Close the panel
-      if (filtersPanel && contentOverlay) {
-        filtersPanel.classList.remove(CONFIG.classes.open);
-        contentOverlay.classList.remove(CONFIG.classes.visible);
-      }
-
-      // Trigger event for data updates
-      document.dispatchEvent(
-        new CustomEvent("filtersApplied", {
-          detail: {
-            startDate: startDateInput.value,
-            endDate: endDateInput.value,
-          },
-        })
-      );
-
-      // Show confirmation
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          `Filters applied: ${startDateInput.value} to ${endDateInput.value}`,
-          "success"
-        );
-      }
+    // Close the panel
+    if (filtersPanel && contentOverlay) {
+      filtersPanel.classList.remove(CONFIG.classes.open);
+      contentOverlay.classList.remove(CONFIG.classes.visible);
     }
+
+    // Trigger event for data updates
+    document.dispatchEvent(
+      new CustomEvent("filtersApplied", {
+        detail: {
+          startDate: startDateInput.value,
+          endDate: endDateInput.value,
+        },
+      })
+    );
+
+    // Show confirmation
+    window.notificationManager?.show(
+      `Filters applied: ${startDateInput.value} to ${endDateInput.value}`,
+      "success"
+    );
   }
 
-  /**
-   * Reset filters to today
-   */
+  // Reset filters to today
   function resetFilters() {
     const { quickSelectBtns } = elements;
     const today = new Date().toISOString().split("T")[0];
@@ -610,36 +510,34 @@
     updateFilterIndicator();
 
     // Show notification
-    if (window.notificationManager) {
-      window.notificationManager.show(
-        "Date filters have been reset to today",
-        "info"
-      );
-    }
+    window.notificationManager?.show(
+      "Date filters have been reset to today",
+      "info"
+    );
   }
 
-  // ==============================
   // Floating Action Button Functionality
-  // ==============================
-
-  /**
-   * Initialize floating action button
-   */
   function initFloatingActionButton() {
     const { actionButton, actionMenu, actionItems } = elements;
     if (!actionButton || !actionMenu) return;
 
-    // Toggle action menu
-    actionButton.addEventListener("click", () => {
-      actionMenu.classList.toggle(CONFIG.classes.open);
-      actionButton.classList.toggle(CONFIG.classes.active);
+    // Toggle FAB menu function
+    const toggleActionMenu = (show) => {
+      actionMenu.classList.toggle(CONFIG.classes.open, show);
+      actionButton.classList.toggle(CONFIG.classes.active, show);
 
-      // Toggle icon between plus and times
+      // Toggle icon
       const icon = actionButton.querySelector("i");
       if (icon) {
-        icon.classList.toggle("fa-plus");
-        icon.classList.toggle("fa-times");
+        icon.classList.toggle("fa-plus", !show);
+        icon.classList.toggle("fa-times", show);
       }
+    };
+
+    // Toggle action menu on click
+    actionButton.addEventListener("click", () => {
+      const isOpen = actionMenu.classList.contains(CONFIG.classes.open);
+      toggleActionMenu(!isOpen);
     });
 
     // Handle action menu item clicks
@@ -647,19 +545,7 @@
       actionItems.forEach((item) => {
         item.addEventListener("click", () => {
           const action = item.dataset.action;
-
-          // Close menu
-          actionMenu.classList.remove(CONFIG.classes.open);
-          actionButton.classList.remove(CONFIG.classes.active);
-
-          // Reset icon
-          const icon = actionButton.querySelector("i");
-          if (icon) {
-            icon.classList.add("fa-plus");
-            icon.classList.remove("fa-times");
-          }
-
-          // Handle different actions
+          toggleActionMenu(false);
           handleAction(action);
         });
       });
@@ -669,28 +555,16 @@
     document.addEventListener("click", (e) => {
       if (
         actionButton &&
-        actionMenu &&
+        actionMenu.classList.contains(CONFIG.classes.open) &&
         !actionButton.contains(e.target) &&
-        !actionMenu.contains(e.target) &&
-        actionMenu.classList.contains(CONFIG.classes.open)
+        !actionMenu.contains(e.target)
       ) {
-        actionMenu.classList.remove(CONFIG.classes.open);
-        actionButton.classList.remove(CONFIG.classes.active);
-
-        // Reset icon
-        const icon = actionButton.querySelector("i");
-        if (icon) {
-          icon.classList.add("fa-plus");
-          icon.classList.remove("fa-times");
-        }
+        toggleActionMenu(false);
       }
     });
   }
 
-  /**
-   * Handle action menu item click
-   * @param {string} action - Action identifier
-   */
+  // Handle action menu item click
   function handleAction(action) {
     switch (action) {
       case "fetch-trips":
@@ -705,40 +579,25 @@
     }
   }
 
-  /**
-   * Initialize scroll effects
-   */
+  // Initialize scroll effects
   function initScrollEffects() {
     const { header } = elements;
     if (!header) return;
 
     // Add shadow to header on scroll
     const scrollHandler = () => {
-      if (window.scrollY > 10) {
-        header.classList.add(CONFIG.classes.scrolled);
-      } else {
-        header.classList.remove(CONFIG.classes.scrolled);
-      }
+      header.classList.toggle(CONFIG.classes.scrolled, window.scrollY > 10);
     };
 
     window.addEventListener("scroll", scrollHandler);
-
-    // Initial check
-    scrollHandler();
+    scrollHandler(); // Initial check
   }
 
-  // ==============================
-  // Utility Functions
-  // ==============================
-
-  /**
-   * Handle window resize
-   */
+  // Handle window resize
   function handleResize() {
     // Close mobile drawer on larger screens
     if (window.innerWidth >= CONFIG.mobileBreakpoint) {
       const { mobileDrawer, contentOverlay } = elements;
-
       if (mobileDrawer?.classList.contains(CONFIG.classes.open)) {
         mobileDrawer.classList.remove(CONFIG.classes.open);
         contentOverlay?.classList.remove(CONFIG.classes.visible);
@@ -747,88 +606,66 @@
     }
   }
 
-  /**
-   * Simple debounce function
-   * @param {Function} func - Function to debounce
-   * @param {number} wait - Wait time in ms
-   * @returns {Function} Debounced function
-   */
+  // Simple debounce function if utils not available
   function debounce(func, wait) {
+    let timeout;
     return function (...args) {
       clearTimeout(timeout);
       timeout = setTimeout(() => func.apply(this, args), wait);
     };
   }
 
-  // ==============================
   // Action Handlers
-  // ==============================
-
-  /**
-   * Handle fetch trips action
-   */
   async function handleFetchTrips() {
     showLoading("Fetching trips...");
 
-    // Get date range from localStorage or use current date
+    // Get date range
     const startDate =
       localStorage.getItem(CONFIG.storage.startDate) ||
       new Date().toISOString().split("T")[0];
     const endDate =
       localStorage.getItem(CONFIG.storage.endDate) ||
       new Date().toISOString().split("T")[0];
-
-    // Create request data
-    const requestData = {
-      start_date: startDate,
-      end_date: endDate,
-      include_points: true,
-    };
 
     try {
       const response = await fetch("/api/fetch_trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestData),
+        body: JSON.stringify({
+          start_date: startDate,
+          end_date: endDate,
+          include_points: true,
+        }),
       });
 
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(`HTTP error! Status: ${response.status}`);
-      }
 
       const data = await response.json();
       hideLoading();
 
-      // Show notification with actual data
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          `Successfully fetched ${data.trips_count || 0} trips.`,
-          "success"
-        );
-      }
+      // Show notification
+      window.notificationManager?.show(
+        `Successfully fetched ${data.trips_count || 0} trips.`,
+        "success"
+      );
 
-      // Reload map data if applicable
+      // Reload map data
       refreshMapData();
     } catch (error) {
       console.error("Error fetching trips:", error);
       hideLoading();
-
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          `Error fetching trips: ${error.message}`,
-          "danger"
-        );
-      }
+      window.notificationManager?.show(
+        `Error fetching trips: ${error.message}`,
+        "danger"
+      );
     }
   }
 
-  /**
-   * Handle map match action
-   */
   async function handleMapMatch() {
     showLoading("Map matching trips...");
 
-    // Get date range from localStorage or use current date
+    // Get date range
     const startDate =
       localStorage.getItem(CONFIG.storage.startDate) ||
       new Date().toISOString().split("T")[0];
@@ -836,79 +673,59 @@
       localStorage.getItem(CONFIG.storage.endDate) ||
       new Date().toISOString().split("T")[0];
 
-    // Create request data
-    const requestData = {
-      start_date: startDate,
-      end_date: endDate,
-      force_rematch: false,
-    };
-
     try {
       const response = await fetch("/api/map_match_trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestData),
+        body: JSON.stringify({
+          start_date: startDate,
+          end_date: endDate,
+          force_rematch: false,
+        }),
       });
 
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(`HTTP error! Status: ${response.status}`);
-      }
 
       const data = await response.json();
       hideLoading();
 
-      // Show notification with actual data
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          `Successfully matched ${
-            data.matched_count || 0
-          } trips to the road network.`,
-          "success"
-        );
-      }
+      // Show notification
+      window.notificationManager?.show(
+        `Successfully matched ${
+          data.matched_count || 0
+        } trips to the road network.`,
+        "success"
+      );
 
-      // Reload map data if applicable
+      // Reload map data
       refreshMapData();
     } catch (error) {
       console.error("Error map matching trips:", error);
       hideLoading();
-
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          `Error map matching: ${error.message}`,
-          "danger"
-        );
-      }
+      window.notificationManager?.show(
+        `Error map matching: ${error.message}`,
+        "danger"
+      );
     }
   }
 
-  /**
-   * Handle add place action
-   */
   function handleAddPlace() {
-    // First check if the CustomPlacesManager is available
+    // Check if CustomPlacesManager is available
     if (window.customPlaces) {
       // If the app has 'start-drawing' button, use that workflow
       const startDrawingBtn = document.getElementById("start-drawing");
       if (startDrawingBtn) {
         startDrawingBtn.click();
-
-        // Show a notification with instructions
-        if (window.notificationManager) {
-          window.notificationManager.show(
-            "Draw a polygon on the map to create a new place",
-            "info"
-          );
-        }
-
-        // Focus the map if possible
-        if (window.map) {
-          window.map.getContainer().focus();
-        }
+        window.notificationManager?.show(
+          "Draw a polygon on the map to create a new place",
+          "info"
+        );
+        window.map?.getContainer().focus();
         return;
       }
 
-      // Alternative - check for existing place management modal
+      // Check for existing place management modal
       const manageModal = document.getElementById("manage-places-modal");
       if (manageModal && window.bootstrap?.Modal) {
         const modalInstance = new bootstrap.Modal(manageModal);
@@ -921,17 +738,12 @@
     handleAddPlaceFallback();
   }
 
-  /**
-   * Fallback for adding a place without modal
-   */
   function handleAddPlaceFallback() {
-    // Show form dialog using built-in prompt as fallback
     const placeName = prompt("Enter place name:");
     if (!placeName) return;
 
     const latitude = prompt("Enter latitude (e.g. 34.0522):");
     const longitude = prompt("Enter longitude (e.g. -118.2437):");
-
     if (!latitude || !longitude) return;
 
     // Validate inputs
@@ -939,12 +751,10 @@
     const lng = parseFloat(longitude);
 
     if (isNaN(lat) || isNaN(lng)) {
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Please enter valid latitude and longitude values.",
-          "warning"
-        );
-      }
+      window.notificationManager?.show(
+        "Please enter valid latitude and longitude values.",
+        "warning"
+      );
       return;
     }
 
@@ -957,10 +767,6 @@
     });
   }
 
-  /**
-   * Submit place data to API
-   * @param {Object} placeData - Place data
-   */
   async function submitPlaceData(placeData) {
     showLoading("Adding place...");
 
@@ -977,35 +783,24 @@
       }
 
       hideLoading();
-
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          `Successfully added place: ${placeData.name}`,
-          "success"
-        );
-      }
-
-      // Refresh the places list or map
+      window.notificationManager?.show(
+        `Successfully added place: ${placeData.name}`,
+        "success"
+      );
       refreshPlacesData();
     } catch (error) {
       console.error("Error adding place:", error);
       hideLoading();
-
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          `Error adding place: ${error.message}`,
-          "danger"
-        );
-      }
+      window.notificationManager?.show(
+        `Error adding place: ${error.message}`,
+        "danger"
+      );
     }
   }
 
-  /**
-   * Refresh map data by calling appropriate functions
-   */
+  // Refresh map data by calling appropriate functions
   function refreshMapData() {
     if (window.map) {
-      // Try different refresh methods in order of preference
       if (typeof window.EveryStreet?.App?.fetchTrips === "function") {
         window.EveryStreet.App.fetchTrips();
       } else if (typeof window.fetchTrips === "function") {
@@ -1014,94 +809,45 @@
     }
   }
 
-  /**
-   * Refresh places data by calling appropriate functions
-   */
+  // Refresh places data
   function refreshPlacesData() {
-    if (
-      window.customPlaces &&
-      typeof window.customPlaces.loadPlaces === "function"
-    ) {
+    if (window.customPlaces?.loadPlaces) {
       window.customPlaces.loadPlaces();
     }
   }
 
-  // ==============================
   // Loading Overlay Functions
-  // ==============================
-
-  /**
-   * Show loading overlay
-   * @param {string} message - Loading message
-   */
   function showLoading(message = "Loading...") {
     const { loadingOverlay, loadingText, progressBar } = elements;
     if (!loadingOverlay) return;
 
-    // Set loading message
-    if (loadingText) {
-      loadingText.textContent = message;
-    }
-
-    // Reset progress bar
-    if (progressBar) {
-      progressBar.style.width = "0%";
-    }
-
-    // Show loading overlay
+    if (loadingText) loadingText.textContent = message;
+    if (progressBar) progressBar.style.width = "0%";
     loadingOverlay.style.display = "flex";
   }
 
-  /**
-   * Hide loading overlay
-   */
   function hideLoading() {
     const { loadingOverlay, progressBar } = elements;
     if (!loadingOverlay) return;
 
-    // Finish progress animation
-    if (progressBar) {
-      progressBar.style.width = "100%";
-    }
-
-    // Hide with small delay for smooth animation
+    if (progressBar) progressBar.style.width = "100%";
     setTimeout(() => {
       loadingOverlay.style.display = "none";
     }, 400);
   }
 
-  /**
-   * Update progress in the loading overlay
-   * @param {number} percent - Progress percentage (0-100)
-   * @param {string} message - Optional message to display
-   */
   function updateProgress(percent, message) {
     const { progressBar, loadingText } = elements;
-
-    if (progressBar) {
-      progressBar.style.width = `${percent}%`;
-    }
-
-    if (loadingText && message) {
-      loadingText.textContent = message;
-    }
+    if (progressBar) progressBar.style.width = `${percent}%`;
+    if (loadingText && message) loadingText.textContent = message;
   }
 
-  // ==============================
   // Legacy Code Bridge
-  // ==============================
-
-  /**
-   * Setup bridge between Modern UI and legacy code
-   */
   function setupLegacyCodeBridge() {
-    // Expose key methods to global scope for legacy code to call
+    // Expose key methods for legacy code
     window.modernUI = {
-      showNotification: (message, type) => {
-        if (window.notificationManager) {
-          window.notificationManager.show(message, type);
-        }
-      },
+      showNotification: (message, type) =>
+        window.notificationManager?.show(message, type),
       showLoading,
       updateProgress,
       hideLoading,
@@ -1110,59 +856,41 @@
       initDatePickers,
     };
 
-    // Backward compatibility layer for loadingManager reference
+    // Backward compatibility for loadingManager
     if (!window.loadingManager) {
       window.loadingManager = createCompatibilityLoadingManager();
     }
 
     // Set up theme change event listener
-    document.addEventListener("themeChanged", function (e) {
-      if (e.detail && e.detail.theme) {
-        applyTheme(e.detail.theme);
-      }
+    document.addEventListener("themeChanged", (e) => {
+      if (e.detail?.theme) applyTheme(e.detail.theme);
     });
   }
 
-  /**
-   * Create a compatibility layer for legacy loadingManager
-   * @returns {Object} Compatible loadingManager interface
-   */
+  // Create compatibility layer for legacy loadingManager
   function createCompatibilityLoadingManager() {
     return {
       showLoading,
       updateProgress,
       hideLoading,
-
-      // Operations tracking system (compatibility with app.js)
       operations: new Map(),
-
       startOperation: (operationName) => {
         showLoading(`Starting ${operationName}...`);
         return operationName;
       },
-
       addSubOperation: () => {},
-
       updateSubOperation: (
         _parentOperation,
         _subOperationName,
         progress,
         message
       ) => {
-        if (message) {
-          updateProgress(progress, message);
-        }
+        if (message) updateProgress(progress, message);
       },
-
-      finish: () => {
-        hideLoading();
-      },
-
+      finish: () => hideLoading(),
       error: (message) => {
         hideLoading();
-        if (window.notificationManager) {
-          window.notificationManager.show(message, "danger");
-        }
+        window.notificationManager?.show(message, "danger");
       },
     };
   }
