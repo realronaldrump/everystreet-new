@@ -14,13 +14,12 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from math import ceil
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 # Third-party imports
-import aiohttp
 import bson
 import geojson as geojson_module
-import geopandas as gpd
+
 import gpxpy
 import pytz
 from bson import ObjectId
@@ -39,7 +38,6 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
-from shapely.geometry import LineString, Polygon
 
 # Local module imports
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
@@ -55,7 +53,6 @@ from db import (
     find_with_retry,
     get_trip_from_all_collections,
     init_database,
-    insert_one_with_retry,
     parse_query_date,
     update_many_with_retry,
     update_one_with_retry,
@@ -67,6 +64,8 @@ from export_helpers import (
     export_gpx_response,
     extract_date_range_string,
     get_location_filename,
+    process_trip_for_export,
+    create_csv_export,
 )
 from live_tracking import (
     get_active_trip,
@@ -91,6 +90,7 @@ from tasks import (
 from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
 from utils import cleanup_session, haversine as haversine_util, validate_location_osm
+from osm_utils import generate_geojson_osm
 
 # Load environment variables
 load_dotenv()
@@ -120,14 +120,12 @@ MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
-OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
 # Database collections - using db_manager to access the database
 trips_collection = db_manager.db["trips"]
 matched_trips_collection = db_manager.db["matched_trips"]
 uploaded_trips_collection = db_manager.db["uploaded_trips"]
 places_collection = db_manager.db["places"]
-osm_data_collection = db_manager.db["osm_data"]
 streets_collection = db_manager.db["streets"]
 coverage_metadata_collection = db_manager.db["coverage_metadata"]
 live_trips_collection = db_manager.db["live_trips"]
@@ -192,7 +190,7 @@ class TaskRunModel(BaseModel):
     tasks: List[str]
 
 
-# Helper functions
+# --- Helper functions ---
 def meters_to_miles(meters: float) -> float:
     """Convert meters to miles."""
     return meters / 1609.34
@@ -266,168 +264,12 @@ def collect_street_type_stats(features: List[Dict]) -> List[Dict[str, Any]]:
     return result
 
 
-async def process_elements(elements: List[Dict], streets_only: bool) -> List[Dict]:
-    """
-    Process OSM elements and convert them to GeoJSON features.
+# --- REMOVED process_elements function ---
 
-    Args:
-        elements: List of OSM elements
-        streets_only: If True, only include street elements
-
-    Returns:
-        List of GeoJSON features
-    """
-    features = []
-    for e in elements:
-        if e["type"] == "way":
-            coords = [(n["lon"], n["lat"]) for n in e.get("geometry", [])]
-            if len(coords) >= 2:
-                properties = e.get("tags", {})
-                if streets_only:
-                    line = LineString(coords)
-                    features.append(
-                        {
-                            "type": "Feature",
-                            "geometry": line.__geo_interface__,
-                            "properties": properties,
-                        }
-                    )
-                else:
-                    if coords[0] == coords[-1]:
-                        poly = Polygon(coords)
-                        features.append(
-                            {
-                                "type": "Feature",
-                                "geometry": poly.__geo_interface__,
-                                "properties": properties,
-                            }
-                        )
-                    else:
-                        line = LineString(coords)
-                        features.append(
-                            {
-                                "type": "Feature",
-                                "geometry": line.__geo_interface__,
-                                "properties": properties,
-                            }
-                        )
-    return features
+# --- REMOVED generate_geojson_osm function ---
 
 
-async def generate_geojson_osm(
-    location: Dict[str, Any], streets_only: bool = False
-) -> Tuple[Optional[Dict], Optional[str]]:
-    """
-    Generate GeoJSON data from OpenStreetMap for a location.
-
-    Args:
-        location: Dictionary with location data
-        streets_only: If True, only include streets
-
-    Returns:
-        Tuple of (GeoJSON data, error message)
-    """
-    try:
-        if not (
-            isinstance(location, dict)
-            and "osm_id" in location
-            and "osm_type" in location
-        ):
-            return None, "Invalid location data"
-
-        osm_type = "streets" if streets_only else "boundary"
-        area_id = int(location["osm_id"])
-
-        if location["osm_type"] == "relation":
-            area_id += 3600000000
-
-        if streets_only:
-            query = f"""
-            [out:json];
-            area({area_id})->.searchArea;
-            (way["highway"](area.searchArea););
-            (._;>;);
-            out geom;
-            """
-        else:
-            query = f"""
-            [out:json];
-            ({location["osm_type"]}({location["osm_id"]});
-            >;
-            );
-            out geom;
-            """
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                OVERPASS_URL, params={"data": query}, timeout=30
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-
-        features = await process_elements(data["elements"], streets_only)
-
-        if not features:
-            return None, "No features found"
-
-        gdf = gpd.GeoDataFrame.from_features(features).set_geometry("geometry")
-        geojson_data = json.loads(gdf.to_json())
-
-        # Check if data exceeds MongoDB document size limit (16MB)
-        bson_size_estimate = len(json.dumps(geojson_data).encode("utf-8"))
-        if bson_size_estimate <= 16793598:  # ~16MB
-            existing_data = await find_one_with_retry(
-                osm_data_collection, {"location": location, "type": osm_type}
-            )
-
-            if existing_data:
-                await update_one_with_retry(
-                    osm_data_collection,
-                    {"_id": existing_data["_id"]},
-                    {
-                        "$set": {
-                            "geojson": geojson_data,
-                            "updated_at": datetime.now(timezone.utc),
-                        }
-                    },
-                )
-                logger.info(
-                    "Updated OSM data for %s, type: %s",
-                    location.get("display_name", "Unknown"),
-                    osm_type,
-                )
-            else:
-                await insert_one_with_retry(
-                    osm_data_collection,
-                    {
-                        "location": location,
-                        "type": osm_type,
-                        "geojson": geojson_data,
-                        "created_at": datetime.now(timezone.utc),
-                    },
-                )
-                logger.info(
-                    "Stored OSM data for %s, type: %s",
-                    location.get("display_name", "Unknown"),
-                    osm_type,
-                )
-        else:
-            logger.warning(
-                "OSM data for %s is too large for MongoDB",
-                location.get("display_name", "Unknown"),
-            )
-
-        return geojson_data, None
-
-    except aiohttp.ClientError as e:
-        logger.exception("Error generating geojson from Overpass")
-        return None, f"Error communicating with Overpass API: {str(e)}"
-
-    except Exception as e:
-        logger.exception("Error generating geojson")
-        return None, str(e)
-
-
+# --- Coverage Calculation Orchestration ---
 async def process_coverage_calculation(location: Dict[str, Any], task_id: str) -> None:
     """
     Process coverage calculation in the background with proper error handling.
@@ -945,294 +787,6 @@ async def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
     except Exception:
         logger.exception("Error in process_geojson_trip")
         return None
-
-
-async def process_trip_for_export(
-    trip: Dict[str, Any],
-    include_basic_info: bool = True,
-    include_locations: bool = True,
-    include_telemetry: bool = True,
-    include_geometry: bool = True,
-    include_meta: bool = True,
-    include_custom: bool = True,
-) -> Dict[str, Any]:
-    """
-    Process a trip dictionary based on field preferences for export.
-
-    Args:
-        trip: Original trip dictionary
-        include_*: Booleans indicating which fields to include
-
-    Returns:
-        Dict: Processed trip with only the requested fields
-    """
-    result = {}
-
-    # Define field mappings for each category
-    basic_info_fields = [
-        "_id",
-        "transactionId",
-        "trip_id",
-        "startTime",
-        "endTime",
-        "duration",
-        "durationInMinutes",
-        "completed",
-        "active",
-    ]
-
-    location_fields = [
-        "startLocation",
-        "destination",
-        "startAddress",
-        "endAddress",
-        "startPoint",
-        "endPoint",
-        "state",
-        "city",
-    ]
-
-    telemetry_fields = [
-        "distance",
-        "distanceInMiles",
-        "startOdometer",
-        "endOdometer",
-        "maxSpeed",
-        "averageSpeed",
-        "idleTime",
-        "fuelConsumed",
-        "fuelEconomy",
-        "speedingEvents",
-    ]
-
-    geometry_fields = ["gps", "path", "simplified_path", "route", "geometry"]
-
-    meta_fields = [
-        "deviceId",
-        "imei",
-        "vehicleId",
-        "source",
-        "processingStatus",
-        "processingTime",
-        "mapMatchStatus",
-        "confidence",
-        "insertedAt",
-        "updatedAt",
-    ]
-
-    custom_fields = ["notes", "tags", "category", "purpose", "customFields"]
-
-    # Copy fields according to preferences
-    all_fields = []
-    if include_basic_info:
-        all_fields.extend(basic_info_fields)
-    if include_locations:
-        all_fields.extend(location_fields)
-    if include_telemetry:
-        all_fields.extend(telemetry_fields)
-    if include_geometry:
-        all_fields.extend(geometry_fields)
-    if include_meta:
-        all_fields.extend(meta_fields)
-    if include_custom:
-        all_fields.extend(custom_fields)
-
-    # Copy fields from original trip
-    for field in all_fields:
-        if field in trip:
-            result[field] = trip[field]
-
-    # Always include _id for reference
-    if "_id" not in result and "_id" in trip:
-        result["_id"] = trip["_id"]
-
-    return result
-
-
-async def create_csv_export(
-    trips: List[Dict[str, Any]],
-    include_gps_in_csv: bool = False,
-    flatten_location_fields: bool = True,
-) -> str:
-    """
-    Convert trip dictionaries to CSV format.
-
-    Args:
-        trips: List of trip dictionaries
-        include_gps_in_csv: Whether to include GPS data as JSON strings
-        flatten_location_fields: Whether to flatten location fields into separate columns
-
-    Returns:
-        str: CSV data as a string
-    """
-    if not trips:
-        return "No data to export"
-
-    import csv
-    from io import StringIO
-
-    # Create CSV buffer
-    output = StringIO()
-
-    # Prepare flattened fieldnames if needed
-    location_fields = []
-    if flatten_location_fields:
-        location_fields = [
-            "startLocation_formatted_address",
-            "startLocation_street_number",
-            "startLocation_street",
-            "startLocation_city",
-            "startLocation_county",
-            "startLocation_state",
-            "startLocation_postal_code",
-            "startLocation_country",
-            "startLocation_lat",
-            "startLocation_lng",
-            "destination_formatted_address",
-            "destination_street_number",
-            "destination_street",
-            "destination_city",
-            "destination_county",
-            "destination_state",
-            "destination_postal_code",
-            "destination_country",
-            "destination_lat",
-            "destination_lng",
-        ]
-
-    # Collect all possible field names from all trips
-    fieldnames = set()
-    for trip in trips:
-        fieldnames.update(trip.keys())
-
-    # Add location fields if flattening
-    if flatten_location_fields:
-        fieldnames.update(location_fields)
-        # Remove the original location fields since we'll flatten them
-        if "startLocation" in fieldnames:
-            fieldnames.remove("startLocation")
-        if "destination" in fieldnames:
-            fieldnames.remove("destination")
-
-    # Sort fields for consistent order
-    fieldnames = sorted(fieldnames)
-
-    # Move important fields to the beginning for better readability
-    priority_fields = [
-        "_id",
-        "transactionId",
-        "trip_id",
-        "trip_type",
-        "startTime",
-        "endTime",
-    ] + (location_fields if flatten_location_fields else [])
-
-    for field in reversed(priority_fields):
-        if field in fieldnames:
-            fieldnames.remove(field)
-            fieldnames.insert(0, field)
-
-    # Create CSV writer
-    writer = csv.DictWriter(output, fieldnames=fieldnames)
-    writer.writeheader()
-
-    # Write each trip as a row, handling nested objects
-    for trip in trips:
-        flat_trip = {}
-        for key, value in trip.items():
-            # Handle GPS and geometry fields based on user preference
-            if key in ["gps", "geometry", "path", "simplified_path", "route"]:
-                if include_gps_in_csv:
-                    # Include as JSON string if requested
-                    flat_trip[key] = json.dumps(value, default=default_serializer)
-                else:
-                    flat_trip[key] = "[Geometry data not included in CSV format]"
-            # Handle location fields if flattening is enabled
-            elif flatten_location_fields and key in ["startLocation", "destination"]:
-                # Skip the original field, we'll add flattened versions below
-                pass
-            # Handle nested objects by converting to JSON string
-            elif isinstance(value, (dict, list)):
-                flat_trip[key] = json.dumps(value, default=default_serializer)
-            # Handle dates
-            elif isinstance(value, datetime):
-                flat_trip[key] = value.isoformat()
-            else:
-                flat_trip[key] = value
-
-        # Add flattened location fields if needed
-        if flatten_location_fields:
-            # Process startLocation
-            start_loc = trip.get("startLocation", {})
-            if isinstance(start_loc, str):
-                try:
-                    start_loc = json.loads(start_loc)
-                except json.JSONDecodeError:
-                    start_loc = {}
-
-            if isinstance(start_loc, dict):
-                flat_trip["startLocation_formatted_address"] = start_loc.get(
-                    "formatted_address", ""
-                )
-
-                # Extract address components
-                addr_comps = start_loc.get("address_components", {})
-                if isinstance(addr_comps, dict):
-                    flat_trip["startLocation_street_number"] = addr_comps.get(
-                        "street_number", ""
-                    )
-                    flat_trip["startLocation_street"] = addr_comps.get("street", "")
-                    flat_trip["startLocation_city"] = addr_comps.get("city", "")
-                    flat_trip["startLocation_county"] = addr_comps.get("county", "")
-                    flat_trip["startLocation_state"] = addr_comps.get("state", "")
-                    flat_trip["startLocation_postal_code"] = addr_comps.get(
-                        "postal_code", ""
-                    )
-                    flat_trip["startLocation_country"] = addr_comps.get("country", "")
-
-                # Extract coordinates
-                coords = start_loc.get("coordinates", {})
-                if isinstance(coords, dict):
-                    flat_trip["startLocation_lat"] = coords.get("lat", "")
-                    flat_trip["startLocation_lng"] = coords.get("lng", "")
-
-            # Process destination
-            dest = trip.get("destination", {})
-            if isinstance(dest, str):
-                try:
-                    dest = json.loads(dest)
-                except json.JSONDecodeError:
-                    dest = {}
-
-            if isinstance(dest, dict):
-                flat_trip["destination_formatted_address"] = dest.get(
-                    "formatted_address", ""
-                )
-
-                # Extract address components
-                addr_comps = dest.get("address_components", {})
-                if isinstance(addr_comps, dict):
-                    flat_trip["destination_street_number"] = addr_comps.get(
-                        "street_number", ""
-                    )
-                    flat_trip["destination_street"] = addr_comps.get("street", "")
-                    flat_trip["destination_city"] = addr_comps.get("city", "")
-                    flat_trip["destination_county"] = addr_comps.get("county", "")
-                    flat_trip["destination_state"] = addr_comps.get("state", "")
-                    flat_trip["destination_postal_code"] = addr_comps.get(
-                        "postal_code", ""
-                    )
-                    flat_trip["destination_country"] = addr_comps.get("country", "")
-
-                # Extract coordinates
-                coords = dest.get("coordinates", {})
-                if isinstance(coords, dict):
-                    flat_trip["destination_lat"] = coords.get("lat", "")
-                    flat_trip["destination_lng"] = coords.get("lng", "")
-
-        writer.writerow(flat_trip)
-
-    return output.getvalue()
 
 
 async def fetch_all_trips_no_filter() -> List[dict]:
@@ -2658,7 +2212,8 @@ async def validate_location(location: str, location_type: str):
 async def generate_geojson_endpoint(
     location: LocationModel, streets_only: bool = False
 ):
-    """Generate GeoJSON for a location."""
+    """Generate GeoJSON for a location using the imported function."""
+    # Now calls the imported function
     geojson_data, err = await generate_geojson_osm(location.dict(), streets_only)
     if geojson_data:
         return geojson_data
@@ -3080,6 +2635,7 @@ async def export_streets(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid location JSON"
             )
 
+        # Use imported function
         data, error = await generate_geojson_osm(loc, streets_only=True)
 
         if not data:
@@ -3117,6 +2673,7 @@ async def export_boundary(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid location JSON"
             )
 
+        # Use imported function
         data, error = await generate_geojson_osm(loc, streets_only=False)
 
         if not data:
@@ -4241,6 +3798,7 @@ async def get_coverage_area_details(location_id: str):
         # them
         street_types = coverage_doc.get("street_types", [])
         if not street_types:
+            # Use the helper function still in app.py
             street_types = collect_street_type_stats(streets_data.get("features", []))
 
         # Transform data for the dashboard with complete information
@@ -4322,6 +3880,7 @@ async def export_advanced(
 
             # Process each trip based on field preferences
             for trip in regular_trips:
+                # Use imported function
                 processed_trip = await process_trip_for_export(
                     trip,
                     include_basic_info,
@@ -4342,6 +3901,7 @@ async def export_advanced(
 
             # Process each matched trip based on field preferences
             for trip in matched_trips:
+                # Use imported function
                 processed_trip = await process_trip_for_export(
                     trip,
                     include_basic_info,
@@ -4362,6 +3922,7 @@ async def export_advanced(
 
             # Process each uploaded trip based on field preferences
             for trip in uploaded_trips:
+                # Use imported function
                 processed_trip = await process_trip_for_export(
                     trip,
                     include_basic_info,
@@ -4381,6 +3942,7 @@ async def export_advanced(
 
         # If CSV format is requested, build the CSV data
         if fmt == "csv":
+            # Use imported function
             csv_data = await create_csv_export(
                 trips,
                 include_gps_in_csv=include_gps_in_csv,

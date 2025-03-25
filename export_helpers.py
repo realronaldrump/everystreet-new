@@ -361,8 +361,6 @@ async def create_export_response(
         # Convert trips to CSV
         from io import StringIO
 
-        from app import create_csv_export
-
         # Ensure we have a list of trips
         if not isinstance(data, list):
             if isinstance(data, dict) and data.get("type") == "FeatureCollection":
@@ -442,3 +440,291 @@ def get_location_filename(location: Dict[str, Any]) -> str:
         .replace(" ", "_")
         .lower()
     )
+
+
+async def process_trip_for_export(
+    trip: Dict[str, Any],
+    include_basic_info: bool = True,
+    include_locations: bool = True,
+    include_telemetry: bool = True,
+    include_geometry: bool = True,
+    include_meta: bool = True,
+    include_custom: bool = True,
+) -> Dict[str, Any]:
+    """
+    Process a trip dictionary based on field preferences for export.
+
+    Args:
+        trip: Original trip dictionary
+        include_*: Booleans indicating which fields to include
+
+    Returns:
+        Dict: Processed trip with only the requested fields
+    """
+    result = {}
+
+    # Define field mappings for each category
+    basic_info_fields = [
+        "_id",
+        "transactionId",
+        "trip_id",
+        "startTime",
+        "endTime",
+        "duration",
+        "durationInMinutes",
+        "completed",
+        "active",
+    ]
+
+    location_fields = [
+        "startLocation",
+        "destination",
+        "startAddress",
+        "endAddress",
+        "startPoint",
+        "endPoint",
+        "state",
+        "city",
+    ]
+
+    telemetry_fields = [
+        "distance",
+        "distanceInMiles",
+        "startOdometer",
+        "endOdometer",
+        "maxSpeed",
+        "averageSpeed",
+        "idleTime",
+        "fuelConsumed",
+        "fuelEconomy",
+        "speedingEvents",
+    ]
+
+    geometry_fields = ["gps", "path", "simplified_path", "route", "geometry"]
+
+    meta_fields = [
+        "deviceId",
+        "imei",
+        "vehicleId",
+        "source",
+        "processingStatus",
+        "processingTime",
+        "mapMatchStatus",
+        "confidence",
+        "insertedAt",
+        "updatedAt",
+    ]
+
+    custom_fields = ["notes", "tags", "category", "purpose", "customFields"]
+
+    # Copy fields according to preferences
+    all_fields = []
+    if include_basic_info:
+        all_fields.extend(basic_info_fields)
+    if include_locations:
+        all_fields.extend(location_fields)
+    if include_telemetry:
+        all_fields.extend(telemetry_fields)
+    if include_geometry:
+        all_fields.extend(geometry_fields)
+    if include_meta:
+        all_fields.extend(meta_fields)
+    if include_custom:
+        all_fields.extend(custom_fields)
+
+    # Copy fields from original trip
+    for field in all_fields:
+        if field in trip:
+            result[field] = trip[field]
+
+    # Always include _id for reference
+    if "_id" not in result and "_id" in trip:
+        result["_id"] = trip["_id"]
+
+    return result
+
+
+async def create_csv_export(
+    trips: List[Dict[str, Any]],
+    include_gps_in_csv: bool = False,
+    flatten_location_fields: bool = True,
+) -> str:
+    """
+    Convert trip dictionaries to CSV format.
+
+    Args:
+        trips: List of trip dictionaries
+        include_gps_in_csv: Whether to include GPS data as JSON strings
+        flatten_location_fields: Whether to flatten location fields into separate columns
+
+    Returns:
+        str: CSV data as a string
+    """
+    if not trips:
+        return "No data to export"
+
+    import csv
+    from io import StringIO
+
+    # Create CSV buffer
+    output = StringIO()
+
+    # Prepare flattened fieldnames if needed
+    location_fields = []
+    if flatten_location_fields:
+        location_fields = [
+            "startLocation_formatted_address",
+            "startLocation_street_number",
+            "startLocation_street",
+            "startLocation_city",
+            "startLocation_county",
+            "startLocation_state",
+            "startLocation_postal_code",
+            "startLocation_country",
+            "startLocation_lat",
+            "startLocation_lng",
+            "destination_formatted_address",
+            "destination_street_number",
+            "destination_street",
+            "destination_city",
+            "destination_county",
+            "destination_state",
+            "destination_postal_code",
+            "destination_country",
+            "destination_lat",
+            "destination_lng",
+        ]
+
+    # Collect all possible field names from all trips
+    fieldnames = set()
+    for trip in trips:
+        fieldnames.update(trip.keys())
+
+    # Add location fields if flattening
+    if flatten_location_fields:
+        fieldnames.update(location_fields)
+        # Remove the original location fields since we'll flatten them
+        if "startLocation" in fieldnames:
+            fieldnames.remove("startLocation")
+        if "destination" in fieldnames:
+            fieldnames.remove("destination")
+
+    # Sort fields for consistent order
+    fieldnames = sorted(fieldnames)
+
+    # Move important fields to the beginning for better readability
+    priority_fields = [
+        "_id",
+        "transactionId",
+        "trip_id",
+        "trip_type",
+        "startTime",
+        "endTime",
+    ] + (location_fields if flatten_location_fields else [])
+
+    for field in reversed(priority_fields):
+        if field in fieldnames:
+            fieldnames.remove(field)
+            fieldnames.insert(0, field)
+
+    # Create CSV writer
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+
+    # Write each trip as a row, handling nested objects
+    for trip in trips:
+        flat_trip = {}
+        for key, value in trip.items():
+            # Handle GPS and geometry fields based on user preference
+            if key in ["gps", "geometry", "path", "simplified_path", "route"]:
+                if include_gps_in_csv:
+                    # Include as JSON string if requested
+                    flat_trip[key] = json.dumps(value, default=default_serializer)
+                else:
+                    flat_trip[key] = "[Geometry data not included in CSV format]"
+            # Handle location fields if flattening is enabled
+            elif flatten_location_fields and key in ["startLocation", "destination"]:
+                # Skip the original field, we'll add flattened versions below
+                pass
+            # Handle nested objects by converting to JSON string
+            elif isinstance(value, (dict, list)):
+                flat_trip[key] = json.dumps(value, default=default_serializer)
+            # Handle dates
+            elif isinstance(value, datetime):
+                flat_trip[key] = value.isoformat()
+            else:
+                flat_trip[key] = value
+
+        # Add flattened location fields if needed
+        if flatten_location_fields:
+            # Process startLocation
+            start_loc = trip.get("startLocation", {})
+            if isinstance(start_loc, str):
+                try:
+                    start_loc = json.loads(start_loc)
+                except json.JSONDecodeError:
+                    start_loc = {}
+
+            if isinstance(start_loc, dict):
+                flat_trip["startLocation_formatted_address"] = start_loc.get(
+                    "formatted_address", ""
+                )
+
+                # Extract address components
+                addr_comps = start_loc.get("address_components", {})
+                if isinstance(addr_comps, dict):
+                    flat_trip["startLocation_street_number"] = addr_comps.get(
+                        "street_number", ""
+                    )
+                    flat_trip["startLocation_street"] = addr_comps.get("street", "")
+                    flat_trip["startLocation_city"] = addr_comps.get("city", "")
+                    flat_trip["startLocation_county"] = addr_comps.get("county", "")
+                    flat_trip["startLocation_state"] = addr_comps.get("state", "")
+                    flat_trip["startLocation_postal_code"] = addr_comps.get(
+                        "postal_code", ""
+                    )
+                    flat_trip["startLocation_country"] = addr_comps.get("country", "")
+
+                # Extract coordinates
+                coords = start_loc.get("coordinates", {})
+                if isinstance(coords, dict):
+                    flat_trip["startLocation_lat"] = coords.get("lat", "")
+                    flat_trip["startLocation_lng"] = coords.get("lng", "")
+
+            # Process destination
+            dest = trip.get("destination", {})
+            if isinstance(dest, str):
+                try:
+                    dest = json.loads(dest)
+                except json.JSONDecodeError:
+                    dest = {}
+
+            if isinstance(dest, dict):
+                flat_trip["destination_formatted_address"] = dest.get(
+                    "formatted_address", ""
+                )
+
+                # Extract address components
+                addr_comps = dest.get("address_components", {})
+                if isinstance(addr_comps, dict):
+                    flat_trip["destination_street_number"] = addr_comps.get(
+                        "street_number", ""
+                    )
+                    flat_trip["destination_street"] = addr_comps.get("street", "")
+                    flat_trip["destination_city"] = addr_comps.get("city", "")
+                    flat_trip["destination_county"] = addr_comps.get("county", "")
+                    flat_trip["destination_state"] = addr_comps.get("state", "")
+                    flat_trip["destination_postal_code"] = addr_comps.get(
+                        "postal_code", ""
+                    )
+                    flat_trip["destination_country"] = addr_comps.get("country", "")
+
+                # Extract coordinates
+                coords = dest.get("coordinates", {})
+                if isinstance(coords, dict):
+                    flat_trip["destination_lat"] = coords.get("lat", "")
+                    flat_trip["destination_lng"] = coords.get("lng", "")
+
+        writer.writerow(flat_trip)
+
+    return output.getvalue()
