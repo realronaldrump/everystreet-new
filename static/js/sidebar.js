@@ -10,10 +10,7 @@
   const CONFIG = {
     mobileBreakpoint: 992,
     storageKeys: {
-      sidebarState: "sidebarCollapsed",
-      startDate: "startDate",
-      endDate: "endDate",
-      filtersCollapsed: "filtersCollapsed",
+      sidebarState: "sidebarCollapsed"
     },
   };
 
@@ -47,13 +44,7 @@
     elements.mainContent = document.querySelector("main");
     elements.body = document.body;
 
-    // Filter elements
-    elements.filtersToggle = document.getElementById("toggle-filters");
-    elements.filtersContent = document.getElementById("filters-content");
-    elements.applyFiltersBtn = document.getElementById("apply-filters");
-    elements.startDateInput = document.getElementById("start-date");
-    elements.endDateInput = document.getElementById("end-date");
-    elements.datePresetButtons = document.querySelectorAll(".date-preset");
+
   }
 
   /**
@@ -65,25 +56,7 @@
       .filter(Boolean)
       .forEach((btn) => btn.addEventListener("click", toggleSidebar));
 
-    // Date inputs
-    [elements.startDateInput, elements.endDateInput]
-      .filter(Boolean)
-      .forEach((input) => {
-        input?.addEventListener("change", handleDateChange);
-      });
 
-    // Filters toggle
-    elements.filtersToggle?.addEventListener("click", toggleFiltersSection);
-
-    // Apply filters button
-    elements.applyFiltersBtn?.addEventListener("click", applyFilters);
-
-    // Date preset buttons
-    elements.datePresetButtons.forEach((btn) => {
-      btn.addEventListener("click", (e) =>
-        handleDatePreset(e.currentTarget.dataset.range)
-      );
-    });
 
     // Keyboard shortcut for sidebar toggle (Ctrl+B)
     document.addEventListener("keydown", (e) => {
@@ -97,33 +70,7 @@
     document.addEventListener("click", handleClickOutside);
   }
 
-  /**
-   * Handle date input changes
-   * @param {Event} e - Change event
-   */
-  function handleDateChange(e) {
-    const key = e.target.id.includes("start") ? "startDate" : "endDate";
-    setStorage(CONFIG.storageKeys[key], e.target.value);
-  }
 
-  /**
-   * Toggle the filters section visibility
-   */
-  function toggleFiltersSection() {
-    if (!elements.filtersToggle || !elements.filtersContent) return;
-
-    const isCollapsing =
-      !elements.filtersToggle.classList.contains("collapsed");
-    elements.filtersToggle.classList.toggle("collapsed");
-
-    if (isCollapsing) {
-      elements.filtersContent.classList.remove("show");
-    } else {
-      elements.filtersContent.classList.add("show");
-    }
-
-    setStorage(CONFIG.storageKeys.filtersCollapsed, isCollapsing);
-  }
 
   /**
    * Handle click outside sidebar on mobile
@@ -147,17 +94,7 @@
    * Load saved state from localStorage
    */
   function loadSavedState() {
-    // Load dates
-    const startDate = getStorage(CONFIG.storageKeys.startDate);
-    const endDate = getStorage(CONFIG.storageKeys.endDate);
 
-    if (startDate && elements.startDateInput) {
-      elements.startDateInput.value = startDate;
-    }
-
-    if (endDate && elements.endDateInput) {
-      elements.endDateInput.value = endDate;
-    }
 
     // Load sidebar state
     const isCollapsed = getStorage(CONFIG.storageKeys.sidebarState) === "true";
@@ -168,13 +105,7 @@
       elements.mainContent?.classList.add("expanded");
     }
 
-    // Load filters collapsed state
-    const filtersCollapsed =
-      getStorage(CONFIG.storageKeys.filtersCollapsed) === "true";
-    if (filtersCollapsed && elements.filtersToggle) {
-      elements.filtersToggle.classList.add("collapsed");
-      elements.filtersContent?.classList.remove("show");
-    }
+
   }
 
   /**
@@ -239,77 +170,7 @@
     }
   }
 
-  /**
-   * Handle date preset button clicks
-   * @param {string} range - Range identifier
-   */
-  async function handleDatePreset(range) {
-    if (!range) return;
 
-    try {
-      // Use the unified DateUtils function to get date range
-      const { startDate, endDate } = await DateUtils.getDateRangePreset(range);
-
-      if (startDate && endDate) {
-        // Update inputs directly with string values
-        if (elements.startDateInput && elements.endDateInput) {
-          if (elements.startDateInput._flatpickr) {
-            elements.startDateInput._flatpickr.setDate(startDate);
-          } else {
-            elements.startDateInput.value = startDate;
-          }
-
-          if (elements.endDateInput._flatpickr) {
-            elements.endDateInput._flatpickr.setDate(endDate);
-          } else {
-            elements.endDateInput.value = endDate;
-          }
-        }
-
-        // Store in localStorage
-        setStorage(CONFIG.storageKeys.startDate, startDate);
-        setStorage(CONFIG.storageKeys.endDate, endDate);
-
-        // Apply filters
-        applyFilters();
-      }
-    } catch (error) {
-      console.error("Error setting date range:", error);
-      // Show notification if available
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Error setting date range. Please try again.",
-          "error"
-        );
-      }
-    }
-  }
-
-  /**
-   * Apply filters and trigger data refresh
-   */
-  function applyFilters() {
-    if (!elements.applyFiltersBtn) return;
-
-    // Save current dates to storage
-    if (elements.startDateInput) {
-      setStorage(CONFIG.storageKeys.startDate, elements.startDateInput.value);
-    }
-
-    if (elements.endDateInput) {
-      setStorage(CONFIG.storageKeys.endDate, elements.endDateInput.value);
-    }
-
-    // Dispatch event for components to refresh data
-    document.dispatchEvent(
-      new CustomEvent("filtersApplied", {
-        detail: {
-          startDate: elements.startDateInput?.value,
-          endDate: elements.endDateInput?.value,
-        },
-      })
-    );
-  }
 
   /**
    * Simple debounce function
