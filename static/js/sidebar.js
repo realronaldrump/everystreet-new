@@ -128,7 +128,7 @@
     if (!isMobile) {
       setStorage(
         CONFIG.storageKeys.sidebarState,
-        elements.sidebar.classList.contains("collapsed")
+        elements.sidebar.classList.contains("collapsed"),
       );
     }
   }
@@ -218,7 +218,7 @@
     // Load saved theme
     const savedTheme = getStorage("theme");
     const prefersDarkScheme = window.matchMedia(
-      "(prefers-color-scheme: dark)"
+      "(prefers-color-scheme: dark)",
     ).matches;
     const useLight =
       savedTheme === "light" || (!savedTheme && !prefersDarkScheme);
@@ -242,7 +242,7 @@
       document.dispatchEvent(
         new CustomEvent("themeChanged", {
           detail: { theme: themeToggle.checked ? "light" : "dark" },
-        })
+        }),
       );
     });
   }
