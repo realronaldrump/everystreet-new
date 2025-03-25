@@ -10,7 +10,7 @@
   const CONFIG = {
     mobileBreakpoint: 992,
     storageKeys: {
-      sidebarState: "sidebarCollapsed"
+      sidebarState: "sidebarCollapsed",
     },
   };
 
@@ -43,8 +43,6 @@
     elements.collapseButton = document.getElementById("sidebar-collapse");
     elements.mainContent = document.querySelector("main");
     elements.body = document.body;
-
-
   }
 
   /**
@@ -55,8 +53,6 @@
     [elements.toggleButton, elements.collapseButton]
       .filter(Boolean)
       .forEach((btn) => btn.addEventListener("click", toggleSidebar));
-
-
 
     // Keyboard shortcut for sidebar toggle (Ctrl+B)
     document.addEventListener("keydown", (e) => {
@@ -69,8 +65,6 @@
     // Close sidebar on mobile when clicking outside
     document.addEventListener("click", handleClickOutside);
   }
-
-
 
   /**
    * Handle click outside sidebar on mobile
@@ -94,8 +88,6 @@
    * Load saved state from localStorage
    */
   function loadSavedState() {
-
-
     // Load sidebar state
     const isCollapsed = getStorage(CONFIG.storageKeys.sidebarState) === "true";
     if (isCollapsed && window.innerWidth >= CONFIG.mobileBreakpoint) {
@@ -104,8 +96,6 @@
       elements.toggleButton?.classList.add("active");
       elements.mainContent?.classList.add("expanded");
     }
-
-
   }
 
   /**
@@ -169,8 +159,6 @@
       elements.mainContent?.classList.remove("expanded");
     }
   }
-
-
 
   /**
    * Simple debounce function
