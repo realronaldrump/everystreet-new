@@ -1324,7 +1324,7 @@
 
     addSingleEventListener("map-match-trips", "click", mapMatchTrips);
 
-    document.querySelectorAll(".date-preset").forEach((btn) => {
+    document.querySelectorAll(".quick-select-btn").forEach((btn) => {
       addSingleEventListener(btn, "click", handleDatePresetClick);
     });
 
