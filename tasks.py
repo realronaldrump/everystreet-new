@@ -23,10 +23,8 @@ from pymongo import MongoClient, UpdateOne
 
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from live_tracking import cleanup_stale_trips
-from preprocess_streets import preprocess_streets as async_preprocess_streets
 from street_coverage_calculation import (
     compute_incremental_coverage,
-    update_coverage_for_all_locations,
 )
 from trip_processor import TripProcessor, TripState
 from utils import validate_trip_data
@@ -71,20 +69,6 @@ TASK_METADATA = {
         "priority": TaskPriority.HIGH,
         "dependencies": [],
         "description": "Fetches trips from the Bouncie API periodically",
-    },
-    "preprocess_streets": {
-        "display_name": "Preprocess Streets",
-        "default_interval_minutes": 1440,
-        "priority": TaskPriority.LOW,
-        "dependencies": [],
-        "description": "Preprocess street data for coverage calculation",
-    },
-    "update_coverage_for_all_locations": {
-        "display_name": "Update Coverage (All Locations)",
-        "default_interval_minutes": 60,
-        "priority": TaskPriority.MEDIUM,
-        "dependencies": ["periodic_fetch_trips"],
-        "description": "Updates street coverage calculations for all locations",
     },
     "cleanup_stale_trips": {
         "display_name": "Cleanup Stale Trips",
@@ -837,83 +821,6 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
     default_retry_delay=300,
     time_limit=7200,
     soft_time_limit=7000,
-    name="tasks.preprocess_streets",
-    queue="low_priority",
-)
-def preprocess_streets(self) -> Dict[str, Any]:
-    """
-    Preprocess street data for coverage calculation.
-
-    Returns:
-        Dict with status information
-    """
-
-    @async_task_wrapper
-    async def _execute():
-        # Create a new client connection *within* the task.
-        client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
-        db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
-        coverage_metadata_collection = db["coverage_metadata"]
-
-        try:
-            # Check dependencies
-            dependency_check = await check_dependencies("preprocess_streets")
-            if not dependency_check["can_run"]:
-                logger.info(
-                    f"Deferring preprocess_streets: {dependency_check['reason']}"
-                )
-                return {"status": "deferred", "message": dependency_check["reason"]}
-
-            # Find areas that need processing
-            processing_areas = await coverage_metadata_collection.find(
-                {"status": "processing"}
-            ).to_list(
-                length=20
-            )  # Process in smaller batches
-
-            processed_count = 0
-            error_count = 0
-
-            for area in processing_areas:
-                try:
-                    await async_preprocess_streets(area["location"])
-                    processed_count += 1
-                except Exception as e:
-                    error_count += 1
-                    logger.error(
-                        f"Error preprocessing streets for {area['location'].get('display_name')}: {str(e)}"
-                    )
-                    await coverage_metadata_collection.update_one(
-                        {"_id": area["_id"]},
-                        {
-                            "$set": {
-                                "status": "error",
-                                "last_error": str(e),
-                                "last_updated": datetime.now(timezone.utc),
-                            }
-                        },
-                    )
-
-            return {
-                "status": "success",
-                "processed_count": processed_count,
-                "error_count": error_count,
-                "message": f"Processed {processed_count} areas, {error_count} errors",
-            }
-        finally:
-            client.close()
-
-    # Use the custom run_async method from AsyncTask
-    return cast(AsyncTask, self).run_async(lambda: _execute())
-
-
-@shared_task(
-    bind=True,
-    base=AsyncTask,
-    max_retries=3,
-    default_retry_delay=300,
-    time_limit=7200,
-    soft_time_limit=7000,
     name="tasks.update_coverage_for_new_trips",
     queue="default",
 )
@@ -982,65 +889,6 @@ def update_coverage_for_new_trips(self) -> Dict[str, Any]:
             return {"status": "error", "message": str(e)}
         finally:
             client.close()
-
-    # Use the custom run_async method from AsyncTask
-    return cast(AsyncTask, self).run_async(lambda: _execute())
-
-
-@shared_task(
-    bind=True,
-    base=AsyncTask,
-    max_retries=3,
-    default_retry_delay=300,
-    time_limit=7200,
-    soft_time_limit=7000,
-    name="tasks.update_coverage_for_all_locations",
-    queue="default",
-)
-def update_coverage_for_all_locations_task(self) -> Dict[str, Any]:
-    """
-    Update street coverage calculations for all locations.
-
-    Returns:
-        Dict with status information
-    """
-
-    @async_task_wrapper
-    async def _execute():
-        # Create a new client connection *within* the task.
-        client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
-        # No need for a global db -- access db through the client
-        try:
-            # Check dependencies
-            dependency_check = await check_dependencies(
-                "update_coverage_for_all_locations"
-            )
-            if not dependency_check["can_run"]:
-                logger.info(
-                    f"Deferring update_coverage_for_all_locations: {dependency_check['reason']}"
-                )
-                return {"status": "deferred", "message": dependency_check["reason"]}
-
-            # Call the original function
-            try:
-                results = await update_coverage_for_all_locations()
-                return {
-                    "status": "success",
-                    "message": "Coverage update completed",
-                    "results": results,
-                }
-            except Exception as e:
-                error_msg = f"Error updating coverage: {str(e)}"
-                logger.error(error_msg)
-                # Update task status to FAILED before retrying
-                await update_task_status_async(
-                    "update_coverage_for_all_locations",
-                    TaskStatus.FAILED.value,
-                    error=str(e),
-                )
-                raise self.retry(exc=e, countdown=300)
-        finally:
-            client.close()  # Always close in finally
 
     # Use the custom run_async method from AsyncTask
     return cast(AsyncTask, self).run_async(lambda: _execute())
@@ -1491,8 +1339,6 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
     """
     task_mapping = {
         "periodic_fetch_trips": periodic_fetch_trips,
-        "preprocess_streets": preprocess_streets,
-        "update_coverage_for_all_locations": update_coverage_for_all_locations_task,
         "cleanup_stale_trips": cleanup_stale_trips_task,
         "cleanup_invalid_trips": cleanup_invalid_trips,
         "update_geocoding": update_geocoding,
