@@ -85,7 +85,7 @@
         selector.includes(" ") ||
         selector.startsWith(".")
         ? selector
-        : `#${selector}`
+        : `#${selector}`,
     );
 
     if (useCache && element) AppState.dom[selector] = element;
@@ -123,7 +123,7 @@
   // Debounced map update function using utils.debounce
   const debouncedUpdateMap = utils.debounce(
     updateMap,
-    CONFIG.MAP.debounceDelay
+    CONFIG.MAP.debounceDelay,
   );
 
   // --- Date & Filter Functions ---
@@ -132,12 +132,12 @@
     DateUtils.formatDate(
       utils.getStorage(
         CONFIG.STORAGE_KEYS.startDate,
-        DateUtils.getCurrentDate()
-      )
+        DateUtils.getCurrentDate(),
+      ),
     );
   const getEndDate = () =>
     DateUtils.formatDate(
-      utils.getStorage(CONFIG.STORAGE_KEYS.endDate, DateUtils.getCurrentDate())
+      utils.getStorage(CONFIG.STORAGE_KEYS.endDate, DateUtils.getCurrentDate()),
     );
 
   // --- Trip Styling Functions ---
@@ -208,7 +208,7 @@
               : AppState.mapLayers.trips;
 
             featureLayer.setStyle(
-              getTripFeatureStyle(featureLayer.feature, layerInfo)
+              getTripFeatureStyle(featureLayer.feature, layerInfo),
             );
 
             // Ensure selected/matched trips are brought to the front within their layer group
@@ -289,7 +289,7 @@
           AppState.selectedTripId = null;
           refreshTripStyles();
           document.dispatchEvent(
-            new CustomEvent("tripSelected", { detail: { id: null } })
+            new CustomEvent("tripSelected", { detail: { id: null } }),
           );
         }
       });
@@ -359,7 +359,7 @@
         // Don't throw an error for 404 or similar, just log and use default
         if (response.status !== 404) {
           console.warn(
-            `Failed to fetch last trip point: ${response.status} ${response.statusText}`
+            `Failed to fetch last trip point: ${response.status} ${response.statusText}`,
           );
         } else {
           console.log("No last trip point found in API.");
@@ -426,7 +426,7 @@
         const toggleText = DOMHelper.create(
           "span",
           { class: "form-check-label" },
-          info.name || name
+          info.name || name,
         );
 
         toggleLabel.appendChild(toggleInput);
@@ -514,7 +514,7 @@
     document.dispatchEvent(
       new CustomEvent("layerVisibilityChanged", {
         detail: { layer: name, visible },
-      })
+      }),
     );
   }
 
@@ -544,7 +544,7 @@
     const existingList = getElement(
       "layer-order-list",
       false,
-      layerOrderContainer
+      layerOrderContainer,
     );
     if (existingList) existingList.remove();
 
@@ -609,7 +609,7 @@
         setTimeout(
           () =>
             draggedItem?.classList.add("dragging", "border", "border-primary"),
-          0
+          0,
         );
       } else {
         e.preventDefault(); // Prevent drag if not started on handle/item
@@ -648,7 +648,7 @@
     const layerOrderContainer = getElement("layer-order");
     if (layerOrderContainer) {
       layerOrderContainer.addEventListener("dragover", (e) =>
-        e.preventDefault()
+        e.preventDefault(),
       );
     }
   }
@@ -721,7 +721,7 @@
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch trips: ${response.status} ${response.statusText}`
+          `Failed to fetch trips: ${response.status} ${response.statusText}`,
         );
       }
 
@@ -748,7 +748,7 @@
       document.dispatchEvent(
         new CustomEvent("tripsLoaded", {
           detail: { count: geojson?.features?.length || 0 },
-        })
+        }),
       );
       console.log(`Fetched ${geojson?.features?.length || 0} trips.`);
     });
@@ -839,7 +839,7 @@
       if (!response.ok) {
         // Handle non-OK responses gracefully, e.g., clear the layer
         console.warn(
-          `Failed to fetch matched trips: ${response.status} ${response.statusText}`
+          `Failed to fetch matched trips: ${response.status} ${response.statusText}`,
         );
         AppState.mapLayers.matchedTrips.layer = {
           type: "FeatureCollection",
@@ -848,7 +848,7 @@
         // Optionally throw if it's a critical error (e.g., 500)
         if (response.status >= 500) {
           throw new Error(
-            `HTTP error fetching matched trips: ${response.status}`
+            `HTTP error fetching matched trips: ${response.status}`,
           );
         }
         return; // Continue without matched trips for client errors like 404
@@ -862,7 +862,7 @@
           : { type: "FeatureCollection", features: [] };
 
       console.log(
-        `Fetched ${AppState.mapLayers.matchedTrips.layer.features.length} matched trips.`
+        `Fetched ${AppState.mapLayers.matchedTrips.layer.features.length} matched trips.`,
       );
     } catch (error) {
       // Catch network errors or JSON parsing errors
@@ -901,7 +901,7 @@
               info.layer.addTo(AppState.layerGroup);
             } else {
               console.warn(
-                "Custom places layer data is not a valid Leaflet layer."
+                "Custom places layer data is not a valid Leaflet layer.",
               );
             }
           } else if (
@@ -916,16 +916,16 @@
                 if (feature.properties?.transactionId) {
                   tripLayerFeatures.set(
                     feature.properties.transactionId,
-                    layer
+                    layer,
                   );
                 }
                 // Attach click handler for popups and selection
                 layer.on("click", (e) =>
-                  handleTripClick(e, feature, layer, info, name)
+                  handleTripClick(e, feature, layer, info, name),
                 );
                 // Add listener to setup popup events when popup opens
                 layer.on("popupopen", () =>
-                  setupPopupEventListeners(layer, feature)
+                  setupPopupEventListeners(layer, feature),
                 );
               },
               // Use pointToLayer for point features if needed (e.g., start/end markers)
@@ -936,7 +936,7 @@
         } catch (error) {
           handleError(error, `Processing layer ${name}`);
         }
-      })
+      }),
     );
 
     // After all layers are added, bring the selected trip to the front if it exists
@@ -1006,7 +1006,7 @@
           id: AppState.selectedTripId, // Send current selected ID (null if deselected)
           tripData: wasSelected ? null : feature.properties,
         },
-      })
+      }),
     );
   }
 
@@ -1167,7 +1167,7 @@
     // Use a named function for easier removal
     const handlePopupActionClick = async (e) => {
       const target = e.target.closest(
-        "button[data-trip-id], button.delete-matched-trip, button.delete-trip, button.rematch-trip"
+        "button[data-trip-id], button.delete-matched-trip, button.delete-trip, button.rematch-trip",
       );
       if (!target) return;
 
@@ -1234,7 +1234,7 @@
       });
       if (!response.ok) {
         throw new Error(
-          `Failed to delete matched trip: ${response.statusText}`
+          `Failed to delete matched trip: ${response.statusText}`,
         );
       }
       notificationManager.show("Matched trip data deleted.", "success");
@@ -1259,7 +1259,7 @@
       if (!tripRes.ok && tripRes.status !== 404) {
         // Allow 404 if already deleted
         throw new Error(
-          `Failed to delete original trip: ${tripRes.statusText}`
+          `Failed to delete original trip: ${tripRes.statusText}`,
         );
       }
 
@@ -1267,7 +1267,7 @@
         await fetch(`/api/matched_trips/${tripId}`, { method: "DELETE" });
       } catch (e) {
         console.warn(
-          `Could not delete matched trip for ${tripId} (may not exist): ${e.message}`
+          `Could not delete matched trip for ${tripId} (may not exist): ${e.message}`,
         );
       }
 
@@ -1298,7 +1298,7 @@
 
       if (!startTime || !endTime) {
         throw new Error(
-          "Cannot re-match trip without valid start and end times."
+          "Cannot re-match trip without valid start and end times.",
         );
       }
 
@@ -1318,7 +1318,7 @@
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({})); // Try to get error details
         throw new Error(
-          `Failed to re-match trip: ${errorData.message || response.statusText}`
+          `Failed to re-match trip: ${errorData.message || response.statusText}`,
         );
       }
 
@@ -1327,7 +1327,7 @@
         `Trip re-matched successfully. ${
           result.matched_count || 0
         } segments updated.`,
-        "success"
+        "success",
       );
       await fetchTrips(); // Refresh all trip data
     });
@@ -1376,7 +1376,7 @@
       });
     } else {
       console.log(
-        "No valid bounds found for visible layers, cannot fit bounds."
+        "No valid bounds found for visible layers, cannot fit bounds.",
       );
       // Optionally reset to default view if no bounds found
       // AppState.map.flyTo(CONFIG.MAP.defaultCenter, CONFIG.MAP.defaultZoom);
@@ -1392,7 +1392,7 @@
     if (!startDate || !endDate) {
       notificationManager.show(
         "Select a valid date range before map matching.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -1421,7 +1421,7 @@
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
-          `Map matching failed: ${errorData.message || response.statusText}`
+          `Map matching failed: ${errorData.message || response.statusText}`,
         );
       }
 
@@ -1431,13 +1431,13 @@
         `Map matching completed. ${
           results.matched_count || 0
         } trips processed.`,
-        "success"
+        "success",
       );
 
       await fetchTrips(); // Refresh map and table data
 
       document.dispatchEvent(
-        new CustomEvent("mapMatchingCompleted", { detail: { results } })
+        new CustomEvent("mapMatchingCompleted", { detail: { results } }),
       );
     });
   }
@@ -1450,7 +1450,7 @@
     if (!startDate || !endDate) {
       notificationManager.show(
         "Select a valid date range before fetching.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -1478,7 +1478,7 @@
         throw new Error(
           `Failed to fetch trips from source: ${
             errorData.message || response.statusText
-          }`
+          }`,
         );
       }
 
@@ -1486,20 +1486,20 @@
       lm.updateProgress(
         opId,
         80,
-        "Fetch request successful, refreshing data..."
+        "Fetch request successful, refreshing data...",
       );
 
       if (data.status === "success") {
         notificationManager.show(
           data.message || "Successfully fetched trips from source.",
-          "success"
+          "success",
         );
         await fetchTrips(); // Refresh map and table with newly fetched data
       } else {
         // Handle cases where the API call succeeded but the operation failed server-side
         throw new Error(
           data.message ||
-            "Unknown error occurred while fetching trips from source."
+            "Unknown error occurred while fetching trips from source.",
         );
       }
     });
@@ -1535,7 +1535,7 @@
       updateMetricsUI(metrics);
 
       document.dispatchEvent(
-        new CustomEvent("metricsUpdated", { detail: { metrics } })
+        new CustomEvent("metricsUpdated", { detail: { metrics } }),
       );
     } catch (err) {
       handleError(err, "Fetching Metrics");
@@ -1657,7 +1657,7 @@
         L.DomEvent.on(
           mapControlsElement,
           eventType,
-          L.DomEvent.stopPropagation
+          L.DomEvent.stopPropagation,
         );
 
         // Additionally, prevent default wheel behavior (scrolling page) when over controls
@@ -1665,14 +1665,14 @@
           L.DomEvent.on(
             mapControlsElement,
             eventType,
-            L.DomEvent.preventDefault
+            L.DomEvent.preventDefault,
           );
         }
       });
       console.log("Attached map interaction blockers to #map-controls.");
     } else {
       console.warn(
-        "Could not attach map interaction blockers: #map-controls or L.DomEvent missing."
+        "Could not attach map interaction blockers: #map-controls or L.DomEvent missing.",
       );
     }
 
@@ -1705,7 +1705,7 @@
     AppState.dom["layer-toggles"] = getElement("layer-toggles");
     AppState.dom["layer-order"] = getElement("layer-order");
     AppState.dom["highlight-recent-trips"] = getElement(
-      "highlight-recent-trips"
+      "highlight-recent-trips",
     );
     // Add other frequently used static elements if necessary
   }
@@ -1752,7 +1752,7 @@
       }
     } else {
       console.log(
-        "Map container not found, skipping map initialization and data fetch."
+        "Map container not found, skipping map initialization and data fetch.",
       );
     }
   }
