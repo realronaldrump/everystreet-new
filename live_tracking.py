@@ -386,9 +386,7 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
             "$set": {
                 "coordinates": all_coords,
                 "lastUpdate": (
-                    all_coords[-1]["timestamp"]
-                    if all_coords
-                    else trip_doc["startTime"]
+                    all_coords[-1]["timestamp"] if all_coords else trip_doc["startTime"]
                 ),
                 "distance": total_distance,
                 "currentSpeed": current_speed,
@@ -537,9 +535,7 @@ async def get_active_trip(since_sequence: Optional[int] = None) -> Dict[str, Any
         query["sequence"] = {"$gt": since_sequence}
 
     # Try to find an active trip
-    active_trip = await live_trips_collection.find_one(
-        query, sort=[("lastUpdate", -1)]
-    )
+    active_trip = await live_trips_collection.find_one(query, sort=[("lastUpdate", -1)])
 
     if active_trip:
         logger.info(
@@ -597,7 +593,9 @@ async def cleanup_stale_trips(
         # Find all stale trips
         stale_trips = await live_trips_collection.find(
             {"lastUpdate": {"$lt": stale_threshold}, "status": "active"}
-        ).to_list(length=100)  # Limit to avoid potential memory issues
+        ).to_list(
+            length=100
+        )  # Limit to avoid potential memory issues
 
         for trip in stale_trips:
             trip_id = trip.get("_id")
