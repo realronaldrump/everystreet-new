@@ -11,7 +11,6 @@ import json
 import logging
 import os
 import uuid
-from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from math import ceil
 from typing import Any, Dict, List, Optional
@@ -73,12 +72,17 @@ from live_tracking import (
     handle_bouncie_webhook,
     initialize_db,
 )
-from visits import router as visits_router, init_collections
-from preprocess_streets import preprocess_streets as async_preprocess_streets
-from street_coverage_calculation import (
-    compute_coverage_for_location,
-    compute_incremental_coverage,
+
+from coverage_tasks import (
+    process_coverage_calculation,
+    process_incremental_coverage_calculation,
+    process_area,
+    collect_street_type_stats,
 )
+
+from visits import router as visits_router, init_collections
+
+
 from tasks import (
     TASK_METADATA,
     TaskStatus,
@@ -190,6 +194,11 @@ class TaskRunModel(BaseModel):
     tasks: List[str]
 
 
+class ValidateLocationModel(BaseModel):
+    location: str
+    locationType: str
+
+
 # --- Helper functions ---
 def meters_to_miles(meters: float) -> float:
     """Convert meters to miles."""
@@ -214,350 +223,7 @@ def calculate_distance(coordinates: List[List[float]]) -> float:
     return total_distance
 
 
-def collect_street_type_stats(features: List[Dict]) -> List[Dict[str, Any]]:
-    """
-    Collect statistics about street types and their coverage.
-
-    Args:
-        features: List of GeoJSON features representing streets
-
-    Returns:
-        List of dictionaries with statistics for each street type
-    """
-    street_types = defaultdict(
-        lambda: {"total": 0, "covered": 0, "length": 0, "covered_length": 0}
-    )
-
-    for feature in features:
-        street_type = feature.get("properties", {}).get("highway", "unknown")
-        length = feature.get("properties", {}).get("segment_length", 0)
-        is_covered = feature.get("properties", {}).get("driven", False)
-
-        street_types[street_type]["total"] += 1
-        street_types[street_type]["length"] += length
-
-        if is_covered:
-            street_types[street_type]["covered"] += 1
-            street_types[street_type]["covered_length"] += length
-
-    # Convert to list format for easier consumption in frontend
-    result = []
-    for street_type, stats in street_types.items():
-        coverage_pct = (
-            (stats["covered_length"] / stats["length"] * 100)
-            if stats["length"] > 0
-            else 0
-        )
-        result.append(
-            {
-                "type": street_type,
-                "total": stats["total"],
-                "covered": stats["covered"],
-                "length": stats["length"],
-                "covered_length": stats["covered_length"],
-                "coverage_percentage": coverage_pct,
-            }
-        )
-
-    # Sort by total length descending
-    result.sort(key=lambda x: x["length"], reverse=True)
-    return result
-
-
-# --- REMOVED process_elements function ---
-
-# --- REMOVED generate_geojson_osm function ---
-
-
 # --- Coverage Calculation Orchestration ---
-async def process_coverage_calculation(location: Dict[str, Any], task_id: str) -> None:
-    """
-    Process coverage calculation in the background with proper error handling.
-    Updates progress information and handles failures.
-
-    Args:
-        location: Dictionary with location data
-        task_id: Unique identifier for this task
-    """
-    try:
-        # Initialize progress tracking
-        await progress_collection.update_one(
-            {"_id": task_id},
-            {
-                "$set": {
-                    "stage": "initializing",
-                    "progress": 0,
-                    "message": "Starting coverage calculation...",
-                    "updated_at": datetime.now(timezone.utc),
-                }
-            },
-            upsert=True,
-        )
-
-        # Run the calculation
-        result = await compute_coverage_for_location(location, task_id)
-        display_name = location.get("display_name", "Unknown")
-
-        if result:
-            # Check if streets_data exists
-            if not result.get("streets_data") or not result["streets_data"].get(
-                "features"
-            ):
-                logger.error(
-                    f"No streets_data in calculation results for {display_name}"
-                )
-
-                # Update progress with error
-                await progress_collection.update_one(
-                    {"_id": task_id},
-                    {
-                        "$set": {
-                            "stage": "error",
-                            "progress": 0,
-                            "message": "No street data found for location",
-                            "updated_at": datetime.now(timezone.utc),
-                        }
-                    },
-                )
-
-                # Update coverage metadata with error status
-                await coverage_metadata_collection.update_one(
-                    {"location.display_name": display_name},
-                    {
-                        "$set": {
-                            "location": location,
-                            "status": "error",
-                            "last_error": "No street data found for location",
-                            "last_updated": datetime.now(timezone.utc),
-                        }
-                    },
-                    upsert=True,
-                )
-                return
-
-            # Update coverage metadata
-            logger.info(
-                f"Saving coverage data for {display_name} with {
-                    len(result['streets_data'].get('features', []))
-                } street features"
-            )
-
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": display_name},
-                {
-                    "$set": {
-                        "location": location,
-                        "total_length": result["total_length"],
-                        "driven_length": result["driven_length"],
-                        "coverage_percentage": result["coverage_percentage"],
-                        "last_updated": datetime.now(timezone.utc),
-                        "status": "completed",
-                        "streets_data": result["streets_data"],
-                        "total_segments": result.get("total_segments", 0),
-                        "street_types": result.get("street_types", []),
-                    }
-                },
-                upsert=True,
-            )
-
-            # Update progress status
-            await progress_collection.update_one(
-                {"_id": task_id},
-                {
-                    "$set": {
-                        "stage": "complete",
-                        "progress": 100,
-                        "result": {
-                            "total_length": result["total_length"],
-                            "driven_length": result["driven_length"],
-                            "coverage_percentage": result["coverage_percentage"],
-                            "total_segments": result.get("total_segments", 0),
-                        },
-                        "updated_at": datetime.now(timezone.utc),
-                    }
-                },
-            )
-
-            logger.info("Coverage calculation completed for %s", display_name)
-        else:
-            error_msg = "No result returned from coverage calculation"
-            logger.error("Coverage calculation error: %s", error_msg)
-
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": display_name},
-                {
-                    "$set": {
-                        "location": location,
-                        "status": "error",
-                        "last_error": error_msg,
-                        "last_updated": datetime.now(timezone.utc),
-                    }
-                },
-                upsert=True,
-            )
-
-            await progress_collection.update_one(
-                {"_id": task_id},
-                {
-                    "$set": {
-                        "stage": "error",
-                        "progress": 0,
-                        "message": error_msg,
-                        "updated_at": datetime.now(timezone.utc),
-                    }
-                },
-            )
-    except Exception as e:
-        logger.exception(
-            "Error in coverage calculation for task %s: %s", task_id, str(e)
-        )
-
-        try:
-            display_name = location.get("display_name", "Unknown")
-
-            # Update coverage metadata with error
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": display_name},
-                {
-                    "$set": {
-                        "location": location,
-                        "status": "error",
-                        "last_error": str(e),
-                        "last_updated": datetime.now(timezone.utc),
-                    }
-                },
-                upsert=True,
-            )
-
-            # Update progress with error
-            await progress_collection.update_one(
-                {"_id": task_id},
-                {
-                    "$set": {
-                        "stage": "error",
-                        "progress": 0,
-                        "message": f"Error: {str(e)}",
-                        "updated_at": datetime.now(timezone.utc),
-                    }
-                },
-            )
-        except Exception as inner_e:
-            logger.exception(
-                f"Error updating progress after calculation error: {str(inner_e)}"
-            )
-
-
-async def process_incremental_coverage_calculation(
-    location: Dict[str, Any], task_id: str
-) -> None:
-    """
-    Process incremental coverage calculation in the background.
-
-    Args:
-        location: Dictionary with location data
-        task_id: Unique identifier for this task
-    """
-    try:
-        # Initialize progress tracking
-        await progress_collection.update_one(
-            {"_id": task_id},
-            {
-                "$set": {
-                    "stage": "initializing",
-                    "progress": 0,
-                    "message": "Starting incremental coverage calculation...",
-                    "updated_at": datetime.now(timezone.utc),
-                }
-            },
-            upsert=True,
-        )
-
-        display_name = location.get("display_name", "Unknown")
-
-        # Run the incremental calculation
-        result = await compute_incremental_coverage(location, task_id)
-
-        if result:
-            # Update with successful results
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": display_name},
-                {
-                    "$set": {
-                        "status": "completed",
-                        "last_updated": datetime.now(timezone.utc),
-                    }
-                },
-            )
-
-            # Final progress update
-            await progress_collection.update_one(
-                {"_id": task_id},
-                {
-                    "$set": {
-                        "stage": "complete",
-                        "progress": 100,
-                        "result": result,
-                        "updated_at": datetime.now(timezone.utc),
-                    }
-                },
-            )
-
-            logger.info(
-                f"Incremental coverage calculation completed for {display_name}"
-            )
-        else:
-            error_msg = "Failed to calculate incremental coverage"
-            logger.error("Coverage calculation error: %s", error_msg)
-
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": display_name},
-                {
-                    "$set": {
-                        "status": "error",
-                        "last_error": error_msg,
-                        "last_updated": datetime.now(timezone.utc),
-                    }
-                },
-            )
-
-            await progress_collection.update_one(
-                {"_id": task_id},
-                {
-                    "$set": {
-                        "stage": "error",
-                        "error": error_msg,
-                        "updated_at": datetime.now(timezone.utc),
-                    }
-                },
-            )
-    except Exception as e:
-        logger.exception("Error in incremental coverage calculation: %s", str(e))
-
-        try:
-            # Update with error information
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": location.get("display_name", "Unknown")},
-                {
-                    "$set": {
-                        "status": "error",
-                        "last_error": str(e),
-                        "last_updated": datetime.now(timezone.utc),
-                    }
-                },
-            )
-
-            await progress_collection.update_one(
-                {"_id": task_id},
-                {
-                    "$set": {
-                        "stage": "error",
-                        "error": str(e),
-                        "updated_at": datetime.now(timezone.utc),
-                    }
-                },
-            )
-        except Exception as update_error:
-            logger.error("Failed to update status after error: %s", update_error)
 
 
 async def process_and_store_trip(trip: dict) -> None:
@@ -592,151 +258,6 @@ async def process_and_store_trip(trip: dict) -> None:
     except Exception:
         logger.exception("process_and_store_trip error")
         raise
-
-
-async def process_area(location: Dict[str, Any], task_id: str) -> None:
-    """
-    Process an area by preprocessing streets and calculating coverage.
-    Handles errors properly and updates status.
-
-    Args:
-        location: Dictionary with location data
-        task_id: Unique identifier for this task
-    """
-    try:
-        # Initialize progress
-        await progress_collection.update_one(
-            {"_id": task_id},
-            {
-                "$set": {
-                    "stage": "preprocessing",
-                    "progress": 0,
-                    "message": "Preprocessing streets...",
-                    "updated_at": datetime.now(timezone.utc),
-                }
-            },
-            upsert=True,
-        )
-
-        # Update metadata to show processing status
-        display_name = location.get("display_name", "Unknown")
-        await coverage_metadata_collection.update_one(
-            {"location.display_name": display_name},
-            {
-                "$set": {
-                    "location": location,
-                    "status": "processing",
-                    "last_updated": datetime.now(timezone.utc),
-                }
-            },
-            upsert=True,
-        )
-
-        # Preprocess streets
-        await async_preprocess_streets(location)
-
-        # Update progress
-        await progress_collection.update_one(
-            {"_id": task_id},
-            {
-                "$set": {
-                    "stage": "calculating",
-                    "progress": 50,
-                    "message": "Calculating coverage...",
-                    "updated_at": datetime.now(timezone.utc),
-                }
-            },
-        )
-
-        # Calculate coverage
-        result = await compute_coverage_for_location(location, task_id)
-
-        if result:
-            # Update with results
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": display_name},
-                {
-                    "$set": {
-                        "status": "completed",
-                        "total_length": result["total_length"],
-                        "driven_length": result["driven_length"],
-                        "coverage_percentage": result["coverage_percentage"],
-                        "last_updated": datetime.now(timezone.utc),
-                        "streets_data": result["streets_data"],
-                        "total_segments": result.get("total_segments", 0),
-                        "street_types": result.get("street_types", []),
-                    }
-                },
-            )
-
-            await progress_collection.update_one(
-                {"_id": task_id},
-                {
-                    "$set": {
-                        "stage": "complete",
-                        "progress": 100,
-                        "result": result,
-                        "updated_at": datetime.now(timezone.utc),
-                    }
-                },
-            )
-
-            logger.info("Coverage calculation completed for %s", display_name)
-        else:
-            error_msg = "Failed to calculate coverage"
-            logger.error("Coverage calculation error: %s", error_msg)
-
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": display_name},
-                {
-                    "$set": {
-                        "status": "error",
-                        "last_error": error_msg,
-                        "last_updated": datetime.now(timezone.utc),
-                    }
-                },
-            )
-
-            await progress_collection.update_one(
-                {"_id": task_id},
-                {
-                    "$set": {
-                        "stage": "error",
-                        "error": error_msg,
-                        "updated_at": datetime.now(timezone.utc),
-                    }
-                },
-            )
-    except Exception as e:
-        logger.exception(
-            f"Error processing area {location.get('display_name', 'Unknown')}: {str(e)}"
-        )
-
-        try:
-            # Update both collections with error information
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": location["display_name"]},
-                {
-                    "$set": {
-                        "status": "error",
-                        "last_error": str(e),
-                        "last_updated": datetime.now(timezone.utc),
-                    }
-                },
-            )
-
-            await progress_collection.update_one(
-                {"_id": task_id},
-                {
-                    "$set": {
-                        "stage": "error",
-                        "error": str(e),
-                        "updated_at": datetime.now(timezone.utc),
-                    }
-                },
-            )
-        except Exception as update_error:
-            logger.error("Failed to update status after error: %s", update_error)
 
 
 async def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
@@ -2202,9 +1723,10 @@ async def export_gpx(request: Request):
 
 # VALIDATION / OSM DATA
 @app.post("/api/validate_location")
-async def validate_location(location: str, location_type: str):
+async def validate_location(data: ValidateLocationModel):
     """Validate a location using OpenStreetMap."""
-    validated = await validate_location_osm(location, location_type)
+    # Access data using dot notation from the model instance
+    validated = await validate_location_osm(data.location, data.locationType)
     return validated
 
 
@@ -2699,63 +2221,72 @@ async def export_boundary(
 
 # PREPROCESS_STREETS / STREET SEGMENT
 @app.post("/api/preprocess_streets")
-async def preprocess_streets_route(location: LocationModel, location_type: str):
+async def preprocess_streets_route(location_data: LocationModel):
     """
-    Preprocess streets data for a location.
+    Preprocess streets data for a validated location received in the request body.
 
     Args:
-        location: Location data
-        location_type: Type of location (city, county, etc)
+        location_data: Validated location data matching LocationModel.
     """
     try:
-        if not location or not location_type:
+        # The incoming location_data IS the validated location object
+        validated_location_dict = location_data.dict()
+        display_name = validated_location_dict.get("display_name")
+
+        if not display_name:  # Basic check
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Missing location data"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid location data provided (missing display_name).",
             )
 
-        validated_location = await validate_location_osm(
-            location.dict(), location_type
+        # Check if already processing (using display_name as key)
+        existing = await find_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": display_name},
         )
-        if not validated_location:
+        if existing and existing.get("status") == "processing":
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid location"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This area is already being processed",
             )
 
-        try:
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": validated_location["display_name"]},
-                {
-                    "$set": {
-                        "location": validated_location,
-                        "status": "processing",
-                        "total_length": 0,
-                        "driven_length": 0,
-                        "coverage_percentage": 0,
-                        "total_segments": 0,
-                    }
-                },
-                upsert=True,
-            )
-        except Exception as e:
-            existing = await find_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": validated_location["display_name"]},
-            )
-            if existing and existing.get("status") == "processing":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="This area is already being processed",
-                )
-            raise e
+        # Update metadata, marking as processing
+        await update_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": display_name},
+            {
+                "$set": {
+                    "location": validated_location_dict,  # Store the validated object
+                    "status": "processing",
+                    "last_error": None,  # Clear previous errors
+                    "last_updated": datetime.now(timezone.utc),
+                    # Reset stats - process_area will update these later
+                    "total_length": 0,
+                    "driven_length": 0,
+                    "coverage_percentage": 0,
+                    "total_segments": 0,
+                }
+            },
+            upsert=True,  # Create if not exists
+        )
 
+        # Start background task with the validated data
         task_id = str(uuid.uuid4())
-        asyncio.create_task(process_area(validated_location, task_id))
+        asyncio.create_task(process_area(validated_location_dict, task_id))
         return {"status": "success", "task_id": task_id}
-    except HTTPException:
+
+    except HTTPException:  # Re-raise specific HTTP exceptions
         raise
-    except Exception as e:
-        logger.exception("Error in preprocess_streets: %s", str(e))
+    except Exception as e:  # Catch other potential errors
+        logger.exception(f"Error in preprocess_streets_route for {display_name}: {e}")
+        # Attempt to mark status as error if possible
+        try:
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": display_name},
+                {"$set": {"status": "error", "last_error": str(e)}},
+            )
+        except Exception as db_err:
+            logger.error(f"Failed to update error status for {display_name}: {db_err}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )

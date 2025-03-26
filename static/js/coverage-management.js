@@ -264,10 +264,7 @@
         const preprocessResponse = await fetch("/api/preprocess_streets", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: this.validatedLocation.display_name,
-            location_type: document.getElementById("location-type").value,
-          }),
+          body: JSON.stringify(this.validatedLocation),
         });
 
         if (!preprocessResponse.ok)

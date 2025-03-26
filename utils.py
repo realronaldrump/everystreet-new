@@ -107,14 +107,14 @@ def retry_async(
 
 @retry_async()
 async def validate_location_osm(
-    location: str, location_type: str
+    location: str, locationType: str
 ) -> Optional[Dict[str, Any]]:
     """Validate a location using the OSM Nominatim search API."""
     params = {
         "q": location,
         "format": "json",
         "limit": 1,
-        "featuretype": location_type,
+        "featuretype": locationType,
     }
     headers = {"User-Agent": "EveryStreet-Validator/1.0"}
 
