@@ -31,7 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
       {
         maxZoom: 19,
         attribution: "",
-      }
+      },
     ).addTo(editMap);
 
     tripsLayerGroup = L.featureGroup().addTo(editMap);
@@ -44,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function initializeControls() {
     if (!editMap || typeof L.Control.Draw !== "function") {
       console.error(
-        "Leaflet Draw is missing. Ensure leaflet.draw.js is included."
+        "Leaflet Draw is missing. Ensure leaflet.draw.js is included.",
       );
       return;
     }
@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
           rectangle: false,
           polygon: false,
         },
-      })
+      }),
     );
   }
 
@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (window.notificationManager) {
         window.notificationManager.show(
           "Error loading trips: " + error.message,
-          "danger"
+          "danger",
         );
       }
     }
@@ -200,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const gps = trip.geometry || trip.gps;
         if (!gps || gps.type !== "LineString" || !gps.coordinates?.length) {
           console.warn(
-            `Skipping trip ${trip.transactionId} (no valid coordinates)`
+            `Skipping trip ${trip.transactionId} (no valid coordinates)`,
           );
           return null;
         }
@@ -289,7 +289,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       marker.on("dragend", (e) =>
-        updatePointInTrip(index, e.target.getLatLng())
+        updatePointInTrip(index, e.target.getLatLng()),
       );
       editableLayers.addLayer(marker);
     });
@@ -380,11 +380,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!tripId) {
         console.error(
           "Error: transactionId is undefined.",
-          currentTrip.tripData
+          currentTrip.tripData,
         );
         window.notificationManager?.show(
           "Error: Could not find the trip ID to save changes.",
-          "danger"
+          "danger",
         );
         return;
       }
@@ -409,13 +409,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       window.notificationManager?.show(
         "Trip changes saved successfully.",
-        "success"
+        "success",
       );
     } catch (error) {
       console.error("Error saving trip:", error);
       window.notificationManager?.show(
         `Error saving trip: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }

@@ -867,7 +867,9 @@ def preprocess_streets(self) -> Dict[str, Any]:
             # Find areas that need processing
             processing_areas = await coverage_metadata_collection.find(
                 {"status": "processing"}
-            ).to_list(length=20)  # Process in smaller batches
+            ).to_list(
+                length=20
+            )  # Process in smaller batches
 
             processed_count = 0
             error_count = 0
@@ -1114,9 +1116,7 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
             batch_size = 500  # Process in batches to avoid memory issues
 
             # Process trips in batches
-            cursor = trips_collection.find(
-                {}, {"startTime": 1, "endTime": 1, "gps": 1}
-            )
+            cursor = trips_collection.find({}, {"startTime": 1, "endTime": 1, "gps": 1})
             while True:
                 batch = await cursor.to_list(length=batch_size)
                 if not batch:
