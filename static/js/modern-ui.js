@@ -25,6 +25,7 @@
       actionMenu: "#action-menu",
       header: ".app-header",
       datepicker: ".datepicker",
+      mapControls: "#map-controls", // Added selector for map controls
       mapTileUrl: {
         light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
         dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
@@ -71,6 +72,7 @@
       initFloatingActionButton();
       initScrollEffects();
       initDatePickers();
+      initMapControls(); // Added initialization for map controls
       setupLegacyCodeBridge();
 
       // Handle resize events
@@ -110,6 +112,125 @@
     );
     elements.loadingText = document.querySelector(
       ".loading-overlay .loading-text"
+    );
+  }
+
+  // Initialize Map Controls to Prevent Event Propagation
+  function initMapControls() {
+    const mapControls =
+      elements.mapControls || document.getElementById("map-controls");
+    if (!mapControls) return;
+
+    // Set up controls toggle functionality
+    const controlsToggle = document.getElementById("controls-toggle");
+    if (controlsToggle) {
+      controlsToggle.addEventListener("click", function () {
+        const controlsContent = document.getElementById("controls-content");
+        mapControls.classList.toggle("minimized");
+
+        if (controlsContent) {
+          if (window.bootstrap?.Collapse) {
+            const bsCollapse =
+              window.bootstrap.Collapse.getInstance(controlsContent);
+            if (bsCollapse) {
+              mapControls.classList.contains("minimized")
+                ? bsCollapse.hide()
+                : bsCollapse.show();
+            } else {
+              new window.bootstrap.Collapse(controlsContent, {
+                toggle: !mapControls.classList.contains("minimized"),
+              });
+            }
+          }
+        }
+
+        // Toggle icon
+        const icon = this.querySelector("i");
+        if (icon) {
+          icon.classList.toggle("fa-chevron-up");
+          icon.classList.toggle("fa-chevron-down");
+        }
+      });
+    }
+
+    // Events that should be prevented from propagating to the map
+    const events = [
+      "mousedown",
+      "mouseup",
+      "click",
+      "dblclick",
+      "touchstart",
+      "touchend",
+      "touchmove",
+      "wheel",
+      "contextmenu",
+      "drag",
+      "dragstart",
+      "dragend",
+    ];
+
+    // Add event listeners to prevent propagation
+    events.forEach((eventType) => {
+      mapControls.addEventListener(
+        eventType,
+        (e) => {
+          // Don't stop propagation from form elements to allow them to work properly
+          const target = e.target;
+          const isFormElement =
+            target.tagName === "INPUT" ||
+            target.tagName === "SELECT" ||
+            target.tagName === "TEXTAREA" ||
+            target.tagName === "BUTTON" ||
+            target.closest("button") ||
+            target.closest("a") ||
+            target.closest(".form-check") ||
+            target.closest(".nav-item");
+
+          // Allow normal interaction with form elements but prevent map actions
+          if (!isFormElement) {
+            e.stopPropagation();
+
+            // For specific events that might need preventDefault to block map behavior
+            if (
+              ["wheel", "touchmove", "mousedown", "touchstart"].includes(
+                eventType
+              )
+            ) {
+              e.preventDefault();
+            }
+          }
+        },
+        { passive: false }
+      ); // passive: false is required to allow preventDefault
+    });
+
+    // Set the cursor style to indicate the panel is interactive
+    mapControls.style.cursor = "default";
+
+    // Add CSS class to properly handle events
+    mapControls.classList.add("map-controls-event-handler");
+
+    // Add CSS to ensure controls are properly isolated from map
+    const style = document.createElement("style");
+    style.textContent = `
+      .map-controls-event-handler {
+        pointer-events: auto;
+        touch-action: pan-x pan-y;
+      }
+      #map-controls .card,
+      #map-controls .form-control,
+      #map-controls .btn,
+      #map-controls .form-check,
+      #map-controls .form-select,
+      #map-controls .nav-item,
+      #map-controls .list-group-item {
+        pointer-events: auto;
+      }
+    `;
+    document.head.appendChild(style);
+
+    console.log(
+      "Map controls initialized and event propagation handlers set up"
     );
   }
 
