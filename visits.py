@@ -336,18 +336,16 @@ async def get_place_statistics(place_id: str):
         first_visit = (
             min([v["start"] for v in visits], default=None) if visits else None
         )
-        last_visit = (
-            max([v["start"] for v in visits], default=None) if visits else None
-        )
+        last_visit = max([v["start"] for v in visits], default=None) if visits else None
 
         return {
             "totalVisits": total_visits,
             "averageTimeSpent": format_duration(avg_duration),
             "firstVisit": SerializationHelper.serialize_datetime(first_visit),
             "lastVisit": SerializationHelper.serialize_datetime(last_visit),
-            "averageTimeSinceLastVisit": avg_time_between / 3600
-            if avg_time_between
-            else 0,  # Convert to hours
+            "averageTimeSinceLastVisit": (
+                avg_time_between / 3600 if avg_time_between else 0
+            ),  # Convert to hours
             "name": place["name"],
         }
     except HTTPException:
@@ -527,11 +525,11 @@ async def get_trips_for_place(place_id: str):
                     "endTime": SerializationHelper.serialize_datetime(
                         visit["arrival_time"]
                     ),
-                    "departureTime": SerializationHelper.serialize_datetime(
-                        visit["departure_time"]
-                    )
-                    if visit["departure_time"]
-                    else None,
+                    "departureTime": (
+                        SerializationHelper.serialize_datetime(visit["departure_time"])
+                        if visit["departure_time"]
+                        else None
+                    ),
                     "timeSpent": duration_str,
                     "timeSinceLastVisit": time_since_last_str,
                     "source": trip_source,
