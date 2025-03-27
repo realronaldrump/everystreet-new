@@ -19,29 +19,29 @@
       this.setupDurationSorting();
       this.initialize();
     }
-    
+
     // Helper function to convert duration strings like '5d', '2h 30m', etc. to seconds for proper sorting
     convertDurationToSeconds(duration) {
-      if (!duration || duration === 'N/A' || duration === 'Unknown') return 0;
-      
+      if (!duration || duration === "N/A" || duration === "Unknown") return 0;
+
       let seconds = 0;
       const dayMatch = duration.match(/(\d+)d/);
       const hourMatch = duration.match(/(\d+)h/);
       const minuteMatch = duration.match(/(\d+)m/);
       const secondMatch = duration.match(/(\d+)s/);
-      
+
       if (dayMatch) seconds += parseInt(dayMatch[1]) * 86400;
       if (hourMatch) seconds += parseInt(hourMatch[1]) * 3600;
       if (minuteMatch) seconds += parseInt(minuteMatch[1]) * 60;
       if (secondMatch) seconds += parseInt(secondMatch[1]);
-      
+
       return seconds;
     }
-    
+
     setupDurationSorting() {
       // Add a custom sorting method for duration columns
       if (window.$ && $.fn.dataTable) {
-        $.fn.dataTable.ext.type.order['duration-pre'] = (data) => {
+        $.fn.dataTable.ext.type.order["duration-pre"] = (data) => {
           return this.convertDurationToSeconds(data);
         };
       }
@@ -55,11 +55,11 @@
           console.log(`LoadingManager not available: ${opName}.${subName}`),
         updateSubOperation: (opName, subName, progress) =>
           console.log(
-            `LoadingManager not available: ${opName}.${subName} (${progress}%)`
+            `LoadingManager not available: ${opName}.${subName} (${progress}%)`,
           ),
         finish: (name) =>
           console.log(
-            `LoadingManager not available: finished ${name || "all"}`
+            `LoadingManager not available: finished ${name || "all"}`,
           ),
         error: (message) => {
           console.error(`LoadingManager not available: Error - ${message}`);
@@ -99,7 +99,7 @@
           "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
           {
             maxZoom: 19,
-          }
+          },
         ).addTo(this.map);
 
         this.customPlacesLayer = L.layerGroup().addTo(this.map);
@@ -384,11 +384,11 @@
           "<'row'<'col-sm-12'tr>>" +
           "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
       });
-      
+
       // Add event listener for the view trip buttons
-      $(el).on('click', '.view-trip-btn, .trip-id-link', (e) => {
+      $(el).on("click", ".view-trip-btn, .trip-id-link", (e) => {
         e.preventDefault();
-        const tripId = $(e.currentTarget).data('trip-id');
+        const tripId = $(e.currentTarget).data("trip-id");
         this.confirmViewTripOnMap(tripId);
       });
     }
@@ -446,12 +446,12 @@
           event.preventDefault();
           const placeId = $(event.target).data("place-id");
           this.toggleView(placeId);
-        }
+        },
       );
 
       // Toggle view button
       $("#visits-table-container").on("click", "#toggle-view-btn", () =>
-        this.toggleView()
+        this.toggleView(),
       );
     }
 
@@ -514,7 +514,7 @@
         } catch (error) {
           console.error(
             `Error fetching statistics for place ${place.name}:`,
-            error
+            error,
           );
           return null;
         }
@@ -527,7 +527,7 @@
       if (this.visitsChart) {
         this.visitsChart.data.labels = validResults.map((d) => d.name);
         this.visitsChart.data.datasets[0].data = validResults.map(
-          (d) => d.totalVisits
+          (d) => d.totalVisits,
         );
         this.visitsChart.update();
       }
@@ -543,7 +543,7 @@
       if (!placeName || !this.currentPolygon) {
         window.notificationManager?.show(
           "Please enter a name for this place",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -568,7 +568,7 @@
 
         window.notificationManager?.show(
           `Place "${placeName}" saved successfully`,
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error saving place:", error);
@@ -611,7 +611,7 @@
         await this.updateVisitsData();
         window.notificationManager?.show(
           "Place deleted successfully",
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error deleting place:", error);
@@ -634,22 +634,24 @@
       if (this.drawControl) this.map.removeControl(this.drawControl);
       this.drawingEnabled = false;
     }
-    
+
     // Manage Places functionality
     showManagePlacesModal() {
-      const modal = new bootstrap.Modal(document.getElementById('manage-places-modal'));
-      
+      const modal = new bootstrap.Modal(
+        document.getElementById("manage-places-modal"),
+      );
+
       // Clear and populate the table
-      const tableBody = document.querySelector('#manage-places-table tbody');
-      tableBody.innerHTML = '';
-      
+      const tableBody = document.querySelector("#manage-places-table tbody");
+      tableBody.innerHTML = "";
+
       // Sort places by name
       const placesArray = Array.from(this.places.values());
       placesArray.sort((a, b) => a.name.localeCompare(b.name));
-      
-      placesArray.forEach(place => {
-        const row = document.createElement('tr');
-        
+
+      placesArray.forEach((place) => {
+        const row = document.createElement("tr");
+
         row.innerHTML = `
           <td>${place.name}</td>
           <td>
@@ -663,144 +665,154 @@
             </div>
           </td>
         `;
-        
+
         tableBody.appendChild(row);
       });
-      
+
       // Add event listeners for edit and delete buttons
-      document.querySelectorAll('.edit-place-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const placeId = e.currentTarget.getAttribute('data-place-id');
+      document.querySelectorAll(".edit-place-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const placeId = e.currentTarget.getAttribute("data-place-id");
           modal.hide();
           this.showEditPlaceModal(placeId);
         });
       });
-      
-      document.querySelectorAll('.delete-place-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const placeId = e.currentTarget.getAttribute('data-place-id');
+
+      document.querySelectorAll(".delete-place-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const placeId = e.currentTarget.getAttribute("data-place-id");
           modal.hide();
           this.deletePlace(placeId);
         });
       });
-      
+
       modal.show();
     }
-    
+
     showEditPlaceModal(placeId) {
       const place = this.places.get(placeId);
       if (!place) return;
-      
-      const modal = new bootstrap.Modal(document.getElementById('edit-place-modal'));
-      document.getElementById('edit-place-id').value = placeId;
-      document.getElementById('edit-place-name').value = place.name;
-      
+
+      const modal = new bootstrap.Modal(
+        document.getElementById("edit-place-modal"),
+      );
+      document.getElementById("edit-place-id").value = placeId;
+      document.getElementById("edit-place-name").value = place.name;
+
       this.placeBeingEdited = placeId;
       modal.show();
     }
-    
+
     startEditingPlaceBoundary() {
-      const placeId = document.getElementById('edit-place-id').value;
+      const placeId = document.getElementById("edit-place-id").value;
       const place = this.places.get(placeId);
       if (!place) return;
-      
+
       // Hide the edit modal
-      const editModal = bootstrap.Modal.getInstance(document.getElementById('edit-place-modal'));
+      const editModal = bootstrap.Modal.getInstance(
+        document.getElementById("edit-place-modal"),
+      );
       editModal.hide();
-      
+
       // Clear existing drawing
       this.resetDrawing();
-      
+
       // Create a new polygon from the place geometry
       const existingGeometry = place.geometry;
-      if (existingGeometry && existingGeometry.coordinates && existingGeometry.coordinates.length > 0) {
+      if (
+        existingGeometry &&
+        existingGeometry.coordinates &&
+        existingGeometry.coordinates.length > 0
+      ) {
         const coordinates = existingGeometry.coordinates[0];
         // Convert from GeoJSON [longitude, latitude] to Leaflet [latitude, longitude]
-        const latLngs = coordinates.map(coord => [coord[1], coord[0]]);
-        
+        const latLngs = coordinates.map((coord) => [coord[1], coord[0]]);
+
         // Create a polygon and add it to the map
-        this.currentPolygon = L.polygon(latLngs, { color: '#BB86FC' });
+        this.currentPolygon = L.polygon(latLngs, { color: "#BB86FC" });
         this.currentPolygon.addTo(this.map);
-        
+
         // Enable the save button
         document.getElementById("save-place").disabled = false;
       }
-      
+
       // Center map on the place
       if (this.currentPolygon) {
         this.map.fitBounds(this.currentPolygon.getBounds());
       }
-      
+
       // Add the drawing control to allow editing the polygon
       this.map.addControl(this.drawControl);
       this.drawingEnabled = true;
       document.getElementById("start-drawing").classList.add("active");
-      
+
       // Store reference to the place being edited
       this.placeBeingEdited = placeId;
-      
+
       window.notificationManager?.show(
         "Edit the boundary for this place by drawing a new polygon, then save changes",
-        "info"
+        "info",
       );
     }
-    
+
     async saveEditedPlace() {
-      const placeId = document.getElementById('edit-place-id').value;
-      const newName = document.getElementById('edit-place-name').value.trim();
-      
+      const placeId = document.getElementById("edit-place-id").value;
+      const newName = document.getElementById("edit-place-name").value.trim();
+
       if (!placeId || !newName) {
         window.notificationManager?.show(
           "Place name cannot be empty",
-          "warning"
+          "warning",
         );
         return;
       }
-      
+
       try {
         // If we're editing boundary and have a new polygon, include the geometry
         let requestBody = { name: newName };
         if (this.currentPolygon && this.placeBeingEdited === placeId) {
           requestBody.geometry = this.currentPolygon.toGeoJSON().geometry;
         }
-        
+
         const response = await fetch(`/api/places/${placeId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
         });
-        
+
         if (!response.ok) throw new Error("Failed to update place");
-        
+
         const updatedPlace = await response.json();
-        
+
         // Update the place in our local map
         this.places.set(placeId, updatedPlace);
-        
+
         // Update the place on the map
         this.customPlacesLayer.clearLayers();
-        Array.from(this.places.values()).forEach(place => {
+        Array.from(this.places.values()).forEach((place) => {
           this.displayPlace(place);
         });
-        
+
         // Reset drawing if we edited the boundary
         if (this.currentPolygon) {
           this.resetDrawing();
         }
-        
+
         // Close the modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('edit-place-modal'));
+        const modal = bootstrap.Modal.getInstance(
+          document.getElementById("edit-place-modal"),
+        );
         if (modal) modal.hide();
-        
+
         // Clear the place being edited
         this.placeBeingEdited = null;
-        
+
         // Update visits data
         this.updateVisitsData();
-        
+
         window.notificationManager?.show(
           `Place "${newName}" updated successfully`,
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error updating place:", error);
@@ -814,11 +826,11 @@
      */
     confirmViewTripOnMap(tripId) {
       if (!tripId) return;
-      
+
       // Directly fetch and show the trip without confirmation
       this.fetchAndShowTrip(tripId);
     }
-    
+
     /**
      * Fetches trip data and displays it in a modal
      * @param {string} tripId - The ID of the trip to view
@@ -827,46 +839,56 @@
       try {
         // Show loading indicator
         this.loadingManager.startOperation("Fetching Trip Data");
-        
+
         // Fetch the trip data from the API
         const response = await fetch(`/api/trips/${tripId}`);
-        
+
         if (!response.ok) {
           throw new Error(`Failed to fetch trip: ${response.statusText}`);
         }
-        
+
         const trip = await response.json();
-        
+
         // Initialize the trip map and display the data
         this.showTripOnMap(trip);
-        
+
         this.loadingManager.finish();
       } catch (error) {
         console.error("Error fetching trip data:", error);
         this.loadingManager.error("Failed to fetch trip data");
         window.notificationManager?.show(
           "Error loading trip data. Please try again.",
-          "danger"
+          "danger",
         );
       }
     }
-    
+
     /**
      * Displays a trip on the map in a modal
      * @param {Object} trip - The trip data to display
      */
     showTripOnMap(trip) {
       // Clear previous trip info
-      const tripInfoContainer = document.getElementById('trip-info');
-      tripInfoContainer.innerHTML = '';
-      
+      const tripInfoContainer = document.getElementById("trip-info");
+      tripInfoContainer.innerHTML = "";
+
       // Format trip info
-      const startTime = trip.startTime ? new Date(trip.startTime).toLocaleString() : 'Unknown';
-      const endTime = trip.endTime ? new Date(trip.endTime).toLocaleString() : 'Unknown';
-      const distance = trip.distance ? (typeof trip.distance === 'object' ? trip.distance.value : trip.distance) : 0;
-      const formattedDistance = distance ? `${(distance / 1609.34).toFixed(2)} miles` : 'Unknown';
+      const startTime = trip.startTime
+        ? new Date(trip.startTime).toLocaleString()
+        : "Unknown";
+      const endTime = trip.endTime
+        ? new Date(trip.endTime).toLocaleString()
+        : "Unknown";
+      const distance = trip.distance
+        ? typeof trip.distance === "object"
+          ? trip.distance.value
+          : trip.distance
+        : 0;
+      const formattedDistance = distance
+        ? `${(distance / 1609.34).toFixed(2)} miles`
+        : "Unknown";
       const transactionId = trip.transactionId || trip._id;
-      
+
       // Display trip information
       tripInfoContainer.innerHTML = `
         <div class="trip-details">
@@ -874,63 +896,74 @@
           <div class="row">
             <div class="col-md-6">
               <p><strong>Start:</strong> ${startTime}</p>
-              <p><strong>Start Location:</strong> ${trip.startPlace || 'Unknown'}</p>
+              <p><strong>Start Location:</strong> ${trip.startPlace || "Unknown"}</p>
             </div>
             <div class="col-md-6">
               <p><strong>End:</strong> ${endTime}</p>
-              <p><strong>End Location:</strong> ${trip.destinationPlace || 'Unknown'}</p>
+              <p><strong>End Location:</strong> ${trip.destinationPlace || "Unknown"}</p>
             </div>
           </div>
           <p><strong>Distance:</strong> ${formattedDistance}</p>
         </div>
       `;
-      
+
       // Initialize the map in the modal
-      const tripMapElement = document.getElementById('trip-map');
+      const tripMapElement = document.getElementById("trip-map");
       const tripMap = L.map(tripMapElement, { attributionControl: false });
-      
+
       // Add base map layer
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19
-      }).addTo(tripMap);
-      
+      L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        {
+          maxZoom: 19,
+        },
+      ).addTo(tripMap);
+
       // Add trip path to map if geometry exists
-      if (trip.geometry && trip.geometry.coordinates && trip.geometry.coordinates.length > 0) {
+      if (
+        trip.geometry &&
+        trip.geometry.coordinates &&
+        trip.geometry.coordinates.length > 0
+      ) {
         // Create a line from the trip coordinates
         const tripPath = L.geoJSON(trip.geometry, {
           style: {
-            color: '#BB86FC',
+            color: "#BB86FC",
             weight: 4,
-            opacity: 0.8
-          }
+            opacity: 0.8,
+          },
         }).addTo(tripMap);
-        
+
         // Add start and end markers
         const coordinates = trip.geometry.coordinates;
-        
+
         if (coordinates.length > 0) {
           // Start marker (first coordinate)
           const startCoord = coordinates[0];
           L.marker([startCoord[1], startCoord[0]], {
             icon: L.divIcon({
-              className: 'trip-marker start-marker',
+              className: "trip-marker start-marker",
               html: '<i class="fas fa-play-circle"></i>',
               iconSize: [20, 20],
-              iconAnchor: [10, 10]
-            })
-          }).addTo(tripMap).bindTooltip('Start');
-          
+              iconAnchor: [10, 10],
+            }),
+          })
+            .addTo(tripMap)
+            .bindTooltip("Start");
+
           // End marker (last coordinate)
           const endCoord = coordinates[coordinates.length - 1];
           L.marker([endCoord[1], endCoord[0]], {
             icon: L.divIcon({
-              className: 'trip-marker end-marker',
+              className: "trip-marker end-marker",
               html: '<i class="fas fa-stop-circle"></i>',
               iconSize: [20, 20],
-              iconAnchor: [10, 10]
-            })
-          }).addTo(tripMap).bindTooltip('End');
-          
+              iconAnchor: [10, 10],
+            }),
+          })
+            .addTo(tripMap)
+            .bindTooltip("End");
+
           // Fit map to the bounds of the trip path
           tripMap.fitBounds(tripPath.getBounds(), { padding: [20, 20] });
         }
@@ -939,15 +972,21 @@
         tripInfoContainer.innerHTML += `<div class="alert alert-warning">No route data available for this trip.</div>`;
         tripMap.setView([37.0902, -95.7129], 4); // Default US center view
       }
-      
+
       // Show the modal
-      const modal = new bootstrap.Modal(document.getElementById('view-trip-modal'));
+      const modal = new bootstrap.Modal(
+        document.getElementById("view-trip-modal"),
+      );
       modal.show();
-      
+
       // Handle modal shown event to ensure map renders correctly
-      document.getElementById('view-trip-modal').addEventListener('shown.bs.modal', () => {
-        tripMap.invalidateSize();
-      }, { once: true });
+      document.getElementById("view-trip-modal").addEventListener(
+        "shown.bs.modal",
+        () => {
+          tripMap.invalidateSize();
+        },
+        { once: true },
+      );
     }
 
     async showPlaceStatistics(placeId) {
@@ -977,7 +1016,7 @@
             <p>Avg Time Spent: ${formatAvg(stats.averageTimeSpent)}</p>
             <p>Avg Time Since Last Visit: ${formatAvg(
               stats.averageTimeSinceLastVisit,
-              "hours"
+              "hours",
             )}</p>
           </div>
         `;
@@ -991,7 +1030,7 @@
         console.error("Error fetching place statistics:", error);
         window.notificationManager?.show(
           "Failed to fetch place statistics",
-          "danger"
+          "danger",
         );
       }
     }
@@ -1003,7 +1042,7 @@
         visitsChart: document.getElementById("visitsChart"),
         visitsTableContainer: document.getElementById("visits-table-container"),
         tripsForPlaceContainer: document.getElementById(
-          "trips-for-place-container"
+          "trips-for-place-container",
         ),
         toggleViewBtn: document.getElementById("toggle-view-btn"),
       };
@@ -1057,7 +1096,7 @@
         console.error("Error fetching trips for place:", error);
         window.notificationManager?.show(
           "Failed to fetch trips for place",
-          "danger"
+          "danger",
         );
       }
     }
@@ -1076,7 +1115,7 @@
         console.error("Error fetching visits for non-custom places:", error);
         window.notificationManager?.show(
           "Failed to load non-custom places visits",
-          "danger"
+          "danger",
         );
       }
     }
