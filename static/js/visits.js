@@ -885,14 +885,42 @@
         </div>
       `;
       
-      // Initialize the map in the modal
+      // Show the modal first so DOM is fully available
+      const modal = new bootstrap.Modal(document.getElementById('view-trip-modal'));
+      modal.show();
+      
+      // Wait for modal to be fully shown before initializing map
+      document.getElementById('view-trip-modal').addEventListener('shown.bs.modal', () => {
+        this.initializeTripMap(trip);
+      }, { once: true });
+    }
+    
+    /**
+     * Initialize the trip map after the modal is shown
+     * @param {Object} trip - The trip data to display on the map
+     */
+    initializeTripMap(trip) {
+      // Get map container and reset it to ensure clean initialization
       const tripMapElement = document.getElementById('trip-map');
-      const tripMap = L.map(tripMapElement, { attributionControl: false });
+      
+      // If there's a previous map in this container, remove it
+      if (this.tripViewMap) {
+        this.tripViewMap.remove();
+        this.tripViewMap = null;
+      }
+      
+      // Reset the container by replacing it with a clone
+      const parent = tripMapElement.parentNode;
+      const newMapElement = tripMapElement.cloneNode(false);
+      parent.replaceChild(newMapElement, tripMapElement);
+      
+      // Initialize the map
+      this.tripViewMap = L.map(newMapElement, { attributionControl: false });
       
       // Add base map layer
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 19
-      }).addTo(tripMap);
+      }).addTo(this.tripViewMap);
       
       // Add trip path to map if geometry exists
       if (trip.geometry && trip.geometry.coordinates && trip.geometry.coordinates.length > 0) {
@@ -903,7 +931,7 @@
             weight: 4,
             opacity: 0.8
           }
-        }).addTo(tripMap);
+        }).addTo(this.tripViewMap);
         
         // Add start and end markers
         const coordinates = trip.geometry.coordinates;
@@ -918,7 +946,7 @@
               iconSize: [20, 20],
               iconAnchor: [10, 10]
             })
-          }).addTo(tripMap).bindTooltip('Start');
+          }).addTo(this.tripViewMap).bindTooltip('Start');
           
           // End marker (last coordinate)
           const endCoord = coordinates[coordinates.length - 1];
@@ -929,25 +957,19 @@
               iconSize: [20, 20],
               iconAnchor: [10, 10]
             })
-          }).addTo(tripMap).bindTooltip('End');
+          }).addTo(this.tripViewMap).bindTooltip('End');
           
           // Fit map to the bounds of the trip path
-          tripMap.fitBounds(tripPath.getBounds(), { padding: [20, 20] });
+          this.tripViewMap.fitBounds(tripPath.getBounds(), { padding: [20, 20] });
         }
       } else {
         // If no geometry, show a message
-        tripInfoContainer.innerHTML += `<div class="alert alert-warning">No route data available for this trip.</div>`;
-        tripMap.setView([37.0902, -95.7129], 4); // Default US center view
+        document.getElementById('trip-info').innerHTML += `<div class="alert alert-warning">No route data available for this trip.</div>`;
+        this.tripViewMap.setView([37.0902, -95.7129], 4); // Default US center view
       }
       
-      // Show the modal
-      const modal = new bootstrap.Modal(document.getElementById('view-trip-modal'));
-      modal.show();
-      
-      // Handle modal shown event to ensure map renders correctly
-      document.getElementById('view-trip-modal').addEventListener('shown.bs.modal', () => {
-        tripMap.invalidateSize();
-      }, { once: true });
+      // Ensure map renders correctly
+      this.tripViewMap.invalidateSize();
     }
 
     async showPlaceStatistics(placeId) {
