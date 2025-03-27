@@ -147,6 +147,7 @@ async def delete_place(place_id: str):
 
 class PlaceUpdateModel(BaseModel):
     """Model for updating a custom place."""
+
     name: Optional[str] = None
     geometry: Optional[Dict[str, Any]] = None
 
@@ -156,32 +157,35 @@ async def update_place(place_id: str, update_data: PlaceUpdateModel):
     """Update a custom place (name and/or geometry)."""
     try:
         # Find the existing place
-        place = await find_one_with_retry(places_collection, {"_id": ObjectId(place_id)})
+        place = await find_one_with_retry(
+            places_collection, {"_id": ObjectId(place_id)}
+        )
         if not place:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Place not found"
             )
-            
+
         # Prepare update data
         update_fields = {}
         if update_data.name is not None:
             update_fields["name"] = update_data.name
         if update_data.geometry is not None:
             update_fields["geometry"] = update_data.geometry
-            
+
         if not update_fields:
             return {"_id": place_id, **CustomPlace.from_dict(place).to_dict()}
-            
+
         # Update the place
         from db import update_one_with_retry
+
         await update_one_with_retry(
-            places_collection, 
-            {"_id": ObjectId(place_id)}, 
-            {"$set": update_fields}
+            places_collection, {"_id": ObjectId(place_id)}, {"$set": update_fields}
         )
-        
+
         # Get the updated place
-        updated_place = await find_one_with_retry(places_collection, {"_id": ObjectId(place_id)})
+        updated_place = await find_one_with_retry(
+            places_collection, {"_id": ObjectId(place_id)}
+        )
         return {"_id": place_id, **CustomPlace.from_dict(updated_place).to_dict()}
     except Exception as e:
         logger.exception("Error updating place: %s", str(e))
@@ -566,7 +570,7 @@ async def get_trips_for_place(place_id: str):
 
             # Get transaction ID (if available) or use trip ID as fallback
             transaction_id = trip.get("transactionId", arrival_trip_id)
-            
+
             trips_data.append(
                 {
                     "id": arrival_trip_id,
