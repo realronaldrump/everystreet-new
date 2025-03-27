@@ -625,11 +625,9 @@
       
       placesArray.forEach(place => {
         const row = document.createElement('tr');
-        const createdDate = place.createdAt ? new Date(place.createdAt).toLocaleDateString() : 'N/A';
         
         row.innerHTML = `
           <td>${place.name}</td>
-          <td>${createdDate}</td>
           <td>
             <div class="btn-group btn-group-sm" role="group">
               <button type="button" class="btn btn-primary edit-place-btn" data-place-id="${place._id}">
@@ -686,16 +684,31 @@
       const editModal = bootstrap.Modal.getInstance(document.getElementById('edit-place-modal'));
       editModal.hide();
       
-      // Center map on the place
-      const placeLayer = L.geoJSON(place.geometry);
-      this.map.fitBounds(placeLayer.getBounds());
-      
       // Clear existing drawing
       this.resetDrawing();
       
-      // Add the drawing control and start editing
+      // Create a new polygon from the place geometry
+      const existingGeometry = place.geometry;
+      if (existingGeometry && existingGeometry.coordinates && existingGeometry.coordinates.length > 0) {
+        const coordinates = existingGeometry.coordinates[0];
+        // Convert from GeoJSON [longitude, latitude] to Leaflet [latitude, longitude]
+        const latLngs = coordinates.map(coord => [coord[1], coord[0]]);
+        
+        // Create a polygon and add it to the map
+        this.currentPolygon = L.polygon(latLngs, { color: '#BB86FC' });
+        this.currentPolygon.addTo(this.map);
+        
+        // Enable the save button
+        document.getElementById("save-place").disabled = false;
+      }
+      
+      // Center map on the place
+      if (this.currentPolygon) {
+        this.map.fitBounds(this.currentPolygon.getBounds());
+      }
+      
+      // Add the drawing control to allow editing the polygon
       this.map.addControl(this.drawControl);
-      new L.Draw.Polygon(this.map).enable();
       this.drawingEnabled = true;
       document.getElementById("start-drawing").classList.add("active");
       
@@ -703,7 +716,7 @@
       this.placeBeingEdited = placeId;
       
       window.notificationManager?.show(
-        "Draw a new boundary for this place and save it",
+        "Edit the boundary for this place by drawing a new polygon, then save changes",
         "info"
       );
     }
