@@ -920,9 +920,39 @@
       // Format trip info
       const startTime = trip.startTime ? new Date(trip.startTime).toLocaleString() : 'Unknown';
       const endTime = trip.endTime ? new Date(trip.endTime).toLocaleString() : 'Unknown';
-      const distance = trip.distance ? (typeof trip.distance === 'object' ? trip.distance.value : trip.distance) : 0;
-      const formattedDistance = distance ? `${(distance / 1609.34).toFixed(2)} miles` : 'Unknown';
+      
+      // Extract and format the distance (handle multiple possible formats)
+      let formattedDistance = 'Unknown';
+      if (trip.distance) {
+        // Parse the distance value, which could be in various formats
+        let distanceValue = trip.distance;
+        
+        // If it's an object with a value property, use that
+        if (typeof distanceValue === 'object' && distanceValue.value !== undefined) {
+          distanceValue = distanceValue.value;
+        }
+        
+        // Convert string to number if needed
+        if (typeof distanceValue === 'string') {
+          distanceValue = parseFloat(distanceValue);
+        }
+        
+        // Only format if we have a valid number
+        if (!isNaN(distanceValue) && distanceValue > 0) {
+          // Distance is often in miles already
+          formattedDistance = `${distanceValue.toFixed(2)} miles`;
+        }
+      }
       const transactionId = trip.transactionId || trip._id;
+      
+      // Extract location information from nested objects
+      const startLocation = trip.startLocation && trip.startLocation.formatted_address ? 
+        trip.startLocation.formatted_address : 
+        (trip.startPlace || 'Unknown');
+      
+      const endLocation = trip.destination && trip.destination.formatted_address ? 
+        trip.destination.formatted_address : 
+        (trip.destinationPlace || 'Unknown');
       
       // Display trip information
       tripInfoContainer.innerHTML = `
@@ -931,11 +961,11 @@
           <div class="row">
             <div class="col-md-6">
               <p><strong>Start:</strong> ${startTime}</p>
-              <p><strong>Start Location:</strong> ${trip.startPlace || 'Unknown'}</p>
+              <p><strong>Start Location:</strong> ${startLocation}</p>
             </div>
             <div class="col-md-6">
               <p><strong>End:</strong> ${endTime}</p>
-              <p><strong>End Location:</strong> ${trip.destinationPlace || 'Unknown'}</p>
+              <p><strong>End Location:</strong> ${endLocation}</p>
             </div>
           </div>
           <p><strong>Distance:</strong> ${formattedDistance}</p>
