@@ -229,6 +229,69 @@
     </div>
   </div>
 </div>
+
+<!-- Manage Places Modal -->
+<div class="modal fade" id="manage-places-modal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title">Manage Places</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table id="manage-places-table" class="table table-dark table-striped">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Place Modal -->
+<div class="modal fade" id="edit-place-modal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title">Edit Place</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <form id="edit-place-form">
+          <input type="hidden" id="edit-place-id">
+          <div class="mb-3">
+            <label for="edit-place-name" class="form-label">Place Name</label>
+            <input type="text" class="form-control" id="edit-place-name" required>
+          </div>
+          <div class="d-flex justify-content-between">
+            <button type="button" class="btn btn-primary" id="edit-place-boundary">
+              <i class="fas fa-draw-polygon me-1"></i> Edit Boundary
+            </button>
+            <button type="submit" class="btn btn-success">
+              <i class="fas fa-save me-1"></i> Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %} {% block extra_css %}
 <link
   rel="stylesheet"

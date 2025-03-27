@@ -389,6 +389,24 @@
         .getElementById("back-to-places-btn")
         ?.addEventListener("click", () => this.toggleView());
 
+      // Manage Places button
+      document
+        .getElementById("manage-places")
+        ?.addEventListener("click", () => this.showManagePlacesModal());
+
+      // Edit place form submission
+      document
+        .getElementById("edit-place-form")
+        ?.addEventListener("submit", (e) => {
+          e.preventDefault();
+          this.saveEditedPlace();
+        });
+
+      // Edit place boundary button
+      document
+        .getElementById("edit-place-boundary")
+        ?.addEventListener("click", () => this.startEditingPlaceBoundary());
+
       // Map drawing events
       this.map.on(L.Draw.Event.CREATED, (e) => {
         this.currentPolygon = e.layer;
@@ -591,6 +609,166 @@
 
       if (this.drawControl) this.map.removeControl(this.drawControl);
       this.drawingEnabled = false;
+    }
+    
+    // Manage Places functionality
+    showManagePlacesModal() {
+      const modal = new bootstrap.Modal(document.getElementById('manage-places-modal'));
+      
+      // Clear and populate the table
+      const tableBody = document.querySelector('#manage-places-table tbody');
+      tableBody.innerHTML = '';
+      
+      // Sort places by name
+      const placesArray = Array.from(this.places.values());
+      placesArray.sort((a, b) => a.name.localeCompare(b.name));
+      
+      placesArray.forEach(place => {
+        const row = document.createElement('tr');
+        const createdDate = place.createdAt ? new Date(place.createdAt).toLocaleDateString() : 'N/A';
+        
+        row.innerHTML = `
+          <td>${place.name}</td>
+          <td>${createdDate}</td>
+          <td>
+            <div class="btn-group btn-group-sm" role="group">
+              <button type="button" class="btn btn-primary edit-place-btn" data-place-id="${place._id}">
+                <i class="fas fa-edit"></i> Edit
+              </button>
+              <button type="button" class="btn btn-danger delete-place-btn" data-place-id="${place._id}">
+                <i class="fas fa-trash-alt"></i> Delete
+              </button>
+            </div>
+          </td>
+        `;
+        
+        tableBody.appendChild(row);
+      });
+      
+      // Add event listeners for edit and delete buttons
+      document.querySelectorAll('.edit-place-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const placeId = e.currentTarget.getAttribute('data-place-id');
+          modal.hide();
+          this.showEditPlaceModal(placeId);
+        });
+      });
+      
+      document.querySelectorAll('.delete-place-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const placeId = e.currentTarget.getAttribute('data-place-id');
+          modal.hide();
+          this.deletePlace(placeId);
+        });
+      });
+      
+      modal.show();
+    }
+    
+    showEditPlaceModal(placeId) {
+      const place = this.places.get(placeId);
+      if (!place) return;
+      
+      const modal = new bootstrap.Modal(document.getElementById('edit-place-modal'));
+      document.getElementById('edit-place-id').value = placeId;
+      document.getElementById('edit-place-name').value = place.name;
+      
+      this.placeBeingEdited = placeId;
+      modal.show();
+    }
+    
+    startEditingPlaceBoundary() {
+      const placeId = document.getElementById('edit-place-id').value;
+      const place = this.places.get(placeId);
+      if (!place) return;
+      
+      // Hide the edit modal
+      const editModal = bootstrap.Modal.getInstance(document.getElementById('edit-place-modal'));
+      editModal.hide();
+      
+      // Center map on the place
+      const placeLayer = L.geoJSON(place.geometry);
+      this.map.fitBounds(placeLayer.getBounds());
+      
+      // Clear existing drawing
+      this.resetDrawing();
+      
+      // Add the drawing control and start editing
+      this.map.addControl(this.drawControl);
+      new L.Draw.Polygon(this.map).enable();
+      this.drawingEnabled = true;
+      document.getElementById("start-drawing").classList.add("active");
+      
+      // Store reference to the place being edited
+      this.placeBeingEdited = placeId;
+      
+      window.notificationManager?.show(
+        "Draw a new boundary for this place and save it",
+        "info"
+      );
+    }
+    
+    async saveEditedPlace() {
+      const placeId = document.getElementById('edit-place-id').value;
+      const newName = document.getElementById('edit-place-name').value.trim();
+      
+      if (!placeId || !newName) {
+        window.notificationManager?.show(
+          "Place name cannot be empty",
+          "warning"
+        );
+        return;
+      }
+      
+      try {
+        // If we're editing boundary and have a new polygon, include the geometry
+        let requestBody = { name: newName };
+        if (this.currentPolygon && this.placeBeingEdited === placeId) {
+          requestBody.geometry = this.currentPolygon.toGeoJSON().geometry;
+        }
+        
+        const response = await fetch(`/api/places/${placeId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+        
+        if (!response.ok) throw new Error("Failed to update place");
+        
+        const updatedPlace = await response.json();
+        
+        // Update the place in our local map
+        this.places.set(placeId, updatedPlace);
+        
+        // Update the place on the map
+        this.customPlacesLayer.clearLayers();
+        Array.from(this.places.values()).forEach(place => {
+          this.displayPlace(place);
+        });
+        
+        // Reset drawing if we edited the boundary
+        if (this.currentPolygon) {
+          this.resetDrawing();
+        }
+        
+        // Close the modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('edit-place-modal'));
+        if (modal) modal.hide();
+        
+        // Clear the place being edited
+        this.placeBeingEdited = null;
+        
+        // Update visits data
+        this.updateVisitsData();
+        
+        window.notificationManager?.show(
+          `Place "${newName}" updated successfully`,
+          "success"
+        );
+      } catch (error) {
+        console.error("Error updating place:", error);
+        window.notificationManager?.show("Failed to update place", "danger");
+      }
     }
 
     async showPlaceStatistics(placeId) {
