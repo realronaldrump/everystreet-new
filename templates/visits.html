@@ -292,6 +292,26 @@
     </div>
   </div>
 </div>
+
+<!-- View Trip Modal -->
+<div class="modal fade" id="view-trip-modal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title">Trip Details</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div id="trip-info" class="mb-3"></div>
+        <div id="trip-map" class="map-container" style="height: 400px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %} {% block extra_css %}
 <link
   rel="stylesheet"
@@ -309,6 +329,19 @@
   }
   .map-controls {
     z-index: 1000;
+  }
+  .trip-marker {
+    color: #BB86FC;
+    text-align: center;
+    line-height: 20px;
+    font-size: 20px;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
+  }
+  .start-marker {
+    color: #03DAC5;
+  }
+  .end-marker {
+    color: #CF6679;
   }
   .map-container {
     height: 500px;

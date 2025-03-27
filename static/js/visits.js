@@ -809,38 +809,145 @@
     }
 
     /**
-     * Asks the user if they want to view a trip on the map and redirects if confirmed
+     * Shows the selected trip on the map
      * @param {string} tripId - The ID of the trip to view
      */
     confirmViewTripOnMap(tripId) {
       if (!tripId) return;
       
-      if (window.confirmationDialog) {
-        window.confirmationDialog.show({
-          title: "View Trip on Map",
-          message: "Would you like to view this trip on the map?",
-          confirmText: "View Trip",
-          confirmButtonClass: "btn-primary",
-        }).then(result => {
-          if (result) {
-            this.navigateToTrip(tripId);
-          }
-        });
-      } else {
-        const confirmed = confirm("Would you like to view this trip on the map?");
-        if (confirmed) {
-          this.navigateToTrip(tripId);
+      // Directly fetch and show the trip without confirmation
+      this.fetchAndShowTrip(tripId);
+    }
+    
+    /**
+     * Fetches trip data and displays it in a modal
+     * @param {string} tripId - The ID of the trip to view
+     */
+    async fetchAndShowTrip(tripId) {
+      try {
+        // Show loading indicator
+        this.loadingManager.startOperation("Fetching Trip Data");
+        
+        // Fetch the trip data from the API
+        const response = await fetch(`/api/trips/${tripId}`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch trip: ${response.statusText}`);
         }
+        
+        const trip = await response.json();
+        
+        // Initialize the trip map and display the data
+        this.showTripOnMap(trip);
+        
+        this.loadingManager.finish();
+      } catch (error) {
+        console.error("Error fetching trip data:", error);
+        this.loadingManager.error("Failed to fetch trip data");
+        window.notificationManager?.show(
+          "Error loading trip data. Please try again.",
+          "danger"
+        );
       }
     }
     
     /**
-     * Navigates to the trips page to view a specific trip
-     * @param {string} tripId - The ID of the trip to view
+     * Displays a trip on the map in a modal
+     * @param {Object} trip - The trip data to display
      */
-    navigateToTrip(tripId) {
-      // Redirect to the trips page with the trip ID as a parameter
-      window.location.href = `/trips?highlight=${tripId}`;
+    showTripOnMap(trip) {
+      // Clear previous trip info
+      const tripInfoContainer = document.getElementById('trip-info');
+      tripInfoContainer.innerHTML = '';
+      
+      // Format trip info
+      const startTime = trip.startTime ? new Date(trip.startTime).toLocaleString() : 'Unknown';
+      const endTime = trip.endTime ? new Date(trip.endTime).toLocaleString() : 'Unknown';
+      const distance = trip.distance ? (typeof trip.distance === 'object' ? trip.distance.value : trip.distance) : 0;
+      const formattedDistance = distance ? `${(distance / 1609.34).toFixed(2)} miles` : 'Unknown';
+      const transactionId = trip.transactionId || trip._id;
+      
+      // Display trip information
+      tripInfoContainer.innerHTML = `
+        <div class="trip-details">
+          <h6>Transaction ID: ${transactionId}</h6>
+          <div class="row">
+            <div class="col-md-6">
+              <p><strong>Start:</strong> ${startTime}</p>
+              <p><strong>Start Location:</strong> ${trip.startPlace || 'Unknown'}</p>
+            </div>
+            <div class="col-md-6">
+              <p><strong>End:</strong> ${endTime}</p>
+              <p><strong>End Location:</strong> ${trip.destinationPlace || 'Unknown'}</p>
+            </div>
+          </div>
+          <p><strong>Distance:</strong> ${formattedDistance}</p>
+        </div>
+      `;
+      
+      // Initialize the map in the modal
+      const tripMapElement = document.getElementById('trip-map');
+      const tripMap = L.map(tripMapElement, { attributionControl: false });
+      
+      // Add base map layer
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19
+      }).addTo(tripMap);
+      
+      // Add trip path to map if geometry exists
+      if (trip.geometry && trip.geometry.coordinates && trip.geometry.coordinates.length > 0) {
+        // Create a line from the trip coordinates
+        const tripPath = L.geoJSON(trip.geometry, {
+          style: {
+            color: '#BB86FC',
+            weight: 4,
+            opacity: 0.8
+          }
+        }).addTo(tripMap);
+        
+        // Add start and end markers
+        const coordinates = trip.geometry.coordinates;
+        
+        if (coordinates.length > 0) {
+          // Start marker (first coordinate)
+          const startCoord = coordinates[0];
+          L.marker([startCoord[1], startCoord[0]], {
+            icon: L.divIcon({
+              className: 'trip-marker start-marker',
+              html: '<i class="fas fa-play-circle"></i>',
+              iconSize: [20, 20],
+              iconAnchor: [10, 10]
+            })
+          }).addTo(tripMap).bindTooltip('Start');
+          
+          // End marker (last coordinate)
+          const endCoord = coordinates[coordinates.length - 1];
+          L.marker([endCoord[1], endCoord[0]], {
+            icon: L.divIcon({
+              className: 'trip-marker end-marker',
+              html: '<i class="fas fa-stop-circle"></i>',
+              iconSize: [20, 20],
+              iconAnchor: [10, 10]
+            })
+          }).addTo(tripMap).bindTooltip('End');
+          
+          // Fit map to the bounds of the trip path
+          tripMap.fitBounds(tripPath.getBounds(), { padding: [20, 20] });
+        }
+      } else {
+        // If no geometry, show a message
+        tripInfoContainer.innerHTML += `<div class="alert alert-warning">No route data available for this trip.</div>`;
+        tripMap.setView([37.0902, -95.7129], 4); // Default US center view
+      }
+      
+      // Show the modal
+      const modal = new bootstrap.Modal(document.getElementById('view-trip-modal'));
+      modal.show();
+      
+      // Handle modal shown event to ensure map renders correctly
+      document.getElementById('view-trip-modal').addEventListener('shown.bs.modal', () => {
+        tripMap.invalidateSize();
+      }, { once: true });
     }
 
     async showPlaceStatistics(placeId) {
