@@ -319,7 +319,13 @@
         responsive: true,
         order: [[1, "desc"]], // Sort by arrival time descending
         columns: [
-          { data: "id" },
+          {
+            data: "transactionId",
+            render: (data, type, row) =>
+              type === "display"
+                ? `<a href="#" class="trip-id-link" data-trip-id="${row.id}">${data}</a>`
+                : data,
+          },
           {
             data: "endTime",
             className: "date-cell",
@@ -356,6 +362,17 @@
             className: "numeric-cell",
             type: "duration",
           },
+          {
+            data: null,
+            className: "action-cell",
+            orderable: false,
+            render: (data, type, row) =>
+              type === "display"
+                ? `<button class="btn btn-sm btn-primary view-trip-btn" data-trip-id="${row.id}">
+                    <i class="fas fa-map-marker-alt me-1"></i> View on Map
+                  </button>`
+                : "",
+          },
         ],
         language: {
           emptyTable: "No trips found for this place",
@@ -366,6 +383,13 @@
           "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
           "<'row'<'col-sm-12'tr>>" +
           "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+      });
+      
+      // Add event listener for the view trip buttons
+      $(el).on('click', '.view-trip-btn, .trip-id-link', (e) => {
+        e.preventDefault();
+        const tripId = $(e.currentTarget).data('trip-id');
+        this.confirmViewTripOnMap(tripId);
       });
     }
 
@@ -782,6 +806,41 @@
         console.error("Error updating place:", error);
         window.notificationManager?.show("Failed to update place", "danger");
       }
+    }
+
+    /**
+     * Asks the user if they want to view a trip on the map and redirects if confirmed
+     * @param {string} tripId - The ID of the trip to view
+     */
+    confirmViewTripOnMap(tripId) {
+      if (!tripId) return;
+      
+      if (window.confirmationDialog) {
+        window.confirmationDialog.show({
+          title: "View Trip on Map",
+          message: "Would you like to view this trip on the map?",
+          confirmText: "View Trip",
+          confirmButtonClass: "btn-primary",
+        }).then(result => {
+          if (result) {
+            this.navigateToTrip(tripId);
+          }
+        });
+      } else {
+        const confirmed = confirm("Would you like to view this trip on the map?");
+        if (confirmed) {
+          this.navigateToTrip(tripId);
+        }
+      }
+    }
+    
+    /**
+     * Navigates to the trips page to view a specific trip
+     * @param {string} tripId - The ID of the trip to view
+     */
+    navigateToTrip(tripId) {
+      // Redirect to the trips page with the trip ID as a parameter
+      window.location.href = `/trips?highlight=${tripId}`;
     }
 
     async showPlaceStatistics(placeId) {

@@ -564,9 +564,13 @@ async def get_trips_for_place(place_id: str):
             if isinstance(distance, dict):
                 distance = distance.get("value", 0)
 
+            # Get transaction ID (if available) or use trip ID as fallback
+            transaction_id = trip.get("transactionId", arrival_trip_id)
+            
             trips_data.append(
                 {
                     "id": arrival_trip_id,
+                    "transactionId": transaction_id,
                     "endTime": SerializationHelper.serialize_datetime(
                         visit["arrival_time"]
                     ),
