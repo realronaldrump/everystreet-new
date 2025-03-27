@@ -837,25 +837,15 @@
           throw new Error(`Failed to fetch trip: ${response.statusText}`);
         }
         
-        const trip = await response.json();
-        console.log('Trip data received:', trip);
+        // Get the base trip data
+        const tripResponse = await response.json();
+        console.log('Trip response received:', tripResponse);
         
-        // Check if we need to try a different endpoint
-        if (!trip.geometry || !trip.geometry.coordinates || trip.geometry.coordinates.length === 0) {
-          console.log('No geometry data found, trying matched trips endpoint...');
-          // Try to get the data from the matched trips API
-          const matchedResponse = await fetch(`/api/matched_trips/${tripId}`);
-          
-          if (matchedResponse.ok) {
-            const matchedTrip = await matchedResponse.json();
-            console.log('Matched trip data:', matchedTrip);
-            
-            if (matchedTrip.geometry && matchedTrip.geometry.coordinates && matchedTrip.geometry.coordinates.length > 0) {
-              console.log('Using matched trip geometry data');
-              trip.geometry = matchedTrip.geometry;
-            }
-          }
-        }
+        // In some APIs, the actual trip data might be nested under a 'trip' property
+        const trip = tripResponse.trip || tripResponse;
+        
+        // Process and extract geometry from various possible sources
+        this.extractTripGeometry(trip);
         
         // Initialize the trip map and display the data
         this.showTripOnMap(trip);
@@ -869,6 +859,53 @@
           "danger"
         );
       }
+    }
+    
+    /**
+     * Extracts and processes trip geometry from various possible sources
+     * @param {Object} trip - The trip data object
+     */
+    extractTripGeometry(trip) {
+      // Try the default geometry field first
+      if (trip.geometry && trip.geometry.coordinates && trip.geometry.coordinates.length > 0) {
+        console.log('Using existing geometry data');
+        return;
+      }
+      
+      // Check for matchedGps field
+      if (trip.matchedGps && trip.matchedGps.coordinates && trip.matchedGps.coordinates.length > 0) {
+        console.log('Using matchedGps data');
+        trip.geometry = trip.matchedGps;
+        return;
+      }
+      
+      // Try to parse gps JSON field if it exists
+      if (typeof trip.gps === 'string' && trip.gps) {
+        try {
+          console.log('Parsing gps field from JSON string');
+          const gpsData = JSON.parse(trip.gps);
+          if (gpsData && gpsData.coordinates && gpsData.coordinates.length > 0) {
+            console.log('Successfully parsed gps JSON data');
+            trip.geometry = gpsData;
+            return;
+          }
+        } catch (e) {
+          console.error('Failed to parse gps JSON:', e);
+        }
+      }
+      
+      // If we have start and end coordinates, create a simple line
+      if (trip.startGeoPoint && trip.startGeoPoint.coordinates && 
+          trip.destinationGeoPoint && trip.destinationGeoPoint.coordinates) {
+        console.log('Creating geometry from start and end points');
+        trip.geometry = {
+          type: 'LineString',
+          coordinates: [trip.startGeoPoint.coordinates, trip.destinationGeoPoint.coordinates]
+        };
+        return;
+      }
+      
+      console.log('No valid geometry data found in trip');
     }
     
     /**
