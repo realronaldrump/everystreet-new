@@ -828,6 +828,8 @@
         // Show loading indicator
         this.loadingManager.startOperation("Fetching Trip Data");
         
+        console.log(`Fetching trip data for ID: ${tripId}`);
+        
         // Fetch the trip data from the API
         const response = await fetch(`/api/trips/${tripId}`);
         
@@ -836,6 +838,24 @@
         }
         
         const trip = await response.json();
+        console.log('Trip data received:', trip);
+        
+        // Check if we need to try a different endpoint
+        if (!trip.geometry || !trip.geometry.coordinates || trip.geometry.coordinates.length === 0) {
+          console.log('No geometry data found, trying matched trips endpoint...');
+          // Try to get the data from the matched trips API
+          const matchedResponse = await fetch(`/api/matched_trips/${tripId}`);
+          
+          if (matchedResponse.ok) {
+            const matchedTrip = await matchedResponse.json();
+            console.log('Matched trip data:', matchedTrip);
+            
+            if (matchedTrip.geometry && matchedTrip.geometry.coordinates && matchedTrip.geometry.coordinates.length > 0) {
+              console.log('Using matched trip geometry data');
+              trip.geometry = matchedTrip.geometry;
+            }
+          }
+        }
         
         // Initialize the trip map and display the data
         this.showTripOnMap(trip);
