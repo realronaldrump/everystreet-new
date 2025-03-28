@@ -157,7 +157,6 @@ async def generate_geojson_osm(
         )
 
         # Use a shared session if possible, or create a new one
-        # Assuming utils.py provides get_session() and cleanup_session()
         # If not, manage the session locally:
         async with aiohttp.ClientSession() as session:
             async with session.get(

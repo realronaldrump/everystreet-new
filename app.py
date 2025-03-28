@@ -18,7 +18,6 @@ from typing import Any, Dict, List, Optional
 # Third-party imports
 import bson
 import geojson as geojson_module
-
 import gpxpy
 import pytz
 from bson import ObjectId
@@ -36,10 +35,18 @@ from fastapi import (
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from gridfs.errors import NoFile  # <-- Add this for error handling
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket  # <-- Add this
 from pydantic import BaseModel, Field
 
 # Local module imports
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
+from coverage_tasks import (
+    collect_street_type_stats,
+    process_area,
+    process_coverage_calculation,
+    process_incremental_coverage_calculation,
+)
 from db import (
     SerializationHelper,
     aggregate_with_retry,
@@ -57,6 +64,7 @@ from db import (
     update_one_with_retry,
 )
 from export_helpers import (
+    create_csv_export,
     create_export_response,
     default_serializer,
     export_geojson_response,
@@ -64,7 +72,6 @@ from export_helpers import (
     extract_date_range_string,
     get_location_filename,
     process_trip_for_export,
-    create_csv_export,
 )
 from live_tracking import (
     get_active_trip,
@@ -72,17 +79,7 @@ from live_tracking import (
     handle_bouncie_webhook,
     initialize_db,
 )
-
-from coverage_tasks import (
-    process_coverage_calculation,
-    process_incremental_coverage_calculation,
-    process_area,
-    collect_street_type_stats,
-)
-
-from visits import router as visits_router, init_collections
-
-
+from osm_utils import generate_geojson_osm
 from tasks import (
     TASK_METADATA,
     TaskStatus,
@@ -93,8 +90,10 @@ from tasks import (
 )
 from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
-from utils import cleanup_session, haversine as haversine_util, validate_location_osm
-from osm_utils import generate_geojson_osm
+from utils import cleanup_session, validate_location_osm
+from utils import haversine as haversine_util
+from visits import init_collections
+from visits import router as visits_router
 
 # Load environment variables
 load_dotenv()
@@ -327,7 +326,9 @@ async def fetch_all_trips_no_filter() -> List[dict]:
 async def add_header(request: Request, call_next):
     """Add cache control headers to all responses."""
     response = await call_next(request)
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Cache-Control"] = (
+        "no-store, no-cache, must-revalidate, max-age=0"
+    )
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
@@ -736,7 +737,9 @@ async def get_task_history(page: int = 1, limit: int = 10):
                 entry.get("timestamp")
             )
             if "runtime" in entry:
-                entry["runtime"] = float(entry["runtime"]) if entry["runtime"] else None
+                entry["runtime"] = (
+                    float(entry["runtime"]) if entry["runtime"] else None
+                )
             history.append(entry)
 
         return {
@@ -1103,7 +1106,9 @@ async def get_incremental_street_coverage(location: LocationModel):
         )
         return {"task_id": task_id, "status": "processing"}
     except Exception as e:
-        logger.exception("Error in incremental street coverage calculation: %s", str(e))
+        logger.exception(
+            "Error in incremental street coverage calculation: %s", str(e)
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -1939,7 +1944,9 @@ async def remap_matched_trips(data: Optional[DateRangeModel] = None):
             data = DateRangeModel(start_date="", end_date="", interval_days=0)
 
         if data.interval_days > 0:
-            start_date = datetime.now(timezone.utc) - timedelta(days=data.interval_days)
+            start_date = datetime.now(timezone.utc) - timedelta(
+                days=data.interval_days
+            )
             end_date = datetime.now(timezone.utc)
         else:
             start_date = parse_query_date(data.start_date)
@@ -3006,7 +3013,9 @@ async def active_trip_endpoint():
         }
     except Exception as e:
         error_id = str(uuid.uuid4())
-        logger.exception("Error in get_active_trip endpoint [%s]: %s", error_id, str(e))
+        logger.exception(
+            "Error in get_active_trip endpoint [%s]: %s", error_id, str(e)
+        )
         return {
             "status": "error",
             "has_active_trip": False,
@@ -3244,85 +3253,95 @@ async def get_storage_info():
 
 @app.get("/api/coverage_areas/{location_id}")
 async def get_coverage_area_details(location_id: str):
-    """Get detailed information about a coverage area."""
+    """Get detailed information about a coverage area, fetching GeoJSON from GridFS."""
     try:
-        # Find the coverage data
+        # Find the coverage data (existing logic is fine)
         coverage_doc = None
-
         try:
-            # First try to find by ObjectId
             coverage_doc = await find_one_with_retry(
                 coverage_metadata_collection, {"_id": ObjectId(location_id)}
             )
-        except Exception as e:
-            logger.warning(
-                f"Error looking up by ObjectId: {str(e)}, trying by display name"
-            )
-            # If that fails, try to find by display name (fallback)
+        except Exception:
             coverage_doc = await find_one_with_retry(
                 coverage_metadata_collection, {"location.display_name": location_id}
             )
 
         if not coverage_doc:
             logger.error("Coverage area not found for id: %s", location_id)
-            return {"success": False, "error": "Coverage area not found"}
+            # Return success=False for consistency with other error paths
+            raise HTTPException(
+                status_code=404, detail="Coverage area not found"
+            )  # More standard
 
-        # Extract basic info
+        # Extract basic info (existing logic is fine)
         location_name = coverage_doc.get("location", {}).get("display_name", "Unknown")
         location_obj = coverage_doc.get("location", {})
-        # Use SerializationHelper instead of serialize_datetime
         last_updated = SerializationHelper.serialize_datetime(
             coverage_doc.get("last_updated")
         )
         total_length = coverage_doc.get("total_length", 0)
         driven_length = coverage_doc.get("driven_length", 0)
         coverage_percentage = coverage_doc.get("coverage_percentage", 0)
+        status = coverage_doc.get("status", "unknown")
+        last_error = coverage_doc.get("last_error")
 
-        # Check if streets_data exists and is properly formed
-        streets_data = coverage_doc.get("streets_data", {})
-        has_valid_street_data = (
-            isinstance(streets_data, dict)
-            and isinstance(streets_data.get("features"), list)
-            and len(streets_data.get("features", [])) > 0
-        )
+        # --- NEW GridFS Logic ---
+        streets_geojson = {}
+        total_streets = 0
+        needs_reprocessing = True  # Default to true unless GridFS data is loaded
+        gridfs_id = coverage_doc.get(
+            "streets_geojson_gridfs_id"
+        )  # Get the GridFS ID field
 
-        # If no valid street data, return a special response
-        if not has_valid_street_data:
-            logger.error(
-                f"No or invalid streets_data found for location: {location_name}"
+        if gridfs_id:
+            try:
+                # Get GridFS bucket instance (can be done here or globally)
+                fs = AsyncIOMotorGridFSBucket(db_manager.db)
+                # Open download stream by ID
+                gridfs_stream = await fs.open_download_stream(gridfs_id)
+                # Read the data
+                geojson_data_bytes = await gridfs_stream.read()
+                # Deserialize (assuming it was stored as JSON string)
+                streets_geojson = json.loads(geojson_data_bytes.decode("utf-8"))
+                # Validate basic structure
+                if isinstance(streets_geojson, dict) and isinstance(
+                    streets_geojson.get("features"), list
+                ):
+                    total_streets = len(streets_geojson.get("features", []))
+                    needs_reprocessing = False  # Successfully loaded
+                    logger.info(
+                        f"Successfully loaded GeoJSON from GridFS for {location_name}"
+                    )
+                else:
+                    logger.error(
+                        f"Invalid GeoJSON structure loaded from GridFS for {location_name} (ID: {gridfs_id})"
+                    )
+                    streets_geojson = {}  # Reset on invalid structure
+            except NoFile:
+                logger.error(
+                    f"GridFS file not found for ID {gridfs_id} (Location: {location_name})"
+                )
+                # Keep streets_geojson empty, needs_reprocessing remains True
+            except Exception as gridfs_err:
+                logger.error(
+                    f"Error reading GeoJSON from GridFS ID {gridfs_id} for {location_name}: {gridfs_err}"
+                )
+                # Keep streets_geojson empty, needs_reprocessing remains True
+        else:
+            logger.warning(
+                f"No streets_geojson_gridfs_id found for location: {location_name}"
+            )
+            # Keep streets_geojson empty, needs_reprocessing remains True
+        # --- End NEW GridFS Logic ---
+
+        # Get street types (existing logic is fine, but might run unnecessarily if GeoJSON failed)
+        street_types = coverage_doc.get("street_types", [])
+        if not street_types and not needs_reprocessing:  # Only compute if we have data
+            street_types = collect_street_type_stats(
+                streets_geojson.get("features", [])
             )
 
-            # Get metadata about the coverage document for debugging
-            status = coverage_doc.get("status", "unknown")
-            last_error = coverage_doc.get("last_error", "No error message available")
-
-            return {
-                "success": True,
-                "coverage": {
-                    "location_name": location_name,
-                    "location": location_obj,
-                    "total_length": total_length,
-                    "driven_length": driven_length,
-                    "coverage_percentage": coverage_percentage,
-                    "last_updated": last_updated,
-                    "streets_geojson": {},
-                    "total_streets": 0,
-                    "street_types": [],
-                    "status": status,
-                    "has_error": status == "error",
-                    "error_message": last_error if status == "error" else None,
-                    "needs_reprocessing": True,
-                },
-            }
-
-        # Get street types from the document if they exist, otherwise compute
-        # them
-        street_types = coverage_doc.get("street_types", [])
-        if not street_types:
-            # Use the helper function still in app.py
-            street_types = collect_street_type_stats(streets_data.get("features", []))
-
-        # Transform data for the dashboard with complete information
+        # Construct the final result
         result = {
             "success": True,
             "coverage": {
@@ -3332,26 +3351,31 @@ async def get_coverage_area_details(location_id: str):
                 "driven_length": driven_length,
                 "coverage_percentage": coverage_percentage,
                 "last_updated": last_updated,
-                "total_streets": len(streets_data.get("features", [])),
-                "streets_geojson": streets_data,
+                "total_streets": total_streets,  # Updated based on loaded data
+                "streets_geojson": streets_geojson,  # Contains loaded data or {}
                 "street_types": street_types,
-                "status": coverage_doc.get("status", "completed"),
-                "has_error": coverage_doc.get("status") == "error",
-                "error_message": (
-                    coverage_doc.get("last_error")
-                    if coverage_doc.get("status") == "error"
-                    else None
-                ),
-                "needs_reprocessing": False,
+                "status": status,
+                "has_error": status == "error",
+                "error_message": last_error if status == "error" else None,
+                "needs_reprocessing": needs_reprocessing,  # Indicates if GeoJSON is missing/failed
             },
         }
         return result
+
+    except HTTPException as http_exc:
+        # Re-raise HTTP exceptions directly
+        raise http_exc
     except Exception as e:
         logger.error(
-            f"Error fetching coverage area details: {str(e)}",
+            f"Error fetching coverage area details for {location_id}: {str(e)}",
             exc_info=True,
         )
-        return {"success": False, "error": str(e)}
+        # Return success=False for general errors
+        # Consider raising HTTPException(500) instead for clearer error propagation
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error fetching coverage details: {str(e)}",
+        )
 
 
 @app.get("/api/export/advanced")

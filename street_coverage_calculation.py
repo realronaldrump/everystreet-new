@@ -1,10 +1,9 @@
-# street_coverage_calculation.py
 """
 Street coverage calculation module (Optimized).
 
 Calculates street segment coverage based on trip data using efficient spatial indexing,
 multiprocessing, bulk database operations, and aggregation pipelines.
-Designed for drastically improved speed and reduced memory usage compared to previous versions.
+Stores large GeoJSON results in GridFS.
 """
 
 import asyncio
@@ -17,6 +16,7 @@ from concurrent.futures import Future, ProcessPoolExecutor, TimeoutError
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import bson.json_util  # For robust JSON serialization including ObjectId, datetime
 import pyproj
 import rtree  # Ensure rtree>=1.0.0 is installed
 from bson import ObjectId
@@ -31,12 +31,12 @@ from shapely.errors import GEOSException
 from shapely.geometry import LineString, MultiPoint, shape
 from shapely.ops import transform
 
-# Assuming db.py provides these helpers and the db_manager instance
 from db import (
     aggregate_with_retry,
     batch_cursor,
     count_documents_with_retry,
     coverage_metadata_collection,
+    db_manager,  # Import db_manager to access GridFS bucket
     ensure_street_coverage_indexes,
     find_one_with_retry,  # Use retry wrappers where appropriate
     progress_collection,
@@ -104,7 +104,7 @@ def process_trip_worker(
 
     Returns:
         A dictionary mapping the original trip index (within the sub-batch) to a set
-        of matched segment IDs for that trip.
+        of matched segment IDs for that trip. Returns an empty dict on critical failure.
     """
     # Worker-specific logger configuration (optional, helps trace worker activity)
     # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(processName)s - %(message)s')
@@ -212,6 +212,7 @@ def process_trip_worker(
                         not intersection.is_empty
                         and intersection.length >= min_match_length
                     ):
+                        # Ensure only the hashable segment ID (string) is added
                         results[trip_index].add(seg_id)
 
             except (GEOSException, ValueError, TypeError):
@@ -233,7 +234,8 @@ def process_trip_worker(
                 # worker_logger.error(f"Worker error closing DB connection: {close_err}")
                 pass
 
-    return dict(results)  # Convert back to dict from defaultdict
+    # Ensure the returned dictionary contains sets of strings (segment IDs)
+    return dict(results)
 
 
 # --- CoverageCalculator Class ---
@@ -431,7 +433,9 @@ class CoverageCalculator:
             try:
                 logger.info(f"Task {self.task_id}: Shutting down process pool...")
                 # Give workers some time to finish, then force shutdown
-                pool.shutdown(wait=True, cancel_futures=True)
+                pool.shutdown(
+                    wait=True, cancel_futures=False
+                )  # Let futures complete if possible
                 logger.info(f"Task {self.task_id}: Process pool shut down.")
             except Exception as e:
                 logger.error(
@@ -758,9 +762,9 @@ class CoverageCalculator:
         # --- Trip Processing Loop ---
         # Fetch only necessary fields: _id and gps
         trips_cursor = trips_collection.find(trip_filter, {"gps": 1, "_id": 1})
-        pending_futures: Dict[
-            Future, List[Tuple[str, List[Any]]]
-        ] = {}  # Future -> List[(trip_id, coords)]
+
+        # Use a dictionary to map original Python Future objects to sub-batch data
+        pending_futures_map: Dict[Future, List[Tuple[str, List[Any]]]] = {}
 
         processed_count_local = 0  # Local counter for this run
         batch_num = 0
@@ -862,6 +866,7 @@ class CoverageCalculator:
                     # --- Submit to Worker Pool (or run sequentially) ---
                     if self.process_pool and self.max_workers > 0:
                         try:
+                            # Submit to ProcessPoolExecutor (returns a concurrent.futures.Future)
                             future = self.process_pool.submit(
                                 process_trip_worker,
                                 sub_batch_coords,
@@ -874,9 +879,8 @@ class CoverageCalculator:
                                 self.db_name,
                                 self.streets_collection_name,
                             )
-                            pending_futures[future] = (
-                                sub_batch  # Store original data mapped to future
-                            )
+                            # Map the original Future object to the sub-batch data
+                            pending_futures_map[future] = sub_batch
                         except Exception as submit_err:
                             logger.error(
                                 f"Task {self.task_id}: Error submitting sub-batch to process pool: {submit_err}"
@@ -902,7 +906,14 @@ class CoverageCalculator:
                             )
                             # Process result immediately
                             for trip_idx, matched_ids in result_map.items():
-                                self.newly_covered_segments.update(matched_ids)
+                                # Ensure matched_ids is a set of strings
+                                if isinstance(matched_ids, set):
+                                    self.newly_covered_segments.update(matched_ids)
+                                else:
+                                    logger.warning(
+                                        f"Task {self.task_id}: Worker returned non-set result: {type(matched_ids)}"
+                                    )
+
                             processed_count_local += len(sub_batch)
                             processed_trip_ids_set.update(sub_batch_trip_ids)
                         except Exception as seq_err:
@@ -914,54 +925,120 @@ class CoverageCalculator:
                             processed_trip_ids_set.update(sub_batch_trip_ids)
 
                 # --- Process Completed Futures Asynchronously ---
-                if pending_futures:
-                    # Use asyncio.as_completed for non-blocking check
-                    done_futures = set()
+                if pending_futures_map:
+                    # Wrap concurrent.futures.Future objects for asyncio.as_completed
+                    wrapped_futures = {
+                        asyncio.wrap_future(f): f for f in pending_futures_map.keys()
+                    }
+                    done_wrapped_futures = set()
+
                     try:
-                        for future in asyncio.as_completed(
-                            [asyncio.wrap_future(f) for f in pending_futures.keys()],
-                            timeout=0.1,
-                        ):  # Short timeout to avoid blocking
+                        # Use asyncio.as_completed for non-blocking check
+                        for wrapped_future in asyncio.as_completed(
+                            wrapped_futures.keys(), timeout=0.1
+                        ):  # Short timeout
                             try:
-                                completed_future = await future
-                                original_sub_batch = pending_futures.pop(
-                                    completed_future, []
+                                await (
+                                    wrapped_future
+                                )  # Wait for the wrapped future to complete
+                                original_future = wrapped_futures[wrapped_future]
+                                original_sub_batch = pending_futures_map.pop(
+                                    original_future, []
                                 )
                                 sub_batch_trip_ids = [
                                     tid for tid, _ in original_sub_batch
                                 ]
 
                                 try:
-                                    # Get result with worker timeout
-                                    result_map = completed_future.result(
+                                    # Get result from the original concurrent.futures.Future
+                                    result_map = original_future.result(
                                         timeout=PROCESS_TIMEOUT_WORKER
                                     )
+
+                                    # Process the result map
                                     for trip_idx, matched_ids in result_map.items():
-                                        self.newly_covered_segments.update(matched_ids)
+                                        # Ensure matched_ids is a set of strings before updating
+                                        if isinstance(matched_ids, set):
+                                            self.newly_covered_segments.update(
+                                                matched_ids
+                                            )
+                                        else:
+                                            logger.warning(
+                                                f"Task {self.task_id}: Worker returned non-set result: {type(matched_ids)}"
+                                            )
+
                                     processed_count_local += len(original_sub_batch)
                                     processed_trip_ids_set.update(sub_batch_trip_ids)
-                                    done_futures.add(completed_future)
+                                    done_wrapped_futures.add(wrapped_future)
+
                                 except TimeoutError:
                                     logger.error(
                                         f"Task {self.task_id}: Worker task timed out for trips: {sub_batch_trip_ids}. Marking as processed."
                                     )
                                     processed_count_local += len(original_sub_batch)
                                     processed_trip_ids_set.update(sub_batch_trip_ids)
-                                    done_futures.add(completed_future)
+                                    done_wrapped_futures.add(wrapped_future)
                                 except Exception as e:
+                                    # This catches errors *within* the worker process itself
                                     logger.error(
                                         f"Task {self.task_id}: Worker task failed for trips {sub_batch_trip_ids}: {e}",
-                                        exc_info=True,
+                                        exc_info=False,  # Keep log concise unless needed
                                     )
                                     processed_count_local += len(original_sub_batch)
                                     processed_trip_ids_set.update(sub_batch_trip_ids)
-                                    done_futures.add(completed_future)
+                                    done_wrapped_futures.add(wrapped_future)
+
                             except asyncio.TimeoutError:
                                 # Timeout waiting for future completion in as_completed, continue checking others
                                 pass
+                            except Exception as inner_gather_err:
+                                # Error retrieving result from wrapped_future itself
+                                logger.error(
+                                    f"Task {self.task_id}: Error awaiting completed future: {inner_gather_err}"
+                                )
+                                # Try to identify the original future and mark trips as processed
+                                original_future = wrapped_futures.get(wrapped_future)
+                                if original_future:
+                                    original_sub_batch = pending_futures_map.pop(
+                                        original_future, []
+                                    )
+                                    if original_sub_batch:
+                                        sub_batch_trip_ids = [
+                                            tid for tid, _ in original_sub_batch
+                                        ]
+                                        processed_count_local += len(
+                                            original_sub_batch
+                                        )
+                                        processed_trip_ids_set.update(
+                                            sub_batch_trip_ids
+                                        )
+                                        logger.error(
+                                            f"Marked trips {sub_batch_trip_ids} as processed due to future retrieval error."
+                                        )
+                                    done_wrapped_futures.add(wrapped_future)
+
+                        # Clean up the map for futures that completed
+                        for wf in done_wrapped_futures:
+                            original_future = wrapped_futures.pop(wf, None)
+                            if original_future:
+                                pending_futures_map.pop(original_future, None)
+
                     except Exception as gather_err:
+                        # This is where the 'unhashable type: dict' might occur if an error object (dict) is handled incorrectly
                         logger.error(
-                            f"Task {self.task_id}: Error processing completed futures: {gather_err}"
+                            f"Task {self.task_id}: Error processing completed futures: {gather_err} (Type: {type(gather_err)})",
+                            exc_info=True,  # Log full traceback for this specific error
+                        )
+                        # Attempt to gracefully handle remaining futures - mark all as processed
+                        remaining_futures = list(pending_futures_map.keys())
+                        for fut in remaining_futures:
+                            batch_data = pending_futures_map.pop(fut, [])
+                            if batch_data:
+                                ids = [tid for tid, _ in batch_data]
+                                processed_count_local += len(batch_data)
+                                processed_trip_ids_set.update(ids)
+                        logger.error(
+                            f"Marked {len(remaining_futures)} remaining future batches as processed due to error."
                         )
 
                 # --- Update Progress ---
@@ -969,9 +1046,13 @@ class CoverageCalculator:
                     processed_count_local  # Update class attribute
                 )
                 # Progress for trip processing stage (e.g., 50% to 90%)
-                current_progress_pct = 50 + (
-                    processed_count_local / self.total_trips_to_process * 40
-                )
+                if self.total_trips_to_process > 0:  # Avoid division by zero
+                    current_progress_pct = 50 + (
+                        processed_count_local / self.total_trips_to_process * 40
+                    )
+                else:
+                    current_progress_pct = 90  # If no trips, jump to 90%
+
                 if (
                     batch_num % PROGRESS_UPDATE_INTERVAL_TRIPS == 0
                     or processed_count_local == self.total_trips_to_process
@@ -989,14 +1070,15 @@ class CoverageCalculator:
                         await asyncio.sleep(BATCH_PROCESS_DELAY)  # Yield control
 
             # --- Process Any Remaining Futures After Loop ---
-            logger.info(
-                f"Task {self.task_id}: Processing remaining {len(pending_futures)} trip futures..."
-            )
-            if pending_futures:
-                original_futures_map = {
-                    asyncio.wrap_future(f): f for f in pending_futures.keys()
+            if pending_futures_map:
+                logger.info(
+                    f"Task {self.task_id}: Processing remaining {len(pending_futures_map)} trip futures..."
+                )
+                # Wrap remaining concurrent.futures.Future objects
+                remaining_wrapped_futures_map = {
+                    asyncio.wrap_future(f): f for f in pending_futures_map.keys()
                 }
-                wrapped_futures = list(original_futures_map.keys())
+                wrapped_futures_list = list(remaining_wrapped_futures_map.keys())
 
                 try:
                     # Wait for all remaining futures with a generous timeout
@@ -1004,26 +1086,38 @@ class CoverageCalculator:
                         PROCESS_TIMEOUT_WORKER * 2
                     )  # Adjust as needed
                     done, pending = await asyncio.wait(
-                        wrapped_futures,
+                        wrapped_futures_list,
                         timeout=overall_wait_timeout,
                         return_when=asyncio.ALL_COMPLETED,
                     )
 
                     for wrapped_done_future in done:
-                        original_future = original_futures_map.get(wrapped_done_future)
+                        original_future = remaining_wrapped_futures_map.get(
+                            wrapped_done_future
+                        )
                         if not original_future:
-                            continue  # Should not happen
+                            continue
 
-                        original_sub_batch = pending_futures.pop(original_future, [])
+                        original_sub_batch = pending_futures_map.pop(
+                            original_future, []
+                        )
                         sub_batch_trip_ids = [tid for tid, _ in original_sub_batch]
 
                         try:
-                            # Get result from the completed asyncio.Future
+                            # Get result from the completed asyncio.Future wrapping the concurrent.futures.Future
                             result_map = (
                                 wrapped_done_future.result()
                             )  # This might raise if the worker failed
+
                             for trip_idx, matched_ids in result_map.items():
-                                self.newly_covered_segments.update(matched_ids)
+                                # Ensure matched_ids is a set of strings before updating
+                                if isinstance(matched_ids, set):
+                                    self.newly_covered_segments.update(matched_ids)
+                                else:
+                                    logger.warning(
+                                        f"Task {self.task_id}: Worker (final wait) returned non-set result: {type(matched_ids)}"
+                                    )
+
                             processed_count_local += len(original_sub_batch)
                             processed_trip_ids_set.update(sub_batch_trip_ids)
                         except (
@@ -1038,20 +1132,22 @@ class CoverageCalculator:
                             # This catches errors *within* the worker process itself
                             logger.error(
                                 f"Task {self.task_id}: Worker task failed (in final wait) for trips {sub_batch_trip_ids}: {e}",
-                                exc_info=True,
+                                exc_info=False,  # Keep log concise
                             )
                             processed_count_local += len(original_sub_batch)
                             processed_trip_ids_set.update(sub_batch_trip_ids)
 
                     # Handle futures that were still pending (meaning asyncio.wait timed out)
                     for wrapped_pending_future in pending:
-                        original_future = original_futures_map.get(
+                        original_future = remaining_wrapped_futures_map.get(
                             wrapped_pending_future
                         )
                         if not original_future:
                             continue
 
-                        original_sub_batch = pending_futures.pop(original_future, [])
+                        original_sub_batch = pending_futures_map.pop(
+                            original_future, []
+                        )
                         sub_batch_trip_ids = [tid for tid, _ in original_sub_batch]
                         logger.error(
                             f"Task {self.task_id}: Overall timeout waiting for future completion for trips: {sub_batch_trip_ids}. Marking as processed."
@@ -1059,9 +1155,10 @@ class CoverageCalculator:
                         processed_count_local += len(original_sub_batch)
                         processed_trip_ids_set.update(sub_batch_trip_ids)
                         try:
-                            wrapped_pending_future.cancel()  # Attempt to cancel
+                            # Cancel the asyncio wrapper; the underlying concurrent future might still run
+                            wrapped_pending_future.cancel()
                         except:
-                            pass  # Ignore cancellation errors
+                            pass
 
                 except Exception as final_gather_err:
                     logger.error(
@@ -1069,11 +1166,16 @@ class CoverageCalculator:
                         exc_info=True,
                     )
                     # Mark all remaining as processed on error
-                    for original_future, remaining_batch in pending_futures.items():
-                        remaining_ids = [tid for tid, _ in remaining_batch]
-                        processed_count_local += len(remaining_batch)
-                        processed_trip_ids_set.update(remaining_ids)
-                    pending_futures.clear()
+                    remaining_futures = list(pending_futures_map.keys())
+                    for fut in remaining_futures:
+                        batch_data = pending_futures_map.pop(fut, [])
+                        if batch_data:
+                            ids = [tid for tid, _ in batch_data]
+                            processed_count_local += len(batch_data)
+                            processed_trip_ids_set.update(ids)
+                    logger.error(
+                        f"Marked {len(remaining_futures)} remaining final future batches as processed due to error."
+                    )
 
             self.processed_trips_count = processed_count_local  # Final update
             logger.info(
@@ -1111,7 +1213,7 @@ class CoverageCalculator:
         Returns:
             A dictionary containing the final coverage statistics (total_length, driven_length,
             coverage_percentage, total_segments, street_types), or None if finalization failed.
-            Does NOT include the full GeoJSON data.
+            Does NOT include the full GeoJSON data or its GridFS ID.
         """
         await self.update_progress(
             "finalizing", 90, f"Updating street statuses for {self.location_name}..."
@@ -1197,6 +1299,7 @@ class CoverageCalculator:
 
         # --- Update Metadata Document ---
         # Store the final aggregated stats and the complete list of processed trip IDs
+        # Does NOT store the GeoJSON GridFS ID here; that's handled by generate_and_store_geojson.
         logger.info(
             f"Task {self.task_id}: Updating coverage metadata for {self.location_name}..."
         )
@@ -1213,15 +1316,16 @@ class CoverageCalculator:
                         "street_types": coverage_stats["street_types"],
                         "total_segments": coverage_stats["total_segments"],
                         "last_updated": datetime.now(timezone.utc),
-                        "status": "completed",  # Mark as completed in metadata
+                        "status": "completed_stats",  # Mark stats as completed, GeoJSON pending
                         "last_error": None,  # Clear any previous error
                         # Store all processed trip IDs (initial + new from this run)
                         "processed_trips.trip_ids": list(processed_trip_ids_set),
                         "processed_trips.last_processed_timestamp": datetime.now(
                             timezone.utc
                         ),
-                        # Note: streets_data (GeoJSON) is NOT set here. It's handled by generate_and_store_geojson.
-                    }
+                    },
+                    # Ensure old streets_data field is removed if it exists
+                    "$unset": {"streets_data": ""},
                 },
                 upsert=True,  # Ensure metadata document exists
             )
@@ -1251,10 +1355,12 @@ class CoverageCalculator:
             },
         }
 
-        # Final progress update
-        await self.update_progress("complete", 100, "Coverage calculation complete.")
+        # Final progress update for this part
+        await self.update_progress(
+            "complete_stats", 98, "Coverage statistics calculated."
+        )
         logger.info(
-            f"Task {self.task_id}: Coverage calculation complete for {self.location_name}."
+            f"Task {self.task_id}: Coverage statistics calculation complete for {self.location_name}."
         )
         return final_result
 
@@ -1435,7 +1541,7 @@ class CoverageCalculator:
 
         Returns:
             A dictionary containing the final coverage statistics, or None if a critical
-            error occurred during the process. Does NOT include the full GeoJSON.
+            error occurred during the process. Does NOT include the full GeoJSON or GridFS ID.
         """
         start_time = datetime.now(timezone.utc)
         run_type = "incremental" if run_incremental else "full"
@@ -1541,7 +1647,7 @@ class CoverageCalculator:
                 f"Task {self.task_id}: Coverage computation ({run_type}) for {self.location_name} finished in {duration:.2f} seconds."
             )
 
-            return final_stats  # Contains aggregated stats, excludes GeoJSON
+            return final_stats  # Contains aggregated stats, excludes GeoJSON GridFS ID
 
         except Exception as e:
             logger.error(
@@ -1554,7 +1660,9 @@ class CoverageCalculator:
             # --- Cleanup ---
             await self.shutdown_workers()  # Ensure pool is closed even on error
             self.streets_lookup = {}  # Clear lookup cache
-            self.streets_index = None  # Allow R-tree object to be GC'd
+            if self.streets_index:  # Check if index exists before trying to close
+                self.streets_index.close()  # Explicitly close R-tree index
+                self.streets_index = None  # Allow R-tree object to be GC'd
             logger.debug(
                 f"Task {self.task_id}: Cleanup completed for {self.location_name}."
             )
@@ -1576,10 +1684,11 @@ async def compute_coverage_for_location(
 
     Returns:
         Coverage statistics dictionary or None if an error occurred.
-        Does NOT include the full GeoJSON data.
+        Does NOT include the full GeoJSON data or its GridFS ID.
     """
+    location_name = location.get("display_name", "Unknown Location")
     logger.info(
-        f"Task {task_id}: Received request for full coverage calculation for {location.get('display_name')}"
+        f"Task {task_id}: Received request for full coverage calculation for {location_name}"
     )
     calculator = None
     try:
@@ -1595,22 +1704,27 @@ async def compute_coverage_for_location(
 
         # If calculation succeeded, trigger GeoJSON generation (runs independently)
         if result:
-            asyncio.create_task(
-                generate_and_store_geojson(location.get("display_name"), task_id)
-            )
+            # Trigger GeoJSON generation as a separate task
+            asyncio.create_task(generate_and_store_geojson(location_name, task_id))
             # Return the stats immediately, don't wait for GeoJSON
             return result
         else:
             # compute_coverage should have updated progress on failure
             logger.error(
-                f"Task {task_id}: Full coverage calculation failed for {location.get('display_name')}"
+                f"Task {task_id}: Full coverage calculation failed for {location_name}"
+            )
+            # Ensure metadata status reflects failure if not already set
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": location_name},
+                {"$set": {"status": "error", "last_error": "Calculation failed"}},
+                upsert=False,  # Only update if exists
             )
             return None
 
     except asyncio.TimeoutError:
         error_msg = f"Calculation timed out after {PROCESS_TIMEOUT_OVERALL}s"
         logger.error(
-            f"Task {task_id}: Full coverage calculation for {location.get('display_name')} timed out."
+            f"Task {task_id}: Full coverage calculation for {location_name} timed out."
         )
         # Update progress and metadata to reflect timeout
         await progress_collection.update_one(
@@ -1626,7 +1740,7 @@ async def compute_coverage_for_location(
             upsert=True,
         )
         await coverage_metadata_collection.update_one(
-            {"location.display_name": location.get("display_name")},
+            {"location.display_name": location_name},
             {
                 "$set": {
                     "status": "error",
@@ -1634,12 +1748,13 @@ async def compute_coverage_for_location(
                     "last_updated": datetime.now(timezone.utc),
                 }
             },
+            upsert=True,  # Ensure metadata exists to record error
         )
         return None
     except Exception as e:
         error_msg = f"Unexpected error: {e}"
         logger.exception(
-            f"Task {task_id}: Error in compute_coverage_for_location wrapper for {location.get('display_name')}: {e}"
+            f"Task {task_id}: Error in compute_coverage_for_location wrapper for {location_name}: {e}"
         )
         # Ensure progress/metadata reflect error state if not already done by calculator
         await progress_collection.update_one(
@@ -1655,7 +1770,7 @@ async def compute_coverage_for_location(
             upsert=True,
         )
         await coverage_metadata_collection.update_one(
-            {"location.display_name": location.get("display_name")},
+            {"location.display_name": location_name},
             {
                 "$set": {
                     "status": "error",
@@ -1663,6 +1778,7 @@ async def compute_coverage_for_location(
                     "last_updated": datetime.now(timezone.utc),
                 }
             },
+            upsert=True,  # Ensure metadata exists to record error
         )
         return None
     finally:
@@ -1670,7 +1786,9 @@ async def compute_coverage_for_location(
         if calculator:
             await calculator.shutdown_workers()
             calculator.streets_lookup = {}
-            calculator.streets_index = None
+            if calculator.streets_index:
+                calculator.streets_index.close()
+                calculator.streets_index = None
 
 
 async def compute_incremental_coverage(
@@ -1686,10 +1804,11 @@ async def compute_incremental_coverage(
 
     Returns:
         Coverage statistics dictionary or None if an error occurred.
-        Does NOT include the full GeoJSON data.
+        Does NOT include the full GeoJSON data or its GridFS ID.
     """
+    location_name = location.get("display_name", "Unknown Location")
     logger.info(
-        f"Task {task_id}: Received request for incremental coverage update for {location.get('display_name')}"
+        f"Task {task_id}: Received request for incremental coverage update for {location_name}"
     )
     calculator = None
     try:
@@ -1699,12 +1818,12 @@ async def compute_incremental_coverage(
         # Check if metadata exists, if not, log warning but proceed (will run as full)
         metadata_exists = await find_one_with_retry(
             coverage_metadata_collection,
-            {"location.display_name": location.get("display_name")},
+            {"location.display_name": location_name},
             {"_id": 1},  # Just check existence
         )
         if not metadata_exists:
             logger.warning(
-                f"Task {task_id}: No metadata found for {location.get('display_name')} during incremental request. Calculation will run as full."
+                f"Task {task_id}: No metadata found for {location_name} during incremental request. Calculation will run as full."
             )
 
         calculator = CoverageCalculator(location, task_id)
@@ -1716,15 +1835,24 @@ async def compute_incremental_coverage(
 
         # If calculation succeeded, trigger GeoJSON generation
         if result:
-            asyncio.create_task(
-                generate_and_store_geojson(location.get("display_name"), task_id)
-            )
+            asyncio.create_task(generate_and_store_geojson(location_name, task_id))
             # Return the stats immediately
             return result
         else:
             # compute_coverage should have updated progress on failure
             logger.error(
-                f"Task {task_id}: Incremental coverage calculation failed for {location.get('display_name')}"
+                f"Task {task_id}: Incremental coverage calculation failed for {location_name}"
+            )
+            # Ensure metadata status reflects failure if not already set
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": location_name},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": "Incremental calculation failed",
+                    }
+                },
+                upsert=False,  # Only update if exists
             )
             return None
 
@@ -1733,7 +1861,7 @@ async def compute_incremental_coverage(
             f"Incremental calculation timed out after {PROCESS_TIMEOUT_INCREMENTAL}s"
         )
         logger.error(
-            f"Task {task_id}: Incremental coverage for {location.get('display_name')} timed out."
+            f"Task {task_id}: Incremental coverage for {location_name} timed out."
         )
         # Update progress and metadata to reflect timeout
         await progress_collection.update_one(
@@ -1749,7 +1877,7 @@ async def compute_incremental_coverage(
             upsert=True,
         )
         await coverage_metadata_collection.update_one(
-            {"location.display_name": location.get("display_name")},
+            {"location.display_name": location_name},
             {
                 "$set": {
                     "status": "error",
@@ -1757,12 +1885,13 @@ async def compute_incremental_coverage(
                     "last_updated": datetime.now(timezone.utc),
                 }
             },
+            upsert=True,  # Ensure metadata exists to record error
         )
         return None
     except Exception as e:
         error_msg = f"Unexpected error: {e}"
         logger.exception(
-            f"Task {task_id}: Error in compute_incremental_coverage wrapper for {location.get('display_name')}: {e}"
+            f"Task {task_id}: Error in compute_incremental_coverage wrapper for {location_name}: {e}"
         )
         # Ensure progress/metadata reflect error state
         await progress_collection.update_one(
@@ -1778,7 +1907,7 @@ async def compute_incremental_coverage(
             upsert=True,
         )
         await coverage_metadata_collection.update_one(
-            {"location.display_name": location.get("display_name")},
+            {"location.display_name": location_name},
             {
                 "$set": {
                     "status": "error",
@@ -1786,6 +1915,7 @@ async def compute_incremental_coverage(
                     "last_updated": datetime.now(timezone.utc),
                 }
             },
+            upsert=True,  # Ensure metadata exists to record error
         )
         return None
     finally:
@@ -1793,7 +1923,9 @@ async def compute_incremental_coverage(
         if calculator:
             await calculator.shutdown_workers()
             calculator.streets_lookup = {}
-            calculator.streets_index = None
+            if calculator.streets_index:
+                calculator.streets_index.close()
+                calculator.streets_index = None
 
 
 async def generate_and_store_geojson(
@@ -1801,11 +1933,8 @@ async def generate_and_store_geojson(
 ) -> None:
     """
     Generates the final GeoJSON output based on the current state of streets
-    in the database for a given location and stores it in the corresponding
-    coverage_metadata document.
-
-    This is designed to run *after* the main coverage calculation and database updates
-    (setting 'driven' flags) are complete.
+    in the database for a given location and stores it in GridFS, updating the
+    corresponding coverage_metadata document with the GridFS file ID.
 
     Args:
         location_name: The display name of the location.
@@ -1821,7 +1950,12 @@ async def generate_and_store_geojson(
     # Update progress to indicate GeoJSON generation start
     await progress_collection.update_one(
         {"_id": task_id},
-        {"$set": {"message": "Generating final GeoJSON output..."}},
+        {
+            "$set": {
+                "stage": "generating_geojson",
+                "message": "Generating final GeoJSON output...",
+            }
+        },
         # Don't upsert here, progress should exist from main task
     )
 
@@ -1833,6 +1967,8 @@ async def generate_and_store_geojson(
     )
     batch_num = 0
     total_features = 0
+    file_id = None  # Initialize file_id
+
     try:
         # Process streets in batches to build the features list
         async for street_batch in batch_cursor(
@@ -1868,8 +2004,36 @@ async def generate_and_store_geojson(
             f"Task {task_id}: Generated {total_features} features for {location_name} GeoJSON."
         )
 
+        if total_features == 0:
+            logger.warning(
+                f"Task {task_id}: No street features found for {location_name} to generate GeoJSON."
+            )
+            # Update metadata status to completed even if no features
+            await update_one_with_retry(
+                coverage_metadata_collection,
+                {"location.display_name": location_name},
+                {
+                    "$set": {
+                        "status": "completed",  # Mark as fully complete
+                        "last_updated": datetime.now(timezone.utc),
+                        "streets_geojson_gridfs_id": None,  # Explicitly set to None
+                    },
+                    "$unset": {"streets_data": ""},  # Ensure old field is removed
+                },
+            )
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "complete",
+                        "progress": 100,
+                        "message": "GeoJSON generation complete (0 features).",
+                    }
+                },
+            )
+            return  # Exit early
+
         # Fetch the latest aggregated stats from metadata to include
-        # These should have been updated by finalize_coverage just before this
         metadata_stats = await find_one_with_retry(
             coverage_metadata_collection,
             {"location.display_name": location_name},
@@ -1884,7 +2048,6 @@ async def generate_and_store_geojson(
             logger.error(
                 f"Task {task_id}: Could not retrieve metadata stats for {location_name} while generating GeoJSON."
             )
-            # Proceed without metadata, or handle error differently?
             metadata_stats = {}  # Use empty dict as fallback
 
         # Construct the final GeoJSON FeatureCollection object
@@ -1901,43 +2064,108 @@ async def generate_and_store_geojson(
             },
         }
 
-        # --- Store the GeoJSON in the metadata document ---
-        # WARNING: This can make the MongoDB document very large (> 16MB limit eventually).
-        # Consider alternatives for very large areas:
-        # 1. Store in GridFS and link the GridFS ID in the metadata.
-        # 2. Store in a separate collection keyed by location_name.
-        # 3. Store externally (e.g., S3) and link the URL.
-        # 4. Generate GeoJSON on-demand via a separate API endpoint (might be slow).
+        # --- Store the GeoJSON in GridFS ---
         logger.info(
-            f"Task {task_id}: Storing GeoJSON for {location_name} in metadata document..."
+            f"Task {task_id}: Storing GeoJSON for {location_name} in GridFS..."
         )
-        await update_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": location_name},
-            {"$set": {"streets_data": streets_geojson}},
-        )
-        logger.info(
-            f"Task {task_id}: Successfully stored GeoJSON for {location_name}."
-        )
+        try:
+            # Get GridFS bucket instance using db_manager
+            fs = (
+                db_manager.gridfs_bucket
+            )  # Assumes gridfs_bucket property exists in db.py
+            # Serialize using bson.json_util for proper handling of BSON types
+            geojson_bytes = bson.json_util.dumps(streets_geojson).encode("utf-8")
+            # Define filename for GridFS
+            gridfs_filename = (
+                f"{location_name.replace(' ', '_').replace(',', '')}_streets.geojson"
+            )
 
-        # Update progress message
-        await progress_collection.update_one(
-            {"_id": task_id},
-            {"$set": {"message": "GeoJSON generation complete."}},
-        )
+            # Upload data to GridFS
+            file_id = await fs.upload_from_stream(
+                gridfs_filename,
+                geojson_bytes,
+                metadata={
+                    "contentType": "application/json",
+                    "location": location_name,
+                },
+            )
+            logger.info(
+                f"Task {task_id}: Successfully stored GeoJSON in GridFS for {location_name} with file_id: {file_id}"
+            )
+
+            # --- Update Metadata with GridFS ID ---
+            await update_one_with_retry(
+                coverage_metadata_collection,
+                {"location.display_name": location_name},
+                {
+                    "$set": {
+                        "streets_geojson_gridfs_id": file_id,  # Store the GridFS file ID
+                        "status": "completed",  # Mark as fully complete now
+                        "last_updated": datetime.now(timezone.utc),
+                    },
+                    "$unset": {
+                        "streets_data": ""
+                    },  # Ensure old embedded field is removed
+                },
+            )
+            logger.info(
+                f"Task {task_id}: Updated metadata for {location_name} with GridFS ID."
+            )
+
+            # Update progress message
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "complete",
+                        "progress": 100,
+                        "message": "GeoJSON generation complete.",
+                    }
+                },
+            )
+
+        except Exception as store_err:
+            # This includes GridFS upload errors and metadata update errors
+            error_msg = f"Error storing GeoJSON or updating metadata: {store_err}"
+            logger.error(f"Task {task_id}: {error_msg}", exc_info=True)
+            # Update progress and metadata to indicate GeoJSON storage failure
+            await progress_collection.update_one(
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "error",
+                        "message": error_msg,
+                        "error": str(store_err),
+                    }
+                },
+            )
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": location_name},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": f"GeoJSON storage failed: {store_err}",
+                    }
+                },
+            )
 
     except Exception as e:
-        error_msg = f"Error generating/storing GeoJSON: {e}"
+        # Catch errors during feature generation or initial metadata fetch
+        error_msg = f"Error generating GeoJSON features: {e}"
         logger.error(f"Task {task_id}: {error_msg}", exc_info=True)
-        # Update progress and metadata to indicate GeoJSON failure
+        # Update progress and metadata to indicate GeoJSON generation failure
         await progress_collection.update_one(
             {"_id": task_id},
-            {"$set": {"message": error_msg, "error": str(e)}},
+            {"$set": {"stage": "error", "message": error_msg, "error": str(e)}},
         )
-        # Don't mark the main task as failed, just add error context to metadata
         await coverage_metadata_collection.update_one(
             {"location.display_name": location_name},
-            {"$set": {"last_error": f"GeoJSON generation failed: {e}"}},
+            {
+                "$set": {
+                    "status": "error",
+                    "last_error": f"GeoJSON generation failed: {e}",
+                }
+            },
         )
     finally:
         # Ensure cursor is closed
@@ -1946,6 +2174,8 @@ async def generate_and_store_geojson(
 
 
 # --- Bulk Update Function (Example - can be called by a Celery task) ---
+# NOTE: This function remains largely unchanged as it orchestrates calls to
+# compute_incremental_coverage, which itself calls generate_and_store_geojson.
 
 
 async def update_coverage_for_all_locations() -> Dict[str, Any]:
@@ -1961,7 +2191,9 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
 
     # Find all locations, prioritizing older ones or those with errors
     cursor = coverage_metadata_collection.find(
-        {"status": {"$ne": "processing"}},  # Avoid locations already being processed
+        {
+            "status": {"$nin": ["processing", "generating_geojson"]}
+        },  # Avoid locations already being processed or generating GeoJSON
         {"location": 1, "_id": 1, "last_updated": 1, "status": 1},
     ).sort(
         [("status", 1), ("last_updated", 1)]
@@ -1987,11 +2219,11 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
             coverage_metadata_collection,
             {
                 "_id": doc["_id"],
-                "status": {"$ne": "processing"},
+                "status": {"$nin": ["processing", "generating_geojson"]},
             },  # Condition: not already processing
             {
                 "$set": {
-                    "status": "processing",
+                    "status": "processing",  # Mark as processing stats
                     "last_updated": datetime.now(timezone.utc),
                     "last_error": None,
                 }
@@ -2013,9 +2245,10 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
             )
 
             if result:
-                # Status ('completed') is set within compute_incremental_coverage/finalize_coverage
+                # Status ('completed_stats') is set within compute_incremental_coverage/finalize_coverage
+                # GeoJSON generation is triggered separately.
                 logger.info(
-                    f"Successfully updated coverage for {display_name}: {result.get('coverage_percentage', 'N/A'):.2f}%"
+                    f"Successfully updated coverage stats for {display_name}: {result.get('coverage_percentage', 'N/A'):.2f}%"
                 )
                 results["updated"] += 1
                 results["locations"].append(
