@@ -19,6 +19,7 @@
       this.activeTaskIds = new Set(); // Keep track of tasks being polled
       this.validatedLocation = null; // Stores result from /api/validate_location
       this.currentFilter = "all"; // Track current map filter ('all', 'driven', 'undriven')
+      this.tooltips = []; // Store Bootstrap tooltip instances
 
       // Check for notification manager
       if (typeof window.notificationManager === "undefined") {
@@ -48,10 +49,189 @@
       // Initialize modals once DOM is ready
       document.addEventListener("DOMContentLoaded", () => {
         this.setupAutoRefresh();
+        this.checkForInterruptedTasks(); // Check for interrupted tasks on page load
+        this.setupConnectionMonitoring(); // Setup connection status monitoring
+        this.initTooltips(); // Initialize tooltips
       });
 
       this.setupEventListeners();
       this.loadCoverageAreas();
+    }
+
+    setupConnectionMonitoring() {
+      const handleConnectionChange = () => {
+        const isOnline = navigator.onLine;
+        const statusBar = document.createElement("div");
+        statusBar.className = `connection-status alert alert-${
+          isOnline ? "success" : "danger"
+        } alert-dismissible fade show`;
+        statusBar.innerHTML = `
+          <i class="fas fa-${
+            isOnline ? "wifi" : "exclamation-triangle"
+          } me-2"></i>
+          <strong>${isOnline ? "Connected" : "Offline"}</strong>
+          ${!isOnline ? " - Changes cannot be saved while offline" : ""}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+
+        // Remove existing status bars
+        document
+          .querySelectorAll(".connection-status")
+          .forEach((el) => el.remove());
+        document.querySelector("#alerts-container").appendChild(statusBar);
+
+        // Auto-hide after 5 seconds if connected
+        if (isOnline) {
+          setTimeout(() => {
+            statusBar.classList.remove("show");
+            setTimeout(() => statusBar.remove(), 500);
+          }, 5000);
+        }
+      };
+
+      window.addEventListener("online", handleConnectionChange);
+      window.addEventListener("offline", handleConnectionChange);
+
+      // Check initial state
+      if (!navigator.onLine) {
+        handleConnectionChange();
+      }
+    }
+
+    initTooltips() {
+      // Dispose any existing tooltips
+      this.tooltips.forEach((tooltip) => {
+        if (tooltip && typeof tooltip.dispose === "function") {
+          tooltip.dispose();
+        }
+      });
+      this.tooltips = [];
+
+      // Initialize tooltips on elements with data-bs-toggle="tooltip"
+      const tooltipTriggerList = document.querySelectorAll(
+        '[data-bs-toggle="tooltip"]'
+      );
+      this.tooltips = [...tooltipTriggerList].map((tooltipTriggerEl) => {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
+    }
+
+    enhanceResponsiveTables() {
+      const tables = document.querySelectorAll("#coverage-areas-table");
+      tables.forEach((table) => {
+        // Add data-labels for mobile view
+        const headers = Array.from(table.querySelectorAll("thead th")).map(
+          (th) => th.textContent.trim()
+        );
+        const rows = table.querySelectorAll("tbody tr");
+
+        rows.forEach((row) => {
+          const cells = row.querySelectorAll("td");
+          cells.forEach((cell, i) => {
+            if (headers[i]) {
+              cell.setAttribute("data-label", headers[i]);
+            }
+          });
+        });
+      });
+    }
+
+    checkForInterruptedTasks() {
+      // Check localStorage for any interrupted tasks
+      const savedProgress = localStorage.getItem("coverageProcessingState");
+      if (savedProgress) {
+        try {
+          const progressData = JSON.parse(savedProgress);
+          const now = new Date();
+          const savedTime = new Date(progressData.timestamp);
+
+          // Only restore if the saved state is recent (< 30 minutes)
+          if (now - savedTime < 30 * 60 * 1000) {
+            const location = progressData.location;
+
+            // Show notification with option to resume
+            const notification = document.createElement("div");
+            notification.className =
+              "alert alert-info alert-dismissible fade show";
+            notification.innerHTML = `
+              <h5><i class="fas fa-info-circle me-2"></i>Interrupted Task Found</h5>
+              <p>A processing task for <strong>${
+                location?.display_name || "Unknown Location"
+              }</strong> was interrupted.</p>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-primary resume-task">Resume Task</button>
+                <button class="btn btn-sm btn-secondary discard-task">Discard</button>
+              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+
+            // Add event listeners
+            notification
+              .querySelector(".resume-task")
+              .addEventListener("click", () => {
+                this.resumeInterruptedTask(progressData);
+                notification.remove();
+              });
+
+            notification
+              .querySelector(".discard-task")
+              .addEventListener("click", () => {
+                localStorage.removeItem("coverageProcessingState");
+                notification.remove();
+              });
+
+            // Insert at top of page
+            document
+              .querySelector("#alerts-container")
+              .appendChild(notification);
+          } else {
+            // If too old, just remove it
+            localStorage.removeItem("coverageProcessingState");
+          }
+        } catch (e) {
+          console.error("Error restoring saved progress:", e);
+          localStorage.removeItem("coverageProcessingState");
+        }
+      }
+    }
+
+    resumeInterruptedTask(savedData) {
+      if (!savedData.location) return;
+
+      this.currentProcessingLocation = savedData.location;
+      this.showProgressModal(
+        `Resuming processing for ${savedData.location.display_name}...`,
+        savedData.progress || 0
+      );
+
+      // Depending on what stage we were at, re-trigger the right operation
+      if (savedData.progress < 50) {
+        // Likely during preprocessing - restart
+        this.addCoverageArea();
+      } else {
+        // Likely during calculation - restart as full update
+        this.updateCoverageForArea(savedData.location, "full");
+      }
+    }
+
+    saveProcessingState() {
+      if (this.currentProcessingLocation) {
+        const progressBar = document.querySelector(".progress-bar");
+        const saveData = {
+          location: this.currentProcessingLocation,
+          taskId: this.task_id,
+          stage:
+            document.querySelector(".progress-message")?.textContent ||
+            "Processing",
+          progress: parseInt(progressBar?.getAttribute("aria-valuenow") || "0"),
+          timestamp: new Date().toISOString(),
+        };
+
+        localStorage.setItem(
+          "coverageProcessingState",
+          JSON.stringify(saveData)
+        );
+      }
     }
 
     setupEventListeners() {
@@ -77,6 +257,10 @@
           const addButton = document.getElementById("add-coverage-area");
           if (addButton) addButton.disabled = true;
           this.validatedLocation = null;
+
+          // Clear validation classes
+          const locationInput = document.getElementById("location-input");
+          locationInput.classList.remove("is-invalid", "is-valid");
         });
 
       // Refresh coverage areas when the progress modal is closed
@@ -90,7 +274,12 @@
             clearInterval(this.progressTimer);
             this.progressTimer = null;
           }
+          // Remove saved state
+          localStorage.removeItem("coverageProcessingState");
         });
+
+      // Save state on page unload
+      window.addEventListener("beforeunload", () => this.saveProcessingState());
 
       // Table action buttons (using event delegation)
       document
@@ -205,7 +394,13 @@
     async validateLocation() {
       const locationInputEl = document.getElementById("location-input");
       const locationInput = locationInputEl?.value.trim();
+
+      // Clear previous validation state
+      locationInputEl.classList.remove("is-invalid", "is-valid");
+
       if (!locationInput) {
+        // Show inline validation
+        locationInputEl.classList.add("is-invalid");
         window.notificationManager.show(
           "Please enter a location to validate.",
           "warning"
@@ -249,6 +444,7 @@
 
         if (!data || !data.osm_id) {
           // Check for essential data
+          locationInputEl.classList.add("is-invalid");
           window.notificationManager.show(
             "Location not found or invalid response. Please check your input.",
             "warning"
@@ -260,6 +456,7 @@
         }
 
         // Success
+        locationInputEl.classList.add("is-valid");
         this.validatedLocation = data;
         const addButton = document.getElementById("add-coverage-area");
         if (addButton) addButton.disabled = false;
@@ -269,6 +466,7 @@
         );
       } catch (error) {
         console.error("Error validating location:", error);
+        locationInputEl.classList.add("is-invalid");
         window.notificationManager.show(
           `Validation failed: ${error.message}. Please try again.`,
           "danger"
@@ -394,7 +592,10 @@
 
         // Reset input form
         const locationInput = document.getElementById("location-input");
-        if (locationInput) locationInput.value = "";
+        if (locationInput) {
+          locationInput.value = "";
+          locationInput.classList.remove("is-valid");
+        }
         this.validatedLocation = null;
         // Add button remains disabled until next validation
       } catch (error) {
@@ -421,6 +622,19 @@
           "warning"
         );
         return;
+      }
+
+      // Add confirmation dialog
+      const confirmed = await window.confirmationDialog.show({
+        title: "Cancel Processing",
+        message: `Are you sure you want to cancel processing for <strong>${locationToCancel.display_name}</strong>? This cannot be undone.`,
+        confirmText: "Yes, Cancel",
+        cancelText: "No, Continue Processing",
+        confirmButtonClass: "btn-danger",
+      });
+
+      if (!confirmed) {
+        return; // User chose not to cancel
       }
 
       window.notificationManager.show(
@@ -527,7 +741,15 @@
       if (this.progressTimer) {
         clearInterval(this.progressTimer);
       }
-      this.progressTimer = setInterval(() => this.updateTimingInfo(), 1000);
+
+      // Save state to localStorage periodically
+      this.progressTimer = setInterval(() => {
+        this.updateTimingInfo();
+        this.saveProcessingState();
+      }, 1000);
+
+      // Listen for page unload to save final state
+      window.addEventListener("beforeunload", () => this.saveProcessingState());
 
       modal.show();
     }
@@ -546,6 +768,15 @@
         clearInterval(this.progressTimer);
         this.progressTimer = null;
       }
+
+      // Remove saved state
+      localStorage.removeItem("coverageProcessingState");
+
+      // Remove unload listener
+      window.removeEventListener("beforeunload", () =>
+        this.saveProcessingState()
+      );
+
       // Clear processing context
       this.currentProcessingLocation = null;
       this.processingStartTime = null;
@@ -634,7 +865,6 @@
         estimatedTimeEl.textContent = `Est. remaining: ${estimatedText}`;
     }
 
-    // --- FIX: Update this function to always update UI elements ---
     updateModalContent(data) {
       const modalElement = document.getElementById("taskProgressModal");
       if (!modalElement) return; // Ensure modal exists
@@ -644,7 +874,7 @@
       const message = data.message || "";
       const error = data.error || null;
 
-      // Update progress bar
+      // Always update progress bar
       const progressBar = modalElement.querySelector(".progress-bar");
       if (progressBar) {
         progressBar.style.width = `${progress}%`;
@@ -664,11 +894,11 @@
         }
       }
 
-      // Update message - show error message if present
+      // Always update message - show error message if present
       const progressMessageEl = modalElement.querySelector(".progress-message");
       if (progressMessageEl) {
         progressMessageEl.textContent = error ? `Error: ${error}` : message;
-        progressMessageEl.classList.toggle("text-danger", !!error); // Add text-danger class on error
+        progressMessageEl.classList.toggle("text-danger", !!error);
       }
 
       // Update step indicators
@@ -685,7 +915,7 @@
         `;
       }
 
-      // Update stats information (e.g., trips processed)
+      // Always update stats information (e.g., trips processed)
       let statsText = "";
       const metrics = data.metrics || {}; // Use metrics from progress update if available
       if (metrics.total_trips_to_process > 0) {
@@ -702,13 +932,18 @@
             </div>
           </div>`;
       }
+
       // Add other stats if needed from metrics...
       if (metrics.newly_covered_segments !== undefined) {
         statsText += `<div class="mt-1 d-flex justify-content-between"><small>New Segments Covered:</small><small>${metrics.newly_covered_segments}</small></div>`;
       }
 
       const statsInfoEl = modalElement.querySelector(".stats-info");
-      if (statsInfoEl) statsInfoEl.innerHTML = statsText;
+      if (statsInfoEl) {
+        statsInfoEl.innerHTML =
+          statsText ||
+          '<div class="text-muted small">No processing metrics available yet</div>';
+      }
 
       // Stop animation and timer if complete or error
       if (stage === "complete" || stage === "error") {
@@ -737,7 +972,7 @@
 
       const steps = {
         initializing: modalElement.querySelector(".step-initializing"),
-        preprocessing: modalElement.querySelector(".step-preprocessing"), // Added preprocessing step
+        preprocessing: modalElement.querySelector(".step-preprocessing"),
         indexing: modalElement.querySelector(".step-indexing"),
         calculating: modalElement.querySelector(".step-calculating"),
         complete: modalElement.querySelector(".step-complete"),
@@ -888,6 +1123,12 @@
         if (!data.success)
           throw new Error(data.error || "API returned failure");
         this.constructor.updateCoverageTable(data.areas); // Use static method
+
+        // Apply responsive enhancements after table update
+        this.enhanceResponsiveTables();
+
+        // Re-initialize tooltips after table update
+        this.initTooltips();
       } catch (error) {
         console.error("Error loading coverage areas:", error);
         window.notificationManager.show(
@@ -958,7 +1199,7 @@
         );
 
         row.innerHTML = `
-          <td>
+          <td data-label="Location">
             <a href="#" class="location-name-link text-info fw-bold" data-location-id="${
               area._id
             }">
@@ -982,9 +1223,9 @@
                 : ""
             }
           </td>
-          <td class="text-end">${totalLengthMiles} mi</td>
-          <td class="text-end">${drivenLengthMiles} mi</td>
-          <td>
+          <td data-label="Total Length" class="text-end">${totalLengthMiles} mi</td>
+          <td data-label="Driven Length" class="text-end">${drivenLengthMiles} mi</td>
+          <td data-label="Coverage">
             <div class="progress" style="height: 20px;" title="${coveragePercentage}%">
               <div class="progress-bar ${progressBarColor}" role="progressbar"
                 style="width: ${coveragePercentage}%;"
@@ -994,28 +1235,30 @@
               </div>
             </div>
           </td>
-          <td class="text-end">${area.total_segments || 0}</td>
-          <td>${lastUpdated}</td>
-          <td>
+          <td data-label="Segments" class="text-end">${
+            area.total_segments || 0
+          }</td>
+          <td data-label="Last Updated">${lastUpdated}</td>
+          <td data-label="Actions">
             <div class="btn-group" role="group">
               <button class="btn btn-sm btn-success update-coverage-btn" title="Full Update (Recalculate All)" data-location='${escapedLocation}' ${
           isProcessing ? "disabled" : ""
-        }>
+        } data-bs-toggle="tooltip" data-bs-title="Full update - recalculates all coverage data">
                 <i class="fas fa-sync-alt"></i>
               </button>
               <button class="btn btn-sm btn-info update-incremental-btn" title="Quick Update (New Trips Only)" data-location='${escapedLocation}' ${
           isProcessing ? "disabled" : ""
-        }>
+        } data-bs-toggle="tooltip" data-bs-title="Quick update - only processes new trips">
                 <i class="fas fa-bolt"></i>
               </button>
               <button class="btn btn-sm btn-danger delete-area-btn" title="Delete Area" data-location='${escapedLocation}' ${
           isProcessing ? "disabled" : ""
-        }>
+        } data-bs-toggle="tooltip" data-bs-title="Remove this area and all its coverage data">
                 <i class="fas fa-trash-alt"></i>
               </button>
               ${
                 isProcessing
-                  ? `<button class="btn btn-sm btn-warning cancel-processing" title="Cancel Processing" data-location='${escapedLocation}'><i class="fas fa-stop-circle"></i></button>`
+                  ? `<button class="btn btn-sm btn-warning cancel-processing" title="Cancel Processing" data-location='${escapedLocation}' data-bs-toggle="tooltip" data-bs-title="Stop the current processing operation"><i class="fas fa-stop-circle"></i></button>`
                   : ""
               }
             </div>
@@ -1215,7 +1458,6 @@
       }, 7000); // Refresh every 7 seconds if something is processing
     }
 
-    // --- FIX: Always call updateModalContent ---
     async pollCoverageProgress(taskId) {
       const maxRetries = 360; // ~30 minutes (5s interval) - adjust as needed
       let retries = 0;
@@ -1292,7 +1534,6 @@
       throw new Error("Coverage calculation polling timed out");
     }
 
-    // --- FIX: Use 'street_name' ---
     async displayCoverageDashboard(locationId) {
       const dashboardContainer = document.getElementById("coverage-dashboard");
       const dashboardLocationName = document.getElementById(
@@ -1312,12 +1553,20 @@
         return;
       }
 
-      // Show loading state
-      dashboardLocationName.textContent = "Loading...";
-      mapContainer.innerHTML =
-        '<div class="text-center p-5"><i class="fas fa-spinner fa-spin fa-3x"></i><p>Loading map data...</p></div>';
+      // Improved loading indicator
+      dashboardContainer.style.display = "block"; // Make dashboard visible first
+      dashboardLocationName.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Loading...';
+      mapContainer.innerHTML = `
+        <div class="d-flex flex-column align-items-center justify-content-center p-5 text-center">
+          <div class="spinner-border text-info mb-3" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-info mb-0">Loading map data...</p>
+          <small class="text-muted">This may take a moment for large areas</small>
+        </div>
+      `;
       chartContainer.innerHTML = ""; // Clear chart area
-      dashboardContainer.style.display = "block"; // Make dashboard visible
 
       try {
         // Fetch detailed data
@@ -1363,34 +1612,44 @@
         if (needsReprocessing || !hasStreetData) {
           let statusMessage;
           if (hasError) {
-            statusMessage = `<h5><i class="fas fa-exclamation-circle me-2"></i>Error in Last Calculation</h5>
-               <p>${
-                 coverage.error_message || "An unknown error occurred."
-               }</p>`;
-          } else if (status === "completed" && !hasStreetData) {
-            // Calculation completed, but GeoJSON might still be generating or failed
-            statusMessage = `<h5><i class="fas fa-spinner fa-spin me-2"></i>Finalizing Map Data</h5>
-               <p class="mb-0">Coverage statistics calculated. Generating detailed map data...</p>
-               <p>This should complete shortly. If this message persists, the map data might have failed to generate.</p>`;
-            // Optionally trigger a delayed refresh
-            setTimeout(() => this.displayCoverageDashboard(locationId), 8000); // Refresh after 8 seconds
-          } else {
-            statusMessage = `<h5><i class="fas fa-exclamation-triangle me-2"></i>Street Map Data Not Available</h5>
-               <p class="mb-1">Detailed street map data is not yet available.</p>
-               <p class="small text-muted">This could be due to ongoing processing, a previous error, or the area having no streets.</p>`;
-          }
-
-          mapContainer.innerHTML = `
-            <div class="alert alert-warning mt-3">
-              ${statusMessage}
+            statusMessage = `<div class="alert alert-danger">
+              <h5><i class="fas fa-exclamation-circle me-2"></i>Error in Last Calculation</h5>
+              <p>${
+                coverage.error_message || "An unexpected error occurred."
+              }</p>
               <hr>
-              <p class="mb-1">You can try initiating an update:</p>
+              <p class="mb-1">Try running an update to resolve this issue:</p>
               <button class="update-missing-data-btn btn btn-sm btn-primary" data-location='${JSON.stringify(
                 coverage.location || {}
               ).replace(/'/g, "'")}'>
                 <i class="fas fa-sync-alt me-1"></i> Update Coverage Now
               </button>
             </div>`;
+          } else if (status === "completed" && !hasStreetData) {
+            // Calculation completed, but GeoJSON might still be generating or failed
+            statusMessage = `<div class="alert alert-info">
+              <h5><i class="fas fa-spinner fa-spin me-2"></i>Finalizing Map Data</h5>
+              <p>Coverage statistics calculated. Generating detailed map data...</p>
+              <div class="progress mt-2">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+              </div>
+            </div>`;
+
+            // Auto-refresh
+            setTimeout(() => this.displayCoverageDashboard(locationId), 8000); // Refresh after 8 seconds
+          } else {
+            statusMessage = `<div class="alert alert-warning">
+              <h5><i class="fas fa-exclamation-triangle me-2"></i>Map Data Not Available</h5>
+              <p>Please update the coverage data to generate the map:</p>
+              <button class="update-missing-data-btn btn btn-sm btn-primary" data-location='${JSON.stringify(
+                coverage.location || {}
+              ).replace(/'/g, "'")}'>
+                <i class="fas fa-sync-alt me-1"></i> Update Coverage Now
+              </button>
+            </div>`;
+          }
+
+          mapContainer.innerHTML = statusMessage;
           chartContainer.innerHTML =
             '<div class="alert alert-secondary">Chart requires map data.</div>'; // Clear chart area
 
@@ -1429,6 +1688,9 @@
           behavior: "smooth",
           block: "start",
         });
+
+        // Re-initialize tooltips after dashboard is shown
+        this.initTooltips();
       } catch (error) {
         console.error("Error displaying coverage dashboard:", error);
         dashboardLocationName.textContent = "Error Loading Data";
@@ -1598,7 +1860,6 @@
       });
     }
 
-    // --- FIX: Use 'street_name' ---
     addStreetsToMap(geojson) {
       if (!this.coverageMap) return; // Ensure map exists
 
@@ -1705,18 +1966,6 @@
         const mapContainer = document.getElementById("coverage-map");
         if (mapContainer) {
           mapContainer.appendChild(infoPanel);
-          // Add CSS dynamically if needed (or ensure it's in your main CSS)
-          if (!document.getElementById("map-info-panel-style")) {
-            const style = document.createElement("style");
-            style.id = "map-info-panel-style";
-            style.textContent = `
-                      .map-info-panel { position: absolute; z-index: 1000; background: rgba(40, 40, 40, 0.9); color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; pointer-events: none; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4); max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                      .map-info-panel .text-success { color: #4caf50 !important; }
-                      .map-info-panel .text-danger { color: #ff5252 !important; }
-                      .map-info-panel strong { color: #eee; }
-                  `;
-            document.head.appendChild(style);
-          }
         } else {
           console.error("Map container not found for info panel.");
           return; // Cannot add panel
@@ -1751,16 +2000,37 @@
           });
           targetLayer.bringToFront(); // Bring highlighted segment to front
 
-          // Show info panel content
+          // Enhanced tooltip content
           if (targetLayer.streetInfo) {
             infoPanel.innerHTML = `
-              <strong>${targetLayer.streetInfo.name}</strong><br>
-              <small>Type: ${this.formatStreetType(
-                targetLayer.streetInfo.type
-              )} | Len: ${targetLayer.streetInfo.length} mi</small><br>
-              <small>Status: <span class="${
-                targetLayer.streetInfo.driven ? "text-success" : "text-danger"
-              }">${targetLayer.streetInfo.status}</span></small>
+              <strong class="d-block mb-1">${
+                targetLayer.streetInfo.name
+              }</strong>
+              <div class="d-flex justify-content-between small">
+                <span>Type:</span>
+                <span class="text-info">${this.formatStreetType(
+                  targetLayer.streetInfo.type
+                )}</span>
+              </div>
+              <div class="d-flex justify-content-between small">
+                <span>Length:</span>
+                <span class="text-info">${
+                  targetLayer.streetInfo.length
+                } mi</span>
+              </div>
+              <div class="d-flex justify-content-between small">
+                <span>Status:</span>
+                <span class="${
+                  targetLayer.streetInfo.driven ? "text-success" : "text-danger"
+                }">
+                  <i class="fas fa-${
+                    targetLayer.streetInfo.driven
+                      ? "check-circle"
+                      : "times-circle"
+                  } me-1"></i>
+                  ${targetLayer.streetInfo.status}
+                </span>
+              </div>
             `;
             infoPanel.style.display = "block";
           }
@@ -2086,6 +2356,40 @@
 
       this.currentFilter = filterType;
       this.streetLayers.clearLayers(); // Clear previous layers from the group
+
+      // Provide better visual distinction for active filter
+      const filterButtons = {
+        all: document.getElementById("show-all-streets"),
+        driven: document.getElementById("show-driven-streets"),
+        undriven: document.getElementById("show-undriven-streets"),
+      };
+
+      Object.keys(filterButtons).forEach((key) => {
+        const btn = filterButtons[key];
+        if (!btn) return;
+
+        btn.classList.remove(
+          "active",
+          "btn-primary",
+          "btn-success",
+          "btn-danger"
+        );
+        btn.classList.add("btn-outline-secondary");
+
+        if (key === filterType) {
+          btn.classList.add("active");
+          if (key === "driven") {
+            btn.classList.remove("btn-outline-secondary");
+            btn.classList.add("btn-success");
+          } else if (key === "undriven") {
+            btn.classList.remove("btn-outline-secondary");
+            btn.classList.add("btn-danger");
+          } else {
+            btn.classList.remove("btn-outline-secondary");
+            btn.classList.add("btn-primary");
+          }
+        }
+      });
 
       const styleStreet = (feature) => {
         // Re-use the styling logic from addStreetsToMap

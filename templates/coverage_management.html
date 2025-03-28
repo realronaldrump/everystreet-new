@@ -9,6 +9,7 @@ block head_content %}
 />
 
 <style>
+  /* Base Styles */
   .processing-row {
     background-color: rgba(0, 123, 255, 0.1) !important;
   }
@@ -27,25 +28,34 @@ block head_content %}
     min-height: 400px;
   }
 
-  /* Step styling */
+  /* Connection Status Indicator */
+  .connection-status {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 1100;
+    max-width: 300px;
+  }
+
+  /* Step styling (updated for 5 steps) */
   .steps-container {
     position: relative;
   }
   .steps-container:after {
     content: "";
     position: absolute;
-    width: 76%;
+    width: 80%;
     height: 2px;
     background-color: #4a4a4a;
     top: 15px;
-    left: 12%;
+    left: 10%;
     z-index: 1;
   }
   .step {
     text-align: center;
     position: relative;
     z-index: 2;
-    width: 25%;
+    width: 20%;
   }
   .step-icon {
     width: 30px;
@@ -88,12 +98,101 @@ block head_content %}
   .step.error .step-label {
     color: #dc3545;
   }
+
+  /* Map Info Panel */
+  .map-info-panel {
+    position: absolute;
+    z-index: 1000;
+    background: rgba(40, 40, 40, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-left: 3px solid #007bff;
+  }
+  .map-info-panel .text-success {
+    color: #4caf50 !important;
+  }
+  .map-info-panel .text-danger {
+    color: #ff5252 !important;
+  }
+  .map-info-panel .text-info {
+    color: #17a2b8 !important;
+  }
+  .map-info-panel strong {
+    color: #fff;
+  }
+
+  /* Responsive Table Styles */
+  @media (max-width: 768px) {
+    .dashboard-stats-card {
+      order: 1;
+    }
+    .dashboard-map-card {
+      order: 0;
+      margin-bottom: 1rem;
+    }
+    .map-controls .btn {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+    }
+    .steps-container:after {
+      width: 60%;
+      left: 20%;
+    }
+    .step-label {
+      font-size: 10px;
+    }
+
+    /* Responsive tables */
+    #coverage-areas-table thead {
+      display: none;
+    }
+    #coverage-areas-table tbody tr {
+      display: block;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      border-radius: 0.25rem;
+    }
+    #coverage-areas-table tbody td {
+      display: block;
+      text-align: right;
+      padding-left: 50%;
+      position: relative;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    #coverage-areas-table td:before {
+      content: attr(data-label);
+      position: absolute;
+      left: 1rem;
+      width: 45%;
+      text-align: left;
+      font-weight: bold;
+    }
+    #coverage-areas-table td:last-child {
+      border-bottom: none;
+    }
+
+    /* Adjust map height on mobile */
+    #coverage-map {
+      height: 300px;
+    }
+  }
 </style>
 {% endblock %} {% block content %}
 <div class="container-fluid">
   <div class="row">
     <div class="col-12">
       <h2 class="mb-4">Coverage Areas Management</h2>
+
+      <!-- Alerts container for notifications and status -->
+      <div id="alerts-container"></div>
 
       <!-- Add New Area Card -->
       <div class="card bg-dark text-white mb-4">
@@ -108,6 +207,9 @@ block head_content %}
                   class="form-control location-input"
                   placeholder="Enter location (e.g. 'Waco, TX')"
                 />
+                <div class="invalid-feedback">
+                  Please enter a valid location.
+                </div>
               </div>
             </div>
             <div class="col-md-3">
@@ -122,10 +224,21 @@ block head_content %}
             </div>
             <div class="col-md-5">
               <div class="d-flex gap-2">
-                <button id="validate-location" class="btn btn-primary">
+                <button
+                  id="validate-location"
+                  class="btn btn-primary"
+                  data-bs-toggle="tooltip"
+                  title="Validate this location"
+                >
                   <i class="fas fa-check"></i> Validate Location
                 </button>
-                <button id="add-coverage-area" class="btn btn-success" disabled>
+                <button
+                  id="add-coverage-area"
+                  class="btn btn-success"
+                  disabled
+                  data-bs-toggle="tooltip"
+                  title="Add this location to coverage tracking"
+                >
                   <i class="fas fa-plus"></i> Add Area
                 </button>
               </div>
@@ -153,6 +266,16 @@ block head_content %}
               </thead>
               <tbody>
                 <!-- Coverage areas are populated dynamically by JavaScript -->
+                <tr>
+                  <td colspan="7" class="text-center fst-italic text-muted">
+                    <div class="my-4">
+                      <div class="spinner-border text-secondary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                      </div>
+                      <p class="mt-2">Loading coverage areas...</p>
+                    </div>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -173,7 +296,7 @@ block head_content %}
 
           <div class="row">
             <!-- Stats Overview -->
-            <div class="col-md-4">
+            <div class="col-md-4 dashboard-stats-card">
               <div class="card bg-darker text-white mb-3">
                 <div class="card-body">
                   <h4 class="h6 mb-3">Coverage Statistics</h4>
@@ -231,7 +354,7 @@ block head_content %}
             </div>
 
             <!-- Map View -->
-            <div class="col-md-8">
+            <div class="col-md-8 dashboard-map-card">
               <div class="card bg-darker text-white">
                 <div class="card-body">
                   <div
@@ -242,19 +365,25 @@ block head_content %}
                       <div class="btn-group btn-group-sm" role="group">
                         <button
                           id="show-all-streets"
-                          class="btn btn-outline-light active"
+                          class="btn btn-primary active"
+                          data-bs-toggle="tooltip"
+                          title="Show all streets"
                         >
                           All
                         </button>
                         <button
                           id="show-driven-streets"
                           class="btn btn-outline-success"
+                          data-bs-toggle="tooltip"
+                          title="Show only driven streets"
                         >
                           Driven
                         </button>
                         <button
                           id="show-undriven-streets"
                           class="btn btn-outline-danger"
+                          data-bs-toggle="tooltip"
+                          title="Show only undriven streets"
                         >
                           Undriven
                         </button>
@@ -265,29 +394,77 @@ block head_content %}
                   <div
                     class="d-flex justify-content-between align-items-center mt-2"
                   >
-                    <div class="map-legend d-flex align-items-center">
-                      <div
-                        style="
-                          width: 20px;
-                          height: 20px;
-                          background-color: #ff5252;
-                          margin-right: 5px;
-                        "
-                      ></div>
-                      <span class="me-3">Not Driven</span>
-                      <div
-                        style="
-                          width: 20px;
-                          height: 20px;
-                          background-color: #4caf50;
-                          margin-right: 5px;
-                        "
-                      ></div>
-                      <span>Driven</span>
+                    <!-- Enhanced Map Legend -->
+                    <div class="map-legend p-2 bg-darker rounded">
+                      <div class="row text-center g-2">
+                        <div class="col-auto d-flex align-items-center">
+                          <span class="badge bg-dark me-1">Street Types:</span>
+                        </div>
+                        <div class="col-auto d-flex align-items-center">
+                          <div
+                            style="
+                              width: 20px;
+                              height: 5px;
+                              background-color: #ccc;
+                              margin-right: 5px;
+                            "
+                          ></div>
+                          <small>Service</small>
+                        </div>
+                        <div class="col-auto d-flex align-items-center">
+                          <div
+                            style="
+                              width: 20px;
+                              height: 7px;
+                              background-color: #ccc;
+                              margin-right: 5px;
+                            "
+                          ></div>
+                          <small>Residential</small>
+                        </div>
+                        <div class="col-auto d-flex align-items-center">
+                          <div
+                            style="
+                              width: 20px;
+                              height: 9px;
+                              background-color: #ccc;
+                              margin-right: 5px;
+                            "
+                          ></div>
+                          <small>Major</small>
+                        </div>
+                        <div class="col-auto d-flex align-items-center">
+                          <span class="badge bg-dark me-1">Status:</span>
+                        </div>
+                        <div class="col-auto d-flex align-items-center">
+                          <div
+                            style="
+                              width: 15px;
+                              height: 15px;
+                              background-color: #ff5252;
+                              margin-right: 5px;
+                            "
+                          ></div>
+                          <small>Not Driven</small>
+                        </div>
+                        <div class="col-auto d-flex align-items-center">
+                          <div
+                            style="
+                              width: 15px;
+                              height: 15px;
+                              background-color: #4caf50;
+                              margin-right: 5px;
+                            "
+                          ></div>
+                          <small>Driven</small>
+                        </div>
+                      </div>
                     </div>
                     <button
                       id="export-coverage-map"
                       class="btn btn-sm btn-outline-light"
+                      data-bs-toggle="tooltip"
+                      title="Save the current map view as an image"
                     >
                       <i class="fas fa-download"></i> Export
                     </button>
@@ -310,6 +487,7 @@ block head_content %}
   role="dialog"
   aria-labelledby="taskProgressModalLabel"
   aria-hidden="true"
+  data-bs-backdrop="static"
 >
   <div class="modal-dialog">
     <div class="modal-content bg-dark text-white">
@@ -325,7 +503,7 @@ block head_content %}
         ></button>
       </div>
       <div class="modal-body">
-        <!-- Progress Steps -->
+        <!-- Progress Steps (Updated to match backend stages) -->
         <div class="steps-container mb-3 d-flex justify-content-between">
           <div class="step step-initializing">
             <div class="step-icon">
@@ -333,17 +511,23 @@ block head_content %}
             </div>
             <span class="step-label">Initialize</span>
           </div>
-          <div class="step step-loading">
+          <div class="step step-preprocessing">
             <div class="step-icon">
-              <i class="fas fa-map"></i>
+              <i class="fas fa-magic"></i>
             </div>
-            <span class="step-label">Load Data</span>
+            <span class="step-label">Preprocess</span>
           </div>
-          <div class="step step-processing">
+          <div class="step step-indexing">
             <div class="step-icon">
-              <i class="fas fa-road"></i>
+              <i class="fas fa-search-location"></i>
             </div>
-            <span class="step-label">Process</span>
+            <span class="step-label">Index</span>
+          </div>
+          <div class="step step-calculating">
+            <div class="step-icon">
+              <i class="fas fa-cogs"></i>
+            </div>
+            <span class="step-label">Calculate</span>
           </div>
           <div class="step step-complete">
             <div class="step-icon">
@@ -359,6 +543,9 @@ block head_content %}
             class="progress-bar progress-bar-striped progress-bar-animated"
             role="progressbar"
             style="width: 0%"
+            aria-valuenow="0"
+            aria-valuemin="0"
+            aria-valuemax="100"
           ></div>
         </div>
 
@@ -399,7 +586,7 @@ block head_content %}
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-<!-- Leaflet-image for exporting maps (optional) -->
+<!-- Leaflet-image for exporting maps -->
 <script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
 
 <script src="{{ url_for('static', path='js/coverage-management.js') | replace('http://', '//') }}"></script>
