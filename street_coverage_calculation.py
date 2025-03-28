@@ -383,9 +383,11 @@ class CoverageCalculator:
                     "total_length_m": round(self.total_length_calculated, 2),
                     "initial_covered_segments": len(self.initial_covered_segments),
                     "newly_covered_segments": len(self.newly_covered_segments),
-                    "rtree_items": self.streets_index.count(self.streets_index.bounds)
-                    if self.streets_index
-                    else 0,
+                    "rtree_items": (
+                        self.streets_index.count(self.streets_index.bounds)
+                        if self.streets_index
+                        else 0
+                    ),
                 },
             }
             if error:
@@ -605,9 +607,7 @@ class CoverageCalculator:
                 f"Task {self.task_id}: Critical error during spatial index build for {self.location_name}: {e}",
                 exc_info=True,
             )
-            await self.update_progress(
-                "error", 5, f"Error building spatial index: {e}"
-            )
+            await self.update_progress("error", 5, f"Error building spatial index: {e}")
             return False
         finally:
             # Ensure cursor is closed if Motor doesn't handle it automatically in all cases
@@ -677,9 +677,7 @@ class CoverageCalculator:
         )
 
         # --- Trip Querying ---
-        trip_filter: Dict[str, Any] = {
-            "gps": {"$exists": True, "$ne": None, "$ne": ""}
-        }
+        trip_filter: Dict[str, Any] = {"gps": {"$exists": True, "$ne": None, "$ne": ""}}
         bbox = self.location.get("boundingbox")
         if bbox and len(bbox) == 4:
             try:
@@ -776,9 +774,9 @@ class CoverageCalculator:
                 trips_cursor, self.trip_batch_size
             ):
                 batch_num += 1
-                valid_trips_in_batch: List[
-                    Tuple[str, List[Any]]
-                ] = []  # List of (trip_id, coords)
+                valid_trips_in_batch: List[Tuple[str, List[Any]]] = (
+                    []
+                )  # List of (trip_id, coords)
 
                 # Validate trips in the current batch
                 for trip_doc in trip_batch_docs:
@@ -802,9 +800,7 @@ class CoverageCalculator:
                 for i in range(
                     0, len(valid_trips_in_batch), self.trip_worker_sub_batch
                 ):
-                    sub_batch = valid_trips_in_batch[
-                        i : i + self.trip_worker_sub_batch
-                    ]
+                    sub_batch = valid_trips_in_batch[i : i + self.trip_worker_sub_batch]
                     sub_batch_coords = [coords for _, coords in sub_batch]
                     sub_batch_trip_ids = [tid for tid, _ in sub_batch]
 
@@ -938,9 +934,7 @@ class CoverageCalculator:
                             wrapped_futures.keys(), timeout=0.1
                         ):  # Short timeout
                             try:
-                                await (
-                                    wrapped_future
-                                )  # Wait for the wrapped future to complete
+                                await wrapped_future  # Wait for the wrapped future to complete
                                 original_future = wrapped_futures[wrapped_future]
                                 original_sub_batch = pending_futures_map.pop(
                                     original_future, []
@@ -1006,9 +1000,7 @@ class CoverageCalculator:
                                         sub_batch_trip_ids = [
                                             tid for tid, _ in original_sub_batch
                                         ]
-                                        processed_count_local += len(
-                                            original_sub_batch
-                                        )
+                                        processed_count_local += len(original_sub_batch)
                                         processed_trip_ids_set.update(
                                             sub_batch_trip_ids
                                         )
@@ -1395,9 +1387,7 @@ class CoverageCalculator:
                     "_id": "$properties.highway",  # Group key is highway type
                     "total_count": {"$sum": 1},  # Count total segments per type
                     "driven_count": {  # Count driven segments per type
-                        "$sum": {
-                            "$cond": [{"$eq": ["$properties.driven", True]}, 1, 0]
-                        }
+                        "$sum": {"$cond": [{"$eq": ["$properties.driven", True]}, 1, 0]}
                     },
                     "total_length": {
                         "$sum": "$properties.segment_length"
@@ -2065,9 +2055,7 @@ async def generate_and_store_geojson(
         }
 
         # --- Store the GeoJSON in GridFS ---
-        logger.info(
-            f"Task {task_id}: Storing GeoJSON for {location_name} in GridFS..."
-        )
+        logger.info(f"Task {task_id}: Storing GeoJSON for {location_name} in GridFS...")
         try:
             # Get GridFS bucket instance using db_manager
             fs = (
@@ -2209,9 +2197,7 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
         display_name = loc.get("display_name")
         # Generate a unique task ID for tracking this specific update run
         task_id = f"bulk_update_{display_name.replace(' ', '_')}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
-        logger.info(
-            f"Queueing incremental update for {display_name} (Task: {task_id})"
-        )
+        logger.info(f"Queueing incremental update for {display_name} (Task: {task_id})")
 
         # --- Prevent Concurrent Updates ---
         # Attempt to atomically set status to 'processing'
