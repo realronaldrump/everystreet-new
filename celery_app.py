@@ -208,7 +208,9 @@ app.conf.update(
 # --- Signal Handlers for Logging and Error Management ---
 @signals.task_failure.connect
 def task_failure_handler(sender=None, task_id=None, exception=None, **kwargs):
-    logger.error("Task %s failed: %s", task_id, exception)  # More informative error log
+    logger.error(
+        "Task %s failed: %s", task_id, exception
+    )  # More informative error log
 
 
 @signals.worker_ready.connect
@@ -225,7 +227,9 @@ def worker_shutdown_handler(**kwargs):
 
 @signals.beat_init.connect
 def beat_init_handler(**kwargs):
-    logger.info("Celery beat scheduler initialized and started.")  # Indicate beat start
+    logger.info(
+        "Celery beat scheduler initialized and started."
+    )  # Indicate beat start
 
 
 @signals.setup_logging.connect

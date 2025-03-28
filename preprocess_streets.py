@@ -214,7 +214,9 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
         return []
 
 
-async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -> None:
+async def process_osm_data(
+    osm_data: Dict[str, Any], location: Dict[str, Any]
+) -> None:
     """
     Convert OSM ways into segmented features and insert them into streets_collection.
     Also update coverage metadata.
@@ -306,7 +308,9 @@ async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -
                         f"Batch {batch_idx + 1} processing timed out, continuing with next batch"
                     )
                 except Exception as e:
-                    logger.error("Error processing batch %s: %s", batch_idx + 1, str(e))
+                    logger.error(
+                        "Error processing batch %s: %s", batch_idx + 1, str(e)
+                    )
 
         # Update coverage metadata once at the end
         if features:

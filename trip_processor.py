@@ -526,7 +526,9 @@ class TripProcessor:
                 if start_place:
                     # Create structured location
                     structured_start = LOCATION_SCHEMA.copy()
-                    structured_start["formatted_address"] = start_place.get("name", "")
+                    structured_start["formatted_address"] = start_place.get(
+                        "name", ""
+                    )
 
                     # Extract address components if available
                     for component in [
@@ -594,9 +596,9 @@ class TripProcessor:
 
                             for nominatim_key, our_key in component_mapping.items():
                                 if nominatim_key in addr:
-                                    structured_start["address_components"][our_key] = (
-                                        addr[nominatim_key]
-                                    )
+                                    structured_start["address_components"][
+                                        our_key
+                                    ] = addr[nominatim_key]
 
                         # Set coordinates
                         structured_start["coordinates"]["lng"] = start_coord[0]
@@ -760,7 +762,9 @@ class TripProcessor:
                 return False
 
             # Store matched result
-            self.processed_data["matchedGps"] = match_result["matchings"][0]["geometry"]
+            self.processed_data["matchedGps"] = match_result["matchings"][0][
+                "geometry"
+            ]
             self.processed_data["matched_at"] = datetime.now(timezone.utc)
 
             # Update state
@@ -1089,7 +1093,9 @@ class TripProcessor:
                 )
                 result = await match_chunk(chunk_coords, depth=0)
                 if result is None:
-                    msg = f"Chunk {cindex} of {len(chunk_indices)} failed map matching."
+                    msg = (
+                        f"Chunk {cindex} of {len(chunk_indices)} failed map matching."
+                    )
                     logger.error(msg)
                     return {"code": "Error", "message": msg}
                 if not final_matched:
@@ -1148,7 +1154,9 @@ class TripProcessor:
                             (end_sub - start_sub),
                         )
                         new_coords = (
-                            new_coords[:start_sub] + local_match + new_coords[end_sub:]
+                            new_coords[:start_sub]
+                            + local_match
+                            + new_coords[end_sub:]
                         )
                         offset += len(local_match) - (end_sub - start_sub)
                         fix_count += 1

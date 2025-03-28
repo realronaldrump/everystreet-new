@@ -13,3 +13,4 @@ exports/
 flower.db
 vibes.md
 .service_pids
+.vscode/settings.json

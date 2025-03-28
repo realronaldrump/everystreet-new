@@ -200,7 +200,8 @@ async def generate_geojson_osm(
             # Check against MongoDB's 16MB limit (with a small buffer)
             if bson_size_estimate <= 16793598:
                 existing_data = await find_one_with_retry(
-                    osm_data_collection, {"location": location, "type": osm_type_label}
+                    osm_data_collection,
+                    {"location": location, "type": osm_type_label},
                 )
 
                 if existing_data:

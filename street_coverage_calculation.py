@@ -282,7 +282,9 @@ class CoverageCalculator:
         self.initial_covered_segments: Set[str] = (
             set()
         )  # Segments driven *before* this run
-        self.newly_covered_segments: Set[str] = set()  # Segments covered *by this run*
+        self.newly_covered_segments: Set[str] = (
+            set()
+        )  # Segments covered *by this run*
         self.total_trips_to_process: int = 0
         self.processed_trips_count: int = 0
         self.trip_batch_counter: int = 0  # For throttling progress updates
@@ -510,7 +512,9 @@ class CoverageCalculator:
                 batch_num += 1
                 if not self.project_to_utm:
                     # This should have been caught by initialize_projections, but double-check
-                    raise ValueError("UTM projection not initialized during indexing.")
+                    raise ValueError(
+                        "UTM projection not initialized during indexing."
+                    )
 
                 # Process the batch (CPU-bound geometry operations)
                 # This part remains sequential for simplicity; parallelize if it becomes a bottleneck
@@ -575,7 +579,9 @@ class CoverageCalculator:
 
                 # --- Update Progress Periodically ---
                 # Progress for indexing stage (e.g., 5% to 50%)
-                current_progress_pct = 5 + (processed_count / total_streets_count * 45)
+                current_progress_pct = 5 + (
+                    processed_count / total_streets_count * 45
+                )
                 # Update roughly every 5% or on the last batch
                 if (current_progress_pct - last_progress_update_pct >= 5) or (
                     processed_count == total_streets_count
@@ -607,7 +613,9 @@ class CoverageCalculator:
                 f"Task {self.task_id}: Critical error during spatial index build for {self.location_name}: {e}",
                 exc_info=True,
             )
-            await self.update_progress("error", 5, f"Error building spatial index: {e}")
+            await self.update_progress(
+                "error", 5, f"Error building spatial index: {e}"
+            )
             return False
         finally:
             # Ensure cursor is closed if Motor doesn't handle it automatically in all cases
@@ -774,9 +782,9 @@ class CoverageCalculator:
                 trips_cursor, self.trip_batch_size
             ):
                 batch_num += 1
-                valid_trips_in_batch: List[Tuple[str, List[Any]]] = (
-                    []
-                )  # List of (trip_id, coords)
+                valid_trips_in_batch: List[
+                    Tuple[str, List[Any]]
+                ] = []  # List of (trip_id, coords)
 
                 # Validate trips in the current batch
                 for trip_doc in trip_batch_docs:
@@ -800,12 +808,16 @@ class CoverageCalculator:
                 for i in range(
                     0, len(valid_trips_in_batch), self.trip_worker_sub_batch
                 ):
-                    sub_batch = valid_trips_in_batch[i : i + self.trip_worker_sub_batch]
+                    sub_batch = valid_trips_in_batch[
+                        i : i + self.trip_worker_sub_batch
+                    ]
                     sub_batch_coords = [coords for _, coords in sub_batch]
                     sub_batch_trip_ids = [tid for tid, _ in sub_batch]
 
                     # --- Find Candidate Segments for Sub-batch ---
-                    candidate_segment_ids_map: Dict[int, List[str]] = defaultdict(list)
+                    candidate_segment_ids_map: Dict[int, List[str]] = defaultdict(
+                        list
+                    )
                     try:
                         # Use MultiPoint buffer for efficient bounds calculation
                         all_coords = [
@@ -866,7 +878,9 @@ class CoverageCalculator:
                             future = self.process_pool.submit(
                                 process_trip_worker,
                                 sub_batch_coords,
-                                dict(candidate_segment_ids_map),  # Convert defaultdict
+                                dict(
+                                    candidate_segment_ids_map
+                                ),  # Convert defaultdict
                                 self.utm_proj.to_string(),
                                 WGS84.to_string(),
                                 self.match_buffer,
@@ -934,7 +948,9 @@ class CoverageCalculator:
                             wrapped_futures.keys(), timeout=0.1
                         ):  # Short timeout
                             try:
-                                await wrapped_future  # Wait for the wrapped future to complete
+                                await (
+                                    wrapped_future
+                                )  # Wait for the wrapped future to complete
                                 original_future = wrapped_futures[wrapped_future]
                                 original_sub_batch = pending_futures_map.pop(
                                     original_future, []
@@ -1000,7 +1016,9 @@ class CoverageCalculator:
                                         sub_batch_trip_ids = [
                                             tid for tid, _ in original_sub_batch
                                         ]
-                                        processed_count_local += len(original_sub_batch)
+                                        processed_count_local += len(
+                                            original_sub_batch
+                                        )
                                         processed_trip_ids_set.update(
                                             sub_batch_trip_ids
                                         )
@@ -1112,9 +1130,7 @@ class CoverageCalculator:
 
                             processed_count_local += len(original_sub_batch)
                             processed_trip_ids_set.update(sub_batch_trip_ids)
-                        except (
-                            TimeoutError
-                        ):  # Should not happen with ALL_COMPLETED, but defensive check
+                        except TimeoutError:  # Should not happen with ALL_COMPLETED, but defensive check
                             logger.error(
                                 f"Task {self.task_id}: Worker task timed out (in final wait) for trips: {sub_batch_trip_ids}. Marking as processed."
                             )
@@ -1387,7 +1403,9 @@ class CoverageCalculator:
                     "_id": "$properties.highway",  # Group key is highway type
                     "total_count": {"$sum": 1},  # Count total segments per type
                     "driven_count": {  # Count driven segments per type
-                        "$sum": {"$cond": [{"$eq": ["$properties.driven", True]}, 1, 0]}
+                        "$sum": {
+                            "$cond": [{"$eq": ["$properties.driven", True]}, 1, 0]
+                        }
                     },
                     "total_length": {
                         "$sum": "$properties.segment_length"
@@ -1551,7 +1569,9 @@ class CoverageCalculator:
                 logger.error(
                     f"Task {self.task_id}: Projection initialization failed: {proj_err}"
                 )
-                await self.update_progress("error", 0, f"Projection Error: {proj_err}")
+                await self.update_progress(
+                    "error", 0, f"Projection Error: {proj_err}"
+                )
                 return None
 
             # --- Step 1: Build Index & Get Initial State ---
@@ -1584,7 +1604,9 @@ class CoverageCalculator:
                         metadata = await find_one_with_retry(
                             coverage_metadata_collection,
                             {"location.display_name": self.location_name},
-                            {"processed_trips.trip_ids": 1},  # Fetch only needed field
+                            {
+                                "processed_trips.trip_ids": 1
+                            },  # Fetch only needed field
                         )
                         if (
                             metadata
@@ -1637,7 +1659,9 @@ class CoverageCalculator:
                 f"Task {self.task_id}: Coverage computation ({run_type}) for {self.location_name} finished in {duration:.2f} seconds."
             )
 
-            return final_stats  # Contains aggregated stats, excludes GeoJSON GridFS ID
+            return (
+                final_stats  # Contains aggregated stats, excludes GeoJSON GridFS ID
+            )
 
         except Exception as e:
             logger.error(
@@ -2055,7 +2079,9 @@ async def generate_and_store_geojson(
         }
 
         # --- Store the GeoJSON in GridFS ---
-        logger.info(f"Task {task_id}: Storing GeoJSON for {location_name} in GridFS...")
+        logger.info(
+            f"Task {task_id}: Storing GeoJSON for {location_name} in GridFS..."
+        )
         try:
             # Get GridFS bucket instance using db_manager
             fs = db_manager.gridfs_bucket
@@ -2195,7 +2221,9 @@ async def update_coverage_for_all_locations() -> Dict[str, Any]:
         display_name = loc.get("display_name")
         # Generate a unique task ID for tracking this specific update run
         task_id = f"bulk_update_{display_name.replace(' ', '_')}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
-        logger.info(f"Queueing incremental update for {display_name} (Task: {task_id})")
+        logger.info(
+            f"Queueing incremental update for {display_name} (Task: {task_id})"
+        )
 
         # --- Prevent Concurrent Updates ---
         # Attempt to atomically set status to 'processing'

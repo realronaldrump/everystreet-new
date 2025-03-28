@@ -992,7 +992,12 @@ async def update_trip(trip_id: str, data: TripUpdateModel):
             other_collection = matched_trips_collection
             trip = await find_one_with_retry(
                 other_collection,
-                {"$or": [{"transactionId": trip_id}, {"transactionId": str(trip_id)}]},
+                {
+                    "$or": [
+                        {"transactionId": trip_id},
+                        {"transactionId": str(trip_id)},
+                    ]
+                },
             )
             if trip:
                 collection = other_collection
@@ -1023,7 +1028,12 @@ async def update_trip(trip_id: str, data: TripUpdateModel):
                         pass
 
             # Parse numeric fields
-            for field in ["distance", "maxSpeed", "totalIdleDuration", "fuelConsumed"]:
+            for field in [
+                "distance",
+                "maxSpeed",
+                "totalIdleDuration",
+                "fuelConsumed",
+            ]:
                 if field in props and props[field] is not None:
                     try:
                         props[field] = float(props[field])
@@ -2146,7 +2156,8 @@ async def export_streets(
             loc = json.loads(location)
         except json.JSONDecodeError:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid location JSON"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid location JSON",
             )
 
         # Use imported function
@@ -2184,7 +2195,8 @@ async def export_boundary(
             loc = json.loads(location)
         except json.JSONDecodeError:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid location JSON"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid location JSON",
             )
 
         # Use imported function
@@ -3020,7 +3032,8 @@ async def delete_coverage_area(location: LocationModel):
 
         if delete_result.deleted_count == 0:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Coverage area not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Coverage area not found",
             )
 
         return {"status": "success", "message": "Coverage area deleted successfully"}

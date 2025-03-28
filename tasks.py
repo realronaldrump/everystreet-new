@@ -346,7 +346,9 @@ class AsyncTask(Task):
 
 # Signal to set task status before it runs
 @task_prerun.connect
-def task_started(task_id: Optional[str] = None, task: Optional[Task] = None, **kwargs):
+def task_started(
+    task_id: Optional[str] = None, task: Optional[Task] = None, **kwargs
+):
     """Record when a task starts running and update its status."""
     if not task:
         return
@@ -823,7 +825,11 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
                 # Update the last success time in the config
                 await task_config_collection.update_one(
                     {"_id": "global_background_task_config"},
-                    {"$set": {"tasks.periodic_fetch_trips.last_success_time": now_utc}},
+                    {
+                        "$set": {
+                            "tasks.periodic_fetch_trips.last_success_time": now_utc
+                        }
+                    },
                     upsert=True,
                 )
 
@@ -986,7 +992,9 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
             batch_size = 500  # Process in batches to avoid memory issues
 
             # Process trips in batches
-            cursor = trips_collection.find({}, {"startTime": 1, "endTime": 1, "gps": 1})
+            cursor = trips_collection.find(
+                {}, {"startTime": 1, "endTime": 1, "gps": 1}
+            )
             while True:
                 batch = await cursor.to_list(length=batch_size)
                 if not batch:
@@ -1422,7 +1430,9 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
                 task_instance_id = f"{task_name}_manual_{uuid.uuid4()}"
 
                 # Get correct queue based on task priority
-                queue = f"{TASK_METADATA[task_name]['priority'].name.lower()}_priority"
+                queue = (
+                    f"{TASK_METADATA[task_name]['priority'].name.lower()}_priority"
+                )
 
                 # Use the Celery app instance from celery_app.py and specify the broker
                 result = celery_app.send_task(

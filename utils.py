@@ -65,7 +65,11 @@ def retry_async(
     max_retries=3,
     retry_delay=1.0,
     backoff_factor=2.0,
-    retry_exceptions=(ClientConnectorError, ClientResponseError, asyncio.TimeoutError),
+    retry_exceptions=(
+        ClientConnectorError,
+        ClientResponseError,
+        asyncio.TimeoutError,
+    ),
 ):
     """Decorator for retrying async functions on specified exceptions."""
 
@@ -167,7 +171,9 @@ def validate_trip_data(trip: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
 
 
 @retry_async(max_retries=3, retry_delay=2.0)
-async def reverse_geocode_nominatim(lat: float, lon: float) -> Optional[Dict[str, Any]]:
+async def reverse_geocode_nominatim(
+    lat: float, lon: float
+) -> Optional[Dict[str, Any]]:
     """Reverse geocode coordinates using OSM Nominatim."""
     url = "https://nominatim.openstreetmap.org/reverse"
     params = {
