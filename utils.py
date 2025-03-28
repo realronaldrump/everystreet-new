@@ -204,27 +204,67 @@ def haversine(
     lon1: float, lat1: float, lon2: float, lat2: float, unit: str = "meters"
 ) -> float:
     """Calculate the great-circle distance between two points."""
-    # Convert to radians
-    lon1_rad = math.radians(lon1)
-    lat1_rad = math.radians(lat1)
-    lon2_rad = math.radians(lon2)
-    lat2_rad = math.radians(lat2)
+    # Convert decimal degrees to radians
+    lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
 
     # Haversine formula
-    dlon = lon2_rad - lon1_rad
-    dlat = lat2_rad - lat1_rad
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
     a = (
         math.sin(dlat / 2) ** 2
-        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
     )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-    # Choose radius based on unit
-    if unit == "miles":
+    # Determine radius based on unit
+    if unit == "meters":
+        radius = EARTH_RADIUS_METERS
+    elif unit == "miles":
         radius = EARTH_RADIUS_MILES
     elif unit == "km":
         radius = EARTH_RADIUS_KM
-    else:  # meters
-        radius = EARTH_RADIUS_METERS
+    else:
+        raise ValueError("Invalid unit specified. Use 'meters', 'miles', or 'km'.")
 
-    return radius * c
+    distance = radius * c
+    return distance
+
+
+# --- Utility Functions Moved from app.py ---
+
+def meters_to_miles(meters: float) -> float:
+    """Convert meters to miles."""
+    # 1 mile = 1609.34 meters
+    return meters / 1609.34
+
+
+def calculate_distance(coordinates: list[list[float]]) -> float:
+    """
+    Calculate the total distance of a trip from a list of [lng, lat] coordinates.
+
+    Args:
+        coordinates: List of [longitude, latitude] coordinate pairs
+
+    Returns:
+        Total distance in miles
+    """
+    total_distance_meters = 0.0
+    # Ensure coordinates is treated as a list of lists
+    coords: list[list[float]] = coordinates if isinstance(coordinates, list) else [] 
+    
+    if not coords or not isinstance(coords[0], list):
+        logger.warning("Invalid coordinates format for distance calculation.")
+        return 0.0 # Or raise an error depending on desired behavior
+        
+    for i in range(len(coords) - 1):
+        try:
+            lon1, lat1 = coords[i]
+            lon2, lat2 = coords[i + 1]
+            # Use the haversine function defined in this module
+            total_distance_meters += haversine(lon1, lat1, lon2, lat2, unit="meters")
+        except (TypeError, ValueError, IndexError) as e:
+            logger.warning(f"Skipping coordinate pair due to error: {e} - Pair: {coords[i]}, {coords[i+1] if i+1 < len(coords) else 'N/A'}")
+            continue # Skip this segment if coordinates are malformed
+            
+    # Use the meters_to_miles function defined in this module
+    return meters_to_miles(total_distance_meters)

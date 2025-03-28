@@ -90,8 +90,7 @@ from tasks import (
 )
 from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
-from utils import cleanup_session, validate_location_osm
-from utils import haversine as haversine_util
+from utils import cleanup_session, validate_location_osm, calculate_distance
 from visits import init_collections
 from visits import router as visits_router
 
@@ -195,30 +194,6 @@ class TaskRunModel(BaseModel):
 class ValidateLocationModel(BaseModel):
     location: str
     locationType: str
-
-
-# --- Helper functions ---
-def meters_to_miles(meters: float) -> float:
-    """Convert meters to miles."""
-    return meters / 1609.34
-
-
-def calculate_distance(coordinates: List[List[float]]) -> float:
-    """
-    Calculate the total distance of a trip from a list of [lng, lat] coordinates.
-
-    Args:
-        coordinates: List of [longitude, latitude] coordinate pairs
-
-    Returns:
-        Total distance in miles
-    """
-    total_distance = 0.0
-    for i in range(len(coordinates) - 1):
-        lon1, lat1 = coordinates[i]
-        lon2, lat2 = coordinates[i + 1]
-        total_distance += haversine_util(lon1, lat1, lon2, lat2, unit="miles")
-    return total_distance
 
 
 # --- Coverage Calculation Orchestration ---
@@ -2504,9 +2479,8 @@ async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
                             times = [p.time for p in seg.points if p.time]
                             if not times:
                                 continue
-
-                            start_t = min(times)
-                            end_t = max(times)
+                            st = min(times)
+                            en = max(times)
 
                             # Convert points to format expected by TripProcessor
                             coord_data = []
@@ -2524,9 +2498,9 @@ async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
                             # Set source to 'upload_gpx'
                             trip_data = await TripProcessor.process_from_coordinates(
                                 coord_data,
-                                start_time=start_t,
-                                end_time=end_t,
-                                transaction_id=f"GPX-{start_t.strftime('%Y%m%d%H%M%S')}-{filename}",
+                                start_time=st,
+                                end_time=en,
+                                transaction_id=f"GPX-{st.strftime('%Y%m%d%H%M%S')}-{filename}",
                                 imei="UPLOADED",
                                 source="upload_gpx",  # <-- Set source
                                 mapbox_token=MAPBOX_ACCESS_TOKEN,
