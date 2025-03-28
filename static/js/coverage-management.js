@@ -674,7 +674,8 @@
 
         if (!response.ok) {
           throw new Error(
-            data.detail || `Failed to send cancel request (HTTP ${response.status})`
+            data.detail ||
+              `Failed to send cancel request (HTTP ${response.status})`
           );
         }
 
@@ -1035,7 +1036,7 @@
           if (steps.initializing) steps.initializing.classList.add("complete");
           if (steps.preprocessing)
             steps.preprocessing.classList.add("complete");
-          if (steps.indexing) steps.indexing.classList.add("error"); // Assume error during indexing/calc
+          if (steps.indexing) steps.indexing.classList.add("error");
           if (steps.calculating) steps.calculating.classList.add("error");
         } else {
           // Error during finalization
@@ -2111,7 +2112,8 @@
         infoPanel.style.boxShadow = "0 1px 5px rgba(0,0,0,0.4)";
         infoPanel.style.maxWidth = "200px"; // Prevent it from getting too wide
 
-        const mapContainer = document.getElementById("coverage-map")?.parentNode; // Append to parent for positioning
+        const mapContainer =
+          document.getElementById("coverage-map")?.parentNode; // Append to parent for positioning
         if (mapContainer) {
           mapContainer.style.position = "relative"; // Needed for absolute positioning of child
           mapContainer.appendChild(infoPanel);

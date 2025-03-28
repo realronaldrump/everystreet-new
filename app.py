@@ -35,8 +35,8 @@ from fastapi import (
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from gridfs.errors import NoFile  # <-- Add this for error handling
-from motor.motor_asyncio import AsyncIOMotorGridFSBucket  # <-- Add this
+from gridfs.errors import NoFile
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from pydantic import BaseModel, Field
 
 # Local module imports
@@ -326,7 +326,9 @@ async def fetch_all_trips_no_filter() -> List[dict]:
 async def add_header(request: Request, call_next):
     """Add cache control headers to all responses."""
     response = await call_next(request)
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Cache-Control"] = (
+        "no-store, no-cache, must-revalidate, max-age=0"
+    )
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
@@ -735,7 +737,9 @@ async def get_task_history(page: int = 1, limit: int = 10):
                 entry.get("timestamp")
             )
             if "runtime" in entry:
-                entry["runtime"] = float(entry["runtime"]) if entry["runtime"] else None
+                entry["runtime"] = (
+                    float(entry["runtime"]) if entry["runtime"] else None
+                )
             history.append(entry)
 
         return {
@@ -1102,7 +1106,9 @@ async def get_incremental_street_coverage(location: LocationModel):
         )
         return {"task_id": task_id, "status": "processing"}
     except Exception as e:
-        logger.exception("Error in incremental street coverage calculation: %s", str(e))
+        logger.exception(
+            "Error in incremental street coverage calculation: %s", str(e)
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -1852,14 +1858,12 @@ async def get_matched_trips(request: Request):
                         "timeZone": trip.get("timeZone", "UTC"),
                         "destination": trip.get("destination", "N/A"),
                         "startLocation": trip.get("startLocation", "N/A"),
-                        # Add speed metrics for consistent display in popups
                         "maxSpeed": float(trip.get("maxSpeed", 0)),
                         "averageSpeed": (
                             float(trip.get("averageSpeed", 0))
                             if trip.get("averageSpeed") is not None
                             else None
                         ),
-                        # Add any other relevant metrics that should be displayed consistently
                         "hardBrakingCount": trip.get("hardBrakingCount", 0),
                         "hardAccelerationCount": trip.get("hardAccelerationCount", 0),
                         "totalIdleDurationFormatted": trip.get(
@@ -1938,7 +1942,9 @@ async def remap_matched_trips(data: Optional[DateRangeModel] = None):
             data = DateRangeModel(start_date="", end_date="", interval_days=0)
 
         if data.interval_days > 0:
-            start_date = datetime.now(timezone.utc) - timedelta(days=data.interval_days)
+            start_date = datetime.now(timezone.utc) - timedelta(
+                days=data.interval_days
+            )
             end_date = datetime.now(timezone.utc)
         else:
             start_date = parse_query_date(data.start_date)
@@ -3005,7 +3011,9 @@ async def active_trip_endpoint():
         }
     except Exception as e:
         error_id = str(uuid.uuid4())
-        logger.exception("Error in get_active_trip endpoint [%s]: %s", error_id, str(e))
+        logger.exception(
+            "Error in get_active_trip endpoint [%s]: %s", error_id, str(e)
+        )
         return {
             "status": "error",
             "has_active_trip": False,
@@ -3291,7 +3299,7 @@ async def get_coverage_area_details(location_id: str):
                 gridfs_stream = await fs.open_download_stream(gridfs_id)
                 # Read the data
                 geojson_data_bytes = await gridfs_stream.read()
-                # Deserialize (assuming it was stored as JSON string)
+                # Deserialize
                 streets_geojson = json.loads(geojson_data_bytes.decode("utf-8"))
                 # Validate basic structure
                 if isinstance(streets_geojson, dict) and isinstance(
