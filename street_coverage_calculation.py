@@ -677,7 +677,7 @@ class CoverageCalculator:
         )
 
         # --- Trip Querying ---
-        trip_filter: Dict[str, Any] = {"gps": {"$exists": True, "$ne": None, "$ne": ""}}
+        trip_filter: Dict[str, Any] = {"gps": {"$exists": True, "$nin": [None, ""]}}
         bbox = self.location.get("boundingbox")
         if bbox and len(bbox) == 4:
             try:
