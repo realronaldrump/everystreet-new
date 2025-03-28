@@ -20,6 +20,7 @@
       this.validatedLocation = null; // Stores result from /api/validate_location
       this.currentFilter = "all"; // Track current map filter ('all', 'driven', 'undriven')
       this.tooltips = []; // Store Bootstrap tooltip instances
+      this.highlightedLayer = null; // Track the currently highlighted map layer
 
       // Check for notification manager
       if (typeof window.notificationManager === "undefined") {
@@ -673,8 +674,7 @@
 
         if (!response.ok) {
           throw new Error(
-            data.detail ||
-              `Failed to send cancel request (HTTP ${response.status})`
+            data.detail || `Failed to send cancel request (HTTP ${response.status})`
           );
         }
 
@@ -1664,7 +1664,9 @@
         else if (
           status === "processing" ||
           status === "preprocessing" ||
-          status === "calculating"
+          status === "calculating" ||
+          status === "indexing" ||
+          status === "finalizing"
         )
           titleText += ' <span class="badge bg-info">Processing...</span>';
         else if (status === "completed" && !hasStreetData)
@@ -1988,15 +1990,9 @@
           const status = props.driven ? "Driven" : "Not Driven";
           const segmentId = props.segment_id || "N/A";
 
-          // Store info for hover effect
-          layer.streetInfo = {
-            name: streetName,
-            type: streetType,
-            length: lengthMiles,
-            status: status,
-            driven: props.driven,
-            segmentId: segmentId,
-          };
+          // Store original style for resetting highlight
+          // Note: layer.options contains the style set by the 'style' function
+          layer.originalStyle = { ...layer.options };
 
           // Create popup content
           layer.bindPopup(
@@ -2016,6 +2012,78 @@
           `,
             { closeButton: false, minWidth: 150 }
           ); // Add some options
+
+          // --- ADD Click handler for highlighting ---
+          layer.on("click", (e) => {
+            const clickedLayer = e.target;
+            const infoPanel = document.querySelector(".map-info-panel"); // Find the panel
+
+            // Reset previously highlighted layer
+            if (
+              this.highlightedLayer &&
+              this.highlightedLayer !== clickedLayer
+            ) {
+              try {
+                this.highlightedLayer.setStyle(
+                  this.highlightedLayer.originalStyle
+                );
+              } catch (styleError) {
+                console.warn(
+                  "Could not reset style on previously highlighted layer:",
+                  styleError
+                );
+              }
+            }
+
+            // If clicking the already highlighted layer, toggle it off
+            if (this.highlightedLayer === clickedLayer) {
+              clickedLayer.setStyle(clickedLayer.originalStyle); // Reset style
+              this.highlightedLayer = null;
+              if (infoPanel) infoPanel.style.display = "none"; // Hide panel
+            } else {
+              // Highlight the new layer
+              const highlightStyle = {
+                ...clickedLayer.originalStyle, // Start with original style (color, etc.)
+                weight: (clickedLayer.originalStyle.weight || 3) + 2, // Increase weight
+                opacity: 1, // Max opacity
+              };
+              clickedLayer.setStyle(highlightStyle);
+              clickedLayer.bringToFront();
+              this.highlightedLayer = clickedLayer;
+
+              // Update and show the info panel
+              if (infoPanel) {
+                infoPanel.innerHTML = `
+                  <strong class="d-block mb-1">${streetName}</strong>
+                  <div class="d-flex justify-content-between small">
+                    <span>Type:</span>
+                    <span class="text-info">${this.formatStreetType(
+                      streetType
+                    )}</span>
+                  </div>
+                  <div class="d-flex justify-content-between small">
+                    <span>Length:</span>
+                    <span class="text-info">${lengthMiles} mi</span>
+                  </div>
+                  <div class="d-flex justify-content-between small">
+                    <span>Status:</span>
+                    <span class="${
+                      props.driven ? "text-success" : "text-danger"
+                    }">
+                      <i class="fas fa-${
+                        props.driven ? "check-circle" : "times-circle"
+                      } me-1"></i>
+                      ${status}
+                    </span>
+                  </div>
+                  <div class="d-flex justify-content-between small">
+                     <span>ID:</span>
+                     <span class="text-muted">${segmentId}</span>
+                  </div>`;
+                infoPanel.style.display = "block"; // Show panel
+              }
+            }
+          });
         },
       }).addTo(this.streetLayers); // Add to the layer group
 
@@ -2028,113 +2096,39 @@
       if (!this.coverageMap || !this.streetLayers) return;
 
       let infoPanel = document.querySelector(".map-info-panel");
-      // Create info panel if it doesn't exist
+      // Create info panel if it doesn't exist (but don't add listeners here)
       if (!infoPanel) {
-        infoPanel = L.DomUtil.create("div", "map-info-panel");
+        infoPanel = L.DomUtil.create("div", "map-info-panel info-panel"); // Added 'info-panel' class
         infoPanel.style.display = "none"; // Initially hidden
-        const mapContainer = document.getElementById("coverage-map");
+        // Style the panel a bit
+        infoPanel.style.position = "absolute";
+        infoPanel.style.top = "10px";
+        infoPanel.style.right = "10px";
+        infoPanel.style.zIndex = "1000"; // Ensure it's above map layers
+        infoPanel.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
+        infoPanel.style.padding = "8px 12px";
+        infoPanel.style.borderRadius = "4px";
+        infoPanel.style.boxShadow = "0 1px 5px rgba(0,0,0,0.4)";
+        infoPanel.style.maxWidth = "200px"; // Prevent it from getting too wide
+
+        const mapContainer = document.getElementById("coverage-map")?.parentNode; // Append to parent for positioning
         if (mapContainer) {
+          mapContainer.style.position = "relative"; // Needed for absolute positioning of child
           mapContainer.appendChild(infoPanel);
         } else {
-          console.error("Map container not found for info panel.");
+          console.error("Map container parent not found for info panel.");
           return; // Cannot add panel
         }
       }
 
-      this.streetLayers.eachLayer((layer) => {
-        // Ensure original style is stored correctly
-        if (
-          !layer.originalStyle &&
-          layer.options &&
-          typeof layer.options.weight === "number"
-        ) {
-          layer.originalStyle = { ...layer.options };
-        } else if (!layer.originalStyle) {
-          // Fallback if options aren't as expected
-          layer.originalStyle = {
-            weight: 3,
-            opacity: 0.8,
-            color: layer.options?.color || "#ccc",
-          };
-        }
-
-        layer.off("mouseover mouseout mousemove"); // Remove previous listeners
-
-        layer.on("mouseover", (e) => {
-          const targetLayer = e.target;
-          // Highlight: Increase weight and opacity
-          targetLayer.setStyle({
-            weight: (targetLayer.originalStyle.weight || 3) + 2, // Use original weight
-            opacity: 1,
-          });
-          targetLayer.bringToFront(); // Bring highlighted segment to front
-
-          // Enhanced tooltip content
-          if (targetLayer.streetInfo) {
-            infoPanel.innerHTML = `
-              <strong class="d-block mb-1">${
-                targetLayer.streetInfo.name
-              }</strong>
-              <div class="d-flex justify-content-between small">
-                <span>Type:</span>
-                <span class="text-info">${this.formatStreetType(
-                  targetLayer.streetInfo.type
-                )}</span>
-              </div>
-              <div class="d-flex justify-content-between small">
-                <span>Length:</span>
-                <span class="text-info">${
-                  targetLayer.streetInfo.length
-                } mi</span>
-              </div>
-              <div class="d-flex justify-content-between small">
-                <span>Status:</span>
-                <span class="${
-                  targetLayer.streetInfo.driven ? "text-success" : "text-danger"
-                }">
-                  <i class="fas fa-${
-                    targetLayer.streetInfo.driven
-                      ? "check-circle"
-                      : "times-circle"
-                  } me-1"></i>
-                  ${targetLayer.streetInfo.status}
-                </span>
-              </div>
-            `;
-            infoPanel.style.display = "block";
-          }
-        });
-
-        layer.on("mouseout", (e) => {
-          // Reset style using stored original style
-          if (e.target.originalStyle) {
-            e.target.setStyle(e.target.originalStyle);
-          }
-          // Hide info panel
-          infoPanel.style.display = "none";
-        });
-
-        layer.on("mousemove", (e) => {
-          // Update info panel position relative to map container
-          const mapContainer = document.getElementById("coverage-map");
-          if (!mapContainer) return;
-          const rect = mapContainer.getBoundingClientRect();
-          // Position slightly offset from cursor
-          let x = e.originalEvent.clientX - rect.left + 15;
-          let y = e.originalEvent.clientY - rect.top + 15;
-
-          // Prevent panel from going off-screen
-          if (x + infoPanel.offsetWidth > mapContainer.offsetWidth) {
-            x -= infoPanel.offsetWidth + 30; // Move to left of cursor
-          }
-          if (y + infoPanel.offsetHeight > mapContainer.offsetHeight) {
-            y -= infoPanel.offsetHeight + 30; // Move above cursor
-          }
-
-          infoPanel.style.left = `${x}px`;
-          infoPanel.style.top = `${y}px`;
-        });
-      });
+      // --- REMOVED HOVER LISTENERS ---
+      // this.streetLayers.eachLayer((layer) => {
+      //   ... store original style ...
+      //   layer.off("mouseover mouseout mousemove");
+      //   layer.on("mouseover", (e) => { ... highlight logic ... update panel ... });
+      //   layer.on("mouseout", (e) => { ... reset style logic ... hide panel ... });
+      //   layer.on("mousemove", (e) => { ... update panel position ... });
+      // });
     }
 
     addCoverageSummary(coverage) {
