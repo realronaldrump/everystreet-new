@@ -1149,7 +1149,7 @@ class CoverageCalculator:
                         try:
                             # Cancel the asyncio wrapper; the underlying concurrent future might still run
                             wrapped_pending_future.cancel()
-                        except:
+                        except Exception:
                             pass
 
                 except Exception as final_gather_err:
