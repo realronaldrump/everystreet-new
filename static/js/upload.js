@@ -106,7 +106,7 @@ class UploadManager {
 
     this.state.previewMap = L.map(this.elements.previewMapElement).setView(
       this.config.map.defaultCenter,
-      this.config.map.defaultZoom
+      this.config.map.defaultZoom,
     );
 
     L.tileLayer(this.config.map.tileLayerUrl, {
@@ -158,7 +158,7 @@ class UploadManager {
 
     // File input change
     fileInput.addEventListener("change", () =>
-      this.handleFiles(fileInput.files)
+      this.handleFiles(fileInput.files),
     );
   }
 
@@ -262,7 +262,7 @@ class UploadManager {
           // Use notification manager for user feedback
           window.notificationManager.show(
             `Unsupported file type: ${file.name}. Only .gpx and .geojson files are supported.`,
-            "warning"
+            "warning",
           );
           this.loadingManager.updateSubOperation("parsing", index + 1); // Still update progress even if skipped
           resolve(); // Resolve so Promise.all doesn't fail for unsupported types
@@ -335,7 +335,7 @@ class UploadManager {
           }
         } else {
           throw new Error(
-            `No track points (trkpt) or route points (rtept) found in ${file.name}`
+            `No track points (trkpt) or route points (rtept) found in ${file.name}`,
           );
         }
       } else {
@@ -382,7 +382,7 @@ class UploadManager {
       this.loadingManager.error("Error parsing GPX file: " + file.name);
       window.notificationManager.show(
         `Error parsing ${file.name}: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -415,7 +415,7 @@ class UploadManager {
         this.processGeoJSONGeometry(geojsonData, file);
       } else {
         throw new Error(
-          "Unsupported GeoJSON type. Must be FeatureCollection, Feature, or LineString."
+          "Unsupported GeoJSON type. Must be FeatureCollection, Feature, or LineString.",
         );
       }
     } catch (error) {
@@ -423,7 +423,7 @@ class UploadManager {
       this.loadingManager.error("Error parsing GeoJSON file: " + file.name);
       window.notificationManager.show(
         `Error parsing ${file.name}: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -443,7 +443,7 @@ class UploadManager {
       console.warn(
         `Skipping invalid or non-LineString feature ${index + 1} in ${
           file.name
-        }`
+        }`,
       );
       return;
     }
@@ -453,7 +453,7 @@ class UploadManager {
       console.warn(
         `Skipping feature ${index + 1} in ${
           file.name
-        } due to insufficient coordinates.`
+        } due to insufficient coordinates.`,
       );
       return;
     }
@@ -467,13 +467,13 @@ class UploadManager {
       startTime: properties.start_time
         ? new Date(properties.start_time)
         : properties.coordTimes && properties.coordTimes.length > 0
-        ? new Date(properties.coordTimes[0])
-        : null,
+          ? new Date(properties.coordTimes[0])
+          : null,
       endTime: properties.end_time
         ? new Date(properties.end_time)
         : properties.coordTimes && properties.coordTimes.length > 0
-        ? new Date(properties.coordTimes[properties.coordTimes.length - 1])
-        : null,
+          ? new Date(properties.coordTimes[properties.coordTimes.length - 1])
+          : null,
       points: coordinates.length,
       coordinates,
       type: "geojson",
@@ -499,7 +499,7 @@ class UploadManager {
     const coordinates = geometry.coordinates;
     if (!Array.isArray(coordinates) || coordinates.length < 2) {
       console.warn(
-        `Skipping geometry in ${file.name} due to insufficient coordinates.`
+        `Skipping geometry in ${file.name} due to insufficient coordinates.`,
       );
       return;
     }
@@ -536,8 +536,8 @@ class UploadManager {
       row.innerHTML = `
         <td>${entry.filename}</td>
         <td>${entry.startTime ? entry.startTime.toLocaleString() : "N/A"} - ${
-        entry.endTime ? entry.endTime.toLocaleString() : "N/A"
-      }</td>
+          entry.endTime ? entry.endTime.toLocaleString() : "N/A"
+        }</td>
         <td>${entry.points}</td>
         <td>Pending</td>
         <td><button class="btn btn-sm btn-danger" onclick="uploadManager.removeFile(${index})">Remove</button></td>
@@ -567,19 +567,19 @@ class UploadManager {
           Array.isArray(coord) &&
           coord.length >= 2 &&
           !isNaN(coord[0]) &&
-          !isNaN(coord[1])
+          !isNaN(coord[1]),
       );
 
       if (validCoords.length < 2) {
         console.warn(
-          `Skipping preview for ${entry.filename}: Insufficient valid coordinates.`
+          `Skipping preview for ${entry.filename}: Insufficient valid coordinates.`,
         );
         return;
       }
 
       const latlngs = validCoords.map((coord) => [coord[1], coord[0]]); // Leaflet uses [lat, lon]
       const polyline = L.polyline(latlngs, { color: "red" }).addTo(
-        previewLayer
+        previewLayer,
       );
 
       // Add tooltip
@@ -597,7 +597,7 @@ class UploadManager {
         if (confirmed) {
           // Find the actual index in the current state array
           const currentIndex = this.state.selectedFiles.findIndex(
-            (e) => e === entry
+            (e) => e === entry,
           );
           if (currentIndex !== -1) {
             this.removeFile(currentIndex); // Use the removeFile method
@@ -614,14 +614,14 @@ class UploadManager {
         // Fallback zoom if bounds are invalid
         previewMap.setView(
           this.config.map.defaultCenter,
-          this.config.map.defaultZoom
+          this.config.map.defaultZoom,
         );
       }
     } else {
       // Reset view if no layers
       previewMap.setView(
         this.config.map.defaultCenter,
-        this.config.map.defaultZoom
+        this.config.map.defaultZoom,
       );
     }
   }
@@ -654,7 +654,7 @@ class UploadManager {
     if (totalPointsSpan) {
       const totalPoints = selectedFiles.reduce(
         (sum, entry) => sum + (entry.points || 0), // Handle potential undefined points
-        0
+        0,
       );
       totalPointsSpan.textContent = totalPoints.toLocaleString(); // Format large numbers
     }
@@ -703,7 +703,7 @@ class UploadManager {
         console.warn(`File object missing for ${entry.filename}, skipping.`);
         window.notificationManager.show(
           `Could not upload ${entry.filename}: File data missing. Please re-select the file.`,
-          "warning"
+          "warning",
         );
       }
     });
@@ -712,7 +712,7 @@ class UploadManager {
     if (!formData.has("files")) {
       window.notificationManager.show(
         "No valid files to upload. Please re-select files.",
-        "warning"
+        "warning",
       );
       this.loadingManager.error("No valid files found to upload.");
       this.loadingManager.finish();
@@ -759,7 +759,7 @@ class UploadManager {
       console.error("Error uploading files:", error);
       window.notificationManager.show(
         "Error uploading files: " + error.message,
-        "danger"
+        "danger",
       );
       this.loadingManager.error("Error uploading files: " + error.message);
     } finally {
@@ -800,7 +800,7 @@ class UploadManager {
 
         // Filter trips based on defined upload sources
         const uploadSourceTrips = allTrips.filter((trip) =>
-          this.config.uploadSources.includes(trip.source)
+          this.config.uploadSources.includes(trip.source),
         );
 
         this.displayUploadSourceTrips(uploadSourceTrips); // Display only the filtered trips
@@ -811,7 +811,7 @@ class UploadManager {
       console.error("Error fetching trips:", error);
       window.notificationManager.show(
         "Error loading trips from server",
-        "danger"
+        "danger",
       );
       this.loadingManager.error("Error fetching trips: " + error.message);
       // Clear the table on error
@@ -902,7 +902,7 @@ class UploadManager {
     if (!bulkDeleteBtn) return;
 
     const selectedCheckboxes = document.querySelectorAll(
-      ".trip-checkbox:checked"
+      ".trip-checkbox:checked",
     );
     bulkDeleteBtn.disabled = selectedCheckboxes.length === 0;
   }
@@ -915,14 +915,14 @@ class UploadManager {
     this.loadingManager.startOperation("Deleting Selected Trips");
 
     const selectedCheckboxes = document.querySelectorAll(
-      ".trip-checkbox:checked"
+      ".trip-checkbox:checked",
     );
     const tripIds = Array.from(selectedCheckboxes).map((cb) => cb.value);
 
     if (tripIds.length === 0) {
       window.notificationManager.show(
         "No trips selected for deletion.",
-        "warning"
+        "warning",
       );
       this.loadingManager.finish();
       return;
@@ -963,14 +963,14 @@ class UploadManager {
               successCount++;
             } else {
               throw new Error(
-                data.message || `Failed to delete trip ${tripId}`
+                data.message || `Failed to delete trip ${tripId}`,
               );
             }
           } catch (error) {
             console.error(`Error deleting trip ${tripId}:`, error);
             window.notificationManager.show(
               `Error deleting trip ${tripId}: ${error.message}`,
-              "warning"
+              "warning",
             );
             failCount++;
           }
@@ -994,7 +994,7 @@ class UploadManager {
     } catch (error) {
       window.notificationManager.show(
         "An unexpected error occurred during bulk deletion: " + error.message,
-        "danger"
+        "danger",
       );
       this.loadingManager.error("Error during bulk deletion: " + error.message);
     } finally {
@@ -1045,7 +1045,7 @@ class UploadManager {
         if (data.status === "success") {
           window.notificationManager.show(
             `Trip ${tripId} deleted successfully. Matched trips deleted: ${data.deleted_matched_trips}`,
-            "success"
+            "success",
           );
           await this.loadUploadSourceTrips(); // Refresh the list
         } else {
@@ -1055,7 +1055,7 @@ class UploadManager {
     } catch (error) {
       window.notificationManager.show(
         "Error deleting trip: " + error.message,
-        "danger"
+        "danger",
       );
       this.loadingManager.error("Error deleting trip: " + error.message);
     } finally {
