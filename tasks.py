@@ -105,6 +105,13 @@ TASK_METADATA = {
         "dependencies": [],
         "description": "Validates and corrects trip data inconsistencies",
     },
+    "update_coverage_for_new_trips": {
+        "display_name": "Incremental Progress Updates",
+        "default_interval_minutes": 180,
+        "priority": TaskPriority.MEDIUM,
+        "dependencies": ["periodic_fetch_trips"],
+        "description": "Updates coverage calculations incrementally for new trips",
+    },
 }
 
 
