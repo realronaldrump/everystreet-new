@@ -834,9 +834,7 @@
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            location: location,
-          }),
+          body: JSON.stringify(location), // Send the location object directly
         });
 
         if (!response.ok) {
