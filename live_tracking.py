@@ -89,9 +89,7 @@ async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
                 if isinstance(serialized["startTime"], str)
                 else serialized["startTime"]
             )
-            serialized["startTimeFormatted"] = start_time.strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            serialized["startTimeFormatted"] = start_time.strftime("%Y-%m-%d %H:%M:%S")
         except (ValueError, AttributeError):
             serialized["startTimeFormatted"] = "Unknown"
 
@@ -309,9 +307,7 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
     # First process the coordinates using the existing function
     new_coords = sort_and_filter_trip_coordinates(data["data"])
     if not new_coords:
-        logger.warning(
-            "No valid coordinates in tripData event for %s", transaction_id
-        )
+        logger.warning("No valid coordinates in tripData event for %s", transaction_id)
         return
 
     # Update with the current coordinates
@@ -390,9 +386,7 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
             "$set": {
                 "coordinates": all_coords,
                 "lastUpdate": (
-                    all_coords[-1]["timestamp"]
-                    if all_coords
-                    else trip_doc["startTime"]
+                    all_coords[-1]["timestamp"] if all_coords else trip_doc["startTime"]
                 ),
                 "distance": total_distance,
                 "currentSpeed": current_speed,
@@ -541,9 +535,7 @@ async def get_active_trip(since_sequence: Optional[int] = None) -> Dict[str, Any
         query["sequence"] = {"$gt": since_sequence}
 
     # Try to find an active trip
-    active_trip = await live_trips_collection.find_one(
-        query, sort=[("lastUpdate", -1)]
-    )
+    active_trip = await live_trips_collection.find_one(query, sort=[("lastUpdate", -1)])
 
     if active_trip:
         logger.info(
@@ -601,7 +593,9 @@ async def cleanup_stale_trips(
         # Find all stale trips
         stale_trips = await live_trips_collection.find(
             {"lastUpdate": {"$lt": stale_threshold}, "status": "active"}
-        ).to_list(length=100)  # Limit to avoid potential memory issues
+        ).to_list(
+            length=100
+        )  # Limit to avoid potential memory issues
 
         for trip in stale_trips:
             trip_id = trip.get("_id")
@@ -696,9 +690,9 @@ async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
 
         if not active_trip:
             # Check if there's an active trip but the sequence isn't newer
-            all_trips = await live_trips_collection.find(
-                {"status": "active"}
-            ).to_list(10)
+            all_trips = await live_trips_collection.find({"status": "active"}).to_list(
+                10
+            )
             sequences = [t.get("sequence", 0) for t in all_trips]
             logger.info(
                 "No newer trip updates. Found %d active trips with sequences: %s. Client has sequence: %d",

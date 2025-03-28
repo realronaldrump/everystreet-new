@@ -380,9 +380,7 @@ async def get_place_statistics(place_id: str):
         first_visit = (
             min([v["start"] for v in visits], default=None) if visits else None
         )
-        last_visit = (
-            max([v["start"] for v in visits], default=None) if visits else None
-        )
+        last_visit = max([v["start"] for v in visits], default=None) if visits else None
 
         return {
             "totalVisits": total_visits,
@@ -447,8 +445,7 @@ async def get_trips_for_place(place_id: str):
 
         # Create a dictionary to look up trips by ID
         trips_by_id = {
-            str(t["_id"]): t
-            for t in trips_ending_at_place + trips_starting_from_place
+            str(t["_id"]): t for t in trips_ending_at_place + trips_starting_from_place
         }
 
         # Create a timeline of all events
@@ -573,9 +570,7 @@ async def get_trips_for_place(place_id: str):
                         visit["arrival_time"]
                     ),
                     "departureTime": (
-                        SerializationHelper.serialize_datetime(
-                            visit["departure_time"]
-                        )
+                        SerializationHelper.serialize_datetime(visit["departure_time"])
                         if visit["departure_time"]
                         else None
                     ),

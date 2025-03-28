@@ -107,9 +107,7 @@ class DatabaseManager:
             self._socket_timeout_ms = int(
                 os.getenv("MONGODB_SOCKET_TIMEOUT_MS", "30000")
             )
-            self._max_retry_attempts = int(
-                os.getenv("MONGODB_MAX_RETRY_ATTEMPTS", "5")
-            )
+            self._max_retry_attempts = int(os.getenv("MONGODB_MAX_RETRY_ATTEMPTS", "5"))
             self._db_name = os.getenv("MONGODB_DATABASE", "every_street")
 
             # Log configuration
@@ -386,9 +384,7 @@ class DatabaseManager:
             # Convert keys to a more comparable format
             keys_tuple = tuple(
                 sorted(
-                    [(k, v) for k, v in keys]
-                    if isinstance(keys, list)
-                    else [(keys, 1)]
+                    [(k, v) for k, v in keys] if isinstance(keys, list) else [(keys, 1)]
                 )
             )
 
@@ -620,9 +616,7 @@ class SerializationHelper:
                 if isinstance(value, ObjectId):
                     fallback_result[key] = str(value)
                 elif isinstance(value, datetime):
-                    fallback_result[key] = SerializationHelper.serialize_datetime(
-                        value
-                    )
+                    fallback_result[key] = SerializationHelper.serialize_datetime(value)
                 # Avoid deep recursion for complex types in fallback
                 elif isinstance(value, (dict, list)):
                     fallback_result[key] = f"<Complex Type: {type(value).__name__}>"
@@ -655,9 +649,7 @@ class SerializationHelper:
                 if isinstance(item, ObjectId):
                     fallback_result.append(str(item))
                 elif isinstance(item, datetime):
-                    fallback_result.append(
-                        SerializationHelper.serialize_datetime(item)
-                    )
+                    fallback_result.append(SerializationHelper.serialize_datetime(item))
                 elif isinstance(item, (dict, list)):
                     fallback_result.append(f"<Complex Type: {type(item).__name__}>")
                 else:
@@ -751,13 +743,9 @@ def parse_query_date(
             dt_date = datetime.strptime(date_str, "%Y-%m-%d").date()
             # Create datetime object at start or end of day in UTC
             if end_of_day:
-                dt = datetime.combine(
-                    dt_date, datetime.max.time(), tzinfo=timezone.utc
-                )
+                dt = datetime.combine(dt_date, datetime.max.time(), tzinfo=timezone.utc)
             else:
-                dt = datetime.combine(
-                    dt_date, datetime.min.time(), tzinfo=timezone.utc
-                )
+                dt = datetime.combine(dt_date, datetime.min.time(), tzinfo=timezone.utc)
             return dt
         except ValueError:
             logger.warning(
@@ -1240,9 +1228,7 @@ async def get_trip_by_id(
             # This shouldn't happen due to is_valid check, but defensive coding
             pass
         except Exception as e:
-            logger.warning(
-                f"Unexpected error finding trip by ObjectId {trip_id}: {e}"
-            )
+            logger.warning(f"Unexpected error finding trip by ObjectId {trip_id}: {e}")
             pass  # Don't let this error propagate widely
 
     return trip
@@ -1264,9 +1250,7 @@ async def get_latest_trips(
     if collection is None:
         collection = trips_collection
 
-    return await find_with_retry(
-        collection, {}, sort=[("startTime", -1)], limit=limit
-    )
+    return await find_with_retry(collection, {}, sort=[("startTime", -1)], limit=limit)
 
 
 async def init_task_history_collection() -> None:
