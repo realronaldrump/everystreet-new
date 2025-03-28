@@ -125,9 +125,7 @@ async def update_geo_points(
                                 }
 
                             if update_fields:
-                                update_fields["geoPointsUpdatedAt"] = (
-                                    datetime.utcnow()
-                                )
+                                update_fields["geoPointsUpdatedAt"] = datetime.utcnow()
                                 batch_updates.append(
                                     UpdateOne(
                                         {"_id": doc["_id"]}, {"$set": update_fields}
@@ -184,9 +182,7 @@ async def update_geo_points(
 
         # Use cursor with no_cursor_timeout and process in batches
         async def get_cursor():
-            return collection.find(query, no_cursor_timeout=True).batch_size(
-                batch_size
-            )
+            return collection.find(query, no_cursor_timeout=True).batch_size(batch_size)
 
         cursor = await db_manager.execute_with_retry(
             get_cursor, operation_name=f"get cursor for {collection.name}"

@@ -94,9 +94,7 @@ def collect_street_type_stats(features: List[Dict]) -> List[Dict[str, Any]]:
 
 
 # --- Coverage Calculation Orchestration ---
-async def process_coverage_calculation(
-    location: Dict[str, Any], task_id: str
-) -> None:
+async def process_coverage_calculation(location: Dict[str, Any], task_id: str) -> None:
     """
     Orchestrates the full coverage calculation process in the background.
 
@@ -109,9 +107,7 @@ async def process_coverage_calculation(
         task_id: Unique identifier for tracking this specific task run.
     """
     display_name = location.get("display_name", "Unknown Location")
-    logger.info(
-        f"Starting full coverage calculation task {task_id} for {display_name}"
-    )
+    logger.info(f"Starting full coverage calculation task {task_id} for {display_name}")
     try:
         # Initialize progress tracking
         await progress_collection.update_one(
