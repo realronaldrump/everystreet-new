@@ -527,10 +527,13 @@
         };
         this.constructor.updateCoverageTable([...areas, newArea]); // Use static method
 
+        // Store the validated location for the entire process (don't reset in finally)
+        const processingLocation = this.validatedLocation;
+
         // Show progress modal immediately
-        this.currentProcessingLocation = this.validatedLocation; // Set context for modal
+        this.currentProcessingLocation = processingLocation;
         this.showProgressModal(
-          `Starting processing for ${this.validatedLocation.display_name}...`,
+          `Starting processing for ${processingLocation.display_name}...`,
           0
         );
 
@@ -538,10 +541,10 @@
         const preprocessResponse = await fetch("/api/preprocess_streets", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(this.validatedLocation), // Send the validated location object
+          body: JSON.stringify(processingLocation), // Send the validated location object
         });
 
-        const taskData = await preprocessResponse.json(); // Try parsing JSON regardless of status
+        const taskData = await preprocessResponse.json();
 
         if (!preprocessResponse.ok) {
           // If backend fails, remove optimistic row and show error
@@ -561,33 +564,45 @@
         // Start polling if we got a task ID
         if (taskData?.task_id) {
           this.activeTaskIds.add(taskData.task_id);
-          // Poll progress immediately after starting
+          let pollingSuccessful = false;
+
           try {
             await this.pollCoverageProgress(taskData.task_id);
-            // If polling finishes successfully (status complete)
+            pollingSuccessful = true;
             window.notificationManager.show(
               "Processing completed successfully!",
               "success"
             );
           } catch (pollError) {
-            // Polling failed (error or timeout)
+            // Convert any objects to strings for better error messages
+            const errorMessage =
+              typeof pollError === "object"
+                ? pollError.message || JSON.stringify(pollError)
+                : String(pollError);
+
             window.notificationManager.show(
-              `Processing failed: ${pollError.message}`,
+              `Processing failed: ${errorMessage}`,
               "danger"
             );
           } finally {
             this.activeTaskIds.delete(taskData.task_id);
-            this.hideProgressModal(); // Hide modal after polling finishes or fails
-            await this.loadCoverageAreas(); // Refresh table state
+
+            // If polling was successful, THEN clear the context
+            if (pollingSuccessful) {
+              this.currentProcessingLocation = null;
+            }
+
+            this.hideProgressModal();
+            await this.loadCoverageAreas();
           }
         } else {
-          // No task ID returned, hide modal and show generic message
+          // No task ID returned
           this.hideProgressModal();
           window.notificationManager.show(
             "Processing started, but no task ID received for progress tracking.",
             "warning"
           );
-          await this.loadCoverageAreas(); // Refresh table
+          await this.loadCoverageAreas();
         }
 
         // Reset input form
@@ -597,20 +612,24 @@
           locationInput.classList.remove("is-valid");
         }
         this.validatedLocation = null;
-        // Add button remains disabled until next validation
       } catch (error) {
+        // Ensure error is properly stringified
+        const errorMessage =
+          typeof error === "object"
+            ? error.message || JSON.stringify(error)
+            : String(error);
+
         console.error("Error adding coverage area:", error);
         window.notificationManager.show(
-          `Failed to add coverage area: ${error.message}`,
+          `Failed to add coverage area: ${errorMessage}`,
           "danger"
         );
-        this.hideProgressModal(); // Ensure modal is hidden on error
-        await this.loadCoverageAreas(); // Refresh table to remove temp row if needed
+        this.hideProgressModal();
+        await this.loadCoverageAreas();
       } finally {
-        // Reset add button state
-        addButton.disabled = true; // Keep disabled until next validation
+        // Only reset button state here, not processing context
+        addButton.disabled = true;
         addButton.innerHTML = originalButtonText;
-        this.currentProcessingLocation = null; // Clear context
       }
     }
 
@@ -758,9 +777,26 @@
       const modalElement = document.getElementById("taskProgressModal");
       if (!modalElement) return;
 
-      const modal = bootstrap.Modal.getInstance(modalElement);
-      if (modal) {
-        modal.hide();
+      try {
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+          modal.hide();
+        } else {
+          // Fallback if Bootstrap modal instance not found
+          modalElement.style.display = "none";
+          modalElement.classList.remove("show");
+          document.body.classList.remove("modal-open");
+          const backdrop = document.querySelector(".modal-backdrop");
+          if (backdrop) backdrop.remove();
+        }
+      } catch (error) {
+        console.error("Error hiding modal:", error);
+        // Fallback using direct DOM manipulation
+        modalElement.style.display = "none";
+        modalElement.classList.remove("show");
+        document.body.classList.remove("modal-open");
+        const backdrop = document.querySelector(".modal-backdrop");
+        if (backdrop) backdrop.remove();
       }
 
       // Clear timer
@@ -1288,26 +1324,32 @@
         return;
       }
 
+      // Store the location for the entire process
+      const processingLocation = { ...location };
+
       try {
-        this.currentProcessingLocation = location; // Set context
+        this.currentProcessingLocation = processingLocation;
 
         // Check if we are updating the currently displayed dashboard location
         const isUpdatingDisplayedLocation =
           this.selectedLocation?._id &&
-          (await this.isSameLocation(this.selectedLocation.location, location));
+          (await this.isSameLocation(
+            this.selectedLocation.location,
+            processingLocation
+          ));
         const displayedLocationId = isUpdatingDisplayedLocation
           ? this.selectedLocation._id
           : null;
 
         this.showProgressModal(
-          `Requesting coverage update (${mode}) for ${location.display_name}...`
+          `Requesting coverage update (${mode}) for ${processingLocation.display_name}...`
         );
 
         const endpoint =
           mode === "incremental"
             ? "/api/street_coverage/incremental"
             : "/api/street_coverage";
-        const payload = { location: location }; // Send the location object directly
+        const payload = { location: processingLocation };
 
         const response = await fetch(endpoint, {
           method: "POST",
@@ -1315,7 +1357,7 @@
           body: JSON.stringify(payload),
         });
 
-        const data = await response.json(); // Try parsing JSON regardless of status
+        const data = await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -1325,52 +1367,69 @@
 
         if (data.task_id) {
           this.activeTaskIds.add(data.task_id);
+          let pollingSuccessful = false;
+
           try {
             // Poll for completion
             await this.pollCoverageProgress(data.task_id);
+            pollingSuccessful = true;
             window.notificationManager.show(
-              `Coverage update for ${location.display_name} completed.`,
+              `Coverage update for ${processingLocation.display_name} completed.`,
               "success"
             );
           } catch (pollError) {
-            // Polling failed (error or timeout)
+            // Ensure error is properly stringified
+            const errorMessage =
+              typeof pollError === "object"
+                ? pollError.message || JSON.stringify(pollError)
+                : String(pollError);
+
             window.notificationManager.show(
-              `Coverage update for ${location.display_name} failed: ${pollError.message}`,
+              `Coverage update for ${processingLocation.display_name} failed: ${errorMessage}`,
               "danger"
             );
-            // Don't automatically hide modal on poll failure, user might want to see the error state
-            // this.hideProgressModal(); // Keep modal open to show error state
-            await this.loadCoverageAreas(); // Refresh table to show error status
-            return; // Exit early
+            await this.loadCoverageAreas();
+            return;
           } finally {
             this.activeTaskIds.delete(data.task_id);
+
+            // Only clear processing location if polling succeeded
+            if (pollingSuccessful) {
+              this.currentProcessingLocation = null;
+            }
           }
         } else {
-          // No task ID, maybe immediate error or unexpected response
+          // No task ID
           window.notificationManager.show(
             "Update started, but no task ID received for progress tracking.",
             "warning"
           );
         }
 
-        // --- Success Path ---
-        this.hideProgressModal(); // Hide modal only after successful polling
-        await this.loadCoverageAreas(); // Refresh table state
+        // Success path - only reaches here if polling was successful
+        this.hideProgressModal();
+        await this.loadCoverageAreas();
 
-        // If we were viewing this location's dashboard, refresh it
+        // Refresh dashboard if needed
         if (displayedLocationId) {
           await this.displayCoverageDashboard(displayedLocationId);
         }
       } catch (error) {
+        // Ensure error is properly stringified
+        const errorMessage =
+          typeof error === "object"
+            ? error.message || JSON.stringify(error)
+            : String(error);
+
         console.error("Error updating coverage:", error);
         window.notificationManager.show(
-          `Coverage update failed: ${error.message}`,
+          `Coverage update failed: ${errorMessage}`,
           "danger"
         );
-        this.hideProgressModal(); // Ensure modal hides on error
-        await this.loadCoverageAreas(); // Refresh table state
-      } finally {
-        this.currentProcessingLocation = null; // Clear context
+        this.hideProgressModal();
+        await this.loadCoverageAreas();
+
+        // Keep context as is - don't clear it here
       }
     }
 
@@ -1461,17 +1520,12 @@
     async pollCoverageProgress(taskId) {
       const maxRetries = 360; // ~30 minutes (5s interval) - adjust as needed
       let retries = 0;
+      let taskCompleted = false;
 
       while (retries < maxRetries) {
         try {
-          // Check if the modal is still supposed to be open for this task
-          if (!this.currentProcessingLocation) {
-            console.log(
-              `Polling stopped for task ${taskId} as modal context was cleared.`
-            );
-            throw new Error("Processing context lost."); // Stop polling if modal context is gone
-          }
-
+          // Store task info locally rather than relying on this.currentProcessingLocation
+          // This avoids the "Processing context lost" error if context is cleared elsewhere
           const response = await fetch(`/api/street_coverage/${taskId}`);
           if (response.status === 404) {
             throw new Error(
@@ -1498,11 +1552,20 @@
           // Check for terminal states
           if (data.stage === "complete") {
             console.log(`Task ${taskId} completed.`);
+            taskCompleted = true;
             return data; // Success
           } else if (data.stage === "error") {
-            console.error(`Task ${taskId} failed with error: ${data.error}`);
+            console.error(
+              `Task ${taskId} failed with error: ${
+                data.error || "Unknown error"
+              }`
+            );
             throw new Error(
-              data.message || data.error || "Coverage calculation failed"
+              typeof data.message === "string"
+                ? data.message
+                : typeof data.error === "string"
+                ? data.error
+                : "Coverage calculation failed"
             );
           }
 
@@ -1510,6 +1573,12 @@
           await new Promise((resolve) => setTimeout(resolve, 5000)); // 5-second interval
           retries++;
         } catch (error) {
+          // Stringify any error objects to prevent [object Object] errors
+          const errorMessage =
+            typeof error === "object"
+              ? error.message || JSON.stringify(error)
+              : String(error);
+
           console.error(
             `Error polling coverage progress for task ${taskId}:`,
             error
@@ -1517,8 +1586,8 @@
           this.updateModalContent({
             stage: "error",
             progress: 0,
-            message: `Polling failed: ${error.message}`,
-            error: error.message,
+            message: `Polling failed: ${errorMessage}`,
+            error: errorMessage,
           }); // Update modal to show polling error
           throw error; // Re-throw to signal failure to the caller
         }
