@@ -35,8 +35,8 @@ from fastapi import (
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from gridfs.errors import NoFile
-from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+from gridfs.errors import NoFile  # <-- Add this for error handling
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket  # <-- Add this
 from pydantic import BaseModel, Field
 
 # Local module imports
@@ -57,7 +57,7 @@ from db import (
     delete_one_with_retry,
     find_one_with_retry,
     find_with_retry,
-    get_trip_from_all_collections,
+    get_trip_by_id,  # <-- Changed import
     init_database,
     parse_query_date,
     update_many_with_retry,
@@ -127,7 +127,6 @@ API_BASE_URL = "https://api.bouncie.dev/v1"
 # Database collections - using db_manager to access the database
 trips_collection = db_manager.db["trips"]
 matched_trips_collection = db_manager.db["matched_trips"]
-uploaded_trips_collection = db_manager.db["uploaded_trips"]
 places_collection = db_manager.db["places"]
 streets_collection = db_manager.db["streets"]
 coverage_metadata_collection = db_manager.db["coverage_metadata"]
@@ -141,7 +140,7 @@ progress_collection = db_manager.db["progress_status"]
 initialize_db(live_trips_collection, archived_live_trips_collection)
 
 # Initialize visits module
-init_collections(places_collection, trips_collection, uploaded_trips_collection)
+init_collections(places_collection, trips_collection)  # <-- Updated call
 
 
 # Pydantic models for request validation
@@ -225,19 +224,21 @@ def calculate_distance(coordinates: List[List[float]]) -> float:
 # --- Coverage Calculation Orchestration ---
 
 
-async def process_and_store_trip(trip: dict) -> None:
+async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
     """
     Process and store a trip using TripProcessor.
 
     Args:
         trip: Trip data dictionary
+        source: The source of the trip ('upload', 'upload_gpx', 'upload_geojson')
     """
     try:
-        processor = TripProcessor(mapbox_token=MAPBOX_ACCESS_TOKEN, source="upload")
+        # Set the source correctly when initializing the processor
+        processor = TripProcessor(mapbox_token=MAPBOX_ACCESS_TOKEN, source=source)
         processor.set_trip_data(trip)
 
         # Ensure we have GPS data
-        gps_data = trip["gps"]
+        gps_data = trip.get("gps")
         if isinstance(gps_data, str):
             try:
                 gps_data = json.loads(gps_data)
@@ -250,6 +251,7 @@ async def process_and_store_trip(trip: dict) -> None:
 
         # Extract and geocode the locations
         await processor.process(do_map_match=False)
+        # The save method now uses the source attribute to save to trips_collection
         await processor.save()
 
     except bson.errors.DuplicateKeyError:
@@ -301,6 +303,7 @@ async def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
                     "gps": json.dumps(trip_geo),
                     "distance": dist_miles,
                     "imei": "UPLOADED",
+                    "source": "upload_geojson",  # <-- Set source
                 }
             )
         return trips
@@ -311,14 +314,14 @@ async def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
 
 async def fetch_all_trips_no_filter() -> List[dict]:
     """
-    Fetch all trips from both regular and uploaded trips collections.
+    Fetch all trips from the trips collection.
 
     Returns:
-        List of all trips from both collections
+        List of all trips
     """
-    regular_trips = await find_with_retry(trips_collection, {})
-    uploaded_trips = await find_with_retry(uploaded_trips_collection, {})
-    return regular_trips + uploaded_trips
+    # Only query the main trips collection
+    all_trips = await find_with_retry(trips_collection, {})
+    return all_trips
 
 
 # MIDDLEWARE
@@ -326,9 +329,7 @@ async def fetch_all_trips_no_filter() -> List[dict]:
 async def add_header(request: Request, call_next):
     """Add cache control headers to all responses."""
     response = await call_next(request)
-    response.headers["Cache-Control"] = (
-        "no-store, no-cache, must-revalidate, max-age=0"
-    )
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
@@ -398,7 +399,12 @@ async def database_management_page(request: Request):
         storage_limit_mb = 512  # Example free-tier limit
         storage_usage_percent = round((storage_used_mb / storage_limit_mb) * 100, 2)
         collections_info = []
-        for collection_name in await db_manager.db.list_collection_names():
+        collection_names = [
+            name
+            for name in await db_manager.db.list_collection_names()
+            if name != "uploaded_trips"
+        ]
+        for collection_name in collection_names:
             stats = await db_manager.db.command("collStats", collection_name)
             collections_info.append(
                 {
@@ -737,9 +743,7 @@ async def get_task_history(page: int = 1, limit: int = 10):
                 entry.get("timestamp")
             )
             if "runtime" in entry:
-                entry["runtime"] = (
-                    float(entry["runtime"]) if entry["runtime"] else None
-                )
+                entry["runtime"] = float(entry["runtime"]) if entry["runtime"] else None
             history.append(entry)
 
         return {
@@ -983,13 +987,9 @@ async def update_trip(trip_id: str, data: TripUpdateModel):
             {"$or": [{"transactionId": trip_id}, {"transactionId": str(trip_id)}]},
         )
 
-        # If not found, try the other collection
-        if not trip:
-            other_collection = (
-                trips_collection
-                if trip_type == "matched_trips"
-                else matched_trips_collection
-            )
+        # If not found, try the other collection (only matched_trips if primary was trips)
+        if not trip and collection == trips_collection:
+            other_collection = matched_trips_collection
             trip = await find_one_with_retry(
                 other_collection,
                 {"$or": [{"transactionId": trip_id}, {"transactionId": str(trip_id)}]},
@@ -1106,9 +1106,7 @@ async def get_incremental_street_coverage(location: LocationModel):
         )
         return {"task_id": task_id, "status": "processing"}
     except Exception as e:
-        logger.exception(
-            "Error in incremental street coverage calculation: %s", str(e)
-        )
+        logger.exception("Error in incremental street coverage calculation: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -1121,12 +1119,8 @@ async def get_trips(request: Request):
     try:
         query = await build_query_from_request(request)
 
-        # Fetch trips from both collections
-        regular_future = find_with_retry(trips_collection, query)
-        uploaded_future = find_with_retry(uploaded_trips_collection, query)
-        regular, uploaded = await asyncio.gather(regular_future, uploaded_future)
-
-        all_trips = regular + uploaded
+        # Fetch trips only from the main trips collection
+        all_trips = await find_with_retry(trips_collection, query)
         features = []
 
         # Create a TripProcessor instance for formatting
@@ -1174,7 +1168,7 @@ async def get_trips(request: Request):
                         trip.get("totalIdleDuration", 0)
                     ),
                     "fuelConsumed": float(trip.get("fuelConsumed", 0)),
-                    "source": trip.get("source", "regular"),
+                    "source": trip.get("source", "unknown"),  # <-- Use source field
                     "hardBrakingCount": trip.get("hardBrakingCount"),
                     "hardAccelerationCount": trip.get("hardAccelerationCount"),
                     "startOdometer": trip.get("startOdometer"),
@@ -1228,11 +1222,8 @@ async def get_driving_insights(request: Request):
             },
         ]
 
-        # Query both collections
+        # Query only the trips collection
         trips_result = await aggregate_with_retry(trips_collection, pipeline)
-        uploaded_result = await aggregate_with_retry(
-            uploaded_trips_collection, pipeline
-        )
 
         # Pipeline for most visited destinations
         pipeline_most_visited = [
@@ -1249,9 +1240,6 @@ async def get_driving_insights(request: Request):
         ]
 
         trips_mv = await aggregate_with_retry(trips_collection, pipeline_most_visited)
-        uploaded_mv = await aggregate_with_retry(
-            uploaded_trips_collection, pipeline_most_visited
-        )
 
         # Combine results
         combined = {
@@ -1265,24 +1253,18 @@ async def get_driving_insights(request: Request):
         }
 
         # Process basic stats
-        for r in trips_result + uploaded_result:
-            if r:
-                combined["total_trips"] += r.get("total_trips", 0)
-                combined["total_distance"] += r.get("total_distance", 0)
-                combined["total_fuel_consumed"] += r.get("total_fuel_consumed", 0)
-                combined["max_speed"] = max(
-                    combined["max_speed"], r.get("max_speed", 0)
-                )
-                combined["total_idle_duration"] += r.get("total_idle_duration", 0)
-                combined["longest_trip_distance"] = max(
-                    combined["longest_trip_distance"],
-                    r.get("longest_trip_distance", 0),
-                )
+        if trips_result and trips_result[0]:
+            r = trips_result[0]
+            combined["total_trips"] = r.get("total_trips", 0)
+            combined["total_distance"] = r.get("total_distance", 0)
+            combined["total_fuel_consumed"] = r.get("total_fuel_consumed", 0)
+            combined["max_speed"] = r.get("max_speed", 0)
+            combined["total_idle_duration"] = r.get("total_idle_duration", 0)
+            combined["longest_trip_distance"] = r.get("longest_trip_distance", 0)
 
         # Process most visited
-        all_most_visited = trips_mv + uploaded_mv
-        if all_most_visited:
-            best = sorted(all_most_visited, key=lambda x: x["count"], reverse=True)[0]
+        if trips_mv and trips_mv[0]:
+            best = trips_mv[0]
             combined["most_visited"] = {
                 "_id": best["_id"],
                 "count": best["count"],
@@ -1393,7 +1375,9 @@ async def api_fetch_trips():
     try:
         # Find the most recent trip in the database
         last_trip = await find_one_with_retry(
-            trips_collection, {}, sort=[("endTime", -1)]
+            trips_collection,
+            {"source": "bouncie"},
+            sort=[("endTime", -1)],  # Filter by source
         )
         start_date = (
             last_trip["endTime"]
@@ -1403,6 +1387,7 @@ async def api_fetch_trips():
         )
         end_date = datetime.now(timezone.utc)
         logger.info("Fetching trips from %s to %s", start_date, end_date)
+        # fetch_bouncie_trips_in_range will now save with source='bouncie'
         await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=False)
         return {"status": "success", "message": "New trips fetched & stored."}
     except Exception as e:
@@ -1422,6 +1407,7 @@ async def api_fetch_trips_range(data: DateRangeModel):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid date range."
             )
+        # fetch_bouncie_trips_in_range will now save with source='bouncie'
         await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=False)
         return {"status": "success", "message": "Trips fetched & stored."}
     except HTTPException:
@@ -1439,6 +1425,7 @@ async def api_fetch_trips_last_hour():
     try:
         now_utc = datetime.now(timezone.utc)
         start_date = now_utc - timedelta(hours=1)
+        # fetch_bouncie_trips_in_range will now save with source='bouncie'
         await fetch_bouncie_trips_in_range(start_date, now_utc, do_map_match=True)
         return {"status": "success", "message": "Hourly trip fetch completed."}
     except Exception as e:
@@ -1460,18 +1447,21 @@ async def process_single_trip(
     Process a single trip with options to validate, geocode, and map match.
     """
     try:
-        # Get the trip
-        trip, collection = await get_trip_from_all_collections(trip_id)
+        # Get the trip from the main collection
+        trip = await get_trip_by_id(trip_id, trips_collection)
 
         if not trip:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
             )
 
-        # Create the processor
+        # Determine source from the trip document itself
+        source = trip.get("source", "unknown")  # Default if source field is missing
+
+        # Create the processor with the correct source
         processor = TripProcessor(
             mapbox_token=MAPBOX_ACCESS_TOKEN,
-            source="api" if collection == trips_collection else "upload",
+            source=source,
         )
         processor.set_trip_data(trip)
 
@@ -1535,12 +1525,9 @@ async def bulk_process_trips(data: BulkProcessModel):
         do_validate = options.get("validate", True)
         do_geocode = options.get("geocode", True)
         do_map_match = options.get("map_match", False)
-        collection_name = options.get("collection", "trips")
 
-        # Select collection
+        # Always use trips_collection
         collection = trips_collection
-        if collection_name == "uploaded_trips":
-            collection = uploaded_trips_collection
 
         # Fetch trips
         trips = await find_with_retry(collection, query, limit=limit)
@@ -1564,9 +1551,11 @@ async def bulk_process_trips(data: BulkProcessModel):
 
         for trip in trips:
             try:
+                # Determine source from the trip document
+                source = trip.get("source", "unknown")
                 processor = TripProcessor(
                     mapbox_token=MAPBOX_ACCESS_TOKEN,
-                    source="api" if collection == trips_collection else "upload",
+                    source=source,
                 )
                 processor.set_trip_data(trip)
 
@@ -1629,7 +1618,8 @@ async def get_trip_status(trip_id: str):
     Get detailed processing status for a trip
     """
     try:
-        trip, collection = await get_trip_from_all_collections(trip_id)
+        # Get trip from the main collection
+        trip = await get_trip_by_id(trip_id, trips_collection)
 
         if not trip:
             raise HTTPException(
@@ -1639,7 +1629,8 @@ async def get_trip_status(trip_id: str):
         # Create status summary
         status_info = {
             "transaction_id": trip_id,
-            "collection": collection.name,
+            "collection": trips_collection.name,  # Always trips collection now
+            "source": trip.get("source", "unknown"),  # Add source info
             "has_start_location": bool(trip.get("startLocation")),
             "has_destination": bool(trip.get("destination")),
             "has_matched_trip": await matched_trips_collection.find_one(
@@ -1790,8 +1781,10 @@ async def map_match_trips_endpoint(
         failed_count = 0
         for trip in trips_list:
             try:
+                # Determine source from trip data
+                source = trip.get("source", "unknown")
                 processor = TripProcessor(
-                    mapbox_token=MAPBOX_ACCESS_TOKEN, source="api"
+                    mapbox_token=MAPBOX_ACCESS_TOKEN, source=source
                 )
                 processor.set_trip_data(trip)
                 await processor.process(do_map_match=True)
@@ -1858,17 +1851,20 @@ async def get_matched_trips(request: Request):
                         "timeZone": trip.get("timeZone", "UTC"),
                         "destination": trip.get("destination", "N/A"),
                         "startLocation": trip.get("startLocation", "N/A"),
+                        # Add speed metrics for consistent display in popups
                         "maxSpeed": float(trip.get("maxSpeed", 0)),
                         "averageSpeed": (
                             float(trip.get("averageSpeed", 0))
                             if trip.get("averageSpeed") is not None
                             else None
                         ),
+                        # Add any other relevant metrics that should be displayed consistently
                         "hardBrakingCount": trip.get("hardBrakingCount", 0),
                         "hardAccelerationCount": trip.get("hardAccelerationCount", 0),
                         "totalIdleDurationFormatted": trip.get(
                             "totalIdleDurationFormatted", None
                         ),
+                        "source": trip.get("source", "unknown"),  # Add source
                     },
                 )
                 features.append(feature)
@@ -1942,9 +1938,7 @@ async def remap_matched_trips(data: Optional[DateRangeModel] = None):
             data = DateRangeModel(start_date="", end_date="", interval_days=0)
 
         if data.interval_days > 0:
-            start_date = datetime.now(timezone.utc) - timedelta(
-                days=data.interval_days
-            )
+            start_date = datetime.now(timezone.utc) - timedelta(days=data.interval_days)
             end_date = datetime.now(timezone.utc)
         else:
             start_date = parse_query_date(data.start_date)
@@ -1968,8 +1962,10 @@ async def remap_matched_trips(data: Optional[DateRangeModel] = None):
         processed_count = 0
         for trip in trips_list:
             try:
+                # Determine source from trip data
+                source = trip.get("source", "unknown")
                 processor = TripProcessor(
-                    mapbox_token=MAPBOX_ACCESS_TOKEN, source="api"
+                    mapbox_token=MAPBOX_ACCESS_TOKEN, source=source
                 )
                 processor.set_trip_data(trip)
                 await processor.process(do_map_match=True)
@@ -2051,7 +2047,8 @@ async def delete_matched_trip(trip_id: str):
 async def export_all_trips(fmt: str = Query("geojson", description="Export format")):
     """Export all trips in various formats."""
     try:
-        all_trips = await fetch_all_trips_no_filter()
+        # Fetch all trips from the single collection
+        all_trips = await find_with_retry(trips_collection, {})
 
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename_base = f"all_trips_{current_time}"
@@ -2086,10 +2083,8 @@ async def export_trips_within_range(
                 detail="Invalid or missing date range",
             )
 
-        # Use the utility functions from db.py
-        trips_data = await find_with_retry(trips_collection, query)
-        ups_data = await find_with_retry(uploaded_trips_collection, query)
-        all_trips = trips_data + ups_data
+        # Use the utility functions from db.py, querying only trips_collection
+        all_trips = await find_with_retry(trips_collection, query)
 
         # Create filename from date range
         date_range = extract_date_range_string(query)
@@ -2343,7 +2338,8 @@ async def get_last_trip_point():
 async def get_single_trip(trip_id: str):
     """Get a single trip by ID."""
     try:
-        trip, _ = await get_trip_from_all_collections(trip_id)
+        # Use get_trip_by_id targeting trips_collection
+        trip = await get_trip_by_id(trip_id, trips_collection)
 
         if not trip:
             raise HTTPException(
@@ -2365,22 +2361,23 @@ async def get_single_trip(trip_id: str):
 async def delete_trip(trip_id: str):
     """Delete a trip by ID."""
     try:
-        trip, collection = await get_trip_from_all_collections(trip_id)
+        # Use get_trip_by_id targeting trips_collection
+        trip = await get_trip_by_id(trip_id, trips_collection)
 
         if not trip:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
             )
 
-        # Delete the trip from the original collection
-        result = await delete_one_with_retry(collection, {"transactionId": trip_id})
+        # Delete the trip from the trips collection
+        result = await delete_one_with_retry(
+            trips_collection, {"transactionId": trip_id}
+        )
 
         # Also delete from matched_trips if it exists there
-        matched_delete_result = None
-        if collection != matched_trips_collection:
-            matched_delete_result = await delete_one_with_retry(
-                matched_trips_collection, {"transactionId": trip_id}
-            )
+        matched_delete_result = await delete_one_with_retry(
+            matched_trips_collection, {"transactionId": trip_id}
+        )
 
         if result.deleted_count == 1:
             return {
@@ -2392,9 +2389,10 @@ async def delete_trip(trip_id: str):
                 ),
             }
 
+        # If deletion from trips_collection failed for some reason
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete trip",
+            detail="Failed to delete trip from primary collection",
         )
     except HTTPException:
         raise
@@ -2419,14 +2417,17 @@ async def debug_trip(trip_id: str):
             {"$or": [{"transactionId": trip_id}, {"transactionId": str(trip_id)}]},
         )
         return {
-            "regular_trip_found": bool(regular_trip),
+            "trip_found": bool(regular_trip),  # Renamed from regular_trip_found
             "matched_trip_found": bool(matched_trip),
-            "regular_trip_id_field": (
+            "trip_id_field": (  # Renamed from regular_trip_id_field
                 regular_trip.get("transactionId") if regular_trip else None
             ),
             "matched_trip_id_field": (
                 matched_trip.get("transactionId") if matched_trip else None
             ),
+            "trip_source": (
+                regular_trip.get("source") if regular_trip else None
+            ),  # Added source
         }
     except Exception as e:
         logger.exception("debug_trip error: %s", str(e))
@@ -2439,24 +2440,16 @@ async def debug_trip(trip_id: str):
 async def get_first_trip_date():
     """Get the date of the earliest trip in the database."""
     try:
-        regular_trip = await find_one_with_retry(
+        # Only query the trips collection
+        earliest_trip = await find_one_with_retry(
             trips_collection, {}, sort=[("startTime", 1)]
         )
-        uploaded_trip = await find_one_with_retry(
-            uploaded_trips_collection, {}, sort=[("startTime", 1)]
-        )
 
-        candidates = []
-        if regular_trip and regular_trip.get("startTime"):
-            candidates.append(regular_trip["startTime"])
-        if uploaded_trip and uploaded_trip.get("startTime"):
-            candidates.append(uploaded_trip["startTime"])
-
-        if not candidates:
+        if not earliest_trip or not earliest_trip.get("startTime"):
             now = datetime.now(timezone.utc)
             return {"first_trip_date": now.isoformat()}
 
-        earliest_trip_date = min(candidates)
+        earliest_trip_date = earliest_trip["startTime"]
         if earliest_trip_date.tzinfo is None:
             earliest_trip_date = earliest_trip_date.replace(tzinfo=timezone.utc)
 
@@ -2473,160 +2466,9 @@ async def get_first_trip_date():
 
 
 # GPX / GEOJSON UPLOAD
-@app.get("/api/uploaded_trips")
-async def get_uploaded_trips():
-    """Get all manually uploaded trips."""
-    try:
-        trips = await find_with_retry(uploaded_trips_collection, {})
-        serialized_trips = [SerializationHelper.serialize_trip(trip) for trip in trips]
-        return {"status": "success", "trips": serialized_trips}
-    except Exception as e:
-        logger.exception("Error get_uploaded_trips: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
-class BulkDeleteModel(BaseModel):
-    """Model for bulk trip deletion request."""
-
-    trip_ids: List[str]
-
-
-@app.delete("/api/uploaded_trips_bulk_delete")
-async def bulk_delete_uploaded_trips(data: BulkDeleteModel):
-    """Delete multiple uploaded trips by ID."""
-    try:
-        trip_ids = data.trip_ids
-        if not trip_ids:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="No trip IDs"
-            )
-
-        logger.info("Bulk delete requested for %d uploaded trip IDs", len(trip_ids))
-
-        valid_ids = []
-        for tid in trip_ids:
-            try:
-                valid_ids.append(ObjectId(tid))
-            except bson.errors.InvalidId:
-                logger.warning("Invalid ObjectId format: %s", tid)
-
-        if not valid_ids:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="No valid IDs found"
-            )
-
-        # Find all trips first to get their transaction IDs
-        ups_to_delete = await find_with_retry(
-            uploaded_trips_collection, {"_id": {"$in": valid_ids}}
-        )
-
-        # Extract transaction IDs, handling the case where some might not have
-        # a transactionId
-        trans_ids = []
-        for trip in ups_to_delete:
-            if "transactionId" in trip:
-                trans_ids.append(trip["transactionId"])
-
-        # Log what we're about to delete
-        logger.info(
-            "Found %d uploaded trips to delete with %d transaction IDs",
-            len(ups_to_delete),
-            len(trans_ids),
-        )
-
-        # Delete the trips
-        del_res = await delete_many_with_retry(
-            uploaded_trips_collection, {"_id": {"$in": valid_ids}}
-        )
-
-        # Delete associated matched trips if any
-        matched_del_res = None
-        if trans_ids:
-            matched_del_res = await delete_many_with_retry(
-                matched_trips_collection, {"transactionId": {"$in": trans_ids}}
-            )
-
-        deleted_matched = matched_del_res.deleted_count if matched_del_res else 0
-        logger.info(
-            "Deleted %d uploaded trips and %d matched trips",
-            del_res.deleted_count,
-            deleted_matched,
-        )
-
-        return {
-            "status": "success",
-            "deleted_uploaded_trips": del_res.deleted_count,
-            "deleted_matched_trips": deleted_matched,
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Error in bulk_delete_uploaded_trips: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
-@app.delete("/api/uploaded_trips/{trip_id}")
-async def delete_uploaded_trip(trip_id: str):
-    """Delete a single uploaded trip by ID."""
-    try:
-        # Convert to ObjectId safely (this will raise InvalidId for malformed ids)
-        try:
-            object_id = ObjectId(trip_id)
-        except bson.errors.InvalidId:
-            logger.error("Invalid ObjectId format: %s", trip_id)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid trip ID format: {trip_id}",
-            )
-
-        # First, find the uploaded trip to get its transactionId (if it exists)
-        uploaded_trip = await find_one_with_retry(
-            uploaded_trips_collection, {"_id": object_id}
-        )
-        if not uploaded_trip:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Uploaded trip not found"
-            )
-
-        transaction_id = uploaded_trip.get("transactionId")
-
-        # Delete the uploaded trip
-        result = await delete_one_with_retry(
-            uploaded_trips_collection, {"_id": object_id}
-        )
-
-        # Also delete the matched trip if it exists
-        matched_delete_result = None
-        if transaction_id:
-            matched_delete_result = await delete_one_with_retry(
-                matched_trips_collection, {"transactionId": transaction_id}
-            )
-
-        if result.deleted_count == 1:
-            return {
-                "status": "success",
-                "message": "Trip deleted",
-                "deleted_matched_trips": (
-                    matched_delete_result.deleted_count if matched_delete_result else 0
-                ),
-            }
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Error deleting uploaded trip: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
 @app.post("/api/upload_gpx")
 async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
-    """Upload GPX files and process them into trips."""
+    """Upload GPX or GeoJSON files and process them into the trips collection."""
     try:
         if not files:
             raise HTTPException(
@@ -2636,107 +2478,83 @@ async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
 
         success_count = 0
         for f in files:
-            filename = f.filename.lower()
+            filename = f.filename.lower() if f.filename else "unknown_file"
+            content = await f.read()
+
             if filename.endswith(".gpx"):
-                gpx_data = await f.read()
-                gpx_obj = gpxpy.parse(gpx_data)
-                for track in gpx_obj.tracks:
-                    for seg in track.segments:
-                        if len(seg.points) < 2:
-                            continue
+                try:
+                    gpx_obj = gpxpy.parse(content)
+                    for track in gpx_obj.tracks:
+                        for seg in track.segments:
+                            if len(seg.points) < 2:
+                                continue
 
-                        times = [p.time for p in seg.points if p.time]
-                        if not times:
-                            continue
+                            times = [p.time for p in seg.points if p.time]
+                            if not times:
+                                continue
 
-                        start_t = min(times)
-                        end_t = max(times)
+                            start_t = min(times)
+                            end_t = max(times)
 
-                        # Convert points to format expected by TripProcessor
-                        coord_data = []
-                        for point in seg.points:
-                            if point.time:
-                                coord_data.append(
-                                    {
-                                        "timestamp": point.time,
-                                        "lat": point.latitude,
-                                        "lon": point.longitude,
-                                    }
-                                )
+                            # Convert points to format expected by TripProcessor
+                            coord_data = []
+                            for point in seg.points:
+                                if point.time:
+                                    coord_data.append(
+                                        {
+                                            "timestamp": point.time,
+                                            "lat": point.latitude,
+                                            "lon": point.longitude,
+                                        }
+                                    )
 
-                        # Use TripProcessor's classmethod to process the coordinates
-                        trip_data = await TripProcessor.process_from_coordinates(
-                            coord_data,
-                            start_time=start_t,
-                            end_time=end_t,
-                            transaction_id=f"GPX-{start_t.strftime('%Y%m%d%H%M%S')}-{filename}",
-                            imei="UPLOADED",
-                            source="upload",
-                            mapbox_token=MAPBOX_ACCESS_TOKEN,
-                        )
+                            # Use TripProcessor's classmethod to process the coordinates
+                            # Set source to 'upload_gpx'
+                            trip_data = await TripProcessor.process_from_coordinates(
+                                coord_data,
+                                start_time=start_t,
+                                end_time=end_t,
+                                transaction_id=f"GPX-{start_t.strftime('%Y%m%d%H%M%S')}-{filename}",
+                                imei="UPLOADED",
+                                source="upload_gpx",  # <-- Set source
+                                mapbox_token=MAPBOX_ACCESS_TOKEN,
+                            )
 
-                        # Create a processor to save the trip data
-                        processor = TripProcessor(
-                            mapbox_token=MAPBOX_ACCESS_TOKEN, source="upload"
-                        )
-                        processor.set_trip_data(trip_data)
-                        await processor.save()
-                        success_count += 1
+                            # Create a processor to save the trip data to trips_collection
+                            processor = TripProcessor(
+                                mapbox_token=MAPBOX_ACCESS_TOKEN,
+                                source="upload_gpx",  # <-- Set source
+                            )
+                            processor.set_trip_data(trip_data)
+                            await (
+                                processor.save()
+                            )  # save() method now handles saving to trips_collection
+                            success_count += 1
+                except Exception as gpx_err:
+                    logger.error(f"Error processing GPX file {filename}: {gpx_err}")
+                    continue  # Skip to next file
 
             elif filename.endswith(".geojson"):
-                content = await f.read()
                 try:
                     data_geojson = json.loads(content)
+                    trips_to_process = await process_geojson_trip(
+                        data_geojson
+                    )  # This now sets source='upload_geojson'
+                    if trips_to_process:
+                        for trip_dict in trips_to_process:
+                            # Use process_and_store_trip which now takes source
+                            await process_and_store_trip(
+                                trip_dict, source="upload_geojson"
+                            )
+                            success_count += 1
                 except json.JSONDecodeError:
                     logger.warning("Invalid GeoJSON: %s", filename)
                     continue
-
-                feats = data_geojson.get("features", [])
-                if not feats:
-                    logger.warning("No features in GeoJSON: %s", filename)
-                    continue
-
-                for feature in feats:
-                    props = feature.get("properties", {})
-                    geom = feature.get("geometry", {})
-                    stime_str = props.get("start_time")
-                    etime_str = props.get("end_time")
-                    tid = props.get(
-                        "transaction_id", f"geojson-{int(datetime.now().timestamp())}"
+                except Exception as geojson_err:
+                    logger.error(
+                        f"Error processing GeoJSON file {filename}: {geojson_err}"
                     )
-                    stime_parsed = (
-                        dateutil_parser.isoparse(stime_str)
-                        if stime_str
-                        else datetime.now(timezone.utc)
-                    )
-                    etime_parsed = (
-                        dateutil_parser.isoparse(etime_str)
-                        if etime_str
-                        else stime_parsed
-                    )
-
-                    coords = geom.get("coordinates", [])
-                    if len(coords) < 2:
-                        continue
-
-                    processor = TripProcessor(
-                        mapbox_token=MAPBOX_ACCESS_TOKEN, source="upload"
-                    )
-
-                    trip_data = {
-                        "transactionId": tid,
-                        "startTime": stime_parsed,
-                        "endTime": etime_parsed,
-                        "gps": json.dumps(geom),
-                        "imei": "UPLOADED",
-                        "source": "upload",
-                        "filename": filename,
-                    }
-
-                    processor.set_trip_data(trip_data)
-                    await processor.process(do_map_match=False)
-                    await processor.save()
-                    success_count += 1
+                    continue  # Skip to next file
             else:
                 logger.warning("Skipping unhandled file extension: %s", filename)
 
@@ -2752,49 +2570,65 @@ async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
 
 @app.post("/api/upload")
 async def upload_files(files: List[UploadFile] = File(...)):
-    """Upload GPX or GeoJSON files and process them into trips."""
+    """Upload GPX or GeoJSON files and process them into the trips collection."""
     try:
         count = 0
         for file in files:
-            filename = file.filename.lower()
+            filename = file.filename.lower() if file.filename else "unknown_file"
             content_data = await file.read()
 
             if filename.endswith(".gpx"):
-                gpx_obj = gpxpy.parse(content_data)
-                for track in gpx_obj.tracks:
-                    for seg in track.segments:
-                        if not seg.points:
-                            continue
-                        coords = [[p.longitude, p.latitude] for p in seg.points]
-                        times = [p.time for p in seg.points if p.time]
-                        if not times:
-                            continue
-                        st = min(times)
-                        en = max(times)
-                        trip_dict = {
-                            "transactionId": str(ObjectId()),
-                            "startTime": st,
-                            "endTime": en,
-                            "gps": json.dumps(
-                                {"type": "LineString", "coordinates": coords}
-                            ),
-                            "imei": "UPLOADED",
-                            "distance": calculate_distance(coords),
-                        }
-                        await process_and_store_trip(trip_dict)
-                        count += 1
+                try:
+                    gpx_obj = gpxpy.parse(content_data)
+                    for track in gpx_obj.tracks:
+                        for seg in track.segments:
+                            if not seg.points or len(seg.points) < 2:
+                                continue
+                            coords = [[p.longitude, p.latitude] for p in seg.points]
+                            times = [p.time for p in seg.points if p.time]
+                            if not times:
+                                continue
+                            st = min(times)
+                            en = max(times)
+                            trip_dict = {
+                                "transactionId": f"GPX-{st.strftime('%Y%m%d%H%M%S')}-{filename}",  # Use more descriptive ID
+                                "startTime": st,
+                                "endTime": en,
+                                "gps": json.dumps(
+                                    {"type": "LineString", "coordinates": coords}
+                                ),
+                                "imei": "UPLOADED",
+                                "distance": calculate_distance(coords),
+                                "source": "upload_gpx",  # <-- Set source
+                            }
+                            # Use process_and_store_trip which now takes source
+                            await process_and_store_trip(trip_dict, source="upload_gpx")
+                            count += 1
+                except Exception as gpx_err:
+                    logger.error(
+                        f"Error processing GPX file {filename} in /api/upload: {gpx_err}"
+                    )
+                    continue
 
             elif filename.endswith(".geojson"):
                 try:
                     data_geojson = json.loads(content_data)
+                    trips = await process_geojson_trip(
+                        data_geojson
+                    )  # This now sets source='upload_geojson'
+                    if trips:
+                        for t in trips:
+                            # Use process_and_store_trip which now takes source
+                            await process_and_store_trip(t, source="upload_geojson")
+                            count += 1
                 except json.JSONDecodeError:
                     logger.warning("Invalid geojson: %s", filename)
                     continue
-                trips = process_geojson_trip(data_geojson)
-                if trips:
-                    for t in trips:
-                        await process_and_store_trip(t)
-                        count += 1
+                except Exception as geojson_err:
+                    logger.error(
+                        f"Error processing GeoJSON file {filename} in /api/upload: {geojson_err}"
+                    )
+                    continue
 
         return {"status": "success", "message": f"Processed {count} trips"}
     except Exception as e:
@@ -2879,16 +2713,14 @@ async def get_trip_analytics(request: Request):
 @app.post("/update_geo_points")
 async def update_geo_points_route(collection_name: str):
     """Update geo points for all trips in a collection."""
-    if collection_name not in ["trips", "uploaded_trips"]:
+    # Only allow 'trips' now
+    if collection_name != "trips":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid collection name"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid collection name. Only 'trips' is supported.",
         )
 
-    coll_map = {
-        "trips": trips_collection,
-        "uploaded_trips": uploaded_trips_collection,
-    }
-    collection = coll_map[collection_name]
+    collection = trips_collection
 
     try:
         await update_geo_points(collection)
@@ -2905,12 +2737,16 @@ async def update_geo_points_route(collection_name: str):
 async def regeocode_all_trips():
     """Regeocode all trips in the database."""
     try:
-        for collection in [trips_collection, uploaded_trips_collection]:
-            trips_list = await find_with_retry(collection, {})
-            for trip in trips_list:
+        # Only process the trips collection
+        collection = trips_collection
+        trips_list = await find_with_retry(collection, {})
+        for trip in trips_list:
+            try:
+                # Determine source from trip data
+                source = trip.get("source", "unknown")
                 processor = TripProcessor(
                     mapbox_token=MAPBOX_ACCESS_TOKEN,
-                    source="api" if collection == trips_collection else "upload",
+                    source=source,
                 )
                 processor.set_trip_data(trip)
                 await processor.validate()
@@ -2919,6 +2755,11 @@ async def regeocode_all_trips():
                     if processor.state == TripState.PROCESSED:
                         await processor.geocode()
                         await processor.save()
+            except Exception as trip_err:
+                logger.error(
+                    f"Error regeocoding trip {trip.get('transactionId', 'unknown')}: {trip_err}"
+                )
+                continue  # Continue with the next trip
 
         return {"message": "All trips re-geocoded successfully."}
     except Exception as e:
@@ -2945,8 +2786,10 @@ async def refresh_geocoding_for_trips(trip_ids: List[str]):
                 trips_collection, {"transactionId": trip_id}
             )
             if trip:
+                # Determine source from trip data
+                source = trip.get("source", "unknown")
                 processor = TripProcessor(
-                    mapbox_token=MAPBOX_ACCESS_TOKEN, source="api"
+                    mapbox_token=MAPBOX_ACCESS_TOKEN, source=source
                 )
                 processor.set_trip_data(trip)
                 await processor.validate()
@@ -2964,6 +2807,7 @@ async def refresh_geocoding_for_trips(trip_ids: List[str]):
                 else:
                     failed_count += 1
             else:
+                logger.warning(f"Trip not found for geocoding refresh: {trip_id}")
                 failed_count += 1
         except Exception as e:
             logger.error(f"Error refreshing geocoding for trip {trip_id}: {str(e)}")
@@ -3011,9 +2855,7 @@ async def active_trip_endpoint():
         }
     except Exception as e:
         error_id = str(uuid.uuid4())
-        logger.exception(
-            "Error in get_active_trip endpoint [%s]: %s", error_id, str(e)
-        )
+        logger.exception("Error in get_active_trip endpoint [%s]: %s", error_id, str(e))
         return {
             "status": "error",
             "has_active_trip": False,
@@ -3283,7 +3125,6 @@ async def get_coverage_area_details(location_id: str):
         status = coverage_doc.get("status", "unknown")
         last_error = coverage_doc.get("last_error")
 
-        # --- NEW GridFS Logic ---
         streets_geojson = {}
         total_streets = 0
         needs_reprocessing = True  # Default to true unless GridFS data is loaded
@@ -3330,7 +3171,6 @@ async def get_coverage_area_details(location_id: str):
                 f"No streets_geojson_gridfs_id found for location: {location_name}"
             )
             # Keep streets_geojson empty, needs_reprocessing remains True
-        # --- End NEW GridFS Logic ---
 
         # Get street types (existing logic is fine, but might run unnecessarily if GeoJSON failed)
         street_types = coverage_doc.get("street_types", [])
@@ -3379,9 +3219,10 @@ async def get_coverage_area_details(location_id: str):
 @app.get("/api/export/advanced")
 async def export_advanced(
     request: Request,
-    include_trips: bool = Query(True, description="Include regular trips"),
+    include_trips: bool = Query(
+        True, description="Include regular trips (now all trips)"
+    ),
     include_matched_trips: bool = Query(True, description="Include map-matched trips"),
-    include_uploaded_trips: bool = Query(True, description="Include uploaded trips"),
     include_basic_info: bool = Query(True, description="Include basic trip info"),
     include_locations: bool = Query(True, description="Include location info"),
     include_telemetry: bool = Query(True, description="Include telemetry data"),
@@ -3416,7 +3257,7 @@ async def export_advanced(
         # Fetch trips based on selected data sources
         trips = []
 
-        # Get trips from regular trips collection
+        # Get trips from the main trips collection
         if include_trips:
             query = date_filter or {}
             regular_trips = await find_with_retry(trips_collection, query)
@@ -3434,7 +3275,8 @@ async def export_advanced(
                     include_custom,
                 )
                 if processed_trip:
-                    processed_trip["trip_type"] = "regular"
+                    # Use the source field from the document
+                    processed_trip["trip_type"] = trip.get("source", "unknown")
                     trips.append(processed_trip)
 
         # Get trips from map-matched trips collection
@@ -3456,27 +3298,6 @@ async def export_advanced(
                 )
                 if processed_trip:
                     processed_trip["trip_type"] = "map_matched"
-                    trips.append(processed_trip)
-
-        # Get trips from uploaded trips collection
-        if include_uploaded_trips:
-            query = date_filter or {}
-            uploaded_trips = await find_with_retry(uploaded_trips_collection, query)
-
-            # Process each uploaded trip based on field preferences
-            for trip in uploaded_trips:
-                # Use imported function
-                processed_trip = await process_trip_for_export(
-                    trip,
-                    include_basic_info,
-                    include_locations,
-                    include_telemetry,
-                    include_geometry,
-                    include_meta,
-                    include_custom,
-                )
-                if processed_trip:
-                    processed_trip["trip_type"] = "uploaded"
                     trips.append(processed_trip)
 
         # Format timestamp for filename

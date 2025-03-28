@@ -6,11 +6,12 @@ and destinationGeoPoint fields by extracting the first and last coordinates from
 the GPS data. These geo-points enable geospatial queries on trip data.
 """
 
-import json
 import asyncio
+import json
 import logging
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from motor.motor_asyncio import AsyncIOMotorCollection
 from pymongo import UpdateOne
 
@@ -274,6 +275,7 @@ async def update_geo_points_with_indexing(collection: AsyncIOMotorCollection) ->
 if __name__ == "__main__":
     import os
     import sys
+
     from motor.motor_asyncio import AsyncIOMotorClient
 
     # Connect to database
@@ -290,7 +292,6 @@ if __name__ == "__main__":
         collection_name = sys.argv[1]
         collections = {
             "trips": db["trips"],
-            "uploaded_trips": db["uploaded_trips"],
         }
 
         if collection_name in collections:

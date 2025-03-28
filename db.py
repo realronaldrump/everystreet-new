@@ -1,4 +1,3 @@
-# db.py
 """
 Database management module.
 
@@ -542,7 +541,7 @@ def _get_collection(name: str) -> AsyncIOMotorCollection:
 
 trips_collection = _get_collection("trips")
 matched_trips_collection = _get_collection("matched_trips")
-uploaded_trips_collection = _get_collection("uploaded_trips")
+
 places_collection = _get_collection("places")
 osm_data_collection = _get_collection("osm_data")
 streets_collection = _get_collection("streets")
@@ -688,15 +687,6 @@ async def batch_cursor(
     Yields:
         Lists of documents, batch_size at a time
     """
-    # Apply no_timeout option if requested and if the cursor supports it
-    # Note: Motor might handle this differently or it might be deprecated.
-    # Check Motor documentation for current best practice for long-running cursors.
-    # if no_timeout and hasattr(cursor, "add_option"):
-    #     try:
-    #         cursor = cursor.add_option(pymongo.cursor.CursorType.NON_TAILABLE) # Example, check correct option
-    #         logger.debug("Applied no_timeout option to cursor.")
-    #     except Exception as e:
-    #         logger.warning(f"Could not apply no_timeout option to cursor: {e}")
 
     batch = []
     try:
@@ -1244,33 +1234,6 @@ async def get_trip_by_id(
     return trip
 
 
-async def get_trip_from_all_collections(
-    trip_id: str,
-) -> Tuple[Optional[Dict[str, Any]], Optional[AsyncIOMotorCollection]]:
-    """
-    Find a trip in any of the trip collections (trips, matched, uploaded).
-
-    Args:
-        trip_id: Transaction ID or ObjectId string
-
-    Returns:
-        Tuple of (trip document, collection) or (None, None)
-    """
-    collections_to_check = [
-        trips_collection,
-        matched_trips_collection,
-        uploaded_trips_collection,
-    ]
-
-    # Try to find in each collection with proper retries
-    for collection in collections_to_check:
-        trip = await get_trip_by_id(trip_id, collection, check_both_id_types=True)
-        if trip:
-            return trip, collection
-
-    return None, None
-
-
 async def get_latest_trips(
     limit: int = 10, collection: Optional[AsyncIOMotorCollection] = None
 ) -> List[Dict[str, Any]]:
@@ -1403,6 +1366,13 @@ async def ensure_street_coverage_indexes() -> None:
             name="trips_coverage_query_idx",
             background=True,
         )
+        # Index on source field
+        await db_manager.safe_create_index(
+            "trips",
+            [("source", pymongo.ASCENDING)],
+            name="trips_source_idx",
+            background=True,
+        )
 
         logger.info("Street coverage indexes ensured/created successfully")
     except Exception as e:
@@ -1417,7 +1387,8 @@ async def ensure_location_indexes() -> None:
     """
     logger.info("Ensuring location structure indexes exist...")
     try:
-        collections = ["trips", "matched_trips", "uploaded_trips"]
+        # Only process trips and matched_trips
+        collections = ["trips", "matched_trips"]
 
         for collection_name in collections:
             # Index on city for city-level analytics
@@ -1457,8 +1428,6 @@ async def ensure_location_indexes() -> None:
         logger.info("Location structure indexes ensured/created successfully")
     except Exception as e:
         logger.error("Error creating location structure indexes: %s", str(e))
-        # Decide if fatal - maybe not, analytics might just be slower
-        # raise
 
 
 # Transaction handling
@@ -1499,16 +1468,8 @@ async def run_transaction(operations: List[Callable[[], Awaitable[Any]]]) -> boo
     except Exception as e:
         # Catch other unexpected errors during transaction
         logger.error("Unexpected error during transaction: %s", str(e), exc_info=True)
-        # Ensure abort if session exists and is active
-        # if session and session.in_transaction:
-        #     try:
-        #         await session.abort_transaction()
-        #         logger.info("Transaction aborted due to unexpected error.")
-        #     except Exception as abort_err:
-        #         logger.error(f"Error aborting transaction after unexpected error: {abort_err}")
+
         return False
-    # finally:
-    # Session is automatically ended by the 'async with' context manager
 
 
 async def init_database() -> None:
@@ -1528,7 +1489,6 @@ async def init_database() -> None:
             "task_history",
             "streets",
             "coverage_metadata",
-            "uploaded_trips",
             "live_trips",
             "archived_live_trips",
             "task_config",

@@ -765,47 +765,65 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
         client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
         db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
         task_config_collection = db["task_config"]
+        trips_collection = db["trips"]  # Need trips collection to find last trip
 
         try:
-            # Get last successful fetch time
-            task_config = await task_config_collection.find_one(
-                {"task_id": "periodic_fetch_trips"}
+            # Get last successful fetch time from config
+            task_config_doc = await task_config_collection.find_one(
+                {"_id": "global_background_task_config"}
             )
+            last_success_time = None
+            if (
+                task_config_doc
+                and "tasks" in task_config_doc
+                and "periodic_fetch_trips" in task_config_doc["tasks"]
+            ):
+                last_success_time = task_config_doc["tasks"][
+                    "periodic_fetch_trips"
+                ].get("last_success_time")
 
             now_utc = datetime.now(timezone.utc)
 
-            if task_config and "last_success_time" in task_config:
-                start_date = task_config["last_success_time"]
-                # Don't go back more than 24 hours to avoid excessive data
-                min_start_date = now_utc - timedelta(hours=24)
-                start_date = max(
-                    (
-                        start_date.replace(tzinfo=timezone.utc)
-                        if start_date.tzinfo is None
-                        else start_date
-                    ),
-                    (
-                        min_start_date.replace(tzinfo=timezone.utc)
-                        if min_start_date.tzinfo is None
-                        else min_start_date
-                    ),
-                )
+            # Determine start date based on last success or last trip in DB
+            start_date = None
+            if last_success_time:
+                start_date = last_success_time
+                if isinstance(start_date, str):
+                    start_date = datetime.fromisoformat(
+                        start_date.replace("Z", "+00:00")
+                    )
+                if start_date.tzinfo is None:
+                    start_date = start_date.replace(tzinfo=timezone.utc)
             else:
-                # Default to 3 hours ago if no previous state
+                # Find the latest 'bouncie' trip if no success time recorded
+                last_bouncie_trip = await trips_collection.find_one(
+                    {"source": "bouncie"}, sort=[("endTime", -1)]
+                )
+                if last_bouncie_trip and "endTime" in last_bouncie_trip:
+                    start_date = last_bouncie_trip["endTime"]
+                    if start_date.tzinfo is None:
+                        start_date = start_date.replace(tzinfo=timezone.utc)
+
+            # If still no start_date, default to 3 hours ago
+            if not start_date:
                 start_date = now_utc - timedelta(hours=3)
+
+            # Don't go back more than 24 hours to avoid excessive data
+            min_start_date = now_utc - timedelta(hours=24)
+            start_date = max(start_date, min_start_date)
 
             logger.info(f"Periodic fetch: from {start_date} to {now_utc}")
 
             try:
-                # Fetch trips in the date range
+                # Fetch trips in the date range (fetch_bouncie_trips_in_range saves with source='bouncie')
                 await fetch_bouncie_trips_in_range(
                     start_date, now_utc, do_map_match=True
                 )
 
-                # Update the last success time
+                # Update the last success time in the config
                 await task_config_collection.update_one(
-                    {"task_id": "periodic_fetch_trips"},
-                    {"$set": {"last_success_time": now_utc}},
+                    {"_id": "global_background_task_config"},
+                    {"$set": {"tasks.periodic_fetch_trips.last_success_time": now_utc}},
                     upsert=True,
                 )
 
@@ -921,11 +939,8 @@ def cleanup_stale_trips_task(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-        # No more global db_manager, create a new client.
-        # Call the actual cleanup function
-        cleanup_result = (
-            await cleanup_stale_trips()
-        )  # This function must also be updated to take a db connection.
+        # Call the actual cleanup function (ensure it uses its own client)
+        cleanup_result = await cleanup_stale_trips()
 
         logger.info(
             f"Cleaned up {cleanup_result.get('stale_trips_archived', 0)} stale trips"
@@ -952,7 +967,7 @@ def cleanup_stale_trips_task(self) -> Dict[str, Any]:
 )
 def cleanup_invalid_trips(self) -> Dict[str, Any]:
     """
-    Identify and mark invalid trip records.
+    Identify and mark invalid trip records in the trips collection.
 
     Returns:
         Dict with status information
@@ -963,7 +978,7 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
         # Create a new client connection *within* the task.
         client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
         db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
-        trips_collection = db["trips"]
+        trips_collection = db["trips"]  # Target the main trips collection
 
         try:
             update_ops = []
@@ -1029,7 +1044,7 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
 )
 def update_geocoding(self) -> Dict[str, Any]:
     """
-    Update reverse geocoding for trips missing location data.
+    Update reverse geocoding for trips missing location data in the trips collection.
 
     Returns:
         Dict with status information
@@ -1040,7 +1055,7 @@ def update_geocoding(self) -> Dict[str, Any]:
         # Create a new client connection *within* the task.
         client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
         db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
-        trips_collection = db["trips"]  # Access this way so we don't depend on db.py
+        trips_collection = db["trips"]  # Target the main trips collection
 
         try:
             # Find trips that need geocoding
@@ -1062,10 +1077,12 @@ def update_geocoding(self) -> Dict[str, Any]:
 
             for trip in trips_to_process:
                 try:
+                    # Determine source from trip data
+                    source = trip.get("source", "unknown")
                     # Use the unified processor
                     processor = TripProcessor(
                         mapbox_token=os.environ.get("MAPBOX_ACCESS_TOKEN", ""),
-                        source="api",
+                        source=source,  # Pass the correct source
                     )
                     processor.set_trip_data(trip)
 
@@ -1076,6 +1093,7 @@ def update_geocoding(self) -> Dict[str, Any]:
                         if processor.state == TripState.PROCESSED:
                             await processor.geocode()
                             if processor.state == TripState.GEOCODED:
+                                # save() now saves to trips_collection based on source
                                 result = await processor.save()
                                 if result:
                                     geocoded_count += 1
@@ -1117,7 +1135,7 @@ def update_geocoding(self) -> Dict[str, Any]:
 )
 def remap_unmatched_trips(self) -> Dict[str, Any]:
     """
-    Attempt to map-match trips that previously failed.
+    Attempt to map-match trips in the trips collection that previously failed.
 
     Returns:
         Dict with status information
@@ -1128,12 +1146,12 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
         # Create a new client connection *within* the task.
         client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
         db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
-        trips_collection = db["trips"]
+        trips_collection = db["trips"]  # Target the main trips collection
 
         try:
             # Check dependencies
             dependency_check = await check_dependencies("remap_unmatched_trips")
-            if not dependency_check["can_run"]:  # Fixed bug: properly check can_run
+            if not dependency_check["can_run"]:
                 logger.info(
                     f"Deferring remap_unmatched_trips: {dependency_check.get('reason', 'Unknown reason')}"
                 )
@@ -1144,8 +1162,16 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
                     ),
                 }
 
-            # Find trips that need map matching
-            query = {"$or": [{"matchedGps": {"$exists": False}}, {"matchedGps": None}]}
+            # Find trips that need map matching (check existence in matched_trips collection)
+            # Get IDs of trips already in matched_trips
+            matched_ids = [
+                doc["transactionId"]
+                async for doc in db["matched_trips"].find({}, {"transactionId": 1})
+                if "transactionId" in doc
+            ]
+
+            # Query trips collection for trips NOT in matched_ids
+            query = {"transactionId": {"$nin": matched_ids}}
             limit = 50  # Process in smaller batches due to API constraints
 
             trips_to_process = (
@@ -1156,15 +1182,18 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
 
             for trip in trips_to_process:
                 try:
+                    # Determine source from trip data
+                    source = trip.get("source", "unknown")
                     # Use the unified processor
                     processor = TripProcessor(
                         mapbox_token=os.environ.get("MAPBOX_ACCESS_TOKEN", ""),
-                        source="api",
+                        source=source,  # Pass the correct source
                     )
                     processor.set_trip_data(trip)
 
                     # Process with map matching
                     await processor.process(do_map_match=True)
+                    # save() now saves to trips_collection and matched_trips_collection
                     result = await processor.save(map_match_result=True)
 
                     if result:
@@ -1210,7 +1239,7 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
 )
 def validate_trip_data_task(self) -> Dict[str, Any]:
     """
-    Validate trip data consistency.
+    Validate trip data consistency in the trips collection.
 
     Returns:
         Dict with status information
@@ -1221,7 +1250,7 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
         # Create a new client connection *within* the task.
         client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
         db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
-        trips_collection = db["trips"]
+        trips_collection = db["trips"]  # Target the main trips collection
 
         try:
             # Fetch trips to validate
@@ -1236,10 +1265,12 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
 
             for trip in trips_to_process:
                 try:
+                    # Determine source from trip data
+                    source = trip.get("source", "unknown")
                     # Use the unified processor
                     processor = TripProcessor(
                         mapbox_token=os.environ.get("MAPBOX_ACCESS_TOKEN", ""),
-                        source="api",
+                        source=source,  # Pass the correct source
                     )
                     processor.set_trip_data(trip)
 
@@ -1351,6 +1382,7 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
         "update_geocoding": update_geocoding,
         "remap_unmatched_trips": remap_unmatched_trips,
         "validate_trip_data": validate_trip_data_task,
+        "update_coverage_for_new_trips": update_coverage_for_new_trips,  # Added missing task
     }
 
     # Get Redis URL from environment

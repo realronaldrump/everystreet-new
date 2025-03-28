@@ -2122,15 +2122,6 @@
           return; // Cannot add panel
         }
       }
-
-      // --- REMOVED HOVER LISTENERS ---
-      // this.streetLayers.eachLayer((layer) => {
-      //   ... store original style ...
-      //   layer.off("mouseover mouseout mousemove");
-      //   layer.on("mouseover", (e) => { ... highlight logic ... update panel ... });
-      //   layer.on("mouseout", (e) => { ... reset style logic ... hide panel ... });
-      //   layer.on("mousemove", (e) => { ... update panel position ... });
-      // });
     }
 
     addCoverageSummary(coverage) {

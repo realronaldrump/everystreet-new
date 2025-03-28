@@ -25,7 +25,6 @@ from db import (
     matched_trips_collection,
     places_collection,
     trips_collection,
-    uploaded_trips_collection,
 )
 from utils import haversine, reverse_geocode_nominatim
 
@@ -125,13 +124,13 @@ class TripProcessor:
 
         Args:
             mapbox_token: The Mapbox access token for map matching
-            source: Source of the trip data (api, upload, etc.)
+            source: Source of the trip data (api, upload, upload_gpx, upload_geojson, bouncie etc.)
         """
         # Set mapbox token in config singleton
         if mapbox_token:
             config.mapbox_access_token = mapbox_token
 
-        self.source = source
+        self.source = source  # Store the source (e.g., 'bouncie', 'upload_gpx')
 
         # State tracking
         self.state = TripState.NEW
@@ -1177,7 +1176,7 @@ class TripProcessor:
 
     async def save(self, map_match_result: Optional[bool] = None) -> Optional[str]:
         """
-        Save the processed trip to the appropriate collection.
+        Save the processed trip to the trips collection.
 
         Args:
             map_match_result: Optional override for whether to save map matching results
@@ -1186,16 +1185,16 @@ class TripProcessor:
             ObjectId of the saved document if successful, None otherwise
         """
         try:
-            # Skip if not processed
-            if (
-                self.state != TripState.COMPLETED
-                and self.state != TripState.MAP_MATCHED
-                and self.state != TripState.GEOCODED
-                and self.state != TripState.PROCESSED
-                and self.state != TripState.VALIDATED
-            ):
+            # Skip if not processed enough
+            if self.state not in [
+                TripState.VALIDATED,
+                TripState.PROCESSED,
+                TripState.GEOCODED,
+                TripState.MAP_MATCHED,
+                TripState.COMPLETED,
+            ]:
                 logger.warning(
-                    f"Cannot save trip {self.trip_data.get('transactionId', 'unknown')} that hasn't been processed"
+                    f"Cannot save trip {self.trip_data.get('transactionId', 'unknown')} that hasn't been processed (State: {self.state.value})"
                 )
                 return None
 
@@ -1206,7 +1205,7 @@ class TripProcessor:
             if isinstance(trip_to_save.get("gps"), dict):
                 trip_to_save["gps"] = json.dumps(trip_to_save["gps"])
 
-            # Add source metadata
+            # Add source metadata (already set during init)
             trip_to_save["source"] = self.source
             trip_to_save["saved_at"] = datetime.now(timezone.utc)
             trip_to_save["processing_history"] = self.state_history
@@ -1215,15 +1214,11 @@ class TripProcessor:
             if "_id" in trip_to_save:
                 del trip_to_save["_id"]
 
-            # Determine which collection to use
+            # Always save to the main trips collection
             collection = trips_collection
-            if self.source == "upload":
-                collection = uploaded_trips_collection
-
-            # Save the trip
             transaction_id = trip_to_save.get("transactionId")
 
-            # Upsert the trip
+            # Upsert the trip into the trips collection
             await collection.update_one(
                 {"transactionId": transaction_id},
                 {"$set": trip_to_save},
@@ -1234,21 +1229,67 @@ class TripProcessor:
             if (
                 map_match_result or self.state == TripState.MAP_MATCHED
             ) and "matchedGps" in trip_to_save:
-                matched_trip = trip_to_save.copy()
+                # Ensure matchedGps is a dict before saving
+                matched_gps_data = trip_to_save["matchedGps"]
+                if isinstance(matched_gps_data, str):
+                    try:
+                        matched_gps_data = json.loads(matched_gps_data)
+                    except json.JSONDecodeError:
+                        logger.error(
+                            f"Invalid JSON in matchedGps for trip {transaction_id}, skipping matched save."
+                        )
+                        matched_gps_data = None  # Prevent saving invalid data
 
-                # Try to insert, ignoring duplicate key errors
-                try:
-                    await matched_trips_collection.update_one(
-                        {"transactionId": transaction_id},
-                        {"$set": matched_trip},
-                        upsert=True,
-                    )
-                except DuplicateKeyError:
-                    logger.info(f"Matched trip {transaction_id} already exists")
+                if matched_gps_data:
+                    # Create a separate dict for matched trip to avoid saving full history etc.
+                    matched_trip_data = {
+                        "transactionId": transaction_id,
+                        "startTime": trip_to_save.get("startTime"),
+                        "endTime": trip_to_save.get("endTime"),
+                        "matchedGps": matched_gps_data,
+                        "source": self.source,  # Keep source info
+                        "matched_at": trip_to_save.get("matched_at"),
+                        # Include other relevant fields if needed for matched trip display/analysis
+                        "distance": trip_to_save.get("distance"),
+                        "imei": trip_to_save.get("imei"),
+                        "startLocation": trip_to_save.get("startLocation"),
+                        "destination": trip_to_save.get("destination"),
+                        "maxSpeed": trip_to_save.get("maxSpeed"),
+                        "averageSpeed": trip_to_save.get("averageSpeed"),
+                        "hardBrakingCount": trip_to_save.get("hardBrakingCount"),
+                        "hardAccelerationCount": trip_to_save.get(
+                            "hardAccelerationCount"
+                        ),
+                        "totalIdleDurationFormatted": trip_to_save.get(
+                            "totalIdleDurationFormatted"
+                        ),
+                    }
 
-            logger.info(f"Saved trip {transaction_id} successfully")
+                    # Remove None values before saving
+                    matched_trip_data = {
+                        k: v for k, v in matched_trip_data.items() if v is not None
+                    }
 
-            # Find the saved document to get the _id
+                    try:
+                        await matched_trips_collection.update_one(
+                            {"transactionId": transaction_id},
+                            {"$set": matched_trip_data},
+                            upsert=True,
+                        )
+                    except DuplicateKeyError:
+                        logger.info(
+                            f"Matched trip {transaction_id} already exists (concurrent update?)"
+                        )
+                    except Exception as matched_save_err:
+                        logger.error(
+                            f"Error saving matched trip {transaction_id}: {matched_save_err}"
+                        )
+
+            logger.info(
+                f"Saved trip {transaction_id} to {collection.name} successfully"
+            )
+
+            # Find the saved document in the main collection to get the _id
             saved_doc = await collection.find_one({"transactionId": transaction_id})
 
             return str(saved_doc["_id"]) if saved_doc else None
@@ -1282,7 +1323,7 @@ class TripProcessor:
         end_time: Optional[datetime] = None,
         transaction_id: Optional[str] = None,
         imei: str = "UPLOADED",
-        source: str = "upload",
+        source: str = "upload",  # Default source if not specified otherwise
         mapbox_token: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
@@ -1294,7 +1335,7 @@ class TripProcessor:
             end_time: Optional end time, will use last timestamp if not provided
             transaction_id: Optional transaction ID, will generate one if not provided
             imei: Device identifier
-            source: Source of the trip data
+            source: Source of the trip data (e.g., 'upload_gpx', 'upload_geojson')
             mapbox_token: Mapbox token for map matching
 
         Returns:
@@ -1329,7 +1370,7 @@ class TripProcessor:
                 prev[0], prev[1], curr[0], curr[1], unit="miles"
             )
 
-        # Create trip data
+        # Create trip data, ensuring source is included
         trip_data = {
             "transactionId": transaction_id,
             "startTime": start_time,
@@ -1337,11 +1378,13 @@ class TripProcessor:
             "gps": json.dumps({"type": "LineString", "coordinates": coordinates}),
             "distance": total_distance,
             "imei": imei,
-            "source": source,
+            "source": source,  # Ensure source is set here
         }
 
         # Create processor and process trip
-        processor = cls(mapbox_token=mapbox_token, source=source)
+        processor = cls(
+            mapbox_token=mapbox_token, source=source
+        )  # Pass source to processor
         processor.set_trip_data(trip_data)
         # Skip map matching by default
         await processor.process(do_map_match=False)

@@ -97,22 +97,19 @@ class CustomPlace:
 # Reference to database collections - these will be set during initialization
 places_collection = None
 trips_collection = None
-uploaded_trips_collection = None
 
 
-def init_collections(places_coll, trips_coll, uploaded_trips_coll):
+def init_collections(places_coll, trips_coll):
     """
     Initialize the database collections for this module.
 
     Args:
         places_coll: MongoDB collection for places
         trips_coll: MongoDB collection for trips
-        uploaded_trips_coll: MongoDB collection for uploaded trips
     """
-    global places_collection, trips_collection, uploaded_trips_collection
+    global places_collection, trips_collection
     places_collection = places_coll
     trips_collection = trips_coll
-    uploaded_trips_collection = uploaded_trips_coll
 
 
 @router.get("/places")
@@ -271,15 +268,13 @@ async def get_place_statistics(place_id: str):
             "startTime": {"$ne": None},
         }
 
-        # Fetch all relevant trips
-        trips_ending_at_place = []
-        trips_starting_from_place = []
-
-        for coll in [trips_collection, uploaded_trips_collection]:
-            ending_trips = await find_with_retry(coll, ended_at_place_query)
-            starting_trips = await find_with_retry(coll, started_from_place_query)
-            trips_ending_at_place.extend(ending_trips)
-            trips_starting_from_place.extend(starting_trips)
+        # Fetch all relevant trips only from trips_collection
+        trips_ending_at_place = await find_with_retry(
+            trips_collection, ended_at_place_query
+        )
+        trips_starting_from_place = await find_with_retry(
+            trips_collection, started_from_place_query
+        )
 
         # Create a timeline of all events for visit calculation
         timeline = []
@@ -440,15 +435,13 @@ async def get_trips_for_place(place_id: str):
             "startTime": {"$ne": None},
         }
 
-        # Fetch all relevant trips
-        trips_ending_at_place = []
-        trips_starting_from_place = []
-
-        for coll in [trips_collection, uploaded_trips_collection]:
-            ending_trips = await find_with_retry(coll, ended_at_place_query)
-            starting_trips = await find_with_retry(coll, started_from_place_query)
-            trips_ending_at_place.extend(ending_trips)
-            trips_starting_from_place.extend(starting_trips)
+        # Fetch all relevant trips only from trips_collection
+        trips_ending_at_place = await find_with_retry(
+            trips_collection, ended_at_place_query
+        )
+        trips_starting_from_place = await find_with_retry(
+            trips_collection, started_from_place_query
+        )
 
         # Create a dictionary to look up trips by ID
         trips_by_id = {
@@ -559,10 +552,8 @@ async def get_trips_for_place(place_id: str):
             duration_str = format_duration(visit["duration"])
             time_since_last_str = format_duration(visit["time_since_last"])
 
-            # Add to final data
-            trip_source = "Uploaded"
-            if "_source" in trip and trip["_source"] == "bouncie":
-                trip_source = "Bouncie"
+            # Use the source field from the trip document
+            trip_source = trip.get("source", "unknown")
 
             distance = trip.get("distance", 0)
             if isinstance(distance, dict):
@@ -621,30 +612,29 @@ async def get_non_custom_places_visits():
             {"$limit": 30},  # Limit to top 30 places
         ]
 
+        # Aggregate only on the trips collection
+        results = await aggregate_with_retry(trips_collection, pipeline)
         places_data = []
-        for coll in [trips_collection, uploaded_trips_collection]:
-            results = await aggregate_with_retry(coll, pipeline)
-            for doc in results:
-                place_name = doc["_id"]
-                visit_count = doc["count"]
-                last_visit = doc["lastVisit"]
 
-                # Check if this place is already in our results
-                existing = next(
-                    (p for p in places_data if p["name"] == place_name), None
+        for doc in results:
+            place_name = doc["_id"]
+            visit_count = doc["count"]
+            last_visit = doc["lastVisit"]
+
+            # Check if this place is already in our results (shouldn't happen with single collection query, but safe)
+            existing = next((p for p in places_data if p["name"] == place_name), None)
+            if existing:
+                existing["visitCount"] += visit_count
+                if last_visit > existing["lastVisit"]:
+                    existing["lastVisit"] = last_visit
+            else:
+                places_data.append(
+                    {
+                        "name": place_name,
+                        "visitCount": visit_count,
+                        "lastVisit": last_visit,
+                    }
                 )
-                if existing:
-                    existing["visitCount"] += visit_count
-                    if last_visit > existing["lastVisit"]:
-                        existing["lastVisit"] = last_visit
-                else:
-                    places_data.append(
-                        {
-                            "name": place_name,
-                            "visitCount": visit_count,
-                            "lastVisit": last_visit,
-                        }
-                    )
 
         # Sort by visit count
         places_data.sort(key=lambda x: x["visitCount"], reverse=True)

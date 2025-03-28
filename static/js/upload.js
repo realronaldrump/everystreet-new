@@ -1,7 +1,7 @@
 /* global L, notificationManager, bootstrap, confirmationDialog */
 
 /**
- * UploadManager - Manages file uploads and processing
+ * UploadManager - Manages file uploads and processing for trips originating from uploads.
  */
 class UploadManager {
   /**
@@ -11,11 +11,12 @@ class UploadManager {
     // Initialize properties
     this.droppedFiles = [];
     this.parsedFiles = [];
-    this.selectedFiles = [];
+    this.selectedFiles = []; // Files selected in the drop zone, pending upload
     this.state = {
-      selectedFiles: [],
+      selectedFiles: [], // Renamed from parsedFiles for clarity
       previewMap: null,
       previewLayer: null,
+      displayedTrips: [], // Cache the trips currently displayed in the table
     };
 
     // DOM elements
@@ -42,6 +43,8 @@ class UploadManager {
           mimeType: "application/geo+json",
         },
       },
+      // Define which sources are considered "uploaded" for display purposes
+      uploadSources: ["upload_gpx", "upload_geojson", "upload"],
     };
 
     // Initialize on DOM content loaded
@@ -66,7 +69,7 @@ class UploadManager {
       this.cacheElements();
       this.initializePreviewMap();
       this.initializeEventListeners();
-      this.loadUploadedTrips();
+      this.loadUploadSourceTrips(); // Load trips originating from uploads
 
       this.loadingManager.finish();
     } catch (error) {
@@ -89,7 +92,7 @@ class UploadManager {
       totalPointsSpan: document.getElementById("totalPoints"),
       previewMapElement: document.getElementById("previewMap"),
       mapMatchCheckbox: document.getElementById("mapMatchOnUpload"),
-      uploadedTripsBody: document.getElementById("uploadedTripsBody"),
+      uploadedTripsBody: document.getElementById("uploadedTripsBody"), // Keep ID for now, represents the table body
       selectAllCheckbox: document.getElementById("select-all"),
       bulkDeleteBtn: document.getElementById("bulk-delete-btn"),
     };
@@ -206,7 +209,7 @@ class UploadManager {
     this.loadingManager.startOperation("Handling Files");
     this.loadingManager.addSubOperation("parsing", files.length);
 
-    this.state.selectedFiles = [];
+    this.state.selectedFiles = []; // Clear previous selections
     const filePromises = [];
 
     for (let i = 0; i < files.length; i++) {
@@ -256,11 +259,13 @@ class UploadManager {
             })
             .catch((error) => reject(error));
         } else {
-          reject(
-            new Error(
-              `Unsupported file type: ${file.name}. Only .gpx and .geojson files are supported.`
-            )
+          // Use notification manager for user feedback
+          window.notificationManager.show(
+            `Unsupported file type: ${file.name}. Only .gpx and .geojson files are supported.`,
+            "warning"
           );
+          this.loadingManager.updateSubOperation("parsing", index + 1); // Still update progress even if skipped
+          resolve(); // Resolve so Promise.all doesn't fail for unsupported types
         }
       } catch (error) {
         console.error("Error handling file:", error);
@@ -290,7 +295,9 @@ class UploadManager {
    * @returns {string} File extension including the dot
    */
   getFileExtension(filename) {
-    return filename.slice(filename.lastIndexOf(".")).toLowerCase();
+    return filename
+      .slice(((filename.lastIndexOf(".") - 1) >>> 0) + 1)
+      .toLowerCase();
   }
 
   /**
@@ -302,24 +309,52 @@ class UploadManager {
     try {
       const parser = new DOMParser();
       const gpxDoc = parser.parseFromString(gpxContent, "application/xml");
+      const errorNode = gpxDoc.querySelector("parsererror");
+      if (errorNode) {
+        throw new Error(`GPX parsing error: ${errorNode.textContent}`);
+      }
       const trkpts = gpxDoc.getElementsByTagName("trkpt");
       const coordinates = [];
       const times = [];
 
-      for (let i = 0; i < trkpts.length; i++) {
-        const trkpt = trkpts[i];
-        const lat = parseFloat(trkpt.getAttribute("lat"));
-        const lon = parseFloat(trkpt.getAttribute("lon"));
-        coordinates.push([lon, lat]); // GeoJSON format: [lon, lat]
-
-        const timeElems = trkpt.getElementsByTagName("time");
-        if (timeElems.length > 0) {
-          times.push(new Date(timeElems[0].textContent));
+      if (trkpts.length === 0) {
+        // Check for route points as fallback
+        const rtepts = gpxDoc.getElementsByTagName("rtept");
+        if (rtepts.length > 0) {
+          for (let i = 0; i < rtepts.length; i++) {
+            const rtept = rtepts[i];
+            const lat = parseFloat(rtept.getAttribute("lat"));
+            const lon = parseFloat(rtept.getAttribute("lon"));
+            if (!isNaN(lat) && !isNaN(lon)) {
+              coordinates.push([lon, lat]);
+              const timeElems = rtept.getElementsByTagName("time");
+              if (timeElems.length > 0) {
+                times.push(new Date(timeElems[0].textContent));
+              }
+            }
+          }
+        } else {
+          throw new Error(
+            `No track points (trkpt) or route points (rtept) found in ${file.name}`
+          );
+        }
+      } else {
+        for (let i = 0; i < trkpts.length; i++) {
+          const trkpt = trkpts[i];
+          const lat = parseFloat(trkpt.getAttribute("lat"));
+          const lon = parseFloat(trkpt.getAttribute("lon"));
+          if (!isNaN(lat) && !isNaN(lon)) {
+            coordinates.push([lon, lat]); // GeoJSON format: [lon, lat]
+            const timeElems = trkpt.getElementsByTagName("time");
+            if (timeElems.length > 0) {
+              times.push(new Date(timeElems[0].textContent));
+            }
+          }
         }
       }
 
-      if (coordinates.length === 0) {
-        throw new Error(`No coordinates found in ${file.name}`);
+      if (coordinates.length < 2) {
+        throw new Error(`Insufficient valid coordinates found in ${file.name}`);
       }
 
       const startTime =
@@ -345,6 +380,10 @@ class UploadManager {
     } catch (error) {
       console.error("Error parsing GPX:", error);
       this.loadingManager.error("Error parsing GPX file: " + file.name);
+      window.notificationManager.show(
+        `Error parsing ${file.name}: ${error.message}`,
+        "danger"
+      );
     }
   }
 
@@ -357,41 +396,129 @@ class UploadManager {
     try {
       const geojsonData = JSON.parse(content);
 
-      if (!geojsonData.features || !Array.isArray(geojsonData.features)) {
-        throw new Error("Invalid GeoJSON structure");
+      // Handle FeatureCollection
+      if (geojsonData.type === "FeatureCollection") {
+        if (!geojsonData.features || !Array.isArray(geojsonData.features)) {
+          throw new Error("Invalid GeoJSON FeatureCollection structure");
+        }
+
+        geojsonData.features.forEach((feature, index) => {
+          this.processGeoJSONFeature(feature, file, index);
+        });
       }
-
-      geojsonData.features.forEach((feature) => {
-        if (!feature.geometry || !feature.properties) return;
-
-        const coordinates = feature.geometry.coordinates;
-        const properties = feature.properties;
-
-        const fileEntry = {
-          file,
-          filename: file.name,
-          startTime: properties.start_time
-            ? new Date(properties.start_time)
-            : null,
-          endTime: properties.end_time ? new Date(properties.end_time) : null,
-          points: coordinates.length,
-          coordinates,
-          type: "geojson",
-          properties: {
-            max_speed: properties.max_speed,
-            hard_brakings: properties.hard_brakings,
-            hard_accelerations: properties.hard_accelerations,
-            idle: properties.idle,
-            transaction_id: properties.transaction_id,
-          },
-        };
-
-        this.state.selectedFiles.push(fileEntry);
-      });
+      // Handle single Feature
+      else if (geojsonData.type === "Feature") {
+        this.processGeoJSONFeature(geojsonData, file, 0);
+      }
+      // Handle single Geometry (LineString)
+      else if (geojsonData.type === "LineString") {
+        this.processGeoJSONGeometry(geojsonData, file);
+      } else {
+        throw new Error(
+          "Unsupported GeoJSON type. Must be FeatureCollection, Feature, or LineString."
+        );
+      }
     } catch (error) {
       console.error("Error parsing GeoJSON:", error);
       this.loadingManager.error("Error parsing GeoJSON file: " + file.name);
+      window.notificationManager.show(
+        `Error parsing ${file.name}: ${error.message}`,
+        "danger"
+      );
     }
+  }
+
+  /**
+   * Process a single GeoJSON feature.
+   * @param {object} feature - The GeoJSON feature object.
+   * @param {File} file - The original file object.
+   * @param {number} index - The index of the feature within the file (for naming).
+   */
+  processGeoJSONFeature(feature, file, index) {
+    if (
+      !feature.geometry ||
+      !feature.properties ||
+      feature.geometry.type !== "LineString"
+    ) {
+      console.warn(
+        `Skipping invalid or non-LineString feature ${index + 1} in ${
+          file.name
+        }`
+      );
+      return;
+    }
+
+    const coordinates = feature.geometry.coordinates;
+    if (!Array.isArray(coordinates) || coordinates.length < 2) {
+      console.warn(
+        `Skipping feature ${index + 1} in ${
+          file.name
+        } due to insufficient coordinates.`
+      );
+      return;
+    }
+
+    const properties = feature.properties;
+    const filename = `${file.name} (Feature ${index + 1})`; // Distinguish features
+
+    const fileEntry = {
+      file, // Keep original file reference for upload
+      filename: filename,
+      startTime: properties.start_time
+        ? new Date(properties.start_time)
+        : properties.coordTimes && properties.coordTimes.length > 0
+        ? new Date(properties.coordTimes[0])
+        : null,
+      endTime: properties.end_time
+        ? new Date(properties.end_time)
+        : properties.coordTimes && properties.coordTimes.length > 0
+        ? new Date(properties.coordTimes[properties.coordTimes.length - 1])
+        : null,
+      points: coordinates.length,
+      coordinates,
+      type: "geojson",
+      properties: {
+        // Include potentially useful properties
+        max_speed: properties.max_speed,
+        hard_brakings: properties.hard_brakings,
+        hard_accelerations: properties.hard_accelerations,
+        idle: properties.idle,
+        transaction_id: properties.transaction_id,
+        // Add other relevant properties if needed
+      },
+    };
+    this.state.selectedFiles.push(fileEntry);
+  }
+
+  /**
+   * Process a bare GeoJSON LineString geometry.
+   * @param {object} geometry - The GeoJSON LineString geometry object.
+   * @param {File} file - The original file object.
+   */
+  processGeoJSONGeometry(geometry, file) {
+    const coordinates = geometry.coordinates;
+    if (!Array.isArray(coordinates) || coordinates.length < 2) {
+      console.warn(
+        `Skipping geometry in ${file.name} due to insufficient coordinates.`
+      );
+      return;
+    }
+
+    // Cannot infer times from geometry alone
+    const startTime = null;
+    const endTime = null;
+
+    const fileEntry = {
+      file,
+      filename: file.name,
+      startTime,
+      endTime,
+      points: coordinates.length,
+      coordinates,
+      type: "geojson",
+      properties: {}, // No properties available
+    };
+    this.state.selectedFiles.push(fileEntry);
   }
 
   /**
@@ -402,19 +529,19 @@ class UploadManager {
 
     if (!fileListBody) return;
 
-    fileListBody.innerHTML = "";
+    fileListBody.innerHTML = ""; // Clear existing list
 
     this.state.selectedFiles.forEach((entry, index) => {
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${entry.filename}</td>
-        <td>${entry.startTime ? entry.startTime.toLocaleString() : "-"} - ${
-        entry.endTime ? entry.endTime.toLocaleString() : "-"
+        <td>${entry.startTime ? entry.startTime.toLocaleString() : "N/A"} - ${
+        entry.endTime ? entry.endTime.toLocaleString() : "N/A"
       }</td>
         <td>${entry.points}</td>
         <td>Pending</td>
-        <td><button class="btn btn-sm btn-danger" onclick="removeFile(${index})">Remove</button></td>
-      `;
+        <td><button class="btn btn-sm btn-danger" onclick="uploadManager.removeFile(${index})">Remove</button></td>
+      `; // Use uploadManager instance
       fileListBody.appendChild(row);
     });
 
@@ -429,37 +556,73 @@ class UploadManager {
   updatePreviewMap() {
     const { previewLayer, previewMap } = this.state;
 
-    if (!previewLayer) return;
+    if (!previewLayer || !previewMap) return;
 
     previewLayer.clearLayers();
 
-    this.state.selectedFiles.forEach((entry) => {
-      const latlngs = entry.coordinates.map((coord) => [coord[1], coord[0]]);
+    this.state.selectedFiles.forEach((entry, index) => {
+      // Ensure coordinates are valid numbers
+      const validCoords = entry.coordinates.filter(
+        (coord) =>
+          Array.isArray(coord) &&
+          coord.length >= 2 &&
+          !isNaN(coord[0]) &&
+          !isNaN(coord[1])
+      );
+
+      if (validCoords.length < 2) {
+        console.warn(
+          `Skipping preview for ${entry.filename}: Insufficient valid coordinates.`
+        );
+        return;
+      }
+
+      const latlngs = validCoords.map((coord) => [coord[1], coord[0]]); // Leaflet uses [lat, lon]
       const polyline = L.polyline(latlngs, { color: "red" }).addTo(
         previewLayer
       );
 
+      // Add tooltip
+      polyline.bindTooltip(entry.filename);
+
+      // Add click handler to remove
       polyline.on("click", async () => {
         const confirmed = await confirmationDialog.show({
-          title: "Remove File",
-          message: `Remove ${entry.filename}?`,
+          title: "Remove File from Preview",
+          message: `Remove ${entry.filename} from the upload list?`,
           confirmText: "Remove",
           confirmButtonClass: "btn-danger",
         });
 
         if (confirmed) {
-          this.state.selectedFiles = this.state.selectedFiles.filter(
-            (e) => e !== entry
+          // Find the actual index in the current state array
+          const currentIndex = this.state.selectedFiles.findIndex(
+            (e) => e === entry
           );
-          this.updateFileList();
-          this.updatePreviewMap();
-          this.updateStats();
+          if (currentIndex !== -1) {
+            this.removeFile(currentIndex); // Use the removeFile method
+          }
         }
       });
     });
 
-    if (previewMap && previewLayer.getLayers().length > 0) {
-      previewMap.fitBounds(previewLayer.getBounds());
+    if (previewLayer.getLayers().length > 0) {
+      try {
+        previewMap.fitBounds(previewLayer.getBounds());
+      } catch (e) {
+        console.error("Error fitting map bounds:", e);
+        // Fallback zoom if bounds are invalid
+        previewMap.setView(
+          this.config.map.defaultCenter,
+          this.config.map.defaultZoom
+        );
+      }
+    } else {
+      // Reset view if no layers
+      previewMap.setView(
+        this.config.map.defaultCenter,
+        this.config.map.defaultZoom
+      );
     }
   }
 
@@ -477,41 +640,44 @@ class UploadManager {
     if (dateRangeSpan) {
       const allTimes = selectedFiles
         .flatMap((entry) => [entry.startTime, entry.endTime])
-        .filter((t) => t);
+        .filter((t) => t instanceof Date && !isNaN(t)); // Ensure valid dates
 
       if (allTimes.length > 0) {
         const minTime = new Date(Math.min(...allTimes.map((t) => t.getTime())));
         const maxTime = new Date(Math.max(...allTimes.map((t) => t.getTime())));
         dateRangeSpan.textContent = `${minTime.toLocaleString()} - ${maxTime.toLocaleString()}`;
       } else {
-        dateRangeSpan.textContent = "-";
+        dateRangeSpan.textContent = "N/A";
       }
     }
 
     if (totalPointsSpan) {
       const totalPoints = selectedFiles.reduce(
-        (sum, entry) => sum + entry.points,
+        (sum, entry) => sum + (entry.points || 0), // Handle potential undefined points
         0
       );
-      totalPointsSpan.textContent = totalPoints;
+      totalPointsSpan.textContent = totalPoints.toLocaleString(); // Format large numbers
     }
   }
 
   /**
-   * Remove a file from the selected files
+   * Remove a file from the selected files list (before upload)
    * @param {number} index - File index to remove
    */
   removeFile(index) {
     if (index >= 0 && index < this.state.selectedFiles.length) {
-      this.state.selectedFiles.splice(index, 1);
+      const removedFile = this.state.selectedFiles.splice(index, 1);
+      console.log(`Removed file ${removedFile[0]?.filename} from selection.`);
       this.updateFileList();
       this.updatePreviewMap();
       this.updateStats();
+    } else {
+      console.warn(`Attempted to remove file at invalid index: ${index}`);
     }
   }
 
   /**
-   * Upload selected files
+   * Upload selected files to the backend.
    */
   async uploadFiles() {
     const { selectedFiles } = this.state;
@@ -527,37 +693,65 @@ class UploadManager {
 
     const formData = new FormData();
 
+    // Append each actual file object
     selectedFiles.forEach((entry, index) => {
-      formData.append("files[]", entry.file);
-      this.loadingManager.updateSubOperation("uploading", index + 1);
+      // Ensure we have the file object; might be lost if page reloaded without persistence
+      if (entry.file instanceof File) {
+        formData.append("files", entry.file, entry.filename); // Use 'files' as expected by FastAPI
+        this.loadingManager.updateSubOperation("uploading", index + 1);
+      } else {
+        console.warn(`File object missing for ${entry.filename}, skipping.`);
+        window.notificationManager.show(
+          `Could not upload ${entry.filename}: File data missing. Please re-select the file.`,
+          "warning"
+        );
+      }
     });
 
-    const mapMatch = mapMatchCheckbox?.checked || false;
-    formData.append("map_match", mapMatch);
+    // Check if any files were actually added
+    if (!formData.has("files")) {
+      window.notificationManager.show(
+        "No valid files to upload. Please re-select files.",
+        "warning"
+      );
+      this.loadingManager.error("No valid files found to upload.");
+      this.loadingManager.finish();
+      return;
+    }
 
     if (uploadButton) {
       uploadButton.disabled = true;
+      uploadButton.innerHTML =
+        '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...';
     }
 
     try {
+      // Use the endpoint designed for GPX/GeoJSON uploads
       const response = await fetch("/api/upload_gpx", {
         method: "POST",
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`);
+        let errorDetail = `Server responded with status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorDetail = errorData.detail || errorDetail;
+        } catch (e) {
+          /* Ignore JSON parsing error */
+        }
+        throw new Error(errorDetail);
       }
 
       const data = await response.json();
 
       if (data.status === "success") {
         window.notificationManager.show(data.message, "success");
-        this.state.selectedFiles = [];
+        this.state.selectedFiles = []; // Clear selection after successful upload
         this.updateFileList();
         this.updatePreviewMap();
         this.updateStats();
-        this.loadUploadedTrips();
+        this.loadUploadSourceTrips(); // Refresh the list of trips below
       } else {
         throw new Error(data.message || "Error uploading files");
       }
@@ -571,54 +765,75 @@ class UploadManager {
     } finally {
       if (uploadButton) {
         uploadButton.disabled = false;
+        uploadButton.innerHTML = "Upload Selected Files";
       }
       this.loadingManager.finish();
     }
   }
 
   /**
-   * Load previously uploaded trips
+   * Load trips with upload sources from the main trips endpoint.
    */
-  async loadUploadedTrips() {
+  async loadUploadSourceTrips() {
     this.loadingManager.startOperation("Loading Uploaded Trips");
 
     try {
-      const response = await fetch("/api/uploaded_trips");
+      // Fetch ALL trips from the unified endpoint
+      const response = await fetch("/api/trips"); // No specific filters here yet
 
       if (!response.ok) {
         throw new Error(`Server responded with status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const geojsonData = await response.json(); // Expecting GeoJSON FeatureCollection
 
-      if (data.status === "success") {
-        this.displayUploadedTrips(data.trips);
+      if (geojsonData && geojsonData.type === "FeatureCollection") {
+        // Extract trip data from features, filtering by source on the frontend
+        const allTrips = geojsonData.features.map((feature) => ({
+          _id: feature.properties.transactionId, // Use transactionId as _id for consistency here
+          transactionId: feature.properties.transactionId,
+          filename: feature.properties.filename || "N/A", // Assuming filename might be stored
+          startTime: feature.properties.startTime,
+          endTime: feature.properties.endTime,
+          source: feature.properties.source || "unknown",
+        }));
+
+        // Filter trips based on defined upload sources
+        const uploadSourceTrips = allTrips.filter((trip) =>
+          this.config.uploadSources.includes(trip.source)
+        );
+
+        this.displayUploadSourceTrips(uploadSourceTrips); // Display only the filtered trips
       } else {
-        throw new Error(data.message || "Error loading uploaded trips");
+        throw new Error("Invalid data format received from /api/trips");
       }
     } catch (error) {
-      console.error("Error fetching uploaded trips:", error);
-      window.notificationManager.show("Error loading uploaded trips", "danger");
-      this.loadingManager.error(
-        "Error fetching uploaded trips: " + error.message
+      console.error("Error fetching trips:", error);
+      window.notificationManager.show(
+        "Error loading trips from server",
+        "danger"
       );
+      this.loadingManager.error("Error fetching trips: " + error.message);
+      // Clear the table on error
+      this.displayUploadSourceTrips([]);
     } finally {
       this.loadingManager.finish();
     }
   }
 
   /**
-   * Display uploaded trips in the table
-   * @param {Array} trips - Uploaded trips data
+   * Display trips with upload sources in the table.
+   * @param {Array} trips - Trips data filtered by source.
    */
-  displayUploadedTrips(trips) {
-    const { uploadedTripsBody } = this.elements;
+  displayUploadSourceTrips(trips) {
+    const { uploadedTripsBody } = this.elements; // Still using the same table body element
 
     if (!uploadedTripsBody) return;
 
     this.loadingManager.startOperation("Displaying Uploaded Trips");
 
-    uploadedTripsBody.innerHTML = "";
+    uploadedTripsBody.innerHTML = ""; // Clear existing table content
+    this.state.displayedTrips = trips; // Cache the displayed trips
 
     trips.forEach((trip) => {
       const row = document.createElement("tr");
@@ -628,7 +843,8 @@ class UploadManager {
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.className = "trip-checkbox";
-      checkbox.value = trip._id;
+      // Use transactionId for value as _id might not be consistently available from /api/trips
+      checkbox.value = trip.transactionId;
       checkboxCell.appendChild(checkbox);
       row.appendChild(checkboxCell);
 
@@ -640,12 +856,12 @@ class UploadManager {
           trip.startTime ? new Date(trip.startTime).toLocaleString() : "-"
         }</td>
         <td>${trip.endTime ? new Date(trip.endTime).toLocaleString() : "-"}</td>
-        <td>${trip.source || "upload"}</td>
+        <td>${trip.source || "unknown"}</td>
         <td>
           <button class="btn btn-sm btn-danger delete-trip" data-trip-id="${
-            trip._id
+            trip.transactionId // Use transactionId for deletion
           }">
-            Delete
+            <i class="fas fa-trash-alt"></i> Delete
           </button>
         </td>
       `;
@@ -653,27 +869,32 @@ class UploadManager {
       uploadedTripsBody.appendChild(row);
     });
 
-    this.bindDeleteTripButtons();
-    this.updateBulkDeleteButtonState();
+    this.bindDeleteTripButtons(); // Re-bind listeners for new buttons
+    this.updateBulkDeleteButtonState(); // Update button state based on new content
     this.loadingManager.finish();
   }
 
   /**
-   * Bind event handlers to delete trip buttons
+   * Bind event handlers to delete trip buttons in the table.
    */
   bindDeleteTripButtons() {
+    document.querySelectorAll(".delete-trip").forEach((button) => {
+      // Remove existing listener to prevent duplicates if re-binding
+      button.replaceWith(button.cloneNode(true));
+    });
+    // Add new listeners
     document.querySelectorAll(".delete-trip").forEach((button) => {
       button.addEventListener("click", (e) => {
         const tripId = e.currentTarget.dataset.tripId;
         if (tripId) {
-          this.deleteUploadedTrip(tripId);
+          this.deleteTrip(tripId); // Call the renamed delete function
         }
       });
     });
   }
 
   /**
-   * Update bulk delete button state
+   * Update bulk delete button state based on selected checkboxes.
    */
   updateBulkDeleteButtonState() {
     const { bulkDeleteBtn } = this.elements;
@@ -687,9 +908,10 @@ class UploadManager {
   }
 
   /**
-   * Delete trips in bulk
+   * Delete trips in bulk using the single delete endpoint iteratively.
    */
   async bulkDeleteTrips() {
+    const { bulkDeleteBtn } = this.elements;
     this.loadingManager.startOperation("Deleting Selected Trips");
 
     const selectedCheckboxes = document.querySelectorAll(
@@ -709,77 +931,123 @@ class UploadManager {
     try {
       const confirmed = await confirmationDialog.show({
         title: "Delete Trips",
-        message: `Are you sure you want to delete ${tripIds.length} selected trips?`,
+        message: `Are you sure you want to delete ${tripIds.length} selected trip(s)? This will also delete associated map-matched data.`,
         confirmText: "Delete",
         confirmButtonClass: "btn-danger",
       });
 
       if (confirmed) {
-        const response = await fetch("/api/uploaded_trips_bulk_delete", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ trip_ids: tripIds }),
-        });
+        if (bulkDeleteBtn) bulkDeleteBtn.disabled = true; // Disable button during operation
+        let successCount = 0;
+        let failCount = 0;
+        this.loadingManager.addSubOperation("bulk_delete", tripIds.length);
 
-        if (!response.ok) {
-          throw new Error(`Server responded with status: ${response.status}`);
+        for (let i = 0; i < tripIds.length; i++) {
+          const tripId = tripIds[i];
+          try {
+            // Call the single delete endpoint for each trip
+            const response = await fetch(`/api/trips/${tripId}`, {
+              method: "DELETE",
+            });
+            if (!response.ok) {
+              // Try to get error message from response
+              let errorMsg = `Failed to delete trip ${tripId} (Status: ${response.status})`;
+              try {
+                const errData = await response.json();
+                errorMsg = errData.detail || errorMsg;
+              } catch (e) {}
+              throw new Error(errorMsg);
+            }
+            const data = await response.json();
+            if (data.status === "success") {
+              successCount++;
+            } else {
+              throw new Error(
+                data.message || `Failed to delete trip ${tripId}`
+              );
+            }
+          } catch (error) {
+            console.error(`Error deleting trip ${tripId}:`, error);
+            window.notificationManager.show(
+              `Error deleting trip ${tripId}: ${error.message}`,
+              "warning"
+            );
+            failCount++;
+          }
+          this.loadingManager.updateSubOperation("bulk_delete", i + 1);
         }
 
-        const data = await response.json();
-
-        if (data.status === "success") {
-          window.notificationManager.show(
-            `${data.deleted_uploaded_trips} uploaded trips and ${data.deleted_matched_trips} matched trips deleted successfully.`,
-            "success"
-          );
-          await this.loadUploadedTrips();
-        } else {
-          throw new Error(data.message || "Error deleting trips");
+        let finalMessage = "";
+        let messageType = "info";
+        if (successCount > 0) {
+          finalMessage += `${successCount} trip(s) deleted successfully. `;
+          messageType = "success";
         }
+        if (failCount > 0) {
+          finalMessage += `${failCount} trip(s) failed to delete.`;
+          messageType = successCount > 0 ? "warning" : "danger";
+        }
+        window.notificationManager.show(finalMessage, messageType);
+
+        await this.loadUploadSourceTrips(); // Refresh the list
       }
     } catch (error) {
       window.notificationManager.show(
-        "Error deleting trips: " + error.message,
+        "An unexpected error occurred during bulk deletion: " + error.message,
         "danger"
       );
-      this.loadingManager.error("Error deleting trips: " + error.message);
+      this.loadingManager.error("Error during bulk deletion: " + error.message);
     } finally {
+      if (bulkDeleteBtn) bulkDeleteBtn.disabled = false; // Re-enable button
+      // Ensure select-all is unchecked
+      if (this.elements.selectAllCheckbox)
+        this.elements.selectAllCheckbox.checked = false;
+      this.updateBulkDeleteButtonState(); // Update state after operation
       this.loadingManager.finish();
     }
   }
 
   /**
-   * Delete a single uploaded trip
-   * @param {string} tripId - Trip ID to delete
+   * Delete a single trip (from any source displayed in the table) using the unified endpoint.
+   * @param {string} tripId - Trip ID (Transaction ID) to delete.
    */
-  async deleteUploadedTrip(tripId) {
+  async deleteTrip(tripId) {
     this.loadingManager.startOperation("Deleting Trip");
 
     try {
       const confirmed = await confirmationDialog.show({
         title: "Delete Trip",
-        message: "Are you sure you want to delete this trip?",
+        message:
+          "Are you sure you want to delete this trip? This will also delete associated map-matched data.",
         confirmText: "Delete",
         confirmButtonClass: "btn-danger",
       });
 
       if (confirmed) {
-        const response = await fetch(`/api/uploaded_trips/${tripId}`, {
+        // Use the unified DELETE /api/trips/{id} endpoint
+        const response = await fetch(`/api/trips/${tripId}`, {
           method: "DELETE",
         });
 
         if (!response.ok) {
-          throw new Error(`Server responded with status: ${response.status}`);
+          let errorDetail = `Server responded with status: ${response.status}`;
+          try {
+            const errorData = await response.json();
+            errorDetail = errorData.detail || errorDetail;
+          } catch (e) {
+            /* Ignore JSON parsing error */
+          }
+          throw new Error(errorDetail);
         }
 
         const data = await response.json();
 
         if (data.status === "success") {
           window.notificationManager.show(
-            `Trip deleted successfully. Matched trips deleted: ${data.deleted_matched_trips}`,
+            `Trip ${tripId} deleted successfully. Matched trips deleted: ${data.deleted_matched_trips}`,
             "success"
           );
-          await this.loadUploadedTrips();
+          await this.loadUploadSourceTrips(); // Refresh the list
         } else {
           throw new Error(data.message || "Error deleting trip");
         }
@@ -796,5 +1064,6 @@ class UploadManager {
   }
 }
 
-// Initialize the upload manager
+// Initialize the upload manager instance making it globally accessible if needed
 const uploadManager = new UploadManager();
+// window.uploadManager = uploadManager; // Optional: if needed globally elsewhere
