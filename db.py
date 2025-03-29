@@ -379,9 +379,7 @@ class DatabaseManager:
             # Check if an index with the same keys already exists regardless of name
             # Convert keys to a more comparable format
             keys_tuple = tuple(
-                sorted(
-                    list(keys) if isinstance(keys, list) else [(keys, 1)]
-                )
+                sorted(list(keys) if isinstance(keys, list) else [(keys, 1)])
             )
 
             # Check against existing indexes
@@ -435,16 +433,10 @@ class DatabaseManager:
                 collection = self.get_collection(collection_name)
                 existing_indexes_info = await collection.index_information()
                 keys_tuple_check = tuple(
-                    sorted(
-                        list(keys)
-                        if isinstance(keys, list)
-                        else [(keys, 1)]
-                    )
+                    sorted(list(keys) if isinstance(keys, list) else [(keys, 1)])
                 )
                 for idx_name, idx_info in existing_indexes_info.items():
-                    idx_keys_check = tuple(
-                        sorted(list(idx_info.get("key", [])))
-                    )
+                    idx_keys_check = tuple(sorted(list(idx_info.get("key", []))))
                     if idx_keys_check == keys_tuple_check:
                         return idx_name
             except Exception:
