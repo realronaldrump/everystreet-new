@@ -23,12 +23,12 @@
           document.documentElement.classList.add("light-mode");
           document
             .querySelector('meta[name="theme-color"]')
-            .setAttribute("content", "#f8f9fa");
+            ?.setAttribute("content", "#f8f9fa"); // Added optional chaining
         } else {
           document.documentElement.setAttribute("data-bs-theme", "dark");
           document
             .querySelector('meta[name="theme-color"]')
-            .setAttribute("content", "#121212");
+            ?.setAttribute("content", "#121212"); // Added optional chaining
         }
       })();
     </script>
@@ -166,7 +166,8 @@
       }
     </style>
 
-    {% block extra_css %}{% endblock %}
+    {% block head_content %}{% endblock %}
+    <!-- Renamed from extra_css -->
   </head>
   <body>
     <a href="#main-content" class="visually-hidden-focusable">Skip to main</a>
@@ -194,26 +195,37 @@
           <nav class="main-nav" aria-label="Main navigation">
             <ul class="nav-list">
               <li
-                class="nav-item {% if request.path == '/' %}active{% endif %}"
+                class="nav-item {% if request.url.path == '/' %}active{% endif %}"
               >
                 <a href="/" title="Map"
                   ><i class="fas fa-map"></i> <span>Map</span></a
                 >
               </li>
               <li
-                class="nav-item {% if request.path == '/trips' %}active{% endif %}"
+                class="nav-item {% if request.url.path == '/trips' %}active{% endif %}"
               >
                 <a href="/trips" title="Trips"
                   ><i class="fas fa-road"></i> <span>Trips</span></a
                 >
               </li>
               <li
-                class="nav-item {% if request.path == '/driving-insights' %}active{% endif %}"
+                class="nav-item {% if request.url.path == '/driving-insights' %}active{% endif %}"
               >
                 <a href="/driving-insights" title="Insights"
                   ><i class="fas fa-chart-line"></i> <span>Insights</span></a
                 >
               </li>
+              <!-- Driving Navigation Link (Top Level) -->
+              <li
+                class="nav-item {% if request.url.path == '/driving-navigation' %}active{% endif %}"
+              >
+                <a href="/driving-navigation" title="Driving Navigation"
+                  ><i class="fas fa-car"></i>
+                  <!-- ICON ADDED HERE -->
+                  <span>Driving Navigation</span></a
+                >
+              </li>
+              <!-- More Dropdown -->
               <li class="nav-item dropdown">
                 <a
                   href="#"
@@ -225,44 +237,61 @@
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
                   <li>
-                    <a class="dropdown-item" href="/edit_trips"
-                      ><i class="fas fa-edit"></i> Edit Trips</a
+                    <a
+                      class="dropdown-item {% if request.url.path == '/edit_trips' %}active{% endif %}"
+                      href="/edit_trips"
+                      ><i class="fas fa-edit me-2"></i> Edit Trips</a
                     >
                   </li>
                   <li>
-                    <a class="dropdown-item" href="/visits"
-                      ><i class="fas fa-map-marker-alt"></i> Visits</a
+                    <a
+                      class="dropdown-item {% if request.url.path == '/visits' %}active{% endif %}"
+                      href="/visits"
+                      ><i class="fas fa-map-marker-alt me-2"></i> Visits</a
                     >
                   </li>
                   <li>
-                    <a class="dropdown-item" href="/coverage-management"
-                      ><i class="fas fa-map-marked-alt"></i> Coverage Areas</a
+                    <a
+                      class="dropdown-item {% if request.url.path == '/coverage-management' %}active{% endif %}"
+                      href="/coverage-management"
+                      ><i class="fas fa-map-marked-alt me-2"></i> Coverage
+                      Areas</a
                     >
                   </li>
                   <li>
-                    <a class="dropdown-item" href="/export"
-                      ><i class="fas fa-file-export"></i> Export Data</a
+                    <a
+                      class="dropdown-item {% if request.url.path == '/export' %}active{% endif %}"
+                      href="/export"
+                      ><i class="fas fa-file-export me-2"></i> Export Data</a
                     >
                   </li>
                   <li>
-                    <a class="dropdown-item" href="/upload"
-                      ><i class="fas fa-upload"></i> Upload GPX</a
+                    <a
+                      class="dropdown-item {% if request.url.path == '/upload' %}active{% endif %}"
+                      href="/upload"
+                      ><i class="fas fa-upload me-2"></i> Upload GPX</a
                     >
                   </li>
                   <li><hr class="dropdown-divider" /></li>
                   <li>
-                    <a class="dropdown-item" href="/database-management"
-                      ><i class="fas fa-database"></i> Database</a
+                    <a
+                      class="dropdown-item {% if request.url.path == '/database-management' %}active{% endif %}"
+                      href="/database-management"
+                      ><i class="fas fa-database me-2"></i> Database</a
                     >
                   </li>
                   <li>
-                    <a class="dropdown-item" href="/settings"
-                      ><i class="fas fa-cog"></i> Settings</a
+                    <a
+                      class="dropdown-item {% if request.url.path == '/settings' %}active{% endif %}"
+                      href="/settings"
+                      ><i class="fas fa-cog me-2"></i> Settings</a
                     >
                   </li>
                   <li>
-                    <a class="dropdown-item" href="/app-settings"
-                      ><i class="fas fa-sliders-h"></i> App Settings</a
+                    <a
+                      class="dropdown-item {% if request.url.path == '/app-settings' %}active{% endif %}"
+                      href="/app-settings"
+                      ><i class="fas fa-sliders-h me-2"></i> App Settings</a
                     >
                   </li>
                 </ul>
@@ -302,78 +331,90 @@
         <nav class="drawer-nav">
           <ul class="drawer-nav-list">
             <li>
-              <a href="/" class="{% if request.path == '/' %}active{% endif %}"
-                ><i class="fas fa-map"></i> Map</a
+              <a
+                href="/"
+                class="{% if request.url.path == '/' %}active{% endif %}"
+                ><i class="fas fa-map me-2"></i> Map</a
               >
             </li>
             <li>
               <a
                 href="/trips"
-                class="{% if request.path == '/trips' %}active{% endif %}"
-                ><i class="fas fa-road"></i> Trips</a
+                class="{% if request.url.path == '/trips' %}active{% endif %}"
+                ><i class="fas fa-road me-2"></i> Trips</a
+              >
+            </li>
+            <!-- Driving Navigation Link (Mobile) -->
+            <li>
+              <a
+                href="/driving-navigation"
+                class="{% if request.url.path == '/driving-navigation' %}active{% endif %}"
+                ><i class="fas fa-car me-2"></i> Driving
+                <!-- ICON ADDED HERE -->
+                Navigation</a
               >
             </li>
             <li>
               <a
                 href="/edit_trips"
-                class="{% if request.path == '/edit_trips' %}active{% endif %}"
-                ><i class="fas fa-edit"></i> Edit Trips</a
+                class="{% if request.url.path == '/edit_trips' %}active{% endif %}"
+                ><i class="fas fa-edit me-2"></i> Edit Trips</a
               >
             </li>
             <li>
               <a
                 href="/driving-insights"
-                class="{% if request.path == '/driving-insights' %}active{% endif %}"
-                ><i class="fas fa-chart-line"></i> Driving Insights</a
+                class="{% if request.url.path == '/driving-insights' %}active{% endif %}"
+                ><i class="fas fa-chart-line me-2"></i> Driving Insights</a
               >
             </li>
             <li>
               <a
                 href="/export"
-                class="{% if request.path == '/export' %}active{% endif %}"
-                ><i class="fas fa-file-export"></i> Export Data</a
+                class="{% if request.url.path == '/export' %}active{% endif %}"
+                ><i class="fas fa-file-export me-2"></i> Export Data</a
               >
             </li>
             <li>
               <a
                 href="/coverage-management"
-                class="{% if request.path == '/coverage-management' %}active{% endif %}"
-                ><i class="fas fa-map-marked-alt"></i> Coverage Areas</a
+                class="{% if request.url.path == '/coverage-management' %}active{% endif %}"
+                ><i class="fas fa-map-marked-alt me-2"></i> Coverage Areas</a
               >
             </li>
             <li>
               <a
                 href="/upload"
-                class="{% if request.path == '/upload' %}active{% endif %}"
-                ><i class="fas fa-upload"></i> Upload GPX</a
+                class="{% if request.url.path == '/upload' %}active{% endif %}"
+                ><i class="fas fa-upload me-2"></i> Upload GPX</a
               >
             </li>
             <li>
               <a
                 href="/visits"
-                class="{% if request.path == '/visits' %}active{% endif %}"
-                ><i class="fas fa-map-marker-alt"></i> Visits</a
+                class="{% if request.url.path == '/visits' %}active{% endif %}"
+                ><i class="fas fa-map-marker-alt me-2"></i> Visits</a
               >
             </li>
             <li>
               <a
                 href="/database-management"
-                class="{% if request.path == '/database-management' %}active{% endif %}"
-                ><i class="fas fa-database"></i> Database</a
+                class="{% if request.url.path == '/database-management' %}active{% endif %}"
+                ><i class="fas fa-database me-2"></i> Database</a
               >
             </li>
             <li>
               <a
                 href="/settings"
-                class="{% if request.path == '/settings' %}active{% endif %}"
-                ><i class="fas fa-cog"></i> Settings</a
+                class="{% if request.url.path == '/settings' %}active{% endif %}"
+                ><i class="fas fa-cog me-2"></i> Settings</a
               >
             </li>
             <li>
               <a
                 href="/app-settings"
-                class="{% if request.path == '/app-settings' %}active{% endif %}"
-                ><i class="fas fa-sliders-h"></i> App Settings</a
+                class="{% if request.url.path == '/app-settings' %}active{% endif %}"
+                ><i class="fas fa-sliders-h me-2"></i> App Settings</a
               >
             </li>
           </ul>
@@ -390,25 +431,31 @@
         </div>
         <div class="panel-body">
           <form id="filters-form" aria-label="Trip filters">
+            <!-- FIXED Start Date Input -->
             <div class="form-group">
               <label for="start-date" class="form-label">Start Date</label>
               <input
                 type="text"
                 id="start-date"
-                class="form-control"
+                class="form-control datepicker"
                 placeholder="Select Start Date"
                 aria-label="Start date filter"
               />
+              <!-- Comment moved outside the input tag -->
+              <!-- Added datepicker class -->
             </div>
+            <!-- FIXED End Date Input -->
             <div class="form-group">
               <label for="end-date" class="form-label">End Date</label>
               <input
                 type="text"
                 id="end-date"
-                class="form-control"
+                class="form-control datepicker"
                 placeholder="Select End Date"
                 aria-label="End date filter"
               />
+              <!-- Comment moved outside the input tag -->
+              <!-- Added datepicker class -->
             </div>
 
             <div class="form-group">
@@ -598,6 +645,7 @@
       defer
       src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"
     ></script>
+    <!-- Live tracking is loaded here, no need to load again on specific pages -->
     <script
       defer
       src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"

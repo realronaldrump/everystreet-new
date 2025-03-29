@@ -13,6 +13,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from math import ceil
 from typing import List, Optional
+import aiohttp
 
 # Third-party imports
 import bson
@@ -99,7 +100,12 @@ from tasks import (
 )
 from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
-from utils import calculate_distance, cleanup_session, validate_location_osm
+from utils import (
+    calculate_distance,
+    cleanup_session,
+    validate_location_osm,
+    haversine,
+)
 from visits import init_collections
 from visits import router as visits_router
 
@@ -371,6 +377,16 @@ async def app_settings_page(request: Request):
     """Render app settings page."""
     return templates.TemplateResponse(
         "app_settings.html", {"request": request}
+    )
+
+
+@app.get("/driving-navigation", response_class=HTMLResponse)
+async def driving_navigation_page(request: Request):
+    """Render the driving navigation page."""
+    # Pass Mapbox token to the template
+    return templates.TemplateResponse(
+        "driving_navigation.html",
+        {"request": request, "MAPBOX_ACCESS_TOKEN": MAPBOX_ACCESS_TOKEN},
     )
 
 
@@ -3227,6 +3243,290 @@ async def get_storage_info():
             "usage_percent": 0,
             "error": str(e),
         }
+
+
+# --- New API Endpoint for Driving Navigation ---
+@app.post("/api/driving-navigation/next-route")
+async def get_next_driving_route(location: LocationModel):
+    """
+    Calculates the route from the user's current live location to the
+    start of the nearest undriven street segment in the specified area.
+    """
+    location_name = location.display_name
+    if not location_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Location display name is required.",
+        )
+
+    # 1. Get Current Live Location
+    try:
+        active_trip_data = await get_active_trip()  # From live_tracking.py
+        if (
+            not active_trip_data
+            or not active_trip_data.get("coordinates")
+            or len(active_trip_data["coordinates"]) == 0
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Current live location not available. Is live tracking active?",
+            )
+        # Get the latest coordinate point {lat: ..., lon: ..., timestamp: ...}
+        latest_coord_point = active_trip_data["coordinates"][-1]
+        current_lat = latest_coord_point["lat"]
+        current_lon = latest_coord_point["lon"]
+        logger.info(
+            f"Current live location: Lat={current_lat}, Lon={current_lon}"
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting live location: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Could not retrieve live location: {e}",
+        )
+
+    # 2. Find Undriven Streets in the Area
+    try:
+        undriven_streets_cursor = streets_collection.find(
+            {
+                "properties.location": location_name,
+                "properties.driven": False,
+                "geometry.coordinates": {
+                    "$exists": True,
+                    "$not": {"$size": 0},
+                },  # Ensure geometry exists
+            },
+            {
+                "geometry.coordinates": 1,
+                "properties.segment_id": 1,
+                "properties.street_name": 1,
+                "_id": 0,  # Exclude _id
+            },
+        )
+        undriven_streets = await undriven_streets_cursor.to_list(
+            length=None
+        )  # Fetch all
+
+        if not undriven_streets:
+            return JSONResponse(
+                content={
+                    "status": "completed",
+                    "message": f"No undriven streets found in {location_name}.",
+                    "route_geometry": None,
+                    "target_street": None,
+                }
+            )
+        logger.info(
+            f"Found {len(undriven_streets)} undriven segments in {location_name}."
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Error fetching undriven streets for {location_name}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching undriven streets: {e}",
+        )
+
+    # 3. Find the Nearest Undriven Street Segment
+    nearest_street = None
+    min_distance = float("inf")
+    skipped_count = 0  # Keep track of skipped segments
+
+    for street in undriven_streets:
+        segment_id = street.get("properties", {}).get(
+            "segment_id", "UNKNOWN"
+        )  # Get ID for logging
+        try:
+            # --- More Robust Geometry Check ---
+            geometry = street.get("geometry")
+            if not geometry or geometry.get("type") != "LineString":
+                # logger.debug(f"Skipping segment {segment_id}: Missing or invalid geometry type.")
+                skipped_count += 1
+                continue
+
+            segment_coords = geometry.get("coordinates")
+            if (
+                not segment_coords or len(segment_coords) < 2
+            ):  # Need at least 2 points for a line
+                # logger.debug(f"Skipping segment {segment_id}: Insufficient coordinates.")
+                skipped_count += 1
+                continue
+            # --- End Robust Geometry Check ---
+
+            # Ensure start node coordinates are valid numbers [lon, lat]
+            start_node = segment_coords[0]
+            if not (
+                isinstance(start_node, (list, tuple))
+                and len(start_node) >= 2
+                and isinstance(start_node[0], (int, float))
+                and isinstance(start_node[1], (int, float))
+            ):
+                logger.warning(
+                    f"Skipping segment {segment_id}: Invalid start node format: {start_node}"
+                )
+                skipped_count += 1
+                continue
+
+            segment_lon, segment_lat = start_node[0], start_node[1]
+
+            # Calculate distance using Haversine
+            distance = haversine(
+                current_lon,
+                current_lat,
+                segment_lon,
+                segment_lat,
+                unit="meters",
+            )
+
+            if distance < min_distance:
+                min_distance = distance
+                nearest_street = street
+                # Store start coords directly in the nearest_street dict for convenience
+                nearest_street["properties"]["start_coords"] = [
+                    segment_lon,
+                    segment_lat,
+                ]
+
+        except Exception as dist_err:
+            logger.warning(
+                f"Error processing segment {segment_id}: {dist_err}"
+            )
+            skipped_count += 1
+            continue  # Skip this street if error occurs
+
+    if skipped_count > 0:
+        logger.info(
+            f"Skipped {skipped_count} undriven segments due to data issues during nearest search."
+        )
+
+    if not nearest_street:
+        # This might happen if all streets had errors or were skipped
+        logger.warning(
+            f"Could not determine nearest street for {location_name} despite finding {len(undriven_streets)} candidates."
+        )
+        # Return a more informative message instead of 500 error if possible
+        if len(undriven_streets) > 0 and skipped_count == len(
+            undriven_streets
+        ):
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,  # Or maybe 400 Bad Request?
+                content={
+                    "status": "error",
+                    "message": f"Found {len(undriven_streets)} undriven segments, but none could be processed.",
+                    "route_geometry": None,
+                    "target_street": None,
+                },
+            )
+        # If no streets were found initially or some other issue
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to determine the nearest undriven street.",
+        )
+
+    # Ensure target_coords is set correctly before using it
+    if "start_coords" not in nearest_street["properties"]:
+        logger.error(
+            f"Nearest street {nearest_street['properties']['segment_id']} is missing calculated start_coords."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error: Failed to get coordinates for the nearest street.",
+        )
+    target_coords = nearest_street["properties"]["start_coords"]
+    logger.info(
+        f"Nearest undriven segment: {nearest_street['properties']['segment_id']} at {target_coords}, Distance: {min_distance:.2f}m"
+    )
+
+    # 4. Get Route using Mapbox Directions API
+    mapbox_token = MAPBOX_ACCESS_TOKEN
+    if not mapbox_token:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Mapbox API token not configured.",
+        )
+
+    # Format coordinates for Mapbox API: lon,lat;lon,lat
+    coords_str = (
+        f"{current_lon},{current_lat};{target_coords[0]},{target_coords[1]}"
+    )
+    directions_url = (
+        f"https://api.mapbox.com/directions/v5/mapbox/driving/{coords_str}"
+    )
+    params = {
+        "access_token": mapbox_token,
+        "geometries": "geojson",
+        "overview": "full",  # Get detailed geometry
+        "steps": "false",  # We don't need turn-by-turn steps for now
+    }
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            # Add rate limiting check here if needed for Mapbox API
+            async with session.get(directions_url, params=params) as response:
+                response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+                route_data = await response.json()
+
+                if (
+                    not route_data.get("routes")
+                    or len(route_data["routes"]) == 0
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="No route found by Mapbox Directions API.",
+                    )
+
+                route_geometry = route_data["routes"][0][
+                    "geometry"
+                ]  # GeoJSON LineString
+                route_duration = route_data["routes"][0].get(
+                    "duration", 0
+                )  # seconds
+                route_distance = route_data["routes"][0].get(
+                    "distance", 0
+                )  # meters
+
+                logger.info(
+                    f"Route found: Duration={route_duration:.1f}s, Distance={route_distance:.1f}m"
+                )
+
+                return JSONResponse(
+                    content={
+                        "status": "success",
+                        "message": "Route to nearest undriven street calculated.",
+                        "route_geometry": route_geometry,
+                        "target_street": nearest_street[
+                            "properties"
+                        ],  # Send properties including start_coords
+                        "route_duration_seconds": route_duration,
+                        "route_distance_meters": route_distance,
+                    }
+                )
+
+    except aiohttp.ClientResponseError as http_err:
+        error_detail = (
+            f"Mapbox API error: {http_err.status} - {http_err.message}"
+        )
+        try:
+            error_body = await http_err.response.text()
+            error_detail += (
+                f" | Body: {error_body[:200]}"  # Log first 200 chars
+            )
+        except Exception:
+            pass
+        logger.error(error_detail, exc_info=False)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=error_detail
+        )
+    except Exception as e:
+        logger.error(f"Error getting route from Mapbox: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error calculating route: {e}",
+        )
 
 
 @app.get("/api/coverage_areas/{location_id}")

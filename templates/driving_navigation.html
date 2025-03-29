@@ -1,0 +1,134 @@
+{% extends "base.html" %} {% block title %}Driving Navigation{% endblock %} {%
+block head_content %}
+<!-- Leaflet CSS -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<style>
+  #driving-map {
+    height: calc(100vh - 200px); /* Adjust height as needed */
+    width: 100%;
+  }
+  .map-controls {
+    padding: 10px;
+    background-color: rgba(var(--bs-dark-rgb), 0.9);
+    border-radius: 5px;
+    margin-bottom: 10px;
+  }
+  .info-panel {
+    padding: 10px;
+    background-color: rgba(var(--bs-dark-rgb), 0.8);
+    border-radius: 5px;
+    min-height: 50px;
+    color: var(--bs-light);
+  }
+  .leaflet-control-container .leaflet-routing-container {
+    display: none; /* Hide default Mapbox routing UI if it appears */
+  }
+  /* Style for the user's live location marker */
+  .live-location-marker {
+    background-color: #0dcaf0; /* Bright cyan */
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(13, 202, 240, 0.8);
+    width: 16px !important;
+    height: 16px !important;
+    margin-left: -8px !important; /* Center horizontally */
+    margin-top: -8px !important; /* Center vertically */
+  }
+  /* Style for the target street segment */
+  .target-street-segment {
+    stroke: #ffab00 !important; /* Amber/Orange */
+    stroke-width: 6px !important;
+    stroke-opacity: 1 !important;
+    stroke-dasharray: none !important; /* Solid line */
+  }
+  /* Style for the calculated route */
+  .calculated-route {
+    stroke: #76ff03 !important; /* Bright Green */
+    stroke-width: 5px !important;
+    stroke-opacity: 0.8 !important;
+  }
+  /* Style for undriven streets in this view */
+  .undriven-street-nav {
+    stroke: #00bfff; /* Deep Sky Blue */
+    stroke-width: 3px;
+    stroke-opacity: 0.6;
+    stroke-dasharray: 4, 4;
+  }
+</style>
+{% endblock %} {% block content %}
+<div class="container-fluid mt-3">
+  <h2 class="mb-3">Driving Navigation</h2>
+
+  <div class="row">
+    <div class="col-md-4">
+      <div class="map-controls card bg-dark text-white mb-3">
+        <div class="card-body">
+          <h5 class="card-title">Controls</h5>
+          <div class="mb-3">
+            <label for="area-select" class="form-label"
+              >Select Coverage Area:</label
+            >
+            <select id="area-select" class="form-select">
+              <option value="">Loading areas...</option>
+            </select>
+          </div>
+          <button
+            id="find-next-street-btn"
+            class="btn btn-primary w-100"
+            disabled
+          >
+            <i class="fas fa-route me-2"></i>Find Nearest Undriven Street
+          </button>
+          <div class="form-check form-switch mt-3">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              role="switch"
+              id="auto-follow-toggle"
+              checked
+            />
+            <label class="form-check-label" for="auto-follow-toggle"
+              >Auto-Follow Vehicle</label
+            >
+          </div>
+        </div>
+      </div>
+      <div class="info-panel card bg-dark text-white">
+        <div class="card-body">
+          <h5 class="card-title">Status & Target</h5>
+          <div id="status-message" class="mb-2">
+            Select an area and find the nearest street.
+          </div>
+          <div id="target-info">
+            <!-- Target street info will appear here -->
+          </div>
+          <div id="route-info" class="mt-2 small text-muted">
+            <!-- Route duration/distance will appear here -->
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-8">
+      <div id="driving-map">
+        <div class="d-flex justify-content-center align-items-center h-100">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading Map...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- New JS file for this page -->
+<script>
+  // Pass Mapbox token to JS
+  const MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+</script>
+<script src="{{ url_for('static', path='js/driving-navigation.js') | replace('http://', '//') }}"></script>
+{% endblock %}
