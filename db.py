@@ -1,8 +1,8 @@
-"""
-Database management module.
+"""Database management module.
 
-Provides a singleton DatabaseManager class for MongoDB connections and operations,
-with robust retry logic, connection pooling, serialization helpers, and GridFS access.
+Provides a singleton DatabaseManager class for MongoDB connections and
+operations, with robust retry logic, connection pooling, serialization helpers,
+and GridFS access.
 """
 
 from __future__ import annotations
@@ -62,7 +62,8 @@ T = TypeVar("T")
 
 
 class DatabaseManager:
-    """Singleton class to manage the MongoDB client, database connection, and GridFS."""
+    """Singleton class to manage the MongoDB client, database connection, and
+    GridFS."""
 
     _instance: Optional["DatabaseManager"] = None
     _lock = threading.Lock()
@@ -186,8 +187,7 @@ class DatabaseManager:
         return self._quota_exceeded
 
     def get_collection(self, collection_name: str) -> AsyncIOMotorCollection:
-        """
-        Get a collection by name, cached for efficiency.
+        """Get a collection by name, cached for efficiency.
 
         Args:
             collection_name: Name of the collection
@@ -206,8 +206,7 @@ class DatabaseManager:
         max_attempts: Optional[int] = None,
         operation_name: str = "database operation",
     ) -> T:
-        """
-        Execute a database operation with retry logic.
+        """Execute a database operation with retry logic.
 
         Args:
             operation: Async function to execute
@@ -321,8 +320,7 @@ class DatabaseManager:
         )
 
     async def check_quota(self) -> Tuple[Optional[float], Optional[float]]:
-        """
-        Check if the database quota is exceeded.
+        """Check if the database quota is exceeded.
 
         Returns:
             Tuple of (used_mb, limit_mb) or (None, None) on error
@@ -353,8 +351,7 @@ class DatabaseManager:
         keys: Union[str, List[Tuple[str, int]]],
         **kwargs: Any,
     ) -> Optional[str]:
-        """
-        Create an index on a collection if quota is not exceeded.
+        """Create an index on a collection if quota is not exceeded.
 
         Args:
             collection_name: Name of the collection
@@ -459,7 +456,10 @@ class DatabaseManager:
             return None
 
     async def cleanup_connections(self) -> None:
-        """Close database connections. Call during application shutdown."""
+        """Close database connections.
+
+        Call during application shutdown.
+        """
         if self._client:
             try:
                 logger.info("Closing MongoDB client connections...")
@@ -476,7 +476,8 @@ class DatabaseManager:
                 logger.info("MongoDB client state reset")
 
     def __del__(self) -> None:
-        """Ensure connections are closed when the manager is garbage collected."""
+        """Ensure connections are closed when the manager is garbage
+        collected."""
         # Don't use asyncio here as this might be called during shutdown
         if hasattr(self, "_client") and self._client:
             try:
@@ -520,8 +521,7 @@ class SerializationHelper:
 
     @staticmethod
     def serialize_datetime(dt: Optional[datetime]) -> Optional[str]:
-        """
-        Return ISO formatted datetime string if dt is not None.
+        """Return ISO formatted datetime string if dt is not None.
 
         Args:
             dt: Datetime to serialize
@@ -538,8 +538,8 @@ class SerializationHelper:
 
     @staticmethod
     def serialize_document(doc: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Convert MongoDB document to a JSON serializable dictionary using bson.json_util.
+        """Convert MongoDB document to a JSON serializable dictionary using
+        bson.json_util.
 
         Args:
             doc: MongoDB document
@@ -574,9 +574,8 @@ class SerializationHelper:
 
     @staticmethod
     def serialize_trip(trip: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Convert trip document to JSON serializable dictionary.
-        Handles special fields specific to trip documents.
+        """Convert trip document to JSON serializable dictionary. Handles
+        special fields specific to trip documents.
 
         Args:
             trip: Trip document
@@ -592,8 +591,8 @@ class SerializationHelper:
 async def batch_cursor(
     cursor: AsyncIOMotorCursor, batch_size: int = 100, no_timeout: bool = True
 ) -> Iterator[List[Dict[str, Any]]]:
-    """
-    Process an AsyncIOMotorCursor in manageable batches to limit memory usage.
+    """Process an AsyncIOMotorCursor in manageable batches to limit memory
+    usage.
 
     Args:
         cursor: The MongoDB cursor to iterate through
@@ -627,9 +626,8 @@ async def batch_cursor(
 def parse_query_date(
     date_str: Optional[str], end_of_day: bool = False
 ) -> Optional[datetime]:
-    """
-    Parse a date string into a timezone-aware UTC datetime object.
-    Handles ISO formats (including 'Z') and 'YYYY-MM-DD'.
+    """Parse a date string into a timezone-aware UTC datetime object. Handles
+    ISO formats (including 'Z') and 'YYYY-MM-DD'.
 
     Args:
         date_str: Date string to parse
@@ -679,8 +677,7 @@ class DateFilter:
         end_date: Optional[datetime] = None,
         field_name: str = "startTime",
     ):
-        """
-        Initialize date filter. Dates should be timezone-aware (UTC).
+        """Initialize date filter. Dates should be timezone-aware (UTC).
 
         Args:
             start_date: Start of date range (UTC)
@@ -692,8 +689,7 @@ class DateFilter:
         self.field_name = field_name
 
     def get_query_dict(self) -> dict:
-        """
-        Get a MongoDB query filter for this date range.
+        """Get a MongoDB query filter for this date range.
 
         Returns:
             MongoDB query dictionary
@@ -717,9 +713,8 @@ async def parse_date_params(
     field_name: str = "startTime",
     end_of_day: bool = True,
 ) -> DateFilter:
-    """
-    Parse start and end date parameters from a request.
-    Returns a DateFilter object with parsed UTC datetime objects.
+    """Parse start and end date parameters from a request. Returns a DateFilter
+    object with parsed UTC datetime objects.
 
     Args:
         request: FastAPI request
@@ -747,8 +742,7 @@ async def build_query_from_request(
     include_imei: bool = True,
     additional_filters: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """
-    Build a MongoDB query from request parameters.
+    """Build a MongoDB query from request parameters.
 
     Args:
         request: FastAPI request object
@@ -784,8 +778,7 @@ async def find_one_with_retry(
     projection: Any = None,
     sort: Any = None,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Execute find_one with retry logic.
+    """Execute find_one with retry logic.
 
     Args:
         collection: MongoDB collection
@@ -816,8 +809,7 @@ async def find_with_retry(
     skip: Optional[int] = None,
     batch_size: int = 100,
 ) -> List[Dict[str, Any]]:
-    """
-    Execute find with retry logic and return a list.
+    """Execute find with retry logic and return a list.
 
     Args:
         collection: MongoDB collection
@@ -861,8 +853,7 @@ async def update_one_with_retry(
     update: Dict[str, Any],
     upsert: bool = False,
 ) -> UpdateResult:
-    """
-    Execute update_one with retry logic.
+    """Execute update_one with retry logic.
 
     Args:
         collection: MongoDB collection
@@ -888,8 +879,7 @@ async def update_many_with_retry(
     update: Dict[str, Any],
     upsert: bool = False,
 ) -> UpdateResult:
-    """
-    Execute update_many with retry logic.
+    """Execute update_many with retry logic.
 
     Args:
         collection: MongoDB collection
@@ -912,8 +902,7 @@ async def update_many_with_retry(
 async def insert_one_with_retry(
     collection: AsyncIOMotorCollection, document: Dict[str, Any]
 ) -> InsertOneResult:
-    """
-    Execute insert_one with retry logic.
+    """Execute insert_one with retry logic.
 
     Args:
         collection: MongoDB collection
@@ -934,8 +923,7 @@ async def insert_one_with_retry(
 async def delete_one_with_retry(
     collection: AsyncIOMotorCollection, filter_query: Dict[str, Any]
 ) -> DeleteResult:
-    """
-    Execute delete_one with retry logic.
+    """Execute delete_one with retry logic.
 
     Args:
         collection: MongoDB collection
@@ -956,8 +944,7 @@ async def delete_one_with_retry(
 async def delete_many_with_retry(
     collection: AsyncIOMotorCollection, filter_query: Dict[str, Any]
 ) -> DeleteResult:
-    """
-    Execute delete_many with retry logic.
+    """Execute delete_many with retry logic.
 
     Args:
         collection: MongoDB collection
@@ -981,8 +968,7 @@ async def aggregate_with_retry(
     batch_size: int = 100,
     allow_disk_use: bool = True,  # Allow using disk for large aggregations
 ) -> List[Dict[str, Any]]:
-    """
-    Execute aggregate with retry logic.
+    """Execute aggregate with retry logic.
 
     Args:
         collection: MongoDB collection
@@ -1009,8 +995,7 @@ async def aggregate_with_retry(
 async def count_documents_with_retry(
     collection: AsyncIOMotorCollection, filter_query: Dict[str, Any], **kwargs: Any
 ) -> int:
-    """
-    Execute count_documents with retry logic.
+    """Execute count_documents with retry logic.
 
     Args:
         collection: MongoDB collection
@@ -1037,8 +1022,7 @@ async def get_trip_by_id(
     collection: Optional[AsyncIOMotorCollection] = None,
     check_both_id_types: bool = True,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Get a trip by transaction ID or ObjectId.
+    """Get a trip by transaction ID or ObjectId.
 
     Args:
         trip_id: Transaction ID or ObjectId string
@@ -1198,9 +1182,8 @@ async def ensure_street_coverage_indexes() -> None:
 
 
 async def ensure_location_indexes() -> None:
-    """
-    Ensure indexes exist for the structured location fields (address components).
-    """
+    """Ensure indexes exist for the structured location fields (address
+    components)."""
     logger.info("Ensuring location structure indexes exist...")
     try:
         # Only process trips and matched_trips

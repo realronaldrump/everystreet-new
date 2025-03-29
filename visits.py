@@ -1,8 +1,7 @@
-"""
-Visits module for the street coverage application.
+"""Visits module for the street coverage application.
 
-This module handles all functionality related to places and visits,
-including creating, retrieving, and analyzing visit data.
+This module handles all functionality related to places and visits, including
+creating, retrieving, and analyzing visit data.
 """
 
 import logging
@@ -39,15 +38,12 @@ class PlaceModel(BaseModel):
 
 
 class CustomPlace:
-    """
-    A utility class for user-defined places.
-    """
+    """A utility class for user-defined places."""
 
     def __init__(
         self, name: str, geometry: dict, created_at: Optional[datetime] = None
     ):
-        """
-        Initialize a CustomPlace.
+        """Initialize a CustomPlace.
 
         Args:
             name: The name of the place
@@ -59,8 +55,7 @@ class CustomPlace:
         self.created_at = created_at or datetime.now(timezone.utc)
 
     def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert the CustomPlace to a dictionary for storage.
+        """Convert the CustomPlace to a dictionary for storage.
 
         Returns:
             Dict with the place's data
@@ -73,8 +68,7 @@ class CustomPlace:
 
     @staticmethod
     def from_dict(data: dict) -> "CustomPlace":
-        """
-        Create a CustomPlace from a dictionary.
+        """Create a CustomPlace from a dictionary.
 
         Args:
             data: Dictionary with place data
@@ -100,8 +94,7 @@ trips_collection = None
 
 
 def init_collections(places_coll, trips_coll):
-    """
-    Initialize the database collections for this module.
+    """Initialize the database collections for this module.
 
     Args:
         places_coll: MongoDB collection for places

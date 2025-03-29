@@ -1,9 +1,9 @@
-"""
-Utility to update missing geo-points in trip documents.
+"""Utility to update missing geo-points in trip documents.
 
-This script analyzes trip documents in MongoDB collections and adds startGeoPoint
-and destinationGeoPoint fields by extracting the first and last coordinates from
-the GPS data. These geo-points enable geospatial queries on trip data.
+This script analyzes trip documents in MongoDB collections and adds
+startGeoPoint and destinationGeoPoint fields by extracting the first and last
+coordinates from the GPS data. These geo-points enable geospatial queries on
+trip data.
 """
 
 import asyncio
@@ -29,8 +29,7 @@ async def update_geo_points(
     batch_size: int = 100,
     max_concurrent_batches: int = 5,
 ) -> int:
-    """
-    Update documents in the given collection to add missing geo-points.
+    """Update documents in the given collection to add missing geo-points.
 
     Analyzes all documents without startGeoPoint or destinationGeoPoint and adds
     these fields using the first and last coordinates from the GPS data.

@@ -1,5 +1,5 @@
-"""
-Gunicorn configuration file.
+"""Gunicorn configuration file.
+
 Optimized for Railway deployment with memory and resource constraints.
 """
 
@@ -51,16 +51,16 @@ max_worker_memory = 512 * 1024 * 1024  # 512MB
 
 
 def on_starting(server):
-    """Log when server starts"""
+    """Log when server starts."""
     print(f"Starting Gunicorn with {workers} workers, timeout {timeout}s")
 
 
 def post_fork(server, worker):
-    """Post-fork actions"""
+    """Post-fork actions."""
     # Set worker priority - don't try to change nice value in containers
     pass
 
 
 def worker_abort(worker):
-    """Log worker timeouts"""
+    """Log worker timeouts."""
     print(f"Worker {worker.pid} was aborted due to timeout or memory limits")

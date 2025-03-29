@@ -1,6 +1,7 @@
-"""
-Preprocess streets module.
-Fetches OSM data from Overpass, segments street geometries in parallel, and updates the database.
+"""Preprocess streets module.
+
+Fetches OSM data from Overpass, segments street geometries in parallel, and
+updates the database.
 """
 
 import asyncio
@@ -47,9 +48,7 @@ MAX_WORKERS = min(multiprocessing.cpu_count() // 2, 3)  # Reduced worker count
 async def fetch_osm_data(
     location: Dict[str, Any], streets_only: bool = True
 ) -> Dict[str, Any]:
-    """
-    Fetch OSM data from Overpass API for a given location.
-    """
+    """Fetch OSM data from Overpass API for a given location."""
     area_id = int(location["osm_id"])
     if location["osm_type"] == "relation":
         area_id += 3600000000
@@ -101,9 +100,7 @@ async def fetch_osm_data(
 
 
 def substring(line: LineString, start: float, end: float) -> Any:
-    """
-    Return a sub-linestring from 'start' to 'end' along the line.
-    """
+    """Return a sub-linestring from 'start' to 'end' along the line."""
     if start < 0 or end > line.length or start >= end:
         return None
     coords = list(line.coords)
@@ -150,9 +147,8 @@ def substring(line: LineString, start: float, end: float) -> Any:
 def segment_street(
     line: LineString, segment_length_meters: float = SEGMENT_LENGTH_METERS
 ) -> List[LineString]:
-    """
-    Split a linestring into segments of approximately segment_length_meters.
-    """
+    """Split a linestring into segments of approximately
+    segment_length_meters."""
     segments = []
     total_length = line.length
     if total_length <= segment_length_meters:
@@ -168,8 +164,8 @@ def segment_street(
 
 
 def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Process a single street element in parallel.
+    """Process a single street element in parallel.
+
     Returns a list of segmented feature dictionaries.
     """
     try:
@@ -215,8 +211,9 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
 
 
 async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -> None:
-    """
-    Convert OSM ways into segmented features and insert them into streets_collection.
+    """Convert OSM ways into segmented features and insert them into
+    streets_collection.
+
     Also update coverage metadata.
     """
     try:

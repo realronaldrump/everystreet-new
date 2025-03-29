@@ -1,8 +1,7 @@
-"""
-Main FastAPI application module.
+"""Main FastAPI application module.
 
-This module contains the main FastAPI application and route definitions for
-the street coverage tracking application.
+This module contains the main FastAPI application and route definitions for the
+street coverage tracking application.
 """
 
 import asyncio
@@ -158,8 +157,7 @@ init_collections(places_collection, trips_collection)  # <-- Updated call
 
 
 async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
-    """
-    Process and store a trip using TripProcessor.
+    """Process and store a trip using TripProcessor.
 
     Args:
         trip: Trip data dictionary
@@ -195,8 +193,7 @@ async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
 
 
 async def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
-    """
-    Process GeoJSON trip data into trip dictionaries.
+    """Process GeoJSON trip data into trip dictionaries.
 
     Args:
         geojson_data: GeoJSON data with trip features
@@ -699,9 +696,7 @@ async def clear_task_history():
 
 @app.post("/api/background_tasks/reset")
 async def reset_task_states():
-    """
-    Reset any stuck 'RUNNING' tasks to 'FAILED' state with safeguards.
-    """
+    """Reset any stuck 'RUNNING' tasks to 'FAILED' state with safeguards."""
     try:
         now = datetime.now(timezone.utc)
         stuck_threshold = timedelta(
@@ -800,9 +795,7 @@ async def reset_task_states():
 
 @app.get("/api/background_tasks/sse")
 async def background_tasks_sse(request: Request):
-    """
-    Provides server-sent events for real-time task status updates.
-    """
+    """Provides server-sent events for real-time task status updates."""
 
     async def event_generator():
         try:
@@ -1027,9 +1020,8 @@ async def get_coverage_status(task_id: str):
 
 @app.post("/api/street_coverage/incremental")
 async def get_incremental_street_coverage(location: LocationModel):
-    """
-    Update street coverage incrementally, processing only new trips since last update.
-    """
+    """Update street coverage incrementally, processing only new trips since
+    last update."""
     try:
         task_id = str(uuid.uuid4())
         asyncio.create_task(
@@ -1374,9 +1366,8 @@ async def process_single_trip(
     geocode_only: bool = False,
     map_match: bool = True,
 ):
-    """
-    Process a single trip with options to validate, geocode, and map match.
-    """
+    """Process a single trip with options to validate, geocode, and map
+    match."""
     try:
         # Get the trip from the main collection
         trip = await get_trip_by_id(trip_id, trips_collection)
@@ -1444,9 +1435,7 @@ async def process_single_trip(
 
 @app.post("/api/bulk_process_trips")
 async def bulk_process_trips(data: BulkProcessModel):
-    """
-    Process multiple trips in bulk with configurable options.
-    """
+    """Process multiple trips in bulk with configurable options."""
     try:
         query = data.query
         options = data.options
@@ -1545,9 +1534,7 @@ async def bulk_process_trips(data: BulkProcessModel):
 # New endpoint to get trip processing status
 @app.get("/api/trips/{trip_id}/status")
 async def get_trip_status(trip_id: str):
-    """
-    Get detailed processing status for a trip
-    """
+    """Get detailed processing status for a trip."""
     try:
         # Get trip from the main collection
         trip = await get_trip_by_id(trip_id, trips_collection)
@@ -1672,8 +1659,7 @@ async def map_match_trips_endpoint(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ):
-    """
-    Map match trips within a date range or a specific trip.
+    """Map match trips within a date range or a specific trip.
 
     Args:
         trip_id: Optional specific trip ID to match
@@ -2147,8 +2133,8 @@ async def export_boundary(
 # PREPROCESS_STREETS / STREET SEGMENT
 @app.post("/api/preprocess_streets")
 async def preprocess_streets_route(location_data: LocationModel):
-    """
-    Preprocess streets data for a validated location received in the request body.
+    """Preprocess streets data for a validated location received in the request
+    body.
 
     Args:
         location_data: Validated location data matching LocationModel.
@@ -2369,7 +2355,8 @@ async def get_first_trip_date():
 # GPX / GEOJSON UPLOAD
 @app.post("/api/upload_gpx")
 async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
-    """Upload GPX or GeoJSON files and process them into the trips collection."""
+    """Upload GPX or GeoJSON files and process them into the trips
+    collection."""
     try:
         if not files:
             raise HTTPException(
@@ -2470,7 +2457,8 @@ async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
 
 @app.post("/api/upload")
 async def upload_files(files: List[UploadFile] = File(...)):
-    """Upload GPX or GeoJSON files and process them into the trips collection."""
+    """Upload GPX or GeoJSON files and process them into the trips
+    collection."""
     try:
         count = 0
         for file in files:
@@ -2767,8 +2755,7 @@ async def active_trip_endpoint():
 
 @app.get("/api/trip_updates")
 async def trip_updates_endpoint(last_sequence: int = Query(0, ge=0)):
-    """
-    Get trip updates since a specific sequence number.
+    """Get trip updates since a specific sequence number.
 
     Args:
         last_sequence: Only return updates newer than this sequence
@@ -2990,7 +2977,8 @@ async def get_storage_info():
 
 @app.get("/api/coverage_areas/{location_id}")
 async def get_coverage_area_details(location_id: str):
-    """Get detailed information about a coverage area, fetching GeoJSON from GridFS."""
+    """Get detailed information about a coverage area, fetching GeoJSON from
+    GridFS."""
     try:
         # Find the coverage data (existing logic is fine)
         coverage_doc = None
@@ -3132,11 +3120,10 @@ async def export_advanced(
     ),
     fmt: str = Query("json", description="Export format"),
 ):
-    """
-    Advanced configurable export for trips data.
+    """Advanced configurable export for trips data.
 
-    Allows fine-grained control over data sources, fields to include,
-    date range, and export format.
+    Allows fine-grained control over data sources, fields to include, date
+    range, and export format.
     """
     try:
         # Get date filtering
@@ -3247,9 +3234,7 @@ async def export_advanced(
 # APPLICATION LIFECYCLE
 @app.on_event("startup")
 async def startup_event():
-    """
-    Initialize database indexes and components on application startup.
-    """
+    """Initialize database indexes and components on application startup."""
     try:
         # Initialize database with all required collections and indexes
         await init_database()  # Comprehensive database initialization

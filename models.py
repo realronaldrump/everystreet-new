@@ -1,5 +1,5 @@
-"""
-Pydantic models for request validation in the street coverage tracking application.
+"""Pydantic models for request validation in the street coverage tracking
+application.
 
 This module contains all the Pydantic models used for data validation across
 the application.

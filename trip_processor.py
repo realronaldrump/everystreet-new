@@ -1,10 +1,9 @@
-"""
-Unified Trip Processor
+"""Unified Trip Processor.
 
-This module provides a comprehensive TripProcessor class that handles all aspects
-of trip processing, including validation, parsing, geocoding, and map matching.
-It uses a state machine approach to track processing status and ensures consistent
-handling of all trip data.
+This module provides a comprehensive TripProcessor class that handles all
+aspects of trip processing, including validation, parsing, geocoding, and map
+matching. It uses a state machine approach to track processing status and
+ensures consistent handling of all trip data.
 """
 
 import asyncio
@@ -77,8 +76,8 @@ class RateLimiter:
         self.lock = asyncio.Lock()
 
     async def check_rate_limit(self) -> Tuple[bool, float]:
-        """
-        Check if we're about to exceed rate limit.
+        """Check if we're about to exceed rate limit.
+
         Returns (need_to_wait, wait_time_seconds)
         """
         async with self.lock:
@@ -109,15 +108,12 @@ map_match_semaphore = asyncio.Semaphore(3)  # Limit concurrent map matching requ
 
 
 class TripProcessor:
-    """
-    Unified processor for trip data that handles all aspects of trip processing
-    including validation, parsing, geocoding, and map matching using a state machine
-    approach to track status.
-    """
+    """Unified processor for trip data that handles all aspects of trip
+    processing including validation, parsing, geocoding, and map matching using
+    a state machine approach to track status."""
 
     def __init__(self, mapbox_token: Optional[str] = None, source: str = "api"):
-        """
-        Initialize the trip processor.
+        """Initialize the trip processor.
 
         Args:
             mapbox_token: The Mapbox access token for map matching
@@ -144,8 +140,7 @@ class TripProcessor:
         self.project_to_wgs84 = None
 
     def _set_state(self, new_state: TripState, error: Optional[str] = None) -> None:
-        """
-        Update the processing state and record it in history.
+        """Update the processing state and record it in history.
 
         Args:
             new_state: The new state to set
@@ -167,8 +162,7 @@ class TripProcessor:
         self.state_history.append(state_change)
 
     def set_trip_data(self, trip_data: Dict[str, Any]) -> None:
-        """
-        Set the raw trip data to be processed.
+        """Set the raw trip data to be processed.
 
         Args:
             trip_data: The raw trip data dictionary
@@ -179,8 +173,7 @@ class TripProcessor:
         self._set_state(TripState.NEW)
 
     def get_processing_status(self) -> Dict[str, Any]:
-        """
-        Get the current processing status.
+        """Get the current processing status.
 
         Returns:
             Dict with current state, history, and any errors
@@ -193,8 +186,8 @@ class TripProcessor:
         }
 
     async def process(self, do_map_match: bool = True) -> Dict[str, Any]:
-        """
-        Process the trip through all appropriate stages based on current state.
+        """Process the trip through all appropriate stages based on current
+        state.
 
         Args:
             do_map_match: Whether to perform map matching
@@ -237,8 +230,7 @@ class TripProcessor:
             return {}
 
     async def validate(self) -> bool:
-        """
-        Validate the trip data.
+        """Validate the trip data.
 
         Returns:
             True if validation passed, False otherwise
@@ -310,8 +302,8 @@ class TripProcessor:
             return False
 
     async def process_basic(self) -> bool:
-        """
-        Perform basic processing on trip data (timestamps, GPS parsing, etc.).
+        """Perform basic processing on trip data (timestamps, GPS parsing,
+        etc.).
 
         Returns:
             True if processing succeeded, False otherwise
@@ -410,8 +402,7 @@ class TripProcessor:
 
     @staticmethod
     async def get_place_at_point(point: Point) -> Optional[Dict[str, Any]]:
-        """
-        Find a custom place that contains the given point.
+        """Find a custom place that contains the given point.
 
         Args:
             point: A shapely Point to check
@@ -466,9 +457,8 @@ class TripProcessor:
         return fallback_coords
 
     async def geocode(self) -> bool:
-        """
-        Perform geocoding for trip start and end points.
-        Stores location data in structured format optimized for analytics.
+        """Perform geocoding for trip start and end points. Stores location
+        data in structured format optimized for analytics.
 
         Returns:
             True if geocoding succeeded, False otherwise
@@ -708,8 +698,7 @@ class TripProcessor:
             return False
 
     async def map_match(self) -> bool:
-        """
-        Perform map matching for the trip.
+        """Perform map matching for the trip.
 
         Returns:
             True if map matching succeeded, False otherwise
@@ -774,8 +763,7 @@ class TripProcessor:
             return False
 
     def _initialize_projections(self, coords: List[List[float]]) -> None:
-        """
-        Initialize projections for map matching.
+        """Initialize projections for map matching.
 
         Args:
             coords: The coordinates to use for determining UTM zone
@@ -810,8 +798,8 @@ class TripProcessor:
         min_sub_chunk: int = 20,
         jump_threshold_m: float = 200.0,
     ) -> Dict[str, Any]:
-        """
-        Map match coordinates using the Mapbox API with advanced chunking and stitching.
+        """Map match coordinates using the Mapbox API with advanced chunking
+        and stitching.
 
         Args:
             coordinates: List of [lon, lat] coordinates
@@ -1172,8 +1160,7 @@ class TripProcessor:
             }
 
     async def save(self, map_match_result: Optional[bool] = None) -> Optional[str]:
-        """
-        Save the processed trip to the trips collection.
+        """Save the processed trip to the trips collection.
 
         Args:
             map_match_result: Optional override for whether to save map matching results
@@ -1323,8 +1310,7 @@ class TripProcessor:
         source: str = "upload",  # Default source if not specified otherwise
         mapbox_token: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Create and process a trip from raw coordinates data.
+        """Create and process a trip from raw coordinates data.
 
         Args:
             coords_data: List of coordinate data (with timestamp, lat, lon)

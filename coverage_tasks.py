@@ -1,10 +1,11 @@
 # coverage_tasks.py
-"""
-Module for orchestrating street coverage preprocessing and calculation tasks.
+"""Module for orchestrating street coverage preprocessing and calculation
+tasks.
 
-This module contains functions that manage the workflow of fetching street data,
-segmenting it, calculating coverage based on trip data, and updating database
-status and results. These functions are typically called asynchronously from API endpoints.
+This module contains functions that manage the workflow of fetching street
+data, segmenting it, calculating coverage based on trip data, and updating
+database status and results. These functions are typically called
+asynchronously from API endpoints.
 """
 
 import logging
@@ -95,8 +96,7 @@ def collect_street_type_stats(features: List[Dict]) -> List[Dict[str, Any]]:
 
 # --- Coverage Calculation Orchestration ---
 async def process_coverage_calculation(location: Dict[str, Any], task_id: str) -> None:
-    """
-    Orchestrates the full coverage calculation process in the background.
+    """Orchestrates the full coverage calculation process in the background.
 
     Manages progress updates and handles final status/result updates in the database.
     This function now expects the calculation result to be a dictionary of statistics
@@ -230,8 +230,8 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str) -
 async def process_incremental_coverage_calculation(
     location: Dict[str, Any], task_id: str
 ) -> None:
-    """
-    Orchestrates the incremental coverage calculation process in the background.
+    """Orchestrates the incremental coverage calculation process in the
+    background.
 
     Manages progress updates and handles final status/result updates in the database.
     Expects calculation result to be stats dict or None.

@@ -1,8 +1,7 @@
-"""
-Street coverage calculation module (Optimized).
+"""Street coverage calculation module (Optimized).
 
-Calculates street segment coverage based on trip data using efficient spatial indexing,
-multiprocessing, bulk database operations, and aggregation pipelines.
+Calculates street segment coverage based on trip data using efficient spatial
+indexing, multiprocessing, bulk database operations, and aggregation pipelines.
 Stores large GeoJSON results in GridFS.
 """
 
@@ -87,9 +86,8 @@ def process_trip_worker(
     db_name: str,
     streets_collection_name: str,
 ) -> Dict[int, Set[str]]:
-    """
-    Static worker function for multiprocessing. Processes a sub-batch of trips.
-    Fetches required street geometries from DB based on candidate IDs.
+    """Static worker function for multiprocessing. Processes a sub-batch of
+    trips. Fetches required street geometries from DB based on candidate IDs.
 
     Args:
         trip_coords_list: List of coordinate lists for multiple trips in this sub-batch.
@@ -242,14 +240,11 @@ def process_trip_worker(
 
 
 class CoverageCalculator:
-    """
-    Optimized calculator for street coverage using spatial indexing, multiprocessing,
-    and efficient database operations.
-    """
+    """Optimized calculator for street coverage using spatial indexing,
+    multiprocessing, and efficient database operations."""
 
     def __init__(self, location: Dict[str, Any], task_id: str) -> None:
-        """
-        Initialize the CoverageCalculator.
+        """Initialize the CoverageCalculator.
 
         Args:
             location: Dictionary containing location details (display_name, osm_id, etc.).
@@ -307,7 +302,8 @@ class CoverageCalculator:
             )
 
     def initialize_projections(self) -> None:
-        """Initialize UTM and WGS84 projections based on location's bounding box."""
+        """Initialize UTM and WGS84 projections based on location's bounding
+        box."""
         bbox = self.location.get("boundingbox")
         center_lat, center_lon = 0.0, 0.0  # Default fallback
 
@@ -444,10 +440,10 @@ class CoverageCalculator:
                 )
 
     async def build_spatial_index_and_stats(self) -> bool:
-        """
-        Builds the R-tree spatial index, calculates total street length, identifies
-        initially driven segments, and populates the minimal streets_lookup cache.
-        Performs a single pass over the streets collection.
+        """Builds the R-tree spatial index, calculates total street length,
+        identifies initially driven segments, and populates the minimal
+        streets_lookup cache. Performs a single pass over the streets
+        collection.
 
         Returns:
             True if successful, False otherwise.
@@ -660,9 +656,8 @@ class CoverageCalculator:
             return False, []
 
     async def process_trips(self, processed_trip_ids_set: Set[str]) -> bool:
-        """
-        Fetches relevant trips, distributes them to worker processes for matching,
-        and aggregates the results (newly covered segment IDs).
+        """Fetches relevant trips, distributes them to worker processes for
+        matching, and aggregates the results (newly covered segment IDs).
 
         Args:
             processed_trip_ids_set: A set of trip IDs that have already been processed
@@ -773,9 +768,9 @@ class CoverageCalculator:
                 trips_cursor, self.trip_batch_size
             ):
                 batch_num += 1
-                valid_trips_in_batch: List[
-                    Tuple[str, List[Any]]
-                ] = []  # List of (trip_id, coords)
+                valid_trips_in_batch: List[Tuple[str, List[Any]]] = (
+                    []
+                )  # List of (trip_id, coords)
 
                 # Validate trips in the current batch
                 for trip_doc in trip_batch_docs:
@@ -933,9 +928,7 @@ class CoverageCalculator:
                             wrapped_futures.keys(), timeout=0.1
                         ):  # Short timeout
                             try:
-                                await (
-                                    wrapped_future
-                                )  # Wait for the wrapped future to complete
+                                await wrapped_future  # Wait for the wrapped future to complete
                                 original_future = wrapped_futures[wrapped_future]
                                 original_sub_batch = pending_futures_map.pop(
                                     original_future, []
@@ -1195,10 +1188,10 @@ class CoverageCalculator:
     async def finalize_coverage(
         self, processed_trip_ids_set: Set[str]
     ) -> Optional[Dict[str, Any]]:
-        """
-        Updates the 'driven' status of streets in the database based on newly covered
-        segments, calculates final coverage statistics using a MongoDB aggregation pipeline,
-        and updates the coverage metadata document.
+        """Updates the 'driven' status of streets in the database based on
+        newly covered segments, calculates final coverage statistics using a
+        MongoDB aggregation pipeline, and updates the coverage metadata
+        document.
 
         Args:
             processed_trip_ids_set: The complete set of trip IDs processed up to this point.
@@ -1358,9 +1351,9 @@ class CoverageCalculator:
         return final_result
 
     async def _run_coverage_aggregation(self) -> Optional[Dict[str, Any]]:
-        """
-        Executes the MongoDB aggregation pipeline to calculate coverage statistics
-        based on the current 'driven' status of streets in the database.
+        """Executes the MongoDB aggregation pipeline to calculate coverage
+        statistics based on the current 'driven' status of streets in the
+        database.
 
         Returns:
             A dictionary containing the aggregated statistics (total_length, driven_length,
@@ -1519,8 +1512,7 @@ class CoverageCalculator:
     async def compute_coverage(
         self, run_incremental: bool = False
     ) -> Optional[Dict[str, Any]]:
-        """
-        Main orchestrator method to compute coverage statistics.
+        """Main orchestrator method to compute coverage statistics.
 
         Handles initialization, index building, trip processing (full or incremental),
         and finalization.
@@ -1665,8 +1657,7 @@ class CoverageCalculator:
 async def compute_coverage_for_location(
     location: Dict[str, Any], task_id: str
 ) -> Optional[Dict[str, Any]]:
-    """
-    High-level function to compute full coverage for a specific location.
+    """High-level function to compute full coverage for a specific location.
     Instantiates CoverageCalculator and runs the full computation.
 
     Args:
@@ -1785,9 +1776,9 @@ async def compute_coverage_for_location(
 async def compute_incremental_coverage(
     location: Dict[str, Any], task_id: str
 ) -> Optional[Dict[str, Any]]:
-    """
-    High-level function to compute incremental coverage update for a specific location.
-    Instantiates CoverageCalculator and runs the incremental computation.
+    """High-level function to compute incremental coverage update for a
+    specific location. Instantiates CoverageCalculator and runs the incremental
+    computation.
 
     Args:
         location: Location dictionary.
@@ -1922,8 +1913,7 @@ async def compute_incremental_coverage(
 async def generate_and_store_geojson(
     location_name: Optional[str], task_id: str
 ) -> None:
-    """
-    Generates the final GeoJSON output based on the current state of streets
+    """Generates the final GeoJSON output based on the current state of streets
     in the database for a given location and stores it in GridFS, updating the
     corresponding coverage_metadata document with the GridFS file ID.
 

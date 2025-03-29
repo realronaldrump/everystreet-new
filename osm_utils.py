@@ -1,9 +1,8 @@
-"""
-OpenStreetMap (OSM) Utilities Module.
+"""OpenStreetMap (OSM) Utilities Module.
 
 Provides functions for interacting with the Overpass API to fetch and process
-OSM data, specifically for generating GeoJSON representations of boundaries
-and streets.
+OSM data, specifically for generating GeoJSON representations of boundaries and
+streets.
 """
 
 import json
@@ -30,8 +29,7 @@ OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 
 
 async def process_elements(elements: List[Dict], streets_only: bool) -> List[Dict]:
-    """
-    Process OSM elements and convert them to GeoJSON features.
+    """Process OSM elements and convert them to GeoJSON features.
 
     Args:
         elements: List of OSM elements
@@ -103,8 +101,7 @@ async def process_elements(elements: List[Dict], streets_only: bool) -> List[Dic
 async def generate_geojson_osm(
     location: Dict[str, Any], streets_only: bool = False
 ) -> Tuple[Optional[Dict], Optional[str]]:
-    """
-    Generate GeoJSON data from OpenStreetMap for a location.
+    """Generate GeoJSON data from OpenStreetMap for a location.
 
     Args:
         location: Dictionary with location data (must contain osm_id, osm_type)

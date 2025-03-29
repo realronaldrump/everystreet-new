@@ -240,8 +240,8 @@ def meters_to_miles(meters: float) -> float:
 
 
 def calculate_distance(coordinates: list[list[float]]) -> float:
-    """
-    Calculate the total distance of a trip from a list of [lng, lat] coordinates.
+    """Calculate the total distance of a trip from a list of [lng, lat]
+    coordinates.
 
     Args:
         coordinates: List of [longitude, latitude] coordinate pairs

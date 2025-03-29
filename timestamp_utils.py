@@ -1,7 +1,8 @@
-"""
-Helper functions for parsing and processing timestamps from Bouncie API data.
-Includes functions for converting ISO 8601 strings to timezone-aware datetime objects
-and for sorting/filtering coordinate data from Bouncie trip events.
+"""Helper functions for parsing and processing timestamps from Bouncie API
+data.
+
+Includes functions for converting ISO 8601 strings to timezone-aware datetime
+objects and for sorting/filtering coordinate data from Bouncie trip events.
 """
 
 import logging
@@ -13,9 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 def parse_bouncie_timestamp(ts: str) -> Optional[datetime]:
-    """
-    Parse an ISO 8601 timestamp from Bouncie, ensure it's timezone-aware, default UTC.
-    """
+    """Parse an ISO 8601 timestamp from Bouncie, ensure it's timezone-aware,
+    default UTC."""
     if not ts:
         logger.warning("Missing timestamp field in Bouncie event data.")
         return None
@@ -34,9 +34,7 @@ def parse_bouncie_timestamp(ts: str) -> Optional[datetime]:
 def get_trip_timestamps(
     event_data: dict,
 ) -> Tuple[Optional[datetime], Optional[datetime]]:
-    """
-    Extract startTime and endTime from Bouncie webhook event data.
-    """
+    """Extract startTime and endTime from Bouncie webhook event data."""
     start_time = None
     end_time = None
 
@@ -56,10 +54,8 @@ def get_trip_timestamps(
 
 
 def sort_and_filter_trip_coordinates(trip_data: List[dict]) -> List[Dict]:
-    """
-    Extract, sort, and deduplicate trip coordinates from 'tripData' Bouncie event chunks
-    Each point is a dict with 'timestamp', 'lat', 'lon'.
-    """
+    """Extract, sort, and deduplicate trip coordinates from 'tripData' Bouncie
+    event chunks Each point is a dict with 'timestamp', 'lat', 'lon'."""
     seen = set()
     valid_points = []
 

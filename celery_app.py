@@ -1,13 +1,13 @@
-"""
-Celery application configuration for EveryStreet.
+"""Celery application configuration for EveryStreet.
 
-This module sets up the Celery application instance with Redis as the message broker
-and result backend. It also configures Celery Beat for scheduled tasks.
+This module sets up the Celery application instance with Redis as the message
+broker and result backend. It also configures Celery Beat for scheduled tasks.
 
-**Important Security Note:** Celery workers should NOT be run with superuser (root) privileges.
-Ensure your deployment environment (e.g., Dockerfile, Railway configuration)
-is set up to run Celery workers as a non-root user. You can use the `--uid` option
-when starting Celery workers to specify a different user.
+**Important Security Note:** Celery workers should NOT be run with superuser
+(root) privileges. Ensure your deployment environment (e.g., Dockerfile,
+Railway configuration) is set up to run Celery workers as a non-root user. You
+can use the `--uid` option when starting Celery workers to specify a different
+user.
 """
 
 import logging

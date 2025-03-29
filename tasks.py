@@ -1,5 +1,4 @@
-"""
-Background tasks implementation using Celery.
+"""Background tasks implementation using Celery.
 
 This module provides task definitions for all background tasks performed by the
 application. It handles proper integration between Celery's synchronous tasks
@@ -117,7 +116,8 @@ TASK_METADATA = {
 
 # Central task status manager with unified interface for async/sync operations
 class TaskStatusManager:
-    """Centralized task status management with unified sync/async interfaces."""
+    """Centralized task status management with unified sync/async
+    interfaces."""
 
     _instance = None
 
@@ -290,13 +290,12 @@ def get_mongo_client() -> MongoClient:
 
 # Improved AsyncTask base class for better async handling
 class AsyncTask(Task):
-    """
-    Enhanced base class for Celery tasks that need to run async code.
-    """
+    """Enhanced base class for Celery tasks that need to run async code."""
 
     @staticmethod
     def run_async(coro_func: Callable[[], Awaitable[T]]) -> T:
-        """Run an async coroutine function from a Celery task with proper lifecycle management."""
+        """Run an async coroutine function from a Celery task with proper
+        lifecycle management."""
         loop = None
         should_close_loop = False
 
@@ -679,7 +678,8 @@ async def update_task_history(
 
 # Decorator for better async task handling
 def async_task_wrapper(func):
-    """Decorator to handle async tasks with logging but without redundant status tracking."""
+    """Decorator to handle async tasks with logging but without redundant
+    status tracking."""
 
     @wraps(func)
     async def wrapped_async_func(*args, **kwargs):
@@ -723,8 +723,7 @@ def async_task_wrapper(func):
     queue="high_priority",
 )
 def periodic_fetch_trips(self) -> Dict[str, Any]:
-    """
-    Fetch trips from the Bouncie API periodically.
+    """Fetch trips from the Bouncie API periodically.
 
     Returns:
         Dict with status information
@@ -821,10 +820,8 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
     queue="default",
 )
 def update_coverage_for_new_trips(self) -> Dict[str, Any]:
-    """
-    Background task that automatically updates coverage for all locations
-    using the incremental algorithm (only processes new trips).
-    """
+    """Background task that automatically updates coverage for all locations
+    using the incremental algorithm (only processes new trips)."""
 
     @async_task_wrapper
     async def _execute():
@@ -901,8 +898,7 @@ def update_coverage_for_new_trips(self) -> Dict[str, Any]:
     queue="low_priority",
 )
 def cleanup_stale_trips_task(self) -> Dict[str, Any]:
-    """
-    Archive trips that haven't been updated recently.
+    """Archive trips that haven't been updated recently.
 
     Returns:
         Dict with status information
@@ -937,8 +933,7 @@ def cleanup_stale_trips_task(self) -> Dict[str, Any]:
     queue="low_priority",
 )
 def cleanup_invalid_trips(self) -> Dict[str, Any]:
-    """
-    Identify and mark invalid trip records in the trips collection.
+    """Identify and mark invalid trip records in the trips collection.
 
     Returns:
         Dict with status information
@@ -1014,8 +1009,8 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
     queue="default",
 )
 def update_geocoding(self) -> Dict[str, Any]:
-    """
-    Update reverse geocoding for trips missing location data in the trips collection.
+    """Update reverse geocoding for trips missing location data in the trips
+    collection.
 
     Returns:
         Dict with status information
@@ -1105,8 +1100,8 @@ def update_geocoding(self) -> Dict[str, Any]:
     queue="default",
 )
 def remap_unmatched_trips(self) -> Dict[str, Any]:
-    """
-    Attempt to map-match trips in the trips collection that previously failed.
+    """Attempt to map-match trips in the trips collection that previously
+    failed.
 
     Returns:
         Dict with status information
@@ -1209,8 +1204,7 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
     queue="low_priority",
 )
 def validate_trip_data_task(self) -> Dict[str, Any]:
-    """
-    Validate trip data consistency in the trips collection.
+    """Validate trip data consistency in the trips collection.
 
     Returns:
         Dict with status information
@@ -1288,8 +1282,7 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
 
 # API functions for app.py to interact with Celery
 async def get_all_task_metadata():
-    """
-    Return all task metadata for the UI with additional status information.
+    """Return all task metadata for the UI with additional status information.
 
     Returns:
         Dict containing task metadata with current state information
@@ -1337,8 +1330,7 @@ async def get_all_task_metadata():
 
 
 async def manual_run_task(task_id: str) -> Dict[str, Any]:
-    """
-    Run a task manually directly from the API.
+    """Run a task manually directly from the API.
 
     Args:
         task_id: ID of the task to run
@@ -1472,8 +1464,7 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
 
 
 async def update_task_schedule(task_config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Update the scheduling configuration for tasks.
+    """Update the scheduling configuration for tasks.
 
     Args:
         task_config: New configuration data

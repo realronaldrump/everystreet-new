@@ -1,5 +1,5 @@
-"""
-Live tracking module for vehicle monitoring using polling instead of WebSockets.
+"""Live tracking module for vehicle monitoring using polling instead of
+WebSockets.
 
 This module handles real-time tracking of vehicles using the Bouncie API.
 It manages data storage and retrieval for real-time updates, processed via
@@ -36,8 +36,7 @@ archived_live_trips_collection = None
 
 
 def initialize_db(db_live_trips, db_archived_live_trips):
-    """
-    Initialize the database collections used by this module.
+    """Initialize the database collections used by this module.
 
     Args:
         db_live_trips: MongoDB collection for active trips
@@ -50,9 +49,8 @@ def initialize_db(db_live_trips, db_archived_live_trips):
 
 
 async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Convert MongoDB document to JSON-serializable dict for live trips.
-    Uses the common serialization helper for consistency.
+    """Convert MongoDB document to JSON-serializable dict for live trips. Uses
+    the common serialization helper for consistency.
 
     Args:
         trip_data: The trip document from MongoDB
@@ -140,8 +138,7 @@ async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def process_trip_start(data: Dict[str, Any]) -> None:
-    """
-    Process a tripStart event from the Bouncie webhook
+    """Process a tripStart event from the Bouncie webhook.
 
     Args:
         data: The webhook payload
@@ -220,9 +217,8 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
 
 
 async def process_trip_data(data: Dict[str, Any]) -> None:
-    """
-    Process a tripData event from the Bouncie webhook using the TripProcessor
-    """
+    """Process a tripData event from the Bouncie webhook using the
+    TripProcessor."""
     global live_trips_collection
 
     # Check if live_trips_collection is initialized
@@ -404,9 +400,8 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
 
 
 async def process_trip_end(data: Dict[str, Any]) -> None:
-    """
-    Process a tripEnd event from the Bouncie webhook with transaction safety.
-    Archives a trip and removes it from active trips atomically.
+    """Process a tripEnd event from the Bouncie webhook with transaction
+    safety. Archives a trip and removes it from active trips atomically.
 
     Args:
         data: The webhook payload
@@ -477,8 +472,7 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
 
 
 async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
-    """
-    Handle webhook events from Bouncie API
+    """Handle webhook events from Bouncie API.
 
     Args:
         data: The webhook payload
@@ -512,8 +506,8 @@ async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
 
 
 async def get_active_trip(since_sequence: Optional[int] = None) -> Dict[str, Any]:
-    """
-    Get the currently active trip with optional filtering by sequence number
+    """Get the currently active trip with optional filtering by sequence
+    number.
 
     Args:
         since_sequence: Only return trip if it's newer than this sequence number
@@ -565,8 +559,8 @@ async def get_active_trip(since_sequence: Optional[int] = None) -> Dict[str, Any
 async def cleanup_stale_trips(
     stale_minutes: int = 5, max_archive_age_days: int = 30
 ) -> Dict[str, int]:
-    """
-    Cleanup trips that haven't been updated recently and limit archived trips
+    """Cleanup trips that haven't been updated recently and limit archived
+    trips.
 
     Args:
         stale_minutes: Number of minutes of inactivity to consider a trip stale
@@ -593,7 +587,9 @@ async def cleanup_stale_trips(
         # Find all stale trips
         stale_trips = await live_trips_collection.find(
             {"lastUpdate": {"$lt": stale_threshold}, "status": "active"}
-        ).to_list(length=100)  # Limit to avoid potential memory issues
+        ).to_list(
+            length=100
+        )  # Limit to avoid potential memory issues
 
         for trip in stale_trips:
             trip_id = trip.get("_id")
@@ -650,8 +646,8 @@ async def cleanup_stale_trips(
 
 
 async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
-    """
-    Get updates about the currently active trip since a specified sequence number
+    """Get updates about the currently active trip since a specified sequence
+    number.
 
     Args:
         last_sequence: Only return updates newer than this sequence
