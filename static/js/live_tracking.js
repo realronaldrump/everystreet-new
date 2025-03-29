@@ -21,7 +21,7 @@ class LiveTripTracker {
       color: "#00FF00",
       weight: 3,
       opacity: 0.8,
-      zIndex: 1000  // Ensure high z-index for the live trip
+      zIndex: 1000, // Ensure high z-index for the live trip
     }).addTo(this.map);
 
     this.marker = L.marker([0, 0], {
@@ -629,7 +629,7 @@ class LiveTripTracker {
     this.polyline.setStyle({
       color: color || "#00FF00",
       opacity: parseFloat(opacity) || 0.8,
-      zIndex: 1000 // Ensure high z-index for the live trip
+      zIndex: 1000, // Ensure high z-index for the live trip
     });
 
     // If we have an active trip, ensure the polyline is visible
@@ -644,7 +644,7 @@ class LiveTripTracker {
       this.bringLiveTripToFront();
     }
   }
-  
+
   /**
    * Ensures the live trip polyline is always displayed on top of other map layers
    */
