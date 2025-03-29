@@ -1123,7 +1123,6 @@ async def get_incremental_street_coverage(location: LocationModel):
         )
 
 
-# TRIPS (REGULAR, UPLOADED)
 @app.get("/api/trips")
 async def get_trips(request: Request):
     """Get all trips as GeoJSON."""

@@ -189,7 +189,6 @@ async def generate_geojson_osm(
             )
             # Return empty GeoJSON structure instead of None/error if the query was valid but yielded no results
             return {"type": "FeatureCollection", "features": []}, None
-            # return None, "No features found for the specified location" # Old behavior
 
         # Convert features to GeoDataFrame and then to GeoJSON dict
         gdf = gpd.GeoDataFrame.from_features(features)
