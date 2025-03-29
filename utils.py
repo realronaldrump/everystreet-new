@@ -265,7 +265,10 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
             total_distance_meters += haversine(lon1, lat1, lon2, lat2, unit="meters")
         except (TypeError, ValueError, IndexError) as e:
             logger.warning(
-                f"Skipping coordinate pair due to error: {e} - Pair: {coords[i]}, {coords[i + 1] if i + 1 < len(coords) else 'N/A'}"
+                "Skipping coordinate pair due to error: %s - Pair: %s, %s",
+                e,
+                coords[i],
+                coords[i + 1] if i + 1 < len(coords) else "N/A",
             )
             continue  # Skip this segment if coordinates are malformed
 

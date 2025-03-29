@@ -64,9 +64,9 @@ async def update_geo_points(
         )
 
         logger.info(
-            f"Found {total_docs} documents in {
-                collection.name
-            } to update with geo-points"
+            "Found %d documents in %s to update with geo-points",
+            total_docs,
+            collection.name,
         )
 
         if total_docs == 0:
