@@ -786,9 +786,9 @@ class CoverageCalculator:
                 trips_cursor, self.trip_batch_size
             ):
                 batch_num += 1
-                valid_trips_in_batch: List[
-                    Tuple[str, List[Any]]
-                ] = []  # List of (trip_id, coords)
+                valid_trips_in_batch: List[Tuple[str, List[Any]]] = (
+                    []
+                )  # List of (trip_id, coords)
 
                 # Validate trips in the current batch
                 for trip_doc in trip_batch_docs:
@@ -952,9 +952,7 @@ class CoverageCalculator:
                             wrapped_futures.keys(), timeout=0.1
                         ):  # Short timeout
                             try:
-                                await (
-                                    wrapped_future
-                                )  # Wait for the wrapped future to complete
+                                await wrapped_future  # Wait for the wrapped future to complete
                                 original_future = wrapped_futures[wrapped_future]
                                 original_sub_batch = pending_futures_map.pop(
                                     original_future, []
@@ -1814,20 +1812,19 @@ async def compute_coverage_for_location(
             asyncio.create_task(generate_and_store_geojson(location_name, task_id))
             # Return the stats immediately, don't wait for GeoJSON
             return result
-        else:
-            # compute_coverage should have updated progress on failure
-            logger.error(
-                "Task %s: Full coverage calculation failed for %s",
-                task_id,
-                location_name,
-            )
-            # Ensure metadata status reflects failure if not already set
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": location_name},
-                {"$set": {"status": "error", "last_error": "Calculation failed"}},
-                upsert=False,  # Only update if exists
-            )
-            return None
+        # compute_coverage should have updated progress on failure
+        logger.error(
+            "Task %s: Full coverage calculation failed for %s",
+            task_id,
+            location_name,
+        )
+        # Ensure metadata status reflects failure if not already set
+        await coverage_metadata_collection.update_one(
+            {"location.display_name": location_name},
+            {"$set": {"status": "error", "last_error": "Calculation failed"}},
+            upsert=False,  # Only update if exists
+        )
+        return None
 
     except asyncio.TimeoutError:
         error_msg = f"Calculation timed out after {PROCESS_TIMEOUT_OVERALL}s"
@@ -1955,25 +1952,24 @@ async def compute_incremental_coverage(
             asyncio.create_task(generate_and_store_geojson(location_name, task_id))
             # Return the stats immediately
             return result
-        else:
-            # compute_coverage should have updated progress on failure
-            logger.error(
-                "Task %s: Incremental coverage calculation failed for %s",
-                task_id,
-                location_name,
-            )
-            # Ensure metadata status reflects failure if not already set
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": location_name},
-                {
-                    "$set": {
-                        "status": "error",
-                        "last_error": "Incremental calculation failed",
-                    }
-                },
-                upsert=False,  # Only update if exists
-            )
-            return None
+        # compute_coverage should have updated progress on failure
+        logger.error(
+            "Task %s: Incremental coverage calculation failed for %s",
+            task_id,
+            location_name,
+        )
+        # Ensure metadata status reflects failure if not already set
+        await coverage_metadata_collection.update_one(
+            {"location.display_name": location_name},
+            {
+                "$set": {
+                    "status": "error",
+                    "last_error": "Incremental calculation failed",
+                }
+            },
+            upsert=False,  # Only update if exists
+        )
+        return None
 
     except asyncio.TimeoutError:
         error_msg = (

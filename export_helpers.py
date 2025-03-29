@@ -320,9 +320,9 @@ async def create_export_response(
 
     if fmt == "geojson":
         return await export_geojson_response(data, filename_base)
-    elif fmt == "gpx":
+    if fmt == "gpx":
         return await export_gpx_response(data, filename_base)
-    elif fmt == "shapefile":
+    if fmt == "shapefile":
         # Handle shapefiles from GeoJSON
         if isinstance(data, dict) and data.get("type") == "FeatureCollection":
             geojson_data = data
@@ -332,7 +332,7 @@ async def create_export_response(
             geojson_data = json.loads(geojson_string)
 
         return await export_shapefile_response(geojson_data, filename_base)
-    elif fmt == "json":
+    if fmt == "json":
         # Return JSON directly
         if isinstance(data, list):
             content = json.dumps(data, default=default_serializer)
@@ -346,7 +346,7 @@ async def create_export_response(
                 "Content-Disposition": f'attachment; filename="{filename_base}.json"'
             },
         )
-    elif fmt == "csv":
+    if fmt == "csv":
         # Convert trips to CSV
         from io import StringIO
 
@@ -380,9 +380,8 @@ async def create_export_response(
                 "Content-Disposition": f'attachment; filename="{filename_base}.csv"'
             },
         )
-    else:
-        # Invalid format
-        raise ValueError(f"Unsupported export format: {fmt}")
+    # Invalid format
+    raise ValueError(f"Unsupported export format: {fmt}")
 
 
 def extract_date_range_string(query: Dict[str, Any]) -> str:
@@ -404,8 +403,7 @@ def extract_date_range_string(query: Dict[str, Any]) -> str:
 
     if start_date and end_date:
         return f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
-    else:
-        return datetime.now().strftime("%Y%m%d")
+    return datetime.now().strftime("%Y%m%d")
 
 
 def get_location_filename(location: Dict[str, Any]) -> str:
