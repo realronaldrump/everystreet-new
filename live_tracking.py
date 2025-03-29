@@ -143,7 +143,6 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
     Args:
         data: The webhook payload
     """
-    global live_trips_collection
 
     # Check if live_trips_collection is initialized
     if live_trips_collection is None:
@@ -219,7 +218,6 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
 async def process_trip_data(data: Dict[str, Any]) -> None:
     """Process a tripData event from the Bouncie webhook using the
     TripProcessor."""
-    global live_trips_collection
 
     # Check if live_trips_collection is initialized
     if live_trips_collection is None:
@@ -409,7 +407,6 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     Args:
         data: The webhook payload
     """
-    global live_trips_collection, archived_live_trips_collection
 
     # Check if collections are initialized
     if live_trips_collection is None or archived_live_trips_collection is None:
@@ -521,7 +518,6 @@ async def get_active_trip(since_sequence: Optional[int] = None) -> Dict[str, Any
     Returns:
         Dict: The active trip data, serialized for JSON response, or None if no update
     """
-    global live_trips_collection
 
     # Check if live_trips_collection is initialized
     if live_trips_collection is None:
@@ -575,7 +571,6 @@ async def cleanup_stale_trips(
     Returns:
         Dict: Containing counts of stale trips moved and old archived trips removed
     """
-    global live_trips_collection, archived_live_trips_collection
 
     # Check if collections are initialized
     if live_trips_collection is None or archived_live_trips_collection is None:
@@ -593,7 +588,9 @@ async def cleanup_stale_trips(
         # Find all stale trips
         stale_trips = await live_trips_collection.find(
             {"lastUpdate": {"$lt": stale_threshold}, "status": "active"}
-        ).to_list(length=100)  # Limit to avoid potential memory issues
+        ).to_list(
+            length=100
+        )  # Limit to avoid potential memory issues
 
         for trip in stale_trips:
             trip_id = trip.get("_id")
@@ -661,7 +658,6 @@ async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
     Returns:
         Dict: Contains status, has_update flag, and trip data if available
     """
-    global live_trips_collection
 
     # Check if live_trips_collection is initialized
     if live_trips_collection is None:
