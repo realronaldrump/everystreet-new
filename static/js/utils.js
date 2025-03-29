@@ -420,7 +420,7 @@ class NotificationManager {
           notification.parentNode.removeChild(notification);
         }
         this.notifications = this.notifications.filter(
-          (n) => n !== notification
+          (n) => n !== notification,
         );
       }, 150);
     } else {
@@ -751,7 +751,7 @@ window.dom = {
       if (Array.isArray(content)) {
         content.forEach((item) => {
           element.appendChild(
-            item instanceof Node ? item : document.createTextNode(String(item))
+            item instanceof Node ? item : document.createTextNode(String(item)),
           );
         });
       } else if (content instanceof Node) {
