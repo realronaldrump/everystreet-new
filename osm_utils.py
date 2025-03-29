@@ -24,8 +24,16 @@ from db import (
 
 logger = logging.getLogger(__name__)
 
-# Define the Overpass URL constant
+# --- Constants ---
 OVERPASS_URL = "http://overpass-api.de/api/interpreter"
+
+# Define highway types to exclude from street data (foot traffic, paths, etc.)
+# This regex is used in Overpass queries.
+EXCLUDED_HIGHWAY_TYPES_REGEX = (
+    "footway|path|steps|pedestrian|bridleway|cycleway|corridor|"
+    "platform|raceway|proposed|construction|track"
+)
+# ---
 
 
 async def process_elements(elements: List[Dict], streets_only: bool) -> List[Dict]:
@@ -33,7 +41,7 @@ async def process_elements(elements: List[Dict], streets_only: bool) -> List[Dic
 
     Args:
         elements: List of OSM elements
-        streets_only: If True, only include street elements
+        streets_only: If True, only include street elements (already pre-filtered)
 
     Returns:
         List of GeoJSON features
@@ -50,6 +58,7 @@ async def process_elements(elements: List[Dict], streets_only: bool) -> List[Dic
             coords = [(n["lon"], n["lat"]) for n in geometry]
             if len(coords) >= 2:
                 properties = e.get("tags", {})
+                # NOTE: No need for highway type filtering here if Overpass query is correct
                 try:
                     if streets_only:
                         # Only create LineString for streets
@@ -103,6 +112,8 @@ async def generate_geojson_osm(
 ) -> Tuple[Optional[Dict], Optional[str]]:
     """Generate GeoJSON data from OpenStreetMap for a location.
 
+    Filters out non-vehicular ways if streets_only is True.
+
     Args:
         location: Dictionary with location data (must contain osm_id, osm_type)
         streets_only: If True, only include streets, otherwise fetch boundary
@@ -127,24 +138,27 @@ async def generate_geojson_osm(
 
         # Construct Overpass QL query
         if streets_only:
+            # Query for drivable streets, excluding non-vehicular highway types
             query = f"""
             [out:json][timeout:60];
             area({area_id})->.searchArea;
             (
-              way["highway"](area.searchArea);
+              // Fetch ways with highway tag, EXCLUDING specified non-vehicular types
+              way["highway"]["highway"!~"{EXCLUDED_HIGHWAY_TYPES_REGEX}"](area.searchArea);
             );
-            (._;>;);
-            out geom;
+            (._;>;); // Recurse down to nodes
+            out geom; // Output geometry
             """
+            logger.info("Using Overpass query that excludes non-vehicular ways.")
         else:
-            # Query for the boundary geometry
+            # Query for the boundary geometry (no change needed here)
             query = f"""
             [out:json][timeout:60];
             (
               {location["osm_type"]}({location["osm_id"]});
             );
-            (._;>;);
-            out geom;
+            (._;>;); // Recurse down to nodes
+            out geom; // Output geometry
             """
 
         logger.info(
@@ -159,7 +173,7 @@ async def generate_geojson_osm(
             async with session.get(
                 OVERPASS_URL,
                 params={"data": query},
-                timeout=60,  # Increased timeout
+                timeout=90,  # Slightly increased timeout just in case
             ) as response:
                 response.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
                 data = await response.json()
@@ -169,11 +183,13 @@ async def generate_geojson_osm(
 
         if not features:
             logger.warning(
-                "No features found for %s: %s",
+                "No features found for %s: %s (potentially due to filters or empty area)",
                 osm_type_label,
                 location.get("display_name", "Unknown"),
             )
-            return None, "No features found for the specified location"
+            # Return empty GeoJSON structure instead of None/error if the query was valid but yielded no results
+            return {"type": "FeatureCollection", "features": []}, None
+            # return None, "No features found for the specified location" # Old behavior
 
         # Convert features to GeoDataFrame and then to GeoJSON dict
         gdf = gpd.GeoDataFrame.from_features(features)
@@ -227,6 +243,9 @@ async def generate_geojson_osm(
                             "type": osm_type_label,
                             "geojson": geojson_data,
                             "created_at": datetime.now(timezone.utc),
+                            "updated_at": datetime.now(
+                                timezone.utc
+                            ),  # Add updated_at on creation
                         },
                     )
                     logger.info(
@@ -253,6 +272,14 @@ async def generate_geojson_osm(
         # Handle specific HTTP errors from Overpass
         error_detail = f"Overpass API error: {http_err.status} - {http_err.message}"
         logger.error(error_detail, exc_info=True)
+        # Try to read response body for more details if possible
+        try:
+            error_body = await http_err.response.text()
+            logger.error(
+                "Overpass error body: %s", error_body[:500]
+            )  # Log first 500 chars
+        except Exception:
+            pass  # Ignore if reading body fails
         return None, error_detail
     except aiohttp.ClientError as client_err:
         # Handle other client-side errors (connection issues, timeouts)

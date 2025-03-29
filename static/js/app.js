@@ -57,6 +57,13 @@
       visible: false,
       name: "Custom Places",
     },
+    undrivenStreets: {
+      order: 2,
+      color: "#00BFFF", // Bright blue for undriven streets
+      opacity: 0.8,
+      visible: false,
+      name: "Undriven Streets",
+    },
   };
 
   // Application State
@@ -461,6 +468,9 @@
 
     if (name === "customPlaces" && window.customPlaces) {
       window.customPlaces.toggleVisibility(visible);
+    } else if (name === "undrivenStreets" && visible) {
+      // When undriven streets layer is toggled on, fetch the data
+      fetchUndrivenStreets();
     } else {
       debouncedUpdateMap();
     }
@@ -697,6 +707,12 @@
     await updateMap();
   }
 
+  async function updateMapWithUndrivenStreets(geojson) {
+    if (!geojson?.features) return;
+    AppState.mapLayers.undrivenStreets.layer = geojson;
+    await updateMap();
+  }
+
   async function fetchMatchedTrips() {
     const startDate = DateUtils.formatDate(
       getStorageItem(CONFIG.STORAGE_KEYS.startDate),
@@ -721,6 +737,92 @@
 
     const geojson = await response.json();
     AppState.mapLayers.matchedTrips.layer = geojson;
+  }
+
+  async function fetchUndrivenStreets() {
+    try {
+      // Get the selected location from the dropdown
+      const locationSelect = document.getElementById(
+        "undriven-streets-location",
+      );
+      if (!locationSelect || !locationSelect.value) {
+        showNotification(
+          "Please select a location from the dropdown to show undriven streets",
+          "warning",
+        );
+        AppState.mapLayers.undrivenStreets.visible = false;
+        await updateMap();
+        return null;
+      }
+
+      let location;
+      try {
+        location = JSON.parse(locationSelect.value);
+      } catch (parseError) {
+        showNotification(
+          "Invalid location data. Please select another location.",
+          "warning",
+        );
+        AppState.mapLayers.undrivenStreets.visible = false;
+        await updateMap();
+        return null;
+      }
+
+      // Save the selected location ID to localStorage
+      if (location && location._id) {
+        localStorage.setItem(
+          "selectedLocationForUndrivenStreets",
+          location._id,
+        );
+      }
+
+      // Show loading message
+      showNotification("Loading undriven streets...", "info");
+
+      // Fetch undriven streets for this location
+      const response = await fetch("/api/undriven_streets", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(location),
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `HTTP error fetching undriven streets: ${response.status}`,
+        );
+      }
+
+      const geojson = await response.json();
+
+      // Check if there are features
+      if (!geojson.features || geojson.features.length === 0) {
+        showNotification(
+          `No undriven streets found in ${location.display_name}`,
+          "info",
+        );
+      } else {
+        showNotification(
+          `Loaded ${geojson.features.length} undriven street segments`,
+          "success",
+        );
+      }
+
+      await updateMapWithUndrivenStreets(geojson);
+      return geojson;
+    } catch (error) {
+      console.error("Error fetching undriven streets:", error);
+      showNotification(
+        `Failed to load undriven streets: ${error.message}`,
+        "danger",
+      );
+
+      // If there was an error, make sure the layer is hidden
+      AppState.mapLayers.undrivenStreets.visible = false;
+      await updateMap();
+      return null;
+    }
   }
 
   async function updateMap(fitBounds = false) {
@@ -752,6 +854,31 @@
               layer.on("popupopen", () =>
                 setupPopupEventListeners(layer, feature),
               );
+            },
+          });
+          geoJsonLayer.addTo(AppState.layerGroup);
+        } else if (name === "undrivenStreets" && info.layer?.features) {
+          // Handle undriven streets layer
+          const geoJsonLayer = L.geoJSON(info.layer, {
+            style: () => ({
+              color: info.color,
+              weight: 3,
+              opacity: info.opacity,
+              className: "undriven-street",
+            }),
+            onEachFeature: (feature, layer) => {
+              // Add street name popup
+              if (feature.properties && feature.properties.street_name) {
+                const streetName = feature.properties.street_name;
+                const segmentLength =
+                  feature.properties.segment_length?.toFixed(2) || "Unknown";
+                const streetType = feature.properties.highway || "street";
+
+                layer.bindTooltip(
+                  `<strong>${streetName}</strong><br>Type: ${streetType}<br>Length: ${segmentLength}m`,
+                  { sticky: true },
+                );
+              }
             },
           });
           geoJsonLayer.addTo(AppState.layerGroup);
@@ -1228,6 +1355,79 @@
     }
   }
 
+  // Function to fetch coverage areas for the location dropdown
+  async function fetchCoverageAreas() {
+    try {
+      const response = await fetch("/api/coverage_areas");
+
+      if (!response.ok) {
+        throw new Error(
+          `HTTP error fetching coverage areas: ${response.status}`,
+        );
+      }
+
+      const data = await response.json();
+      // The server returns the areas in the 'areas' property, not 'coverage_areas'
+      return data.areas || [];
+    } catch (error) {
+      console.error("Error fetching coverage areas:", error);
+      showNotification(
+        `Failed to load coverage areas: ${error.message}`,
+        "warning",
+      );
+      return [];
+    }
+  }
+
+  // Function to populate the location dropdown
+  async function populateLocationDropdown() {
+    const dropdown = document.getElementById("undriven-streets-location");
+    if (!dropdown) return;
+
+    // Clear existing options (except the first one)
+    while (dropdown.options.length > 1) {
+      dropdown.remove(1);
+    }
+
+    // Fetch coverage areas
+    const coverageAreas = await fetchCoverageAreas();
+
+    if (coverageAreas.length === 0) {
+      // Add a disabled option indicating no areas available
+      const option = document.createElement("option");
+      option.textContent = "No coverage areas available";
+      option.disabled = true;
+      dropdown.appendChild(option);
+      return;
+    }
+
+    // Add each coverage area to the dropdown
+    coverageAreas.forEach((area) => {
+      const option = document.createElement("option");
+      option.value = JSON.stringify(area.location);
+      option.textContent = area.location.display_name;
+      dropdown.appendChild(option);
+    });
+
+    // Check if we have a previously selected location
+    const savedLocationId = localStorage.getItem(
+      "selectedLocationForUndrivenStreets",
+    );
+    if (savedLocationId) {
+      for (let i = 0; i < dropdown.options.length; i++) {
+        try {
+          const optionLocation = JSON.parse(dropdown.options[i].value);
+          if (optionLocation && optionLocation._id === savedLocationId) {
+            dropdown.selectedIndex = i;
+            break;
+          }
+        } catch (e) {
+          // Skip invalid JSON
+        }
+      }
+    }
+  }
+
   // Event Listeners & Date Presets
   function handleDatePresetClick() {
     const range = this.dataset.range;
@@ -1332,6 +1532,22 @@
       AppState.mapSettings.highlightRecentTrips = this.checked;
       debouncedUpdateMap();
     });
+
+    // Add event listener for undriven streets location dropdown
+    const locationDropdown = document.getElementById(
+      "undriven-streets-location",
+    );
+    if (locationDropdown) {
+      locationDropdown.addEventListener("change", function () {
+        // If the undriven streets layer is currently visible, refresh it with the new location
+        if (
+          AppState.mapLayers.undrivenStreets &&
+          AppState.mapLayers.undrivenStreets.visible
+        ) {
+          fetchUndrivenStreets();
+        }
+      });
+    }
   }
 
   function initializeDOMCache() {
@@ -1429,6 +1645,26 @@
           }
 
           initializeLayerControls();
+
+          // Load coverage areas for the undriven streets dropdown
+          populateLocationDropdown();
+
+          // Restore layer visibility from localStorage, including undriven streets
+          Object.keys(AppState.mapLayers).forEach((layerName) => {
+            const savedVisibility = localStorage.getItem(
+              `layer_visible_${layerName}`,
+            );
+            if (savedVisibility === "true") {
+              AppState.mapLayers[layerName].visible = true;
+
+              // If the undriven streets layer was previously visible, we'll fetch it
+              // after a short delay to ensure the location dropdown is populated
+              if (layerName === "undrivenStreets") {
+                setTimeout(() => fetchUndrivenStreets(), 1500);
+              }
+            }
+          });
+
           return Promise.all([fetchTrips(), fetchMetrics()]);
         })
         .then((results) => {

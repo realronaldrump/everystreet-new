@@ -58,6 +58,7 @@ from models import (
 from db import (
     SerializationHelper,
     aggregate_with_retry,
+    batch_cursor,
     build_query_from_request,
     count_documents_with_retry,
     db_manager,
@@ -352,6 +353,55 @@ async def database_management_page(request: Request):
 async def app_settings_page(request: Request):
     """Render app settings page."""
     return templates.TemplateResponse("app_settings.html", {"request": request})
+
+
+# UNDRIVEN STREETS API ENDPOINT
+@app.post("/api/undriven_streets")
+async def get_undriven_streets(location: LocationModel):
+    """Get undriven streets for a specific location.
+
+    Args:
+        location: Location dictionary with display_name, osm_id, etc.
+
+    Returns:
+        GeoJSON with undriven streets features
+    """
+    try:
+        location_name = location.display_name
+        logger.info(f"Getting undriven streets for {location_name}")
+
+        # Find the coverage metadata for this location
+        coverage_metadata = await find_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": location_name},
+        )
+
+        if not coverage_metadata:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No coverage data found for location: {location_name}",
+            )
+
+        # Query for undriven streets in this location
+        query = {
+            "properties.location.display_name": location_name,
+            "properties.driven": False,
+        }
+
+        # Create a GeoJSON FeatureCollection
+        features = []
+        cursor = streets_collection.find(query)
+
+        # Process cursor in batches for better performance
+        async for street in batch_cursor(cursor):
+            if "geometry" in street and "properties" in street:
+                features.append(street)
+
+        return {"type": "FeatureCollection", "features": features}
+
+    except Exception as e:
+        logger.error(f"Error getting undriven streets: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # BACKGROUND TASKS CONFIG / CONTROL

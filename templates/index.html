@@ -122,6 +122,19 @@ block content %}
                     <!-- Layer items inserted by JavaScript -->
                   </ul>
                 </div>
+
+                <!-- Location selector for undriven streets -->
+                <div id="location-selector-container" class="mt-3 mb-2">
+                  <h4 class="h6">Location for Undriven Streets</h4>
+                  <select
+                    id="undriven-streets-location"
+                    class="form-select form-select-sm"
+                  >
+                    <option value="">Select a location...</option>
+                    <!-- Coverage areas will be loaded here -->
+                  </select>
+                </div>
+
                 <div class="form-check form-switch mt-3">
                   <input
                     class="form-check-input"
@@ -185,6 +198,20 @@ block content %}
   /* Ensure content takes full height excluding controls panel */
   .main-content {
     height: 100%;
+  }
+
+  /* Undriven streets layer styling */
+  .undriven-street {
+    stroke-dasharray: 5, 5; /* Creates a dashed line effect */
+    transition:
+      stroke-width 0.2s ease,
+      opacity 0.2s ease;
+  }
+
+  .undriven-street:hover {
+    stroke-width: 5px !important;
+    opacity: 1 !important;
+    z-index: 1000;
   }
 </style>
 {% endblock %} {% block extra_js %}

@@ -906,6 +906,18 @@
       const modalElement = document.getElementById("taskProgressModal");
       if (!modalElement) return; // Ensure modal exists
 
+      // Safety check: ensure data is not null or undefined
+      if (!data) {
+        console.warn("Received null or undefined data in updateModalContent");
+        // Set default values instead of trying to access properties on null
+        data = {
+          stage: "unknown",
+          progress: 0,
+          message: "No data available",
+          error: null,
+        };
+      }
+
       const stage = data.stage || "unknown";
       const progress = data.progress || 0;
       const message = data.message || "";
@@ -1350,7 +1362,8 @@
           mode === "incremental"
             ? "/api/street_coverage/incremental"
             : "/api/street_coverage";
-        const payload = { location: processingLocation };
+        // Send location properties directly (not nested) as expected by the API
+        const payload = { ...processingLocation };
 
         const response = await fetch(endpoint, {
           method: "POST",
@@ -1361,9 +1374,24 @@
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(
-            data.detail || `Failed to start update (HTTP ${response.status})`,
-          );
+          // Properly handle validation errors (common with 422 responses)
+          if (response.status === 422 && data.detail) {
+            // Handle case where detail might be an array of validation errors
+            if (Array.isArray(data.detail)) {
+              const errorMessages = data.detail
+                .map((err) =>
+                  typeof err === "object" ? JSON.stringify(err) : String(err),
+                )
+                .join("\n");
+              throw new Error(`Validation error: ${errorMessages}`);
+            } else {
+              throw new Error(`Validation error: ${data.detail}`);
+            }
+          } else {
+            throw new Error(
+              data.detail || `Failed to start update (HTTP ${response.status})`,
+            );
+          }
         }
 
         if (data.task_id) {
@@ -1545,29 +1573,87 @@
             throw new Error(`Failed to get coverage status: ${errorDetail}`);
           }
 
-          const data = await response.json();
+          let data;
+          try {
+            data = await response.json();
 
-          // ALWAYS update modal content with the latest data
-          this.updateModalContent(data);
+            // Validate that we received expected data structure
+            if (!data || typeof data !== "object") {
+              console.warn(
+                `Task ${taskId}: Received invalid data format from server`,
+                data,
+              );
 
-          // Check for terminal states
-          if (data.stage === "complete") {
-            console.log(`Task ${taskId} completed.`);
-            taskCompleted = true;
-            return data; // Success
-          } else if (data.stage === "error") {
-            console.error(
-              `Task ${taskId} failed with error: ${
-                data.error || "Unknown error"
-              }`,
-            );
-            throw new Error(
-              typeof data.message === "string"
-                ? data.message
-                : typeof data.error === "string"
-                  ? data.error
-                  : "Coverage calculation failed",
-            );
+              // The server returns only the result object for completed tasks
+              // HTTP 200 with null/empty response likely means task completed successfully
+              if (response.ok) {
+                console.log(
+                  `Task ${taskId}: Empty response with HTTP 200, assuming task completed successfully`,
+                );
+                data = {
+                  stage: "complete",
+                  progress: 100,
+                  message: "Task completed successfully",
+                };
+                taskCompleted = true;
+              } else {
+                // Create a minimal valid data object for error cases
+                data = {
+                  stage: "unknown",
+                  progress: 0,
+                  message: "Received invalid data from server",
+                };
+              }
+            }
+
+            // Ensure data has the expected structure with stage property
+            if (!data.stage) {
+              console.log(
+                `Task ${taskId}: Response missing stage property, adding default structure`,
+                data,
+              );
+              // For result-only responses (when task is complete)
+              const result = data;
+              data = {
+                stage: "complete",
+                progress: 100,
+                message: "Task completed successfully",
+                result: result,
+              };
+              taskCompleted = true;
+            }
+
+            // ALWAYS update modal content with the latest data
+            this.updateModalContent(data);
+
+            // Check for terminal states
+            if (data.stage === "complete") {
+              console.log(`Task ${taskId} completed.`);
+              taskCompleted = true;
+              return data; // Success
+            } else if (data.stage === "error") {
+              console.error(
+                `Task ${taskId} failed with error: ${
+                  data.error || "Unknown error"
+                }`,
+              );
+              throw new Error(
+                typeof data.message === "string"
+                  ? data.message
+                  : typeof data.error === "string"
+                    ? data.error
+                    : "Coverage calculation failed",
+              );
+            }
+          } catch (jsonError) {
+            console.error(`Error parsing JSON for task ${taskId}:`, jsonError);
+            data = {
+              stage: "error",
+              progress: 0,
+              message: "Invalid response format from server",
+              error: "Failed to parse server response",
+            };
+            this.updateModalContent(data);
           }
 
           // Wait before next poll
