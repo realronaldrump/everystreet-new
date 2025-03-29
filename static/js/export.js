@@ -1120,7 +1120,7 @@
       case "csv":
         return ".csv";
       case "shapefile":
-        return ".zip"; // Shapefiles are typically zipped
+        return ".zip";
       case "kml":
         return ".kml";
       default:

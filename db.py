@@ -478,42 +478,6 @@ class DatabaseManager:
                 self._connection_healthy = False
                 logger.info("MongoDB client state reset")
 
-    async def handle_memory_error(self) -> None:
-        """Handle memory-related errors by cleaning up connections."""
-        try:
-            logger.warning(
-                "Handling memory error: Closing and reinitializing connections"
-            )
-            await self.cleanup_connections()
-
-            # Force garbage collection
-            import gc
-
-            gc.collect()
-
-            # Reinitialize after a short delay to allow memory to be freed
-            await asyncio.sleep(2)
-
-            # Reinitialize with reduced pool size temporarily
-            temp_pool_size = self._max_pool_size
-            self._max_pool_size = max(2, self._max_pool_size // 2)
-            try:
-                self._initialize_client()
-                logger.info(
-                    "Connections reinitialized after memory error (reduced pool size)"
-                )
-            except Exception as init_err:
-                logger.error(
-                    f"Failed to reinitialize client after memory error: {init_err}"
-                )
-                # Keep connection_healthy as False
-            finally:
-                # Restore original pool size for future connections
-                self._max_pool_size = temp_pool_size
-
-        except Exception as e:
-            logger.error("Error handling memory error: %s", str(e))
-
     def __del__(self) -> None:
         """Ensure connections are closed when the manager is garbage collected."""
         # Don't use asyncio here as this might be called during shutdown
@@ -622,38 +586,6 @@ class SerializationHelper:
                     fallback_result[key] = f"<Complex Type: {type(value).__name__}>"
                 else:
                     fallback_result[key] = value
-            return fallback_result
-
-    @staticmethod
-    def serialize_list(items: List[Any]) -> List[Any]:
-        """
-        Serialize a list of items using bson.json_util.
-
-        Args:
-            items: List to serialize
-
-        Returns:
-            Serialized list
-        """
-        if not items:
-            return []
-        try:
-            return json.loads(json_util.dumps(items))
-        except (TypeError, ValueError) as e:
-            logger.error(
-                f"Error serializing list: {e}. List snippet: {str(items)[:200]}"
-            )
-            # Fallback for list serialization
-            fallback_result = []
-            for item in items:
-                if isinstance(item, ObjectId):
-                    fallback_result.append(str(item))
-                elif isinstance(item, datetime):
-                    fallback_result.append(SerializationHelper.serialize_datetime(item))
-                elif isinstance(item, (dict, list)):
-                    fallback_result.append(f"<Complex Type: {type(item).__name__}>")
-                else:
-                    fallback_result.append(item)
             return fallback_result
 
     @staticmethod
@@ -1015,34 +947,6 @@ async def insert_one_with_retry(
     )
 
 
-async def insert_many_with_retry(
-    collection: AsyncIOMotorCollection, documents: List[Dict[str, Any]]
-) -> InsertManyResult:
-    """
-    Execute insert_many with retry logic.
-
-    Args:
-        collection: MongoDB collection
-        documents: Documents to insert
-
-    Returns:
-        InsertManyResult
-    """
-
-    async def _operation():
-        # Ensure documents list is not empty
-        if not documents:
-            # Return an empty-like result or handle as needed
-            return InsertManyResult([], acknowledged=True)
-        return await collection.insert_many(
-            documents, ordered=False
-        )  # Use unordered for potential performance gain
-
-    return await db_manager.execute_with_retry(
-        _operation, operation_name=f"insert_many on {collection.name}"
-    )
-
-
 async def delete_one_with_retry(
     collection: AsyncIOMotorCollection, filter_query: Dict[str, Any]
 ) -> DeleteResult:
@@ -1118,33 +1022,6 @@ async def aggregate_with_retry(
     )
 
 
-async def replace_one_with_retry(
-    collection: AsyncIOMotorCollection,
-    filter_query: Dict[str, Any],
-    replacement: Dict[str, Any],
-    upsert: bool = False,
-) -> UpdateResult:
-    """
-    Execute replace_one with retry logic.
-
-    Args:
-        collection: MongoDB collection
-        filter_query: Query filter
-        replacement: Replacement document
-        upsert: Whether to insert if not found
-
-    Returns:
-        UpdateResult
-    """
-
-    async def _operation():
-        return await collection.replace_one(filter_query, replacement, upsert=upsert)
-
-    return await db_manager.execute_with_retry(
-        _operation, operation_name=f"replace_one on {collection.name}"
-    )
-
-
 async def count_documents_with_retry(
     collection: AsyncIOMotorCollection, filter_query: Dict[str, Any], **kwargs: Any
 ) -> int:
@@ -1169,32 +1046,6 @@ async def count_documents_with_retry(
 
 
 # Common Query Pattern Helper Functions
-async def get_trips_in_date_range(
-    start_date: datetime,
-    end_date: datetime,
-    imei: Optional[str] = None,
-    collection: Optional[AsyncIOMotorCollection] = None,
-) -> List[Dict[str, Any]]:
-    """
-    Get trips within a date range with optional IMEI filter.
-
-    Args:
-        start_date: Start of date range (UTC)
-        end_date: End of date range (UTC)
-        imei: Optional IMEI filter
-        collection: Optional collection (defaults to trips_collection)
-
-    Returns:
-        List of trip documents
-    """
-    if collection is None:
-        collection = trips_collection
-
-    query = {"startTime": {"$gte": start_date, "$lte": end_date}}
-    if imei:
-        query["imei"] = imei
-
-    return await find_with_retry(collection, query)
 
 
 async def get_trip_by_id(
@@ -1232,25 +1083,6 @@ async def get_trip_by_id(
             pass  # Don't let this error propagate widely
 
     return trip
-
-
-async def get_latest_trips(
-    limit: int = 10, collection: Optional[AsyncIOMotorCollection] = None
-) -> List[Dict[str, Any]]:
-    """
-    Get the most recent trips based on startTime.
-
-    Args:
-        limit: Maximum number of trips to return
-        collection: Optional collection (defaults to trips_collection)
-
-    Returns:
-        List of trip documents
-    """
-    if collection is None:
-        collection = trips_collection
-
-    return await find_with_retry(collection, {}, sort=[("startTime", -1)], limit=limit)
 
 
 async def init_task_history_collection() -> None:

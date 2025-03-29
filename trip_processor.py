@@ -53,10 +53,7 @@ class Config:
             cls._instance = super(Config, cls).__new__(cls)
             # Default configuration values
             cls._instance.mapbox_access_token = None
-            cls._instance.max_mapbox_coordinates = 100
-            cls._instance.rate_limit_window = 60  # seconds
-            cls._instance.max_requests_per_minute = 60
-            cls._instance.mapbox_semaphore_size = 3
+
         return cls._instance
 
     @property

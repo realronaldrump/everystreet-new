@@ -266,29 +266,6 @@ class DatabaseConnectionPool:
                 cls._instance = DatabaseConnectionPool()
             return cls._instance
 
-    @staticmethod
-    def get_client() -> MongoClient:
-        """Get a MongoDB client with proper connection settings."""
-        mongo_uri = os.environ.get("MONGO_URI")
-        if not mongo_uri:
-            raise ValueError("MONGO_URI environment variable not set")
-
-        # Use consistent connection settings from environment variables
-        client = MongoClient(
-            mongo_uri,
-            serverSelectionTimeoutMS=int(
-                os.environ.get("MONGODB_SERVER_SELECTION_TIMEOUT_MS", "10000")
-            ),
-            connectTimeoutMS=int(
-                os.environ.get("MONGODB_CONNECTION_TIMEOUT_MS", "5000")
-            ),
-            socketTimeoutMS=int(os.environ.get("MONGODB_SOCKET_TIMEOUT_MS", "30000")),
-            retryWrites=True,
-            retryReads=True,
-            appname="EveryStreet-Tasks",
-        )
-        return client
-
 
 # Helper function to get MongoDB connection with proper settings
 def get_mongo_client() -> MongoClient:
@@ -656,12 +633,6 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
 
 
 # Task status management functions
-async def update_task_status_async(
-    task_id: str, status: str, error: Optional[str] = None
-):
-    """Update the status of a task in the database."""
-    status_manager = TaskStatusManager.get_instance()
-    await status_manager.update_status(task_id, status, error)
 
 
 async def update_task_history(

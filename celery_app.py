@@ -162,11 +162,6 @@ app.conf.update(
             "schedule": timedelta(days=1),
             "options": {"queue": "low_priority"},
         },
-        "update_coverage_hourly": {
-            "task": "tasks.update_coverage_for_all_locations",
-            "schedule": timedelta(minutes=60),
-            "options": {"queue": "default"},
-        },
         "cleanup_stale_trips_hourly": {
             "task": "tasks.cleanup_stale_trips",
             "schedule": timedelta(minutes=60),
@@ -241,8 +236,3 @@ def worker_init(**kwargs):
 
     current_time = datetime.now(timezone.utc)
     logger.info("Worker starting at UTC time: %s", current_time.isoformat())
-
-
-# --- Run Celery App (for development/testing - not typically used in production deployments) ---
-if __name__ == "__main__":
-    app.start()

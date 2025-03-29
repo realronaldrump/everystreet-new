@@ -232,6 +232,7 @@ def haversine(
 
 # --- Utility Functions Moved from app.py ---
 
+
 def meters_to_miles(meters: float) -> float:
     """Convert meters to miles."""
     # 1 mile = 1609.34 meters
@@ -250,12 +251,12 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
     """
     total_distance_meters = 0.0
     # Ensure coordinates is treated as a list of lists
-    coords: list[list[float]] = coordinates if isinstance(coordinates, list) else [] 
-    
+    coords: list[list[float]] = coordinates if isinstance(coordinates, list) else []
+
     if not coords or not isinstance(coords[0], list):
         logger.warning("Invalid coordinates format for distance calculation.")
-        return 0.0 # Or raise an error depending on desired behavior
-        
+        return 0.0  # Or raise an error depending on desired behavior
+
     for i in range(len(coords) - 1):
         try:
             lon1, lat1 = coords[i]
@@ -263,8 +264,10 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
             # Use the haversine function defined in this module
             total_distance_meters += haversine(lon1, lat1, lon2, lat2, unit="meters")
         except (TypeError, ValueError, IndexError) as e:
-            logger.warning(f"Skipping coordinate pair due to error: {e} - Pair: {coords[i]}, {coords[i+1] if i+1 < len(coords) else 'N/A'}")
-            continue # Skip this segment if coordinates are malformed
-            
+            logger.warning(
+                f"Skipping coordinate pair due to error: {e} - Pair: {coords[i]}, {coords[i + 1] if i + 1 < len(coords) else 'N/A'}"
+            )
+            continue  # Skip this segment if coordinates are malformed
+
     # Use the meters_to_miles function defined in this module
     return meters_to_miles(total_distance_meters)

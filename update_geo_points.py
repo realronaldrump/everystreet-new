@@ -80,7 +80,6 @@ async def update_geo_points(
             async with semaphore:  # Limit concurrent batch processing
                 try:
                     batch_updates = []
-                    batch_updated = 0
 
                     for doc in batch_docs:
                         try:
@@ -131,7 +130,6 @@ async def update_geo_points(
                                         {"_id": doc["_id"]}, {"$set": update_fields}
                                     )
                                 )
-                                batch_updated += 1
 
                         except Exception as e:
                             logger.error(
@@ -237,41 +235,6 @@ async def update_geo_points(
     )
 
     return updated_count
-
-
-async def update_geo_points_with_indexing(collection: AsyncIOMotorCollection) -> int:
-    """
-    Updates geo-points and creates geospatial indexes after completion.
-
-    Args:
-        collection: MongoDB collection to process
-
-    Returns:
-        int: Number of documents updated
-    """
-    try:
-        updated_count = await update_geo_points(collection)
-
-        if updated_count > 0:
-            logger.info("Creating geospatial indexes for %s", collection.name)
-
-            # Create indexes for geo-queries for better performance
-            await db_manager.safe_create_index(
-                collection.name, [("startGeoPoint", "2dsphere")], background=True
-            )
-
-            await db_manager.safe_create_index(
-                collection.name,
-                [("destinationGeoPoint", "2dsphere")],
-                background=True,
-            )
-
-            logger.info("Geospatial indexes created for %s", collection.name)
-
-        return updated_count
-    except Exception as e:
-        logger.error("Error in update_geo_points_with_indexing: %s", e, exc_info=True)
-        return 0
 
 
 if __name__ == "__main__":

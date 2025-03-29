@@ -50,10 +50,6 @@ daemon = False
 max_worker_memory = 512 * 1024 * 1024  # 512MB
 
 
-def worker_memory_exceeded(worker):
-    return worker.memory_info().rss > max_worker_memory
-
-
 def on_starting(server):
     """Log when server starts"""
     print(f"Starting Gunicorn with {workers} workers, timeout {timeout}s")

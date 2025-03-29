@@ -287,18 +287,6 @@ async def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
         return None
 
 
-async def fetch_all_trips_no_filter() -> List[dict]:
-    """
-    Fetch all trips from the trips collection.
-
-    Returns:
-        List of all trips
-    """
-    # Only query the main trips collection
-    all_trips = await find_with_retry(trips_collection, {})
-    return all_trips
-
-
 # MIDDLEWARE
 @app.middleware("http")
 async def add_header(request: Request, call_next):
@@ -2388,38 +2376,6 @@ async def delete_trip(trip_id: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
-        )
-
-
-@app.get("/api/debug/trip/{trip_id}")
-async def debug_trip(trip_id: str):
-    """Debug endpoint to check trip existence across collections."""
-    try:
-        regular_trip = await find_one_with_retry(
-            trips_collection,
-            {"$or": [{"transactionId": trip_id}, {"transactionId": str(trip_id)}]},
-        )
-        matched_trip = await find_one_with_retry(
-            matched_trips_collection,
-            {"$or": [{"transactionId": trip_id}, {"transactionId": str(trip_id)}]},
-        )
-        return {
-            "trip_found": bool(regular_trip),  # Renamed from regular_trip_found
-            "matched_trip_found": bool(matched_trip),
-            "trip_id_field": (  # Renamed from regular_trip_id_field
-                regular_trip.get("transactionId") if regular_trip else None
-            ),
-            "matched_trip_id_field": (
-                matched_trip.get("transactionId") if matched_trip else None
-            ),
-            "trip_source": (
-                regular_trip.get("source") if regular_trip else None
-            ),  # Added source
-        }
-    except Exception as e:
-        logger.exception("debug_trip error: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
 
