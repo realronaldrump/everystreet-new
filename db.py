@@ -46,7 +46,6 @@ from pymongo.errors import (
 )
 from pymongo.results import (
     DeleteResult,
-    InsertManyResult,
     InsertOneResult,
     UpdateResult,
 )
