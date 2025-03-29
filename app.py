@@ -355,58 +355,80 @@ async def app_settings_page(request: Request):
     return templates.TemplateResponse("app_settings.html", {"request": request})
 
 
+# UNDRIVEN STREETS API ENDPOINT
 @app.post("/api/undriven_streets")
 async def get_undriven_streets(location: LocationModel):
-    """Get undriven streets for a specific location."""
+    """Get undriven streets for a specific location.
+
+    Args:
+        location: Location dictionary with display_name, osm_id, etc.
+
+    Returns:
+        GeoJSON with undriven streets features
+    """
+    location_name = "UNKNOWN"  # Default for logging
     try:
         location_name = location.display_name
+        logger.info(f"Request received for undriven streets for '{location_name}'.")
 
+        # Find the coverage metadata for this location
         coverage_metadata = await find_one_with_retry(
             coverage_metadata_collection,
             {"location.display_name": location_name},
         )
 
         if not coverage_metadata:
+            # Log the warning, FastAPI handles the response
+            logger.warning(
+                f"No coverage metadata found for location: '{location_name}'. Raising 404."
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"No coverage data found for location: {location_name}",
             )
 
+        # Query for undriven streets in this location
         query = {
             "properties.location": location_name,
             "properties.driven": False,
         }
 
+        # Check count first for efficiency
         count = await count_documents_with_retry(streets_collection, query)
+        logger.info(f"Found {count} undriven street documents for '{location_name}'.")
 
         if count == 0:
-            return {
-                "type": "FeatureCollection",
-                "features": [],
-            }
+            return JSONResponse(content={"type": "FeatureCollection", "features": []})
 
+        # Fetch and structure features if count > 0
         features = []
         cursor = streets_collection.find(query)
 
+        # Process cursor in batches
         async for street_batch in batch_cursor(cursor):
             for street_doc in street_batch:
+                # Basic validation before adding
                 if "geometry" in street_doc and "properties" in street_doc:
                     features.append(street_doc)
 
-        return JSONResponse(
-            content=json.loads(
-                bson.json_util.dumps(
-                    {"type": "FeatureCollection", "features": features}
-                )
-            )
-        )
+        # Use JSONResponse with bson.json_util for proper ObjectId serialization
+        content_to_return = {"type": "FeatureCollection", "features": features}
+        return JSONResponse(content=json.loads(bson.json_util.dumps(content_to_return)))
 
-    except HTTPException:
+    except HTTPException as http_exc:
+        # Log only the warning, FastAPI handles the response
+        logger.warning(
+            f"HTTPException occurred for '{location_name}': Status={http_exc.status_code}, Detail={http_exc.detail}"
+        )
         raise
     except Exception as e:
+        logger.error(
+            f"Unexpected error getting undriven streets for '{location_name}': {str(e)}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {str(e)}",
+            detail="Internal server error retrieving undriven streets.",
         )
 
 
