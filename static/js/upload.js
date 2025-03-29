@@ -792,7 +792,7 @@ class UploadManager {
         const allTrips = geojsonData.features.map((feature) => ({
           _id: feature.properties.transactionId, // Use transactionId as _id for consistency here
           transactionId: feature.properties.transactionId,
-          filename: feature.properties.filename || "N/A", // Assuming filename might be stored
+          filename: feature.properties.filename || "N/A",
           startTime: feature.properties.startTime,
           endTime: feature.properties.endTime,
           source: feature.properties.source || "unknown",

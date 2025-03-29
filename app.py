@@ -501,8 +501,7 @@ async def update_background_tasks_config(
             )
 
         return {"status": "success", "message": "Configuration updated"}
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error updating task configuration: %s", str(e))
         raise HTTPException(
@@ -641,8 +640,7 @@ async def manually_run_tasks(data: TaskRunModel):
                 "message": f"Triggered {len(results)} tasks",
                 "results": results,
             }
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error in manually_run_tasks: %s", str(e))
         raise HTTPException(
@@ -716,8 +714,7 @@ async def get_task_details(task_id: str):
             "last_error": task_config.get("last_error"),
             "history": history,
         }
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error getting task details for %s: %s", task_id, str(e))
         raise HTTPException(
@@ -958,8 +955,7 @@ async def get_edit_trips(
         serialized_trips = [SerializationHelper.serialize_trip(trip) for trip in trips]
 
         return {"status": "success", "trips": serialized_trips}
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error fetching trips for editing: %s", str(e))
         raise HTTPException(
@@ -1060,8 +1056,7 @@ async def update_trip(trip_id: str, data: TripUpdateModel):
             )
 
         return {"message": "Trip updated"}
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error updating trip %s: %s", trip_id, str(e))
         raise HTTPException(
@@ -1421,8 +1416,7 @@ async def api_fetch_trips_range(data: DateRangeModel):
         # fetch_bouncie_trips_in_range will now save with source='bouncie'
         await fetch_bouncie_trips_in_range(start_date, end_date, do_map_match=False)
         return {"status": "success", "message": "Trips fetched & stored."}
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error fetching trips in range: %s", str(e))
         raise HTTPException(
@@ -1512,8 +1506,7 @@ async def process_single_trip(
                 "completed": processing_status["state"] == TripState.COMPLETED.value,
                 "saved_id": saved_id,
             }
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error processing trip %s: %s", trip_id, str(e))
         raise HTTPException(
@@ -1662,8 +1655,7 @@ async def get_trip_status(trip_id: str):
         }
 
         return status_info
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error getting trip status for %s: %s", trip_id, str(e))
         raise HTTPException(
@@ -1686,8 +1678,7 @@ async def export_geojson(request: Request):
             )
 
         return await export_geojson_response(trips, "all_trips")
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error exporting GeoJSON: %s", str(e))
         raise HTTPException(
@@ -1708,8 +1699,6 @@ async def export_gpx(request: Request):
             )
 
         return await export_gpx_response(trips, "trips")
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error exporting GPX: %s", str(e))
         raise HTTPException(
@@ -1814,8 +1803,7 @@ async def map_match_trips_endpoint(
             "processed_count": processed_count,
             "failed_count": failed_count,
         }
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error in map_match_trips endpoint: %s", str(e))
         raise HTTPException(
@@ -1924,8 +1912,6 @@ async def delete_matched_trips(data: DateRangeModel):
             total_deleted_count = result.deleted_count
 
         return {"status": "success", "deleted_count": total_deleted_count}
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error in delete_matched_trips: %s", str(e))
         raise HTTPException(
@@ -1985,8 +1971,7 @@ async def remap_matched_trips(data: Optional[DateRangeModel] = None):
             "status": "success",
             "message": f"Re-matching completed. Processed {processed_count} trips.",
         }
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error in remap_matched_trips: %s", str(e))
         raise HTTPException(
@@ -2015,8 +2000,7 @@ async def export_single_trip(
         return await create_export_response([t], fmt, filename_base)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error exporting trip %s: %s", trip_id, str(e))
         raise HTTPException(
@@ -2038,8 +2022,6 @@ async def delete_matched_trip(trip_id: str):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
         )
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error deleting matched trip %s: %s", trip_id, str(e))
         raise HTTPException(
@@ -2098,8 +2080,7 @@ async def export_trips_within_range(
         return await create_export_response(all_trips, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error exporting trips within range: %s", str(e))
         raise HTTPException(
@@ -2131,8 +2112,6 @@ async def export_matched_trips_within_range(
         return await create_export_response(matched, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error exporting matched trips: %s", str(e))
         raise HTTPException(
@@ -2170,8 +2149,6 @@ async def export_streets(
         return await create_export_response(data, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error exporting streets data: %s", str(e))
         raise HTTPException(
@@ -2209,8 +2186,7 @@ async def export_boundary(
         return await create_export_response(data, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error exporting boundary data: %s", str(e))
         raise HTTPException(
@@ -2227,6 +2203,7 @@ async def preprocess_streets_route(location_data: LocationModel):
     Args:
         location_data: Validated location data matching LocationModel.
     """
+    display_name = None  # Initialize display_name
     try:
         # The incoming location_data IS the validated location object
         validated_location_dict = location_data.dict()
@@ -2274,18 +2251,17 @@ async def preprocess_streets_route(location_data: LocationModel):
         asyncio.create_task(process_area(validated_location_dict, task_id))
         return {"status": "success", "task_id": task_id}
 
-    except HTTPException:  # Re-raise specific HTTP exceptions
-        raise
     except Exception as e:  # Catch other potential errors
         logger.exception(
             "Error in preprocess_streets_route for %s: %s", display_name, e
         )
         # Attempt to mark status as error if possible
         try:
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": display_name},
-                {"$set": {"status": "error", "last_error": str(e)}},
-            )
+            if display_name:  # Check if display_name was set
+                await coverage_metadata_collection.update_one(
+                    {"location.display_name": display_name},
+                    {"$set": {"status": "error", "last_error": str(e)}},
+                )
         except Exception as db_err:
             logger.error(
                 "Failed to update error status for %s: %s", display_name, db_err
@@ -2307,8 +2283,6 @@ async def get_street_segment_details(segment_id: str):
                 status_code=status.HTTP_404_NOT_FOUND, detail="Segment not found"
             )
         return segment
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error fetching segment details: %s", str(e))
         raise HTTPException(
@@ -2358,8 +2332,6 @@ async def get_single_trip(trip_id: str):
             )
 
         return {"status": "success", "trip": SerializationHelper.serialize_trip(trip)}
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("get_single_trip error: %s", str(e))
         raise HTTPException(
@@ -2405,8 +2377,7 @@ async def delete_trip(trip_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete trip from primary collection",
         )
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error deleting trip: %s", str(e))
         raise HTTPException(
@@ -2538,8 +2509,6 @@ async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
                 logger.warning("Skipping unhandled file extension: %s", filename)
 
         return {"status": "success", "message": f"{success_count} trips uploaded."}
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error upload_gpx: %s", str(e))
         raise HTTPException(
@@ -2684,8 +2653,7 @@ async def get_trip_analytics(request: Request):
         return JSONResponse(
             content={"daily_distances": daily_list, "time_distribution": hourly_list}
         )
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error trip analytics: %s", str(e))
         raise HTTPException(
@@ -2943,8 +2911,7 @@ async def clear_collection(data: CollectionModel):
             "message": f"Successfully cleared collection {name}",
             "deleted_count": result.deleted_count,
         }
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error clearing collection: %s", str(e))
         raise HTTPException(
@@ -3006,8 +2973,7 @@ async def delete_coverage_area(location: LocationModel):
             )
 
         return {"status": "success", "message": "Coverage area deleted successfully"}
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error deleting coverage area: %s", str(e))
         raise HTTPException(
@@ -3038,8 +3004,7 @@ async def cancel_coverage_area(location: LocationModel):
         )
 
         return {"status": "success", "message": "Coverage area processing canceled"}
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error canceling coverage area: %s", str(e))
         raise HTTPException(
@@ -3190,9 +3155,6 @@ async def get_coverage_area_details(location_id: str):
         }
         return result
 
-    except HTTPException as http_exc:
-        # Re-raise HTTP exceptions directly
-        raise http_exc
     except Exception as e:
         logger.error(
             "Error fetching coverage area details for %s: %s",
@@ -3200,8 +3162,7 @@ async def get_coverage_area_details(location_id: str):
             str(e),
             exc_info=True,
         )
-        # Return success=False for general errors
-        # Consider raising HTTPException(500) instead for clearer error propagation
+
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error fetching coverage details: {str(e)}",
@@ -3328,8 +3289,7 @@ async def export_advanced(
     except ValueError as e:
         logger.error("Export error: %s", str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.error("Error in advanced export: %s", str(e))
         raise HTTPException(
