@@ -385,8 +385,7 @@ async def get_place_statistics(place_id: str):
             ),  # Convert to hours
             "name": place["name"],
         }
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error place stats %s: %s", place_id, str(e))
         raise HTTPException(
@@ -578,8 +577,7 @@ async def get_trips_for_place(place_id: str):
         trips_data.sort(key=lambda x: x["endTime"], reverse=True)
 
         return {"trips": trips_data, "name": place["name"]}
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception("Error getting trips for place %s: %s", place_id, str(e))
         raise HTTPException(
