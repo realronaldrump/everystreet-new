@@ -1415,7 +1415,7 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
             "message": f"Triggered {len(results)} tasks",
             "results": results,
         }
-    elif task_id in task_mapping:
+    if task_id in task_mapping:
         # Execute single task
         try:
             # Check dependencies before running

@@ -191,19 +191,18 @@ def format_duration(seconds):
 
     if seconds < 60:  # Less than a minute
         return f"{int(seconds)}s"
-    elif seconds < 3600:  # Less than an hour
+    if seconds < 3600:  # Less than an hour
         mins = int(seconds // 60)
         secs = int(seconds % 60)
         return f"{mins}m {secs}s"
-    elif seconds < 86400:  # Less than a day
+    if seconds < 86400:  # Less than a day
         hrs = int(seconds // 3600)
         mins = int((seconds % 3600) // 60)
         return f"{hrs}h {mins:02d}m"
-    else:  # One or more days
-        days = int(seconds // 86400)
-        hrs = int((seconds % 86400) // 3600)
-        mins = int((seconds % 3600) // 60)
-        return f"{days}d {hrs}h {mins:02d}m"
+    days = int(seconds // 86400)
+    hrs = int((seconds % 86400) // 3600)
+    mins = int((seconds % 3600) // 60)
+    return f"{days}d {hrs}h {mins:02d}m"
 
 
 def is_point_in_place(point, place_geometry):

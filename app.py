@@ -608,11 +608,10 @@ async def manually_run_tasks(data: TaskRunModel):
             result = await manual_run_task("ALL")
             if result["status"] == "success":
                 return result
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=result["message"],
-                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result["message"],
+            )
         else:
             results = []
             for task_id in tasks_to_run:
@@ -1478,7 +1477,7 @@ async def process_single_trip(
                 "processing_status": processing_status,
                 "is_valid": processing_status["state"] == TripState.VALIDATED.value,
             }
-        elif geocode_only:
+        if geocode_only:
             await processor.validate()
             if processor.state == TripState.VALIDATED:
                 await processor.process_basic()
@@ -1494,18 +1493,17 @@ async def process_single_trip(
                 "geocoded": processing_status["state"] == TripState.GEOCODED.value,
                 "saved_id": saved_id,
             }
-        else:
-            # Full processing
-            await processor.process(do_map_match=map_match)
-            saved_id = await processor.save(map_match_result=map_match)
-            processing_status = processor.get_processing_status()
+        # Full processing
+        await processor.process(do_map_match=map_match)
+        saved_id = await processor.save(map_match_result=map_match)
+        processing_status = processor.get_processing_status()
 
-            return {
-                "status": "success",
-                "processing_status": processing_status,
-                "completed": processing_status["state"] == TripState.COMPLETED.value,
-                "saved_id": saved_id,
-            }
+        return {
+            "status": "success",
+            "processing_status": processing_status,
+            "completed": processing_status["state"] == TripState.COMPLETED.value,
+            "saved_id": saved_id,
+        }
 
     except Exception as e:
         logger.exception("Error processing trip %s: %s", trip_id, str(e))

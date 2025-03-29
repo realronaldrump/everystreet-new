@@ -1814,20 +1814,19 @@ async def compute_coverage_for_location(
             asyncio.create_task(generate_and_store_geojson(location_name, task_id))
             # Return the stats immediately, don't wait for GeoJSON
             return result
-        else:
-            # compute_coverage should have updated progress on failure
-            logger.error(
-                "Task %s: Full coverage calculation failed for %s",
-                task_id,
-                location_name,
-            )
-            # Ensure metadata status reflects failure if not already set
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": location_name},
-                {"$set": {"status": "error", "last_error": "Calculation failed"}},
-                upsert=False,  # Only update if exists
-            )
-            return None
+        # compute_coverage should have updated progress on failure
+        logger.error(
+            "Task %s: Full coverage calculation failed for %s",
+            task_id,
+            location_name,
+        )
+        # Ensure metadata status reflects failure if not already set
+        await coverage_metadata_collection.update_one(
+            {"location.display_name": location_name},
+            {"$set": {"status": "error", "last_error": "Calculation failed"}},
+            upsert=False,  # Only update if exists
+        )
+        return None
 
     except asyncio.TimeoutError:
         error_msg = f"Calculation timed out after {PROCESS_TIMEOUT_OVERALL}s"
@@ -1955,25 +1954,24 @@ async def compute_incremental_coverage(
             asyncio.create_task(generate_and_store_geojson(location_name, task_id))
             # Return the stats immediately
             return result
-        else:
-            # compute_coverage should have updated progress on failure
-            logger.error(
-                "Task %s: Incremental coverage calculation failed for %s",
-                task_id,
-                location_name,
-            )
-            # Ensure metadata status reflects failure if not already set
-            await coverage_metadata_collection.update_one(
-                {"location.display_name": location_name},
-                {
-                    "$set": {
-                        "status": "error",
-                        "last_error": "Incremental calculation failed",
-                    }
-                },
-                upsert=False,  # Only update if exists
-            )
-            return None
+        # compute_coverage should have updated progress on failure
+        logger.error(
+            "Task %s: Incremental coverage calculation failed for %s",
+            task_id,
+            location_name,
+        )
+        # Ensure metadata status reflects failure if not already set
+        await coverage_metadata_collection.update_one(
+            {"location.display_name": location_name},
+            {
+                "$set": {
+                    "status": "error",
+                    "last_error": "Incremental calculation failed",
+                }
+            },
+            upsert=False,  # Only update if exists
+        )
+        return None
 
     except asyncio.TimeoutError:
         error_msg = (

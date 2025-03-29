@@ -187,7 +187,7 @@ async def reverse_geocode_nominatim(lat: float, lon: float) -> Optional[Dict[str
     async with session.get(url, params=params, headers=headers) as response:
         if response.status == 200:
             return await response.json()
-        elif response.status == 429:  # Rate limit
+        if response.status == 429:  # Rate limit
             retry_after = int(response.headers.get("Retry-After", 5))
             raise ClientResponseError(
                 request_info=response.request_info,

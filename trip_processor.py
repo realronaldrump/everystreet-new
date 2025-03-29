@@ -448,12 +448,11 @@ class TripProcessor:
                 and len(coords[0][0]) >= 2
             ):
                 return coords[0][0]  # First point of the first ring
-            else:
-                logger.warning(
-                    "Invalid polygon format in geometry for trip %s: %s",
-                    transaction_id,
-                    coords,
-                )
+            logger.warning(
+                "Invalid polygon format in geometry for trip %s: %s",
+                transaction_id,
+                coords,
+            )
         else:
             logger.warning(
                 "Unsupported geometry type '%s' in place for trip %s",
