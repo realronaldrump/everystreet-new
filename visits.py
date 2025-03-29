@@ -370,10 +370,8 @@ async def get_place_statistics(place_id: str):
             else 0
         )
 
-        first_visit = (
-            min([v["start"] for v in visits], default=None) if visits else None
-        )
-        last_visit = max([v["start"] for v in visits], default=None) if visits else None
+        first_visit = min((v["start"] for v in visits), default=None)
+        last_visit = max((v["start"] for v in visits), default=None)
 
         return {
             "totalVisits": total_visits,
