@@ -248,7 +248,7 @@
               : AppState.mapLayers.trips;
 
             featureLayer.setStyle(
-              getTripFeatureStyle(featureLayer.feature, layerInfo),
+              getTripFeatureStyle(featureLayer.feature, layerInfo)
             );
 
             if (
@@ -405,8 +405,8 @@
       div.innerHTML = `
         <label class="custom-checkbox">
           <input type="checkbox" id="${name}-toggle" ${
-            info.visible ? "checked" : ""
-          }>
+        info.visible ? "checked" : ""
+      }>
           <span class="checkmark"></span>
         </label>
         <label for="${name}-toggle">${info.name || name}</label>
@@ -452,7 +452,7 @@
       } else if (target.matches('input[type="range"]')) {
         changeLayerOpacity(
           target.id.replace("-opacity", ""),
-          parseFloat(target.value),
+          parseFloat(target.value)
         );
       }
     });
@@ -479,7 +479,7 @@
     document.dispatchEvent(
       new CustomEvent("layerVisibilityChanged", {
         detail: { layer: name, visible },
-      }),
+      })
     );
   }
 
@@ -576,7 +576,7 @@
     operationId,
     totalWeight = 100,
     operation,
-    subOperations = {},
+    subOperations = {}
   ) {
     const loadingManager = window.loadingManager || {
       startOperation: () => {},
@@ -615,10 +615,10 @@
         });
 
         const startDate = DateUtils.formatDate(
-          getStorageItem(CONFIG.STORAGE_KEYS.startDate),
+          getStorageItem(CONFIG.STORAGE_KEYS.startDate)
         );
         const endDate = DateUtils.formatDate(
-          getStorageItem(CONFIG.STORAGE_KEYS.endDate),
+          getStorageItem(CONFIG.STORAGE_KEYS.endDate)
         );
 
         if (!startDate || !endDate) {
@@ -665,9 +665,9 @@
         document.dispatchEvent(
           new CustomEvent("tripsLoaded", {
             detail: { count: geojson.features.length },
-          }),
+          })
         );
-      },
+      }
     );
   }
 
@@ -679,7 +679,7 @@
       gps: trip.geometry,
       startTimeFormatted: DateUtils.formatForDisplay(
         trip.properties.startTime,
-        { dateStyle: "short", timeStyle: "short" },
+        { dateStyle: "short", timeStyle: "short" }
       ),
       endTimeFormatted: DateUtils.formatForDisplay(trip.properties.endTime, {
         dateStyle: "short",
@@ -715,10 +715,10 @@
 
   async function fetchMatchedTrips() {
     const startDate = DateUtils.formatDate(
-      getStorageItem(CONFIG.STORAGE_KEYS.startDate),
+      getStorageItem(CONFIG.STORAGE_KEYS.startDate)
     );
     const endDate = DateUtils.formatDate(
-      getStorageItem(CONFIG.STORAGE_KEYS.endDate),
+      getStorageItem(CONFIG.STORAGE_KEYS.endDate)
     );
 
     if (!startDate || !endDate) {
@@ -741,14 +741,13 @@
 
   async function fetchUndrivenStreets() {
     try {
-      // Get the selected location from the dropdown
       const locationSelect = document.getElementById(
-        "undriven-streets-location",
+        "undriven-streets-location"
       );
       if (!locationSelect || !locationSelect.value) {
         showNotification(
           "Please select a location from the dropdown to show undriven streets",
-          "warning",
+          "warning"
         );
         AppState.mapLayers.undrivenStreets.visible = false;
         await updateMap();
@@ -758,69 +757,110 @@
       let location;
       try {
         location = JSON.parse(locationSelect.value);
+        // --- Add Frontend Logging ---
+        console.log(
+          "[fetchUndrivenStreets] Parsed location object from dropdown:",
+          JSON.stringify(location, null, 2)
+        );
+        if (
+          !location ||
+          typeof location !== "object" ||
+          !location.display_name
+        ) {
+          throw new Error(
+            "Parsed location data is invalid or missing display_name."
+          );
+        }
+        // --- End Frontend Logging ---
       } catch (parseError) {
         showNotification(
-          "Invalid location data. Please select another location.",
-          "warning",
+          `Invalid location data in dropdown: ${parseError.message}. Please select another location.`,
+          "warning"
         );
         AppState.mapLayers.undrivenStreets.visible = false;
         await updateMap();
         return null;
       }
 
-      // Save the selected location ID to localStorage
-      if (location && location._id) {
-        localStorage.setItem(
-          "selectedLocationForUndrivenStreets",
-          location._id,
-        );
-      }
+      localStorage.setItem(
+        "selectedLocationForUndrivenStreets",
+        location._id || location.display_name
+      ); // Use display_name as fallback key if _id missing
 
-      // Show loading message
-      showNotification("Loading undriven streets...", "info");
+      showNotification(
+        `Loading undriven streets for ${location.display_name}...`,
+        "info"
+      );
+      // --- Add Frontend Logging ---
+      console.log(
+        `[fetchUndrivenStreets] Sending POST request to /api/undriven_streets with location:`,
+        location
+      );
+      // --- End Frontend Logging ---
 
-      // Fetch undriven streets for this location
       const response = await fetch("/api/undriven_streets", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(location),
       });
 
+      // --- Add Frontend Logging ---
+      console.log(
+        `[fetchUndrivenStreets] Received response status: ${response.status}`
+      );
+      // --- End Frontend Logging ---
+
       if (!response.ok) {
-        throw new Error(
-          `HTTP error fetching undriven streets: ${response.status}`,
-        );
+        let errorDetail = `HTTP error ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorDetail = errorData.detail || errorDetail;
+        } catch (e) {
+          /* ignore */
+        }
+        throw new Error(errorDetail);
       }
 
       const geojson = await response.json();
+      // --- Add Frontend Logging ---
+      console.log(
+        "[fetchUndrivenStreets] Received GeoJSON data:",
+        JSON.stringify(geojson, null, 2)
+      );
+      // --- End Frontend Logging ---
 
-      // Check if there are features
       if (!geojson.features || geojson.features.length === 0) {
+        // --- Add Frontend Logging ---
+        console.log(
+          `[fetchUndrivenStreets] No features found in response for ${location.display_name}. Showing notification.`
+        );
+        // --- End Frontend Logging ---
         showNotification(
           `No undriven streets found in ${location.display_name}`,
-          "info",
+          "info"
         );
       } else {
+        // --- Add Frontend Logging ---
+        console.log(
+          `[fetchUndrivenStreets] Found ${geojson.features.length} features for ${location.display_name}. Updating map.`
+        );
+        // --- End Frontend Logging ---
         showNotification(
           `Loaded ${geojson.features.length} undriven street segments`,
-          "success",
+          "success"
         );
       }
 
-      await updateMapWithUndrivenStreets(geojson);
+      await updateMapWithUndrivenStreets(geojson); // This now correctly resides within the try block
       return geojson;
     } catch (error) {
       console.error("Error fetching undriven streets:", error);
       showNotification(
         `Failed to load undriven streets: ${error.message}`,
-        "danger",
+        "danger"
       );
-
-      // If there was an error, make sure the layer is hidden
       AppState.mapLayers.undrivenStreets.visible = false;
-      await updateMap();
+      await updateMap(); // Ensure map is updated to hide layer on error
       return null;
     }
   }
@@ -849,10 +889,10 @@
             onEachFeature: (feature, layer) => {
               tripLayers.set(feature.properties.transactionId, layer);
               layer.on("click", (e) =>
-                handleTripClick(e, feature, layer, info, name),
+                handleTripClick(e, feature, layer, info, name)
               );
               layer.on("popupopen", () =>
-                setupPopupEventListeners(layer, feature),
+                setupPopupEventListeners(layer, feature)
               );
             },
           });
@@ -876,14 +916,14 @@
 
                 layer.bindTooltip(
                   `<strong>${streetName}</strong><br>Type: ${streetType}<br>Length: ${segmentLength}m`,
-                  { sticky: true },
+                  { sticky: true }
                 );
               }
             },
           });
           geoJsonLayer.addTo(AppState.layerGroup);
         }
-      }),
+      })
     );
 
     if (AppState.selectedTripId && tripLayers.has(AppState.selectedTripId)) {
@@ -921,7 +961,7 @@
           id: wasSelected ? null : clickedId,
           tripData: wasSelected ? null : feature.properties,
         },
-      }),
+      })
     );
   }
 
@@ -977,7 +1017,7 @@
           new Date(tripData.endTime) - new Date(tripData.startTime);
         const hours = Math.floor(durationMs / (1000 * 60 * 60));
         const minutes = Math.floor(
-          (durationMs % (1000 * 60 * 60)) / (1000 * 60),
+          (durationMs % (1000 * 60 * 60)) / (1000 * 60)
         );
         durationDisplay = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
       } catch (e) {
@@ -1092,7 +1132,7 @@
 
     popupEl.addEventListener("click", handlePopupClick);
     layer.on("popupclose", () =>
-      popupEl.removeEventListener("click", handlePopupClick),
+      popupEl.removeEventListener("click", handlePopupClick)
     );
   }
 
@@ -1132,7 +1172,7 @@
           confirmButtonClass: "btn-danger",
         })
       : confirm(
-          "Delete this trip? This will also delete its corresponding matched trip.",
+          "Delete this trip? This will also delete its corresponding matched trip."
         );
 
     if (!confirmed) return;
@@ -1165,7 +1205,7 @@
           confirmButtonClass: "btn-warning",
         })
       : confirm(
-          "Re-match this trip? This will delete the existing matched trip and create a new one.",
+          "Re-match this trip? This will delete the existing matched trip and create a new one."
         );
 
     if (!confirmed) return;
@@ -1254,7 +1294,7 @@
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`,
+          errorData.message || `HTTP error! status: ${response.status}`
         );
       }
 
@@ -1265,7 +1305,7 @@
       document.dispatchEvent(
         new CustomEvent("mapMatchingCompleted", {
           detail: { results },
-        }),
+        })
       );
     } catch (err) {
       handleError(err, "Map Matching");
@@ -1324,7 +1364,7 @@
 
     try {
       const response = await fetch(
-        `/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`,
+        `/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`
       );
       if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -1348,7 +1388,7 @@
       document.dispatchEvent(
         new CustomEvent("metricsUpdated", {
           detail: { metrics },
-        }),
+        })
       );
     } catch (err) {
       handleError(err, "Fetching Metrics");
@@ -1362,7 +1402,7 @@
 
       if (!response.ok) {
         throw new Error(
-          `HTTP error fetching coverage areas: ${response.status}`,
+          `HTTP error fetching coverage areas: ${response.status}`
         );
       }
 
@@ -1373,7 +1413,7 @@
       console.error("Error fetching coverage areas:", error);
       showNotification(
         `Failed to load coverage areas: ${error.message}`,
-        "warning",
+        "warning"
       );
       return [];
     }
@@ -1411,7 +1451,7 @@
 
     // Check if we have a previously selected location
     const savedLocationId = localStorage.getItem(
-      "selectedLocationForUndrivenStreets",
+      "selectedLocationForUndrivenStreets"
     );
     if (savedLocationId) {
       for (let i = 0; i < dropdown.options.length; i++) {
@@ -1466,7 +1506,7 @@
           document.dispatchEvent(
             new CustomEvent("datePresetSelected", {
               detail: { preset: range, startDate, endDate },
-            }),
+            })
           );
 
           fetchTripsInRange();
@@ -1478,7 +1518,7 @@
         handleError(err, "Setting Date Preset");
         showNotification(
           "Error setting date range. Please try again.",
-          "danger",
+          "danger"
         );
       })
       .finally(() => {
@@ -1535,7 +1575,7 @@
 
     // Add event listener for undriven streets location dropdown
     const locationDropdown = document.getElementById(
-      "undriven-streets-location",
+      "undriven-streets-location"
     );
     if (locationDropdown) {
       locationDropdown.addEventListener("change", function () {
@@ -1609,11 +1649,11 @@
 
     AppState.dom.startDatePicker = DateUtils.initDatePicker(
       AppState.dom.startDateInput,
-      config,
+      config
     );
     AppState.dom.endDatePicker = DateUtils.initDatePicker(
       AppState.dom.endDateInput,
-      config,
+      config
     );
 
     if (AppState.dom.startDatePicker) {
@@ -1652,7 +1692,7 @@
           // Restore layer visibility from localStorage, including undriven streets
           Object.keys(AppState.mapLayers).forEach((layerName) => {
             const savedVisibility = localStorage.getItem(
-              `layer_visible_${layerName}`,
+              `layer_visible_${layerName}`
             );
             if (savedVisibility === "true") {
               AppState.mapLayers[layerName].visible = true;

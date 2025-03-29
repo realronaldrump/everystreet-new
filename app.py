@@ -355,22 +355,12 @@ async def app_settings_page(request: Request):
     return templates.TemplateResponse("app_settings.html", {"request": request})
 
 
-# UNDRIVEN STREETS API ENDPOINT
 @app.post("/api/undriven_streets")
 async def get_undriven_streets(location: LocationModel):
-    """Get undriven streets for a specific location.
-
-    Args:
-        location: Location dictionary with display_name, osm_id, etc.
-
-    Returns:
-        GeoJSON with undriven streets features
-    """
+    """Get undriven streets for a specific location."""
     try:
         location_name = location.display_name
-        logger.info(f"Getting undriven streets for {location_name}")
 
-        # Find the coverage metadata for this location
         coverage_metadata = await find_one_with_retry(
             coverage_metadata_collection,
             {"location.display_name": location_name},
@@ -378,30 +368,46 @@ async def get_undriven_streets(location: LocationModel):
 
         if not coverage_metadata:
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"No coverage data found for location: {location_name}",
             )
 
-        # Query for undriven streets in this location
         query = {
-            "properties.location.display_name": location_name,
+            "properties.location": location_name,
             "properties.driven": False,
         }
 
-        # Create a GeoJSON FeatureCollection
+        count = await count_documents_with_retry(streets_collection, query)
+
+        if count == 0:
+            return {
+                "type": "FeatureCollection",
+                "features": [],
+            }
+
         features = []
         cursor = streets_collection.find(query)
 
-        # Process cursor in batches for better performance
-        async for street in batch_cursor(cursor):
-            if "geometry" in street and "properties" in street:
-                features.append(street)
+        async for street_batch in batch_cursor(cursor):
+            for street_doc in street_batch:
+                if "geometry" in street_doc and "properties" in street_doc:
+                    features.append(street_doc)
 
-        return {"type": "FeatureCollection", "features": features}
+        return JSONResponse(
+            content=json.loads(
+                bson.json_util.dumps(
+                    {"type": "FeatureCollection", "features": features}
+                )
+            )
+        )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting undriven streets: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}",
+        )
 
 
 # BACKGROUND TASKS CONFIG / CONTROL
