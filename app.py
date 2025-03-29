@@ -13,7 +13,7 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from math import ceil
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 # Third-party imports
 import bson
@@ -37,7 +37,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from gridfs.errors import NoFile  # <-- Add this for error handling
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket  # <-- Add this
-from pydantic import BaseModel, Field
 
 # Local module imports
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
@@ -46,6 +45,16 @@ from coverage_tasks import (
     process_area,
     process_coverage_calculation,
     process_incremental_coverage_calculation,
+)
+from models import (
+    BackgroundTasksConfigModel,
+    BulkProcessModel,
+    CollectionModel,
+    DateRangeModel,
+    LocationModel,
+    TaskRunModel,
+    TripUpdateModel,
+    ValidateLocationModel,
 )
 from db import (
     SerializationHelper,
@@ -57,7 +66,7 @@ from db import (
     delete_one_with_retry,
     find_one_with_retry,
     find_with_retry,
-    get_trip_by_id,  # <-- Changed import
+    get_trip_by_id,
     init_database,
     parse_query_date,
     update_many_with_retry,
@@ -142,58 +151,7 @@ initialize_db(live_trips_collection, archived_live_trips_collection)
 init_collections(places_collection, trips_collection)  # <-- Updated call
 
 
-# Pydantic models for request validation
-class LocationModel(BaseModel):
-    """Model for location data."""
-
-    display_name: str
-    osm_id: int
-    osm_type: str
-
-    class Config:
-        extra = "allow"
-
-
-class TripUpdateModel(BaseModel):
-    """Model for trip update data."""
-
-    type: str
-    geometry: Optional[Dict[str, Any]] = None
-    properties: Dict[str, Any] = Field(default_factory=dict)
-
-
-class DateRangeModel(BaseModel):
-    """Model for date range data."""
-
-    start_date: str
-    end_date: str
-    interval_days: int = 0
-
-
-class BulkProcessModel(BaseModel):
-    """Model for bulk processing parameters."""
-
-    query: Dict[str, Any] = Field(default_factory=dict)
-    options: Dict[str, bool] = Field(default_factory=dict)
-    limit: int = 100
-
-
-class BackgroundTasksConfigModel(BaseModel):
-    """Model for background tasks configuration."""
-
-    globalDisable: Optional[bool] = None
-    tasks: Optional[Dict[str, Dict[str, Any]]] = None
-
-
-class TaskRunModel(BaseModel):
-    """Model for manual task run."""
-
-    tasks: List[str]
-
-
-class ValidateLocationModel(BaseModel):
-    location: str
-    locationType: str
+# Note: Pydantic models have been moved to models.py
 
 
 # --- Coverage Calculation Orchestration ---
@@ -2881,10 +2839,6 @@ async def trip_updates_endpoint(last_sequence: int = Query(0, ge=0)):
 
 
 # DATABASE MANAGEMENT ENDPOINTS
-class CollectionModel(BaseModel):
-    """Model for collection operations."""
-
-    collection: str
 
 
 @app.post("/api/database/clear-collection")

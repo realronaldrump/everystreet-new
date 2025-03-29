@@ -1096,16 +1096,16 @@
       // Add preprocessing icon
       const icons = {
         initializing: '<i class="fas fa-cog fa-spin"></i>',
-        preprocessing: '<i class="fas fa-magic"></i>', // Example icon
-        loading_streets: '<i class="fas fa-map"></i>', // Kept if needed, but maybe covered by preprocessing/indexing
-        indexing: '<i class="fas fa-search-location"></i>', // More specific icon
+        preprocessing: '<i class="fas fa-magic"></i>',
+        loading_streets: '<i class="fas fa-map"></i>',
+        indexing: '<i class="fas fa-search-location"></i>',
         counting_trips: '<i class="fas fa-calculator"></i>',
-        processing_trips: '<i class="fas fa-route"></i>', // Changed icon
-        finalizing: '<i class="fas fa-flag-checkered"></i>', // Changed icon
+        processing_trips: '<i class="fas fa-route"></i>',
+        finalizing: '<i class="fas fa-flag-checkered"></i>',
         complete: '<i class="fas fa-check-circle"></i>',
         error: '<i class="fas fa-exclamation-circle"></i>',
-        warning: '<i class="fas fa-exclamation-triangle"></i>', // Added warning state
-        calculating: '<i class="fas fa-cogs fa-spin"></i>', // Generic calculating state
+        warning: '<i class="fas fa-exclamation-triangle"></i>',
+        calculating: '<i class="fas fa-cogs fa-spin"></i>',
       };
       return icons[stage] || '<i class="fas fa-question-circle"></i>';
     }

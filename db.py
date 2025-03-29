@@ -405,9 +405,7 @@ class DatabaseManager:
             if "name" in kwargs:
                 index_name = kwargs["name"]
                 if index_name in existing_indexes:
-                    logger.info(  # Changed from debug to info
-                        f"Index {index_name} already exists, skipping creation"
-                    )
+                    logger.info(f"Index {index_name} already exists, skipping creation")
                     return index_name
 
             async def _create_index() -> str:
