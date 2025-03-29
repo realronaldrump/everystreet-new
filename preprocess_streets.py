@@ -1,16 +1,18 @@
 """Preprocess streets module.
 
 Fetches OSM data from Overpass (excluding non-drivable ways), segments street
-geometries in parallel, and updates the database.
+geometries in parallel using a dynamically determined UTM zone for accuracy,
+and updates the database.
 """
 
 import asyncio
 import gc
 import logging
+import math
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Callable
 
 import aiohttp
 import pyproj
@@ -31,15 +33,8 @@ logger = logging.getLogger(__name__)
 # --- Constants ---
 OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 WGS84 = pyproj.CRS("EPSG:4326")
-DEFAULT_UTM = pyproj.CRS(
-    "EPSG:32610"
-)  # Consider making this dynamic based on location
-project_to_utm = pyproj.Transformer.from_crs(
-    WGS84, DEFAULT_UTM, always_xy=True
-).transform
-project_to_wgs84 = pyproj.Transformer.from_crs(
-    DEFAULT_UTM, WGS84, always_xy=True
-).transform
+# DEFAULT_UTM is removed - it will be determined dynamically per location.
+# Transformers are now created dynamically within preprocess_streets.
 
 # Define highway types to exclude from street data (foot traffic, paths, etc.)
 # This regex is used in Overpass queries. Ensure it matches osm_utils.py
@@ -55,6 +50,54 @@ MAX_WORKERS = min(
     multiprocessing.cpu_count() // 2, 4
 )  # Allow slightly more workers if beneficial
 # ---
+
+# --- Helper Function for Dynamic UTM ---
+
+
+def get_dynamic_utm_crs(latitude: float, longitude: float) -> pyproj.CRS:
+    """
+    Determines the appropriate UTM or UPS CRS for a given latitude and longitude.
+
+    Args:
+        latitude: Latitude of the location's center.
+        longitude: Longitude of the location's center.
+
+    Returns:
+        A pyproj.CRS object representing the best UTM/UPS zone.
+        Falls back to EPSG:32610 (UTM Zone 10N) if calculation fails.
+    """
+    fallback_crs_epsg = 32610  # UTM Zone 10N as a fallback
+
+    try:
+        # Handle Polar Regions (UPS - Universal Polar Stereographic)
+        if latitude >= 84.0:
+            return pyproj.CRS("EPSG:32661")  # North UPS
+        if latitude <= -80.0:
+            return pyproj.CRS("EPSG:32761")  # South UPS
+
+        # Calculate UTM Zone
+        zone_number = math.floor((longitude + 180) / 6) + 1
+        is_northern = latitude >= 0
+
+        if is_northern:
+            epsg_code = 32600 + zone_number
+        else:
+            epsg_code = 32700 + zone_number
+
+        return pyproj.CRS(f"EPSG:{epsg_code}")
+
+    except Exception as e:
+        logger.warning(
+            "Failed to determine dynamic UTM/UPS CRS for lat=%s, lon=%s: %s. Falling back to EPSG:%d.",
+            latitude,
+            longitude,
+            e,
+            fallback_crs_epsg,
+        )
+        return pyproj.CRS(f"EPSG:{fallback_crs_epsg}")
+
+
+# --- Core Functions ---
 
 
 async def fetch_osm_data(
@@ -317,13 +360,15 @@ def process_element_parallel(
 ) -> List[Dict[str, Any]]:
     """Process a single street element in parallel.
 
+    Uses the provided projection functions.
     Returns a list of segmented feature dictionaries.
     """
     try:
         element = element_data["element"]
-        location_name = element_data["location_name"]  # Use location name
-        proj_to_utm = element_data["project_to_utm"]
-        proj_to_wgs84 = element_data["project_to_wgs84"]
+        location_name = element_data["location_name"]
+        # Get the dynamically determined projection functions passed in element_data
+        proj_to_utm: Callable = element_data["project_to_utm"]
+        proj_to_wgs84: Callable = element_data["project_to_wgs84"]
 
         nodes = [
             (node["lon"], node["lat"]) for node in element.get("geometry", [])
@@ -335,15 +380,8 @@ def process_element_parallel(
         tags = element.get("tags", {})
         highway_type = tags.get("highway", "unknown")
 
-        # Secondary check: Although filtered in Overpass, double-check critical tags if needed
-        # e.g., if filtering access tags:
-        # access = tags.get("access")
-        # motor_vehicle = tags.get("motor_vehicle")
-        # if access in ["no", "private"] or motor_vehicle in ["no", "private"]:
-        #     logger.debug("Skipping way %s due to access tags: access=%s, motor_vehicle=%s", osm_id, access, motor_vehicle)
-        #     return []
-
         line_wgs84 = LineString(nodes)
+        # Use the passed-in transformer function
         projected_line = transform(proj_to_utm, line_wgs84)
 
         # Check for zero length after projection
@@ -361,6 +399,7 @@ def process_element_parallel(
         for i, segment_utm in enumerate(segments):
             if segment_utm.length < 1e-6:  # Skip zero-length segments
                 continue
+            # Use the passed-in transformer function
             segment_wgs84 = transform(proj_to_wgs84, segment_utm)
             # Ensure geometry is valid before adding
             if not segment_wgs84.is_valid or segment_wgs84.is_empty:
@@ -398,12 +437,16 @@ def process_element_parallel(
 
 
 async def process_osm_data(
-    osm_data: Dict[str, Any], location: Dict[str, Any]
+    osm_data: Dict[str, Any],
+    location: Dict[str, Any],
+    project_to_utm_func: Callable,  # Accept the dynamic transformer
+    project_to_wgs84_func: Callable,  # Accept the dynamic transformer
 ) -> None:
     """Convert OSM ways into segmented features and insert them into
     streets_collection.
 
-    Also update coverage metadata. Uses parallel processing.
+    Uses the provided projection functions and parallel processing.
+    Also update coverage metadata.
     """
     try:
         location_name = location[
@@ -416,7 +459,6 @@ async def process_osm_data(
             if element.get("type") == "way"
             and "geometry" in element
             and len(element.get("geometry", [])) >= 2
-            # No highway type filtering needed here - done in fetch_osm_data
         ]
 
         if not way_elements:
@@ -447,13 +489,13 @@ async def process_osm_data(
             location_name,
         )
 
-        # Prepare data for parallel processing
+        # Prepare data for parallel processing, passing the dynamic transformers
         process_data = [
             {
                 "element": element,
                 "location_name": location_name,
-                "project_to_utm": project_to_utm,
-                "project_to_wgs84": project_to_wgs84,
+                "project_to_utm": project_to_utm_func,  # Pass the specific transformer
+                "project_to_wgs84": project_to_wgs84_func,  # Pass the specific transformer
             }
             for element in way_elements
         ]
@@ -554,7 +596,7 @@ async def process_osm_data(
                 {
                     "$set": {
                         "location": location,
-                        "total_length": total_length,
+                        "total_length": total_length,  # Now uses more accurate lengths
                         "total_segments": total_segments_count,
                         "last_updated": datetime.now(timezone.utc),
                         "status": "completed",  # Mark as completed after processing
@@ -614,11 +656,57 @@ async def process_osm_data(
 async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
     """
     Preprocess street data for a validated location:
-    Fetch filtered OSM data, segment streets, and update the database.
+    Fetch filtered OSM data, determine appropriate UTM zone, segment streets,
+    and update the database.
     """
     location_name = validated_location["display_name"]
     try:
         logger.info("Starting street preprocessing for %s", location_name)
+
+        # --- Dynamic UTM Calculation ---
+        center_lat = None
+        center_lon = None
+        try:
+            # Attempt to get lat/lon from the validated location data
+            center_lat = float(validated_location.get("lat"))
+            center_lon = float(validated_location.get("lon"))
+        except (TypeError, ValueError):
+            logger.warning(
+                "Location %s is missing valid lat/lon. Cannot determine dynamic UTM.",
+                location_name,
+            )
+            # Decide how to handle: raise error, use fallback, or skip?
+            # For now, let's raise an error to make the requirement explicit.
+            await coverage_metadata_collection.update_one(
+                {"location.display_name": location_name},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": "Missing lat/lon for UTM calculation",
+                    }
+                },
+                upsert=True,
+            )
+            raise ValueError(
+                f"Location {location_name} lacks lat/lon for dynamic UTM."
+            )
+
+        dynamic_utm_crs = get_dynamic_utm_crs(center_lat, center_lon)
+        logger.info(
+            "Using dynamic CRS %s (EPSG: %s) for location %s",
+            dynamic_utm_crs.name,
+            dynamic_utm_crs.to_epsg(),  # Safely get EPSG if available
+            location_name,
+        )
+
+        # Create transformers dynamically for this location
+        project_to_utm_dynamic = pyproj.Transformer.from_crs(
+            WGS84, dynamic_utm_crs, always_xy=True
+        ).transform
+        project_to_wgs84_dynamic = pyproj.Transformer.from_crs(
+            dynamic_utm_crs, WGS84, always_xy=True
+        ).transform
+        # --- End Dynamic UTM Calculation ---
 
         # Ensure location exists in metadata and set status to processing
         await coverage_metadata_collection.update_one(
@@ -715,6 +803,7 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
                         "status": "completed",
                         "total_segments": 0,
                         "total_length": 0.0,
+                        "last_error": None,  # Clear error if fetch was ok but no elements
                     }
                 },  # Mark as complete with 0 streets
             )
@@ -725,8 +814,14 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
             logger.info(
                 "Processing and segmenting OSM data for %s...", location_name
             )
+            # Pass the dynamically created transformers to process_osm_data
             await asyncio.wait_for(
-                process_osm_data(osm_data, validated_location),
+                process_osm_data(
+                    osm_data,
+                    validated_location,
+                    project_to_utm_dynamic,  # Pass dynamic transformer
+                    project_to_wgs84_dynamic,  # Pass dynamic transformer
+                ),
                 timeout=1800,  # 30 minute timeout for processing/inserting
             )
             # process_osm_data now handles setting the final "completed" status on success
@@ -760,14 +855,18 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
 
     except Exception as e:
         # Catch-all for unexpected errors during the setup/coordination phase
+        # Includes the ValueError raised if lat/lon are missing
+        location_name_safe = validated_location.get(
+            "display_name", "Unknown Location"
+        )
         logger.error(
             "Unhandled error during street preprocessing orchestration for %s: %s",
-            location_name,
+            location_name_safe,
             e,
             exc_info=True,
         )
         await coverage_metadata_collection.update_one(
-            {"location.display_name": location_name},
+            {"location.display_name": location_name_safe},
             {
                 "$set": {
                     "status": "error",
@@ -784,5 +883,6 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
         # Force garbage collection
         gc.collect()
         logger.debug(
-            "Preprocessing task finished for %s, running GC.", location_name
+            "Preprocessing task finished for %s, running GC.",
+            validated_location.get("display_name", "Unknown Location"),
         )
