@@ -123,10 +123,13 @@ async def update_geo_points(
                                 }
 
                             if update_fields:
-                                update_fields["geoPointsUpdatedAt"] = datetime.utcnow()
+                                update_fields["geoPointsUpdatedAt"] = (
+                                    datetime.utcnow()
+                                )
                                 batch_updates.append(
                                     UpdateOne(
-                                        {"_id": doc["_id"]}, {"$set": update_fields}
+                                        {"_id": doc["_id"]},
+                                        {"$set": update_fields},
                                     )
                                 )
 
@@ -143,7 +146,9 @@ async def update_geo_points(
                         try:
 
                             async def execute_bulk():
-                                result = await collection.bulk_write(batch_updates)
+                                result = await collection.bulk_write(
+                                    batch_updates
+                                )
                                 return result.modified_count
 
                             modified = await db_manager.execute_with_retry(
@@ -159,7 +164,9 @@ async def update_geo_points(
                             return modified
                         except Exception as e:
                             logger.error(
-                                "Error executing batch update: %s", e, exc_info=True
+                                "Error executing batch update: %s",
+                                e,
+                                exc_info=True,
                             )
                             return 0
 
@@ -179,7 +186,9 @@ async def update_geo_points(
 
         # Use cursor with no_cursor_timeout and process in batches
         async def get_cursor():
-            return collection.find(query, no_cursor_timeout=True).batch_size(batch_size)
+            return collection.find(query, no_cursor_timeout=True).batch_size(
+                batch_size
+            )
 
         cursor = await db_manager.execute_with_retry(
             get_cursor, operation_name=f"get cursor for {collection.name}"
@@ -193,12 +202,16 @@ async def update_geo_points(
 
                 if len(current_batch) >= batch_size:
                     batch_num += 1
-                    batch_tasks.append(process_batch(current_batch.copy(), batch_num))
+                    batch_tasks.append(
+                        process_batch(current_batch.copy(), batch_num)
+                    )
                     current_batch = []
 
                     # If we have enough batch tasks, wait for some to complete
                     if len(batch_tasks) >= max_concurrent_batches * 2:
-                        completed_batch_results = await asyncio.gather(*batch_tasks)
+                        completed_batch_results = await asyncio.gather(
+                            *batch_tasks
+                        )
                         updated_count += sum(completed_batch_results)
                         batch_tasks = []
 
@@ -206,7 +219,9 @@ async def update_geo_points(
                             "Progress: Updated %d/%d documents (%.1f%%)",
                             updated_count,
                             total_docs,
-                            (updated_count / total_docs * 100) if total_docs else 0,
+                            (updated_count / total_docs * 100)
+                            if total_docs
+                            else 0,
                         )
 
             # Process any remaining documents in the current batch
@@ -224,7 +239,10 @@ async def update_geo_points(
 
     except Exception as e:
         logger.error(
-            "Error iterating collection %s: %s", collection.name, e, exc_info=True
+            "Error iterating collection %s: %s",
+            collection.name,
+            e,
+            exc_info=True,
         )
 
     logger.info(

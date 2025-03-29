@@ -199,7 +199,9 @@ class TaskStatusManager:
                 asyncio.set_event_loop(loop)
                 should_close_loop = True
 
-            future = asyncio.ensure_future(self.update_status(task_id, status, error))
+            future = asyncio.ensure_future(
+                self.update_status(task_id, status, error)
+            )
             return loop.run_until_complete(future)
         except Exception as e:
             logger.exception(f"Error in sync_update_status: {e}")
@@ -213,7 +215,9 @@ class TaskStatusManager:
                     logger.error(f"Error closing event loop: {e}")
 
     @staticmethod
-    def _fallback_sync_update(task_id: str, status: str, error: Optional[str] = None):
+    def _fallback_sync_update(
+        task_id: str, status: str, error: Optional[str] = None
+    ):
         """Emergency fallback using direct MongoDB connection."""
         client = None
         try:
@@ -248,7 +252,9 @@ class TaskStatusManager:
                 try:
                     client.close()
                 except Exception as e:
-                    logger.error(f"Error closing MongoDB client in fallback: {e}")
+                    logger.error(
+                        f"Error closing MongoDB client in fallback: {e}"
+                    )
 
 
 # Database connection pooling manager
@@ -280,8 +286,12 @@ def get_mongo_client() -> MongoClient:
         serverSelectionTimeoutMS=int(
             os.environ.get("MONGODB_SERVER_SELECTION_TIMEOUT_MS", "10000")
         ),
-        connectTimeoutMS=int(os.environ.get("MONGODB_CONNECTION_TIMEOUT_MS", "5000")),
-        socketTimeoutMS=int(os.environ.get("MONGODB_SOCKET_TIMEOUT_MS", "30000")),
+        connectTimeoutMS=int(
+            os.environ.get("MONGODB_CONNECTION_TIMEOUT_MS", "5000")
+        ),
+        socketTimeoutMS=int(
+            os.environ.get("MONGODB_SOCKET_TIMEOUT_MS", "30000")
+        ),
         retryWrites=True,
         retryReads=True,
         appname="EveryStreet-Tasks",
@@ -322,7 +332,9 @@ class AsyncTask(Task):
 
 # Signal to set task status before it runs
 @task_prerun.connect
-def task_started(task_id: Optional[str] = None, task: Optional[Task] = None, **kwargs):
+def task_started(
+    task_id: Optional[str] = None, task: Optional[Task] = None, **kwargs
+):
     """Record when a task starts running and update its status."""
     if not task:
         return
@@ -355,7 +367,9 @@ def task_started(task_id: Optional[str] = None, task: Optional[Task] = None, **k
                 # Raise an exception to prevent task execution
                 # This will be caught by Celery and the task will be marked as failed
                 client.close()
-                raise Exception(f"Task {task_name} is disabled in configuration")
+                raise Exception(
+                    f"Task {task_name} is disabled in configuration"
+                )
 
         # Use TaskStatusManager for consistent status updates
         status_manager = TaskStatusManager.get_instance()
@@ -419,7 +433,9 @@ def task_finished(
             # Ensure start_time has timezone info
             if start_time.tzinfo is None:
                 start_time = start_time.replace(tzinfo=timezone.utc)
-            runtime = (now - start_time).total_seconds() * 1000  # Convert to ms
+            runtime = (
+                now - start_time
+            ).total_seconds() * 1000  # Convert to ms
 
         # Determine status
         status = (
@@ -441,7 +457,9 @@ def task_finished(
             else:
                 error_msg = f"Task failed with state {state}"
 
-            status_manager.sync_update_status(task_name, status, error=error_msg)
+            status_manager.sync_update_status(
+                task_name, status, error=error_msg
+            )
         else:
             status_manager.sync_update_status(task_name, status)
 
@@ -460,7 +478,9 @@ def task_finished(
             upsert=True,
         )
 
-        logger.info(f"Task {task_name} ({task_id}) finished with status {state}")
+        logger.info(
+            f"Task {task_name} ({task_id}) finished with status {state}"
+        )
 
         # Close MongoDB connection
         client.close()
@@ -542,7 +562,9 @@ async def get_task_config() -> Dict[str, Any]:
                 },
             }
             await task_config_collection.update_one(
-                {"_id": "global_background_task_config"}, {"$set": cfg}, upsert=True
+                {"_id": "global_background_task_config"},
+                {"$set": cfg},
+                upsert=True,
             )
 
         return cfg
@@ -612,7 +634,9 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
 
                     # Add timezone if missing
                     if last_updated.tzinfo is None:
-                        last_updated = last_updated.replace(tzinfo=timezone.utc)
+                        last_updated = last_updated.replace(
+                            tzinfo=timezone.utc
+                        )
 
                     if now - last_updated < timedelta(hours=1):
                         logger.warning(
@@ -626,7 +650,10 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
         return {"can_run": True}
     except Exception as e:
         logger.exception(f"Error checking dependencies for {task_id}: {e}")
-        return {"can_run": False, "reason": f"Error checking dependencies: {str(e)}"}
+        return {
+            "can_run": False,
+            "reason": f"Error checking dependencies: {str(e)}",
+        }
     finally:
         client.close()
 
@@ -700,9 +727,7 @@ def async_task_wrapper(func):
         except Exception as e:
             # Log error details
             runtime = (datetime.now(timezone.utc) - start_time).total_seconds()
-            error_msg = (
-                f"Error in async task {task_name} after {runtime:.2f}s: {str(e)}"
-            )
+            error_msg = f"Error in async task {task_name} after {runtime:.2f}s: {str(e)}"
             logger.exception(error_msg)
 
             # Re-raise to let Celery's task_failure signal handle the failure
@@ -735,7 +760,9 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
         client = AsyncIOMotorClient(os.environ.get("MONGO_URI"))
         db = client[os.environ.get("MONGODB_DATABASE", "every_street")]
         task_config_collection = db["task_config"]
-        trips_collection = db["trips"]  # Need trips collection to find last trip
+        trips_collection = db[
+            "trips"
+        ]  # Need trips collection to find last trip
 
         try:
             # Get last successful fetch time from config
@@ -793,11 +820,18 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
                 # Update the last success time in the config
                 await task_config_collection.update_one(
                     {"_id": "global_background_task_config"},
-                    {"$set": {"tasks.periodic_fetch_trips.last_success_time": now_utc}},
+                    {
+                        "$set": {
+                            "tasks.periodic_fetch_trips.last_success_time": now_utc
+                        }
+                    },
                     upsert=True,
                 )
 
-                return {"status": "success", "message": "Trips fetched successfully"}
+                return {
+                    "status": "success",
+                    "message": "Trips fetched successfully",
+                }
             except Exception as e:
                 error_msg = f"Error in periodic fetch: {str(e)}"
                 logger.error(error_msg)
@@ -833,7 +867,9 @@ def update_coverage_for_new_trips(self) -> Dict[str, Any]:
         coverage_metadata_collection = db["coverage_metadata"]
         try:
             # Get all coverage areas
-            coverage_areas = await coverage_metadata_collection.find({}).to_list(100)
+            coverage_areas = await coverage_metadata_collection.find(
+                {}
+            ).to_list(100)
 
             processed_areas = 0
             for area in coverage_areas:
@@ -850,7 +886,9 @@ def update_coverage_for_new_trips(self) -> Dict[str, Any]:
                     )
 
                     # Calculate coverage incrementally
-                    result = await compute_incremental_coverage(location, task_id)
+                    result = await compute_incremental_coverage(
+                        location, task_id
+                    )
 
                     if result:
                         logger.info(
@@ -952,7 +990,9 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
             batch_size = 500  # Process in batches to avoid memory issues
 
             # Process trips in batches
-            cursor = trips_collection.find({}, {"startTime": 1, "endTime": 1, "gps": 1})
+            cursor = trips_collection.find(
+                {}, {"startTime": 1, "endTime": 1, "gps": 1}
+            )
             while True:
                 batch = await cursor.to_list(length=batch_size)
                 if not batch:
@@ -968,7 +1008,9 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
                                     "$set": {
                                         "invalid": True,
                                         "validation_message": message,
-                                        "validated_at": datetime.now(timezone.utc),
+                                        "validated_at": datetime.now(
+                                            timezone.utc
+                                        ),
                                     }
                                 },
                             )
@@ -1036,7 +1078,9 @@ def update_geocoding(self) -> Dict[str, Any]:
             limit = 100
 
             trips_to_process = (
-                await trips_collection.find(query).limit(limit).to_list(length=limit)
+                await trips_collection.find(query)
+                .limit(limit)
+                .to_list(length=limit)
             )
             geocoded_count = 0
             failed_count = 0
@@ -1075,7 +1119,9 @@ def update_geocoding(self) -> Dict[str, Any]:
                 # Sleep briefly to avoid rate limiting
                 await asyncio.sleep(0.2)
 
-            logger.info(f"Geocoded {geocoded_count} trips ({failed_count} failed)")
+            logger.info(
+                f"Geocoded {geocoded_count} trips ({failed_count} failed)"
+            )
             return {
                 "status": "success",
                 "geocoded_count": geocoded_count,
@@ -1116,7 +1162,9 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
 
         try:
             # Check dependencies
-            dependency_check = await check_dependencies("remap_unmatched_trips")
+            dependency_check = await check_dependencies(
+                "remap_unmatched_trips"
+            )
             if not dependency_check["can_run"]:
                 logger.info(
                     f"Deferring remap_unmatched_trips: {dependency_check.get('reason', 'Unknown reason')}"
@@ -1132,7 +1180,9 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
             # Get IDs of trips already in matched_trips
             matched_ids = [
                 doc["transactionId"]
-                async for doc in db["matched_trips"].find({}, {"transactionId": 1})
+                async for doc in db["matched_trips"].find(
+                    {}, {"transactionId": 1}
+                )
                 if "transactionId" in doc
             ]
 
@@ -1141,7 +1191,9 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
             limit = 50  # Process in smaller batches due to API constraints
 
             trips_to_process = (
-                await trips_collection.find(query).limit(limit).to_list(length=limit)
+                await trips_collection.find(query)
+                .limit(limit)
+                .to_list(length=limit)
             )
             remap_count = 0
             failed_count = 0
@@ -1179,7 +1231,9 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
                 # Sleep briefly to avoid rate limiting
                 await asyncio.sleep(0.5)
 
-            logger.info(f"Remapped {remap_count} trips ({failed_count} failed)")
+            logger.info(
+                f"Remapped {remap_count} trips ({failed_count} failed)"
+            )
             return {
                 "status": "success",
                 "remapped_count": remap_count,
@@ -1223,7 +1277,9 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
             limit = 100  # Process in batches
 
             trips_to_process = (
-                await trips_collection.find(query).limit(limit).to_list(length=limit)
+                await trips_collection.find(query)
+                .limit(limit)
+                .to_list(length=limit)
             )
             processed_count = 0
             failed_count = 0
@@ -1263,10 +1319,14 @@ def validate_trip_data_task(self) -> Dict[str, Any]:
 
                     processed_count += 1
                 except Exception as e:
-                    logger.error(f"Error validating trip {trip.get('_id')}: {str(e)}")
+                    logger.error(
+                        f"Error validating trip {trip.get('_id')}: {str(e)}"
+                    )
                     failed_count += 1
 
-            logger.info(f"Validated {processed_count} trips ({failed_count} failed)")
+            logger.info(
+                f"Validated {processed_count} trips ({failed_count} failed)"
+            )
             return {
                 "status": "success",
                 "validated_count": processed_count,
@@ -1408,7 +1468,9 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
                 )
             except Exception as e:
                 logger.exception(f"Error starting task {task_name}")
-                results.append({"task": task_name, "success": False, "error": str(e)})
+                results.append(
+                    {"task": task_name, "success": False, "error": str(e)}
+                )
 
         return {
             "status": "success",
@@ -1427,7 +1489,9 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
                 }
 
             # Get correct queue based on task priority
-            queue = f"{TASK_METADATA[task_id]['priority'].name.lower()}_priority"
+            queue = (
+                f"{TASK_METADATA[task_id]['priority'].name.lower()}_priority"
+            )
 
             # Create a unique task ID
             task_instance_id = f"{task_id}_manual_{uuid.uuid4()}"
@@ -1491,10 +1555,14 @@ async def update_task_schedule(task_config: Dict[str, Any]) -> Dict[str, Any]:
             if task_id in TASK_METADATA:
                 if task_id not in current_config["tasks"]:
                     current_config["tasks"][task_id] = {}
-                    changes.append(f"Added new task configuration for {task_id}")
+                    changes.append(
+                        f"Added new task configuration for {task_id}"
+                    )
 
                 if "enabled" in task_settings:
-                    old_value = current_config["tasks"][task_id].get("enabled", True)
+                    old_value = current_config["tasks"][task_id].get(
+                        "enabled", True
+                    )
                     new_value = task_settings["enabled"]
                     if old_value != new_value:
                         changes.append(
@@ -1512,7 +1580,9 @@ async def update_task_schedule(task_config: Dict[str, Any]) -> Dict[str, Any]:
                         changes.append(
                             f"Changed {task_id} interval: {old_value} -> {new_value} minutes"
                         )
-                    current_config["tasks"][task_id]["interval_minutes"] = new_value
+                    current_config["tasks"][task_id]["interval_minutes"] = (
+                        new_value
+                    )
 
         # Save updated config
         await task_config_collection.update_one(

@@ -364,7 +364,8 @@ class DatabaseManager:
         """
         if self._quota_exceeded:
             logger.warning(
-                "Skipping index creation for %s due to quota exceeded", collection_name
+                "Skipping index creation for %s due to quota exceeded",
+                collection_name,
             )
             return None
 
@@ -404,7 +405,8 @@ class DatabaseManager:
                 index_name = kwargs["name"]
                 if index_name in existing_indexes:
                     logger.info(
-                        "Index %s already exists, skipping creation", index_name
+                        "Index %s already exists, skipping creation",
+                        index_name,
                     )
                     return index_name
 
@@ -993,7 +995,9 @@ async def aggregate_with_retry(
 
 
 async def count_documents_with_retry(
-    collection: AsyncIOMotorCollection, filter_query: Dict[str, Any], **kwargs: Any
+    collection: AsyncIOMotorCollection,
+    filter_query: Dict[str, Any],
+    **kwargs: Any,
 ) -> int:
     """Execute count_documents with retry logic.
 
@@ -1072,7 +1076,10 @@ async def init_task_history_collection() -> None:
         )
         await db_manager.safe_create_index(
             "task_history",
-            [("task_id", pymongo.ASCENDING), ("timestamp", pymongo.DESCENDING)],
+            [
+                ("task_id", pymongo.ASCENDING),
+                ("timestamp", pymongo.DESCENDING),
+            ],
             name="task_history_task_timestamp_idx",
             background=True,
         )
@@ -1099,7 +1106,10 @@ async def ensure_street_coverage_indexes() -> None:
         # Index for status checks during bulk updates
         await db_manager.safe_create_index(
             "coverage_metadata",
-            [("status", pymongo.ASCENDING), ("last_updated", pymongo.ASCENDING)],
+            [
+                ("status", pymongo.ASCENDING),
+                ("last_updated", pymongo.ASCENDING),
+            ],
             name="coverage_metadata_status_updated_idx",
             background=True,
         )
@@ -1232,7 +1242,9 @@ async def ensure_location_indexes() -> None:
 
 
 # Transaction handling
-async def run_transaction(operations: List[Callable[[], Awaitable[Any]]]) -> bool:
+async def run_transaction(
+    operations: List[Callable[[], Awaitable[Any]]],
+) -> bool:
     """
     Run a series of operations within a MongoDB transaction.
     Note: Requires replica set or sharded cluster. Standalone instances do not support transactions.

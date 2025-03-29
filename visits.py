@@ -110,7 +110,8 @@ async def get_places():
     """Get all custom places."""
     places = await find_with_retry(places_collection, {})
     return [
-        {"_id": str(p["_id"]), **CustomPlace.from_dict(p).to_dict()} for p in places
+        {"_id": str(p["_id"]), **CustomPlace.from_dict(p).to_dict()}
+        for p in places
     ]
 
 
@@ -118,7 +119,9 @@ async def get_places():
 async def create_place(place: PlaceModel):
     """Create a new custom place."""
     place_obj = CustomPlace(place.name, place.geometry)
-    result = await insert_one_with_retry(places_collection, place_obj.to_dict())
+    result = await insert_one_with_retry(
+        places_collection, place_obj.to_dict()
+    )
     return {"_id": str(result.inserted_id), **place_obj.to_dict()}
 
 
@@ -126,7 +129,9 @@ async def create_place(place: PlaceModel):
 async def delete_place(place_id: str):
     """Delete a custom place."""
     try:
-        await delete_one_with_retry(places_collection, {"_id": ObjectId(place_id)})
+        await delete_one_with_retry(
+            places_collection, {"_id": ObjectId(place_id)}
+        )
         return {"status": "success", "message": "Place deleted"}
     except Exception as e:
         logger.exception("Error deleting place: %s", str(e))
@@ -169,14 +174,19 @@ async def update_place(place_id: str, update_data: PlaceUpdateModel):
         from db import update_one_with_retry
 
         await update_one_with_retry(
-            places_collection, {"_id": ObjectId(place_id)}, {"$set": update_fields}
+            places_collection,
+            {"_id": ObjectId(place_id)},
+            {"$set": update_fields},
         )
 
         # Get the updated place
         updated_place = await find_one_with_retry(
             places_collection, {"_id": ObjectId(place_id)}
         )
-        return {"_id": place_id, **CustomPlace.from_dict(updated_place).to_dict()}
+        return {
+            "_id": place_id,
+            **CustomPlace.from_dict(updated_place).to_dict(),
+        }
     except Exception as e:
         logger.exception("Error updating place: %s", str(e))
         raise HTTPException(
@@ -255,7 +265,11 @@ async def get_place_statistics(place_id: str):
         started_from_place_query = {
             "$or": [
                 {"startPlaceId": place_id},
-                {"startGeoPoint": {"$geoWithin": {"$geometry": place["geometry"]}}},
+                {
+                    "startGeoPoint": {
+                        "$geoWithin": {"$geometry": place["geometry"]}
+                    }
+                },
             ],
             "startTime": {"$ne": None},
         }
@@ -332,7 +346,10 @@ async def get_place_statistics(place_id: str):
 
                 # Calculate time since last visit
                 time_since_last = None
-                if last_visit_end is not None and current_visit_start is not None:
+                if (
+                    last_visit_end is not None
+                    and current_visit_start is not None
+                ):
                     time_since_last = (
                         current_visit_start - last_visit_end
                     ).total_seconds()
@@ -340,7 +357,9 @@ async def get_place_statistics(place_id: str):
                 # Calculate visit duration
                 duration = None
                 if visit_end is not None and current_visit_start is not None:
-                    duration = (visit_end - current_visit_start).total_seconds()
+                    duration = (
+                        visit_end - current_visit_start
+                    ).total_seconds()
 
                 visits.append(
                     {
@@ -357,9 +376,13 @@ async def get_place_statistics(place_id: str):
 
         # Calculate statistics
         total_visits = len(visits)
-        durations = [v["duration"] for v in visits if v["duration"] is not None]
+        durations = [
+            v["duration"] for v in visits if v["duration"] is not None
+        ]
         time_between_visits = [
-            v["time_since_last"] for v in visits if v["time_since_last"] is not None
+            v["time_since_last"]
+            for v in visits
+            if v["time_since_last"] is not None
         ]
 
         avg_duration = sum(durations) / len(durations) if durations else 0
@@ -419,7 +442,11 @@ async def get_trips_for_place(place_id: str):
         started_from_place_query = {
             "$or": [
                 {"startPlaceId": place_id},
-                {"startGeoPoint": {"$geoWithin": {"$geometry": place["geometry"]}}},
+                {
+                    "startGeoPoint": {
+                        "$geoWithin": {"$geometry": place["geometry"]}
+                    }
+                },
             ],
             "startTime": {"$ne": None},
         }
@@ -434,7 +461,8 @@ async def get_trips_for_place(place_id: str):
 
         # Create a dictionary to look up trips by ID
         trips_by_id = {
-            str(t["_id"]): t for t in trips_ending_at_place + trips_starting_from_place
+            str(t["_id"]): t
+            for t in trips_ending_at_place + trips_starting_from_place
         }
 
         # Create a timeline of all events
@@ -504,7 +532,10 @@ async def get_trips_for_place(place_id: str):
 
                 # Calculate time since last visit
                 time_since_last = None
-                if last_visit_end is not None and current_visit_start is not None:
+                if (
+                    last_visit_end is not None
+                    and current_visit_start is not None
+                ):
                     time_since_last = (
                         current_visit_start - last_visit_end
                     ).total_seconds()
@@ -512,7 +543,9 @@ async def get_trips_for_place(place_id: str):
                 # Calculate visit duration
                 duration = None
                 if visit_end is not None and current_visit_start is not None:
-                    duration = (visit_end - current_visit_start).total_seconds()
+                    duration = (
+                        visit_end - current_visit_start
+                    ).total_seconds()
 
                 visits.append(
                     {
@@ -559,7 +592,9 @@ async def get_trips_for_place(place_id: str):
                         visit["arrival_time"]
                     ),
                     "departureTime": (
-                        SerializationHelper.serialize_datetime(visit["departure_time"])
+                        SerializationHelper.serialize_datetime(
+                            visit["departure_time"]
+                        )
                         if visit["departure_time"]
                         else None
                     ),
@@ -576,7 +611,9 @@ async def get_trips_for_place(place_id: str):
         return {"trips": trips_data, "name": place["name"]}
 
     except Exception as e:
-        logger.exception("Error getting trips for place %s: %s", place_id, str(e))
+        logger.exception(
+            "Error getting trips for place %s: %s", place_id, str(e)
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -588,7 +625,11 @@ async def get_non_custom_places_visits():
     try:
         # Find all trips with valid destination places
         pipeline = [
-            {"$match": {"destinationPlaceName": {"$exists": True, "$ne": None}}},
+            {
+                "$match": {
+                    "destinationPlaceName": {"$exists": True, "$ne": None}
+                }
+            },
             {
                 "$group": {
                     "_id": "$destinationPlaceName",
@@ -610,7 +651,9 @@ async def get_non_custom_places_visits():
             last_visit = doc["lastVisit"]
 
             # Check if this place is already in our results (shouldn't happen with single collection query, but safe)
-            existing = next((p for p in places_data if p["name"] == place_name), None)
+            existing = next(
+                (p for p in places_data if p["name"] == place_name), None
+            )
             if existing:
                 existing["visitCount"] += visit_count
                 if last_visit > existing["lastVisit"]:
