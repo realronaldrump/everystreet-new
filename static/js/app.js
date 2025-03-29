@@ -908,7 +908,7 @@
             }),
             onEachFeature: (feature, layer) => {
               // Add street name popup
-              if (feature.properties && feature.properties.street_name) {
+              if (feature.properties?.street_name) {
                 const streetName = feature.properties.street_name;
                 const segmentLength =
                   feature.properties.segment_length?.toFixed(2) || "Unknown";
@@ -1581,8 +1581,7 @@
       locationDropdown.addEventListener("change", function () {
         // If the undriven streets layer is currently visible, refresh it with the new location
         if (
-          AppState.mapLayers.undrivenStreets &&
-          AppState.mapLayers.undrivenStreets.visible
+          AppState.mapLayers.undrivenStreets?.visible
         ) {
           fetchUndrivenStreets();
         }

@@ -1396,7 +1396,7 @@
     });
 
     // Use the central DateUtils function
-    if (window.DateUtils && window.DateUtils.initDatePicker) {
+    if (window.DateUtils?.initDatePicker) {
       window.DateUtils.initDatePicker(".datepicker");
     } else {
       // Fallback to flatpickr directly
