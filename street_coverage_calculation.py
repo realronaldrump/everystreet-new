@@ -753,9 +753,9 @@ class CoverageCalculator:
                 trips_cursor, self.trip_batch_size
             ):
                 batch_num += 1
-                valid_trips_in_batch: List[
-                    Tuple[str, List[Any]]
-                ] = []  # List of (trip_id, coords)
+                valid_trips_in_batch: List[Tuple[str, List[Any]]] = (
+                    []
+                )  # List of (trip_id, coords)
 
                 # Validate trips in the current batch
                 for trip_doc in trip_batch_docs:
@@ -911,9 +911,7 @@ class CoverageCalculator:
                             wrapped_futures.keys(), timeout=0.1
                         ):  # Short timeout
                             try:
-                                await (
-                                    wrapped_future
-                                )  # Wait for the wrapped future to complete
+                                await wrapped_future  # Wait for the wrapped future to complete
                                 original_future = wrapped_futures[wrapped_future]
                                 original_sub_batch = pending_futures_map.pop(
                                     original_future, []
