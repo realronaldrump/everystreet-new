@@ -1,3 +1,5 @@
+/* global config, url */
+
 /**
  * Export functionality - Handles exporting data in various formats
  * Provides improved user feedback and error handling
@@ -98,22 +100,22 @@
 
     // Cache validate buttons
     elements.validateButtons = document.querySelectorAll(
-      ".validate-location-btn",
+      ".validate-location-btn"
     );
 
     // Cache advanced export elements
     elements.exportAllDates = document.getElementById("export-all-dates");
     elements.saveExportSettings = document.getElementById(
-      "save-export-settings",
+      "save-export-settings"
     );
 
     // Cache data source checkboxes
     elements.includeTrips = document.getElementById("include-trips");
     elements.includeMatchedTrips = document.getElementById(
-      "include-matched-trips",
+      "include-matched-trips"
     );
     elements.includeUploadedTrips = document.getElementById(
-      "include-uploaded-trips",
+      "include-uploaded-trips"
     );
 
     // Cache data field checkboxes
@@ -128,7 +130,7 @@
     elements.csvOptionsContainer = document.getElementById("csv-options");
     elements.includeGpsInCsv = document.getElementById("include-gps-in-csv");
     elements.flattenLocationFields = document.getElementById(
-      "flatten-location-fields",
+      "flatten-location-fields"
     );
   }
 
@@ -372,7 +374,7 @@
 
       if (!startDate || !endDate) {
         throw new Error(
-          "Please select both start and end dates or check 'Export all dates'",
+          "Please select both start and end dates or check 'Export all dates'"
         );
       }
 
@@ -401,7 +403,7 @@
     if (activeExports[formType]) {
       showNotification(
         `Already exporting ${config.name}. Please wait...`,
-        "info",
+        "info"
       );
       return;
     }
@@ -455,7 +457,7 @@
 
         const locationData = locationInput.getAttribute("data-location");
         url = `${config.endpoint}?location=${encodeURIComponent(
-          locationData,
+          locationData
         )}&format=${format}`;
       } else if (formType === "advanced") {
         // Advanced export with configurable options
@@ -510,7 +512,7 @@
 
           if (!startDate || !endDate) {
             throw new Error(
-              "Please select both start and end dates or check 'Export all dates'",
+              "Please select both start and end dates or check 'Export all dates'"
             );
           }
 
@@ -539,7 +541,7 @@
       const timeoutId = setTimeout(() => {
         abortController.abort();
         console.log(
-          `Export operation timed out after 120 seconds: ${config.name}`,
+          `Export operation timed out after 120 seconds: ${config.name}`
         );
       }, 120000); // 2 minute timeout
 
@@ -555,7 +557,7 @@
       console.error(`Export error:`, error);
       showNotification(
         `Export failed: ${error.message || "Unknown error"}`,
-        "error",
+        "error"
       );
     } finally {
       activeExports[formType] = false;
@@ -758,7 +760,7 @@
     try {
       showNotification(
         `Validating location: "${locationInput.value}"...`,
-        "info",
+        "info"
       );
 
       const response = await fetch("/api/validate_location", {
@@ -782,7 +784,7 @@
         locationInput.setAttribute("data-location", JSON.stringify(data));
         locationInput.setAttribute(
           "data-display-name",
-          data.display_name || data.name || locationInput.value,
+          data.display_name || data.name || locationInput.value
         );
 
         // Update the input value with the canonical name
@@ -803,14 +805,14 @@
           `Location validated: "${
             data.display_name || data.name || locationInput.value
           }"`,
-          "success",
+          "success"
         );
       } else {
         locationInput.classList.add("is-invalid");
         locationInput.classList.remove("is-valid");
         showNotification(
           "Location not found. Please try a different search term",
-          "warning",
+          "warning"
         );
       }
     } catch (error) {
@@ -881,7 +883,7 @@
       console.log(`Starting fetch for ${exportName} export...`);
       const response = await fetch(urlWithTimestamp, fetchOptions);
       console.log(
-        `Received response: status=${response.status}, ok=${response.ok}`,
+        `Received response: status=${response.status}, ok=${response.ok}`
       );
 
       if (!response.ok) {
@@ -911,7 +913,7 @@
       const contentLength = response.headers.get("Content-Length");
       const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
       console.log(
-        `Content-Length: ${contentLength}, parsed size: ${totalSize}`,
+        `Content-Length: ${contentLength}, parsed size: ${totalSize}`
       );
 
       // Log headers for debugging
@@ -970,7 +972,7 @@
 
           if (done) {
             console.log(
-              `Finished reading response body, total size: ${receivedLength} bytes`,
+              `Finished reading response body, total size: ${receivedLength} bytes`
             );
             break;
           }
@@ -986,8 +988,8 @@
           ) {
             console.log(
               `Download progress: ${Math.round(
-                (receivedLength / totalSize) * 100,
-              )}% (${receivedLength}/${totalSize} bytes)`,
+                (receivedLength / totalSize) * 100
+              )}% (${receivedLength}/${totalSize} bytes)`
             );
           }
 
@@ -995,7 +997,7 @@
           if (totalSize) {
             const progress = Math.min(
               Math.round((receivedLength / totalSize) * 100),
-              100,
+              100
             );
 
             // Try to update progress through different possible interfaces
@@ -1012,7 +1014,7 @@
             } else {
               // Try to find progress bar element directly
               const progressBar = document.getElementById(
-                "loading-progress-bar",
+                "loading-progress-bar"
               );
               if (progressBar) {
                 progressBar.style.width = `${progress}%`;
@@ -1063,7 +1065,7 @@
       } catch (streamError) {
         console.error(
           `Error processing download stream for ${exportName}:`,
-          streamError,
+          streamError
         );
         throw new Error(`Error while downloading: ${streamError.message}`);
       }
@@ -1072,7 +1074,7 @@
 
       if (error.name === "AbortError") {
         throw new Error(
-          "Export timed out. The file might be too large or the server is busy.",
+          "Export timed out. The file might be too large or the server is busy."
         );
       }
 

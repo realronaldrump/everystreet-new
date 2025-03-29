@@ -1,5 +1,5 @@
 "use strict";
-/* global L, Chart, DateUtils, $ */
+/* global L, Chart, DateUtils, bootstrap, $ */
 (() => {
   class VisitsManager {
     constructor() {
@@ -55,11 +55,11 @@
           console.log(`LoadingManager not available: ${opName}.${subName}`),
         updateSubOperation: (opName, subName, progress) =>
           console.log(
-            `LoadingManager not available: ${opName}.${subName} (${progress}%)`,
+            `LoadingManager not available: ${opName}.${subName} (${progress}%)`
           ),
         finish: (name) =>
           console.log(
-            `LoadingManager not available: finished ${name || "all"}`,
+            `LoadingManager not available: finished ${name || "all"}`
           ),
         error: (message) => {
           console.error(`LoadingManager not available: Error - ${message}`);
@@ -99,7 +99,7 @@
           "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
           {
             maxZoom: 19,
-          },
+          }
         ).addTo(this.map);
 
         this.customPlacesLayer = L.layerGroup().addTo(this.map);
@@ -446,12 +446,12 @@
           event.preventDefault();
           const placeId = $(event.target).data("place-id");
           this.toggleView(placeId);
-        },
+        }
       );
 
       // Toggle view button
       $("#visits-table-container").on("click", "#toggle-view-btn", () =>
-        this.toggleView(),
+        this.toggleView()
       );
     }
 
@@ -514,7 +514,7 @@
         } catch (error) {
           console.error(
             `Error fetching statistics for place ${place.name}:`,
-            error,
+            error
           );
           return null;
         }
@@ -527,7 +527,7 @@
       if (this.visitsChart) {
         this.visitsChart.data.labels = validResults.map((d) => d.name);
         this.visitsChart.data.datasets[0].data = validResults.map(
-          (d) => d.totalVisits,
+          (d) => d.totalVisits
         );
         this.visitsChart.update();
       }
@@ -543,7 +543,7 @@
       if (!placeName || !this.currentPolygon) {
         window.notificationManager?.show(
           "Please enter a name for this place",
-          "warning",
+          "warning"
         );
         return;
       }
@@ -568,7 +568,7 @@
 
         window.notificationManager?.show(
           `Place "${placeName}" saved successfully`,
-          "success",
+          "success"
         );
       } catch (error) {
         console.error("Error saving place:", error);
@@ -611,7 +611,7 @@
         await this.updateVisitsData();
         window.notificationManager?.show(
           "Place deleted successfully",
-          "success",
+          "success"
         );
       } catch (error) {
         console.error("Error deleting place:", error);
@@ -638,7 +638,7 @@
     // Manage Places functionality
     showManagePlacesModal() {
       const modal = new bootstrap.Modal(
-        document.getElementById("manage-places-modal"),
+        document.getElementById("manage-places-modal")
       );
 
       // Clear and populate the table
@@ -694,7 +694,7 @@
       if (!place) return;
 
       const modal = new bootstrap.Modal(
-        document.getElementById("edit-place-modal"),
+        document.getElementById("edit-place-modal")
       );
       document.getElementById("edit-place-id").value = placeId;
       document.getElementById("edit-place-name").value = place.name;
@@ -710,7 +710,7 @@
 
       // Hide the edit modal
       const editModal = bootstrap.Modal.getInstance(
-        document.getElementById("edit-place-modal"),
+        document.getElementById("edit-place-modal")
       );
       editModal.hide();
 
@@ -751,7 +751,7 @@
 
       window.notificationManager?.show(
         "Edit the boundary for this place by drawing a new polygon, then save changes",
-        "info",
+        "info"
       );
     }
 
@@ -762,7 +762,7 @@
       if (!placeId || !newName) {
         window.notificationManager?.show(
           "Place name cannot be empty",
-          "warning",
+          "warning"
         );
         return;
       }
@@ -800,7 +800,7 @@
 
         // Close the modal
         const modal = bootstrap.Modal.getInstance(
-          document.getElementById("edit-place-modal"),
+          document.getElementById("edit-place-modal")
         );
         if (modal) modal.hide();
 
@@ -812,7 +812,7 @@
 
         window.notificationManager?.show(
           `Place "${newName}" updated successfully`,
-          "success",
+          "success"
         );
       } catch (error) {
         console.error("Error updating place:", error);
@@ -868,7 +868,7 @@
         this.loadingManager.error("Failed to fetch trip data");
         window.notificationManager?.show(
           "Error loading trip data. Please try again.",
-          "danger",
+          "danger"
         );
       }
     }
@@ -1014,7 +1014,7 @@
 
       // Show the modal first so DOM is fully available
       const modal = new bootstrap.Modal(
-        document.getElementById("view-trip-modal"),
+        document.getElementById("view-trip-modal")
       );
       modal.show();
 
@@ -1024,7 +1024,7 @@
         () => {
           this.initializeTripMap(trip);
         },
-        { once: true },
+        { once: true }
       );
     }
 
@@ -1055,7 +1055,7 @@
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         {
           maxZoom: 19,
-        },
+        }
       ).addTo(this.tripViewMap);
 
       // Add trip path to map if geometry exists
@@ -1110,8 +1110,9 @@
         }
       } else {
         // If no geometry, show a message
-        document.getElementById("trip-info").innerHTML +=
-          `<div class="alert alert-warning">No route data available for this trip.</div>`;
+        document.getElementById(
+          "trip-info"
+        ).innerHTML += `<div class="alert alert-warning">No route data available for this trip.</div>`;
         this.tripViewMap.setView([37.0902, -95.7129], 4); // Default US center view
       }
 
@@ -1146,7 +1147,7 @@
             <p>Avg Time Spent: ${formatAvg(stats.averageTimeSpent)}</p>
             <p>Avg Time Since Last Visit: ${formatAvg(
               stats.averageTimeSinceLastVisit,
-              "hours",
+              "hours"
             )}</p>
           </div>
         `;
@@ -1160,7 +1161,7 @@
         console.error("Error fetching place statistics:", error);
         window.notificationManager?.show(
           "Failed to fetch place statistics",
-          "danger",
+          "danger"
         );
       }
     }
@@ -1172,7 +1173,7 @@
         visitsChart: document.getElementById("visitsChart"),
         visitsTableContainer: document.getElementById("visits-table-container"),
         tripsForPlaceContainer: document.getElementById(
-          "trips-for-place-container",
+          "trips-for-place-container"
         ),
         toggleViewBtn: document.getElementById("toggle-view-btn"),
       };
@@ -1226,7 +1227,7 @@
         console.error("Error fetching trips for place:", error);
         window.notificationManager?.show(
           "Failed to fetch trips for place",
-          "danger",
+          "danger"
         );
       }
     }
@@ -1245,7 +1246,7 @@
         console.error("Error fetching visits for non-custom places:", error);
         window.notificationManager?.show(
           "Failed to load non-custom places visits",
-          "danger",
+          "danger"
         );
       }
     }
