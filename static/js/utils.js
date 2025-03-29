@@ -436,7 +436,7 @@ class NotificationManager {
     const excess = this.notifications.length - this.config.maxNotifications;
     for (let i = 0; i < excess; i++) {
       const oldest = this.notifications.shift();
-      if (oldest && oldest.parentNode) {
+      if (oldest?.parentNode) {
         oldest.parentNode.removeChild(oldest);
       }
     }

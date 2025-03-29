@@ -720,8 +720,7 @@
       // Create a new polygon from the place geometry
       const existingGeometry = place.geometry;
       if (
-        existingGeometry &&
-        existingGeometry.coordinates &&
+        existingGeometry?.coordinates &&
         existingGeometry.coordinates.length > 0
       ) {
         const coordinates = existingGeometry.coordinates[0];
@@ -879,19 +878,14 @@
      */
     extractTripGeometry(trip) {
       // Try the default geometry field first
-      if (
-        trip.geometry &&
-        trip.geometry.coordinates &&
-        trip.geometry.coordinates.length > 0
-      ) {
+      if (trip.geometry?.coordinates && trip.geometry.coordinates.length > 0) {
         console.log("Using existing geometry data");
         return;
       }
 
       // Check for matchedGps field
       if (
-        trip.matchedGps &&
-        trip.matchedGps.coordinates &&
+        trip.matchedGps?.coordinates &&
         trip.matchedGps.coordinates.length > 0
       ) {
         console.log("Using matchedGps data");
@@ -904,11 +898,7 @@
         try {
           console.log("Parsing gps field from JSON string");
           const gpsData = JSON.parse(trip.gps);
-          if (
-            gpsData &&
-            gpsData.coordinates &&
-            gpsData.coordinates.length > 0
-          ) {
+          if (gpsData?.coordinates && gpsData.coordinates.length > 0) {
             console.log("Successfully parsed gps JSON data");
             trip.geometry = gpsData;
             return;
@@ -920,8 +910,7 @@
 
       // If we have start and end coordinates, create a simple line
       if (
-        trip.startGeoPoint &&
-        trip.startGeoPoint.coordinates &&
+        trip.startGeoPoint?.coordinates &&
         trip.destinationGeoPoint &&
         trip.destinationGeoPoint.coordinates
       ) {
@@ -984,15 +973,13 @@
       const transactionId = trip.transactionId || trip._id;
 
       // Extract location information from nested objects
-      const startLocation =
-        trip.startLocation && trip.startLocation.formatted_address
-          ? trip.startLocation.formatted_address
-          : trip.startPlace || "Unknown";
+      const startLocation = trip.startLocation?.formatted_address
+        ? trip.startLocation.formatted_address
+        : trip.startPlace || "Unknown";
 
-      const endLocation =
-        trip.destination && trip.destination.formatted_address
-          ? trip.destination.formatted_address
-          : trip.destinationPlace || "Unknown";
+      const endLocation = trip.destination?.formatted_address
+        ? trip.destination.formatted_address
+        : trip.destinationPlace || "Unknown";
 
       // Display trip information
       tripInfoContainer.innerHTML = `
@@ -1059,11 +1046,7 @@
       ).addTo(this.tripViewMap);
 
       // Add trip path to map if geometry exists
-      if (
-        trip.geometry &&
-        trip.geometry.coordinates &&
-        trip.geometry.coordinates.length > 0
-      ) {
+      if (trip.geometry?.coordinates && trip.geometry.coordinates.length > 0) {
         // Create a line from the trip coordinates
         const tripPath = L.geoJSON(trip.geometry, {
           style: {

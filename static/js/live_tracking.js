@@ -634,8 +634,7 @@ class LiveTripTracker {
 
     // If we have an active trip, ensure the polyline is visible
     if (
-      this.activeTrip &&
-      this.activeTrip.coordinates &&
+      this.activeTrip?.coordinates &&
       this.activeTrip.coordinates.length > 0
     ) {
       // Make sure changes are visible
