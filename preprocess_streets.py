@@ -454,7 +454,9 @@ async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -
                             logger.error(f"Error inserting batch: {insert_err}")
                             # Decide how to handle insert errors (e.g., skip batch, retry individual?)
                             # For now, log and continue
-                            batch_to_insert = []  # Clear batch to prevent retrying same error
+                            batch_to_insert = (
+                                []
+                            )  # Clear batch to prevent retrying same error
 
                 except TimeoutError:
                     logger.warning(
