@@ -1580,9 +1580,7 @@
     if (locationDropdown) {
       locationDropdown.addEventListener("change", function () {
         // If the undriven streets layer is currently visible, refresh it with the new location
-        if (
-          AppState.mapLayers.undrivenStreets?.visible
-        ) {
+        if (AppState.mapLayers.undrivenStreets?.visible) {
           fetchUndrivenStreets();
         }
       });

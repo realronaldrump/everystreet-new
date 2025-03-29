@@ -524,9 +524,7 @@
         }
 
         // Save settings if option is checked
-        if (
-          elements.saveExportSettings?.checked
-        ) {
+        if (elements.saveExportSettings?.checked) {
           saveExportSettings();
         }
       } else {
