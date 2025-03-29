@@ -75,9 +75,7 @@ async def create_geojson(trips: List[Dict[str, Any]]) -> str:
             # Copy all properties except large/complex objects
             properties_dict = {}
             for key, value in trip.items():
-                if (
-                    key != "gps" and value is not None
-                ):  # Skip GPS data and null values
+                if key != "gps" and value is not None:  # Skip GPS data and null values
                     properties_dict[key] = value
 
             # Create feature
@@ -150,7 +148,9 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
 
             # Add description if available
             if trip.get("startLocation") and trip.get("destination"):
-                track.description = f"From {trip.get('startLocation')} to {trip.get('destination')}"
+                track.description = (
+                    f"From {trip.get('startLocation')} to {trip.get('destination')}"
+                )
 
             gpx.tracks.append(track)
 
@@ -163,9 +163,7 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
                 for coord in gps_data.get("coordinates", []):
                     if len(coord) >= 2:
                         lon, lat = coord[0], coord[1]
-                        segment.points.append(
-                            gpxpy.gpx.GPXTrackPoint(lat, lon)
-                        )
+                        segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
             elif gps_data.get("type") == "Point":
                 coords = gps_data.get("coordinates", [])
                 if len(coords) >= 2:
@@ -185,9 +183,7 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
     if trip_count == 0:
         logger.warning("No valid tracks generated from %d trips", len(trips))
     else:
-        logger.info(
-            "Created GPX with %d tracks from %d trips", trip_count, len(trips)
-        )
+        logger.info("Created GPX with %d tracks from %d trips", trip_count, len(trips))
 
     return gpx.to_xml()
 
@@ -244,9 +240,7 @@ async def export_geojson_response(data, filename: str) -> StreamingResponse:
     return StreamingResponse(
         io.BytesIO(content.encode()),
         media_type="application/geo+json",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}.geojson"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="{filename}.geojson"'},
     )
 
 
@@ -269,16 +263,10 @@ async def export_gpx_response(data, filename: str) -> StreamingResponse:
         for feature in data.get("features", []):
             trips.append(
                 {
-                    "transactionId": feature.get("properties", {}).get(
-                        "id", "unknown"
-                    ),
+                    "transactionId": feature.get("properties", {}).get("id", "unknown"),
                     "gps": feature.get("geometry"),
-                    "startLocation": feature.get("properties", {}).get(
-                        "startLocation"
-                    ),
-                    "destination": feature.get("properties", {}).get(
-                        "destination"
-                    ),
+                    "startLocation": feature.get("properties", {}).get("startLocation"),
+                    "destination": feature.get("properties", {}).get("destination"),
                 }
             )
         content = await create_gpx(trips)
@@ -286,15 +274,11 @@ async def export_gpx_response(data, filename: str) -> StreamingResponse:
     return StreamingResponse(
         io.BytesIO(content.encode()),
         media_type="application/gpx+xml",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}.gpx"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="{filename}.gpx"'},
     )
 
 
-async def export_shapefile_response(
-    geojson_data, filename: str
-) -> StreamingResponse:
+async def export_shapefile_response(geojson_data, filename: str) -> StreamingResponse:
     """Create a StreamingResponse with Shapefile content (ZIP).
 
     Args:
@@ -309,9 +293,7 @@ async def export_shapefile_response(
     return StreamingResponse(
         buffer,
         media_type="application/zip",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}.zip"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="{filename}.zip"'},
     )
 
 
@@ -370,10 +352,7 @@ async def create_export_response(
 
         # Ensure we have a list of trips
         if not isinstance(data, list):
-            if (
-                isinstance(data, dict)
-                and data.get("type") == "FeatureCollection"
-            ):
+            if isinstance(data, dict) and data.get("type") == "FeatureCollection":
                 # Extract trip data from GeoJSON
                 trips = []
                 for feature in data.get("features", []):
@@ -416,14 +395,10 @@ def extract_date_range_string(query: Dict[str, Any]) -> str:
         str: Formatted date range string (YYYYMMDD-YYYYMMDD)
     """
     start_date = (
-        query["startTime"].get("$gte")
-        if isinstance(query["startTime"], dict)
-        else None
+        query["startTime"].get("$gte") if isinstance(query["startTime"], dict) else None
     )
     end_date = (
-        query["startTime"].get("$lte")
-        if isinstance(query["startTime"], dict)
-        else None
+        query["startTime"].get("$lte") if isinstance(query["startTime"], dict) else None
     )
 
     if start_date and end_date:
@@ -441,11 +416,7 @@ def get_location_filename(location: Dict[str, Any]) -> str:
         str: Safe filename string
     """
     return (
-        location.get("display_name", "")
-        .split(",")[0]
-        .strip()
-        .replace(" ", "_")
-        .lower()
+        location.get("display_name", "").split(",")[0].strip().replace(" ", "_").lower()
     )
 
 
@@ -644,13 +615,9 @@ async def create_csv_export(
             if key in ["gps", "geometry", "path", "simplified_path", "route"]:
                 if include_gps_in_csv:
                     # Include as JSON string if requested
-                    flat_trip[key] = json.dumps(
-                        value, default=default_serializer
-                    )
+                    flat_trip[key] = json.dumps(value, default=default_serializer)
                 else:
-                    flat_trip[key] = (
-                        "[Geometry data not included in CSV format]"
-                    )
+                    flat_trip[key] = "[Geometry data not included in CSV format]"
             # Handle location fields if flattening is enabled
             elif flatten_location_fields and key in [
                 "startLocation",
@@ -688,24 +655,14 @@ async def create_csv_export(
                     flat_trip["startLocation_street_number"] = addr_comps.get(
                         "street_number", ""
                     )
-                    flat_trip["startLocation_street"] = addr_comps.get(
-                        "street", ""
-                    )
-                    flat_trip["startLocation_city"] = addr_comps.get(
-                        "city", ""
-                    )
-                    flat_trip["startLocation_county"] = addr_comps.get(
-                        "county", ""
-                    )
-                    flat_trip["startLocation_state"] = addr_comps.get(
-                        "state", ""
-                    )
+                    flat_trip["startLocation_street"] = addr_comps.get("street", "")
+                    flat_trip["startLocation_city"] = addr_comps.get("city", "")
+                    flat_trip["startLocation_county"] = addr_comps.get("county", "")
+                    flat_trip["startLocation_state"] = addr_comps.get("state", "")
                     flat_trip["startLocation_postal_code"] = addr_comps.get(
                         "postal_code", ""
                     )
-                    flat_trip["startLocation_country"] = addr_comps.get(
-                        "country", ""
-                    )
+                    flat_trip["startLocation_country"] = addr_comps.get("country", "")
 
                 # Extract coordinates
                 coords = start_loc.get("coordinates", {})
@@ -732,22 +689,14 @@ async def create_csv_export(
                     flat_trip["destination_street_number"] = addr_comps.get(
                         "street_number", ""
                     )
-                    flat_trip["destination_street"] = addr_comps.get(
-                        "street", ""
-                    )
+                    flat_trip["destination_street"] = addr_comps.get("street", "")
                     flat_trip["destination_city"] = addr_comps.get("city", "")
-                    flat_trip["destination_county"] = addr_comps.get(
-                        "county", ""
-                    )
-                    flat_trip["destination_state"] = addr_comps.get(
-                        "state", ""
-                    )
+                    flat_trip["destination_county"] = addr_comps.get("county", "")
+                    flat_trip["destination_state"] = addr_comps.get("state", "")
                     flat_trip["destination_postal_code"] = addr_comps.get(
                         "postal_code", ""
                     )
-                    flat_trip["destination_country"] = addr_comps.get(
-                        "country", ""
-                    )
+                    flat_trip["destination_country"] = addr_comps.get("country", "")
 
                 # Extract coordinates
                 coords = dest.get("coordinates", {})

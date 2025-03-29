@@ -95,9 +95,7 @@ def collect_street_type_stats(features: List[Dict]) -> List[Dict[str, Any]]:
 
 
 # --- Coverage Calculation Orchestration ---
-async def process_coverage_calculation(
-    location: Dict[str, Any], task_id: str
-) -> None:
+async def process_coverage_calculation(location: Dict[str, Any], task_id: str) -> None:
     """Orchestrates the full coverage calculation process in the background.
 
     Manages progress updates and handles final status/result updates in the database.
@@ -180,9 +178,7 @@ async def process_coverage_calculation(
                         "result": {  # Store key metrics in progress result
                             "total_length": result["total_length"],
                             "driven_length": result["driven_length"],
-                            "coverage_percentage": result[
-                                "coverage_percentage"
-                            ],
+                            "coverage_percentage": result["coverage_percentage"],
                             "total_segments": result.get("total_segments", 0),
                         },
                         "updated_at": datetime.now(timezone.utc),
@@ -346,9 +342,7 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
         task_id: Unique identifier for tracking this combined task run.
     """
     display_name = location.get("display_name", "Unknown Location")
-    logger.info(
-        "Starting full area processing task %s for %s", task_id, display_name
-    )
+    logger.info("Starting full area processing task %s for %s", task_id, display_name)
     try:
         # 1. Initialize Progress and Metadata Status
         await progress_collection.update_one(
@@ -403,9 +397,7 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
         # Preprocessing sets status to 'processing' on success, 'error' on failure
         if not metadata or metadata.get("status") == "error":
             error_msg = (
-                metadata.get(
-                    "last_error", "Preprocessing failed (unknown reason)"
-                )
+                metadata.get("last_error", "Preprocessing failed (unknown reason)")
                 if metadata
                 else "Preprocessing failed (metadata not found)"
             )
@@ -429,9 +421,7 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
             )
             return  # Stop processing
 
-        logger.info(
-            "Task %s: Preprocessing completed for %s.", task_id, display_name
-        )
+        logger.info("Task %s: Preprocessing completed for %s.", task_id, display_name)
         # Update metadata status to 'calculating' before starting calculation
         await update_one_with_retry(
             coverage_metadata_collection,
@@ -461,13 +451,9 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
             coverage_metadata_collection,
             {"location.display_name": display_name},
         )
-        final_status = (
-            final_metadata.get("status") if final_metadata else "unknown"
-        )
+        final_status = final_metadata.get("status") if final_metadata else "unknown"
         final_error = (
-            final_metadata.get("last_error")
-            if final_metadata
-            else "Unknown error"
+            final_metadata.get("last_error") if final_metadata else "Unknown error"
         )
 
         if final_status == "completed":
