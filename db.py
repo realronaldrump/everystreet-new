@@ -380,7 +380,7 @@ class DatabaseManager:
             # Convert keys to a more comparable format
             keys_tuple = tuple(
                 sorted(
-                    [(k, v) for k, v in keys] if isinstance(keys, list) else [(keys, 1)]
+                    list(keys) if isinstance(keys, list) else [(keys, 1)]
                 )
             )
 
@@ -390,7 +390,7 @@ class DatabaseManager:
                     continue
 
                 # Compare key patterns (sorted tuple for reliable comparison)
-                idx_keys = tuple(sorted([(k, v) for k, v in idx_info.get("key", [])]))
+                idx_keys = tuple(sorted(list(idx_info.get("key", []))))
                 if idx_keys == keys_tuple:
                     logger.info(
                         "Index with keys %s already exists as '%s' on %s, skipping creation",
@@ -436,14 +436,14 @@ class DatabaseManager:
                 existing_indexes_info = await collection.index_information()
                 keys_tuple_check = tuple(
                     sorted(
-                        [(k, v) for k, v in keys]
+                        list(keys)
                         if isinstance(keys, list)
                         else [(keys, 1)]
                     )
                 )
                 for idx_name, idx_info in existing_indexes_info.items():
                     idx_keys_check = tuple(
-                        sorted([(k, v) for k, v in idx_info.get("key", [])])
+                        sorted(list(idx_info.get("key", [])))
                     )
                     if idx_keys_check == keys_tuple_check:
                         return idx_name
