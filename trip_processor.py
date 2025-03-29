@@ -1343,8 +1343,6 @@ class TripProcessor:
         Returns:
             Processed trip data
         """
-        import json
-        from datetime import datetime, timezone
 
         # Sort coordinates by timestamp
         if len(coords_data) > 0 and "timestamp" in coords_data[0]:
