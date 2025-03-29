@@ -539,19 +539,6 @@ class SerializationHelper:
         return dt.isoformat().replace("+00:00", "Z")  # Use Z for UTC
 
     @staticmethod
-    def serialize_object_id(obj_id: Optional[ObjectId]) -> Optional[str]:
-        """
-        Convert ObjectId to string if not None.
-
-        Args:
-            obj_id: ObjectId to serialize
-
-        Returns:
-            String representation or None
-        """
-        return str(obj_id) if obj_id else None
-
-    @staticmethod
     def serialize_document(doc: Dict[str, Any]) -> Dict[str, Any]:
         """
         Convert MongoDB document to a JSON serializable dictionary using bson.json_util.
