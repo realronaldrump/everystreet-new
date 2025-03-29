@@ -3276,11 +3276,11 @@ async def get_next_driving_route(location: LocationModel):
         current_lat = latest_coord_point["lat"]
         current_lon = latest_coord_point["lon"]
         logger.info(
-            f"Current live location: Lat={current_lat}, Lon={current_lon}"
+            "Current live location: Lat=%s, Lon=%s", current_lat, current_lon
         )
 
     except Exception as e:
-        logger.error(f"Error getting live location: {e}", exc_info=True)
+        logger.error("Error getting live location: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Could not retrieve live location: {e}",
@@ -3304,9 +3304,7 @@ async def get_next_driving_route(location: LocationModel):
                 "_id": 0,  # Exclude _id
             },
         )
-        undriven_streets = await undriven_streets_cursor.to_list(
-            length=None
-        )  # Fetch all
+        undriven_streets = await undriven_streets_cursor.to_list(length=None)
 
         if not undriven_streets:
             return JSONResponse(
@@ -3318,12 +3316,16 @@ async def get_next_driving_route(location: LocationModel):
                 }
             )
         logger.info(
-            f"Found {len(undriven_streets)} undriven segments in {location_name}."
+            "Found %d undriven segments in %s.",
+            len(undriven_streets),
+            location_name,
         )
 
     except Exception as e:
         logger.error(
-            f"Error fetching undriven streets for {location_name}: {e}",
+            "Error fetching undriven streets for %s: %s",
+            location_name,
+            e,
             exc_info=True,
         )
         raise HTTPException(
@@ -3337,27 +3339,18 @@ async def get_next_driving_route(location: LocationModel):
     skipped_count = 0  # Keep track of skipped segments
 
     for street in undriven_streets:
-        segment_id = street.get("properties", {}).get(
-            "segment_id", "UNKNOWN"
-        )  # Get ID for logging
+        segment_id = street.get("properties", {}).get("segment_id", "UNKNOWN")
         try:
-            # --- More Robust Geometry Check ---
             geometry = street.get("geometry")
             if not geometry or geometry.get("type") != "LineString":
-                # logger.debug(f"Skipping segment {segment_id}: Missing or invalid geometry type.")
                 skipped_count += 1
                 continue
 
             segment_coords = geometry.get("coordinates")
-            if (
-                not segment_coords or len(segment_coords) < 2
-            ):  # Need at least 2 points for a line
-                # logger.debug(f"Skipping segment {segment_id}: Insufficient coordinates.")
+            if not segment_coords or len(segment_coords) < 2:
                 skipped_count += 1
                 continue
-            # --- End Robust Geometry Check ---
 
-            # Ensure start node coordinates are valid numbers [lon, lat]
             start_node = segment_coords[0]
             if not (
                 isinstance(start_node, (list, tuple))
@@ -3366,14 +3359,15 @@ async def get_next_driving_route(location: LocationModel):
                 and isinstance(start_node[1], (int, float))
             ):
                 logger.warning(
-                    f"Skipping segment {segment_id}: Invalid start node format: {start_node}"
+                    "Skipping segment %s: Invalid start node format: %s",
+                    segment_id,
+                    start_node,
                 )
                 skipped_count += 1
                 continue
 
             segment_lon, segment_lat = start_node[0], start_node[1]
 
-            # Calculate distance using Haversine
             distance = haversine(
                 current_lon,
                 current_lat,
@@ -3385,7 +3379,6 @@ async def get_next_driving_route(location: LocationModel):
             if distance < min_distance:
                 min_distance = distance
                 nearest_street = street
-                # Store start coords directly in the nearest_street dict for convenience
                 nearest_street["properties"]["start_coords"] = [
                     segment_lon,
                     segment_lat,
@@ -3393,27 +3386,28 @@ async def get_next_driving_route(location: LocationModel):
 
         except Exception as dist_err:
             logger.warning(
-                f"Error processing segment {segment_id}: {dist_err}"
+                "Error processing segment %s: %s", segment_id, dist_err
             )
             skipped_count += 1
-            continue  # Skip this street if error occurs
+            continue
 
     if skipped_count > 0:
         logger.info(
-            f"Skipped {skipped_count} undriven segments due to data issues during nearest search."
+            "Skipped %d undriven segments due to data issues during nearest search.",
+            skipped_count,
         )
 
     if not nearest_street:
-        # This might happen if all streets had errors or were skipped
         logger.warning(
-            f"Could not determine nearest street for {location_name} despite finding {len(undriven_streets)} candidates."
+            "Could not determine nearest street for %s despite finding %d candidates.",
+            location_name,
+            len(undriven_streets),
         )
-        # Return a more informative message instead of 500 error if possible
         if len(undriven_streets) > 0 and skipped_count == len(
             undriven_streets
         ):
             return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND,  # Or maybe 400 Bad Request?
+                status_code=status.HTTP_404_NOT_FOUND,
                 content={
                     "status": "error",
                     "message": f"Found {len(undriven_streets)} undriven segments, but none could be processed.",
@@ -3421,16 +3415,15 @@ async def get_next_driving_route(location: LocationModel):
                     "target_street": None,
                 },
             )
-        # If no streets were found initially or some other issue
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to determine the nearest undriven street.",
         )
 
-    # Ensure target_coords is set correctly before using it
     if "start_coords" not in nearest_street["properties"]:
         logger.error(
-            f"Nearest street {nearest_street['properties']['segment_id']} is missing calculated start_coords."
+            "Nearest street %s is missing calculated start_coords.",
+            nearest_street["properties"]["segment_id"],
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -3438,7 +3431,10 @@ async def get_next_driving_route(location: LocationModel):
         )
     target_coords = nearest_street["properties"]["start_coords"]
     logger.info(
-        f"Nearest undriven segment: {nearest_street['properties']['segment_id']} at {target_coords}, Distance: {min_distance:.2f}m"
+        "Nearest undriven segment: %s at %s, Distance: %.2fm",
+        nearest_street["properties"]["segment_id"],
+        target_coords,
+        min_distance,
     )
 
     # 4. Get Route using Mapbox Directions API
@@ -3449,7 +3445,6 @@ async def get_next_driving_route(location: LocationModel):
             detail="Mapbox API token not configured.",
         )
 
-    # Format coordinates for Mapbox API: lon,lat;lon,lat
     coords_str = (
         f"{current_lon},{current_lat};{target_coords[0]},{target_coords[1]}"
     )
@@ -3459,15 +3454,14 @@ async def get_next_driving_route(location: LocationModel):
     params = {
         "access_token": mapbox_token,
         "geometries": "geojson",
-        "overview": "full",  # Get detailed geometry
-        "steps": "false",  # We don't need turn-by-turn steps for now
+        "overview": "full",
+        "steps": "false",
     }
 
     try:
         async with aiohttp.ClientSession() as session:
-            # Add rate limiting check here if needed for Mapbox API
             async with session.get(directions_url, params=params) as response:
-                response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+                response.raise_for_status()
                 route_data = await response.json()
 
                 if (
@@ -3479,18 +3473,14 @@ async def get_next_driving_route(location: LocationModel):
                         detail="No route found by Mapbox Directions API.",
                     )
 
-                route_geometry = route_data["routes"][0][
-                    "geometry"
-                ]  # GeoJSON LineString
-                route_duration = route_data["routes"][0].get(
-                    "duration", 0
-                )  # seconds
-                route_distance = route_data["routes"][0].get(
-                    "distance", 0
-                )  # meters
+                route_geometry = route_data["routes"][0]["geometry"]
+                route_duration = route_data["routes"][0].get("duration", 0)
+                route_distance = route_data["routes"][0].get("distance", 0)
 
                 logger.info(
-                    f"Route found: Duration={route_duration:.1f}s, Distance={route_distance:.1f}m"
+                    "Route found: Duration=%.1fs, Distance=%.1fm",
+                    route_duration,
+                    route_distance,
                 )
 
                 return JSONResponse(
@@ -3498,23 +3488,20 @@ async def get_next_driving_route(location: LocationModel):
                         "status": "success",
                         "message": "Route to nearest undriven street calculated.",
                         "route_geometry": route_geometry,
-                        "target_street": nearest_street[
-                            "properties"
-                        ],  # Send properties including start_coords
+                        "target_street": nearest_street["properties"],
                         "route_duration_seconds": route_duration,
                         "route_distance_meters": route_distance,
                     }
                 )
 
     except aiohttp.ClientResponseError as http_err:
-        error_detail = (
-            f"Mapbox API error: {http_err.status} - {http_err.message}"
+        error_detail = "Mapbox API error: %s - %s" % (
+            http_err.status,
+            http_err.message,
         )
         try:
             error_body = await http_err.response.text()
-            error_detail += (
-                f" | Body: {error_body[:200]}"  # Log first 200 chars
-            )
+            error_detail += " | Body: %s" % error_body[:200]
         except Exception:
             pass
         logger.error(error_detail, exc_info=False)
@@ -3522,7 +3509,7 @@ async def get_next_driving_route(location: LocationModel):
             status_code=status.HTTP_502_BAD_GATEWAY, detail=error_detail
         )
     except Exception as e:
-        logger.error(f"Error getting route from Mapbox: {e}", exc_info=True)
+        logger.error("Error getting route from Mapbox: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error calculating route: {e}",
