@@ -177,7 +177,7 @@ async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
                 processor.processed_data["gps"] = gps_data
             except json.JSONDecodeError:
                 logger.warning(
-                    f"Invalid GPS data for trip {trip.get('transactionId', 'unknown')}"
+                    "Invalid GPS data for trip %s", trip.get("transactionId", "unknown")
                 )
                 return
 
@@ -369,7 +369,7 @@ async def get_undriven_streets(location: LocationModel):
     location_name = "UNKNOWN"  # Default for logging
     try:
         location_name = location.display_name
-        logger.info(f"Request received for undriven streets for '{location_name}'.")
+        logger.info("Request received for undriven streets for '%s'.", location_name)
 
         # Find the coverage metadata for this location
         coverage_metadata = await find_one_with_retry(
@@ -380,7 +380,8 @@ async def get_undriven_streets(location: LocationModel):
         if not coverage_metadata:
             # Log the warning, FastAPI handles the response
             logger.warning(
-                f"No coverage metadata found for location: '{location_name}'. Raising 404."
+                "No coverage metadata found for location: '%s'. Raising 404.",
+                location_name,
             )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -395,7 +396,9 @@ async def get_undriven_streets(location: LocationModel):
 
         # Check count first for efficiency
         count = await count_documents_with_retry(streets_collection, query)
-        logger.info(f"Found {count} undriven street documents for '{location_name}'.")
+        logger.info(
+            "Found %d undriven street documents for '%s'.", count, location_name
+        )
 
         if count == 0:
             return JSONResponse(content={"type": "FeatureCollection", "features": []})
@@ -418,12 +421,17 @@ async def get_undriven_streets(location: LocationModel):
     except HTTPException as http_exc:
         # Log only the warning, FastAPI handles the response
         logger.warning(
-            f"HTTPException occurred for '{location_name}': Status={http_exc.status_code}, Detail={http_exc.detail}"
+            "HTTPException occurred for '%s': Status=%s, Detail=%s",
+            location_name,
+            http_exc.status_code,
+            http_exc.detail,
         )
         raise
     except Exception as e:
         logger.error(
-            f"Unexpected error getting undriven streets for '{location_name}': {str(e)}",
+            "Unexpected error getting undriven streets for '%s': %s",
+            location_name,
+            str(e),
             exc_info=True,
         )
         raise HTTPException(
@@ -829,7 +837,9 @@ async def reset_task_states():
             else:
                 # Task is running but not considered stuck yet
                 logger.info(
-                    f"Task {task_id} is running for {runtime.total_seconds() / 60:.2f} minutes, not considered stuck"
+                    "Task %s is running for %.2f minutes, not considered stuck",
+                    task_id,
+                    runtime.total_seconds() / 60,
                 )
                 skipped_count += 1
 
@@ -1593,7 +1603,7 @@ async def bulk_process_trips(data: BulkProcessModel):
                     results["failed"] += 1
             except Exception as e:
                 logger.error(
-                    f"Error processing trip {trip.get('transactionId')}: {str(e)}"
+                    "Error processing trip %s: %s", trip.get("transactionId"), str(e)
                 )
                 results["failed"] += 1
 
@@ -1790,12 +1800,12 @@ async def map_match_trips_endpoint(
                 else:
                     failed_count += 1
                     logger.warning(
-                        f"Failed to save matched trip {trip.get('transactionId')}"
+                        "Failed to save matched trip %s", trip.get("transactionId")
                     )
             except Exception as e:
                 failed_count += 1
                 logger.error(
-                    f"Error processing trip {trip.get('transactionId')}: {str(e)}"
+                    "Error processing trip %s: %s", trip.get("transactionId"), str(e)
                 )
 
         return {
@@ -1968,7 +1978,7 @@ async def remap_matched_trips(data: Optional[DateRangeModel] = None):
                 processed_count += 1
             except Exception as e:
                 logger.error(
-                    f"Error remapping trip {trip.get('transactionId')}: {str(e)}"
+                    "Error remapping trip %s: %s", trip.get("transactionId"), str(e)
                 )
 
         return {
@@ -2267,7 +2277,9 @@ async def preprocess_streets_route(location_data: LocationModel):
     except HTTPException:  # Re-raise specific HTTP exceptions
         raise
     except Exception as e:  # Catch other potential errors
-        logger.exception(f"Error in preprocess_streets_route for {display_name}: {e}")
+        logger.exception(
+            "Error in preprocess_streets_route for %s: %s", display_name, e
+        )
         # Attempt to mark status as error if possible
         try:
             await coverage_metadata_collection.update_one(
@@ -2275,7 +2287,9 @@ async def preprocess_streets_route(location_data: LocationModel):
                 {"$set": {"status": "error", "last_error": str(e)}},
             )
         except Exception as db_err:
-            logger.error(f"Failed to update error status for {display_name}: {db_err}")
+            logger.error(
+                "Failed to update error status for %s: %s", display_name, db_err
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -2496,7 +2510,7 @@ async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
                             )  # save() method now handles saving to trips_collection
                             success_count += 1
                 except Exception as gpx_err:
-                    logger.error(f"Error processing GPX file {filename}: {gpx_err}")
+                    logger.error("Error processing GPX file %s: %s", filename, gpx_err)
                     continue  # Skip to next file
 
             elif filename.endswith(".geojson"):
@@ -2517,7 +2531,7 @@ async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
                     continue
                 except Exception as geojson_err:
                     logger.error(
-                        f"Error processing GeoJSON file {filename}: {geojson_err}"
+                        "Error processing GeoJSON file %s: %s", filename, geojson_err
                     )
                     continue  # Skip to next file
             else:
@@ -2572,7 +2586,9 @@ async def upload_files(files: List[UploadFile] = File(...)):
                             count += 1
                 except Exception as gpx_err:
                     logger.error(
-                        f"Error processing GPX file {filename} in /api/upload: {gpx_err}"
+                        "Error processing GPX file %s in /api/upload: %s",
+                        filename,
+                        gpx_err,
                     )
                     continue
 
@@ -2592,7 +2608,9 @@ async def upload_files(files: List[UploadFile] = File(...)):
                     continue
                 except Exception as geojson_err:
                     logger.error(
-                        f"Error processing GeoJSON file {filename} in /api/upload: {geojson_err}"
+                        "Error processing GeoJSON file %s in /api/upload: %s",
+                        filename,
+                        geojson_err,
                     )
                     continue
 
@@ -2723,7 +2741,9 @@ async def regeocode_all_trips():
                         await processor.save()
             except Exception as trip_err:
                 logger.error(
-                    f"Error regeocoding trip {trip.get('transactionId', 'unknown')}: {trip_err}"
+                    "Error regeocoding trip %s: %s",
+                    trip.get("transactionId", "unknown"),
+                    trip_err,
                 )
                 continue  # Continue with the next trip
 
@@ -2773,10 +2793,10 @@ async def refresh_geocoding_for_trips(trip_ids: List[str]):
                 else:
                     failed_count += 1
             else:
-                logger.warning(f"Trip not found for geocoding refresh: {trip_id}")
+                logger.warning("Trip not found for geocoding refresh: %s", trip_id)
                 failed_count += 1
         except Exception as e:
-            logger.error(f"Error refreshing geocoding for trip {trip_id}: {str(e)}")
+            logger.error("Error refreshing geocoding for trip %s: %s", trip_id, str(e))
             failed_count += 1
 
     return {
@@ -3112,26 +3132,33 @@ async def get_coverage_area_details(location_id: str):
                     total_streets = len(streets_geojson.get("features", []))
                     needs_reprocessing = False  # Successfully loaded
                     logger.info(
-                        f"Successfully loaded GeoJSON from GridFS for {location_name}"
+                        "Successfully loaded GeoJSON from GridFS for %s", location_name
                     )
                 else:
                     logger.error(
-                        f"Invalid GeoJSON structure loaded from GridFS for {location_name} (ID: {gridfs_id})"
+                        "Invalid GeoJSON structure loaded from GridFS for %s (ID: %s)",
+                        location_name,
+                        gridfs_id,
                     )
                     streets_geojson = {}  # Reset on invalid structure
             except NoFile:
                 logger.error(
-                    f"GridFS file not found for ID {gridfs_id} (Location: {location_name})"
+                    "GridFS file not found for ID %s (Location: %s)",
+                    gridfs_id,
+                    location_name,
                 )
                 # Keep streets_geojson empty, needs_reprocessing remains True
             except Exception as gridfs_err:
                 logger.error(
-                    f"Error reading GeoJSON from GridFS ID {gridfs_id} for {location_name}: {gridfs_err}"
+                    "Error reading GeoJSON from GridFS ID %s for %s: %s",
+                    gridfs_id,
+                    location_name,
+                    gridfs_err,
                 )
                 # Keep streets_geojson empty, needs_reprocessing remains True
         else:
             logger.warning(
-                f"No streets_geojson_gridfs_id found for location: {location_name}"
+                "No streets_geojson_gridfs_id found for location: %s", location_name
             )
             # Keep streets_geojson empty, needs_reprocessing remains True
 
@@ -3168,7 +3195,9 @@ async def get_coverage_area_details(location_id: str):
         raise http_exc
     except Exception as e:
         logger.error(
-            f"Error fetching coverage area details for {location_id}: {str(e)}",
+            "Error fetching coverage area details for %s: %s",
+            location_id,
+            str(e),
             exc_info=True,
         )
         # Return success=False for general errors
