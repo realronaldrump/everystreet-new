@@ -45,16 +45,6 @@ from coverage_tasks import (
     process_coverage_calculation,
     process_incremental_coverage_calculation,
 )
-from models import (
-    BackgroundTasksConfigModel,
-    BulkProcessModel,
-    CollectionModel,
-    DateRangeModel,
-    LocationModel,
-    TaskRunModel,
-    TripUpdateModel,
-    ValidateLocationModel,
-)
 from db import (
     SerializationHelper,
     aggregate_with_retry,
@@ -88,6 +78,16 @@ from live_tracking import (
     handle_bouncie_webhook,
     initialize_db,
 )
+from models import (
+    BackgroundTasksConfigModel,
+    BulkProcessModel,
+    CollectionModel,
+    DateRangeModel,
+    LocationModel,
+    TaskRunModel,
+    TripUpdateModel,
+    ValidateLocationModel,
+)
 from osm_utils import generate_geojson_osm
 from tasks import (
     TASK_METADATA,
@@ -99,7 +99,7 @@ from tasks import (
 )
 from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
-from utils import cleanup_session, validate_location_osm, calculate_distance
+from utils import calculate_distance, cleanup_session, validate_location_osm
 from visits import init_collections
 from visits import router as visits_router
 

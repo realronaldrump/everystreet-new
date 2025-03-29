@@ -112,7 +112,8 @@ class DatabaseManager:
 
             # Log configuration
             logger.info(
-                f"Database configuration initialized with pool size {self._max_pool_size}"
+                "Database configuration initialized with pool size %s",
+                self._max_pool_size,
             )
 
     def _initialize_client(self) -> None:
@@ -296,8 +297,8 @@ class DatabaseManager:
                         max_attempts,
                         e.code,
                         str(e),
-                        exc_info=False,  # Keep log concise unless needed
-                    )
+                        exc_info=False,
+                    )  # Keep log concise unless needed
                     raise  # Re-raise the original OperationFailure
 
             except Exception as e:
@@ -308,8 +309,8 @@ class DatabaseManager:
                     attempts,
                     max_attempts,
                     str(e),
-                    exc_info=True,  # Log full traceback for unexpected errors
-                )
+                    exc_info=True,
+                )  # Log full traceback for unexpected errors
                 # Decide if retry makes sense for this generic exception type
                 # For now, we won't retry generic exceptions by default
                 raise  # Re-raise the original exception
@@ -363,8 +364,7 @@ class DatabaseManager:
         """
         if self._quota_exceeded:
             logger.warning(
-                "Skipping index creation for %s due to quota exceeded",
-                collection_name,
+                "Skipping index creation for %s due to quota exceeded", collection_name
             )
             return None
 
@@ -393,7 +393,10 @@ class DatabaseManager:
                 idx_keys = tuple(sorted([(k, v) for k, v in idx_info.get("key", [])]))
                 if idx_keys == keys_tuple:
                     logger.info(
-                        f"Index with keys {keys_tuple} already exists as '{idx_name}' on {collection_name}, skipping creation"
+                        "Index with keys %s already exists as '%s' on %s, skipping creation",
+                        keys_tuple,
+                        idx_name,
+                        collection_name,
                     )
                     return idx_name
 
@@ -402,7 +405,9 @@ class DatabaseManager:
             if "name" in kwargs:
                 index_name = kwargs["name"]
                 if index_name in existing_indexes:
-                    logger.info(f"Index {index_name} already exists, skipping creation")
+                    logger.info(
+                        "Index %s already exists, skipping creation", index_name
+                    )
                     return index_name
 
             async def _create_index() -> str:
@@ -422,7 +427,8 @@ class DatabaseManager:
         except DuplicateKeyError:
             # This can happen with concurrent index creation
             logger.warning(
-                f"Index already exists on {collection_name}, ignoring DuplicateKeyError"
+                "Index already exists on %s, ignoring DuplicateKeyError",
+                collection_name,
             )
             # Try to find the existing index name based on keys
             try:
@@ -556,7 +562,9 @@ class SerializationHelper:
             return json.loads(json_util.dumps(doc))
         except (TypeError, ValueError) as e:
             logger.error(
-                f"Error serializing document: {e}. Document snippet: {str(doc)[:200]}"
+                "Error serializing document: %s. Document snippet: %s",
+                e,
+                str(doc)[:200],
             )
             # Fallback to basic serialization if json_util fails (less robust)
             fallback_result = {}
@@ -1047,7 +1055,9 @@ async def get_trip_by_id(
             # This shouldn't happen due to is_valid check, but defensive coding
             pass
         except Exception as e:
-            logger.warning(f"Unexpected error finding trip by ObjectId {trip_id}: {e}")
+            logger.warning(
+                "Unexpected error finding trip by ObjectId %s: %s", trip_id, e
+            )
             pass  # Don't let this error propagate widely
 
     return trip
@@ -1251,7 +1261,7 @@ async def run_transaction(operations: List[Callable[[], Awaitable[Any]]]) -> boo
                 logger.debug("Starting transaction...")
                 results = []
                 for i, op in enumerate(operations):
-                    logger.debug(f"Executing operation {i + 1} in transaction...")
+                    logger.debug("Executing operation %d in transaction...", i + 1)
                     result = await op(
                         session=session
                     )  # Pass session to operation if needed
@@ -1308,18 +1318,21 @@ async def init_database() -> None:
             if collection_name not in existing_collections:
                 try:
                     await db.create_collection(collection_name)
-                    logger.info(f"Created collection: {collection_name}")
+                    logger.info("Created collection: %s", collection_name)
                 except pymongo.errors.CollectionInvalid:
                     logger.info(
-                        f"Collection already exists (concurrent creation?): {collection_name}"
+                        "Collection already exists (concurrent creation?): %s",
+                        collection_name,
                     )
                 except Exception as create_err:
                     logger.error(
-                        f"Failed to create collection {collection_name}: {create_err}"
+                        "Failed to create collection %s: %s",
+                        collection_name,
+                        create_err,
                     )
                     raise  # Fail fast if collection creation fails
             else:
-                logger.info(f"Collection already exists: {collection_name}")
+                logger.info("Collection already exists: %s", collection_name)
 
         # Initialize indexes (ensure these functions are robust)
         await init_task_history_collection()

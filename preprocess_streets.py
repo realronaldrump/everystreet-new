@@ -107,13 +107,18 @@ async def fetch_osm_data(
                 response.raise_for_status()
                 osm_data = await response.json()
                 logger.info(
-                    f"Successfully fetched OSM data for {location['display_name']}."
+                    "Successfully fetched OSM data for %s.", location["display_name"]
                 )
                 return osm_data
         except aiohttp.ClientResponseError as http_err:
             current_try += 1
             logger.warning(
-                f"Overpass API error (Attempt {current_try}/{retry_count}) for {location['display_name']}: {http_err.status} - {http_err.message}"
+                "Overpass API error (Attempt %d/%d) for %s: %s - %s",
+                current_try,
+                retry_count,
+                location["display_name"],
+                http_err.status,
+                http_err.message,
             )
             # Try to read response body for more details if possible
             try:
@@ -127,7 +132,7 @@ async def fetch_osm_data(
                 current_try >= retry_count or http_err.status == 400
             ):  # 400 usually means bad query, don't retry
                 logger.error(
-                    "Failed to fetch OSM data for %s after %s tries due to HTTP error.",
+                    "Failed to fetch OSM data for %s after %d tries due to HTTP error.",
                     location["display_name"],
                     retry_count,
                 )
@@ -136,11 +141,15 @@ async def fetch_osm_data(
         except aiohttp.ClientError as e:
             current_try += 1
             logger.warning(
-                f"Error fetching OSM data (Attempt {current_try}/{retry_count}) for {location['display_name']}: {e}. Retrying..."
+                "Error fetching OSM data (Attempt %d/%d) for %s: %s. Retrying...",
+                current_try,
+                retry_count,
+                location["display_name"],
+                e,
             )
             if current_try >= retry_count:
                 logger.error(
-                    "Failed to fetch OSM data for %s after %s tries: %s",
+                    "Failed to fetch OSM data for %s after %d tries: %s",
                     location["display_name"],
                     retry_count,
                     e,
@@ -248,7 +257,7 @@ def substring(line: LineString, start: float, end: float) -> Optional[LineString
             return LineString(segment_coords)
         except Exception:  # Catch potential shapely errors
             logger.warning(
-                f"Failed to create LineString from segment coords: {segment_coords}"
+                "Failed to create LineString from segment coords: %s", segment_coords
             )
             return None
     else:
@@ -277,7 +286,8 @@ def segment_street(
     # Handle potential empty list if substring fails repeatedly
     if not segments and total_length > 1e-6:
         logger.warning(
-            f"Segmentation resulted in no segments for line with length {total_length}. Returning original line."
+            "Segmentation resulted in no segments for line with length %s. Returning original line.",
+            total_length,
         )
         return [line]  # Fallback to original line
 
@@ -308,7 +318,7 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
         # access = tags.get("access")
         # motor_vehicle = tags.get("motor_vehicle")
         # if access in ["no", "private"] or motor_vehicle in ["no", "private"]:
-        #     logger.debug(f"Skipping way {osm_id} due to access tags: access={access}, motor_vehicle={motor_vehicle}")
+        #     logger.debug("Skipping way %s due to access tags: access=%s, motor_vehicle=%s", osm_id, access, motor_vehicle)
         #     return []
 
         line_wgs84 = LineString(nodes)
@@ -316,7 +326,7 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
 
         # Check for zero length after projection
         if projected_line.length < 1e-6:
-            logger.debug(f"Skipping way {osm_id} due to zero length after projection.")
+            logger.debug("Skipping way %s due to zero length after projection.", osm_id)
             return []
 
         segments = segment_street(
@@ -330,7 +340,7 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
             segment_wgs84 = transform(proj_to_wgs84, segment_utm)
             # Ensure geometry is valid before adding
             if not segment_wgs84.is_valid or segment_wgs84.is_empty:
-                logger.warning(f"Skipping invalid/empty segment {osm_id}-{i}")
+                logger.warning("Skipping invalid/empty segment %s-%d", osm_id, i)
                 continue
 
             feature = {
@@ -353,10 +363,7 @@ def process_element_parallel(element_data: Dict[str, Any]) -> List[Dict[str, Any
         return features
     except Exception as e:
         osm_id_str = element_data.get("element", {}).get("id", "UNKNOWN_ID")
-        logger.error(
-            f"Error processing element {osm_id_str}: {e}",
-            exc_info=True,  # Log traceback for worker errors
-        )
+        logger.error("Error processing element %s: %s", osm_id_str, e, exc_info=True)
         return []
 
 
@@ -380,7 +387,7 @@ async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -
 
         if not way_elements:
             logger.warning(
-                f"No valid way elements found for {location_name} after filtering."
+                "No valid way elements found for %s after filtering.", location_name
             )
             # Update metadata to reflect 0 streets if none found
             await coverage_metadata_collection.update_one(
@@ -399,7 +406,9 @@ async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -
             )
             return
 
-        logger.info(f"Processing {len(way_elements)} street ways for {location_name}")
+        logger.info(
+            "Processing %d street ways for %s", len(way_elements), location_name
+        )
 
         # Prepare data for parallel processing
         process_data = [
@@ -445,29 +454,38 @@ async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -
                             )
                             processed_segments_count += len(batch_to_insert)
                             logger.info(
-                                f"Inserted batch of {len(batch_to_insert)} segments ({processed_segments_count}/{total_segments_count} total processed for {location_name})"
+                                "Inserted batch of %d segments (%d/%d total processed for %s)",
+                                len(batch_to_insert),
+                                processed_segments_count,
+                                total_segments_count,
+                                location_name,
                             )
                             batch_to_insert = []  # Clear batch
                             gc.collect()  # Optional: Explicit GC after large insert
                             await asyncio.sleep(0.05)  # Yield control briefly
                         except Exception as insert_err:
-                            logger.error(f"Error inserting batch: {insert_err}")
+                            logger.error("Error inserting batch: %s", insert_err)
                             # Decide how to handle insert errors (e.g., skip batch, retry individual?)
                             # For now, log and continue
                             batch_to_insert = []  # Clear batch to prevent retrying same error
 
                 except TimeoutError:
                     logger.warning(
-                        f"Processing element task timed out after {PROCESS_TIMEOUT}s."
+                        "Processing element task timed out after %ds.", PROCESS_TIMEOUT
                     )
                     # Potentially mark the associated element as failed?
                 except Exception as e:
-                    logger.error(f"Error processing element future: {e}", exc_info=True)
+                    logger.error(
+                        "Error processing element future: %s", e, exc_info=True
+                    )
 
                 # Log progress periodically
                 if (i + 1) % 100 == 0:  # Log every 100 ways processed
                     logger.info(
-                        f"Processed {i + 1}/{len(way_elements)} ways for {location_name}..."
+                        "Processed %d/%d ways for %s...",
+                        i + 1,
+                        len(way_elements),
+                        location_name,
                     )
 
             # Insert any remaining segments
@@ -476,10 +494,14 @@ async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -
                     await streets_collection.insert_many(batch_to_insert, ordered=False)
                     processed_segments_count += len(batch_to_insert)
                     logger.info(
-                        f"Inserted final batch of {len(batch_to_insert)} segments ({processed_segments_count}/{total_segments_count} total processed for {location_name})"
+                        "Inserted final batch of %d segments (%d/%d total processed for %s)",
+                        len(batch_to_insert),
+                        processed_segments_count,
+                        total_segments_count,
+                        location_name,
                     )
                 except Exception as insert_err:
-                    logger.error(f"Error inserting final batch: {insert_err}")
+                    logger.error("Error inserting final batch: %s", insert_err)
 
         # Final update to coverage metadata
         if total_segments_count > 0:
@@ -525,7 +547,9 @@ async def process_osm_data(osm_data: Dict[str, Any], location: Dict[str, Any]) -
 
     except Exception as e:
         logger.error(
-            f"Error in process_osm_data for {location.get('display_name', 'Unknown')}: {e}",
+            "Error in process_osm_data for %s: %s",
+            location.get("display_name", "Unknown"),
+            e,
             exc_info=True,
         )
         # Update metadata with error status
@@ -550,7 +574,7 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
     """
     location_name = validated_location["display_name"]
     try:
-        logger.info(f"Starting street preprocessing for {location_name}")
+        logger.info("Starting street preprocessing for %s", location_name)
 
         # Ensure location exists in metadata and set status to processing
         await coverage_metadata_collection.update_one(
@@ -574,17 +598,19 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
         )
 
         # --- Step 1: Clear existing street segments for this location ---
-        logger.info(f"Clearing existing street segments for {location_name}...")
+        logger.info("Clearing existing street segments for %s...", location_name)
         try:
             delete_result = await streets_collection.delete_many(
                 {"properties.location": location_name}
             )
             logger.info(
-                f"Deleted {delete_result.deleted_count} existing segments for {location_name}."
+                "Deleted %d existing segments for %s.",
+                delete_result.deleted_count,
+                location_name,
             )
         except Exception as del_err:
             logger.error(
-                f"Error clearing existing segments for {location_name}: {del_err}"
+                "Error clearing existing segments for %s: %s", location_name, del_err
             )
             # Optionally, decide if this is a fatal error or if processing can continue
             # For now, log and continue, but new data might conflict if deletion failed badly.
@@ -592,13 +618,13 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
         # --- Step 2: Fetch OSM data (filtered) ---
         osm_data = None
         try:
-            logger.info(f"Fetching filtered OSM street data for {location_name}...")
+            logger.info("Fetching filtered OSM street data for %s...", location_name)
             osm_data = await asyncio.wait_for(
                 fetch_osm_data(validated_location, streets_only=True),
                 timeout=300,  # 5 minute timeout for fetching data
             )
         except asyncio.TimeoutError:
-            logger.error(f"Timeout fetching OSM data for {location_name}")
+            logger.error("Timeout fetching OSM data for %s", location_name)
             await coverage_metadata_collection.update_one(
                 {"location.display_name": location_name},
                 {
@@ -611,7 +637,9 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
             return  # Stop processing
         except Exception as fetch_err:
             logger.error(
-                f"Failed to fetch OSM data for {location_name}: {fetch_err}",
+                "Failed to fetch OSM data for %s: %s",
+                location_name,
+                fetch_err,
                 exc_info=True,
             )
             await coverage_metadata_collection.update_one(
@@ -627,7 +655,8 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
 
         if not osm_data or not osm_data.get("elements"):
             logger.warning(
-                f"No OSM elements returned for {location_name}. Preprocessing finished."
+                "No OSM elements returned for %s. Preprocessing finished.",
+                location_name,
             )
             await coverage_metadata_collection.update_one(
                 {"location.display_name": location_name},
@@ -643,18 +672,18 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
 
         # --- Step 3: Process OSM data (segmentation, DB insertion) ---
         try:
-            logger.info(f"Processing and segmenting OSM data for {location_name}...")
+            logger.info("Processing and segmenting OSM data for %s...", location_name)
             await asyncio.wait_for(
                 process_osm_data(osm_data, validated_location),
                 timeout=1800,  # 30 minute timeout for processing/inserting
             )
             # process_osm_data now handles setting the final "completed" status on success
             logger.info(
-                f"Street preprocessing completed successfully for {location_name}."
+                "Street preprocessing completed successfully for %s.", location_name
             )
 
         except asyncio.TimeoutError:
-            logger.error(f"Timeout processing OSM data for {location_name}")
+            logger.error("Timeout processing OSM data for %s", location_name)
             await coverage_metadata_collection.update_one(
                 {"location.display_name": location_name},
                 {
@@ -668,7 +697,9 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
         except Exception as process_err:
             # Error should have been logged and status set within process_osm_data
             logger.error(
-                f"Preprocessing failed during data processing stage for {location_name}: {process_err}",
+                "Preprocessing failed during data processing stage for %s: %s",
+                location_name,
+                process_err,
                 exc_info=True,
             )
             # No need to set status again here, process_osm_data should handle it
@@ -677,7 +708,9 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
     except Exception as e:
         # Catch-all for unexpected errors during the setup/coordination phase
         logger.error(
-            f"Unhandled error during street preprocessing orchestration for {location_name}: {e}",
+            "Unhandled error during street preprocessing orchestration for %s: %s",
+            location_name,
+            e,
             exc_info=True,
         )
         await coverage_metadata_collection.update_one(
@@ -697,4 +730,4 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
     finally:
         # Force garbage collection
         gc.collect()
-        logger.debug(f"Preprocessing task finished for {location_name}, running GC.")
+        logger.debug("Preprocessing task finished for %s, running GC.", location_name)

@@ -4,15 +4,17 @@ Fetches trip data from the Bouncie API, processes and validates each trip using
 the unified TripProcessor, and stores trips in MongoDB.
 """
 
-import os
 import logging
+import os
 from datetime import datetime, timedelta, timezone
-from dateutil import parser as date_parser
+
 import aiohttp
+from dateutil import parser as date_parser
+
+from trip_processor import TripProcessor
 
 # Local imports
 from utils import get_session
-from trip_processor import TripProcessor
 
 logging.basicConfig(
     level=logging.INFO,

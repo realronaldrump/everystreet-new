@@ -224,7 +224,8 @@ class TripProcessor:
         except Exception as e:
             error_message = f"Unexpected error: {str(e)}"
             logger.exception(
-                f"Error processing trip {self.trip_data.get('transactionId', 'unknown')}"
+                "Error processing trip %s",
+                self.trip_data.get("transactionId", "unknown"),
             )
             self._set_state(TripState.FAILED, error_message)
             return {}
@@ -237,14 +238,14 @@ class TripProcessor:
         """
         try:
             transaction_id = self.trip_data.get("transactionId", "unknown")
-            logger.debug(f"Validating trip {transaction_id}")
+            logger.debug("Validating trip %s", transaction_id)
 
             # Check required fields
             required = ["transactionId", "startTime", "endTime", "gps"]
             for field in required:
                 if field not in self.trip_data:
                     error_message = f"Missing required field: {field}"
-                    logger.warning(f"Trip {transaction_id}: {error_message}")
+                    logger.warning("Trip %s: %s", transaction_id, error_message)
                     self._set_state(TripState.FAILED, error_message)
                     return False
 
@@ -255,7 +256,7 @@ class TripProcessor:
                     gps_data = json.loads(gps_data)
                 except json.JSONDecodeError:
                     error_message = "Invalid GPS data format"
-                    logger.warning(f"Trip {transaction_id}: {error_message}")
+                    logger.warning("Trip %s: %s", transaction_id, error_message)
                     self._set_state(TripState.FAILED, error_message)
                     return False
 
@@ -265,19 +266,19 @@ class TripProcessor:
                 or "coordinates" not in gps_data
             ):
                 error_message = "GPS data missing 'type' or 'coordinates'"
-                logger.warning(f"Trip {transaction_id}: {error_message}")
+                logger.warning("Trip %s: %s", transaction_id, error_message)
                 self._set_state(TripState.FAILED, error_message)
                 return False
 
             if not isinstance(gps_data["coordinates"], list):
                 error_message = "GPS coordinates must be a list"
-                logger.warning(f"Trip {transaction_id}: {error_message}")
+                logger.warning("Trip %s: %s", transaction_id, error_message)
                 self._set_state(TripState.FAILED, error_message)
                 return False
 
             if len(gps_data["coordinates"]) < 2:
                 error_message = "GPS coordinates must have at least 2 points"
-                logger.warning(f"Trip {transaction_id}: {error_message}")
+                logger.warning("Trip %s: %s", transaction_id, error_message)
                 self._set_state(TripState.FAILED, error_message)
                 return False
 
@@ -290,13 +291,14 @@ class TripProcessor:
 
             # Update state
             self._set_state(TripState.VALIDATED)
-            logger.debug(f"Trip {transaction_id} validated successfully")
+            logger.debug("Trip %s validated successfully", transaction_id)
             return True
 
         except Exception as e:
             error_message = f"Validation error: {str(e)}"
             logger.exception(
-                f"Error validating trip {self.trip_data.get('transactionId', 'unknown')}"
+                "Error validating trip %s",
+                self.trip_data.get("transactionId", "unknown"),
             )
             self._set_state(TripState.FAILED, error_message)
             return False
@@ -319,11 +321,12 @@ class TripProcessor:
                         return False
                 else:
                     logger.warning(
-                        f"Cannot process trip that hasn't been validated: {transaction_id}"
+                        "Cannot process trip that hasn't been validated: %s",
+                        transaction_id,
                     )
                     return False
 
-            logger.debug(f"Processing basic data for trip {transaction_id}")
+            logger.debug("Processing basic data for trip %s", transaction_id)
 
             # Handle timestamps
             from dateutil import parser
@@ -389,13 +392,14 @@ class TripProcessor:
 
             # Update state
             self._set_state(TripState.PROCESSED)
-            logger.debug(f"Completed basic processing for trip {transaction_id}")
+            logger.debug("Completed basic processing for trip %s", transaction_id)
             return True
 
         except Exception as e:
             error_message = f"Processing error: {str(e)}"
             logger.exception(
-                f"Error in basic processing for trip {self.trip_data.get('transactionId', 'unknown')}"
+                "Error in basic processing for trip %s",
+                self.trip_data.get("transactionId", "unknown"),
             )
             self._set_state(TripState.FAILED, error_message)
             return False
@@ -416,7 +420,7 @@ class TripProcessor:
         try:
             return await places_collection.find_one(query)
         except Exception as e:
-            logger.error(f"Error finding place at point: {str(e)}")
+            logger.error("Error finding place at point: %s", str(e))
             return None
 
     @staticmethod
@@ -446,11 +450,15 @@ class TripProcessor:
                 return coords[0][0]  # First point of the first ring
             else:
                 logger.warning(
-                    f"Invalid polygon format in geometry for trip {transaction_id}: {coords}"
+                    "Invalid polygon format in geometry for trip %s: %s",
+                    transaction_id,
+                    coords,
                 )
         else:
             logger.warning(
-                f"Unsupported geometry type '{geom_type}' in place for trip {transaction_id}"
+                "Unsupported geometry type '%s' in place for trip %s",
+                geom_type,
+                transaction_id,
             )
 
         # Default fallback for unsupported types or invalid structures
@@ -473,16 +481,17 @@ class TripProcessor:
                     await self.process_basic()
                 if self.state != TripState.PROCESSED:
                     logger.warning(
-                        f"Cannot geocode trip that hasn't been processed: {transaction_id}"
+                        "Cannot geocode trip that hasn't been processed: %s",
+                        transaction_id,
                     )
                     return False
             elif self.state != TripState.PROCESSED:
                 logger.warning(
-                    f"Cannot geocode trip that hasn't been processed: {transaction_id}"
+                    "Cannot geocode trip that hasn't been processed: %s", transaction_id
                 )
                 return False
 
-            logger.debug(f"Geocoding trip {transaction_id}")
+            logger.debug("Geocoding trip %s", transaction_id)
 
             # Extract coordinates from geo-points
             start_coord = self.processed_data["startGeoPoint"]["coordinates"]
@@ -686,13 +695,14 @@ class TripProcessor:
 
             # Update state
             self._set_state(TripState.GEOCODED)
-            logger.debug(f"Geocoded trip {transaction_id}")
+            logger.debug("Geocoded trip %s", transaction_id)
             return True
 
         except Exception as e:
             error_message = f"Geocoding error: {str(e)}"
             logger.exception(
-                f"Error geocoding trip {self.trip_data.get('transactionId', 'unknown')}"
+                "Error geocoding trip %s",
+                self.trip_data.get("transactionId", "unknown"),
             )
             self._set_state(TripState.FAILED, error_message)
             return False
@@ -711,16 +721,18 @@ class TripProcessor:
                 await self.process(do_map_match=False)
                 if self.state != TripState.GEOCODED:
                     logger.warning(
-                        f"Cannot map match trip that hasn't been geocoded: {transaction_id}"
+                        "Cannot map match trip that hasn't been geocoded: %s",
+                        transaction_id,
                     )
                     return False
             elif self.state != TripState.GEOCODED:
                 logger.warning(
-                    f"Cannot map match trip that hasn't been geocoded: {transaction_id}"
+                    "Cannot map match trip that hasn't been geocoded: %s",
+                    transaction_id,
                 )
                 return False
 
-            logger.debug(f"Starting map matching for trip {transaction_id}")
+            logger.debug("Starting map matching for trip %s", transaction_id)
 
             if not config.mapbox_access_token:
                 logger.warning("No Mapbox token provided, skipping map matching")
@@ -751,13 +763,14 @@ class TripProcessor:
 
             # Update state
             self._set_state(TripState.MAP_MATCHED)
-            logger.debug(f"Map matched trip {transaction_id}")
+            logger.debug("Map matched trip %s", transaction_id)
             return True
 
         except Exception as e:
             error_message = f"Map matching error: {str(e)}"
             logger.exception(
-                f"Error map matching trip {self.trip_data.get('transactionId', 'unknown')}"
+                "Error map matching trip %s",
+                self.trip_data.get("transactionId", "unknown"),
             )
             self._set_state(TripState.FAILED, error_message)
             return False
@@ -1178,7 +1191,9 @@ class TripProcessor:
                 TripState.COMPLETED,
             ]:
                 logger.warning(
-                    f"Cannot save trip {self.trip_data.get('transactionId', 'unknown')} that hasn't been processed (State: {self.state.value})"
+                    "Cannot save trip %s that hasn't been processed (State: %s)",
+                    self.trip_data.get("transactionId", "unknown"),
+                    self.state.value,
                 )
                 return None
 
@@ -1220,7 +1235,8 @@ class TripProcessor:
                         matched_gps_data = json.loads(matched_gps_data)
                     except json.JSONDecodeError:
                         logger.error(
-                            f"Invalid JSON in matchedGps for trip {transaction_id}, skipping matched save."
+                            "Invalid JSON in matchedGps for trip %s, skipping matched save.",
+                            transaction_id,
                         )
                         matched_gps_data = None  # Prevent saving invalid data
 
@@ -1262,15 +1278,18 @@ class TripProcessor:
                         )
                     except DuplicateKeyError:
                         logger.info(
-                            f"Matched trip {transaction_id} already exists (concurrent update?)"
+                            "Matched trip %s already exists (concurrent update?)",
+                            transaction_id,
                         )
                     except Exception as matched_save_err:
                         logger.error(
-                            f"Error saving matched trip {transaction_id}: {matched_save_err}"
+                            "Error saving matched trip %s: %s",
+                            transaction_id,
+                            matched_save_err,
                         )
 
             logger.info(
-                f"Saved trip {transaction_id} to {collection.name} successfully"
+                "Saved trip %s to %s successfully", transaction_id, collection.name
             )
 
             # Find the saved document in the main collection to get the _id
@@ -1279,7 +1298,7 @@ class TripProcessor:
             return str(saved_doc["_id"]) if saved_doc else None
 
         except Exception as e:
-            logger.error(f"Error saving trip: {str(e)}")
+            logger.error("Error saving trip: %s", str(e))
             return None
 
     # Utility methods moved from trip_processing.py
