@@ -21,6 +21,7 @@ class LiveTripTracker {
       color: "#00FF00",
       weight: 3,
       opacity: 0.8,
+      zIndex: 1000  // Ensure high z-index for the live trip
     }).addTo(this.map);
 
     this.marker = L.marker([0, 0], {
@@ -61,10 +62,16 @@ class LiveTripTracker {
       await this.loadInitialTripData();
       this.startPolling();
 
+      // Ensure live trip always stays on top when map is updated
+      document.addEventListener("mapUpdated", () => {
+        this.bringLiveTripToFront();
+      });
+
       // Handle page visibility changes to adjust polling
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") {
           this.decreasePollingInterval(); // Speed up polling when page is visible
+          this.bringLiveTripToFront(); // Ensure live trip is on top when returning to the page
         } else {
           this.increasePollingInterval(); // Slow down polling when page is hidden
         }
@@ -420,6 +427,7 @@ class LiveTripTracker {
     if (isNewTrip) {
       console.log("New trip detected, resetting view");
       this.polyline.setLatLngs(latLngs);
+      this.polyline.bringToFront(); // Ensure live trip stays on top
 
       if (!this.map.hasLayer(this.marker)) {
         this.marker.addTo(this.map);
@@ -452,6 +460,7 @@ class LiveTripTracker {
       if (latLngs.length > prevCoords.length) {
         // Add new points to existing polyline
         this.polyline.setLatLngs(latLngs);
+        this.polyline.bringToFront(); // Ensure live trip stays on top
 
         // Smooth marker movement
         if (prevCoords.length > 0) {
@@ -620,6 +629,7 @@ class LiveTripTracker {
     this.polyline.setStyle({
       color: color || "#00FF00",
       opacity: parseFloat(opacity) || 0.8,
+      zIndex: 1000 // Ensure high z-index for the live trip
     });
 
     // If we have an active trip, ensure the polyline is visible
@@ -630,6 +640,17 @@ class LiveTripTracker {
     ) {
       // Make sure changes are visible
       this.polyline.redraw();
+      // Ensure polyline stays on top
+      this.bringLiveTripToFront();
+    }
+  }
+  
+  /**
+   * Ensures the live trip polyline is always displayed on top of other map layers
+   */
+  bringLiveTripToFront() {
+    if (this.polyline && this.activeTrip) {
+      this.polyline.bringToFront();
     }
   }
 
