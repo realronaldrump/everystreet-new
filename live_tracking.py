@@ -158,7 +158,7 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
     start_time, _ = get_trip_timestamps(data)
     if not start_time:
         logger.error(
-            f"Failed to extract start time from tripStart event for {transaction_id}"
+            "Failed to extract start time from tripStart event for %s", transaction_id
         )
         start_time = datetime.now(timezone.utc)
 
@@ -245,13 +245,13 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
 
         if archived_trip:
             logger.warning(
-                f"Received data for archived trip: {transaction_id}, ignoring"
+                "Received data for archived trip: %s, ignoring", transaction_id
             )
             return
 
         # If no active trip found, create one but log a warning as this is unexpected
         logger.warning(
-            f"Received trip data for unknown trip: {transaction_id}, creating new trip"
+            "Received trip data for unknown trip: %s, creating new trip", transaction_id
         )
         now = datetime.now(timezone.utc)
 
@@ -272,7 +272,7 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
             if timestamps:
                 start_time = min(timestamps)
                 logger.info(
-                    f"Using earliest timestamp from data as start time: {start_time}"
+                    "Using earliest timestamp from data as start time: %s", start_time
                 )
 
         sequence = int(time.time() * 1000)
@@ -395,7 +395,10 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
         },
     )
     logger.info(
-        f"Updated trip data: {transaction_id} with {len(new_coords)} new points (total: {len(all_coords)})"
+        "Updated trip data: %s with %d new points (total: %d)",
+        transaction_id,
+        len(new_coords),
+        len(all_coords),
     )
 
 
@@ -421,7 +424,7 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     _, end_time = get_trip_timestamps(data)
     if not end_time:
         logger.error(
-            f"Failed to extract end time from tripEnd event for {transaction_id}"
+            "Failed to extract end time from tripEnd event for %s", transaction_id
         )
         end_time = datetime.now(timezone.utc)
 
@@ -440,9 +443,12 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     max_speed = trip.get("maxSpeed", 0)
 
     logger.info(
-        f"Ending trip {transaction_id}: duration={duration:.1f}s, "
-        f"distance={distance:.2f}mi, avg_speed={avg_speed:.1f}mph, "
-        f"max_speed={max_speed:.1f}mph"
+        "Ending trip %s: duration=%.1fs, distance=%.2fmi, avg_speed=%.1fmph, max_speed=%.1fmph",
+        transaction_id,
+        duration,
+        distance,
+        avg_speed,
+        max_speed,
     )
 
     # Remove _id field before archiving to avoid MongoDB error
@@ -630,7 +636,9 @@ async def cleanup_stale_trips(
 
         if archive_cleanup_count > 0:
             logger.info(
-                f"Deleted {archive_cleanup_count} old archived trips (older than {max_archive_age_days} days)"
+                "Deleted %d old archived trips (older than %d days)",
+                archive_cleanup_count,
+                max_archive_age_days,
             )
 
     except Exception as e:

@@ -49,7 +49,8 @@ if not REDIS_URL:
         )
 
 logger.info(
-    f"Configuring Celery with broker: {REDIS_URL.split('@')[-1] if '@' in REDIS_URL else REDIS_URL}"
+    "Configuring Celery with broker: %s",
+    REDIS_URL.split("@")[-1] if "@" in REDIS_URL else REDIS_URL,
 )
 os.environ["CELERY_BROKER_URL"] = REDIS_URL
 # Max retry attempts for Redis connection
@@ -75,14 +76,18 @@ def get_redis_connection_with_retry():
         except ConnectionError as e:
             retry_count += 1
             logger.warning(
-                f"Redis connection failed (attempt {retry_count}/{MAX_RETRIES}): {e}"
+                "Redis connection failed (attempt %d/%d): %s",
+                retry_count,
+                MAX_RETRIES,
+                e,
             )
             if retry_count < MAX_RETRIES:
                 logger.info("Retrying Redis connection in %s seconds...", RETRY_DELAY)
                 time.sleep(RETRY_DELAY)
             else:
                 logger.error(
-                    f"Failed to connect to Redis after {MAX_RETRIES} attempts. Celery will likely fail to start."
+                    "Failed to connect to Redis after %d attempts. Celery will likely fail to start.",
+                    MAX_RETRIES,
                 )
                 raise  # Re-raise the exception to prevent Celery from starting without Redis
         except Exception as e:

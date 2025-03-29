@@ -107,7 +107,9 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str) -
         task_id: Unique identifier for tracking this specific task run.
     """
     display_name = location.get("display_name", "Unknown Location")
-    logger.info(f"Starting full coverage calculation task {task_id} for {display_name}")
+    logger.info(
+        "Starting full coverage calculation task %s for %s", task_id, display_name
+    )
     try:
         # Initialize progress tracking
         await progress_collection.update_one(
@@ -132,7 +134,8 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str) -
         # None indicates an error occurred during calculation (already logged/status updated by calc function).
         if result:
             logger.info(
-                f"Coverage calculation successful for {display_name}. Updating metadata with final stats."
+                "Coverage calculation successful for %s. Updating metadata with final stats.",
+                display_name,
             )
 
             # Stats are directly available in the result dictionary
@@ -181,14 +184,16 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str) -
                 },
             )
             logger.info(
-                f"Task {task_id} calculation part completed for {display_name}."
+                "Task %s calculation part completed for %s.", task_id, display_name
             )
 
         else:  # result is None
             # The compute_coverage_for_location function handled error logging and status updates already.
             # We just log here that the task didn't return a result.
             logger.error(
-                f"Coverage calculation task {task_id} for {display_name} returned None (error occurred during calculation)."
+                "Coverage calculation task %s for %s returned None (error occurred during calculation).",
+                task_id,
+                display_name,
             )
             # No need to update metadata/progress here, calculator should have set it to 'error'
 
@@ -223,7 +228,9 @@ async def process_coverage_calculation(location: Dict[str, Any], task_id: str) -
             )
         except Exception as inner_e:
             logger.error(
-                f"Task {task_id}: Failed to update status after primary orchestration error: {str(inner_e)}"
+                "Task %s: Failed to update status after primary orchestration error: %s",
+                task_id,
+                str(inner_e),
             )
 
 
@@ -242,7 +249,9 @@ async def process_incremental_coverage_calculation(
     """
     display_name = location.get("display_name", "Unknown Location")
     logger.info(
-        f"Starting incremental coverage calculation task {task_id} for {display_name}"
+        "Starting incremental coverage calculation task %s for %s",
+        task_id,
+        display_name,
     )
     try:
         # Initialize progress tracking
@@ -266,14 +275,18 @@ async def process_incremental_coverage_calculation(
         if result:
             # Incremental function already updated metadata and progress on success
             logger.info(
-                f"Incremental coverage task {task_id} for {display_name} completed successfully (calculation part)."
+                "Incremental coverage task %s for %s completed successfully (calculation part).",
+                task_id,
+                display_name,
             )
             # Progress/metadata should reflect 'complete' state from the calculator function.
             # GeoJSON generation is triggered separately within compute_incremental_coverage.
         else:
             # The compute_incremental_coverage function handled error reporting.
             logger.error(
-                f"Incremental coverage task {task_id} for {display_name} failed or returned no result."
+                "Incremental coverage task %s for %s failed or returned no result.",
+                task_id,
+                display_name,
             )
             # Progress/metadata should reflect 'error' state from the calculator function.
 
@@ -308,7 +321,9 @@ async def process_incremental_coverage_calculation(
             )
         except Exception as inner_e:
             logger.error(
-                f"Task {task_id}: Failed to update status after primary incremental orchestration error: {str(inner_e)}"
+                "Task %s: Failed to update status after primary incremental orchestration error: %s",
+                task_id,
+                str(inner_e),
             )
 
 
@@ -323,7 +338,7 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
         task_id: Unique identifier for tracking this combined task run.
     """
     display_name = location.get("display_name", "Unknown Location")
-    logger.info(f"Starting full area processing task {task_id} for {display_name}")
+    logger.info("Starting full area processing task %s for %s", task_id, display_name)
     try:
         # 1. Initialize Progress and Metadata Status
         await progress_collection.update_one(
@@ -382,7 +397,10 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
                 else "Preprocessing failed (metadata not found)"
             )
             logger.error(
-                f"Task {task_id}: Preprocessing failed for {display_name}: {error_msg}"
+                "Task %s: Preprocessing failed for %s: %s",
+                task_id,
+                display_name,
+                error_msg,
             )
             await progress_collection.update_one(
                 {"_id": task_id},
@@ -398,7 +416,7 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
             )
             return  # Stop processing
 
-        logger.info(f"Task {task_id}: Preprocessing completed for {display_name}.")
+        logger.info("Task %s: Preprocessing completed for %s.", task_id, display_name)
         # Update metadata status to 'calculating' before starting calculation
         await update_one_with_retry(
             coverage_metadata_collection,
@@ -434,12 +452,17 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
 
         if final_status == "completed":
             logger.info(
-                f"Full area processing task {task_id} completed successfully for {display_name}."
+                "Full area processing task %s completed successfully for %s.",
+                task_id,
+                display_name,
             )
             # Progress should already be 100% from process_coverage_calculation
         elif final_status == "error":
             logger.error(
-                f"Full area processing task {task_id} failed during coverage calculation for {display_name}: {final_error}"
+                "Full area processing task %s failed during coverage calculation for %s: %s",
+                task_id,
+                display_name,
+                final_error,
             )
             # Ensure progress reflects the error state if process_coverage_calculation didn't finalize it
             # (It should have, but this is a safety check)
@@ -457,7 +480,10 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
             )
         else:
             logger.warning(
-                f"Full area processing task {task_id} for {display_name} finished with unexpected status: {final_status}."
+                "Full area processing task %s for %s finished with unexpected status: %s.",
+                task_id,
+                display_name,
+                final_status,
             )
             # Update progress to reflect unexpected state
             await progress_collection.update_one(
@@ -503,5 +529,7 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
             )
         except Exception as inner_e:
             logger.error(
-                f"Task {task_id}: Failed to update status after primary area processing error: {str(inner_e)}"
+                "Task %s: Failed to update status after primary area processing error: %s",
+                task_id,
+                str(inner_e),
             )
