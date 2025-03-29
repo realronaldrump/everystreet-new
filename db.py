@@ -1284,7 +1284,6 @@ async def init_database() -> None:
             "trips",
             "matched_trips",
             "places",
-            "settings",
             "task_history",
             "streets",
             "coverage_metadata",
