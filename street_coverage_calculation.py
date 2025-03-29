@@ -127,7 +127,6 @@ def process_trip_worker(
             mongo_client.admin.command("ping")
             db = mongo_client[db_name]
             streets_col = db[streets_collection_name]
-            # worker_logger.info("Worker connected to DB.")
         except (ConnectionFailure, ServerSelectionTimeoutError):
             # worker_logger.error(f"Worker failed to connect to DB: {db_conn_err}")
             # Cannot proceed without DB connection
@@ -141,7 +140,6 @@ def process_trip_worker(
                 wgs84_proj, utm_proj, always_xy=True
             ).transform
         except pyproj.exceptions.CRSError:
-            # worker_logger.error(f"Worker failed to create projections: {proj_err}")
             return {}  # Cannot proceed without projections
 
         # --- Fetch Required Street Geometries ---
@@ -150,7 +148,6 @@ def process_trip_worker(
             all_needed_segment_ids.update(segment_ids)
 
         if not all_needed_segment_ids:
-            # worker_logger.info("Worker: No candidate segments needed.")
             return {}
 
         street_data_map: Dict[str, Dict] = {}
@@ -164,9 +161,7 @@ def process_trip_worker(
                 seg_id = street_doc.get("properties", {}).get("segment_id")
                 if seg_id:
                     street_data_map[seg_id] = street_doc
-            # worker_logger.debug(f"Worker fetched {len(street_data_map)} street geometries.")
         except Exception:
-            # worker_logger.error(f"Worker DB Error fetching streets: {db_err}")
             return {}  # Fail gracefully for this batch if DB read fails
 
         # --- Pre-transform Street Geometries to UTM ---
@@ -176,7 +171,6 @@ def process_trip_worker(
                 geom_wgs84 = shape(street_doc["geometry"])
                 street_utm_geoms[seg_id] = transform(project_to_utm, geom_wgs84)
             except (GEOSException, ValueError, TypeError):
-                # worker_logger.warning(f"Worker: Error transforming street {seg_id}: {geom_err}")
                 continue  # Skip problematic street geometry
 
         # --- Process Each Trip ---
@@ -227,9 +221,7 @@ def process_trip_worker(
         if mongo_client:
             try:
                 mongo_client.close()
-                # worker_logger.info("Worker closed DB connection.")
             except Exception:
-                # worker_logger.error(f"Worker error closing DB connection: {close_err}")
                 pass
 
     # Ensure the returned dictionary contains sets of strings (segment IDs)
@@ -517,7 +509,6 @@ class CoverageCalculator:
                         geometry_data = street.get("geometry")
 
                         if not segment_id or not geometry_data:
-                            # logger.warning(f"Task {self.task_id}: Skipping street due to missing segment_id or geometry (Processed: {processed_count}).")
                             continue
 
                         geom_wgs84 = shape(geometry_data)
@@ -530,7 +521,6 @@ class CoverageCalculator:
                         if (
                             segment_length_m <= 0.1
                         ):  # Use a small threshold instead of zero
-                            # logger.debug(f"Task {self.task_id}: Skipping street {segment_id} with negligible length ({segment_length_m:.2f}m).")
                             continue
 
                         # Store minimal data in lookup cache, keyed by R-tree index ID
@@ -619,15 +609,12 @@ class CoverageCalculator:
                 try:
                     data = json.loads(gps_data)
                 except json.JSONDecodeError:
-                    # logger.debug("Invalid JSON in GPS data string.")
                     return False, []
             else:
-                # logger.debug(f"Unparseable GPS data type: {type(gps_data)}")
                 return False, []
 
             coords = data.get("coordinates", [])
             if not isinstance(coords, list) or len(coords) < 2:
-                # logger.debug(f"Invalid coordinates structure or length < 2. Length: {len(coords)}")
                 return False, []
 
             # Basic check on first/last points structure and numeric types
@@ -640,7 +627,6 @@ class CoverageCalculator:
                 and all(isinstance(val, (int, float)) for val in p_start[:2])
                 and all(isinstance(val, (int, float)) for val in p_end[:2])
             ):
-                # logger.debug("Invalid coordinate structure or non-numeric values in start/end points.")
                 return False, []
 
             # Optional: Add check for coordinate range validity (-180 to 180 lon, -90 to 90 lat)
@@ -652,7 +638,6 @@ class CoverageCalculator:
 
             return True, coords
         except Exception:
-            # logger.error(f"Error decoding/validating GPS data: {e}", exc_info=False)
             return False, []
 
     async def process_trips(self, processed_trip_ids_set: Set[str]) -> bool:
@@ -768,9 +753,9 @@ class CoverageCalculator:
                 trips_cursor, self.trip_batch_size
             ):
                 batch_num += 1
-                valid_trips_in_batch: List[
-                    Tuple[str, List[Any]]
-                ] = []  # List of (trip_id, coords)
+                valid_trips_in_batch: List[Tuple[str, List[Any]]] = (
+                    []
+                )  # List of (trip_id, coords)
 
                 # Validate trips in the current batch
                 for trip_doc in trip_batch_docs:
@@ -785,7 +770,6 @@ class CoverageCalculator:
                     else:
                         # Add invalid trip ID to processed set to avoid re-processing
                         processed_trip_ids_set.add(trip_id)
-                        # logger.debug(f"Task {self.task_id}: Skipping invalid trip {trip_id}")
 
                 if not valid_trips_in_batch:
                     continue  # Skip batch if no valid trips
@@ -850,7 +834,6 @@ class CoverageCalculator:
                         # No candidates found for any trip in this sub-batch
                         processed_count_local += len(sub_batch)
                         processed_trip_ids_set.update(sub_batch_trip_ids)
-                        # logger.debug(f"Task {self.task_id}: No candidates for sub-batch starting with trip {sub_batch_trip_ids[0]}.")
                         continue
 
                     # --- Submit to Worker Pool (or run sequentially) ---
@@ -928,9 +911,7 @@ class CoverageCalculator:
                             wrapped_futures.keys(), timeout=0.1
                         ):  # Short timeout
                             try:
-                                await (
-                                    wrapped_future
-                                )  # Wait for the wrapped future to complete
+                                await wrapped_future  # Wait for the wrapped future to complete
                                 original_future = wrapped_futures[wrapped_future]
                                 original_sub_batch = pending_futures_map.pop(
                                     original_future, []
@@ -1980,7 +1961,6 @@ async def generate_and_store_geojson(
                 features.append(feature)
                 total_features += 1
 
-            # logger.debug(f"Task {task_id}: Processed GeoJSON batch {batch_num} for {location_name}")
             await asyncio.sleep(0.01)  # Yield briefly during large reads
 
         logger.info(
