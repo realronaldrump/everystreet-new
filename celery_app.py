@@ -168,11 +168,6 @@ app.conf.update(
             ),
             "options": {"queue": "default"},
         },
-        "preprocess_streets_daily": {
-            "task": "tasks.preprocess_streets",
-            "schedule": timedelta(days=1),
-            "options": {"queue": "low_priority"},
-        },
         "cleanup_stale_trips_hourly": {
             "task": "tasks.cleanup_stale_trips",
             "schedule": timedelta(minutes=60),

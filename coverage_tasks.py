@@ -24,7 +24,6 @@ from preprocess_streets import preprocess_streets as async_preprocess_streets
 from street_coverage_calculation import (
     compute_coverage_for_location,
     compute_incremental_coverage,
-    # generate_and_store_geojson # No need to call this directly here, it's called internally now
 )
 
 # Setup logging
