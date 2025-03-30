@@ -172,9 +172,6 @@ block content %}
     transition: all 0.3s ease;
     max-height: 70vh;
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-    overscroll-behavior: contain;
   }
 
   /* Collapsible controls panel */
@@ -206,9 +203,7 @@ block content %}
   /* Undriven streets layer styling */
   .undriven-street {
     stroke-dasharray: 5, 5; /* Creates a dashed line effect */
-    transition:
-      stroke-width 0.2s ease,
-      opacity 0.2s ease;
+    transition: stroke-width 0.2s ease, opacity 0.2s ease;
   }
 
   .undriven-street:hover {
