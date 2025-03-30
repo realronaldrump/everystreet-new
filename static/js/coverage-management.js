@@ -2457,7 +2457,7 @@
         layer.originalStyle = { ...newStyle }; // Update original style too
 
         // Close the popup
-        if (layer.getPopup().isOpen()) {
+        if (layer.getPopup() && layer.getPopup().isOpen()) {
           this.coverageMap.closePopup();
         }
 
@@ -2476,8 +2476,17 @@
           "success"
         );
 
-        // Refresh the coverage statistics
-        this.refreshCoverageStats();
+        try {
+          // Refresh the coverage statistics
+          await this.refreshCoverageStats();
+        } catch (statsError) {
+          console.error("Error refreshing stats:", statsError);
+          // Don't throw here, as the main operation succeeded
+          window.notificationManager.show(
+            "Street marked successfully, but stats could not be refreshed.",
+            "warning"
+          );
+        }
       } catch (error) {
         console.error(`Error marking segment as ${statusText}:`, error);
         window.notificationManager.show(
@@ -2501,11 +2510,7 @@
         );
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.detail ||
-              `Failed to refresh stats (HTTP ${response.status})`
-          );
+          throw new Error(`Failed to refresh stats (HTTP ${response.status})`);
         }
 
         const data = await response.json();
@@ -2518,9 +2523,11 @@
 
         // Update the summary control
         this.addCoverageSummary(data.coverage);
+
+        return data;
       } catch (error) {
         console.error("Error refreshing coverage stats:", error);
-        // Don't show notification to avoid spamming the user
+        throw error; // Rethrow so markStreetSegment can handle it
       }
     }
 
