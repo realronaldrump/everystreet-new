@@ -2027,21 +2027,21 @@
           ].includes(streetType)
         )
           weight = baseWeight - 1;
-      
+
         let color;
         let className;
-      
+
         if (isUndriveable) {
           // Gray/blue for undriveable streets
-          color = "#607d8b"; 
+          color = "#607d8b";
           className = "undriveable-street";
         } else if (isDriven) {
           // Green for driven streets
-          color = "#4caf50"; 
+          color = "#4caf50";
           className = "driven-street";
         } else {
           // Red for undriven streets
-          color = "#ff5252"; 
+          color = "#ff5252";
           className = "undriven-street";
         }
 
@@ -2050,7 +2050,7 @@
           weight: weight,
           opacity: 0.8,
           className: className, // For potential CSS/export styling
-          dashArray: isUndriveable ? "4, 4" : null // Dashed line for undriveable
+          dashArray: isUndriveable ? "4, 4" : null, // Dashed line for undriveable
         };
       };
 
@@ -2073,8 +2073,8 @@
           layer.featureProperties = props;
 
           // Create popup content
-          const popupContent = document.createElement('div');
-          popupContent.className = 'street-popup';
+          const popupContent = document.createElement("div");
+          popupContent.className = "street-popup";
           popupContent.innerHTML = `
             <h6>${streetName}</h6>
             <hr class="my-1">
@@ -2082,49 +2082,56 @@
               <strong>Type:</strong> ${this.formatStreetType(streetType)}<br>
               <strong>Length:</strong> ${lengthMiles} mi<br>
               <strong>Status:</strong> <span class="${props.driven ? "text-success" : "text-danger"}">${status}</span><br>
-              ${props.undriveable ? '<strong>Marked as:</strong> <span class="text-warning">Undriveable</span><br>' : ''}
+              ${props.undriveable ? '<strong>Marked as:</strong> <span class="text-warning">Undriveable</span><br>' : ""}
               <strong>ID:</strong> ${segmentId}
             </small>
             <div class="street-actions mt-2 d-flex gap-2">
-              ${props.driven ? 
-                `<button class="btn btn-sm btn-outline-danger mark-undriven-btn">Mark as Undriven</button>` : 
-                `<button class="btn btn-sm btn-outline-success mark-driven-btn">Mark as Driven</button>`
+              ${
+                props.driven
+                  ? `<button class="btn btn-sm btn-outline-danger mark-undriven-btn">Mark as Undriven</button>`
+                  : `<button class="btn btn-sm btn-outline-success mark-driven-btn">Mark as Driven</button>`
               }
-              ${props.undriveable ? 
-                `<button class="btn btn-sm btn-outline-info mark-driveable-btn">Mark as Driveable</button>` : 
-                `<button class="btn btn-sm btn-outline-warning mark-undriveable-btn">Mark as Undriveable</button>`
+              ${
+                props.undriveable
+                  ? `<button class="btn btn-sm btn-outline-info mark-driveable-btn">Mark as Driveable</button>`
+                  : `<button class="btn btn-sm btn-outline-warning mark-undriveable-btn">Mark as Undriveable</button>`
               }
             </div>
           `;
 
           // Add event listeners to the buttons
           const self = this;
-          const markDrivenBtn = popupContent.querySelector('.mark-driven-btn');
-          const markUndrivenBtn = popupContent.querySelector('.mark-undriven-btn');
-          const markUndriveableBtn = popupContent.querySelector('.mark-undriveable-btn');
-          const markDriveableBtn = popupContent.querySelector('.mark-driveable-btn');
+          const markDrivenBtn = popupContent.querySelector(".mark-driven-btn");
+          const markUndrivenBtn =
+            popupContent.querySelector(".mark-undriven-btn");
+          const markUndriveableBtn = popupContent.querySelector(
+            ".mark-undriveable-btn",
+          );
+          const markDriveableBtn = popupContent.querySelector(
+            ".mark-driveable-btn",
+          );
 
           if (markDrivenBtn) {
-            markDrivenBtn.addEventListener('click', function() {
-              self.markStreetSegment(layer, 'driven');
+            markDrivenBtn.addEventListener("click", function () {
+              self.markStreetSegment(layer, "driven");
             });
           }
 
           if (markUndrivenBtn) {
-            markUndrivenBtn.addEventListener('click', function() {
-              self.markStreetSegment(layer, 'undriven');
+            markUndrivenBtn.addEventListener("click", function () {
+              self.markStreetSegment(layer, "undriven");
             });
           }
 
           if (markUndriveableBtn) {
-            markUndriveableBtn.addEventListener('click', function() {
-              self.markStreetSegment(layer, 'undriveable');
+            markUndriveableBtn.addEventListener("click", function () {
+              self.markStreetSegment(layer, "undriveable");
             });
           }
 
           if (markDriveableBtn) {
-            markDriveableBtn.addEventListener('click', function() {
-              self.markStreetSegment(layer, 'driveable');
+            markDriveableBtn.addEventListener("click", function () {
+              self.markStreetSegment(layer, "driveable");
             });
           }
 
@@ -2193,57 +2200,71 @@
                       ${status}
                     </span>
                   </div>
-                  ${props.undriveable ? `
+                  ${
+                    props.undriveable
+                      ? `
                   <div class="d-flex justify-content-between small">
                     <span>Special:</span>
                     <span class="text-warning">
                       <i class="fas fa-exclamation-triangle me-1"></i>
                       Undriveable
                     </span>
-                  </div>` : ''}
+                  </div>`
+                      : ""
+                  }
                   <div class="d-flex justify-content-between small">
                      <span>ID:</span>
                      <span class="text-muted">${segmentId}</span>
                   </div>
                   <div class="mt-2 d-flex gap-2 flex-wrap">
-                    ${props.driven ? 
-                      `<button class="btn btn-sm btn-outline-danger mark-undriven-btn-panel">Mark Undriven</button>` : 
-                      `<button class="btn btn-sm btn-outline-success mark-driven-btn-panel">Mark Driven</button>`
+                    ${
+                      props.driven
+                        ? `<button class="btn btn-sm btn-outline-danger mark-undriven-btn-panel">Mark Undriven</button>`
+                        : `<button class="btn btn-sm btn-outline-success mark-driven-btn-panel">Mark Driven</button>`
                     }
-                    ${props.undriveable ? 
-                      `<button class="btn btn-sm btn-outline-info mark-driveable-btn-panel">Mark Driveable</button>` : 
-                      `<button class="btn btn-sm btn-outline-warning mark-undriveable-btn-panel">Mark Undriveable</button>`
+                    ${
+                      props.undriveable
+                        ? `<button class="btn btn-sm btn-outline-info mark-driveable-btn-panel">Mark Driveable</button>`
+                        : `<button class="btn btn-sm btn-outline-warning mark-undriveable-btn-panel">Mark Undriveable</button>`
                     }
                   </div>`;
                 infoPanel.style.display = "block"; // Show panel
-                
+
                 // Add event listeners to the panel buttons
-                const markDrivenBtnPanel = infoPanel.querySelector('.mark-driven-btn-panel');
-                const markUndrivenBtnPanel = infoPanel.querySelector('.mark-undriven-btn-panel');
-                const markUndriveableBtnPanel = infoPanel.querySelector('.mark-undriveable-btn-panel');
-                const markDriveableBtnPanel = infoPanel.querySelector('.mark-driveable-btn-panel');
-                
+                const markDrivenBtnPanel = infoPanel.querySelector(
+                  ".mark-driven-btn-panel",
+                );
+                const markUndrivenBtnPanel = infoPanel.querySelector(
+                  ".mark-undriven-btn-panel",
+                );
+                const markUndriveableBtnPanel = infoPanel.querySelector(
+                  ".mark-undriveable-btn-panel",
+                );
+                const markDriveableBtnPanel = infoPanel.querySelector(
+                  ".mark-driveable-btn-panel",
+                );
+
                 if (markDrivenBtnPanel) {
-                  markDrivenBtnPanel.addEventListener('click', () => {
-                    this.markStreetSegment(clickedLayer, 'driven');
+                  markDrivenBtnPanel.addEventListener("click", () => {
+                    this.markStreetSegment(clickedLayer, "driven");
                   });
                 }
-                
+
                 if (markUndrivenBtnPanel) {
-                  markUndrivenBtnPanel.addEventListener('click', () => {
-                    this.markStreetSegment(clickedLayer, 'undriven');
+                  markUndrivenBtnPanel.addEventListener("click", () => {
+                    this.markStreetSegment(clickedLayer, "undriven");
                   });
                 }
-                
+
                 if (markUndriveableBtnPanel) {
-                  markUndriveableBtnPanel.addEventListener('click', () => {
-                    this.markStreetSegment(clickedLayer, 'undriveable');
+                  markUndriveableBtnPanel.addEventListener("click", () => {
+                    this.markStreetSegment(clickedLayer, "undriveable");
                   });
                 }
-                
+
                 if (markDriveableBtnPanel) {
-                  markDriveableBtnPanel.addEventListener('click', () => {
-                    this.markStreetSegment(clickedLayer, 'driveable');
+                  markDriveableBtnPanel.addEventListener("click", () => {
+                    this.markStreetSegment(clickedLayer, "driveable");
                   });
                 }
               }
@@ -2332,7 +2353,7 @@
       if (!props || !props.segment_id) {
         window.notificationManager.show(
           "Unable to mark street segment: missing segment ID",
-          "danger"
+          "danger",
         );
         return;
       }
@@ -2341,7 +2362,7 @@
       if (!this.selectedLocation || !this.selectedLocation._id) {
         window.notificationManager.show(
           "Unable to mark street segment: missing location ID",
-          "danger"
+          "danger",
         );
         return;
       }
@@ -2351,31 +2372,28 @@
       let apiEndpoint, statusText, actionText;
 
       switch (action) {
-        case 'driven':
-          apiEndpoint = '/api/street_segments/mark_driven';
-          statusText = 'driven';
-          actionText = 'Drive';
+        case "driven":
+          apiEndpoint = "/api/street_segments/mark_driven";
+          statusText = "driven";
+          actionText = "Drive";
           break;
-        case 'undriven':
-          apiEndpoint = '/api/street_segments/mark_undriven';
-          statusText = 'undriven';
-          actionText = 'Undrive';
+        case "undriven":
+          apiEndpoint = "/api/street_segments/mark_undriven";
+          statusText = "undriven";
+          actionText = "Undrive";
           break;
-        case 'undriveable':
-          apiEndpoint = '/api/street_segments/mark_undriveable';
-          statusText = 'undriveable';
-          actionText = 'Undriveable';
+        case "undriveable":
+          apiEndpoint = "/api/street_segments/mark_undriveable";
+          statusText = "undriveable";
+          actionText = "Undriveable";
           break;
-        case 'driveable':
-          apiEndpoint = '/api/street_segments/mark_driveable';
-          statusText = 'driveable';
-          actionText = 'Driveable';
+        case "driveable":
+          apiEndpoint = "/api/street_segments/mark_driveable";
+          statusText = "driveable";
+          actionText = "Driveable";
           break;
         default:
-          window.notificationManager.show(
-            "Invalid action specified",
-            "danger"
-          );
+          window.notificationManager.show("Invalid action specified", "danger");
           return;
       }
 
@@ -2384,43 +2402,48 @@
         // Show processing notification
         window.notificationManager.show(
           `Marking ${streetName} as ${statusText}...`,
-          "info"
+          "info",
         );
 
         // Send request to the API
         const response = await fetch(apiEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             location_id: locationId,
-            segment_id: segmentId
-          })
+            segment_id: segmentId,
+          }),
         });
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.detail || `Failed to mark segment (HTTP ${response.status})`);
+          throw new Error(
+            errorData.detail ||
+              `Failed to mark segment (HTTP ${response.status})`,
+          );
         }
 
         const data = await response.json();
         if (!data.success) {
-          throw new Error(data.error || 'API returned failure');
+          throw new Error(data.error || "API returned failure");
         }
 
         // Update the layer properties with the new state
-        if (action === 'driven') {
+        if (action === "driven") {
           layer.featureProperties.driven = true;
           layer.featureProperties.undriveable = false;
-        } else if (action === 'undriven') {
+        } else if (action === "undriven") {
           layer.featureProperties.driven = false;
-        } else if (action === 'undriveable') {
+        } else if (action === "undriveable") {
           layer.featureProperties.undriveable = true;
-        } else if (action === 'driveable') {
+        } else if (action === "driveable") {
           layer.featureProperties.undriveable = false;
         }
 
         // Update the style of the layer
-        const newStyle = this.styleStreet({ properties: layer.featureProperties });
+        const newStyle = this.styleStreet({
+          properties: layer.featureProperties,
+        });
         layer.setStyle(newStyle);
         layer.originalStyle = { ...newStyle }; // Update original style too
 
@@ -2431,17 +2454,17 @@
 
         // Update the highlighted layer display if this is the highlighted layer
         if (this.highlightedLayer === layer) {
-          const infoPanel = document.querySelector('.map-info-panel');
+          const infoPanel = document.querySelector(".map-info-panel");
           if (infoPanel) {
             // Re-click the layer to refresh the info panel
-            layer.fire('click');
+            layer.fire("click");
           }
         }
 
         // Success notification
         window.notificationManager.show(
           `Successfully marked ${streetName} as ${statusText}`,
-          "success"
+          "success",
         );
 
         // Refresh the coverage statistics
@@ -2450,7 +2473,7 @@
         console.error(`Error marking segment as ${statusText}:`, error);
         window.notificationManager.show(
           `Failed to mark segment as ${statusText}: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -2461,18 +2484,24 @@
 
       try {
         const locationId = this.selectedLocation._id;
-        const response = await fetch(`/api/coverage_areas/${locationId}/refresh_stats`, {
-          method: 'POST'
-        });
+        const response = await fetch(
+          `/api/coverage_areas/${locationId}/refresh_stats`,
+          {
+            method: "POST",
+          },
+        );
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.detail || `Failed to refresh stats (HTTP ${response.status})`);
+          throw new Error(
+            errorData.detail ||
+              `Failed to refresh stats (HTTP ${response.status})`,
+          );
         }
 
         const data = await response.json();
         if (!data.success) {
-          throw new Error(data.error || 'API returned failure');
+          throw new Error(data.error || "API returned failure");
         }
 
         // Update the dashboard with new stats
@@ -2481,7 +2510,7 @@
         // Update the summary control
         this.addCoverageSummary(data.coverage);
       } catch (error) {
-        console.error('Error refreshing coverage stats:', error);
+        console.error("Error refreshing coverage stats:", error);
         // Don't show notification to avoid spamming the user
       }
     }
