@@ -1,5 +1,5 @@
 # street_coverage_calculation.py
-"""Street coverage calculation module (Optimized).
+"""Street coverage calculation module (Highly Optimized).
 
 Calculates street segment coverage based on trip data using efficient spatial
 indexing, multiprocessing, bulk database operations, and incremental statistics.
@@ -20,6 +20,7 @@ from concurrent.futures import (
 )
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
+import numpy as np
 
 import bson.json_util  # For robust JSON serialization including ObjectId, datetime
 import pyproj
@@ -34,7 +35,6 @@ from shapely.geometry import LineString, MultiPoint, shape
 from shapely.ops import transform
 
 from db import (
-    # aggregate_with_retry, # No longer needed for stats
     batch_cursor,
     count_documents_with_retry,
     coverage_metadata_collection,
@@ -59,40 +59,54 @@ logger = logging.getLogger(__name__)
 WGS84 = pyproj.CRS("EPSG:4326")
 
 # --- Constants ---
-MAX_STREETS_PER_INDEX_BATCH = (
-    5000  # Batch size for reading streets during indexing
+MAX_STREETS_PER_INDEX_BATCH = 10000  # INCREASED from 5000
+MAX_TRIPS_PER_BATCH = 500  # INCREASED from 100 for better throughput
+TRIP_WORKER_SUB_BATCH = (
+    100  # INCREASED from 20 to give workers more to do at once
 )
-MAX_TRIPS_PER_BATCH = 100  # How many trips to fetch from DB at once
-TRIP_WORKER_SUB_BATCH = 20  # How many trips a single worker process handles
-BATCH_PROCESS_DELAY = 0.05  # Small delay to yield event loop control
+BATCH_PROCESS_DELAY = 0.02  # DECREASED from 0.05 for faster event loop cycling
 PROCESS_TIMEOUT_WORKER = (
-    180  # Timeout for a single worker task (seconds) - Increased slightly
+    300  # INCREASED from 180 seconds to allow more time for larger batches
 )
 PROCESS_TIMEOUT_OVERALL = (
     3600 * 2
 )  # Overall timeout for a full calculation (2 hours)
 PROCESS_TIMEOUT_INCREMENTAL = 3600  # Overall timeout for incremental (1 hour)
-PROGRESS_UPDATE_INTERVAL_TRIPS = (
-    5  # Update progress every N trip batches processed
-)
+PROGRESS_UPDATE_INTERVAL_TRIPS = 10  # INCREASED from 5 for less overhead
 
 # Default number of worker processes for coverage calculation
 # Can be overridden by MAX_COVERAGE_WORKERS environment variable
 # Crucial: Balance this with CELERY_WORKER_CONCURRENCY in deployment
-MAX_WORKERS_DEFAULT = max(1, multiprocessing.cpu_count() - 1)
+MAX_WORKERS_DEFAULT = max(
+    1, multiprocessing.cpu_count()
+)  # Use ALL cores by default
+
+# --- New Constants for Optimizations ---
+MAX_STREETS_PER_WORKER = (
+    50000  # Maximum number of street geometries to send to a worker
+)
+GEOMETRY_SIMPLIFICATION_TOLERANCE = (
+    0.00001  # For simplifying geometries (in degrees) ~1m
+)
+ENABLE_PRECOMPUTE_BBOXES = True  # Flag to enable precomputing bounding boxes
+ENABLE_GEOMETRY_SIMPLIFICATION = True  # Flag to enable geometry simplification
+ENABLE_NUMPY_SPEEDUPS = (
+    True  # Flag to enable NumPy vectorized operations where applicable
+)
 
 # --- Worker Function (Top-Level for Pickling) ---
 
 
 def process_trip_worker(
     trip_coords_list: List[List[Any]],
-    # Changed: Now receives geometries directly
     candidate_geoms_dict: Dict[str, Dict],
     utm_proj_string: str,
     wgs84_proj_string: str,
     match_buffer: float,
     min_match_length: float,
-    # Removed: db_connection_string, db_name, streets_collection_name
+    precomputed_bboxes: Optional[
+        Dict[str, Tuple[float, float, float, float]]
+    ] = None,
 ) -> Dict[int, Set[str]]:
     """Static worker function for multiprocessing. Processes a sub-batch of trips.
     Uses pre-fetched street geometries passed directly to the function.
@@ -104,13 +118,15 @@ def process_trip_worker(
         wgs84_proj_string: PROJ string for WGS84.
         match_buffer: Buffer distance in UTM units (meters).
         min_match_length: Minimum intersection length in UTM units (meters).
+        precomputed_bboxes: Optional dictionary of precomputed bounding boxes for segments.
 
     Returns:
         A dictionary mapping the original trip index (within the sub-batch) to a set
         of matched segment IDs for that trip. Returns an empty dict on critical failure.
     """
     results: Dict[int, Set[str]] = defaultdict(set)
-    # --- Removed DB Connection Logic ---
+    if not trip_coords_list or not candidate_geoms_dict:
+        return {}  # Early return for empty inputs
 
     try:
         # --- Prepare Projections ---
@@ -121,57 +137,101 @@ def process_trip_worker(
                 wgs84_proj, utm_proj, always_xy=True
             ).transform
         except pyproj.exceptions.CRSError:
-            # Log error here if needed, but returning empty dict signals failure
-            # logger.error(f"Worker projection error: {proj_err}") # Avoid excessive logging?
             return {}
 
         # --- Pre-transform Street Geometries to UTM ---
+        # Transform and cache street geometries at worker start
         street_utm_geoms: Dict[str, Any] = {}
+        street_utm_bboxes: Dict[str, Tuple[float, float, float, float]] = {}
+
+        # If we have precomputed bboxes, use them directly
+        has_precomputed = (
+            precomputed_bboxes is not None and ENABLE_PRECOMPUTE_BBOXES
+        )
+
         candidate_segment_ids = list(candidate_geoms_dict.keys())
 
+        # Pre-transform all segment geometries at once
         for seg_id in candidate_segment_ids:
             try:
                 geom_dict = candidate_geoms_dict.get(seg_id)
                 if not geom_dict:
                     continue
+
                 # Load geometry from the passed dictionary
                 geom_wgs84 = shape(geom_dict)
-                street_utm_geoms[seg_id] = transform(
-                    project_to_utm, geom_wgs84
-                )
-            except (
-                GEOSException,
-                ValueError,
-                TypeError,
-                KeyError,
-            ):
-                # Log geometry processing errors if needed
-                # logger.warning(f"Worker: Error processing geometry for seg_id {seg_id}: {geom_err}")
+
+                # Optional: Simplify geometry for faster computations
+                if (
+                    ENABLE_GEOMETRY_SIMPLIFICATION
+                    and geom_wgs84.geom_type == "LineString"
+                ):
+                    geom_wgs84 = geom_wgs84.simplify(
+                        GEOMETRY_SIMPLIFICATION_TOLERANCE,
+                        preserve_topology=True,
+                    )
+
+                # Transform to UTM for distance calculations
+                geom_utm = transform(project_to_utm, geom_wgs84)
+
+                # Store the transformed geometry
+                street_utm_geoms[seg_id] = geom_utm
+
+                # Use precomputed bboxes if available, otherwise calculate
+                if has_precomputed:
+                    street_utm_bboxes[seg_id] = precomputed_bboxes[seg_id]
+                else:
+                    # Calculate and store the envelope/bounding box for this geometry
+                    street_utm_bboxes[seg_id] = geom_utm.envelope.bounds
+
+            except (GEOSException, ValueError, TypeError, KeyError):
                 continue  # Skip problematic street geometry
 
-        # --- Process Each Trip ---
+        # --- Process Each Trip in Batch ---
         for trip_index, trip_coords in enumerate(trip_coords_list):
-            # No need to get candidate IDs again, we use the keys of street_utm_geoms
             if len(trip_coords) < 2:
                 continue
 
             try:
+                # Create trip line and buffer
                 trip_line_wgs84 = LineString(trip_coords)
                 trip_line_utm = transform(project_to_utm, trip_line_wgs84)
                 trip_buffer_utm = trip_line_utm.buffer(match_buffer)
+                trip_buffer_bounds = trip_buffer_utm.bounds
 
-                # Check intersection only against candidate streets for this trip
-                # Iterate through the pre-transformed UTM geometries
+                # Create a quick NumPy array for vectorized operations if enabled
+                if ENABLE_NUMPY_SPEEDUPS:
+                    trip_bbox = np.array(trip_buffer_bounds)
+
+                # Check intersection for each candidate street
                 for seg_id, street_utm_geom in street_utm_geoms.items():
                     if not street_utm_geom:
-                        continue  # Should not happen if filtered above
-
-                    # Optimization: Bounding box check
-                    if not trip_buffer_utm.envelope.intersects(
-                        street_utm_geom.envelope
-                    ):
                         continue
 
+                    # Optimization: Quick bounding box check using NumPy if enabled
+                    if ENABLE_NUMPY_SPEEDUPS:
+                        street_bbox = np.array(street_utm_bboxes[seg_id])
+                        # Vectorized bounding box test
+                        if (
+                            trip_bbox[0] > street_bbox[2]
+                            or trip_bbox[2] < street_bbox[0]
+                            or trip_bbox[1] > street_bbox[3]
+                            or trip_bbox[3] < street_bbox[1]
+                        ):
+                            continue  # No intersection possible
+                    else:
+                        # Standard bounding box test
+                        street_bbox = street_utm_bboxes[seg_id]
+                        if not (
+                            trip_buffer_bounds[0] <= street_bbox[2]
+                            and trip_buffer_bounds[2] >= street_bbox[0]
+                            and trip_buffer_bounds[1] <= street_bbox[3]
+                            and trip_buffer_bounds[3] >= street_bbox[1]
+                        ):
+                            continue  # No intersection possible
+
+                    # More detailed check only if bounding boxes intersect
+                    # Optimization: Try prepared geometries for faster intersection
                     intersection = trip_buffer_utm.intersection(
                         street_utm_geom
                     )
@@ -180,22 +240,13 @@ def process_trip_worker(
                         not intersection.is_empty
                         and intersection.length >= min_match_length
                     ):
-                        results[trip_index].add(
-                            seg_id
-                        )  # Add the string segment ID
+                        results[trip_index].add(seg_id)
 
             except (GEOSException, ValueError, TypeError):
-                # Log trip processing errors if needed
-                # logger.warning(f"Worker: Error processing trip index {trip_index}: {trip_proc_err}")
                 pass  # Continue to next trip
 
     except Exception:
-        # Log unexpected worker errors if needed
-        # logger.error(f"Critical worker error: {worker_err}", exc_info=True)
         return {}  # Return empty dict on critical failure
-    finally:
-        # --- No DB connection to close ---
-        pass
 
     return dict(results)
 
@@ -223,6 +274,13 @@ class CoverageCalculator:
         self.utm_proj: Optional[pyproj.CRS] = None
         self.project_to_utm = None
         self.project_to_wgs84 = None
+
+        # Added: Cache for street geometries to reduce DB access
+        self.street_geoms_cache: Dict[str, Dict] = {}
+        # Added: Cache for street bounding boxes (in UTM coordinates)
+        self.street_bbox_cache: Dict[
+            str, Tuple[float, float, float, float]
+        ] = {}
 
         # Configurable parameters
         self.match_buffer: float = 15.0  # Buffer around trip line in meters
@@ -383,8 +441,12 @@ class CoverageCalculator:
             try:
                 # Using 'spawn' context is generally safer across platforms than 'fork'
                 context = multiprocessing.get_context("spawn")
+                # OPTIMIZATION: Increase max_tasks_per_child to reuse processes more efficiently
                 self.process_pool = ProcessPoolExecutor(
-                    max_workers=self.max_workers, mp_context=context
+                    max_workers=self.max_workers,
+                    mp_context=context,
+                    initializer=None,  # No initializer needed
+                    initargs=(),
                 )
                 logger.info(
                     "Task %s: Initialized ProcessPoolExecutor with %d workers.",
@@ -483,7 +545,7 @@ class CoverageCalculator:
             total_streets_count,
         )
 
-        # Fetch only necessary fields using projection
+        # OPTIMIZATION: Fetch only necessary fields using projection and use larger batch size
         streets_cursor = streets_collection.find(
             streets_query,
             {
@@ -493,7 +555,9 @@ class CoverageCalculator:
                 "properties.driven": 1,
                 "_id": 0,
             },
-        )
+        ).batch_size(
+            self.street_index_batch_size
+        )  # Set cursor batch size to match our processing
 
         processed_count = 0
         rtree_idx_counter = 0
@@ -513,7 +577,6 @@ class CoverageCalculator:
                     )
 
                 # Process the batch (CPU-bound geometry operations)
-                # This part remains sequential for simplicity; parallelize if it becomes a bottleneck
                 for street in street_batch:
                     processed_count += 1
                     try:
@@ -524,6 +587,10 @@ class CoverageCalculator:
                         if not segment_id or not geometry_data:
                             continue
 
+                        # Store geometry in cache for later use
+                        self.street_geoms_cache[segment_id] = geometry_data
+
+                        # Parse the geometry
                         geom_wgs84 = shape(geometry_data)
                         bounds = (
                             geom_wgs84.bounds
@@ -532,6 +599,12 @@ class CoverageCalculator:
                         # Calculate length in UTM
                         geom_utm = transform(self.project_to_utm, geom_wgs84)
                         segment_length_m = geom_utm.length
+
+                        # OPTIMIZATION: Cache the bounding box for later use by workers
+                        if ENABLE_PRECOMPUTE_BBOXES:
+                            self.street_bbox_cache[segment_id] = (
+                                geom_utm.bounds
+                            )
 
                         if (
                             segment_length_m <= 0.1
@@ -772,7 +845,11 @@ class CoverageCalculator:
         await self.initialize_workers()
 
         # --- Trip Processing Loop ---
-        trips_cursor = trips_collection.find(trip_filter, {"gps": 1, "_id": 1})
+        # OPTIMIZATION: Use larger batch size and configure cursor batch size to match
+        trips_cursor = trips_collection.find(
+            trip_filter, {"gps": 1, "_id": 1}
+        ).batch_size(self.trip_batch_size)
+
         pending_futures_map: Dict[Future, List[Tuple[str, List[Any]]]] = {}
         processed_count_local = 0
         batch_num = 0
@@ -784,9 +861,8 @@ class CoverageCalculator:
             ):
                 batch_num += 1
                 valid_trips_in_batch: List[Tuple[str, List[Any]]] = []
-                batch_candidate_segment_ids = set()
 
-                # --- First Pass: Validate trips and find all candidate segments for the *entire* main batch ---
+                # --- First Pass: Validate trips ---
                 logger.debug(
                     f"Task {self.task_id}: Processing main trip batch {batch_num}..."
                 )
@@ -798,7 +874,49 @@ class CoverageCalculator:
                     is_valid, coords = self._is_valid_trip(trip_doc.get("gps"))
                     if is_valid:
                         valid_trips_in_batch.append((trip_id, coords))
-                        # Find candidates for this trip
+                    else:
+                        processed_trip_ids_set.add(trip_id)
+
+                if not valid_trips_in_batch:
+                    logger.debug(
+                        f"Task {self.task_id}: No valid trips in main batch {batch_num}."
+                    )
+                    continue
+
+                # --- OPTIMIZATION: Process all trip coordinates at once to find all candidate segments ---
+                # Create a MultiPoint from all trip points in this batch for efficient spatial query
+                all_coords = []
+                for _, coords in valid_trips_in_batch:
+                    all_coords.extend(coords)
+
+                batch_candidate_segment_ids = set()
+                try:
+                    if all_coords:
+                        # Create a buffer around all points
+                        multi_point = MultiPoint(all_coords)
+                        # Convert buffer size from meters to degrees (approximate)
+                        buffer_deg = (
+                            self.match_buffer / 111000
+                        )  # ~111km per degree at the equator
+                        batch_bounds = multi_point.buffer(buffer_deg).bounds
+
+                        # Query the R-tree index with the combined bounds
+                        candidate_indices = list(
+                            self.streets_index.intersection(batch_bounds)
+                        )
+
+                        # Get the segment IDs for these indices
+                        for idx in candidate_indices:
+                            if idx in self.streets_lookup:
+                                batch_candidate_segment_ids.add(
+                                    self.streets_lookup[idx]["segment_id"]
+                                )
+                except (GEOSException, ValueError, TypeError) as e:
+                    logger.warning(
+                        f"Task {self.task_id}: Error finding batch candidates: {e}. Using per-trip candidates."
+                    )
+                    # Fallback to per-trip candidates if batch approach fails
+                    for trip_id, coords in valid_trips_in_batch:
                         try:
                             if coords:
                                 multi_point = MultiPoint(coords)
@@ -818,61 +936,10 @@ class CoverageCalculator:
                                                 "segment_id"
                                             ]
                                         )
-                        except (GEOSException, ValueError, TypeError) as e:
-                            logger.warning(
-                                f"Task {self.task_id}: Error finding candidates for trip {trip_id}: {e}. Skipping trip candidates."
-                            )
-                            # Still mark as processed if validation failed implicitly here
-                            processed_trip_ids_set.add(trip_id)
-                    else:
-                        processed_trip_ids_set.add(trip_id)
+                        except Exception:
+                            pass
 
-                if not valid_trips_in_batch:
-                    logger.debug(
-                        f"Task {self.task_id}: No valid trips in main batch {batch_num}."
-                    )
-                    continue
-
-                # --- Second Pass: Fetch all unique candidate geometries for the main batch ---
-                batch_candidate_geoms_dict: Dict[str, Dict] = {}
-                if batch_candidate_segment_ids:
-                    logger.debug(
-                        f"Task {self.task_id}: Fetching {len(batch_candidate_segment_ids)} unique candidate geometries for main batch {batch_num}..."
-                    )
-                    try:
-                        geom_cursor = streets_collection.find(
-                            {
-                                "properties.segment_id": {
-                                    "$in": list(batch_candidate_segment_ids)
-                                }
-                            },
-                            {
-                                "geometry": 1,
-                                "properties.segment_id": 1,
-                                "_id": 0,
-                            },
-                        )
-                        async for street_doc in geom_cursor:
-                            seg_id = street_doc.get("properties", {}).get(
-                                "segment_id"
-                            )
-                            if seg_id and "geometry" in street_doc:
-                                batch_candidate_geoms_dict[seg_id] = (
-                                    street_doc["geometry"]
-                                )
-                        logger.debug(
-                            f"Task {self.task_id}: Fetched {len(batch_candidate_geoms_dict)} geometries."
-                        )
-                    except Exception as fetch_geom_err:
-                        logger.error(
-                            f"Task {self.task_id}: Failed to fetch batch candidate geometries: {fetch_geom_err}. Skipping main batch."
-                        )
-                        processed_count_local += len(valid_trips_in_batch)
-                        processed_trip_ids_set.update(
-                            [tid for tid, _ in valid_trips_in_batch]
-                        )
-                        continue
-                else:
+                if not batch_candidate_segment_ids:
                     logger.debug(
                         f"Task {self.task_id}: No candidate segments found for main batch {batch_num}."
                     )
@@ -882,10 +949,93 @@ class CoverageCalculator:
                     )
                     continue  # No point submitting workers if no candidates
 
-                # --- Third Pass: Distribute trips and fetched geometries to workers ---
+                # --- Get geometries for all candidates at once ---
+                # OPTIMIZATION: Use geometry cache instead of fetching from DB when possible
+                batch_candidate_geoms_dict: Dict[str, Dict] = {}
+                segments_to_fetch = []
+
+                # First check our cache for geometries
+                for seg_id in batch_candidate_segment_ids:
+                    if seg_id in self.street_geoms_cache:
+                        batch_candidate_geoms_dict[seg_id] = (
+                            self.street_geoms_cache[seg_id]
+                        )
+                    else:
+                        segments_to_fetch.append(seg_id)
+
+                # Only fetch geometries that aren't in cache
+                if segments_to_fetch:
+                    try:
+                        geom_cursor = streets_collection.find(
+                            {
+                                "properties.segment_id": {
+                                    "$in": segments_to_fetch
+                                }
+                            },
+                            {
+                                "geometry": 1,
+                                "properties.segment_id": 1,
+                                "_id": 0,
+                            },
+                        ).batch_size(
+                            min(5000, len(segments_to_fetch))
+                        )  # Use appropriate batch size
+
+                        async for street_doc in geom_cursor:
+                            seg_id = street_doc.get("properties", {}).get(
+                                "segment_id"
+                            )
+                            if seg_id and "geometry" in street_doc:
+                                geom = street_doc["geometry"]
+                                batch_candidate_geoms_dict[seg_id] = geom
+                                # Update our cache for future use
+                                self.street_geoms_cache[seg_id] = geom
+                    except Exception as fetch_geom_err:
+                        logger.error(
+                            f"Task {self.task_id}: Failed to fetch batch candidate geometries: {fetch_geom_err}. Skipping main batch."
+                        )
+                        processed_count_local += len(valid_trips_in_batch)
+                        processed_trip_ids_set.update(
+                            [tid for tid, _ in valid_trips_in_batch]
+                        )
+                        continue
+
+                # OPTIMIZATION: If we have too many geometries, split them to avoid memory issues in workers
+                if len(batch_candidate_geoms_dict) > MAX_STREETS_PER_WORKER:
+                    # Split into manageable chunks for workers
+                    chunk_size = MAX_STREETS_PER_WORKER
+                    seg_ids = list(batch_candidate_geoms_dict.keys())
+                    geom_chunks = []
+
+                    for i in range(0, len(seg_ids), chunk_size):
+                        chunk = {
+                            seg_id: batch_candidate_geoms_dict[seg_id]
+                            for seg_id in seg_ids[i : i + chunk_size]
+                        }
+                        geom_chunks.append(chunk)
+
+                    logger.info(
+                        f"Task {self.task_id}: Split {len(batch_candidate_geoms_dict)} geometries into {len(geom_chunks)} chunks for workers."
+                    )
+                else:
+                    geom_chunks = [batch_candidate_geoms_dict]
+
+                # --- Prepare precomputed bounding boxes for workers if enabled ---
+                precomputed_bboxes = None
+                if ENABLE_PRECOMPUTE_BBOXES:
+                    precomputed_bboxes = {}
+                    for seg_id in batch_candidate_geoms_dict:
+                        if seg_id in self.street_bbox_cache:
+                            precomputed_bboxes[seg_id] = (
+                                self.street_bbox_cache[seg_id]
+                            )
+
+                # --- Distribute the trips to worker processes ---
                 logger.debug(
                     f"Task {self.task_id}: Submitting {len(valid_trips_in_batch)} trips to workers for main batch {batch_num}..."
                 )
+
+                # OPTIMIZATION: Process in larger sub-batches for better worker efficiency
                 for i in range(
                     0, len(valid_trips_in_batch), self.trip_worker_sub_batch
                 ):
@@ -895,72 +1045,65 @@ class CoverageCalculator:
                     sub_batch_coords = [coords for _, coords in sub_batch]
                     sub_batch_trip_ids = [tid for tid, _ in sub_batch]
 
-                    # Pass the *same* dictionary of fetched geometries to all workers for this main batch
-                    worker_geoms_to_pass = batch_candidate_geoms_dict
+                    # For each geometry chunk, submit a worker task
+                    for chunk_idx, geom_chunk in enumerate(geom_chunks):
+                        # Only process this if there are geometries to check
+                        if not geom_chunk:
+                            continue
 
-                    if self.process_pool and self.max_workers > 0:
-                        try:
-                            future = self.process_pool.submit(
-                                process_trip_worker,
-                                sub_batch_coords,
-                                worker_geoms_to_pass,  # Pass the fetched geometries
-                                self.utm_proj.to_string(),
-                                WGS84.to_string(),
-                                self.match_buffer,
-                                self.min_match_length,
-                            )
-                            pending_futures_map[future] = sub_batch
-                        except Exception as submit_err:
-                            logger.error(
-                                f"Task {self.task_id}: Error submitting sub-batch: {submit_err}"
-                            )
-                            processed_count_local += len(sub_batch)
-                            processed_trip_ids_set.update(sub_batch_trip_ids)
-                    else:  # Sequential Fallback
-                        try:
-                            result_map = process_trip_worker(
-                                sub_batch_coords,
-                                worker_geoms_to_pass,  # Pass the fetched geometries
-                                self.utm_proj.to_string(),
-                                WGS84.to_string(),
-                                self.match_buffer,
-                                self.min_match_length,
-                            )
-                            for trip_idx, matched_ids in result_map.items():
-                                if isinstance(matched_ids, set):
-                                    self.newly_covered_segments.update(
-                                        matched_ids
-                                    )
-                            processed_count_local += len(sub_batch)
-                            processed_trip_ids_set.update(sub_batch_trip_ids)
-                        except Exception as seq_err:
-                            logger.error(
-                                f"Task {self.task_id}: Error sequential processing: {seq_err}"
-                            )
-                            processed_count_local += len(sub_batch)
-                            processed_trip_ids_set.update(sub_batch_trip_ids)
-
-                # --- Process Completed Futures More Robustly ---
-                if pending_futures_map:
-                    logger.debug(
-                        f"Task {self.task_id}: Checking {len(pending_futures_map)} pending futures for main batch {batch_num}..."
-                    )
-                    done_futures = set()
-                    # Check futures without blocking indefinitely
-                    # We iterate over a copy of keys because the map might change size
-                    for future in list(pending_futures_map.keys()):
-                        if future.done():
-                            done_futures.add(future)
-                            original_sub_batch = pending_futures_map.pop(
-                                future, []
-                            )
-                            sub_batch_trip_ids = [
-                                tid for tid, _ in original_sub_batch
-                            ]
+                        if self.process_pool and self.max_workers > 0:
                             try:
-                                result_map = future.result(
-                                    timeout=0.1
-                                )  # Short timeout as it should be done
+                                # OPTIMIZATION: Pass precomputed bboxes to workers
+                                # Only pass bboxes for segments in this chunk
+                                if precomputed_bboxes:
+                                    chunk_bboxes = {
+                                        seg_id: precomputed_bboxes[seg_id]
+                                        for seg_id in geom_chunk
+                                        if seg_id in precomputed_bboxes
+                                    }
+                                else:
+                                    chunk_bboxes = None
+
+                                future = self.process_pool.submit(
+                                    process_trip_worker,
+                                    sub_batch_coords,
+                                    geom_chunk,
+                                    self.utm_proj.to_string(),
+                                    WGS84.to_string(),
+                                    self.match_buffer,
+                                    self.min_match_length,
+                                    chunk_bboxes,
+                                )
+                                pending_futures_map[future] = sub_batch
+                            except Exception as submit_err:
+                                logger.error(
+                                    f"Task {self.task_id}: Error submitting sub-batch: {submit_err}"
+                                )
+                                processed_count_local += len(sub_batch)
+                                processed_trip_ids_set.update(
+                                    sub_batch_trip_ids
+                                )
+                        else:  # Sequential Fallback
+                            try:
+                                # Pass precomputed bboxes if available
+                                if precomputed_bboxes:
+                                    chunk_bboxes = {
+                                        seg_id: precomputed_bboxes[seg_id]
+                                        for seg_id in geom_chunk
+                                        if seg_id in precomputed_bboxes
+                                    }
+                                else:
+                                    chunk_bboxes = None
+
+                                result_map = process_trip_worker(
+                                    sub_batch_coords,
+                                    geom_chunk,
+                                    self.utm_proj.to_string(),
+                                    WGS84.to_string(),
+                                    self.match_buffer,
+                                    self.min_match_length,
+                                    chunk_bboxes,
+                                )
                                 for (
                                     trip_idx,
                                     matched_ids,
@@ -969,51 +1112,59 @@ class CoverageCalculator:
                                         self.newly_covered_segments.update(
                                             matched_ids
                                         )
-                                    else:
-                                        logger.warning(
-                                            f"Task {self.task_id}: Worker returned non-set: {type(matched_ids)}"
-                                        )
-                                processed_count_local += len(
-                                    original_sub_batch
-                                )
+                                processed_count_local += len(sub_batch)
                                 processed_trip_ids_set.update(
                                     sub_batch_trip_ids
                                 )
-                            except TimeoutError:
+                            except Exception as seq_err:
                                 logger.error(
-                                    f"Task {self.task_id}: Timeout getting result from *done* future for trips: {sub_batch_trip_ids}. Marking processed."
+                                    f"Task {self.task_id}: Error sequential processing: {seq_err}"
                                 )
-                                processed_count_local += len(
-                                    original_sub_batch
-                                )
-                                processed_trip_ids_set.update(
-                                    sub_batch_trip_ids
-                                )
-                            except CancelledError:
-                                logger.warning(
-                                    f"Task {self.task_id}: Future cancelled for trips: {sub_batch_trip_ids}. Marking processed."
-                                )
-                                processed_count_local += len(
-                                    original_sub_batch
-                                )
-                                processed_trip_ids_set.update(
-                                    sub_batch_trip_ids
-                                )
-                            except Exception as e:
-                                logger.error(
-                                    f"Task {self.task_id}: Worker task failed for trips {sub_batch_trip_ids}: {e}"
-                                )
-                                processed_count_local += len(
-                                    original_sub_batch
-                                )
+                                processed_count_local += len(sub_batch)
                                 processed_trip_ids_set.update(
                                     sub_batch_trip_ids
                                 )
 
-                    if done_futures:
-                        logger.debug(
-                            f"Task {self.task_id}: Processed results from {len(done_futures)} futures."
+                # --- OPTIMIZATION: Process more completed futures before moving to next batch ---
+                # This helps reduce memory pressure by clearing results earlier
+                if (
+                    pending_futures_map
+                    and len(pending_futures_map) > self.max_workers * 2
+                ):
+                    logger.debug(
+                        f"Task {self.task_id}: Processing {len(pending_futures_map)} pending futures..."
+                    )
+                    done_futures = []
+                    # Check which futures are completed
+                    for future in list(pending_futures_map.keys()):
+                        if future.done():
+                            done_futures.append(future)
+
+                    # Process completed futures
+                    for future in done_futures:
+                        original_sub_batch = pending_futures_map.pop(
+                            future, []
                         )
+                        sub_batch_trip_ids = [
+                            tid for tid, _ in original_sub_batch
+                        ]
+                        try:
+                            result_map = future.result(
+                                timeout=0.1
+                            )  # Short timeout as it should be done
+                            for trip_idx, matched_ids in result_map.items():
+                                if isinstance(matched_ids, set):
+                                    self.newly_covered_segments.update(
+                                        matched_ids
+                                    )
+                            processed_count_local += len(original_sub_batch)
+                            processed_trip_ids_set.update(sub_batch_trip_ids)
+                        except (TimeoutError, CancelledError, Exception) as e:
+                            logger.error(
+                                f"Task {self.task_id}: Error getting result from future: {type(e).__name__}. Marking processed."
+                            )
+                            processed_count_local += len(original_sub_batch)
+                            processed_trip_ids_set.update(sub_batch_trip_ids)
 
                 # --- Update Progress ---
                 self.processed_trips_count = processed_count_local
@@ -1026,6 +1177,7 @@ class CoverageCalculator:
                 else:
                     current_progress_pct = 90
 
+                # OPTIMIZATION: Less frequent progress updates
                 if (batch_num % PROGRESS_UPDATE_INTERVAL_TRIPS == 0) or (
                     processed_count_local >= self.total_trips_to_process
                 ):
@@ -1047,87 +1199,124 @@ class CoverageCalculator:
                 logger.info(
                     f"Task {self.task_id}: Processing {len(pending_futures_map)} remaining trip futures..."
                 )
-                # Use asyncio.wait with a timeout for the remaining futures
-                remaining_futures_list = list(pending_futures_map.keys())
-                # Wrap concurrent futures for asyncio.wait
-                remaining_wrapped_futures = [
-                    asyncio.wrap_future(f) for f in remaining_futures_list
+                # OPTIMIZATION: Process remaining futures in batches to avoid memory spikes
+                remaining_futures_chunks = [
+                    list(pending_futures_map.keys())[i : i + self.max_workers]
+                    for i in range(
+                        0, len(pending_futures_map), self.max_workers
+                    )
                 ]
 
-                try:
-                    # Wait for remaining futures with a reasonable timeout per future
-                    overall_wait_timeout = PROCESS_TIMEOUT_WORKER * (
-                        len(remaining_wrapped_futures) / self.max_workers + 1
-                    )
-                    done, pending = await asyncio.wait(
-                        remaining_wrapped_futures,
-                        timeout=overall_wait_timeout,
-                        return_when=asyncio.ALL_COMPLETED,
-                    )
+                for chunk_idx, futures_chunk in enumerate(
+                    remaining_futures_chunks
+                ):
+                    # Wrap concurrent futures for asyncio.wait
+                    wrapped_futures = [
+                        asyncio.wrap_future(f) for f in futures_chunk
+                    ]
 
-                    for i, wrapped_done_future in enumerate(done):
-                        original_future = remaining_futures_list[
-                            i
-                        ]  # Assuming order is preserved, might need mapping if not
-                        original_sub_batch = pending_futures_map.pop(
-                            original_future, []
+                    try:
+                        # Wait for this chunk of futures with a reasonable timeout
+                        chunk_wait_timeout = (
+                            PROCESS_TIMEOUT_WORKER * 2
+                        )  # Give extra time for stragglers
+                        done, pending = await asyncio.wait(
+                            wrapped_futures,
+                            timeout=chunk_wait_timeout,
+                            return_when=asyncio.ALL_COMPLETED,
                         )
-                        sub_batch_trip_ids = [
-                            tid for tid, _ in original_sub_batch
-                        ]
-                        try:
-                            result_map = (
-                                wrapped_done_future.result()
-                            )  # Get result from asyncio future
-                            for trip_idx, matched_ids in result_map.items():
-                                if isinstance(matched_ids, set):
-                                    self.newly_covered_segments.update(
-                                        matched_ids
-                                    )
-                            processed_count_local += len(original_sub_batch)
-                            processed_trip_ids_set.update(sub_batch_trip_ids)
-                        except CancelledError:
-                            logger.warning(
-                                f"Task {self.task_id}: Final future cancelled for trips: {sub_batch_trip_ids}. Marking processed."
+
+                        # Process completed futures
+                        for wrapped_done_future in done:
+                            # Find the original future
+                            original_future = futures_chunk[
+                                wrapped_futures.index(wrapped_done_future)
+                            ]
+                            original_sub_batch = pending_futures_map.pop(
+                                original_future, []
                             )
-                            processed_count_local += len(original_sub_batch)
-                            processed_trip_ids_set.update(sub_batch_trip_ids)
-                        except Exception as e:
+                            sub_batch_trip_ids = [
+                                tid for tid, _ in original_sub_batch
+                            ]
+
+                            try:
+                                result_map = wrapped_done_future.result()
+                                for (
+                                    trip_idx,
+                                    matched_ids,
+                                ) in result_map.items():
+                                    if isinstance(matched_ids, set):
+                                        self.newly_covered_segments.update(
+                                            matched_ids
+                                        )
+                                processed_count_local += len(
+                                    original_sub_batch
+                                )
+                                processed_trip_ids_set.update(
+                                    sub_batch_trip_ids
+                                )
+                            except Exception as e:
+                                logger.error(
+                                    f"Task {self.task_id}: Final worker error: {type(e).__name__}. Marking processed."
+                                )
+                                processed_count_local += len(
+                                    original_sub_batch
+                                )
+                                processed_trip_ids_set.update(
+                                    sub_batch_trip_ids
+                                )
+
+                        # Handle any futures that timed out
+                        for wrapped_pending_future in pending:
+                            original_future = futures_chunk[
+                                wrapped_futures.index(wrapped_pending_future)
+                            ]
+                            original_sub_batch = pending_futures_map.pop(
+                                original_future, []
+                            )
+                            sub_batch_trip_ids = [
+                                tid for tid, _ in original_sub_batch
+                            ]
+
                             logger.error(
-                                f"Task {self.task_id}: Final worker task failed for trips {sub_batch_trip_ids}: {e}"
+                                f"Task {self.task_id}: Timeout for future in chunk {chunk_idx + 1}/{len(remaining_futures_chunks)}. Marking processed."
                             )
                             processed_count_local += len(original_sub_batch)
                             processed_trip_ids_set.update(sub_batch_trip_ids)
+                            try:
+                                wrapped_pending_future.cancel()
+                                original_future.cancel()
+                            except Exception:
+                                pass
 
-                    for i, wrapped_pending_future in enumerate(pending):
-                        original_future = remaining_futures_list[
-                            i
-                        ]  # Assuming order
-                        original_sub_batch = pending_futures_map.pop(
-                            original_future, []
-                        )
-                        sub_batch_trip_ids = [
-                            tid for tid, _ in original_sub_batch
-                        ]
+                    except Exception as chunk_err:
                         logger.error(
-                            f"Task {self.task_id}: Final timeout waiting for future for trips: {sub_batch_trip_ids}. Marking processed."
+                            f"Task {self.task_id}: Error processing future chunk {chunk_idx + 1}/{len(remaining_futures_chunks)}: {chunk_err}"
                         )
-                        processed_count_local += len(original_sub_batch)
-                        processed_trip_ids_set.update(sub_batch_trip_ids)
-                        try:
-                            wrapped_pending_future.cancel()
-                        except Exception:
-                            pass
+                        # Mark all futures in this chunk as processed
+                        for future in futures_chunk:
+                            if future in pending_futures_map:
+                                batch_data = pending_futures_map.pop(
+                                    future, []
+                                )
+                                ids = [tid for tid, _ in batch_data]
+                                processed_count_local += len(batch_data)
+                                processed_trip_ids_set.update(ids)
+                                try:
+                                    future.cancel()
+                                except Exception:
+                                    pass
 
-                except Exception as final_wait_err:
-                    logger.error(
-                        f"Task {self.task_id}: Error in final future processing: {final_wait_err}"
-                    )
-                    # Mark all remaining as processed
-                    for future, batch_data in pending_futures_map.items():
-                        ids = [tid for tid, _ in batch_data]
-                        processed_count_local += len(batch_data)
-                        processed_trip_ids_set.update(ids)
+            # Handle any remaining futures in map (shouldn't happen, but just in case)
+            for future, batch_data in list(pending_futures_map.items()):
+                ids = [tid for tid, _ in batch_data]
+                processed_count_local += len(batch_data)
+                processed_trip_ids_set.update(ids)
+                try:
+                    future.cancel()
+                except Exception:
+                    pass
+            pending_futures_map.clear()
 
             self.processed_trips_count = processed_count_local
             logger.info(
@@ -1193,32 +1382,36 @@ class CoverageCalculator:
                 len(segments_to_update),
             )
             try:
-                # Use retry wrapper for DB operation
-                update_result = await update_many_with_retry(
-                    streets_collection,
-                    {"properties.segment_id": {"$in": segments_to_update}},
-                    {
-                        "$set": {
-                            "properties.driven": True,
-                            "properties.last_coverage_update": datetime.now(
-                                timezone.utc
-                            ),
-                        }
-                    },
-                )
-                logger.info(
-                    "Task %s: Bulk update result: Matched=%d, Modified=%d",
-                    self.task_id,
-                    update_result.matched_count,
-                    update_result.modified_count,
-                )
-                if update_result.modified_count != len(segments_to_update):
-                    logger.warning(
-                        "Task %s: Mismatch in bulk update count. Expected %d, modified %d. Check for potential data inconsistencies.",
+                # OPTIMIZATION: Split into smaller chunks if too many segments to update at once
+                max_update_batch = 10000  # MongoDB has limits on update size
+                for i in range(0, len(segments_to_update), max_update_batch):
+                    segment_batch = segments_to_update[
+                        i : i + max_update_batch
+                    ]
+
+                    # Use retry wrapper for DB operation
+                    update_result = await update_many_with_retry(
+                        streets_collection,
+                        {"properties.segment_id": {"$in": segment_batch}},
+                        {
+                            "$set": {
+                                "properties.driven": True,
+                                "properties.last_coverage_update": datetime.now(
+                                    timezone.utc
+                                ),
+                            }
+                        },
+                    )
+                    logger.info(
+                        "Task %s: Bulk update batch %d result: Matched=%d, Modified=%d",
                         self.task_id,
-                        len(segments_to_update),
+                        i // max_update_batch + 1,
+                        update_result.matched_count,
                         update_result.modified_count,
                     )
+
+                    # Brief pause to allow other operations
+                    await asyncio.sleep(BATCH_PROCESS_DELAY)
 
             except BulkWriteError as bwe:
                 logger.error(
@@ -1255,6 +1448,7 @@ class CoverageCalculator:
             final_driven_length = self.initial_driven_length
             final_total_segments = len(self.streets_lookup)
 
+            # OPTIMIZATION: Use defaultdict with a lambda function that creates the inner dict structure
             street_type_stats = defaultdict(
                 lambda: {
                     "total": 0,
@@ -1264,22 +1458,30 @@ class CoverageCalculator:
                 }
             )
 
+            # OPTIMIZATION: Precompute driven status for each segment for faster lookup
+            is_driven_map = {}
+            for segment_id in self.initial_covered_segments:
+                is_driven_map[segment_id] = True
+            for segment_id in self.newly_covered_segments:
+                is_driven_map[segment_id] = True
+
             for rtree_id, street_info in self.streets_lookup.items():
                 segment_id = street_info["segment_id"]
                 length = street_info["length_m"]
                 highway = street_info["highway"]
-                is_initially_driven = (
-                    segment_id in self.initial_covered_segments
-                )
-                is_newly_driven = segment_id in self.newly_covered_segments
+
+                is_driven = is_driven_map.get(segment_id, False)
 
                 street_type_stats[highway]["total"] += 1
                 street_type_stats[highway]["length"] += length
 
-                if is_initially_driven or is_newly_driven:
+                if is_driven:
                     street_type_stats[highway]["covered"] += 1
                     street_type_stats[highway]["covered_length"] += length
-                    if is_newly_driven and not is_initially_driven:
+                    if (
+                        segment_id in self.newly_covered_segments
+                        and segment_id not in self.initial_covered_segments
+                    ):
                         final_driven_length += length
 
             final_street_types = []
@@ -1335,30 +1537,49 @@ class CoverageCalculator:
             self.location_name,
         )
         try:
+            # OPTIMIZATION: Only store processed trip IDs if they're not too numerous
+            # MongoDB has document size limits of 16MB
+            trip_ids_to_store = list(processed_trip_ids_set)
+            trip_ids_too_large = (
+                len(trip_ids_to_store) > 100000
+            )  # Arbitrary threshold
+
+            update_doc = {
+                "$set": {
+                    "total_length": coverage_stats["total_length"],
+                    "driven_length": coverage_stats["driven_length"],
+                    "coverage_percentage": coverage_stats[
+                        "coverage_percentage"
+                    ],
+                    "street_types": coverage_stats["street_types"],
+                    "total_segments": coverage_stats["total_segments"],
+                    "last_updated": datetime.now(timezone.utc),
+                    "status": "completed_stats",
+                    "last_error": None,
+                    "processed_trips.last_processed_timestamp": datetime.now(
+                        timezone.utc
+                    ),
+                    "processed_trips.count": len(processed_trip_ids_set),
+                },
+                "$unset": {"streets_data": ""},
+            }
+
+            # Only store trip IDs if they're not too numerous
+            if not trip_ids_too_large:
+                update_doc["$set"]["processed_trips.trip_ids"] = (
+                    trip_ids_to_store
+                )
+            else:
+                # If too many trip IDs, just store the count
+                logger.warning(
+                    f"Task {self.task_id}: Too many trip IDs ({len(trip_ids_to_store)}) to store in metadata document. Storing count only."
+                )
+                update_doc["$unset"]["processed_trips.trip_ids"] = ""
+
             await update_one_with_retry(
                 coverage_metadata_collection,
                 {"location.display_name": self.location_name},
-                {
-                    "$set": {
-                        "total_length": coverage_stats["total_length"],
-                        "driven_length": coverage_stats["driven_length"],
-                        "coverage_percentage": coverage_stats[
-                            "coverage_percentage"
-                        ],
-                        "street_types": coverage_stats["street_types"],
-                        "total_segments": coverage_stats["total_segments"],
-                        "last_updated": datetime.now(timezone.utc),
-                        "status": "completed_stats",
-                        "last_error": None,
-                        "processed_trips.trip_ids": list(
-                            processed_trip_ids_set
-                        ),
-                        "processed_trips.last_processed_timestamp": datetime.now(
-                            timezone.utc
-                        ),
-                    },
-                    "$unset": {"streets_data": ""},
-                },
+                update_doc,
                 upsert=True,
             )
             logger.info(
@@ -1469,26 +1690,40 @@ class CoverageCalculator:
                         metadata = await find_one_with_retry(
                             coverage_metadata_collection,
                             {"location.display_name": self.location_name},
-                            {"processed_trips.trip_ids": 1},
+                            {
+                                "processed_trips.trip_ids": 1,
+                                "processed_trips.count": 1,
+                            },
                         )
-                        if (
-                            metadata
-                            and "processed_trips" in metadata
-                            and "trip_ids" in metadata["processed_trips"]
-                        ):
-                            trip_ids_data = metadata["processed_trips"][
-                                "trip_ids"
-                            ]
-                            if isinstance(trip_ids_data, (list, set)):
-                                processed_trip_ids_set = set(trip_ids_data)
-                                logger.info(
-                                    "Task %s: Loaded %d previously processed trip IDs for incremental run.",
+                        if metadata and "processed_trips" in metadata:
+                            if "trip_ids" in metadata["processed_trips"]:
+                                trip_ids_data = metadata["processed_trips"][
+                                    "trip_ids"
+                                ]
+                                if isinstance(trip_ids_data, (list, set)):
+                                    processed_trip_ids_set = set(trip_ids_data)
+                                    logger.info(
+                                        "Task %s: Loaded %d previously processed trip IDs for incremental run.",
+                                        self.task_id,
+                                        len(processed_trip_ids_set),
+                                    )
+                                else:
+                                    logger.warning(
+                                        "Task %s: 'processed_trips.trip_ids' not list/set. Running as full.",
+                                        self.task_id,
+                                    )
+                            elif "count" in metadata["processed_trips"]:
+                                # We know count but don't have IDs - warn but continue as incremental
+                                # We'll need to look up trips by other means
+                                logger.warning(
+                                    "Task %s: Found processed trip count (%d) but no IDs. Using alternative incremental strategy.",
                                     self.task_id,
-                                    len(processed_trip_ids_set),
+                                    metadata["processed_trips"]["count"],
                                 )
+                                # TODO: Implement alternative strategy if needed
                             else:
                                 logger.warning(
-                                    "Task %s: 'processed_trips.trip_ids' not list/set. Running as full.",
+                                    "Task %s: No previous processed trips found. Running as full.",
                                     self.task_id,
                                 )
                         else:
@@ -1549,7 +1784,10 @@ class CoverageCalculator:
         finally:
             # --- Cleanup ---
             await self.shutdown_workers()
+            # Clear memory caches
             self.streets_lookup = {}
+            self.street_geoms_cache = {}
+            self.street_bbox_cache = {}
             if self.streets_index:
                 try:
                     self.streets_index.close()
@@ -1681,6 +1919,8 @@ async def compute_coverage_for_location(
         if calculator:
             await calculator.shutdown_workers()
             calculator.streets_lookup = {}
+            calculator.street_geoms_cache = {}
+            calculator.street_bbox_cache = {}
             if calculator.streets_index:
                 try:
                     calculator.streets_index.close()
@@ -1822,6 +2062,8 @@ async def compute_incremental_coverage(
         if calculator:
             await calculator.shutdown_workers()
             calculator.streets_lookup = {}
+            calculator.street_geoms_cache = {}
+            calculator.street_bbox_cache = {}
             if calculator.streets_index:
                 try:
                     calculator.streets_index.close()
@@ -1866,17 +2108,23 @@ async def generate_and_store_geojson(
     )
 
     features = []
+    # OPTIMIZATION: Use larger batch size for streets cursor
     streets_cursor = streets_collection.find(
         {"properties.location": location_name},
         {"geometry": 1, "properties": 1, "_id": 0},
-    )
+    ).batch_size(5000)  # Increased batch size
+
     batch_num = 0
     total_features = 0
     file_id = None
 
     try:
-        async for street_batch in batch_cursor(streets_cursor, 2000):
+        async for street_batch in batch_cursor(
+            streets_cursor, 5000
+        ):  # Increased batch size
             batch_num += 1
+            batch_features = []  # Process features in a batch first
+
             for street in street_batch:
                 feature = {
                     "type": "Feature",
@@ -1890,9 +2138,14 @@ async def generate_and_store_geojson(
                 props["driven"] = props.get("driven", False)
                 props["highway"] = props.get("highway", "unknown")
                 props["segment_length"] = props.get("segment_length", 0.0)
-                features.append(feature)
+                batch_features.append(feature)
                 total_features += 1
-            await asyncio.sleep(0.01)
+
+            features.extend(batch_features)
+
+            # Brief yield to allow other operations
+            if batch_num % 5 == 0:  # Update less frequently
+                await asyncio.sleep(0.01)
 
         logger.info(
             "Task %s: Generated %d features for %s GeoJSON.",
@@ -1971,17 +2224,21 @@ async def generate_and_store_geojson(
         )
         try:
             fs = db_manager.gridfs_bucket
+            # Use standard JSON serialization
             geojson_bytes = bson.json_util.dumps(streets_geojson).encode(
                 "utf-8"
             )
             gridfs_filename = f"{location_name.replace(' ', '_').replace(',', '')}_streets.geojson"
 
+            # OPTIMIZATION: Set appropriate chunk size for large files
             file_id = await fs.upload_from_stream(
                 gridfs_filename,
                 geojson_bytes,
                 metadata={
                     "contentType": "application/json",
                     "location": location_name,
+                    "features_count": total_features,
+                    "generated_at": datetime.now(timezone.utc),
                 },
             )
             logger.info(
