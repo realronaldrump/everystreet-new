@@ -285,8 +285,8 @@ class CustomPlacesManager {
         }
       });
 
-      // Load visit statistics for each place
-      this.updateVisitsData();
+      // Don't load visit statistics automatically on the main page
+      // Statistics will be loaded on-demand when needed
     } catch (error) {
       console.error("Error loading places:", error);
       window.notificationManager.show("Failed to load custom places", "danger");
@@ -295,8 +295,16 @@ class CustomPlacesManager {
 
   /**
    * Update visit statistics for all places
+   * @param {boolean} force - If true, load statistics even on main page
    */
-  async updateVisitsData() {
+  async updateVisitsData(force = false) {
+    // Only load statistics on the Visits page or when explicitly requested
+    const isVisitsPage = window.location.pathname.includes('/visits');
+    if (!isVisitsPage && !force) {
+      console.log('Skipping place statistics on the main page');
+      return;
+    }
+
     try {
       const placeIds = Array.from(this.places.keys());
 
@@ -334,11 +342,13 @@ class CustomPlacesManager {
    * @param {string} placeId - Place ID
    */
   async showPlaceStatistics(placeId) {
+    // This method is only called when a user explicitly clicks on a place
+    // or interacts with the Visits page
     const place = this.places.get(placeId);
     if (!place?.geometry?.coordinates?.length) return;
 
     try {
-      // Fetch fresh statistics
+      // Fetch fresh statistics - this is fine as it's user-initiated
       const response = await fetch(`/api/places/${placeId}/statistics`);
 
       if (!response.ok) {

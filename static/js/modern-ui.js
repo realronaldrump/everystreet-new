@@ -701,9 +701,7 @@
       case "map-match":
         handleMapMatch();
         break;
-      case "new-place":
-        handleAddPlace();
-        break;
+
     }
   }
 
@@ -838,93 +836,7 @@
     }
   }
 
-  function handleAddPlace() {
-    // Check if CustomPlacesManager is available
-    if (window.customPlaces) {
-      // If the app has 'start-drawing' button, use that workflow
-      const startDrawingBtn = document.getElementById("start-drawing");
-      if (startDrawingBtn) {
-        startDrawingBtn.click();
-        window.notificationManager?.show(
-          "Draw a polygon on the map to create a new place",
-          "info",
-        );
-        window.map?.getContainer().focus();
-        return;
-      }
-
-      // Check for existing place management modal
-      const manageModal = document.getElementById("manage-places-modal");
-      if (manageModal && window.bootstrap?.Modal) {
-        const modalInstance = new bootstrap.Modal(manageModal);
-        modalInstance.show();
-        return;
-      }
-    }
-
-    // Fallback to simple location prompt
-    handleAddPlaceFallback();
-  }
-
-  function handleAddPlaceFallback() {
-    const placeName = prompt("Enter place name:");
-    if (!placeName) return;
-
-    const latitude = prompt("Enter latitude (e.g. 34.0522):");
-    const longitude = prompt("Enter longitude (e.g. -118.2437):");
-    if (!latitude || !longitude) return;
-
-    // Validate inputs
-    const lat = parseFloat(latitude);
-    const lng = parseFloat(longitude);
-
-    if (isNaN(lat) || isNaN(lng)) {
-      window.notificationManager?.show(
-        "Please enter valid latitude and longitude values.",
-        "warning",
-      );
-      return;
-    }
-
-    submitPlaceData({
-      name: placeName,
-      latitude: lat,
-      longitude: lng,
-      radius: 100,
-      type: "custom",
-    });
-  }
-
-  async function submitPlaceData(placeData) {
-    showLoading("Adding place...");
-
-    try {
-      const response = await fetch("/api/places/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(placeData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to add place");
-      }
-
-      hideLoading();
-      window.notificationManager?.show(
-        `Successfully added place: ${placeData.name}`,
-        "success",
-      );
-      refreshPlacesData();
-    } catch (error) {
-      console.error("Error adding place:", error);
-      hideLoading();
-      window.notificationManager?.show(
-        `Error adding place: ${error.message}`,
-        "danger",
-      );
-    }
-  }
+  // Place-related handlers removed - places should only be added from the Visits page
 
   // Refresh map data by calling appropriate functions
   function refreshMapData() {
