@@ -3117,23 +3117,20 @@ async def clear_collection(data: CollectionModel):
 
 # STREET SEGMENT MANAGEMENT
 @app.post("/api/street_segments/mark_driven")
-async def mark_street_segment_as_driven(data: dict):
-    """Mark a street segment as manually driven.
-
-    Args:
-        data: Dictionary with location_id and segment_id
-
-    Returns:
-        JSON response with success/error information
-    """
+async def mark_street_segment_as_driven(request: Request):
+    """Mark a street segment as manually driven."""
     try:
+        data = await request.json()
         location_id = data.get("location_id")
         segment_id = data.get("segment_id")
 
         if not location_id or not segment_id:
             return JSONResponse(
-                {"success": False, "error": "Missing location_id or segment_id"}, 
-                status_code=400
+                {
+                    "success": False,
+                    "error": "Missing location_id or segment_id",
+                },
+                status_code=400,
             )
 
         # Find the coverage area
@@ -3143,19 +3140,20 @@ async def mark_street_segment_as_driven(data: dict):
 
         if not coverage_area:
             return JSONResponse(
-                {"success": False, "error": "Coverage area not found"}, 
-                status_code=404
+                {"success": False, "error": "Coverage area not found"},
+                status_code=404,
             )
 
         # Update the street segment in GeoJSON
         streets_geojson = await find_one_with_retry(
-            street_geometries_collection, {"coverage_id": ObjectId(location_id)}
+            street_geometries_collection,
+            {"coverage_id": ObjectId(location_id)},
         )
 
         if not streets_geojson or "features" not in streets_geojson:
             return JSONResponse(
-                {"success": False, "error": "Street segments data not found"}, 
-                status_code=404
+                {"success": False, "error": "Street segments data not found"},
+                status_code=404,
             )
 
         # Find and update the segment
@@ -3165,31 +3163,35 @@ async def mark_street_segment_as_driven(data: dict):
                 feature["properties"]["driven"] = True
                 feature["properties"]["manual_override"] = True
                 feature["properties"]["manually_marked_driven"] = True
-                feature["properties"]["undriveable"] = False  # Ensure it's not undriveable
+                feature["properties"]["undriveable"] = (
+                    False  # Ensure it's not undriveable
+                )
                 updated = True
                 break
 
         if not updated:
             return JSONResponse(
-                {"success": False, "error": "Street segment not found"}, 
-                status_code=404
+                {"success": False, "error": "Street segment not found"},
+                status_code=404,
             )
 
         # Update the GeoJSON document
         await update_one_with_retry(
             street_geometries_collection,
             {"coverage_id": ObjectId(location_id)},
-            {"$set": {"features": streets_geojson["features"]}}
+            {"$set": {"features": streets_geojson["features"]}},
         )
 
         # Flag the coverage area for recalculation of stats
         await update_one_with_retry(
             coverage_metadata_collection,
             {"_id": ObjectId(location_id)},
-            {"$set": {
-                "needs_stats_update": True,
-                "last_modified": datetime.now(timezone.utc)
-            }}
+            {
+                "$set": {
+                    "needs_stats_update": True,
+                    "last_modified": datetime.now(timezone.utc),
+                }
+            },
         )
 
         return JSONResponse({"success": True})
@@ -3197,28 +3199,25 @@ async def mark_street_segment_as_driven(data: dict):
     except Exception as e:
         logging.error(f"Error marking street segment as driven: {e}")
         return JSONResponse(
-            {"success": False, "error": str(e)}, 
-            status_code=500
+            {"success": False, "error": str(e)}, status_code=500
         )
 
+
 @app.post("/api/street_segments/mark_undriven")
-async def mark_street_segment_as_undriven(data: dict):
-    """Mark a street segment as manually undriven (not driven).
-
-    Args:
-        data: Dictionary with location_id and segment_id
-
-    Returns:
-        JSON response with success/error information
-    """
+async def mark_street_segment_as_undriven(request: Request):
+    """Mark a street segment as manually undriven (not driven)."""
     try:
+        data = await request.json()
         location_id = data.get("location_id")
         segment_id = data.get("segment_id")
 
         if not location_id or not segment_id:
             return JSONResponse(
-                {"success": False, "error": "Missing location_id or segment_id"}, 
-                status_code=400
+                {
+                    "success": False,
+                    "error": "Missing location_id or segment_id",
+                },
+                status_code=400,
             )
 
         # Find the coverage area
@@ -3228,19 +3227,20 @@ async def mark_street_segment_as_undriven(data: dict):
 
         if not coverage_area:
             return JSONResponse(
-                {"success": False, "error": "Coverage area not found"}, 
-                status_code=404
+                {"success": False, "error": "Coverage area not found"},
+                status_code=404,
             )
 
         # Update the street segment in GeoJSON
         streets_geojson = await find_one_with_retry(
-            street_geometries_collection, {"coverage_id": ObjectId(location_id)}
+            street_geometries_collection,
+            {"coverage_id": ObjectId(location_id)},
         )
 
         if not streets_geojson or "features" not in streets_geojson:
             return JSONResponse(
-                {"success": False, "error": "Street segments data not found"}, 
-                status_code=404
+                {"success": False, "error": "Street segments data not found"},
+                status_code=404,
             )
 
         # Find and update the segment
@@ -3255,25 +3255,27 @@ async def mark_street_segment_as_undriven(data: dict):
 
         if not updated:
             return JSONResponse(
-                {"success": False, "error": "Street segment not found"}, 
-                status_code=404
+                {"success": False, "error": "Street segment not found"},
+                status_code=404,
             )
 
         # Update the GeoJSON document
         await update_one_with_retry(
             street_geometries_collection,
             {"coverage_id": ObjectId(location_id)},
-            {"$set": {"features": streets_geojson["features"]}}
+            {"$set": {"features": streets_geojson["features"]}},
         )
 
         # Flag the coverage area for recalculation of stats
         await update_one_with_retry(
             coverage_metadata_collection,
             {"_id": ObjectId(location_id)},
-            {"$set": {
-                "needs_stats_update": True,
-                "last_modified": datetime.now(timezone.utc)
-            }}
+            {
+                "$set": {
+                    "needs_stats_update": True,
+                    "last_modified": datetime.now(timezone.utc),
+                }
+            },
         )
 
         return JSONResponse({"success": True})
@@ -3281,28 +3283,25 @@ async def mark_street_segment_as_undriven(data: dict):
     except Exception as e:
         logging.error(f"Error marking street segment as undriven: {e}")
         return JSONResponse(
-            {"success": False, "error": str(e)}, 
-            status_code=500
+            {"success": False, "error": str(e)}, status_code=500
         )
 
+
 @app.post("/api/street_segments/mark_undriveable")
-async def mark_street_segment_as_undriveable(data: dict):
-    """Mark a street segment as undriveable (cannot be driven).
-
-    Args:
-        data: Dictionary with location_id and segment_id
-
-    Returns:
-        JSON response with success/error information
-    """
+async def mark_street_segment_as_undriveable(request: Request):
+    """Mark a street segment as undriveable (cannot be driven)."""
     try:
+        data = await request.json()
         location_id = data.get("location_id")
         segment_id = data.get("segment_id")
 
         if not location_id or not segment_id:
             return JSONResponse(
-                {"success": False, "error": "Missing location_id or segment_id"}, 
-                status_code=400
+                {
+                    "success": False,
+                    "error": "Missing location_id or segment_id",
+                },
+                status_code=400,
             )
 
         # Find the coverage area
@@ -3312,19 +3311,20 @@ async def mark_street_segment_as_undriveable(data: dict):
 
         if not coverage_area:
             return JSONResponse(
-                {"success": False, "error": "Coverage area not found"}, 
-                status_code=404
+                {"success": False, "error": "Coverage area not found"},
+                status_code=404,
             )
 
         # Update the street segment in GeoJSON
         streets_geojson = await find_one_with_retry(
-            street_geometries_collection, {"coverage_id": ObjectId(location_id)}
+            street_geometries_collection,
+            {"coverage_id": ObjectId(location_id)},
         )
 
         if not streets_geojson or "features" not in streets_geojson:
             return JSONResponse(
-                {"success": False, "error": "Street segments data not found"}, 
-                status_code=404
+                {"success": False, "error": "Street segments data not found"},
+                status_code=404,
             )
 
         # Find and update the segment
@@ -3334,32 +3334,32 @@ async def mark_street_segment_as_undriveable(data: dict):
                 feature["properties"]["undriveable"] = True
                 feature["properties"]["manual_override"] = True
                 feature["properties"]["manually_marked_undriveable"] = True
-                # We don't set driven to true automatically since the user
-                # might want to mark it specifically as undriveable but not driven
                 updated = True
                 break
 
         if not updated:
             return JSONResponse(
-                {"success": False, "error": "Street segment not found"}, 
-                status_code=404
+                {"success": False, "error": "Street segment not found"},
+                status_code=404,
             )
 
         # Update the GeoJSON document
         await update_one_with_retry(
             street_geometries_collection,
             {"coverage_id": ObjectId(location_id)},
-            {"$set": {"features": streets_geojson["features"]}}
+            {"$set": {"features": streets_geojson["features"]}},
         )
 
         # Flag the coverage area for recalculation of stats
         await update_one_with_retry(
             coverage_metadata_collection,
             {"_id": ObjectId(location_id)},
-            {"$set": {
-                "needs_stats_update": True,
-                "last_modified": datetime.now(timezone.utc)
-            }}
+            {
+                "$set": {
+                    "needs_stats_update": True,
+                    "last_modified": datetime.now(timezone.utc),
+                }
+            },
         )
 
         return JSONResponse({"success": True})
@@ -3367,28 +3367,25 @@ async def mark_street_segment_as_undriveable(data: dict):
     except Exception as e:
         logging.error(f"Error marking street segment as undriveable: {e}")
         return JSONResponse(
-            {"success": False, "error": str(e)}, 
-            status_code=500
+            {"success": False, "error": str(e)}, status_code=500
         )
 
+
 @app.post("/api/street_segments/mark_driveable")
-async def mark_street_segment_as_driveable(data: dict):
-    """Mark a street segment as driveable (removing undriveable status).
-
-    Args:
-        data: Dictionary with location_id and segment_id
-
-    Returns:
-        JSON response with success/error information
-    """
+async def mark_street_segment_as_driveable(request: Request):
+    """Mark a street segment as driveable (removing undriveable status)."""
     try:
+        data = await request.json()
         location_id = data.get("location_id")
         segment_id = data.get("segment_id")
 
         if not location_id or not segment_id:
             return JSONResponse(
-                {"success": False, "error": "Missing location_id or segment_id"}, 
-                status_code=400
+                {
+                    "success": False,
+                    "error": "Missing location_id or segment_id",
+                },
+                status_code=400,
             )
 
         # Find the coverage area
@@ -3398,19 +3395,20 @@ async def mark_street_segment_as_driveable(data: dict):
 
         if not coverage_area:
             return JSONResponse(
-                {"success": False, "error": "Coverage area not found"}, 
-                status_code=404
+                {"success": False, "error": "Coverage area not found"},
+                status_code=404,
             )
 
         # Update the street segment in GeoJSON
         streets_geojson = await find_one_with_retry(
-            street_geometries_collection, {"coverage_id": ObjectId(location_id)}
+            street_geometries_collection,
+            {"coverage_id": ObjectId(location_id)},
         )
 
         if not streets_geojson or "features" not in streets_geojson:
             return JSONResponse(
-                {"success": False, "error": "Street segments data not found"}, 
-                status_code=404
+                {"success": False, "error": "Street segments data not found"},
+                status_code=404,
             )
 
         # Find and update the segment
@@ -3426,25 +3424,27 @@ async def mark_street_segment_as_driveable(data: dict):
 
         if not updated:
             return JSONResponse(
-                {"success": False, "error": "Street segment not found"}, 
-                status_code=404
+                {"success": False, "error": "Street segment not found"},
+                status_code=404,
             )
 
         # Update the GeoJSON document
         await update_one_with_retry(
             street_geometries_collection,
             {"coverage_id": ObjectId(location_id)},
-            {"$set": {"features": streets_geojson["features"]}}
+            {"$set": {"features": streets_geojson["features"]}},
         )
 
         # Flag the coverage area for recalculation of stats
         await update_one_with_retry(
             coverage_metadata_collection,
             {"_id": ObjectId(location_id)},
-            {"$set": {
-                "needs_stats_update": True,
-                "last_modified": datetime.now(timezone.utc)
-            }}
+            {
+                "$set": {
+                    "needs_stats_update": True,
+                    "last_modified": datetime.now(timezone.utc),
+                }
+            },
         )
 
         return JSONResponse({"success": True})
@@ -3452,9 +3452,9 @@ async def mark_street_segment_as_driveable(data: dict):
     except Exception as e:
         logging.error(f"Error marking street segment as driveable: {e}")
         return JSONResponse(
-            {"success": False, "error": str(e)}, 
-            status_code=500
+            {"success": False, "error": str(e)}, status_code=500
         )
+
 
 @app.post("/api/coverage_areas/{location_id}/refresh_stats")
 async def refresh_coverage_stats(location_id: str):
@@ -3474,19 +3474,20 @@ async def refresh_coverage_stats(location_id: str):
 
         if not coverage_area:
             return JSONResponse(
-                {"success": False, "error": "Coverage area not found"}, 
-                status_code=404
+                {"success": False, "error": "Coverage area not found"},
+                status_code=404,
             )
 
         # Get the street segments
         streets_geojson = await find_one_with_retry(
-            street_geometries_collection, {"coverage_id": ObjectId(location_id)}
+            street_geometries_collection,
+            {"coverage_id": ObjectId(location_id)},
         )
 
         if not streets_geojson or "features" not in streets_geojson:
             return JSONResponse(
-                {"success": False, "error": "Street segments data not found"}, 
-                status_code=404
+                {"success": False, "error": "Street segments data not found"},
+                status_code=404,
             )
 
         # Recalculate coverage statistics
@@ -3523,13 +3524,15 @@ async def refresh_coverage_stats(location_id: str):
                     "length": 0,
                     "covered_length": 0,
                     "undriveable_length": 0,
-                    "coverage_percentage": 0
+                    "coverage_percentage": 0,
                 }
 
             street_types[highway_type]["length"] += segment_length
 
             if is_undriveable:
-                street_types[highway_type]["undriveable_length"] += segment_length
+                street_types[highway_type]["undriveable_length"] += (
+                    segment_length
+                )
             elif is_driven:
                 street_types[highway_type]["covered_length"] += segment_length
 
@@ -3541,9 +3544,13 @@ async def refresh_coverage_stats(location_id: str):
         # Calculate coverage percentage for each street type
         street_type_stats = []
         for street_type, stats in street_types.items():
-            driveable_type_length = stats["length"] - stats["undriveable_length"]
+            driveable_type_length = (
+                stats["length"] - stats["undriveable_length"]
+            )
             if driveable_type_length > 0:
-                stats["coverage_percentage"] = (stats["covered_length"] / driveable_type_length) * 100
+                stats["coverage_percentage"] = (
+                    stats["covered_length"] / driveable_type_length
+                ) * 100
             street_type_stats.append(stats)
 
         # Sort by length (descending)
@@ -3559,34 +3566,31 @@ async def refresh_coverage_stats(location_id: str):
             "street_types": street_type_stats,
             "needs_stats_update": False,
             "last_stats_update": datetime.now(timezone.utc),
-            "last_modified": datetime.now(timezone.utc)
+            "last_modified": datetime.now(timezone.utc),
         }
 
         await update_one_with_retry(
             coverage_metadata_collection,
             {"_id": ObjectId(location_id)},
-            {"$set": update_data}
+            {"$set": update_data},
         )
 
         # Return updated coverage info
         coverage_area = await find_one_with_retry(
             coverage_metadata_collection, {"_id": ObjectId(location_id)}
         )
-        
+
         # Convert ObjectId to string for JSON serialization
         coverage_area["_id"] = str(coverage_area["_id"])
-        
-        return JSONResponse({
-            "success": True,
-            "coverage": coverage_area
-        })
+
+        return JSONResponse({"success": True, "coverage": coverage_area})
 
     except Exception as e:
         logging.error(f"Error refreshing coverage stats: {e}")
         return JSONResponse(
-            {"success": False, "error": str(e)}, 
-            status_code=500
+            {"success": False, "error": str(e)}, status_code=500
         )
+
 
 # COVERAGE AREA MANAGEMENT
 @app.get("/api/coverage_areas")
@@ -4159,19 +4163,22 @@ async def get_coverage_area_details(location_id: str):
         result = {
             "success": True,
             "coverage": {
+                "_id": str(
+                    coverage_doc["_id"]
+                ),  # Add this line to include the _id field
                 "location_name": location_name,
                 "location": location_obj,
                 "total_length": total_length,
                 "driven_length": driven_length,
                 "coverage_percentage": coverage_percentage,
                 "last_updated": last_updated,
-                "total_streets": total_streets,  # Updated based on loaded data
-                "streets_geojson": streets_geojson,  # Contains loaded data or {}
+                "total_streets": total_streets,
+                "streets_geojson": streets_geojson,
                 "street_types": street_types,
                 "status": status,
                 "has_error": status == "error",
                 "error_message": last_error if status == "error" else None,
-                "needs_reprocessing": needs_reprocessing,  # Indicates if GeoJSON is missing/failed
+                "needs_reprocessing": needs_reprocessing,
             },
         }
         return result
