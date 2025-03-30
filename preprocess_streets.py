@@ -420,20 +420,27 @@ def process_element_parallel(
 
             feature = {
                 "type": "Feature",
-                "geometry": mapping(
-                    segment_wgs84
-                ),  # Use shapely.geometry.mapping
+                "geometry": mapping(segment_wgs84),
                 "properties": {
-                    "osm_id": osm_id,  # Original OSM Way ID
-                    "segment_id": f"{osm_id}-{i}",  # Unique segment ID
+                    "osm_id": osm_id,
+                    "segment_id": f"{osm_id}-{i}",
                     "street_name": tags.get("name", "Unnamed Street"),
                     "highway": highway_type,
-                    "location": location_name,  # Store location name string
-                    "segment_length": segment_utm.length,  # Length in meters (from UTM)
-                    "driven": False,  # Initial state
-                    "last_updated": None,  # Timestamp of last coverage check
-                    "matched_trips": [],  # List of trip IDs matching this segment
-                    "tags": tags,  # Store original OSM tags if needed
+                    "location": location_name,
+                    "segment_length": segment_utm.length,
+                    # --- Initial State ---
+                    "driven": False,
+                    "undriveable": False,  # Initialize as driveable
+                    "manual_override": False,  # Initialize manual flags
+                    "manually_marked_driven": False,
+                    "manually_marked_undriven": False,
+                    "manually_marked_undriveable": False,
+                    "manually_marked_driveable": False,
+                    "last_coverage_update": None,  # Timestamp of last auto coverage check
+                    "last_manual_update": None,  # Timestamp of last manual mark
+                    # --- End Initial State ---
+                    "matched_trips": [],
+                    "tags": tags,
                 },
             }
             features.append(feature)

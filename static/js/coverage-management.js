@@ -25,7 +25,7 @@
       // Check for notification manager
       if (typeof window.notificationManager === "undefined") {
         console.warn(
-          "notificationManager not found, fallbacks will use console.log",
+          "notificationManager not found, fallbacks will use console.log"
         );
         // Simple fallback
         window.notificationManager = {
@@ -37,7 +37,7 @@
       // Check for confirmation dialog
       if (typeof window.confirmationDialog === "undefined") {
         console.warn(
-          "confirmationDialog not found, fallbacks will use standard confirm()",
+          "confirmationDialog not found, fallbacks will use standard confirm()"
         );
         // Simple fallback
         window.confirmationDialog = {
@@ -110,7 +110,7 @@
 
       // Initialize tooltips on elements with data-bs-toggle="tooltip"
       const tooltipTriggerList = document.querySelectorAll(
-        '[data-bs-toggle="tooltip"]',
+        '[data-bs-toggle="tooltip"]'
       );
       this.tooltips = [...tooltipTriggerList].map((tooltipTriggerEl) => {
         return new bootstrap.Tooltip(tooltipTriggerEl);
@@ -122,7 +122,7 @@
       tables.forEach((table) => {
         // Add data-labels for mobile view
         const headers = Array.from(table.querySelectorAll("thead th")).map(
-          (th) => th.textContent.trim(),
+          (th) => th.textContent.trim()
         );
         const rows = table.querySelectorAll("tbody tr");
 
@@ -202,7 +202,7 @@
       this.currentProcessingLocation = savedData.location;
       this.showProgressModal(
         `Resuming processing for ${savedData.location.display_name}...`,
-        savedData.progress || 0,
+        savedData.progress || 0
       );
 
       // Depending on what stage we were at, re-trigger the right operation
@@ -230,7 +230,7 @@
 
         localStorage.setItem(
           "coverageProcessingState",
-          JSON.stringify(saveData),
+          JSON.stringify(saveData)
         );
       }
     }
@@ -248,7 +248,7 @@
       document
         .getElementById("cancel-processing")
         ?.addEventListener("click", () =>
-          this.cancelProcessing(this.currentProcessingLocation),
+          this.cancelProcessing(this.currentProcessingLocation)
         );
 
       // Disable "Add Area" button when location input changes
@@ -310,11 +310,11 @@
           } catch (error) {
             console.error(
               "Error parsing location data or handling action:",
-              error,
+              error
             );
             window.notificationManager.show(
               "Action failed: Invalid location data.",
-              "danger",
+              "danger"
             );
           }
         });
@@ -334,7 +334,7 @@
 
         // Handle clicks on the "Update Missing Data" button within the dashboard
         const updateMissingDataBtn = e.target.closest(
-          ".update-missing-data-btn",
+          ".update-missing-data-btn"
         );
         if (updateMissingDataBtn) {
           e.preventDefault();
@@ -349,7 +349,7 @@
             console.error("Error parsing location data for update:", err);
             window.notificationManager.show(
               "Failed to initiate update: Invalid location data.",
-              "danger",
+              "danger"
             );
           }
         }
@@ -364,7 +364,7 @@
           } else {
             window.notificationManager.show(
               "No map is currently displayed to export.",
-              "warning",
+              "warning"
             );
           }
         });
@@ -404,7 +404,7 @@
         locationInputEl.classList.add("is-invalid");
         window.notificationManager.show(
           "Please enter a location to validate.",
-          "warning",
+          "warning"
         );
         return;
       }
@@ -414,7 +414,7 @@
       if (!locType) {
         window.notificationManager.show(
           "Please select a location type.",
-          "warning",
+          "warning"
         );
         return;
       }
@@ -439,7 +439,7 @@
 
         if (!response.ok) {
           throw new Error(
-            data.detail || `HTTP error! status: ${response.status}`,
+            data.detail || `HTTP error! status: ${response.status}`
           );
         }
 
@@ -448,7 +448,7 @@
           locationInputEl.classList.add("is-invalid");
           window.notificationManager.show(
             "Location not found or invalid response. Please check your input.",
-            "warning",
+            "warning"
           );
           this.validatedLocation = null;
           const addButton = document.getElementById("add-coverage-area");
@@ -463,14 +463,14 @@
         if (addButton) addButton.disabled = false;
         window.notificationManager.show(
           `Location validated: ${data.display_name}`,
-          "success",
+          "success"
         );
       } catch (error) {
         console.error("Error validating location:", error);
         locationInputEl.classList.add("is-invalid");
         window.notificationManager.show(
           `Validation failed: ${error.message}. Please try again.`,
-          "danger",
+          "danger"
         );
         this.validatedLocation = null;
         const addButton = document.getElementById("add-coverage-area");
@@ -485,7 +485,7 @@
       if (!this.validatedLocation || !this.validatedLocation.display_name) {
         window.notificationManager.show(
           "Please validate a location first.",
-          "warning",
+          "warning"
         );
         return;
       }
@@ -504,13 +504,13 @@
 
         const exists = areas.some(
           (area) =>
-            area.location?.display_name === this.validatedLocation.display_name,
+            area.location?.display_name === this.validatedLocation.display_name
         );
 
         if (exists) {
           window.notificationManager.show(
             "This area is already being tracked.",
-            "warning",
+            "warning"
           );
           return; // Exit without adding
         }
@@ -536,7 +536,7 @@
         this.task_id = null; // Reset task ID before starting
         this.showProgressModal(
           `Starting processing for ${processingLocation.display_name}...`,
-          0,
+          0
         );
 
         // Trigger the backend processing
@@ -554,13 +554,13 @@
           this.hideProgressModal();
           throw new Error(
             taskData.detail ||
-              `Failed to start processing (HTTP ${preprocessResponse.status})`,
+              `Failed to start processing (HTTP ${preprocessResponse.status})`
           );
         }
 
         window.notificationManager.show(
           "Coverage area processing started in background.",
-          "info",
+          "info"
         );
 
         // Start polling if we got a task ID
@@ -574,7 +574,7 @@
             pollingSuccessful = true;
             window.notificationManager.show(
               "Processing completed successfully!",
-              "success",
+              "success"
             );
           } catch (pollError) {
             // Convert any objects to strings for better error messages
@@ -585,7 +585,7 @@
 
             window.notificationManager.show(
               `Processing failed: ${errorMessage}`,
-              "danger",
+              "danger"
             );
           } finally {
             this.activeTaskIds.delete(taskData.task_id);
@@ -604,7 +604,7 @@
           this.hideProgressModal();
           window.notificationManager.show(
             "Processing started, but no task ID received for progress tracking.",
-            "warning",
+            "warning"
           );
           await this.loadCoverageAreas();
         }
@@ -626,7 +626,7 @@
         console.error("Error adding coverage area:", error);
         window.notificationManager.show(
           `Failed to add coverage area: ${errorMessage}`,
-          "danger",
+          "danger"
         );
         this.hideProgressModal();
         await this.loadCoverageAreas();
@@ -642,7 +642,7 @@
       if (!locationToCancel || !locationToCancel.display_name) {
         window.notificationManager.show(
           "No active processing context found to cancel.",
-          "warning",
+          "warning"
         );
         return;
       }
@@ -662,7 +662,7 @@
 
       window.notificationManager.show(
         `Attempting to cancel processing for ${locationToCancel.display_name}...`,
-        "info",
+        "info"
       );
 
       try {
@@ -678,13 +678,13 @@
         if (!response.ok) {
           throw new Error(
             data.detail ||
-              `Failed to send cancel request (HTTP ${response.status})`,
+              `Failed to send cancel request (HTTP ${response.status})`
           );
         }
 
         window.notificationManager.show(
           `Processing for ${locationToCancel.display_name} cancelled.`,
-          "success",
+          "success"
         );
         this.hideProgressModal(); // Close the progress modal if it was open
         await this.loadCoverageAreas(); // Refresh the table to show 'canceled' status
@@ -692,7 +692,7 @@
         console.error("Error cancelling processing:", error);
         window.notificationManager.show(
           `Failed to cancel processing: ${error.message}`,
-          "danger",
+          "danger"
         );
       } finally {
         this.currentProcessingLocation = null; // Clear context
@@ -732,12 +732,12 @@
         progressBarEl.setAttribute("aria-valuenow", progress);
         progressBarEl.classList.remove(
           "progress-bar-striped",
-          "progress-bar-animated",
+          "progress-bar-animated"
         );
         if (progress < 100) {
           progressBarEl.classList.add(
             "progress-bar-striped",
-            "progress-bar-animated",
+            "progress-bar-animated"
           );
         }
       }
@@ -814,7 +814,7 @@
 
       // Remove unload listener
       window.removeEventListener("beforeunload", () =>
-        this.saveProcessingState(),
+        this.saveProcessingState()
       );
 
       // Clear processing context
@@ -842,10 +842,10 @@
 
       // Update time display elements within the modal
       const elapsedTimeEl = document.querySelector(
-        "#taskProgressModal .elapsed-time",
+        "#taskProgressModal .elapsed-time"
       );
       const estimatedTimeEl = document.querySelector(
-        "#taskProgressModal .estimated-time",
+        "#taskProgressModal .estimated-time"
       );
 
       if (elapsedTimeEl) elapsedTimeEl.textContent = `Elapsed: ${elapsedText}`;
@@ -885,7 +885,7 @@
         progressBar.classList.remove(
           "progress-bar-striped",
           "progress-bar-animated",
-          "bg-danger",
+          "bg-danger"
         );
         if (stage === "error") {
           progressBar.classList.add("bg-danger");
@@ -893,7 +893,7 @@
           // Keep animating unless complete or error
           progressBar.classList.add(
             "progress-bar-striped",
-            "progress-bar-animated",
+            "progress-bar-animated"
           );
         }
       }
@@ -961,7 +961,7 @@
         if (progressBar) {
           progressBar.classList.remove(
             "progress-bar-striped",
-            "progress-bar-animated",
+            "progress-bar-animated"
           );
         }
         if (this.progressTimer) {
@@ -1126,7 +1126,7 @@
         const response = await fetch("/api/coverage_areas");
         if (!response.ok)
           throw new Error(
-            `Failed to fetch coverage areas (HTTP ${response.status})`,
+            `Failed to fetch coverage areas (HTTP ${response.status})`
           );
         const data = await response.json();
         if (!data.success)
@@ -1142,7 +1142,7 @@
         console.error("Error loading coverage areas:", error);
         window.notificationManager.show(
           `Failed to load coverage areas: ${error.message}. Please refresh.`,
-          "danger",
+          "danger"
         );
       }
     }
@@ -1161,7 +1161,7 @@
 
       // Sort areas, perhaps by name or status? Example: by name
       areas.sort((a, b) =>
-        a.location.display_name.localeCompare(b.location.display_name),
+        a.location.display_name.localeCompare(b.location.display_name)
       );
 
       areas.forEach((area) => {
@@ -1208,7 +1208,7 @@
         // Escape location data for attribute
         const escapedLocation = JSON.stringify(area.location || {}).replace(
           /'/g,
-          "'",
+          "'"
         );
 
         row.innerHTML = `
@@ -1233,7 +1233,7 @@
             ${
               isProcessing
                 ? `<div class="text-primary small"><i class="fas fa-spinner fa-spin me-1"></i>${this.formatStageName(
-                    status,
+                    status
                   )}...</div>`
                 : ""
             }
@@ -1257,18 +1257,18 @@
           <td data-label="Actions">
             <div class="btn-group" role="group">
               <button class="btn btn-sm btn-success update-coverage-btn" title="Full Update (Recalculate All)" data-location='${escapedLocation}' ${
-                isProcessing ? "disabled" : ""
-              } data-bs-toggle="tooltip" data-bs-title="Full update - recalculates all coverage data">
+          isProcessing ? "disabled" : ""
+        } data-bs-toggle="tooltip" data-bs-title="Full update - recalculates all coverage data">
                 <i class="fas fa-sync-alt"></i>
               </button>
               <button class="btn btn-sm btn-info update-incremental-btn" title="Quick Update (New Trips Only)" data-location='${escapedLocation}' ${
-                isProcessing ? "disabled" : ""
-              } data-bs-toggle="tooltip" data-bs-title="Quick update - only processes new trips">
+          isProcessing ? "disabled" : ""
+        } data-bs-toggle="tooltip" data-bs-title="Quick update - only processes new trips">
                 <i class="fas fa-bolt"></i>
               </button>
               <button class="btn btn-sm btn-danger delete-area-btn" title="Delete Area" data-location='${escapedLocation}' ${
-                isProcessing ? "disabled" : ""
-              } data-bs-toggle="tooltip" data-bs-title="Remove this area and all its coverage data">
+          isProcessing ? "disabled" : ""
+        } data-bs-toggle="tooltip" data-bs-title="Remove this area and all its coverage data">
                 <i class="fas fa-trash-alt"></i>
               </button>
               ${
@@ -1287,7 +1287,7 @@
       if (!location || !location.display_name) {
         window.notificationManager.show(
           "Invalid location data provided for update.",
-          "warning",
+          "warning"
         );
         return;
       }
@@ -1298,7 +1298,7 @@
       ) {
         window.notificationManager.show(
           `Update already in progress for ${location.display_name}.`,
-          "info",
+          "info"
         );
         return;
       }
@@ -1315,14 +1315,14 @@
           this.selectedLocation?._id &&
           (await this.isSameLocation(
             this.selectedLocation.location,
-            processingLocation,
+            processingLocation
           ));
         const displayedLocationId = isUpdatingDisplayedLocation
           ? this.selectedLocation._id
           : null;
 
         this.showProgressModal(
-          `Requesting coverage update (${mode}) for ${processingLocation.display_name}...`,
+          `Requesting coverage update (${mode}) for ${processingLocation.display_name}...`
         );
 
         const endpoint =
@@ -1347,7 +1347,7 @@
             if (Array.isArray(data.detail)) {
               const errorMessages = data.detail
                 .map((err) =>
-                  typeof err === "object" ? JSON.stringify(err) : String(err),
+                  typeof err === "object" ? JSON.stringify(err) : String(err)
                 )
                 .join("\n");
               throw new Error(`Validation error: ${errorMessages}`);
@@ -1356,7 +1356,7 @@
             }
           } else {
             throw new Error(
-              data.detail || `Failed to start update (HTTP ${response.status})`,
+              data.detail || `Failed to start update (HTTP ${response.status})`
             );
           }
         }
@@ -1372,7 +1372,7 @@
             pollingSuccessful = true;
             window.notificationManager.show(
               `Coverage update for ${processingLocation.display_name} completed.`,
-              "success",
+              "success"
             );
           } catch (pollError) {
             // Ensure error is properly stringified
@@ -1383,7 +1383,7 @@
 
             window.notificationManager.show(
               `Coverage update for ${processingLocation.display_name} failed: ${errorMessage}`,
-              "danger",
+              "danger"
             );
             await this.loadCoverageAreas();
             return;
@@ -1400,7 +1400,7 @@
           // No task ID
           window.notificationManager.show(
             "Update started, but no task ID received for progress tracking.",
-            "warning",
+            "warning"
           );
         }
 
@@ -1422,7 +1422,7 @@
         console.error("Error updating coverage:", error);
         window.notificationManager.show(
           `Coverage update failed: ${errorMessage}`,
-          "danger",
+          "danger"
         );
         this.hideProgressModal();
         await this.loadCoverageAreas();
@@ -1445,7 +1445,7 @@
       if (!location || !location.display_name) {
         window.notificationManager.show(
           "Invalid location data for deletion.",
-          "warning",
+          "warning"
         );
         return;
       }
@@ -1462,7 +1462,7 @@
       try {
         window.notificationManager.show(
           `Deleting coverage area: ${location.display_name}...`,
-          "info",
+          "info"
         );
 
         const response = await fetch("/api/coverage_areas/delete", {
@@ -1475,7 +1475,7 @@
 
         if (!response.ok) {
           throw new Error(
-            data.detail || `Failed to delete area (HTTP ${response.status})`,
+            data.detail || `Failed to delete area (HTTP ${response.status})`
           );
         }
 
@@ -1494,13 +1494,13 @@
 
         window.notificationManager.show(
           `Coverage area '${location.display_name}' deleted successfully.`,
-          "success",
+          "success"
         );
       } catch (error) {
         console.error("Error deleting coverage area:", error);
         window.notificationManager.show(
           `Error deleting coverage area: ${error.message}`,
-          "danger",
+          "danger"
         );
       }
     }
@@ -1527,7 +1527,7 @@
           const response = await fetch(`/api/street_coverage/${taskId}`);
           if (response.status === 404) {
             throw new Error(
-              "Task ID not found. It might have expired or been invalid.",
+              "Task ID not found. It might have expired or been invalid."
             );
           }
           if (!response.ok) {
@@ -1550,14 +1550,14 @@
             if (!data || typeof data !== "object") {
               console.warn(
                 `Task ${taskId}: Received invalid data format from server`,
-                data,
+                data
               );
 
               // The server returns only the result object for completed tasks
               // HTTP 200 with null/empty response likely means task completed successfully
               if (response.ok) {
                 console.log(
-                  `Task ${taskId}: Empty response with HTTP 200, assuming task completed successfully`,
+                  `Task ${taskId}: Empty response with HTTP 200, assuming task completed successfully`
                 );
                 data = {
                   stage: "complete",
@@ -1581,7 +1581,7 @@
             if (!data.stage) {
               console.log(
                 `Task ${taskId}: Response missing stage property, adding default structure`,
-                data,
+                data
               );
               // For result-only responses (when task is complete)
               const result = data;
@@ -1607,14 +1607,14 @@
               console.error(
                 `Task ${taskId} failed with error: ${
                   data.error || "Unknown error"
-                }`,
+                }`
               );
               throw new Error(
                 typeof data.message === "string"
                   ? data.message
                   : typeof data.error === "string"
-                    ? data.error
-                    : "Coverage calculation failed",
+                  ? data.error
+                  : "Coverage calculation failed"
               );
             }
           } catch (jsonError) {
@@ -1641,7 +1641,7 @@
 
           console.error(
             `Error polling coverage progress for task ${taskId}:`,
-            error,
+            error
           );
           this.updateModalContent({
             stage: "error",
@@ -1668,7 +1668,7 @@
     async displayCoverageDashboard(locationId) {
       const dashboardContainer = document.getElementById("coverage-dashboard");
       const dashboardLocationName = document.getElementById(
-        "dashboard-location-name",
+        "dashboard-location-name"
       );
       const mapContainer = document.getElementById("coverage-map");
       const chartContainer = document.getElementById("street-type-chart");
@@ -1755,7 +1755,7 @@
               <hr>
               <p class="mb-1">Try running an update to resolve this issue:</p>
               <button class="update-missing-data-btn btn btn-sm btn-primary" data-location='${JSON.stringify(
-                coverage.location || {},
+                coverage.location || {}
               ).replace(/'/g, "'")}'>
                 <i class="fas fa-sync-alt me-1"></i> Update Coverage Now
               </button>
@@ -1777,7 +1777,7 @@
               <h5><i class="fas fa-exclamation-triangle me-2"></i>Map Data Not Available</h5>
               <p>Please update the coverage data to generate the map:</p>
               <button class="update-missing-data-btn btn btn-sm btn-primary" data-location='${JSON.stringify(
-                coverage.location || {},
+                coverage.location || {}
               ).replace(/'/g, "'")}'>
                 <i class="fas fa-sync-alt me-1"></i> Update Coverage Now
               </button>
@@ -1792,12 +1792,12 @@
           if (hasError)
             window.notificationManager.show(
               `Error loading map for ${coverage.location_name}`,
-              "danger",
+              "danger"
             );
           else if (status !== "completed")
             window.notificationManager.show(
               `Map data still processing for ${coverage.location_name}.`,
-              "info",
+              "info"
             );
 
           // Scroll to dashboard
@@ -1811,7 +1811,7 @@
         // --- Success Path: Has Street Data ---
         window.notificationManager.show(
           `Loaded coverage map for ${coverage.location_name}`,
-          "success",
+          "success"
         );
 
         // Initialize map and chart
@@ -1833,7 +1833,7 @@
         chartContainer.innerHTML = ""; // Clear chart area
         window.notificationManager.show(
           `Error loading dashboard: ${error.message}`,
-          "danger",
+          "danger"
         );
       }
     }
@@ -1857,7 +1857,7 @@
           "bg-success",
           "bg-warning",
           "bg-danger",
-          "bg-secondary",
+          "bg-secondary"
         ); // Reset colors
         let barColor = "bg-success";
         if (coverage.status === "error" || coverage.status === "canceled")
@@ -1868,7 +1868,7 @@
       }
 
       const coveragePercentageText = document.getElementById(
-        "dashboard-coverage-percentage-text",
+        "dashboard-coverage-percentage-text"
       );
       if (coveragePercentageText)
         coveragePercentageText.textContent = `${coveragePercentage}%`;
@@ -1896,7 +1896,7 @@
 
     updateStreetTypeCoverage(streetTypes) {
       const streetTypeCoverageEl = document.getElementById(
-        "street-type-coverage",
+        "street-type-coverage"
       );
       if (!streetTypeCoverageEl) return;
 
@@ -1923,12 +1923,12 @@
           <div class="street-type-item mb-2">
             <div class="d-flex justify-content-between mb-1">
               <small><strong>${this.formatStreetType(
-                type.type,
+                type.type
               )}</strong></small>
               <small>${coveragePct}% (${coveredMiles}/${totalMiles} mi)</small>
             </div>
             <div class="progress" style="height: 8px;" title="${this.formatStreetType(
-              type.type,
+              type.type
             )}: ${coveragePct}% Covered">
               <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePct}%"
                    aria-valuenow="${coveragePct}" aria-valuemin="0" aria-valuemax="100"></div>
@@ -1966,7 +1966,7 @@
           subdomains: "abcd",
           maxZoom: 20, // Increase maxZoom slightly
           minZoom: 5, // Set a minZoom
-        },
+        }
       ).addTo(this.coverageMap);
 
       // Add streets
@@ -1988,6 +1988,60 @@
       });
     }
 
+    styleStreet(feature) {
+      const isDriven = feature.properties.driven;
+      const isUndriveable = feature.properties.undriveable;
+      const streetType = feature.properties.highway || "unknown";
+      const baseWeight = 3;
+      let weight = baseWeight;
+
+      // Adjust weight based on type for visual hierarchy
+      if (["motorway", "trunk", "primary"].includes(streetType))
+        weight = baseWeight + 2;
+      else if (streetType === "secondary") weight = baseWeight + 1;
+      else if (streetType === "tertiary") weight = baseWeight + 0.5;
+      else if (
+        [
+          "service",
+          "track",
+          "footway",
+          "path",
+          "cycleway",
+          "pedestrian",
+          "steps",
+        ].includes(streetType)
+      )
+        weight = baseWeight - 1;
+
+      let color;
+      let className;
+
+      if (isUndriveable) {
+        // Gray/blue for undriveable streets
+        color = "#607d8b";
+        className = "undriveable-street";
+      } else if (isDriven) {
+        // Green for driven streets
+        color = "#4caf50";
+        className = "driven-street";
+      } else {
+        // Red for undriven streets
+        color = "#ff5252";
+        className = "undriven-street";
+      }
+
+      return {
+        color: color,
+        weight: weight,
+        opacity: 0.8,
+        className: className, // For potential CSS/export styling
+        dashArray: isUndriveable ? "4, 4" : null, // Dashed line for undriveable
+      };
+    }
+
+    // 2. Update the addStreetsToMap method
+    // Replace this entire method with the code below
+
     addStreetsToMap(geojson) {
       if (!this.coverageMap) return; // Ensure map exists
 
@@ -2003,59 +2057,8 @@
       this.streetsGeoJson = geojson;
       this.currentFilter = "all"; // Reset filter on adding new data
 
-      const styleStreet = (feature) => {
-        const isDriven = feature.properties.driven;
-        const isUndriveable = feature.properties.undriveable;
-        const streetType = feature.properties.highway || "unknown";
-        const baseWeight = 3;
-        let weight = baseWeight;
-
-        // Adjust weight based on type for visual hierarchy
-        if (["motorway", "trunk", "primary"].includes(streetType))
-          weight = baseWeight + 2;
-        else if (streetType === "secondary") weight = baseWeight + 1;
-        else if (streetType === "tertiary") weight = baseWeight + 0.5;
-        else if (
-          [
-            "service",
-            "track",
-            "footway",
-            "path",
-            "cycleway",
-            "pedestrian",
-            "steps",
-          ].includes(streetType)
-        )
-          weight = baseWeight - 1;
-      
-        let color;
-        let className;
-      
-        if (isUndriveable) {
-          // Gray/blue for undriveable streets
-          color = "#607d8b"; 
-          className = "undriveable-street";
-        } else if (isDriven) {
-          // Green for driven streets
-          color = "#4caf50"; 
-          className = "driven-street";
-        } else {
-          // Red for undriven streets
-          color = "#ff5252"; 
-          className = "undriven-street";
-        }
-
-        return {
-          color: color,
-          weight: weight,
-          opacity: 0.8,
-          className: className, // For potential CSS/export styling
-          dashArray: isUndriveable ? "4, 4" : null // Dashed line for undriveable
-        };
-      };
-
       const streetsLayer = L.geoJSON(geojson, {
-        style: styleStreet,
+        style: (feature) => this.styleStreet(feature), // Use class method here
         filter: () => true, // Initially show all
         onEachFeature: (feature, layer) => {
           const props = feature.properties;
@@ -2073,58 +2076,71 @@
           layer.featureProperties = props;
 
           // Create popup content
-          const popupContent = document.createElement('div');
-          popupContent.className = 'street-popup';
+          const popupContent = document.createElement("div");
+          popupContent.className = "street-popup";
           popupContent.innerHTML = `
             <h6>${streetName}</h6>
             <hr class="my-1">
             <small>
               <strong>Type:</strong> ${this.formatStreetType(streetType)}<br>
               <strong>Length:</strong> ${lengthMiles} mi<br>
-              <strong>Status:</strong> <span class="${props.driven ? "text-success" : "text-danger"}">${status}</span><br>
-              ${props.undriveable ? '<strong>Marked as:</strong> <span class="text-warning">Undriveable</span><br>' : ''}
+              <strong>Status:</strong> <span class="${
+                props.driven ? "text-success" : "text-danger"
+              }">${status}</span><br>
+              ${
+                props.undriveable
+                  ? '<strong>Marked as:</strong> <span class="text-warning">Undriveable</span><br>'
+                  : ""
+              }
               <strong>ID:</strong> ${segmentId}
             </small>
             <div class="street-actions mt-2 d-flex gap-2">
-              ${props.driven ? 
-                `<button class="btn btn-sm btn-outline-danger mark-undriven-btn">Mark as Undriven</button>` : 
-                `<button class="btn btn-sm btn-outline-success mark-driven-btn">Mark as Driven</button>`
+              ${
+                props.driven
+                  ? `<button class="btn btn-sm btn-outline-danger mark-undriven-btn">Mark as Undriven</button>`
+                  : `<button class="btn btn-sm btn-outline-success mark-driven-btn">Mark as Driven</button>`
               }
-              ${props.undriveable ? 
-                `<button class="btn btn-sm btn-outline-info mark-driveable-btn">Mark as Driveable</button>` : 
-                `<button class="btn btn-sm btn-outline-warning mark-undriveable-btn">Mark as Undriveable</button>`
+              ${
+                props.undriveable
+                  ? `<button class="btn btn-sm btn-outline-info mark-driveable-btn">Mark as Driveable</button>`
+                  : `<button class="btn btn-sm btn-outline-warning mark-undriveable-btn">Mark as Undriveable</button>`
               }
             </div>
           `;
 
           // Add event listeners to the buttons
           const self = this;
-          const markDrivenBtn = popupContent.querySelector('.mark-driven-btn');
-          const markUndrivenBtn = popupContent.querySelector('.mark-undriven-btn');
-          const markUndriveableBtn = popupContent.querySelector('.mark-undriveable-btn');
-          const markDriveableBtn = popupContent.querySelector('.mark-driveable-btn');
+          const markDrivenBtn = popupContent.querySelector(".mark-driven-btn");
+          const markUndrivenBtn =
+            popupContent.querySelector(".mark-undriven-btn");
+          const markUndriveableBtn = popupContent.querySelector(
+            ".mark-undriveable-btn"
+          );
+          const markDriveableBtn = popupContent.querySelector(
+            ".mark-driveable-btn"
+          );
 
           if (markDrivenBtn) {
-            markDrivenBtn.addEventListener('click', function() {
-              self.markStreetSegment(layer, 'driven');
+            markDrivenBtn.addEventListener("click", function () {
+              self.markStreetSegment(layer, "driven");
             });
           }
 
           if (markUndrivenBtn) {
-            markUndrivenBtn.addEventListener('click', function() {
-              self.markStreetSegment(layer, 'undriven');
+            markUndrivenBtn.addEventListener("click", function () {
+              self.markStreetSegment(layer, "undriven");
             });
           }
 
           if (markUndriveableBtn) {
-            markUndriveableBtn.addEventListener('click', function() {
-              self.markStreetSegment(layer, 'undriveable');
+            markUndriveableBtn.addEventListener("click", function () {
+              self.markStreetSegment(layer, "undriveable");
             });
           }
 
           if (markDriveableBtn) {
-            markDriveableBtn.addEventListener('click', function() {
-              self.markStreetSegment(layer, 'driveable');
+            markDriveableBtn.addEventListener("click", function () {
+              self.markStreetSegment(layer, "driveable");
             });
           }
 
@@ -2142,12 +2158,12 @@
             ) {
               try {
                 this.highlightedLayer.setStyle(
-                  this.highlightedLayer.originalStyle,
+                  this.highlightedLayer.originalStyle
                 );
               } catch (styleError) {
                 console.warn(
                   "Could not reset style on previously highlighted layer:",
-                  styleError,
+                  styleError
                 );
               }
             }
@@ -2175,7 +2191,7 @@
                   <div class="d-flex justify-content-between small">
                     <span>Type:</span>
                     <span class="text-info">${this.formatStreetType(
-                      streetType,
+                      streetType
                     )}</span>
                   </div>
                   <div class="d-flex justify-content-between small">
@@ -2193,57 +2209,71 @@
                       ${status}
                     </span>
                   </div>
-                  ${props.undriveable ? `
+                  ${
+                    props.undriveable
+                      ? `
                   <div class="d-flex justify-content-between small">
                     <span>Special:</span>
                     <span class="text-warning">
                       <i class="fas fa-exclamation-triangle me-1"></i>
                       Undriveable
                     </span>
-                  </div>` : ''}
+                  </div>`
+                      : ""
+                  }
                   <div class="d-flex justify-content-between small">
                      <span>ID:</span>
                      <span class="text-muted">${segmentId}</span>
                   </div>
                   <div class="mt-2 d-flex gap-2 flex-wrap">
-                    ${props.driven ? 
-                      `<button class="btn btn-sm btn-outline-danger mark-undriven-btn-panel">Mark Undriven</button>` : 
-                      `<button class="btn btn-sm btn-outline-success mark-driven-btn-panel">Mark Driven</button>`
+                    ${
+                      props.driven
+                        ? `<button class="btn btn-sm btn-outline-danger mark-undriven-btn-panel">Mark Undriven</button>`
+                        : `<button class="btn btn-sm btn-outline-success mark-driven-btn-panel">Mark Driven</button>`
                     }
-                    ${props.undriveable ? 
-                      `<button class="btn btn-sm btn-outline-info mark-driveable-btn-panel">Mark Driveable</button>` : 
-                      `<button class="btn btn-sm btn-outline-warning mark-undriveable-btn-panel">Mark Undriveable</button>`
+                    ${
+                      props.undriveable
+                        ? `<button class="btn btn-sm btn-outline-info mark-driveable-btn-panel">Mark Driveable</button>`
+                        : `<button class="btn btn-sm btn-outline-warning mark-undriveable-btn-panel">Mark Undriveable</button>`
                     }
                   </div>`;
                 infoPanel.style.display = "block"; // Show panel
-                
+
                 // Add event listeners to the panel buttons
-                const markDrivenBtnPanel = infoPanel.querySelector('.mark-driven-btn-panel');
-                const markUndrivenBtnPanel = infoPanel.querySelector('.mark-undriven-btn-panel');
-                const markUndriveableBtnPanel = infoPanel.querySelector('.mark-undriveable-btn-panel');
-                const markDriveableBtnPanel = infoPanel.querySelector('.mark-driveable-btn-panel');
-                
+                const markDrivenBtnPanel = infoPanel.querySelector(
+                  ".mark-driven-btn-panel"
+                );
+                const markUndrivenBtnPanel = infoPanel.querySelector(
+                  ".mark-undriven-btn-panel"
+                );
+                const markUndriveableBtnPanel = infoPanel.querySelector(
+                  ".mark-undriveable-btn-panel"
+                );
+                const markDriveableBtnPanel = infoPanel.querySelector(
+                  ".mark-driveable-btn-panel"
+                );
+
                 if (markDrivenBtnPanel) {
-                  markDrivenBtnPanel.addEventListener('click', () => {
-                    this.markStreetSegment(clickedLayer, 'driven');
+                  markDrivenBtnPanel.addEventListener("click", () => {
+                    this.markStreetSegment(clickedLayer, "driven");
                   });
                 }
-                
+
                 if (markUndrivenBtnPanel) {
-                  markUndrivenBtnPanel.addEventListener('click', () => {
-                    this.markStreetSegment(clickedLayer, 'undriven');
+                  markUndrivenBtnPanel.addEventListener("click", () => {
+                    this.markStreetSegment(clickedLayer, "undriven");
                   });
                 }
-                
+
                 if (markUndriveableBtnPanel) {
-                  markUndriveableBtnPanel.addEventListener('click', () => {
-                    this.markStreetSegment(clickedLayer, 'undriveable');
+                  markUndriveableBtnPanel.addEventListener("click", () => {
+                    this.markStreetSegment(clickedLayer, "undriveable");
                   });
                 }
-                
+
                 if (markDriveableBtnPanel) {
-                  markDriveableBtnPanel.addEventListener('click', () => {
-                    this.markStreetSegment(clickedLayer, 'driveable');
+                  markDriveableBtnPanel.addEventListener("click", () => {
+                    this.markStreetSegment(clickedLayer, "driveable");
                   });
                 }
               }
@@ -2278,7 +2308,7 @@
         onAdd: () => {
           const container = L.DomUtil.create(
             "div",
-            "coverage-summary-control leaflet-bar",
+            "coverage-summary-control leaflet-bar"
           );
           const coveragePercentage =
             coverage.coverage_percentage?.toFixed(1) || "0.0";
@@ -2351,31 +2381,28 @@
       let apiEndpoint, statusText, actionText;
 
       switch (action) {
-        case 'driven':
-          apiEndpoint = '/api/street_segments/mark_driven';
-          statusText = 'driven';
-          actionText = 'Drive';
+        case "driven":
+          apiEndpoint = "/api/street_segments/mark_driven";
+          statusText = "driven";
+          actionText = "Drive";
           break;
-        case 'undriven':
-          apiEndpoint = '/api/street_segments/mark_undriven';
-          statusText = 'undriven';
-          actionText = 'Undrive';
+        case "undriven":
+          apiEndpoint = "/api/street_segments/mark_undriven";
+          statusText = "undriven";
+          actionText = "Undrive";
           break;
-        case 'undriveable':
-          apiEndpoint = '/api/street_segments/mark_undriveable';
-          statusText = 'undriveable';
-          actionText = 'Undriveable';
+        case "undriveable":
+          apiEndpoint = "/api/street_segments/mark_undriveable";
+          statusText = "undriveable";
+          actionText = "Undriveable";
           break;
-        case 'driveable':
-          apiEndpoint = '/api/street_segments/mark_driveable';
-          statusText = 'driveable';
-          actionText = 'Driveable';
+        case "driveable":
+          apiEndpoint = "/api/street_segments/mark_driveable";
+          statusText = "driveable";
+          actionText = "Driveable";
           break;
         default:
-          window.notificationManager.show(
-            "Invalid action specified",
-            "danger"
-          );
+          window.notificationManager.show("Invalid action specified", "danger");
           return;
       }
 
@@ -2389,38 +2416,43 @@
 
         // Send request to the API
         const response = await fetch(apiEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             location_id: locationId,
-            segment_id: segmentId
-          })
+            segment_id: segmentId,
+          }),
         });
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.detail || `Failed to mark segment (HTTP ${response.status})`);
+          throw new Error(
+            errorData.detail ||
+              `Failed to mark segment (HTTP ${response.status})`
+          );
         }
 
         const data = await response.json();
         if (!data.success) {
-          throw new Error(data.error || 'API returned failure');
+          throw new Error(data.error || "API returned failure");
         }
 
         // Update the layer properties with the new state
-        if (action === 'driven') {
+        if (action === "driven") {
           layer.featureProperties.driven = true;
           layer.featureProperties.undriveable = false;
-        } else if (action === 'undriven') {
+        } else if (action === "undriven") {
           layer.featureProperties.driven = false;
-        } else if (action === 'undriveable') {
+        } else if (action === "undriveable") {
           layer.featureProperties.undriveable = true;
-        } else if (action === 'driveable') {
+        } else if (action === "driveable") {
           layer.featureProperties.undriveable = false;
         }
 
         // Update the style of the layer
-        const newStyle = this.styleStreet({ properties: layer.featureProperties });
+        const newStyle = this.styleStreet({
+          properties: layer.featureProperties,
+        });
         layer.setStyle(newStyle);
         layer.originalStyle = { ...newStyle }; // Update original style too
 
@@ -2431,10 +2463,10 @@
 
         // Update the highlighted layer display if this is the highlighted layer
         if (this.highlightedLayer === layer) {
-          const infoPanel = document.querySelector('.map-info-panel');
+          const infoPanel = document.querySelector(".map-info-panel");
           if (infoPanel) {
             // Re-click the layer to refresh the info panel
-            layer.fire('click');
+            layer.fire("click");
           }
         }
 
@@ -2461,18 +2493,24 @@
 
       try {
         const locationId = this.selectedLocation._id;
-        const response = await fetch(`/api/coverage_areas/${locationId}/refresh_stats`, {
-          method: 'POST'
-        });
+        const response = await fetch(
+          `/api/coverage_areas/${locationId}/refresh_stats`,
+          {
+            method: "POST",
+          }
+        );
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.detail || `Failed to refresh stats (HTTP ${response.status})`);
+          throw new Error(
+            errorData.detail ||
+              `Failed to refresh stats (HTTP ${response.status})`
+          );
         }
 
         const data = await response.json();
         if (!data.success) {
-          throw new Error(data.error || 'API returned failure');
+          throw new Error(data.error || "API returned failure");
         }
 
         // Update the dashboard with new stats
@@ -2481,7 +2519,7 @@
         // Update the summary control
         this.addCoverageSummary(data.coverage);
       } catch (error) {
-        console.error('Error refreshing coverage stats:', error);
+        console.error("Error refreshing coverage stats:", error);
         // Don't show notification to avoid spamming the user
       }
     }
@@ -2526,13 +2564,13 @@
       const topTypes = sortedTypes.slice(0, 7);
       const labels = topTypes.map((t) => this.formatStreetType(t.type));
       const totalLengths = topTypes.map((t) =>
-        parseFloat((t.length * 0.000621371).toFixed(2)),
+        parseFloat((t.length * 0.000621371).toFixed(2))
       );
       const drivenLengths = topTypes.map((t) =>
-        parseFloat((t.covered_length * 0.000621371).toFixed(2)),
+        parseFloat((t.covered_length * 0.000621371).toFixed(2))
       );
       const notDrivenLengths = totalLengths.map((total, i) =>
-        parseFloat((total - drivenLengths[i]).toFixed(2)),
+        parseFloat((total - drivenLengths[i]).toFixed(2))
       );
 
       // Ensure container has a canvas
@@ -2598,7 +2636,7 @@
                   // Calculate total for the bar
                   const total = tooltipItems.reduce(
                     (sum, item) => sum + (item.raw || 0),
-                    0,
+                    0
                   );
                   return `Total: ${total.toFixed(2)} mi`;
                 },
@@ -2634,14 +2672,14 @@
       if (!this.coverageMap || typeof leafletImage === "undefined") {
         window.notificationManager.show(
           "Map export requires the leaflet-image library.",
-          "warning",
+          "warning"
         );
         return;
       }
       if (!this.selectedLocation || !this.selectedLocation.location_name) {
         window.notificationManager.show(
           "Cannot export map: No location selected.",
-          "warning",
+          "warning"
         );
         return;
       }
@@ -2654,7 +2692,7 @@
 
       window.notificationManager.show(
         "Generating map image (this may take a moment)...",
-        "info",
+        "info"
       );
 
       // Ensure layers are visible (re-apply filter)
@@ -2670,7 +2708,7 @@
               console.error("Error generating map image:", err);
               window.notificationManager.show(
                 `Failed to generate map image: ${err.message || err}`,
-                "danger",
+                "danger"
               );
               return;
             }
@@ -2683,13 +2721,13 @@
               document.body.removeChild(link);
               window.notificationManager.show(
                 "Map image download started.",
-                "success",
+                "success"
               );
             } catch (downloadError) {
               console.error("Error triggering download:", downloadError);
               window.notificationManager.show(
                 "Failed to trigger map download.",
-                "danger",
+                "danger"
               );
             }
           },
@@ -2697,7 +2735,7 @@
             // Options for leaflet-image - quality doesn't apply to PNG
             // svgRenderer: true, // Might cause issues with complex maps or specific browsers
             preferCanvas: true, // Often more reliable than SVG for export
-          },
+          }
         );
       }, 800); // Increased delay slightly
     }
@@ -2705,7 +2743,7 @@
     setMapFilter(filterType) {
       if (!this.coverageMap || !this.streetsGeoJson || !this.streetLayers) {
         console.warn(
-          "Cannot set map filter: Map or street data not initialized.",
+          "Cannot set map filter: Map or street data not initialized."
         );
         return;
       }
@@ -2728,7 +2766,7 @@
           "active",
           "btn-primary",
           "btn-success",
-          "btn-danger",
+          "btn-danger"
         );
         btn.classList.add("btn-outline-secondary");
 
@@ -2747,36 +2785,6 @@
         }
       });
 
-      const styleStreet = (feature) => {
-        // Re-use the styling logic from addStreetsToMap
-        const isDriven = feature.properties.driven;
-        const streetType = feature.properties.highway || "unknown";
-        const baseWeight = 3;
-        let weight = baseWeight;
-        if (["motorway", "trunk", "primary"].includes(streetType))
-          weight = baseWeight + 2;
-        else if (streetType === "secondary") weight = baseWeight + 1;
-        else if (streetType === "tertiary") weight = baseWeight + 0.5;
-        else if (
-          [
-            "service",
-            "track",
-            "footway",
-            "path",
-            "cycleway",
-            "pedestrian",
-            "steps",
-          ].includes(streetType)
-        )
-          weight = baseWeight - 1;
-        return {
-          color: isDriven ? "#4caf50" : "#ff5252",
-          weight: weight,
-          opacity: 0.8,
-          className: isDriven ? "driven-street" : "undriven-street",
-        };
-      };
-
       const filterFunc = (feature) => {
         if (filterType === "driven") return feature.properties.driven === true;
         if (filterType === "undriven")
@@ -2786,7 +2794,7 @@
 
       // Create and add the new filtered layer
       const filteredLayer = L.geoJSON(this.streetsGeoJson, {
-        style: styleStreet,
+        style: (feature) => this.styleStreet(feature), // Use class method here
         filter: filterFunc,
         onEachFeature: (feature, layer) => {
           // Re-bind popups and streetInfo for the filtered layer
@@ -2815,7 +2823,7 @@
                 props.driven ? "text-success" : "text-danger"
               }">${status}</span><br>
               <strong>ID:</strong> ${segmentId}</small></div>`,
-            { closeButton: false, minWidth: 150 },
+            { closeButton: false, minWidth: 150 }
           );
         },
       }).addTo(this.streetLayers); // Add the filtered layer to the group
@@ -2841,7 +2849,7 @@
     // Ensure Leaflet and Chart.js are loaded before initializing
     if (typeof L === "undefined" || typeof Chart === "undefined") {
       console.error(
-        "Leaflet or Chart.js not loaded. Coverage Manager initialization aborted.",
+        "Leaflet or Chart.js not loaded. Coverage Manager initialization aborted."
       );
       // Optionally display an error message to the user
       const errorDiv = document.getElementById("coverage-manager-error");

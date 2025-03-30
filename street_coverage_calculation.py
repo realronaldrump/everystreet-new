@@ -1,4 +1,3 @@
-# street_coverage_calculation.py
 """Street coverage calculation module (Highly Optimized).
 
 Calculates street segment coverage based on trip data using efficient spatial
@@ -11,7 +10,7 @@ import json
 import logging
 import multiprocessing
 import os
-from collections import defaultdict
+from collections import defaultdict  # Ensure defaultdict is imported
 from concurrent.futures import (
     Future,
     ProcessPoolExecutor,
@@ -267,7 +266,7 @@ class CoverageCalculator:
         self.location_name = location.get("display_name", "Unknown Location")
         self.task_id = task_id
         self.streets_index = rtree.index.Index()
-        # Store minimal info: RTree index ID -> {segment_id, length_m, highway, driven}
+        # Store minimal info: RTree index ID -> {segment_id, length_m, highway, driven, undriveable}
         self.streets_lookup: Dict[int, Dict[str, Any]] = {}
         self.utm_proj: Optional[pyproj.CRS] = None
         self.project_to_utm = None
@@ -291,8 +290,12 @@ class CoverageCalculator:
         self.total_length_calculated: float = (
             0.0  # Total length of all segments (meters)
         )
+        # --- NEW: Track driveable length ---
+        self.total_driveable_length: float = (
+            0.0  # Length of non-undriveable segments
+        )
         self.initial_driven_length: float = (
-            0.0  # Length driven *before* this run (meters)
+            0.0  # Length driven *before* this run (meters, driveable only)
         )
         self.initial_covered_segments: Set[str] = (
             set()
@@ -505,6 +508,20 @@ class CoverageCalculator:
             "indexing", 5, f"Querying streets for {self.location_name}..."
         )
 
+        # --- Reset stats before building ---
+        self.total_length_calculated = 0.0
+        self.total_driveable_length = 0.0
+        self.initial_driven_length = 0.0
+        self.initial_covered_segments = set()
+        self.streets_lookup = {}
+        if self.streets_index:  # Close existing index if any
+            try:
+                self.streets_index.close()
+            except Exception:
+                pass
+            self.streets_index = rtree.index.Index()
+        # --- End Reset ---
+
         streets_query = {"properties.location": self.location_name}
         try:
             # Use retry wrapper for count
@@ -529,10 +546,8 @@ class CoverageCalculator:
                 self.task_id,
                 self.location_name,
             )
-            await self.update_progress(
-                "error", 0, "No streets found for location."
-            )
-            # Not necessarily an error state for the task if the area truly has no streets
+            # Don't set error here, let it complete with 0%
+            # await self.update_progress("error", 0, "No streets found for location.")
             return (
                 True  # Allow process to complete, result will show 0 coverage
             )
@@ -543,7 +558,7 @@ class CoverageCalculator:
             total_streets_count,
         )
 
-        # OPTIMIZATION: Fetch only necessary fields using projection and use larger batch size
+        # OPTIMIZATION: Fetch only necessary fields including 'undriveable'
         streets_cursor = streets_collection.find(
             streets_query,
             {
@@ -551,11 +566,10 @@ class CoverageCalculator:
                 "properties.segment_id": 1,
                 "properties.highway": 1,
                 "properties.driven": 1,
+                "properties.undriveable": 1,  # <-- Fetch undriveable status
                 "_id": 0,
             },
-        ).batch_size(
-            self.street_index_batch_size
-        )  # Set cursor batch size to match our processing
+        ).batch_size(self.street_index_batch_size)
 
         processed_count = 0
         rtree_idx_counter = 0
@@ -563,99 +577,86 @@ class CoverageCalculator:
         batch_num = 0
 
         try:
-            # Process streets in batches using the async generator
             async for street_batch in batch_cursor(
                 streets_cursor, self.street_index_batch_size
             ):
                 batch_num += 1
                 if not self.project_to_utm:
-                    # This should have been caught by initialize_projections, but double-check
                     raise ValueError(
                         "UTM projection not initialized during indexing."
                     )
 
-                # Process the batch (CPU-bound geometry operations)
                 for street in street_batch:
                     processed_count += 1
                     try:
                         props = street.get("properties", {})
                         segment_id = props.get("segment_id")
                         geometry_data = street.get("geometry")
+                        # --- Get undriveable status ---
+                        is_undriveable = props.get("undriveable", False)
 
                         if not segment_id or not geometry_data:
                             continue
 
-                        # Store geometry in cache for later use
                         self.street_geoms_cache[segment_id] = geometry_data
-
-                        # Parse the geometry
                         geom_wgs84 = shape(geometry_data)
-                        bounds = (
-                            geom_wgs84.bounds
-                        )  # Use WGS84 bounds for R-tree
-
-                        # Calculate length in UTM
+                        bounds = geom_wgs84.bounds
                         geom_utm = transform(self.project_to_utm, geom_wgs84)
                         segment_length_m = geom_utm.length
 
-                        # OPTIMIZATION: Cache the bounding box for later use by workers
                         if ENABLE_PRECOMPUTE_BBOXES:
                             self.street_bbox_cache[segment_id] = (
                                 geom_utm.bounds
                             )
 
-                        if (
-                            segment_length_m <= 0.1
-                        ):  # Use a small threshold instead of zero
+                        if segment_length_m <= 0.1:
                             continue
 
-                        # Store minimal data in lookup cache, keyed by R-tree index ID
                         is_driven = props.get("driven", False)
+
+                        # Store minimal data including undriveable status
                         self.streets_lookup[rtree_idx_counter] = {
                             "segment_id": segment_id,
-                            "length_m": segment_length_m,  # Store pre-calculated UTM length
+                            "length_m": segment_length_m,
                             "highway": props.get("highway", "unknown"),
                             "driven": is_driven,
+                            "undriveable": is_undriveable,  # <-- Store undriveable
                         }
-                        # Insert into R-tree using WGS84 bounds
                         self.streets_index.insert(rtree_idx_counter, bounds)
                         rtree_idx_counter += 1
 
-                        # Accumulate overall statistics
+                        # --- Accumulate statistics considering undriveable ---
                         self.total_length_calculated += segment_length_m
-                        if is_driven:
-                            self.initial_driven_length += segment_length_m
-                            self.initial_covered_segments.add(segment_id)
+                        if not is_undriveable:
+                            self.total_driveable_length += (
+                                segment_length_m  # Accumulate driveable length
+                            )
+                            # Only count driven length for driveable segments
+                            if is_driven:
+                                self.initial_driven_length += segment_length_m
+                                self.initial_covered_segments.add(segment_id)
+                        # --- End Accumulation Update ---
 
                     except (GEOSException, ValueError, TypeError) as e:
                         segment_id_str = (
                             segment_id if "segment_id" in locals() else "N/A"
                         )
-                        logger.error(
-                            "Task %s: Error processing street geometry (Segment ID: %s): %s",
-                            self.task_id,
-                            segment_id_str,
-                            e,
-                            exc_info=False,
+                        logger.warning(
+                            f"Task {self.task_id}: Error processing street geom (Seg ID: {segment_id_str}): {e}"
                         )
                     except Exception as e:
                         segment_id_str = (
                             segment_id if "segment_id" in locals() else "N/A"
                         )
                         logger.error(
-                            "Task %s: Unexpected error indexing street (Segment ID: %s): %s",
-                            self.task_id,
-                            segment_id_str,
-                            e,
+                            f"Task {self.task_id}: Unexpected error indexing street (Seg ID: {segment_id_str}): {e}",
                             exc_info=False,
                         )
 
                 # --- Update Progress Periodically ---
-                # Progress for indexing stage (e.g., 5% to 50%)
                 current_progress_pct = 5 + (
                     processed_count / total_streets_count * 45
                 )
-                # Update roughly every 5% or on the last batch
                 if (current_progress_pct - last_progress_update_pct >= 5) or (
                     processed_count == total_streets_count
                 ):
@@ -665,13 +666,15 @@ class CoverageCalculator:
                         f"Indexed {processed_count}/{total_streets_count} streets",
                     )
                     last_progress_update_pct = current_progress_pct
-                    await asyncio.sleep(BATCH_PROCESS_DELAY)  # Yield control
+                    await asyncio.sleep(BATCH_PROCESS_DELAY)
 
+            # --- Update final log message ---
             logger.info(
-                "Task %s: Finished building spatial index for %s. Total length: %.2fm. R-tree items: %d. Initial driven: %d segments (%.2fm).",
+                "Task %s: Finished building spatial index for %s. Total length: %.2fm. Driveable length: %.2fm. R-tree items: %d. Initial driven (driveable): %d segments (%.2fm).",
                 self.task_id,
                 self.location_name,
                 self.total_length_calculated,
+                self.total_driveable_length,  # Log driveable length
                 rtree_idx_counter,
                 len(self.initial_covered_segments),
                 self.initial_driven_length,
@@ -679,21 +682,14 @@ class CoverageCalculator:
 
             if total_streets_count > 0 and rtree_idx_counter == 0:
                 logger.warning(
-                    "Task %s: No valid street segments were added to the spatial index for %s, though %d were found.",
-                    self.task_id,
-                    self.location_name,
-                    total_streets_count,
+                    f"Task {self.task_id}: No valid segments added to index for {self.location_name} ({total_streets_count} found)."
                 )
-                # Don't fail the task, let it report 0% coverage
 
             return True
 
         except Exception as e:
             logger.error(
-                "Task %s: Critical error during spatial index build for %s: %s",
-                self.task_id,
-                self.location_name,
-                e,
+                f"Task {self.task_id}: Critical error during index build for {self.location_name}: {e}",
                 exc_info=True,
             )
             await self.update_progress(
@@ -701,7 +697,6 @@ class CoverageCalculator:
             )
             return False
         finally:
-            # Ensure cursor is closed if Motor doesn't handle it automatically in all cases
             if "streets_cursor" in locals() and hasattr(
                 streets_cursor, "close"
             ):
@@ -906,14 +901,24 @@ class CoverageCalculator:
                         # Get the segment IDs for these indices
                         for idx in candidate_indices:
                             if idx in self.streets_lookup:
-                                batch_candidate_segment_ids.add(
-                                    self.streets_lookup[idx]["segment_id"]
-                                )
+                                # --- Check if candidate is driveable ---
+                                if not self.streets_lookup[idx].get(
+                                    "undriveable", False
+                                ):
+                                    batch_candidate_segment_ids.add(
+                                        self.streets_lookup[idx]["segment_id"]
+                                    )
+                    else:  # If no coords, no candidates
+                        batch_candidate_segment_ids = set()
+
                 except (GEOSException, ValueError, TypeError) as e:
                     logger.warning(
                         f"Task {self.task_id}: Error finding batch candidates: {e}. Using per-trip candidates."
                     )
                     # Fallback to per-trip candidates if batch approach fails
+                    batch_candidate_segment_ids = (
+                        set()
+                    )  # Reset before fallback
                     for trip_id, coords in valid_trips_in_batch:
                         try:
                             if coords:
@@ -929,17 +934,21 @@ class CoverageCalculator:
                                 )
                                 for idx in candidate_indices:
                                     if idx in self.streets_lookup:
-                                        batch_candidate_segment_ids.add(
-                                            self.streets_lookup[idx][
-                                                "segment_id"
-                                            ]
-                                        )
+                                        # --- Check if candidate is driveable ---
+                                        if not self.streets_lookup[idx].get(
+                                            "undriveable", False
+                                        ):
+                                            batch_candidate_segment_ids.add(
+                                                self.streets_lookup[idx][
+                                                    "segment_id"
+                                                ]
+                                            )
                         except Exception:
-                            pass
+                            pass  # Ignore errors in fallback
 
                 if not batch_candidate_segment_ids:
                     logger.debug(
-                        f"Task {self.task_id}: No candidate segments found for main batch {batch_num}."
+                        f"Task {self.task_id}: No driveable candidate segments found for main batch {batch_num}."
                     )
                     processed_count_local += len(valid_trips_in_batch)
                     processed_trip_ids_set.update(
@@ -1369,25 +1378,36 @@ class CoverageCalculator:
 
         # --- Bulk Update Driven Status ---
         # Identify segments that were not driven before but are now covered by this run
-        segments_to_update = list(
-            self.newly_covered_segments - self.initial_covered_segments
-        )
+        # Also ensure we only mark segments that are currently considered driveable
+        segments_to_update = []
+        for seg_id in self.newly_covered_segments:
+            # Check lookup table to ensure it's not marked undriveable
+            found = False
+            for rtree_id, info in self.streets_lookup.items():
+                if info["segment_id"] == seg_id:
+                    if not info.get("undriveable", False):
+                        # Only add if not undriveable and not initially covered
+                        if seg_id not in self.initial_covered_segments:
+                            segments_to_update.append(seg_id)
+                    found = True
+                    break
+            if not found:
+                logger.warning(
+                    f"Segment {seg_id} found by trip but not in streets_lookup during finalize."
+                )
 
         if segments_to_update:
             logger.info(
-                "Task %s: Updating 'driven' status for %d newly covered segments...",
+                "Task %s: Updating 'driven' status for %d newly covered (and driveable) segments...",
                 self.task_id,
                 len(segments_to_update),
             )
             try:
-                # OPTIMIZATION: Split into smaller chunks if too many segments to update at once
-                max_update_batch = 10000  # MongoDB has limits on update size
+                max_update_batch = 10000
                 for i in range(0, len(segments_to_update), max_update_batch):
                     segment_batch = segments_to_update[
                         i : i + max_update_batch
                     ]
-
-                    # Use retry wrapper for DB operation
                     update_result = await update_many_with_retry(
                         streets_collection,
                         {"properties.segment_id": {"$in": segment_batch}},
@@ -1401,27 +1421,16 @@ class CoverageCalculator:
                         },
                     )
                     logger.info(
-                        "Task %s: Bulk update batch %d result: Matched=%d, Modified=%d",
-                        self.task_id,
-                        i // max_update_batch + 1,
-                        update_result.matched_count,
-                        update_result.modified_count,
+                        f"Task {self.task_id}: Bulk update batch {i // max_update_batch + 1} result: Matched={update_result.matched_count}, Modified={update_result.modified_count}"
                     )
-
-                    # Brief pause to allow other operations
                     await asyncio.sleep(BATCH_PROCESS_DELAY)
-
             except BulkWriteError as bwe:
                 logger.error(
-                    "Task %s: Bulk write error updating street status: %s",
-                    self.task_id,
-                    bwe.details,
+                    f"Task {self.task_id}: Bulk write error updating street status: {bwe.details}"
                 )
             except Exception as e:
                 logger.error(
-                    "Task %s: Error bulk updating street status: %s",
-                    self.task_id,
-                    e,
+                    f"Task {self.task_id}: Error bulk updating street status: {e}",
                     exc_info=True,
                 )
                 await self.update_progress(
@@ -1430,9 +1439,7 @@ class CoverageCalculator:
                 return None
         else:
             logger.info(
-                "Task %s: No new segments to mark as driven for %s.",
-                self.task_id,
-                self.location_name,
+                f"Task {self.task_id}: No new driveable segments to mark as driven for {self.location_name}."
             )
 
         # --- Calculate Final Stats Incrementally ---
@@ -1442,52 +1449,80 @@ class CoverageCalculator:
             f"Calculating final statistics incrementally for {self.location_name}...",
         )
         try:
-            final_total_length = self.total_length_calculated
-            final_driven_length = self.initial_driven_length
+            # --- Initialize final stats ---
+            final_total_length = 0.0
+            final_driven_length = 0.0
+            final_driveable_length = 0.0  # Track final driveable length
             final_total_segments = len(self.streets_lookup)
 
-            # OPTIMIZATION: Use defaultdict with a lambda function that creates the inner dict structure
+            # --- Use defaultdict for street type stats ---
             street_type_stats = defaultdict(
                 lambda: {
                     "total": 0,
                     "covered": 0,
                     "length": 0.0,
                     "covered_length": 0.0,
+                    "undriveable_length": 0.0,  # Add undriveable tracking
                 }
             )
 
-            # OPTIMIZATION: Precompute driven status for each segment for faster lookup
-            is_driven_map = {}
-            for segment_id in self.initial_covered_segments:
-                is_driven_map[segment_id] = True
-            for segment_id in self.newly_covered_segments:
-                is_driven_map[segment_id] = True
+            # --- Map for final driven status (initial + newly covered) ---
+            final_driven_status = {}
+            for seg_id in self.initial_covered_segments:
+                final_driven_status[seg_id] = True
+            # Add newly covered segments (only those confirmed as driveable and updated)
+            for seg_id in (
+                segments_to_update
+            ):  # Use the list of segments we actually updated
+                final_driven_status[seg_id] = True
 
+            # --- Iterate through all indexed segments ---
             for rtree_id, street_info in self.streets_lookup.items():
                 segment_id = street_info["segment_id"]
                 length = street_info["length_m"]
                 highway = street_info["highway"]
+                is_undriveable = street_info.get(
+                    "undriveable", False
+                )  # Use stored undriveable status
 
-                is_driven = is_driven_map.get(segment_id, False)
+                # Determine final driven status for this segment
+                is_driven = final_driven_status.get(segment_id, False)
 
+                # Accumulate total length
+                final_total_length += length
+
+                # Accumulate stats per street type
                 street_type_stats[highway]["total"] += 1
                 street_type_stats[highway]["length"] += length
 
-                if is_driven:
-                    street_type_stats[highway]["covered"] += 1
-                    street_type_stats[highway]["covered_length"] += length
-                    if (
-                        segment_id in self.newly_covered_segments
-                        and segment_id not in self.initial_covered_segments
-                    ):
+                if is_undriveable:
+                    street_type_stats[highway]["undriveable_length"] += length
+                else:
+                    # Accumulate driveable length (overall and per type)
+                    final_driveable_length += length
+                    # Accumulate driven length ONLY if driveable AND driven
+                    if is_driven:
                         final_driven_length += length
+                        street_type_stats[highway]["covered"] += 1
+                        street_type_stats[highway]["covered_length"] += length
 
+            # --- Calculate final percentages ---
+            final_coverage_percentage = (
+                (final_driven_length / final_driveable_length * 100)
+                if final_driveable_length > 0
+                else 0.0
+            )
+
+            # --- Process final street type stats ---
             final_street_types = []
             for highway_type, stats in street_type_stats.items():
+                type_driveable_length = (
+                    stats["length"] - stats["undriveable_length"]
+                )
                 coverage_pct = (
-                    (stats["covered_length"] / stats["length"] * 100)
-                    if stats["length"] > 0
-                    else 0
+                    (stats["covered_length"] / type_driveable_length * 100)
+                    if type_driveable_length > 0
+                    else 0.0
                 )
                 final_street_types.append(
                     {
@@ -1497,30 +1532,29 @@ class CoverageCalculator:
                         "length": stats["length"],
                         "covered_length": stats["covered_length"],
                         "coverage_percentage": coverage_pct,
+                        "undriveable_length": stats[
+                            "undriveable_length"
+                        ],  # Include undriveable length
                     }
                 )
             final_street_types.sort(key=lambda x: x["length"], reverse=True)
 
-            final_coverage_percentage = (
-                (final_driven_length / final_total_length * 100)
-                if final_total_length > 0
-                else 0
-            )
-
             coverage_stats = {
                 "total_length": final_total_length,
                 "driven_length": final_driven_length,
+                "driveable_length": final_driveable_length,  # Include driveable length
                 "coverage_percentage": final_coverage_percentage,
                 "total_segments": final_total_segments,
                 "street_types": final_street_types,
             }
+            # --- Update log message ---
             logger.info(
-                f"Task {self.task_id}: Incremental stats calculated: {final_coverage_percentage:.2f}% coverage."
+                f"Task {self.task_id}: Final stats calculated: {final_coverage_percentage:.2f}% coverage ({final_driven_length:.2f}m / {final_driveable_length:.2f}m driveable).",
             )
 
         except Exception as e:
             logger.error(
-                f"Task {self.task_id}: Error calculating final stats incrementally: {e}",
+                f"Task {self.task_id}: Error calculating final stats: {e}",
                 exc_info=True,
             )
             await self.update_progress(
@@ -1530,78 +1564,65 @@ class CoverageCalculator:
 
         # --- Update Metadata Document ---
         logger.info(
-            "Task %s: Updating coverage metadata for %s...",
-            self.task_id,
-            self.location_name,
+            f"Task {self.task_id}: Updating coverage metadata for {self.location_name}..."
         )
         try:
-            # OPTIMIZATION: Only store processed trip IDs if they're not too numerous
-            # MongoDB has document size limits of 16MB
             trip_ids_to_store = list(processed_trip_ids_set)
-            trip_ids_too_large = (
-                len(trip_ids_to_store) > 100000
-            )  # Arbitrary threshold
+            trip_ids_too_large = len(trip_ids_to_store) > 100000
 
             update_doc = {
                 "$set": {
-                    "total_length": coverage_stats["total_length"],
-                    "driven_length": coverage_stats["driven_length"],
-                    "coverage_percentage": coverage_stats[
-                        "coverage_percentage"
-                    ],
-                    "street_types": coverage_stats["street_types"],
-                    "total_segments": coverage_stats["total_segments"],
+                    **coverage_stats,  # Unpack the calculated stats (includes driveable_length)
                     "last_updated": datetime.now(timezone.utc),
-                    "status": "completed_stats",
+                    "status": "completed_stats",  # Keep this stage until GeoJSON is done
                     "last_error": None,
                     "processed_trips.last_processed_timestamp": datetime.now(
                         timezone.utc
                     ),
                     "processed_trips.count": len(processed_trip_ids_set),
+                    "needs_stats_update": False,  # Explicitly set false after successful calc
+                    "last_stats_update": datetime.now(
+                        timezone.utc
+                    ),  # Add timestamp for stats update
                 },
-                "$unset": {"streets_data": ""},
+                "$unset": {"streets_data": ""},  # Remove old field if exists
             }
 
-            # Only store trip IDs if they're not too numerous
             if not trip_ids_too_large:
                 update_doc["$set"]["processed_trips.trip_ids"] = (
                     trip_ids_to_store
                 )
             else:
-                # If too many trip IDs, just store the count
                 logger.warning(
-                    f"Task {self.task_id}: Too many trip IDs ({len(trip_ids_to_store)}) to store in metadata document. Storing count only."
+                    f"Task {self.task_id}: Too many trip IDs ({len(trip_ids_to_store)}) to store in metadata."
                 )
-                update_doc["$unset"]["processed_trips.trip_ids"] = ""
+                update_doc["$unset"]["processed_trips.trip_ids"] = (
+                    ""  # Ensure it's removed if too large
+                )
 
             await update_one_with_retry(
                 coverage_metadata_collection,
                 {"location.display_name": self.location_name},
                 update_doc,
-                upsert=True,
+                upsert=True,  # Upsert might be needed if initial insert failed
             )
             logger.info(
-                "Task %s: Coverage metadata updated for %s.",
-                self.task_id,
-                self.location_name,
+                f"Task {self.task_id}: Coverage metadata updated for {self.location_name}."
             )
         except Exception as e:
             logger.error(
-                "Task %s: Error updating coverage metadata: %s",
-                self.task_id,
-                e,
+                f"Task {self.task_id}: Error updating coverage metadata: {e}",
                 exc_info=True,
             )
+            # Don't return None here, let GeoJSON generation proceed if possible
 
         # --- Prepare Result Dictionary ---
         final_result = {
-            "total_length": coverage_stats["total_length"],
-            "driven_length": coverage_stats["driven_length"],
-            "coverage_percentage": coverage_stats["coverage_percentage"],
-            "total_segments": coverage_stats["total_segments"],
-            "street_types": coverage_stats["street_types"],
+            **coverage_stats,  # Include all calculated stats
             "run_details": {
-                "newly_covered_segment_count": len(segments_to_update),
+                "newly_covered_segment_count": len(
+                    segments_to_update
+                ),  # Use count of actually updated segments
                 "total_processed_trips_in_run": self.processed_trips_count,
             },
         }
@@ -1669,93 +1690,126 @@ class CoverageCalculator:
                     self.task_id,
                     self.location_name,
                 )
+                # If index build failed critically, don't proceed
+                await self.update_progress(
+                    "error", 5, "Failed to build spatial index"
+                )
                 return None
-            if (
-                self.total_length_calculated == 0
-                and self.streets_index.count(self.streets_index.bounds) == 0
-            ):
+
+            # Handle case where no streets were found (index_success might be True but total_length is 0)
+            if self.total_length_calculated == 0 and not self.streets_lookup:
                 logger.info(
-                    "Task %s: No valid streets found for %s. Reporting 0%% coverage.",
+                    "Task %s: No valid streets found for %s during indexing. Reporting 0%% coverage.",
                     self.task_id,
                     self.location_name,
                 )
-                processed_trip_ids_set: Set[str] = set()
-            else:
-                # --- Step 2: Determine Processed Trips ---
-                processed_trip_ids_set = set()
-                if run_incremental:
-                    try:
-                        metadata = await find_one_with_retry(
-                            coverage_metadata_collection,
-                            {"location.display_name": self.location_name},
-                            {
-                                "processed_trips.trip_ids": 1,
-                                "processed_trips.count": 1,
-                            },
-                        )
-                        if metadata and "processed_trips" in metadata:
-                            if "trip_ids" in metadata["processed_trips"]:
-                                trip_ids_data = metadata["processed_trips"][
-                                    "trip_ids"
-                                ]
-                                if isinstance(trip_ids_data, (list, set)):
-                                    processed_trip_ids_set = set(trip_ids_data)
-                                    logger.info(
-                                        "Task %s: Loaded %d previously processed trip IDs for incremental run.",
-                                        self.task_id,
-                                        len(processed_trip_ids_set),
-                                    )
-                                else:
-                                    logger.warning(
-                                        "Task %s: 'processed_trips.trip_ids' not list/set. Running as full.",
-                                        self.task_id,
-                                    )
-                            elif "count" in metadata["processed_trips"]:
-                                # We know count but don't have IDs - warn but continue as incremental
-                                # We'll need to look up trips by other means
-                                logger.warning(
-                                    "Task %s: Found processed trip count (%d) but no IDs. Using alternative incremental strategy.",
-                                    self.task_id,
-                                    metadata["processed_trips"]["count"],
-                                )
-                                # TODO: Implement alternative strategy if needed
-                            else:
-                                logger.warning(
-                                    "Task %s: No previous processed trips found. Running as full.",
-                                    self.task_id,
-                                )
-                        else:
-                            logger.warning(
-                                "Task %s: No previous processed trips found. Running as full.",
-                                self.task_id,
-                            )
-                    except Exception as meta_err:
-                        logger.error(
-                            "Task %s: Error loading processed trips: %s. Running as full.",
-                            self.task_id,
-                            meta_err,
-                        )
-                else:
-                    logger.info(
-                        "Task %s: Starting full coverage run for %s.",
-                        self.task_id,
-                        self.location_name,
-                    )
-
-                # --- Step 3: Process Trips ---
-                trips_success = await self.process_trips(
+                processed_trip_ids_set: Set[str] = set()  # No trips to process
+                # Directly finalize with 0 stats
+                final_stats = await self.finalize_coverage(
                     processed_trip_ids_set
                 )
-                if not trips_success:
-                    logger.error(
-                        "Task %s: Failed during trip processing stage for %s.",
-                        self.task_id,
-                        self.location_name,
+                # generate_and_store_geojson will handle the 0 features case
+                asyncio.create_task(
+                    generate_and_store_geojson(
+                        self.location_name, self.task_id
                     )
-                    return None
+                )
+                return final_stats  # Return the 0 stats result
+
+            # --- Step 2: Determine Processed Trips ---
+            processed_trip_ids_set = set()
+            if run_incremental:
+                try:
+                    metadata = await find_one_with_retry(
+                        coverage_metadata_collection,
+                        {"location.display_name": self.location_name},
+                        {
+                            "processed_trips.trip_ids": 1,
+                            "processed_trips.count": 1,
+                        },
+                    )
+                    if metadata and "processed_trips" in metadata:
+                        if "trip_ids" in metadata["processed_trips"]:
+                            trip_ids_data = metadata["processed_trips"][
+                                "trip_ids"
+                            ]
+                            if isinstance(trip_ids_data, (list, set)):
+                                processed_trip_ids_set = set(trip_ids_data)
+                                logger.info(
+                                    "Task %s: Loaded %d previously processed trip IDs for incremental run.",
+                                    self.task_id,
+                                    len(processed_trip_ids_set),
+                                )
+                            else:
+                                logger.warning(
+                                    "Task %s: 'processed_trips.trip_ids' not list/set. Running as full.",
+                                    self.task_id,
+                                )
+                        elif "count" in metadata["processed_trips"]:
+                            logger.warning(
+                                "Task %s: Found processed trip count (%d) but no IDs. Using alternative incremental strategy (if implemented).",
+                                self.task_id,
+                                metadata["processed_trips"]["count"],
+                            )
+                        else:
+                            logger.warning(
+                                "Task %s: No previous processed trips found in metadata. Running as full.",
+                                self.task_id,
+                            )
+                    else:
+                        logger.warning(
+                            "Task %s: No 'processed_trips' field found in metadata. Running as full.",
+                            self.task_id,
+                        )
+                except Exception as meta_err:
+                    logger.error(
+                        "Task %s: Error loading processed trips: %s. Running as full.",
+                        self.task_id,
+                        meta_err,
+                    )
+            else:
+                logger.info(
+                    "Task %s: Starting full coverage run for %s.",
+                    self.task_id,
+                    self.location_name,
+                )
+
+            # --- Step 3: Process Trips ---
+            trips_success = await self.process_trips(processed_trip_ids_set)
+            if not trips_success:
+                logger.error(
+                    "Task %s: Failed during trip processing stage for %s.",
+                    self.task_id,
+                    self.location_name,
+                )
+                # Don't return None immediately, try to finalize with current state
+                # return None # Original behavior
 
             # --- Step 4: Finalize and Update ---
+            # Always finalize, even if trip processing had errors, to save current state
             final_stats = await self.finalize_coverage(processed_trip_ids_set)
+
+            # If finalization itself failed, return None
+            if final_stats is None:
+                logger.error(
+                    f"Task {self.task_id}: Finalization failed for {self.location_name}."
+                )
+                return None
+
+            # If trip processing failed earlier, mark metadata as error after finalizing stats
+            if not trips_success:
+                await coverage_metadata_collection.update_one(
+                    {"location.display_name": self.location_name},
+                    {
+                        "$set": {
+                            "status": "error",
+                            "last_error": "Trip processing failed",
+                        }
+                    },
+                )
+                # Return the stats calculated so far, but the status is error
+                final_stats["status"] = "error"
+                final_stats["last_error"] = "Trip processing failed"
 
             end_time = datetime.now(timezone.utc)
             duration = (end_time - start_time).total_seconds()
@@ -1766,6 +1820,16 @@ class CoverageCalculator:
                 self.location_name,
                 duration,
             )
+
+            # Trigger GeoJSON generation in the background *after* stats are finalized
+            if (
+                final_stats is not None
+            ):  # Only generate if stats calculation didn't fail
+                asyncio.create_task(
+                    generate_and_store_geojson(
+                        self.location_name, self.task_id
+                    )
+                )
 
             return final_stats
 
@@ -1833,22 +1897,26 @@ async def compute_coverage_for_location(
             timeout=PROCESS_TIMEOUT_OVERALL,
         )
 
-        if result:
-            asyncio.create_task(
-                generate_and_store_geojson(location_name, task_id)
+        # Result can be None if calculation failed internally
+        if result is None:
+            logger.error(
+                f"Task {task_id}: Full coverage calculation failed internally for {location_name}"
             )
-            return result
-        logger.error(
-            "Task %s: Full coverage calculation failed for %s",
-            task_id,
-            location_name,
+            # Metadata status should have been set to error within compute_coverage/finalize
+            return None
+        elif result.get("status") == "error":
+            logger.error(
+                f"Task {task_id}: Full coverage calculation completed with error for {location_name}: {result.get('last_error')}"
+            )
+            # Metadata status already set
+            return result  # Return stats even if there was an error during processing
+
+        # If successful or partially successful (stats calculated but maybe trip error), proceed
+        logger.info(
+            f"Task {task_id}: Full coverage calculation stats phase complete for {location_name}."
         )
-        await coverage_metadata_collection.update_one(
-            {"location.display_name": location_name},
-            {"$set": {"status": "error", "last_error": "Calculation failed"}},
-            upsert=False,
-        )
-        return None
+        # GeoJSON generation is now handled by compute_coverage calling generate_and_store_geojson
+        return result
 
     except asyncio.TimeoutError:
         error_msg = f"Calculation timed out after {PROCESS_TIMEOUT_OVERALL}s"
@@ -1915,18 +1983,8 @@ async def compute_coverage_for_location(
         return None
     finally:
         if calculator:
-            await calculator.shutdown_workers()
-            calculator.streets_lookup = {}
-            calculator.street_geoms_cache = {}
-            calculator.street_bbox_cache = {}
-            if calculator.streets_index:
-                try:
-                    calculator.streets_index.close()
-                except Exception as rtree_close_err:
-                    logger.warning(
-                        f"Error closing R-tree index: {rtree_close_err}"
-                    )
-                calculator.streets_index = None
+            # Cleanup is now handled within compute_coverage's finally block
+            pass
 
 
 async def compute_incremental_coverage(
@@ -1971,27 +2029,26 @@ async def compute_incremental_coverage(
             timeout=PROCESS_TIMEOUT_INCREMENTAL,
         )
 
-        if result:
-            asyncio.create_task(
-                generate_and_store_geojson(location_name, task_id)
+        # Result can be None if calculation failed internally
+        if result is None:
+            logger.error(
+                f"Task {task_id}: Incremental coverage calculation failed internally for {location_name}"
             )
-            return result
-        logger.error(
-            "Task %s: Incremental coverage calculation failed for %s",
-            task_id,
-            location_name,
+            # Metadata status should have been set to error within compute_coverage/finalize
+            return None
+        elif result.get("status") == "error":
+            logger.error(
+                f"Task {task_id}: Incremental coverage calculation completed with error for {location_name}: {result.get('last_error')}"
+            )
+            # Metadata status already set
+            return result  # Return stats even if there was an error during processing
+
+        # If successful or partially successful
+        logger.info(
+            f"Task {task_id}: Incremental coverage calculation stats phase complete for {location_name}."
         )
-        await coverage_metadata_collection.update_one(
-            {"location.display_name": location_name},
-            {
-                "$set": {
-                    "status": "error",
-                    "last_error": "Incremental calculation failed",
-                }
-            },
-            upsert=False,
-        )
-        return None
+        # GeoJSON generation is now handled by compute_coverage calling generate_and_store_geojson
+        return result
 
     except asyncio.TimeoutError:
         error_msg = f"Incremental calculation timed out after {PROCESS_TIMEOUT_INCREMENTAL}s"
@@ -2058,18 +2115,8 @@ async def compute_incremental_coverage(
         return None
     finally:
         if calculator:
-            await calculator.shutdown_workers()
-            calculator.streets_lookup = {}
-            calculator.street_geoms_cache = {}
-            calculator.street_bbox_cache = {}
-            if calculator.streets_index:
-                try:
-                    calculator.streets_index.close()
-                except Exception as rtree_close_err:
-                    logger.warning(
-                        f"Error closing R-tree index: {rtree_close_err}"
-                    )
-                calculator.streets_index = None
+            # Cleanup is now handled within compute_coverage's finally block
+            pass
 
 
 async def generate_and_store_geojson(
@@ -2124,11 +2171,19 @@ async def generate_and_store_geojson(
             batch_features = []  # Process features in a batch first
 
             for street in street_batch:
+                # Ensure properties exist before creating the feature
+                if "properties" not in street:
+                    logger.warning(
+                        f"Skipping street due to missing properties field: {street.get('_id', 'Unknown ID')}"
+                    )
+                    continue
+
                 feature = {
                     "type": "Feature",
                     "geometry": street.get("geometry"),
                     "properties": street.get("properties", {}),
                 }
+                # Ensure basic properties exist after creating feature dict
                 props = feature["properties"]
                 props["segment_id"] = props.get(
                     "segment_id", f"missing_{total_features}"
@@ -2136,6 +2191,9 @@ async def generate_and_store_geojson(
                 props["driven"] = props.get("driven", False)
                 props["highway"] = props.get("highway", "unknown")
                 props["segment_length"] = props.get("segment_length", 0.0)
+                # Ensure undriveable exists (it should from preprocessing/marking)
+                props["undriveable"] = props.get("undriveable", False)
+
                 batch_features.append(feature)
                 total_features += 1
 
@@ -2158,16 +2216,18 @@ async def generate_and_store_geojson(
                 task_id,
                 location_name,
             )
+            # Update metadata to reflect completion with 0 features and no GridFS ID
             await update_one_with_retry(
                 coverage_metadata_collection,
                 {"location.display_name": location_name},
                 {
                     "$set": {
-                        "status": "completed",
+                        "status": "completed",  # Mark as fully completed now
                         "last_updated": datetime.now(timezone.utc),
-                        "streets_geojson_gridfs_id": None,
+                        "streets_geojson_gridfs_id": None,  # Ensure no ID is set
+                        "last_error": None,  # Clear any previous errors
                     },
-                    "$unset": {"streets_data": ""},
+                    "$unset": {"streets_data": ""},  # Remove old field
                 },
             )
             await progress_collection.update_one(
@@ -2182,36 +2242,46 @@ async def generate_and_store_geojson(
             )
             return
 
+        # Fetch the latest calculated stats to embed in GeoJSON metadata
         metadata_stats = await find_one_with_retry(
             coverage_metadata_collection,
             {"location.display_name": location_name},
             {
                 "total_length": 1,
                 "driven_length": 1,
+                "driveable_length": 1,  # Fetch driveable length
                 "coverage_percentage": 1,
                 "street_types": 1,
+                "total_segments": 1,
             },
         )
         if not metadata_stats:
             logger.error(
-                "Task %s: Could not retrieve metadata stats for %s.",
+                "Task %s: Could not retrieve metadata stats for %s to embed in GeoJSON.",
                 task_id,
                 location_name,
             )
-            metadata_stats = {}
+            metadata_stats = {}  # Use empty dict as fallback
 
         streets_geojson = {
             "type": "FeatureCollection",
             "features": features,
+            # Embed the latest stats in the GeoJSON metadata
             "metadata": {
                 "total_length": metadata_stats.get("total_length", 0),
                 "driven_length": metadata_stats.get("driven_length", 0),
+                "driveable_length": metadata_stats.get(
+                    "driveable_length", 0
+                ),  # Add driveable
                 "coverage_percentage": metadata_stats.get(
                     "coverage_percentage", 0
                 ),
                 "street_types": metadata_stats.get("street_types", []),
+                "total_features": total_features,  # Use actual count from generation
+                "total_segments_metadata": metadata_stats.get(
+                    "total_segments", 0
+                ),  # Compare if needed
                 "geojson_generated_at": datetime.now(timezone.utc).isoformat(),
-                "total_features": total_features,
             },
         }
 
@@ -2222,13 +2292,33 @@ async def generate_and_store_geojson(
         )
         try:
             fs = db_manager.gridfs_bucket
-            # Use standard JSON serialization
+            # Use standard JSON serialization + bson for ObjectId/datetime
             geojson_bytes = bson.json_util.dumps(streets_geojson).encode(
                 "utf-8"
             )
             gridfs_filename = f"{location_name.replace(' ', '_').replace(',', '')}_streets.geojson"
 
-            # OPTIMIZATION: Set appropriate chunk size for large files
+            # Delete existing GridFS file for this location first, if any
+            existing_meta = await find_one_with_retry(
+                coverage_metadata_collection,
+                {"location.display_name": location_name},
+                {"streets_geojson_gridfs_id": 1},
+            )
+            if existing_meta and existing_meta.get(
+                "streets_geojson_gridfs_id"
+            ):
+                old_gridfs_id = existing_meta["streets_geojson_gridfs_id"]
+                try:
+                    await fs.delete(old_gridfs_id)
+                    logger.info(
+                        f"Task {task_id}: Deleted old GridFS file {old_gridfs_id} for {location_name}."
+                    )
+                except Exception as del_err:
+                    logger.warning(
+                        f"Task {task_id}: Failed to delete old GridFS file {old_gridfs_id}: {del_err}"
+                    )
+
+            # Upload new file
             file_id = await fs.upload_from_stream(
                 gridfs_filename,
                 geojson_bytes,
@@ -2246,24 +2336,27 @@ async def generate_and_store_geojson(
                 file_id,
             )
 
+            # Update metadata with GridFS ID and set final 'completed' status
             await update_one_with_retry(
                 coverage_metadata_collection,
                 {"location.display_name": location_name},
                 {
                     "$set": {
                         "streets_geojson_gridfs_id": file_id,
-                        "status": "completed",
+                        "status": "completed",  # Final completion status
                         "last_updated": datetime.now(timezone.utc),
+                        "last_error": None,  # Clear any previous error
                     },
-                    "$unset": {"streets_data": ""},
+                    "$unset": {"streets_data": ""},  # Remove old field
                 },
             )
             logger.info(
-                "Task %s: Updated metadata for %s with GridFS ID.",
+                "Task %s: Updated metadata for %s with GridFS ID and set status to completed.",
                 task_id,
                 location_name,
             )
 
+            # Update progress to final 'complete' state
             await progress_collection.update_one(
                 {"_id": task_id},
                 {
@@ -2290,6 +2383,7 @@ async def generate_and_store_geojson(
                     }
                 },
             )
+            # Update metadata status to error if GeoJSON storage failed
             await coverage_metadata_collection.update_one(
                 {"location.display_name": location_name},
                 {
@@ -2313,6 +2407,7 @@ async def generate_and_store_geojson(
                 }
             },
         )
+        # Update metadata status to error if GeoJSON generation failed
         await coverage_metadata_collection.update_one(
             {"location.display_name": location_name},
             {
