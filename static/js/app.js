@@ -1712,6 +1712,36 @@
     AppState.dom.applyFiltersBtn = getElement("apply-filters");
     AppState.dom.mapMatchTripsBtn = getElement("map-match-trips");
     AppState.dom.highlightRecentTrips = getElement("highlight-recent-trips");
+    
+    // Add touch-action CSS property to scrollable elements for better mobile performance
+    const scrollables = document.querySelectorAll('.card-body, #map-controls');
+    scrollables.forEach(el => {
+      if (el) {
+        el.style.webkitOverflowScrolling = 'touch';
+        el.style.touchAction = 'pan-y';
+      }
+    });
+    
+    // Make all buttons bigger and more touch-friendly on mobile
+    if (AppState.isMobile) {
+      const buttons = document.querySelectorAll('.btn');
+      buttons.forEach(btn => {
+        if (btn) {
+          // Make minimum touch area 44x44px (Apple's recommended size)
+          btn.style.minHeight = '44px';
+          btn.style.minWidth = '44px';
+          btn.style.padding = '0.5rem 0.75rem';
+        }
+      });
+      
+      // Adjust form controls for easier touch
+      const formControls = document.querySelectorAll('.form-control, .form-select');
+      formControls.forEach(control => {
+        if (control) {
+          control.style.minHeight = '44px';
+        }
+      });
+    }
   }
 
   function setInitialDates() {
