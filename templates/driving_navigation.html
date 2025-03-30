@@ -125,6 +125,10 @@ block head_content %}
 {% endblock %} {% block extra_js %}
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Live tracking JS (needed for LiveTripTracker) -->
+<script src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"></script>
+<!-- Utils JS (dependency for notifications) -->
+<script src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
 <!-- New JS file for this page -->
 <script>
   // Pass Mapbox token to JS
