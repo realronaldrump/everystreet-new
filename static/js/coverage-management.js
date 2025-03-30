@@ -14,7 +14,7 @@
       this.selectedLocation = null; // Stores the full data of the currently displayed location
       this.currentProcessingLocation = null; // Location being processed via modal
       this.processingStartTime = null;
-      this.lastProgressUpdate = null;
+      this.lastProgressUpdate = null; // Store last data point for timing estimates (though estimate removed)
       this.progressTimer = null;
       this.activeTaskIds = new Set(); // Keep track of tasks being polled
       this.validatedLocation = null; // Stores result from /api/validate_location
@@ -220,7 +220,7 @@
         const progressBar = document.querySelector(".progress-bar");
         const saveData = {
           location: this.currentProcessingLocation,
-          taskId: this.task_id,
+          taskId: this.task_id, // Ensure task_id is set on the instance when polling starts
           stage:
             document.querySelector(".progress-message")?.textContent ||
             "Processing",
@@ -533,6 +533,7 @@
 
         // Show progress modal immediately
         this.currentProcessingLocation = processingLocation;
+        this.task_id = null; // Reset task ID before starting
         this.showProgressModal(
           `Starting processing for ${processingLocation.display_name}...`,
           0,
@@ -564,6 +565,7 @@
 
         // Start polling if we got a task ID
         if (taskData?.task_id) {
+          this.task_id = taskData.task_id; // Store the task ID for state saving
           this.activeTaskIds.add(taskData.task_id);
           let pollingSuccessful = false;
 
@@ -587,6 +589,7 @@
             );
           } finally {
             this.activeTaskIds.delete(taskData.task_id);
+            this.task_id = null; // Clear task ID
 
             // If polling was successful, THEN clear the context
             if (pollingSuccessful) {
@@ -741,8 +744,8 @@
       if (stageInfoEl) stageInfoEl.innerHTML = ""; // Clear previous stage
       if (statsInfoEl) statsInfoEl.innerHTML = ""; // Clear previous stats
       if (elapsedTimeEl) elapsedTimeEl.textContent = "Elapsed: 0s";
-      if (estimatedTimeEl)
-        estimatedTimeEl.textContent = "Est. remaining: calculating...";
+      // **MODIFIED:** Remove complex estimation
+      if (estimatedTimeEl) estimatedTimeEl.textContent = ""; // Clear estimate initially
 
       // Reset step states
       modalElement.querySelectorAll(".step").forEach((step) => {
@@ -764,8 +767,8 @@
 
       // Save state to localStorage periodically
       this.progressTimer = setInterval(() => {
-        this.updateTimingInfo();
-        this.saveProcessingState();
+        this.updateTimingInfo(); // Update elapsed time
+        this.saveProcessingState(); // Save state
       }, 1000);
 
       // Listen for page unload to save final state
@@ -835,59 +838,7 @@
         elapsedText = `${minutes}m ${seconds}s`;
       }
 
-      // Calculate estimated remaining time
-      let estimatedText = "calculating...";
-      const progressBar = document.querySelector(
-        "#taskProgressModal .progress-bar",
-      );
-      if (!progressBar) return; // Ensure progress bar exists
-
-      const currentProgress = parseInt(
-        progressBar.getAttribute("aria-valuenow") || "0",
-        10,
-      );
-
-      // Only estimate if progress is meaningful and has changed
-      if (
-        currentProgress > 5 &&
-        this.lastProgressUpdate &&
-        this.lastProgressUpdate.progress !== currentProgress
-      ) {
-        const progressDelta =
-          currentProgress - this.lastProgressUpdate.progress;
-        const timeDelta = (now - this.lastProgressUpdate.time) / 1000; // seconds
-
-        if (progressDelta > 0 && timeDelta > 0.5) {
-          // Require some time delta
-          const progressPerSecond = progressDelta / timeDelta;
-          const remainingProgress = 100 - currentProgress;
-          const estimatedRemainingSeconds = Math.ceil(
-            remainingProgress / progressPerSecond,
-          );
-
-          if (estimatedRemainingSeconds < 60) {
-            estimatedText = `${estimatedRemainingSeconds}s`;
-          } else if (estimatedRemainingSeconds < 3600) {
-            const minutes = Math.floor(estimatedRemainingSeconds / 60);
-            const seconds = estimatedRemainingSeconds % 60;
-            estimatedText = `${minutes}m ${seconds}s`;
-          } else if (estimatedRemainingSeconds < 86400) {
-            // Less than a day
-            const hours = Math.floor(estimatedRemainingSeconds / 3600);
-            const minutes = Math.floor((estimatedRemainingSeconds % 3600) / 60);
-            estimatedText = `${hours}h ${minutes}m`;
-          } else {
-            estimatedText = "> 1 day";
-          }
-
-          // Update last progress point for next calculation
-          this.lastProgressUpdate = { time: now, progress: currentProgress };
-        }
-      } else if (currentProgress === 0 && elapsedSeconds > 10) {
-        estimatedText = "pending..."; // If stuck at 0%
-      } else if (currentProgress === 100) {
-        estimatedText = "done";
-      }
+      // **MODIFIED:** Removed estimated time calculation
 
       // Update time display elements within the modal
       const elapsedTimeEl = document.querySelector(
@@ -898,8 +849,8 @@
       );
 
       if (elapsedTimeEl) elapsedTimeEl.textContent = `Elapsed: ${elapsedText}`;
-      if (estimatedTimeEl)
-        estimatedTimeEl.textContent = `Est. remaining: ${estimatedText}`;
+      // **MODIFIED:** Clear or hide estimated time
+      if (estimatedTimeEl) estimatedTimeEl.textContent = ""; // Or set display: none
     }
 
     updateModalContent(data) {
@@ -915,6 +866,7 @@
           progress: 0,
           message: "No data available",
           error: null,
+          metrics: {}, // Add empty metrics
         };
       }
 
@@ -922,6 +874,8 @@
       const progress = data.progress || 0;
       const message = data.message || "";
       const error = data.error || null;
+      // **NEW:** Extract metrics
+      const metrics = data.metrics || {};
 
       // Always update progress bar
       const progressBar = modalElement.querySelector(".progress-bar");
@@ -935,7 +889,8 @@
         );
         if (stage === "error") {
           progressBar.classList.add("bg-danger");
-        } else if (progress < 100) {
+        } else if (progress < 100 && stage !== "complete") {
+          // Keep animating unless complete or error
           progressBar.classList.add(
             "progress-bar-striped",
             "progress-bar-animated",
@@ -964,10 +919,16 @@
         `;
       }
 
-      // Always update stats information (e.g., trips processed)
+      // **MODIFIED:** Update stats information using metrics
       let statsText = "";
-      const metrics = data.metrics || {}; // Use metrics from progress update if available
-      if (metrics.total_trips_to_process > 0) {
+      if (metrics.rtree_items !== undefined && stage === "indexing") {
+        statsText += `<div class="mt-1 d-flex justify-content-between"><small>Streets Indexed:</small><small>${metrics.rtree_items}</small></div>`;
+      }
+      if (
+        metrics.total_trips_to_process !== undefined &&
+        metrics.total_trips_to_process > 0 &&
+        stage === "processing_trips"
+      ) {
         const processed = metrics.processed_trips || 0;
         const total = metrics.total_trips_to_process;
         const tripsProgress = total > 0 ? (processed / total) * 100 : 0;
@@ -981,9 +942,10 @@
             </div>
           </div>`;
       }
-
-      // Add other stats if needed from metrics...
-      if (metrics.newly_covered_segments !== undefined) {
+      if (
+        metrics.newly_covered_segments !== undefined &&
+        (stage === "finalizing" || stage === "complete_stats")
+      ) {
         statsText += `<div class="mt-1 d-flex justify-content-between"><small>New Segments Covered:</small><small>${metrics.newly_covered_segments}</small></div>`;
       }
 
@@ -991,7 +953,7 @@
       if (statsInfoEl) {
         statsInfoEl.innerHTML =
           statsText ||
-          '<div class="text-muted small">No processing metrics available yet</div>';
+          '<div class="text-muted small">Waiting for processing metrics...</div>'; // Updated placeholder
       }
 
       // Stop animation and timer if complete or error
@@ -1005,12 +967,9 @@
         if (this.progressTimer) {
           clearInterval(this.progressTimer);
           this.progressTimer = null;
-          // Update estimated time to 'done' or 'failed'
+          // **MODIFIED:** Update estimated time to 'done' or 'failed'
           const estimatedTimeEl = modalElement.querySelector(".estimated-time");
-          if (estimatedTimeEl)
-            estimatedTimeEl.textContent = `Est. remaining: ${
-              stage === "complete" ? "done" : "failed"
-            }`;
+          if (estimatedTimeEl) estimatedTimeEl.textContent = ""; // Clear estimate on completion/error
         }
       }
     }
@@ -1023,8 +982,8 @@
         initializing: modalElement.querySelector(".step-initializing"),
         preprocessing: modalElement.querySelector(".step-preprocessing"),
         indexing: modalElement.querySelector(".step-indexing"),
-        calculating: modalElement.querySelector(".step-calculating"),
-        complete: modalElement.querySelector(".step-complete"),
+        calculating: modalElement.querySelector(".step-calculating"), // Represents trip processing
+        complete: modalElement.querySelector(".step-complete"), // Represents finalizing/generating GeoJSON
       };
 
       // Reset all steps first
@@ -1036,28 +995,30 @@
       if (stage === "error") {
         // Mark the step where the error likely occurred as 'error'
         // Mark preceding steps as 'complete'
-        if (progress < 5) {
-          // Error during initialization
+        if (stage === "initializing" || progress < 5) {
           if (steps.initializing) steps.initializing.classList.add("error");
-        } else if (progress < 50) {
-          // Error during preprocessing
+        } else if (stage === "preprocessing" || progress < 50) {
           if (steps.initializing) steps.initializing.classList.add("complete");
           if (steps.preprocessing) steps.preprocessing.classList.add("error");
-        } else if (progress < 90) {
-          // Error during calculation (indexing or trip processing)
+        } else if (stage === "indexing" || progress < 60) {
           if (steps.initializing) steps.initializing.classList.add("complete");
           if (steps.preprocessing)
             steps.preprocessing.classList.add("complete");
           if (steps.indexing) steps.indexing.classList.add("error");
+        } else if (stage === "processing_trips" || progress < 90) {
+          if (steps.initializing) steps.initializing.classList.add("complete");
+          if (steps.preprocessing)
+            steps.preprocessing.classList.add("complete");
+          if (steps.indexing) steps.indexing.classList.add("complete");
           if (steps.calculating) steps.calculating.classList.add("error");
         } else {
-          // Error during finalization
+          // Error during finalization/GeoJSON gen
           if (steps.initializing) steps.initializing.classList.add("complete");
           if (steps.preprocessing)
             steps.preprocessing.classList.add("complete");
           if (steps.indexing) steps.indexing.classList.add("complete");
           if (steps.calculating) steps.calculating.classList.add("complete");
-          if (steps.complete) steps.complete.classList.add("error"); // Mark complete step as error
+          if (steps.complete) steps.complete.classList.add("error");
         }
       } else if (stage === "complete") {
         // Mark all steps as complete
@@ -1066,64 +1027,60 @@
         });
       } else {
         // Mark steps based on progress and stage name
-        if (stage === "initializing" || progress < 5) {
+        if (stage === "initializing") {
           if (steps.initializing) steps.initializing.classList.add("active");
-        } else if (
-          stage === "preprocessing" ||
-          (progress >= 5 && progress < 50)
-        ) {
+        } else if (stage === "preprocessing") {
           if (steps.initializing) steps.initializing.classList.add("complete");
           if (steps.preprocessing) steps.preprocessing.classList.add("active");
-        } else if (stage === "indexing" || (progress >= 50 && progress < 60)) {
-          // Indexing phase
+        } else if (stage === "indexing") {
           if (steps.initializing) steps.initializing.classList.add("complete");
           if (steps.preprocessing)
             steps.preprocessing.classList.add("complete");
           if (steps.indexing) steps.indexing.classList.add("active");
-        } else if (
-          stage === "processing_trips" ||
-          (progress >= 60 && progress < 95)
-        ) {
-          // Calculation phase
+        } else if (stage === "processing_trips") {
           if (steps.initializing) steps.initializing.classList.add("complete");
           if (steps.preprocessing)
             steps.preprocessing.classList.add("complete");
           if (steps.indexing) steps.indexing.classList.add("complete");
           if (steps.calculating) steps.calculating.classList.add("active");
-        } else if (stage === "finalizing" || progress >= 95) {
+        } else if (
+          stage === "finalizing" ||
+          stage === "complete_stats" ||
+          stage === "generating_geojson"
+        ) {
           if (steps.initializing) steps.initializing.classList.add("complete");
           if (steps.preprocessing)
             steps.preprocessing.classList.add("complete");
           if (steps.indexing) steps.indexing.classList.add("complete");
           if (steps.calculating) steps.calculating.classList.add("complete");
-          if (steps.complete) steps.complete.classList.add("active"); // Show complete step as active during finalization
+          if (steps.complete) steps.complete.classList.add("active");
         } else {
-          // Default: mark initializing as active if stage is unknown
+          // Default or unknown stage
           if (steps.initializing) steps.initializing.classList.add("active");
         }
       }
     }
 
     static getStageIcon(stage) {
-      // Add preprocessing icon
       const icons = {
         initializing: '<i class="fas fa-cog fa-spin"></i>',
         preprocessing: '<i class="fas fa-magic"></i>',
-        loading_streets: '<i class="fas fa-map"></i>',
+        loading_streets: '<i class="fas fa-map"></i>', // Kept for potential future use
         indexing: '<i class="fas fa-search-location"></i>',
-        counting_trips: '<i class="fas fa-calculator"></i>',
-        processing_trips: '<i class="fas fa-route"></i>',
+        counting_trips: '<i class="fas fa-calculator"></i>', // Kept for potential future use
+        processing_trips: '<i class="fas fa-route fa-spin"></i>', // Spin during trip processing
+        calculating: '<i class="fas fa-cogs fa-spin"></i>', // Generic calculating state
         finalizing: '<i class="fas fa-flag-checkered"></i>',
+        generating_geojson: '<i class="fas fa-file-code fa-spin"></i>', // Icon for GeoJSON gen
+        complete_stats: '<i class="fas fa-chart-bar"></i>', // Icon for stats complete
         complete: '<i class="fas fa-check-circle"></i>',
         error: '<i class="fas fa-exclamation-circle"></i>',
         warning: '<i class="fas fa-exclamation-triangle"></i>',
-        calculating: '<i class="fas fa-cogs fa-spin"></i>',
       };
       return icons[stage] || '<i class="fas fa-question-circle"></i>';
     }
 
     static getStageBadgeClass(stage) {
-      // Add preprocessing badge class
       const badges = {
         initializing: "bg-secondary",
         preprocessing: "bg-info",
@@ -1131,17 +1088,18 @@
         indexing: "bg-primary",
         counting_trips: "bg-primary",
         processing_trips: "bg-primary",
-        calculating: "bg-primary", // Generic calculating state
+        calculating: "bg-primary",
         finalizing: "bg-info",
+        generating_geojson: "bg-info",
+        complete_stats: "bg-info",
         complete: "bg-success",
         error: "bg-danger",
-        warning: "bg-warning", // Added warning state
+        warning: "bg-warning",
       };
       return badges[stage] || "bg-secondary";
     }
 
     static formatStageName(stage) {
-      // Add preprocessing stage name
       const stageNames = {
         initializing: "Initializing",
         preprocessing: "Preprocessing Streets",
@@ -1149,11 +1107,13 @@
         indexing: "Building Street Index",
         counting_trips: "Counting Trips",
         processing_trips: "Processing Trips",
-        calculating: "Calculating Coverage", // Generic calculating state
+        calculating: "Calculating Coverage",
         finalizing: "Finalizing Results",
+        generating_geojson: "Generating Map Data",
+        complete_stats: "Stats Calculated",
         complete: "Completed",
         error: "Error",
-        warning: "Warning", // Added warning state
+        warning: "Warning",
       };
       return (
         stageNames[stage] ||
@@ -1207,12 +1167,16 @@
       areas.forEach((area) => {
         const row = document.createElement("tr");
         const status = area.status || "unknown";
-        const isProcessing =
-          status === "processing" ||
-          status === "preprocessing" ||
-          status === "calculating" ||
-          status === "indexing" ||
-          status === "finalizing"; // Add all processing stages
+        // Include all known processing stages
+        const isProcessing = [
+          "processing",
+          "preprocessing",
+          "calculating",
+          "indexing",
+          "finalizing",
+          "generating_geojson",
+          "complete_stats",
+        ].includes(status);
         const hasError = status === "error";
         const isCanceled = status === "canceled";
 
@@ -1268,7 +1232,9 @@
             }
             ${
               isProcessing
-                ? `<div class="text-primary small"><i class="fas fa-spinner fa-spin me-1"></i>Processing...</div>`
+                ? `<div class="text-primary small"><i class="fas fa-spinner fa-spin me-1"></i>${this.formatStageName(
+                    status,
+                  )}...</div>`
                 : ""
             }
           </td>
@@ -1342,6 +1308,7 @@
 
       try {
         this.currentProcessingLocation = processingLocation;
+        this.task_id = null; // Reset task ID
 
         // Check if we are updating the currently displayed dashboard location
         const isUpdatingDisplayedLocation =
@@ -1395,6 +1362,7 @@
         }
 
         if (data.task_id) {
+          this.task_id = data.task_id; // Store task ID
           this.activeTaskIds.add(data.task_id);
           let pollingSuccessful = false;
 
@@ -1421,6 +1389,7 @@
             return;
           } finally {
             this.activeTaskIds.delete(data.task_id);
+            this.task_id = null; // Clear task ID
 
             // Only clear processing location if polling succeeded
             if (pollingSuccessful) {
@@ -1594,6 +1563,7 @@
                   stage: "complete",
                   progress: 100,
                   message: "Task completed successfully",
+                  metrics: {}, // Add empty metrics
                 };
                 taskCompleted = true;
               } else {
@@ -1602,6 +1572,7 @@
                   stage: "unknown",
                   progress: 0,
                   message: "Received invalid data from server",
+                  metrics: {}, // Add empty metrics
                 };
               }
             }
@@ -1619,6 +1590,7 @@
                 progress: 100,
                 message: "Task completed successfully",
                 result: result,
+                metrics: {}, // Add empty metrics
               };
               taskCompleted = true;
             }
@@ -1652,6 +1624,7 @@
               progress: 0,
               message: "Invalid response format from server",
               error: "Failed to parse server response",
+              metrics: {}, // Add empty metrics
             };
             this.updateModalContent(data);
           }
@@ -1675,6 +1648,7 @@
             progress: 0,
             message: `Polling failed: ${errorMessage}`,
             error: errorMessage,
+            metrics: {}, // Add empty metrics
           }); // Update modal to show polling error
           throw error; // Re-throw to signal failure to the caller
         }
@@ -1686,6 +1660,7 @@
         progress: 0,
         message: "Polling timed out.",
         error: "Polling timed out",
+        metrics: {}, // Add empty metrics
       });
       throw new Error("Coverage calculation polling timed out");
     }
@@ -1753,7 +1728,9 @@
           status === "preprocessing" ||
           status === "calculating" ||
           status === "indexing" ||
-          status === "finalizing"
+          status === "finalizing" ||
+          status === "generating_geojson" || // Added new stages
+          status === "complete_stats"
         )
           titleText += ' <span class="badge bg-info">Processing...</span>';
         else if (status === "completed" && !hasStreetData)
@@ -2573,9 +2550,8 @@
             { closeButton: false, minWidth: 150 },
           );
         },
-      });
+      }).addTo(this.streetLayers); // Add the filtered layer to the group
 
-      this.streetLayers.addLayer(filteredLayer); // Add the filtered layer to the group
       this.streetsGeoJsonLayer = filteredLayer; // Update reference if needed for export
 
       // Re-add hover effects to the new layers within the group

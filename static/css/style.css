@@ -444,8 +444,10 @@ body.light-mode .live-trip-metrics .metric-row {
 }
 
 #map-controls {
-  touch-action: pan-y; /* This allows vertical scrolling but blocks other touch actions */
-  -webkit-overflow-scrolling: touch; /* Enables smooth scrolling on iOS */
+  touch-action: pan-y;
+  /* This allows vertical scrolling but blocks other touch actions */
+  -webkit-overflow-scrolling: touch;
+  /* Enables smooth scrolling on iOS */
   overflow-y: auto;
 }
 
@@ -3033,20 +3035,24 @@ body.light-mode #map-controls strong {
 
 /* Different styles based on speed */
 .vehicle-stopped {
-  background-color: #f44336; /* Red for stopped */
+  background-color: #f44336;
+  /* Red for stopped */
   animation: pulse 2s infinite;
 }
 
 .vehicle-slow {
-  background-color: #ff9800; /* Orange for slow */
+  background-color: #ff9800;
+  /* Orange for slow */
 }
 
 .vehicle-medium {
-  background-color: #2196f3; /* Blue for medium */
+  background-color: #2196f3;
+  /* Blue for medium */
 }
 
 .vehicle-fast {
-  background-color: #9c27b0; /* Purple for fast */
+  background-color: #9c27b0;
+  /* Purple for fast */
   transform: scale(1.2);
 }
 
