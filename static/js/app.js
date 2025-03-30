@@ -97,7 +97,8 @@
 
   // Check if device is mobile
   const detectMobile = () => {
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const isTouchDevice =
+      "ontouchstart" in window || navigator.maxTouchPoints > 0;
     const isSmallScreen = window.innerWidth < CONFIG.MAP.mobileBreakpoint;
     AppState.isMobile = isTouchDevice || isSmallScreen;
     return AppState.isMobile;
@@ -1741,12 +1742,12 @@
   }
 
   document.addEventListener("DOMContentLoaded", initialize);
-  
+
   // Add mobile-specific event listeners
   document.addEventListener("touchstart", handleTouchStart, { passive: false });
   document.addEventListener("touchmove", handleTouchMove, { passive: false });
   document.addEventListener("touchend", handleTouchEnd, { passive: true });
-  
+
   // Handle orientation changes and resize events
   window.addEventListener("orientationchange", () => {
     if (isMapReady() && AppState.map) {
@@ -1758,14 +1759,17 @@
       }, 200);
     }
   });
-  
-  window.addEventListener("resize", debounce(() => {
-    if (isMapReady() && AppState.map) {
-      detectMobile();
-      AppState.map.invalidateSize();
-      setupMobileMapOptions();
-    }
-  }, 250));
+
+  window.addEventListener(
+    "resize",
+    debounce(() => {
+      if (isMapReady() && AppState.map) {
+        detectMobile();
+        AppState.map.invalidateSize();
+        setupMobileMapOptions();
+      }
+    }, 250),
+  );
 
   window.addEventListener("beforeunload", () => {
     Object.values(AppState.polling.timers).forEach((timer) => {
