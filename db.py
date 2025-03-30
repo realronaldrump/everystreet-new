@@ -1273,13 +1273,15 @@ async def ensure_location_indexes() -> None:
 # Transaction handling
 async def run_transaction(
     operations: List[Callable[[], Awaitable[Any]]],
+    max_retries: int = 3,
 ) -> bool:
     """
-    Run a series of operations within a MongoDB transaction.
+    Run a series of operations within a MongoDB transaction with retry logic for write conflicts.
     Note: Requires replica set or sharded cluster. Standalone instances do not support transactions.
 
     Args:
         operations: List of async operations to execute
+        max_retries: Maximum number of retries for transient errors like write conflicts
 
     Returns:
         True if transaction succeeded, False otherwise
@@ -1288,34 +1290,54 @@ async def run_transaction(
     client = db_manager.client
     session = None  # Initialize session variable
 
-    try:
-        async with await client.start_session() as session:
-            async with session.start_transaction():
-                logger.debug("Starting transaction...")
-                results = []
-                for i, op in enumerate(operations):
-                    logger.debug(
-                        "Executing operation %d in transaction...", i + 1
-                    )
-                    result = await op(
-                        session=session
-                    )  # Pass session to operation if needed
-                    results.append(result)
-                logger.debug("Committing transaction...")
-            logger.info("Transaction committed successfully.")
-            return True  # Indicate success
-    except (ConnectionFailure, OperationFailure) as e:
-        # OperationFailure can include transaction-related errors
-        logger.error("Transaction failed: %s", str(e), exc_info=True)
-        # session.abort_transaction() is implicitly called by context manager on error
-        return False
-    except Exception as e:
-        # Catch other unexpected errors during transaction
-        logger.error(
-            "Unexpected error during transaction: %s", str(e), exc_info=True
-        )
-
-        return False
+    retry_count = 0
+    while retry_count <= max_retries:
+        try:
+            async with await client.start_session() as session:
+                async with session.start_transaction():
+                    logger.debug("Starting transaction...")
+                    results = []
+                    for i, op in enumerate(operations):
+                        logger.debug(
+                            "Executing operation %d in transaction...", i + 1
+                        )
+                        result = await op(
+                            session=session
+                        )  # Pass session to operation if needed
+                        results.append(result)
+                    logger.debug("Committing transaction...")
+                logger.info("Transaction committed successfully.")
+                return True  # Indicate success
+        except (ConnectionFailure, OperationFailure) as e:
+            # Check if this is a write conflict or other transient error
+            is_transient = False
+            if hasattr(e, 'has_error_label'):
+                is_transient = e.has_error_label('TransientTransactionError')
+            elif hasattr(e, 'details') and isinstance(e.details, dict):
+                # Check for error labels in the details
+                error_labels = e.details.get('errorLabels', [])
+                is_transient = 'TransientTransactionError' in error_labels
+            
+            if is_transient and retry_count < max_retries:
+                retry_count += 1
+                wait_time = 0.1 * (2 ** retry_count)  # Exponential backoff
+                logger.warning(
+                    "Transient transaction error detected (attempt %d/%d), retrying in %.2f seconds: %s",
+                    retry_count, max_retries, wait_time, str(e)
+                )
+                await asyncio.sleep(wait_time)
+                continue
+            else:
+                # Non-transient error or max retries reached
+                logger.error("Transaction failed after %d attempts: %s", 
+                              retry_count + 1, str(e), exc_info=True)
+                return False
+        except Exception as e:
+            # Catch other unexpected errors during transaction
+            logger.error(
+                "Unexpected error during transaction: %s", str(e), exc_info=True
+            )
+            return False
 
 
 async def init_database() -> None:

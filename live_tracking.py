@@ -211,13 +211,14 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
     }
 
     # Transaction-safe operation: delete any existing active trips with this ID and insert new one
-    async def operation_a():
+    async def operation_a(session=None):
         await live_trips_collection.delete_many(
-            {"transactionId": transaction_id, "status": "active"}
+            {"transactionId": transaction_id, "status": "active"},
+            session=session
         )
 
-    async def operation_b():
-        await live_trips_collection.insert_one(new_trip)
+    async def operation_b(session=None):
+        await live_trips_collection.insert_one(new_trip, session=session)
 
     success = await run_transaction([operation_a, operation_b])
 

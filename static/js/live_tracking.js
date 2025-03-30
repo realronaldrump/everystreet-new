@@ -587,9 +587,24 @@ class LiveTripTracker {
     const pointsRecorded = trip.pointsRecorded || trip.coordinates?.length || 0;
 
     // Format start time for display using DateUtils
-    const startTimeFormatted =
-      trip.startTimeFormatted ||
-      (startTime ? DateUtils.formatForDisplay(startTime) : "N/A");
+    let startTimeFormatted = "UNKNOWN";
+    
+    if (trip.startTimeFormatted) {
+      startTimeFormatted = trip.startTimeFormatted;
+    } else if (startTime) {
+      try {
+        // Ensure startTime is a valid Date object
+        if (typeof startTime === 'string') {
+          startTime = new Date(startTime);
+        }
+        
+        if (!isNaN(startTime.getTime())) {
+          startTimeFormatted = DateUtils.formatForDisplay(startTime);
+        }
+      } catch (err) {
+        console.error("Error formatting start time:", err);
+      }
+    }
 
     // Format metrics for display
     const metrics = {
