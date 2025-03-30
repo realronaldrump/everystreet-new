@@ -701,7 +701,6 @@
       case "map-match":
         handleMapMatch();
         break;
-
     }
   }
 

@@ -299,9 +299,9 @@ class CustomPlacesManager {
    */
   async updateVisitsData(force = false) {
     // Only load statistics on the Visits page or when explicitly requested
-    const isVisitsPage = window.location.pathname.includes('/visits');
+    const isVisitsPage = window.location.pathname.includes("/visits");
     if (!isVisitsPage && !force) {
-      console.log('Skipping place statistics on the main page');
+      console.log("Skipping place statistics on the main page");
       return;
     }
 
