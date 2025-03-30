@@ -1,6 +1,10 @@
-{% extends "base.html" %} {% block title %}Every Street - Map{% endblock %} {% block head %}
+{% extends "base.html" %} {% block title %}Every Street - Map{% endblock %} {%
+block head %}
 <!-- Ensure proper mobile viewport settings -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+/>
 {% endblock %} {% block content %}
 <div class="d-flex flex-column h-100">
   <!-- Map Container - Now using the full available height -->
@@ -199,37 +203,38 @@
     background-color: rgba(255, 255, 255, 0.3);
     border-radius: 4px;
   }
-  
+
   /* Mobile optimizations */
   @media (max-width: 768px) {
     #map-controls {
       max-height: 50vh;
       padding: 10px !important;
     }
-    
+
     #map-controls .card {
       margin-bottom: 10px;
     }
-    
+
     #map-controls .card-header {
       padding: 8px 12px;
     }
-    
+
     #map-controls .card-body {
       padding: 10px;
     }
-    
+
     .btn {
       padding: 0.375rem 0.5rem;
       font-size: 0.875rem;
     }
-    
-    .form-select, .form-control {
+
+    .form-select,
+    .form-control {
       font-size: 0.875rem;
       height: calc(1.5em + 0.5rem + 2px);
       padding: 0.25rem 0.5rem;
     }
-    
+
     .list-group-item {
       padding: 0.5rem 0.75rem;
     }
