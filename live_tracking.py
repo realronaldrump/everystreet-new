@@ -493,11 +493,11 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     trip_to_archive["sequence"] = int(time.time() * 1000)
 
     # Use transaction to ensure atomicity
-    async def archive_operation():
-        await archived_live_trips_collection.insert_one(trip_to_archive)
+    async def archive_operation(session=None):
+        await archived_live_trips_collection.insert_one(trip_to_archive, session=session)
 
-    async def delete_operation():
-        await live_trips_collection.delete_one({"_id": trip_id})
+    async def delete_operation(session=None):
+        await live_trips_collection.delete_one({"_id": trip_id}, session=session)
 
     success = await run_transaction([archive_operation, delete_operation])
 
