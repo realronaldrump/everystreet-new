@@ -165,7 +165,6 @@ body.light-mode .card,
 body.light-mode .side-panel,
 body.light-mode .dropdown-menu,
 body.light-mode .modal-content,
-body.light-mode .floating-action-menu,
 body.light-mode .notification,
 body.light-mode .mobile-nav-drawer {
   background-color: var(--light-surface-1);
@@ -216,8 +215,7 @@ body.light-mode .nav-item a:hover {
 /* Form elements in light mode */
 body.light-mode .form-control,
 body.light-mode .form-select,
-body.light-mode .quick-select-btn,
-body.light-mode .action-menu-item {
+body.light-mode .quick-select-btn {
   background-color: var(--light-surface-1);
   border-color: var(--light-border-color);
   color: var(--light-text-primary);
@@ -1194,81 +1192,6 @@ body.light-mode .app-header.scrolled {
   font-size: var(--font-size-md);
 }
 
-/* Floating Action Button (FAB) */
-.floating-action-btn {
-  position: fixed;
-  bottom: var(--space-6);
-  right: var(--space-6);
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-full);
-  background: var(--primary-gradient);
-  color: var(--text-on-primary);
-  border: none;
-  box-shadow: var(--shadow-lg);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-xl);
-  z-index: var(--z-fixed);
-  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.floating-action-btn:hover {
-  transform: scale(1.1);
-}
-
-.floating-action-btn:active {
-  transform: scale(0.95);
-}
-
-.floating-action-menu {
-  position: fixed;
-  bottom: calc(var(--space-6) + 70px);
-  right: var(--space-6);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-3);
-  z-index: var(--z-fixed);
-  opacity: 0;
-  transform: translateY(20px);
-  pointer-events: none;
-  transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
-}
-
-.floating-action-menu.open {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-.action-menu-item {
-  display: flex;
-  align-items: center;
-  padding: var(--space-2) var(--space-4);
-  background-color: var(--surface-2);
-  color: var(--text-primary);
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  box-shadow: var(--shadow-md);
-  transition: all 0.2s ease;
-}
-
-.action-menu-item:hover {
-  background-color: var(--surface-3);
-  transform: translateX(-5px);
-}
-
-.action-menu-item i {
-  margin-right: var(--space-2);
-  color: var(--primary);
-}
-
 /* Forms */
 .form-group {
   margin-bottom: var(--space-4);
@@ -1882,13 +1805,6 @@ body.light-mode .text-tertiary {
 
   .side-panel {
     width: 100%;
-  }
-
-  .floating-action-btn {
-    bottom: var(
-      --space-12
-    ); /* Increased from space-4 to space-12 to move it higher */
-    right: var(--space-6); /* Slightly increased from space-4 to space-6 */
   }
 
   .main-content {

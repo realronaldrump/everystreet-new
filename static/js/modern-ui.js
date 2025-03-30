@@ -69,7 +69,6 @@
       initThemeToggle();
       initMobileDrawer();
       initFilterPanel();
-      initFloatingActionButton();
       initScrollEffects();
       initDatePickers();
       initMapControls(); // Added initialization for map controls
@@ -106,7 +105,6 @@
     // These are collections that need special handling
     elements.quickSelectBtns = document.querySelectorAll(".quick-select-btn");
     elements.datepickers = document.querySelectorAll(selectors.datepicker);
-    elements.actionItems = document.querySelectorAll(".action-menu-item");
     elements.loadingOverlay = document.querySelector(".loading-overlay");
     elements.progressBar = document.querySelector(
       ".loading-overlay .progress-bar",
@@ -644,66 +642,9 @@
     );
   }
 
-  // Floating Action Button Functionality
-  function initFloatingActionButton() {
-    const { actionButton, actionMenu, actionItems } = elements;
-    if (!actionButton || !actionMenu) return;
-
-    // Toggle FAB menu function
-    const toggleActionMenu = (show) => {
-      actionMenu.classList.toggle(CONFIG.classes.open, show);
-      actionButton.classList.toggle(CONFIG.classes.active, show);
-
-      // Toggle icon
-      const icon = actionButton.querySelector("i");
-      if (icon) {
-        icon.classList.toggle("fa-plus", !show);
-        icon.classList.toggle("fa-times", show);
-      }
-    };
-
-    // Toggle action menu on click
-    actionButton.addEventListener("click", () => {
-      const isOpen = actionMenu.classList.contains(CONFIG.classes.open);
-      toggleActionMenu(!isOpen);
-    });
-
-    // Handle action menu item clicks
-    if (actionItems) {
-      actionItems.forEach((item) => {
-        item.addEventListener("click", () => {
-          const action = item.dataset.action;
-          toggleActionMenu(false);
-          handleAction(action);
-        });
-      });
-    }
-
-    // Close menu when clicking outside
-    document.addEventListener("click", (e) => {
-      if (
-        actionButton &&
-        actionMenu.classList.contains(CONFIG.classes.open) &&
-        !actionButton.contains(e.target) &&
-        !actionMenu.contains(e.target)
-      ) {
-        toggleActionMenu(false);
-      }
-    });
-  }
-
-  // Handle action menu item click
-  function handleAction(action) {
-    switch (action) {
-      case "fetch-trips":
-        handleFetchTrips();
-        break;
-      case "map-match":
-        handleMapMatch();
-        break;
-
-    }
-  }
+  // Action Handlers moved to other UI elements
+  // These functions remain as they may be called from other places
+  // in the application
 
   // Initialize scroll effects
   function initScrollEffects() {

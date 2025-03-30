@@ -1311,31 +1311,40 @@ async def run_transaction(
         except (ConnectionFailure, OperationFailure) as e:
             # Check if this is a write conflict or other transient error
             is_transient = False
-            if hasattr(e, 'has_error_label'):
-                is_transient = e.has_error_label('TransientTransactionError')
-            elif hasattr(e, 'details') and isinstance(e.details, dict):
+            if hasattr(e, "has_error_label"):
+                is_transient = e.has_error_label("TransientTransactionError")
+            elif hasattr(e, "details") and isinstance(e.details, dict):
                 # Check for error labels in the details
-                error_labels = e.details.get('errorLabels', [])
-                is_transient = 'TransientTransactionError' in error_labels
-            
+                error_labels = e.details.get("errorLabels", [])
+                is_transient = "TransientTransactionError" in error_labels
+
             if is_transient and retry_count < max_retries:
                 retry_count += 1
-                wait_time = 0.1 * (2 ** retry_count)  # Exponential backoff
+                wait_time = 0.1 * (2**retry_count)  # Exponential backoff
                 logger.warning(
                     "Transient transaction error detected (attempt %d/%d), retrying in %.2f seconds: %s",
-                    retry_count, max_retries, wait_time, str(e)
+                    retry_count,
+                    max_retries,
+                    wait_time,
+                    str(e),
                 )
                 await asyncio.sleep(wait_time)
                 continue
             else:
                 # Non-transient error or max retries reached
-                logger.error("Transaction failed after %d attempts: %s", 
-                              retry_count + 1, str(e), exc_info=True)
+                logger.error(
+                    "Transaction failed after %d attempts: %s",
+                    retry_count + 1,
+                    str(e),
+                    exc_info=True,
+                )
                 return False
         except Exception as e:
             # Catch other unexpected errors during transaction
             logger.error(
-                "Unexpected error during transaction: %s", str(e), exc_info=True
+                "Unexpected error during transaction: %s",
+                str(e),
+                exc_info=True,
             )
             return False
 

@@ -214,7 +214,7 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
     async def operation_a(session=None):
         await live_trips_collection.delete_many(
             {"transactionId": transaction_id, "status": "active"},
-            session=session
+            session=session,
         )
 
     async def operation_b(session=None):
@@ -495,10 +495,14 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
 
     # Use transaction to ensure atomicity
     async def archive_operation(session=None):
-        await archived_live_trips_collection.insert_one(trip_to_archive, session=session)
+        await archived_live_trips_collection.insert_one(
+            trip_to_archive, session=session
+        )
 
     async def delete_operation(session=None):
-        await live_trips_collection.delete_one({"_id": trip_id}, session=session)
+        await live_trips_collection.delete_one(
+            {"_id": trip_id}, session=session
+        )
 
     success = await run_transaction([archive_operation, delete_operation])
 
