@@ -3542,7 +3542,7 @@ async def refresh_coverage_stats(location_id: str):
                 status_code=500, detail="Failed to recalculate statistics"
             )
 
-        # Pre-serialize the JSON with custom encoder to handle datetime objects properly
+        # Pre-serialize the JSON with custom handling for datetime and ObjectId objects
         serialized_data = json.loads(
             json.dumps(
                 {"success": True, "coverage": updated_coverage_data},

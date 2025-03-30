@@ -2378,28 +2378,24 @@
 
       const locationId = this.selectedLocation._id;
       const segmentId = props.segment_id;
-      let apiEndpoint, statusText, actionText;
+      let apiEndpoint, statusText;
 
       switch (action) {
         case "driven":
           apiEndpoint = "/api/street_segments/mark_driven";
           statusText = "driven";
-          actionText = "Drive";
           break;
         case "undriven":
           apiEndpoint = "/api/street_segments/mark_undriven";
           statusText = "undriven";
-          actionText = "Undrive";
           break;
         case "undriveable":
           apiEndpoint = "/api/street_segments/mark_undriveable";
           statusText = "undriveable";
-          actionText = "Undriveable";
           break;
         case "driveable":
           apiEndpoint = "/api/street_segments/mark_driveable";
           statusText = "driveable";
-          actionText = "Driveable";
           break;
         default:
           window.notificationManager.show("Invalid action specified", "danger");
@@ -2456,7 +2452,7 @@
         layer.setStyle(newStyle);
         layer.originalStyle = { ...newStyle }; // Update original style too
 
-        // Close the popup
+        // Close the popup if it's open
         if (layer.getPopup() && layer.getPopup().isOpen()) {
           this.coverageMap.closePopup();
         }
@@ -2476,16 +2472,12 @@
           "success",
         );
 
+        // Refresh the coverage statistics
         try {
-          // Refresh the coverage statistics
           await this.refreshCoverageStats();
         } catch (statsError) {
           console.error("Error refreshing stats:", statsError);
-          // Don't throw here, as the main operation succeeded
-          window.notificationManager.show(
-            "Street marked successfully, but stats could not be refreshed.",
-            "warning",
-          );
+          // Don't fail the entire operation if stats refresh fails
         }
       } catch (error) {
         console.error(`Error marking segment as ${statusText}:`, error);
@@ -2510,7 +2502,11 @@
         );
 
         if (!response.ok) {
-          throw new Error(`Failed to refresh stats (HTTP ${response.status})`);
+          const errorData = await response.json();
+          throw new Error(
+            errorData.detail ||
+              `Failed to refresh stats (HTTP ${response.status})`,
+          );
         }
 
         const data = await response.json();
@@ -2527,7 +2523,7 @@
         return data;
       } catch (error) {
         console.error("Error refreshing coverage stats:", error);
-        throw error; // Rethrow so markStreetSegment can handle it
+        throw error; // Re-throw to be handled by the caller
       }
     }
 
