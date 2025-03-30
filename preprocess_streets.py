@@ -57,7 +57,7 @@ EXCLUDED_HIGHWAY_TYPES_REGEX = (
 SEGMENT_LENGTH_METERS = 100  # Street segment length
 # Increased BATCH_SIZE for potentially better insert performance
 BATCH_SIZE = 1000
-PROCESS_TIMEOUT = 300  # Timeout for a batch of parallel processing
+PROCESS_TIMEOUT = 30000  # Timeout for a batch of parallel processing
 # Adjusted MAX_WORKERS for potentially better resource utilization
 MAX_WORKERS = min(multiprocessing.cpu_count(), 8)
 # ---

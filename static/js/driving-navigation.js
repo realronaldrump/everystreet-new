@@ -96,6 +96,14 @@ class DrivingNavigation {
       return;
     }
 
+    // Create our trip path layer for showing the full path
+    this.liveTripPathLayer = L.polyline([], {
+      color: "#00FF00", // Green path to show it's live
+      weight: 3,
+      opacity: 0.8,
+      zIndex: 1000, // High z-index to keep on top
+    }).addTo(this.map);
+
     // Use a custom handler for trip updates instead of the default map updates
     this.liveTracker = new LiveTripTracker(this.map); // Pass map, though we override updates
 
@@ -118,12 +126,53 @@ class DrivingNavigation {
       return;
     }
 
-    const latestCoord = trip.coordinates[trip.coordinates.length - 1];
+    // Sort coordinates by timestamp to ensure proper path drawing
+    const sortedCoords = [...trip.coordinates];
+    sortedCoords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    // Create array of LatLng points for the full path
+    const latLngs = sortedCoords.map((coord) => [coord.lat, coord.lon]);
+
+    // Get the last point for marker positioning
+    const latestCoord = sortedCoords[sortedCoords.length - 1];
     const latLng = [latestCoord.lat, latestCoord.lon];
+    
+    // Store the last known location for route finding
     this.lastKnownLocation = { lat: latestCoord.lat, lon: latestCoord.lon };
 
+    // Update trip path polyline
+    if (this.liveTripPathLayer) {
+      this.liveTripPathLayer.setLatLngs(latLngs);
+      this.liveTripPathLayer.bringToFront();
+    }
+
+    // Update location marker
     if (this.liveLocationMarker) {
       this.liveLocationMarker.setLatLng(latLng);
+      
+      // Update marker icon based on speed (if available)
+      if (trip.currentSpeed !== undefined) {
+        const speed = trip.currentSpeed;
+        let markerClass = "live-location-marker";
+        
+        if (speed === 0) {
+          markerClass += " vehicle-stopped";
+        } else if (speed < 10) {
+          markerClass += " vehicle-slow";
+        } else if (speed < 35) {
+          markerClass += " vehicle-medium";
+        } else {
+          markerClass += " vehicle-fast";
+        }
+        
+        this.liveLocationMarker.setIcon(L.divIcon({
+          className: markerClass,
+          iconSize: [16, 16],
+          html: `<div class="vehicle-marker-inner" data-speed="${Math.round(speed)}"></div>`
+        }));
+      }
+      
+      // Handle visibility and map positioning
       if (this.liveLocationMarker.options.opacity === 0) {
         this.liveLocationMarker.setOpacity(1); // Make visible
         if (this.map && this.getAutoFollowState()) {
@@ -133,17 +182,46 @@ class DrivingNavigation {
         // Smoothly pan if auto-follow is on
         this.map.panTo(latLng, { animate: true, duration: 0.5 });
       }
+      
+      // Always bring marker to front
+      this.liveLocationMarker.bringToFront();
     }
-    // Optionally update status or other UI elements based on live data
-    // e.g., display current speed if available in 'trip' object
+    
+    // Update status message with live data
+    if (trip.currentSpeed !== undefined) {
+      const speedMph = Math.round(trip.currentSpeed);
+      this.setStatus(`Live tracking active. Current speed: ${speedMph} mph`);
+    } else {
+      this.setStatus("Live tracking active.");
+    }
+    
+    // Re-enable find button if it was disabled due to missing location
+    if (this.findBtn && this.findBtn.disabled && this.findBtn.dataset.disabledReason === "no-location") {
+      this.findBtn.disabled = false;
+      delete this.findBtn.dataset.disabledReason;
+    }
   }
 
   handleLiveTripClear() {
     this.lastKnownLocation = null;
+    
+    // Hide marker
     if (this.liveLocationMarker) {
-      this.liveLocationMarker.setOpacity(0); // Hide marker
+      this.liveLocationMarker.setOpacity(0);
     }
+    
+    // Clear path
+    if (this.liveTripPathLayer) {
+      this.liveTripPathLayer.setLatLngs([]);
+    }
+    
     this.setStatus("Live location unavailable.", true);
+    
+    // Disable find button if it depends on location
+    if (this.findBtn && !this.findBtn.disabled) {
+      this.findBtn.disabled = true;
+      this.findBtn.dataset.disabledReason = "no-location";
+    }
   }
 
   setupEventListeners() {
@@ -164,6 +242,24 @@ class DrivingNavigation {
         }
       });
     }
+    
+    // Add map-related event listeners to ensure live elements stay on top
+    if (this.map) {
+      // When any other layers are added, ensure live elements stay on top
+      this.map.on('layeradd', () => {
+        // Use setTimeout to ensure this runs after the layer is fully added
+        setTimeout(() => this.bringLiveElementsToFront(), 50);
+      });
+      
+      // When zoom ends, ensure live elements stay visible
+      this.map.on('zoomend', () => this.bringLiveElementsToFront());
+      
+      // When panning ends, ensure live elements stay visible
+      this.map.on('moveend', () => this.bringLiveElementsToFront());
+    }
+    
+    // Listen for document-level events that might affect the map
+    document.addEventListener('mapUpdated', () => this.bringLiveElementsToFront());
   }
 
   loadAutoFollowState() {
@@ -353,10 +449,18 @@ class DrivingNavigation {
     this.routeInfo.innerHTML = ""; // Clear route info
 
     try {
+      // Create the request payload with both the current location and target area
+      const requestPayload = {
+        location: this.selectedLocation,
+        current_position: this.lastKnownLocation
+      };
+      
+      console.log("Sending route request with payload:", requestPayload);
+      
       const response = await fetch("/api/driving-navigation/next-route", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(this.selectedLocation), // Send the full location object
+        body: JSON.stringify(requestPayload), // Send both location and current position
       });
 
       const data = await response.json();
@@ -374,8 +478,8 @@ class DrivingNavigation {
         data.route_geometry &&
         data.target_street
       ) {
-        // Display the route
-        L.geoJSON(data.route_geometry, {
+        // Display the route with better styling
+        const routeLayer = L.geoJSON(data.route_geometry, {
           style: {
             color: "#76ff03", // Bright Green
             weight: 5,
@@ -387,17 +491,33 @@ class DrivingNavigation {
         // Highlight the target street segment
         this.highlightTargetStreet(data.target_street.segment_id);
 
-        // Display target info
+        // Display target info with more detail
         const streetName = data.target_street.street_name || "Unnamed Street";
         this.targetInfo.innerHTML = `<strong>Target:</strong> ${streetName} (ID: ${data.target_street.segment_id})`;
+        
+        // Log location source for debugging
+        const locationSource = data.location_source || "unknown";
+        console.log(`Route calculated using ${locationSource} location data`);
+        
+        // Update status with more detail
         this.setStatus(`Route calculated. Head towards ${streetName}.`);
 
-        // Display route info
+        // Display route info with nicer formatting
         const durationMinutes = Math.round(data.route_duration_seconds / 60);
         const distanceMiles = (
           data.route_distance_meters * 0.000621371
         ).toFixed(1);
-        this.routeInfo.innerHTML = `Est. Time: ${durationMinutes} min, Distance: ${distanceMiles} mi`;
+        
+        this.routeInfo.innerHTML = `
+          <div class="route-info-detail">
+            <div><i class="fas fa-clock"></i> ${durationMinutes} min</div>
+            <div><i class="fas fa-road"></i> ${distanceMiles} mi</div>
+            <div class="text-muted small">(Using ${locationSource} position)</div>
+          </div>
+        `;
+        
+        // Ensure live elements stay on top of the new route
+        this.bringLiveElementsToFront();
 
         // Fit map to route start and target start
         const routeStart = [
@@ -466,6 +586,19 @@ class DrivingNavigation {
         className: "undriven-street-nav", // Reset class
       });
       this.targetStreetLayer = null;
+    }
+  }
+
+  /**
+   * Brings the live trip path and marker to the front
+   * Call this method after any map updates that might affect layer order
+   */
+  bringLiveElementsToFront() {
+    if (this.liveTripPathLayer) {
+      this.liveTripPathLayer.bringToFront();
+    }
+    if (this.liveLocationMarker && this.liveLocationMarker.options.opacity > 0) {
+      this.liveLocationMarker.bringToFront();
     }
   }
 

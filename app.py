@@ -3247,43 +3247,100 @@ async def get_storage_info():
 
 # --- New API Endpoint for Driving Navigation ---
 @app.post("/api/driving-navigation/next-route")
-async def get_next_driving_route(location: LocationModel):
+async def get_next_driving_route(request: Request):
     """
-    Calculates the route from the user's current live location to the
+    Calculates the route from the user's current position to the
     start of the nearest undriven street segment in the specified area.
+
+    Accepts a JSON payload with:
+    - location: The target area location model
+    - current_position: Optional current position {lat, lon} (falls back to live tracking if not provided)
     """
-    location_name = location.display_name
-    if not location_name:
+    # Parse the request body
+    try:
+        data = await request.json()
+        # Extract location and current position
+        if "location" not in data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Target location data is required",
+            )
+
+        location = LocationModel(**data["location"])
+        location_name = location.display_name
+
+        if not location_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Location display name is required.",
+            )
+
+        # Check if current position was provided in the request
+        current_position = data.get("current_position")
+
+    except (ValueError, TypeError) as e:
+        logger.error("Error parsing request data: %s", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Location display name is required.",
+            detail=f"Invalid request format: {str(e)}",
         )
 
-    # 1. Get Current Live Location
+    # 1. Get current position (either from request or live tracking)
     try:
-        active_trip_data = await get_active_trip()  # From live_tracking.py
+        # Case 1: Use client-provided position if available
         if (
-            not active_trip_data
-            or not active_trip_data.get("coordinates")
-            or len(active_trip_data["coordinates"]) == 0
+            current_position
+            and isinstance(current_position, dict)
+            and "lat" in current_position
+            and "lon" in current_position
         ):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Current live location not available. Is live tracking active?",
-            )
-        # Get the latest coordinate point {lat: ..., lon: ..., timestamp: ...}
-        latest_coord_point = active_trip_data["coordinates"][-1]
-        current_lat = latest_coord_point["lat"]
-        current_lon = latest_coord_point["lon"]
-        logger.info(
-            "Current live location: Lat=%s, Lon=%s", current_lat, current_lon
-        )
+            current_lat = float(current_position["lat"])
+            current_lon = float(current_position["lon"])
+            location_source = "client-provided"
 
+            logger.info(
+                "Using client-provided location: Lat=%s, Lon=%s",
+                current_lat,
+                current_lon,
+            )
+
+        # Case 2: Fall back to live tracking if no position provided
+        else:
+            logger.info(
+                "No position provided in request, falling back to live tracking data"
+            )
+            active_trip_data = await get_active_trip()  # From live_tracking.py
+
+            if (
+                not active_trip_data
+                or not active_trip_data.get("coordinates")
+                or len(active_trip_data["coordinates"]) == 0
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Current position not provided and live location not available.",
+                )
+
+            # Get the latest coordinate point {lat: ..., lon: ..., timestamp: ...}
+            latest_coord_point = active_trip_data["coordinates"][-1]
+            current_lat = latest_coord_point["lat"]
+            current_lon = latest_coord_point["lon"]
+            location_source = "live-tracking"
+
+            logger.info(
+                "Using live tracking location: Lat=%s, Lon=%s",
+                current_lat,
+                current_lon,
+            )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions directly
+        raise
     except Exception as e:
-        logger.error("Error getting live location: %s", e, exc_info=True)
+        logger.error("Error getting position: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Could not retrieve live location: {e}",
+            detail=f"Could not determine current position: {e}",
         )
 
     # 2. Find Undriven Streets in the Area
@@ -3491,6 +3548,7 @@ async def get_next_driving_route(location: LocationModel):
                         "target_street": nearest_street["properties"],
                         "route_duration_seconds": route_duration,
                         "route_distance_meters": route_distance,
+                        "location_source": location_source,  # Include source of location data for debugging
                     }
                 )
 

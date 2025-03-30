@@ -66,11 +66,9 @@ TRIP_WORKER_SUB_BATCH = (
 )
 BATCH_PROCESS_DELAY = 0.02  # DECREASED from 0.05 for faster event loop cycling
 PROCESS_TIMEOUT_WORKER = (
-    300  # INCREASED from 180 seconds to allow more time for larger batches
+    30000  # INCREASED from 180 seconds to allow more time for larger batches
 )
-PROCESS_TIMEOUT_OVERALL = (
-    3600 * 2
-)  # Overall timeout for a full calculation (2 hours)
+PROCESS_TIMEOUT_OVERALL = 360000  # Overall timeout for a full calculation (2 hours)  # Overall timeout for a full calculation (2 hours)
 PROCESS_TIMEOUT_INCREMENTAL = 3600  # Overall timeout for incremental (1 hour)
 PROGRESS_UPDATE_INTERVAL_TRIPS = 10  # INCREASED from 5 for less overhead
 
