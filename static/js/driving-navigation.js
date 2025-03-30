@@ -136,7 +136,7 @@ class DrivingNavigation {
     // Get the last point for marker positioning
     const latestCoord = sortedCoords[sortedCoords.length - 1];
     const latLng = [latestCoord.lat, latestCoord.lon];
-    
+
     // Store the last known location for route finding
     this.lastKnownLocation = { lat: latestCoord.lat, lon: latestCoord.lon };
 
@@ -149,12 +149,12 @@ class DrivingNavigation {
     // Update location marker
     if (this.liveLocationMarker) {
       this.liveLocationMarker.setLatLng(latLng);
-      
+
       // Update marker icon based on speed (if available)
       if (trip.currentSpeed !== undefined) {
         const speed = trip.currentSpeed;
         let markerClass = "live-location-marker";
-        
+
         if (speed === 0) {
           markerClass += " vehicle-stopped";
         } else if (speed < 10) {
@@ -164,14 +164,16 @@ class DrivingNavigation {
         } else {
           markerClass += " vehicle-fast";
         }
-        
-        this.liveLocationMarker.setIcon(L.divIcon({
-          className: markerClass,
-          iconSize: [16, 16],
-          html: `<div class="vehicle-marker-inner" data-speed="${Math.round(speed)}"></div>`
-        }));
+
+        this.liveLocationMarker.setIcon(
+          L.divIcon({
+            className: markerClass,
+            iconSize: [16, 16],
+            html: `<div class="vehicle-marker-inner" data-speed="${Math.round(speed)}"></div>`,
+          }),
+        );
       }
-      
+
       // Handle visibility and map positioning
       if (this.liveLocationMarker.options.opacity === 0) {
         this.liveLocationMarker.setOpacity(1); // Make visible
@@ -182,11 +184,11 @@ class DrivingNavigation {
         // Smoothly pan if auto-follow is on
         this.map.panTo(latLng, { animate: true, duration: 0.5 });
       }
-      
+
       // Always bring marker to front
       this.liveLocationMarker.bringToFront();
     }
-    
+
     // Update status message with live data
     if (trip.currentSpeed !== undefined) {
       const speedMph = Math.round(trip.currentSpeed);
@@ -194,9 +196,13 @@ class DrivingNavigation {
     } else {
       this.setStatus("Live tracking active.");
     }
-    
+
     // Re-enable find button if it was disabled due to missing location
-    if (this.findBtn && this.findBtn.disabled && this.findBtn.dataset.disabledReason === "no-location") {
+    if (
+      this.findBtn &&
+      this.findBtn.disabled &&
+      this.findBtn.dataset.disabledReason === "no-location"
+    ) {
       this.findBtn.disabled = false;
       delete this.findBtn.dataset.disabledReason;
     }
@@ -204,19 +210,19 @@ class DrivingNavigation {
 
   handleLiveTripClear() {
     this.lastKnownLocation = null;
-    
+
     // Hide marker
     if (this.liveLocationMarker) {
       this.liveLocationMarker.setOpacity(0);
     }
-    
+
     // Clear path
     if (this.liveTripPathLayer) {
       this.liveTripPathLayer.setLatLngs([]);
     }
-    
+
     this.setStatus("Live location unavailable.", true);
-    
+
     // Disable find button if it depends on location
     if (this.findBtn && !this.findBtn.disabled) {
       this.findBtn.disabled = true;
@@ -242,24 +248,26 @@ class DrivingNavigation {
         }
       });
     }
-    
+
     // Add map-related event listeners to ensure live elements stay on top
     if (this.map) {
       // When any other layers are added, ensure live elements stay on top
-      this.map.on('layeradd', () => {
+      this.map.on("layeradd", () => {
         // Use setTimeout to ensure this runs after the layer is fully added
         setTimeout(() => this.bringLiveElementsToFront(), 50);
       });
-      
+
       // When zoom ends, ensure live elements stay visible
-      this.map.on('zoomend', () => this.bringLiveElementsToFront());
-      
+      this.map.on("zoomend", () => this.bringLiveElementsToFront());
+
       // When panning ends, ensure live elements stay visible
-      this.map.on('moveend', () => this.bringLiveElementsToFront());
+      this.map.on("moveend", () => this.bringLiveElementsToFront());
     }
-    
+
     // Listen for document-level events that might affect the map
-    document.addEventListener('mapUpdated', () => this.bringLiveElementsToFront());
+    document.addEventListener("mapUpdated", () =>
+      this.bringLiveElementsToFront(),
+    );
   }
 
   loadAutoFollowState() {
@@ -452,11 +460,11 @@ class DrivingNavigation {
       // Create the request payload with both the current location and target area
       const requestPayload = {
         location: this.selectedLocation,
-        current_position: this.lastKnownLocation
+        current_position: this.lastKnownLocation,
       };
-      
+
       console.log("Sending route request with payload:", requestPayload);
-      
+
       const response = await fetch("/api/driving-navigation/next-route", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -494,11 +502,11 @@ class DrivingNavigation {
         // Display target info with more detail
         const streetName = data.target_street.street_name || "Unnamed Street";
         this.targetInfo.innerHTML = `<strong>Target:</strong> ${streetName} (ID: ${data.target_street.segment_id})`;
-        
+
         // Log location source for debugging
         const locationSource = data.location_source || "unknown";
         console.log(`Route calculated using ${locationSource} location data`);
-        
+
         // Update status with more detail
         this.setStatus(`Route calculated. Head towards ${streetName}.`);
 
@@ -507,7 +515,7 @@ class DrivingNavigation {
         const distanceMiles = (
           data.route_distance_meters * 0.000621371
         ).toFixed(1);
-        
+
         this.routeInfo.innerHTML = `
           <div class="route-info-detail">
             <div><i class="fas fa-clock"></i> ${durationMinutes} min</div>
@@ -515,7 +523,7 @@ class DrivingNavigation {
             <div class="text-muted small">(Using ${locationSource} position)</div>
           </div>
         `;
-        
+
         // Ensure live elements stay on top of the new route
         this.bringLiveElementsToFront();
 
@@ -597,7 +605,10 @@ class DrivingNavigation {
     if (this.liveTripPathLayer) {
       this.liveTripPathLayer.bringToFront();
     }
-    if (this.liveLocationMarker && this.liveLocationMarker.options.opacity > 0) {
+    if (
+      this.liveLocationMarker &&
+      this.liveLocationMarker.options.opacity > 0
+    ) {
       this.liveLocationMarker.bringToFront();
     }
   }
