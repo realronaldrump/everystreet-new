@@ -79,9 +79,9 @@ class DatabaseManager:
         if not getattr(self, "_initialized", False):
             self._client: Optional[AsyncIOMotorClient] = None
             self._db: Optional[AsyncIOMotorDatabase] = None
-            self._gridfs_bucket_instance: Optional[
-                AsyncIOMotorGridFSBucket
-            ] = None  # Cache for GridFS bucket
+            self._gridfs_bucket_instance: Optional[AsyncIOMotorGridFSBucket] = (
+                None  # Cache for GridFS bucket
+            )
             self._quota_exceeded = False
             self._connection_healthy = True
             self._db_semaphore = asyncio.Semaphore(10)
@@ -107,9 +107,7 @@ class DatabaseManager:
             self._socket_timeout_ms = int(
                 os.getenv("MONGODB_SOCKET_TIMEOUT_MS", "30000")
             )
-            self._max_retry_attempts = int(
-                os.getenv("MONGODB_MAX_RETRY_ATTEMPTS", "5")
-            )
+            self._max_retry_attempts = int(os.getenv("MONGODB_MAX_RETRY_ATTEMPTS", "5"))
             self._db_name = os.getenv("MONGODB_DATABASE", "every_street")
 
             # Log configuration
@@ -161,9 +159,7 @@ class DatabaseManager:
             self._initialize_client()
         # Ensure _db is not None after initialization attempt
         if self._db is None:
-            raise ConnectionFailure(
-                "Database instance could not be initialized."
-            )
+            raise ConnectionFailure("Database instance could not be initialized.")
         return self._db
 
     @property
@@ -183,9 +179,7 @@ class DatabaseManager:
         db_instance = self.db
         # Create or return cached instance
         if self._gridfs_bucket_instance is None:
-            self._gridfs_bucket_instance = AsyncIOMotorGridFSBucket(
-                db_instance
-            )
+            self._gridfs_bucket_instance = AsyncIOMotorGridFSBucket(db_instance)
         return self._gridfs_bucket_instance
 
     @property
@@ -202,10 +196,7 @@ class DatabaseManager:
         Returns:
             MongoDB collection
         """
-        if (
-            collection_name not in self._collections
-            or not self._connection_healthy
-        ):
+        if collection_name not in self._collections or not self._connection_healthy:
             # Use the db property to ensure client/db are initialized
             self._collections[collection_name] = self.db[collection_name]
         return self._collections[collection_name]
@@ -342,9 +333,7 @@ class DatabaseManager:
                 stats = await self.db.command("dbStats")
                 data_size = stats.get("dataSize", 0)
                 used_mb = data_size / (1024 * 1024)
-                limit_mb = (
-                    512  # Free-tier limit (Consider making this configurable)
-                )
+                limit_mb = 512  # Free-tier limit (Consider making this configurable)
                 self._quota_exceeded = used_mb > limit_mb
                 return used_mb, limit_mb
 
@@ -446,14 +435,10 @@ class DatabaseManager:
                 collection = self.get_collection(collection_name)
                 existing_indexes_info = await collection.index_information()
                 keys_tuple_check = tuple(
-                    sorted(
-                        list(keys) if isinstance(keys, list) else [(keys, 1)]
-                    )
+                    sorted(list(keys) if isinstance(keys, list) else [(keys, 1)])
                 )
                 for idx_name, idx_info in existing_indexes_info.items():
-                    idx_keys_check = tuple(
-                        sorted(list(idx_info.get("key", [])))
-                    )
+                    idx_keys_check = tuple(sorted(list(idx_info.get("key", []))))
                     if idx_keys_check == keys_tuple_check:
                         return idx_name
             except Exception:
@@ -464,9 +449,7 @@ class DatabaseManager:
                 self._quota_exceeded = True
                 logger.warning("Cannot create index due to quota exceeded")
             elif e.code in (85, 86, 68):  # Index conflicts/options mismatch
-                logger.warning(
-                    "Index conflict or options mismatch: %s", str(e)
-                )
+                logger.warning("Index conflict or options mismatch: %s", str(e))
             else:
                 logger.error("Error creating index: %s", str(e))
                 raise
@@ -583,14 +566,10 @@ class SerializationHelper:
                 if isinstance(value, ObjectId):
                     fallback_result[key] = str(value)
                 elif isinstance(value, datetime):
-                    fallback_result[key] = (
-                        SerializationHelper.serialize_datetime(value)
-                    )
+                    fallback_result[key] = SerializationHelper.serialize_datetime(value)
                 # Avoid deep recursion for complex types in fallback
                 elif isinstance(value, (dict, list)):
-                    fallback_result[key] = (
-                        f"<Complex Type: {type(value).__name__}>"
-                    )
+                    fallback_result[key] = f"<Complex Type: {type(value).__name__}>"
                 else:
                     fallback_result[key] = value
             return fallback_result
@@ -680,13 +659,9 @@ def parse_query_date(
             dt_date = datetime.strptime(date_str, "%Y-%m-%d").date()
             # Create datetime object at start or end of day in UTC
             if end_of_day:
-                dt = datetime.combine(
-                    dt_date, datetime.max.time(), tzinfo=timezone.utc
-                )
+                dt = datetime.combine(dt_date, datetime.max.time(), tzinfo=timezone.utc)
             else:
-                dt = datetime.combine(
-                    dt_date, datetime.min.time(), tzinfo=timezone.utc
-                )
+                dt = datetime.combine(dt_date, datetime.min.time(), tzinfo=timezone.utc)
             return dt
         except ValueError:
             logger.warning(
@@ -919,9 +894,7 @@ async def update_many_with_retry(
     """
 
     async def _operation():
-        return await collection.update_many(
-            filter_query, update, upsert=upsert
-        )
+        return await collection.update_many(filter_query, update, upsert=upsert)
 
     return await db_manager.execute_with_retry(
         _operation, operation_name=f"update_many on {collection.name}"
@@ -1110,9 +1083,7 @@ async def init_task_history_collection() -> None:
             name="task_history_task_timestamp_idx",
             background=True,
         )
-        logger.info(
-            "Task history collection indexes ensured/created successfully"
-        )
+        logger.info("Task history collection indexes ensured/created successfully")
     except Exception as e:
         logger.error("Error creating task history indexes: %s", str(e))
         # Decide if this should be fatal - maybe not, log and continue?
@@ -1298,9 +1269,7 @@ async def run_transaction(
                     logger.debug("Starting transaction...")
                     results = []
                     for i, op in enumerate(operations):
-                        logger.debug(
-                            "Executing operation %d in transaction...", i + 1
-                        )
+                        logger.debug("Executing operation %d in transaction...", i + 1)
                         result = await op(
                             session=session
                         )  # Pass session to operation if needed
@@ -1311,26 +1280,33 @@ async def run_transaction(
         except (ConnectionFailure, OperationFailure) as e:
             # Check if this is a write conflict or other transient error
             is_transient = False
-            if hasattr(e, 'has_error_label'):
-                is_transient = e.has_error_label('TransientTransactionError')
-            elif hasattr(e, 'details') and isinstance(e.details, dict):
+            if hasattr(e, "has_error_label"):
+                is_transient = e.has_error_label("TransientTransactionError")
+            elif hasattr(e, "details") and isinstance(e.details, dict):
                 # Check for error labels in the details
-                error_labels = e.details.get('errorLabels', [])
-                is_transient = 'TransientTransactionError' in error_labels
-            
+                error_labels = e.details.get("errorLabels", [])
+                is_transient = "TransientTransactionError" in error_labels
+
             if is_transient and retry_count < max_retries:
                 retry_count += 1
-                wait_time = 0.1 * (2 ** retry_count)  # Exponential backoff
+                wait_time = 0.1 * (2**retry_count)  # Exponential backoff
                 logger.warning(
                     "Transient transaction error detected (attempt %d/%d), retrying in %.2f seconds: %s",
-                    retry_count, max_retries, wait_time, str(e)
+                    retry_count,
+                    max_retries,
+                    wait_time,
+                    str(e),
                 )
                 await asyncio.sleep(wait_time)
                 continue
             else:
                 # Non-transient error or max retries reached
-                logger.error("Transaction failed after %d attempts: %s", 
-                              retry_count + 1, str(e), exc_info=True)
+                logger.error(
+                    "Transaction failed after %d attempts: %s",
+                    retry_count + 1,
+                    str(e),
+                    exc_info=True,
+                )
                 return False
         except Exception as e:
             # Catch other unexpected errors during transaction

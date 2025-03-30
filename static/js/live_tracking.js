@@ -588,16 +588,16 @@ class LiveTripTracker {
 
     // Format start time for display using DateUtils
     let startTimeFormatted = "UNKNOWN";
-    
+
     if (trip.startTimeFormatted) {
       startTimeFormatted = trip.startTimeFormatted;
     } else if (startTime) {
       try {
         // Ensure startTime is a valid Date object
-        if (typeof startTime === 'string') {
+        if (typeof startTime === "string") {
           startTime = new Date(startTime);
         }
-        
+
         if (!isNaN(startTime.getTime())) {
           startTimeFormatted = DateUtils.formatForDisplay(startTime);
         }
