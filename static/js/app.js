@@ -97,7 +97,8 @@
 
   // Check if device is mobile
   const detectMobile = () => {
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const isTouchDevice =
+      "ontouchstart" in window || navigator.maxTouchPoints > 0;
     const isSmallScreen = window.innerWidth < CONFIG.MAP.mobileBreakpoint;
     AppState.isMobile = isTouchDevice || isSmallScreen;
     return AppState.isMobile;
@@ -291,7 +292,7 @@
   // Map Initialization & Controls
   const isMapReady = () =>
     AppState.map && AppState.mapInitialized && AppState.layerGroup;
-    
+
   // Function to handle mobile-specific map setup
   const setupMobileMapOptions = () => {
     if (!isMapReady()) return;
@@ -305,7 +306,7 @@
         AppState.map.options.inertiaMaxSpeed = 1500;
         AppState.map.options.bounceAtZoomLimits = false;
       }
-      
+
       // Refresh map to apply settings
       if (AppState.map.invalidateSize) {
         AppState.map.invalidateSize();
@@ -316,7 +317,7 @@
   // Functions for handling touch events on scrollable areas
   const handleTouchStart = (e) => {
     if (!AppState.isMobile) return;
-    
+
     const touch = e.touches[0];
     AppState.touch.enabled = true;
     AppState.touch.startX = touch.clientX;
@@ -324,11 +325,14 @@
     AppState.touch.lastX = touch.clientX;
     AppState.touch.lastY = touch.clientY;
     AppState.touch.startTime = Date.now();
-    
+
     // Detect if we're starting a touch on a scrollable element
     let el = e.target;
     while (el && el !== document.body) {
-      if (getComputedStyle(el).overflowY === 'auto' || getComputedStyle(el).overflowY === 'scroll') {
+      if (
+        getComputedStyle(el).overflowY === "auto" ||
+        getComputedStyle(el).overflowY === "scroll"
+      ) {
         AppState.touch.scrollEl = el;
         break;
       }
@@ -338,21 +342,21 @@
 
   const handleTouchMove = (e) => {
     if (!AppState.isMobile || !AppState.touch.enabled) return;
-    
+
     const touch = e.touches[0];
     const deltaX = touch.clientX - AppState.touch.lastX;
     const deltaY = touch.clientY - AppState.touch.lastY;
-    
+
     // Update last position
     AppState.touch.lastX = touch.clientX;
     AppState.touch.lastY = touch.clientY;
-    
+
     // If we have a scrollable element and we're primarily scrolling vertically
     if (AppState.touch.scrollEl && Math.abs(deltaY) > Math.abs(deltaX)) {
       // Let the browser handle the scroll naturally
       return;
     }
-    
+
     // If using the map and doing a horizontal-dominant gesture, prevent default to allow map panning
     if (!AppState.touch.scrollEl && Math.abs(deltaX) > Math.abs(deltaY)) {
       e.preventDefault();
@@ -361,7 +365,7 @@
 
   const handleTouchEnd = () => {
     if (!AppState.isMobile) return;
-    
+
     // Reset touch state
     AppState.touch.enabled = false;
     AppState.touch.scrollEl = null;
@@ -371,7 +375,7 @@
     try {
       // Detect mobile before initializing map
       detectMobile();
-      
+
       const mapContainer = document.getElementById("map");
       if (!mapContainer) return;
 
@@ -402,10 +406,10 @@
         maxZoom: CONFIG.MAP.maxZoom,
         attribution: "",
       }).addTo(AppState.map);
-      
+
       // If on mobile, move zoom control to top-right for better thumb access
       if (AppState.isMobile) {
-        L.control.zoom({ position: 'topright' }).addTo(AppState.map);
+        L.control.zoom({ position: "topright" }).addTo(AppState.map);
       }
 
       AppState.layerGroup = L.layerGroup().addTo(AppState.map);
@@ -441,10 +445,10 @@
       } finally {
         AppState.mapInitialized = true;
         setTimeout(() => AppState.map.invalidateSize(), 100);
-        
+
         // Apply mobile-specific map settings
         setupMobileMapOptions();
-        
+
         document.dispatchEvent(new CustomEvent("mapInitialized"));
       }
     } catch (error) {
@@ -1712,33 +1716,35 @@
     AppState.dom.applyFiltersBtn = getElement("apply-filters");
     AppState.dom.mapMatchTripsBtn = getElement("map-match-trips");
     AppState.dom.highlightRecentTrips = getElement("highlight-recent-trips");
-    
+
     // Add touch-action CSS property to scrollable elements for better mobile performance
-    const scrollables = document.querySelectorAll('.card-body, #map-controls');
-    scrollables.forEach(el => {
+    const scrollables = document.querySelectorAll(".card-body, #map-controls");
+    scrollables.forEach((el) => {
       if (el) {
-        el.style.webkitOverflowScrolling = 'touch';
-        el.style.touchAction = 'pan-y';
+        el.style.webkitOverflowScrolling = "touch";
+        el.style.touchAction = "pan-y";
       }
     });
-    
+
     // Make all buttons bigger and more touch-friendly on mobile
     if (AppState.isMobile) {
-      const buttons = document.querySelectorAll('.btn');
-      buttons.forEach(btn => {
+      const buttons = document.querySelectorAll(".btn");
+      buttons.forEach((btn) => {
         if (btn) {
           // Make minimum touch area 44x44px (Apple's recommended size)
-          btn.style.minHeight = '44px';
-          btn.style.minWidth = '44px';
-          btn.style.padding = '0.5rem 0.75rem';
+          btn.style.minHeight = "44px";
+          btn.style.minWidth = "44px";
+          btn.style.padding = "0.5rem 0.75rem";
         }
       });
-      
+
       // Adjust form controls for easier touch
-      const formControls = document.querySelectorAll('.form-control, .form-select');
-      formControls.forEach(control => {
+      const formControls = document.querySelectorAll(
+        ".form-control, .form-select",
+      );
+      formControls.forEach((control) => {
         if (control) {
-          control.style.minHeight = '44px';
+          control.style.minHeight = "44px";
         }
       });
     }
@@ -1860,12 +1866,12 @@
   }
 
   document.addEventListener("DOMContentLoaded", initialize);
-  
+
   // Add mobile-specific event listeners
   document.addEventListener("touchstart", handleTouchStart, { passive: false });
   document.addEventListener("touchmove", handleTouchMove, { passive: false });
   document.addEventListener("touchend", handleTouchEnd, { passive: true });
-  
+
   // Handle orientation changes and resize events
   window.addEventListener("orientationchange", () => {
     if (isMapReady() && AppState.map) {
@@ -1877,14 +1883,17 @@
       }, 200);
     }
   });
-  
-  window.addEventListener("resize", debounce(() => {
-    if (isMapReady() && AppState.map) {
-      detectMobile();
-      AppState.map.invalidateSize();
-      setupMobileMapOptions();
-    }
-  }, 250));
+
+  window.addEventListener(
+    "resize",
+    debounce(() => {
+      if (isMapReady() && AppState.map) {
+        detectMobile();
+        AppState.map.invalidateSize();
+        setupMobileMapOptions();
+      }
+    }, 250),
+  );
 
   window.addEventListener("beforeunload", () => {
     Object.values(AppState.polling.timers).forEach((timer) => {
