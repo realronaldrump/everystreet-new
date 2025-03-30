@@ -18,6 +18,8 @@
       maxZoom: 19,
       recentTripThreshold: 6 * 60 * 60 * 1000, // 6 hours in ms
       debounceDelay: 100,
+      mobileBreakpoint: 768, // Width in pixels for mobile detection
+      mobileTouchThreshold: 10, // Pixel threshold for mobile touch events
     },
     STORAGE_KEYS: {
       startDate: "startDate",
@@ -81,6 +83,24 @@
       timers: {},
     },
     dom: {},
+    isMobile: window.innerWidth < CONFIG.MAP.mobileBreakpoint,
+    touch: {
+      enabled: false,
+      startX: 0,
+      startY: 0,
+      lastX: 0,
+      lastY: 0,
+      startTime: 0,
+      scrollEl: null,
+    },
+  };
+
+  // Check if device is mobile
+  const detectMobile = () => {
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const isSmallScreen = window.innerWidth < CONFIG.MAP.mobileBreakpoint;
+    AppState.isMobile = isTouchDevice || isSmallScreen;
+    return AppState.isMobile;
   };
 
   // DOM Cache and Utilities
@@ -101,7 +121,12 @@
       window.notificationManager.show(message, type);
       return true;
     }
-    console.log(`${type.toUpperCase()}: ${message}`);
+    // Avoid using console in code that runs in the browser as per user preference
+    if (type === "error") {
+      console.error(message);
+    } else {
+      console.log(`${type.toUpperCase()}: ${message}`);
+    }
     return false;
   };
 
@@ -1716,6 +1741,31 @@
   }
 
   document.addEventListener("DOMContentLoaded", initialize);
+  
+  // Add mobile-specific event listeners
+  document.addEventListener("touchstart", handleTouchStart, { passive: false });
+  document.addEventListener("touchmove", handleTouchMove, { passive: false });
+  document.addEventListener("touchend", handleTouchEnd, { passive: true });
+  
+  // Handle orientation changes and resize events
+  window.addEventListener("orientationchange", () => {
+    if (isMapReady() && AppState.map) {
+      // Short delay to allow browser to complete orientation change
+      setTimeout(() => {
+        detectMobile();
+        AppState.map.invalidateSize();
+        setupMobileMapOptions();
+      }, 200);
+    }
+  });
+  
+  window.addEventListener("resize", debounce(() => {
+    if (isMapReady() && AppState.map) {
+      detectMobile();
+      AppState.map.invalidateSize();
+      setupMobileMapOptions();
+    }
+  }, 250));
 
   window.addEventListener("beforeunload", () => {
     Object.values(AppState.polling.timers).forEach((timer) => {
