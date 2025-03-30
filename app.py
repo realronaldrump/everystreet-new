@@ -3542,10 +3542,20 @@ async def refresh_coverage_stats(location_id: str):
                 status_code=500, detail="Failed to recalculate statistics"
             )
 
-        # Return the updated coverage data (already serialized)
-        return JSONResponse(
-            {"success": True, "coverage": updated_coverage_data}
+        # Pre-serialize the JSON with custom encoder to handle datetime objects properly
+        serialized_data = json.loads(
+            json.dumps(
+                {"success": True, "coverage": updated_coverage_data},
+                default=lambda obj: obj.isoformat()
+                if isinstance(obj, datetime)
+                else str(obj)
+                if isinstance(obj, ObjectId)
+                else None,
+            )
         )
+
+        # Return the pre-serialized data
+        return JSONResponse(serialized_data)
 
     except HTTPException as http_exc:
         logger.error(
