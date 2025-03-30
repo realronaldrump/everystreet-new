@@ -445,6 +445,12 @@ body.light-mode .live-trip-metrics .metric-row {
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
 }
 
+#map-controls {
+  touch-action: pan-y; /* This allows vertical scrolling but blocks other touch actions */
+  -webkit-overflow-scrolling: touch; /* Enables smooth scrolling on iOS */
+  overflow-y: auto;
+}
+
 body.light-mode #map-controls {
   background-color: rgba(248, 249, 250, 0.85);
   color: var(--light-text-primary);

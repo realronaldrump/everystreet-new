@@ -122,6 +122,11 @@
       elements.mapControls || document.getElementById("map-controls");
     if (!mapControls) return;
 
+    // Apply touch-action CSS to enable vertical scrolling
+    mapControls.style.touchAction = "pan-y";
+    mapControls.style.webkitOverflowScrolling = "touch";
+    mapControls.style.overflowY = "auto";
+
     // Set up controls toggle functionality
     const controlsToggle = document.getElementById("controls-toggle");
     if (controlsToggle) {
@@ -162,7 +167,6 @@
       "dblclick",
       "touchstart",
       "touchend",
-      "touchmove",
       "wheel",
       "contextmenu",
       "drag",
@@ -190,20 +194,21 @@
           // Allow normal interaction with form elements but prevent map actions
           if (!isFormElement) {
             e.stopPropagation();
-
-            // For specific events that might need preventDefault to block map behavior
-            if (
-              ["wheel", "touchmove", "mousedown", "touchstart"].includes(
-                eventType,
-              )
-            ) {
-              e.preventDefault();
-            }
           }
         },
-        { passive: false },
-      ); // passive: false is required to allow preventDefault
+        { passive: true },
+      );
     });
+
+    // Handle touchmove separately - allows scrolling the panel but prevents map interactions
+    mapControls.addEventListener(
+      "touchmove",
+      (e) => {
+        // Allow the default behavior (scrolling) but stop propagation to the map
+        e.stopPropagation();
+      },
+      { passive: true },
+    );
 
     // Set the cursor style to indicate the panel is interactive
     mapControls.style.cursor = "default";
@@ -216,7 +221,8 @@
     style.textContent = `
       .map-controls-event-handler {
         pointer-events: auto;
-        touch-action: pan-x pan-y;
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
       }
       #map-controls .card,
       #map-controls .form-control,
@@ -360,7 +366,7 @@
   // Filters Panel Functionality
   function initFilterPanel() {
     const {
-      filtersToggle,
+      filterToggle,
       filtersPanel,
       contentOverlay,
       filtersClose,
@@ -373,8 +379,8 @@
     addFilterIndicator();
 
     // Toggle filter panel
-    if (filtersToggle && filtersPanel) {
-      filtersToggle.addEventListener("click", () => {
+    if (filterToggle && filtersPanel) {
+      filterToggle.addEventListener("click", () => {
         filtersPanel.classList.toggle(CONFIG.classes.open);
         contentOverlay.classList.toggle(CONFIG.classes.visible);
         updateFilterIndicator();
