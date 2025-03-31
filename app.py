@@ -10,11 +10,12 @@ import json
 import logging
 import os
 import uuid
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from math import ceil
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
+
 import aiohttp
-from collections import defaultdict
 
 # Third-party imports
 import bson
@@ -104,8 +105,8 @@ from update_geo_points import update_geo_points
 from utils import (
     calculate_distance,
     cleanup_session,
-    validate_location_osm,
     haversine,
+    validate_location_osm,
 )
 from visits import init_collections
 from visits import router as visits_router

@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
   <head>
     <meta charset="UTF-8" />
@@ -15,7 +15,7 @@
       (function () {
         const savedTheme = localStorage.getItem("theme");
         const prefersDarkScheme = window.matchMedia(
-          "(prefers-color-scheme: dark)",
+          "(prefers-color-scheme: dark)"
         ).matches;
 
         if (savedTheme === "light" || (!savedTheme && !prefersDarkScheme)) {
@@ -23,12 +23,12 @@
           document.documentElement.classList.add("light-mode");
           document
             .querySelector('meta[name="theme-color"]')
-            ?.setAttribute("content", "#f8f9fa"); // Added optional chaining
+            ?.setAttribute("content", "#f8f9fa");
         } else {
           document.documentElement.setAttribute("data-bs-theme", "dark");
           document
             .querySelector('meta[name="theme-color"]')
-            ?.setAttribute("content", "#121212"); // Added optional chaining
+            ?.setAttribute("content", "#121212");
         }
       })();
     </script>
@@ -155,9 +155,7 @@
       .loading-overlay {
         opacity: 0;
         visibility: hidden;
-        transition:
-          opacity 0.3s ease-in-out,
-          visibility 0.3s;
+        transition: opacity 0.3s ease-in-out, visibility 0.3s;
       }
 
       .loading-overlay[style*="display: flex"] {
@@ -221,7 +219,7 @@
               >
                 <a href="/driving-navigation" title="Driving Navigation"
                   ><i class="fas fa-car"></i>
-                  <!-- ICON ADDED HERE -->
+
                   <span>Driving Navigation</span></a
                 >
               </li>
@@ -349,9 +347,7 @@
               <a
                 href="/driving-navigation"
                 class="{% if request.url.path == '/driving-navigation' %}active{% endif %}"
-                ><i class="fas fa-car me-2"></i> Driving
-                <!-- ICON ADDED HERE -->
-                Navigation</a
+                ><i class="fas fa-car me-2"></i> Driving Navigation</a
               >
             </li>
             <li>
@@ -441,10 +437,7 @@
                 placeholder="Select Start Date"
                 aria-label="Start date filter"
               />
-              <!-- Comment moved outside the input tag -->
-              <!-- Added datepicker class -->
             </div>
-            <!-- FIXED End Date Input -->
             <div class="form-group">
               <label for="end-date" class="form-label">End Date</label>
               <input
@@ -454,8 +447,6 @@
                 placeholder="Select End Date"
                 aria-label="End date filter"
               />
-              <!-- Comment moved outside the input tag -->
-              <!-- Added datepicker class -->
             </div>
 
             <div class="form-group">

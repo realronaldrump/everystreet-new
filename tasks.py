@@ -23,27 +23,29 @@ from typing import (
     cast,
 )
 
-from pymongo import UpdateOne
 from celery import Task, shared_task
 from celery.signals import task_failure, task_postrun, task_prerun
 from celery.utils.log import get_task_logger
+from pymongo import UpdateOne
+
+from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
+from celery_app import app as celery_app
 
 # --- Local Imports ---
 # Import db_manager and necessary functions/collections from db.py
 from db import (
     SerializationHelper,
-    find_one_with_retry,
-    find_with_retry,
-    update_one_with_retry,
     # Specific collections needed by tasks/helpers
     coverage_metadata_collection,
+    find_one_with_retry,
+    find_with_retry,
     matched_trips_collection,
     progress_collection,
     task_config_collection,
     task_history_collection,
     trips_collection,
+    update_one_with_retry,
 )
-from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 
 # Use alias for imported function to avoid name clash with task
 from live_tracking import cleanup_stale_trips as cleanup_stale_trips_logic
@@ -54,7 +56,6 @@ from trip_processor import TripProcessor, TripState
 
 # Use alias for imported function to avoid name clash with task (ANTICIPATING SIMILAR ISSUE)
 from utils import validate_trip_data as validate_trip_data_logic
-from celery_app import app as celery_app
 
 # Set up task-specific logger
 logger = get_task_logger(__name__)

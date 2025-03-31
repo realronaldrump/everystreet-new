@@ -13,20 +13,23 @@ import multiprocessing
 import os
 from collections import defaultdict
 from concurrent.futures import (
+    CancelledError,
     Future,
     ProcessPoolExecutor,
     TimeoutError,
-    CancelledError,
 )
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
-import numpy as np
 
 import bson.json_util
+import numpy as np
 import pyproj
 import rtree
 from bson import ObjectId
 from dotenv import load_dotenv
+from motor.motor_asyncio import (
+    AsyncIOMotorGridFSBucket,
+)  # Import GridFS bucket class
 from pymongo.errors import (
     BulkWriteError,
     OperationFailure,  # Import OperationFailure
@@ -34,9 +37,6 @@ from pymongo.errors import (
 from shapely.errors import GEOSException
 from shapely.geometry import LineString, MultiPoint, shape
 from shapely.ops import transform
-from motor.motor_asyncio import (
-    AsyncIOMotorGridFSBucket,
-)  # Import GridFS bucket class
 
 from db import (
     batch_cursor,

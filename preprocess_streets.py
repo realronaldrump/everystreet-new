@@ -13,25 +13,24 @@ import math
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Callable, Dict, List, Optional
 
 import aiohttp
 import pyproj
 from dotenv import load_dotenv
+from pymongo.errors import BulkWriteError  # Import BulkWriteError
 from shapely.geometry import LineString, mapping
 from shapely.ops import transform
-from pymongo.errors import BulkWriteError  # Import BulkWriteError
 
 # Import necessary database functions and collections from your db module
 # Use retry wrappers for DB operations
 from db import (
     coverage_metadata_collection,
-    streets_collection,
-    update_one_with_retry,
     delete_many_with_retry,
     # insert_many is implicitly handled by streets_collection.insert_many
+    streets_collection,
+    update_one_with_retry,
 )
-
 
 load_dotenv()
 
@@ -220,7 +219,6 @@ def substring(
 ) -> Optional[LineString]:
     """Return a sub-linestring from 'start' to 'end' along the line (UTM
     coords)."""
-    # Added type hints and None return possibility
     if (
         start < 0
         or end > line.length
@@ -733,7 +731,7 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
             # Attempt to get lat/lon from the validated location data
             center_lat = float(validated_location.get("lat"))
             center_lon = float(validated_location.get("lon"))
-        except (TypeError, ValueError, AttributeError):  # Added AttributeError
+        except (TypeError, ValueError, AttributeError):
             logger.warning(
                 "Location %s is missing valid lat/lon. Cannot determine dynamic UTM.",
                 location_name,
@@ -816,8 +814,6 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
                 location_name,
                 del_err,
             )
-            # Optionally, decide if this is a fatal error or if processing can continue
-            # For now, log and continue, but new data might conflict if deletion failed badly.
 
         # --- Step 2: Fetch OSM data (filtered) ---
         osm_data = None
