@@ -3,7 +3,7 @@ import functools
 import json
 import logging
 import math
-from typing import Any, Dict, Optional, Tuple, TypeVar
+from typing import Any, Coroutine, Dict, Optional, Tuple, TypeVar
 
 import aiohttp
 from aiohttp import ClientConnectorError, ClientResponseError
@@ -284,3 +284,55 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
 
     # Use the meters_to_miles function defined in this module
     return meters_to_miles(total_distance_meters)
+
+
+def run_async_from_sync(coro: Coroutine[Any, Any, T]) -> T:
+    """
+    Runs an async coroutine from a synchronous context, managing the event loop.
+
+    This is crucial for calling async functions (like motor operations)
+    from synchronous Celery tasks without encountering 'Event loop is closed' errors.
+    It gets the current thread's loop or creates one if needed, and runs the
+    coroutine until completion using loop.run_until_complete. Unlike asyncio.run(),
+    it doesn't close the loop afterwards, allowing libraries like motor to
+    clean up properly.
+
+    Args:
+        coro: The awaitable coroutine to execute.
+
+    Returns:
+        The result of the coroutine.
+    """
+    try:
+        # Try to get the loop for the current context (thread/process)
+        # get_event_loop_policy().get_event_loop() is generally preferred over get_event_loop()
+        # as the latter might implicitly create a loop in some cases, which we want to control.
+        loop = asyncio.get_event_loop_policy().get_event_loop()
+        logger.debug(
+            "Reusing existing event loop for sync-to-async execution."
+        )
+    except RuntimeError:
+        # If no loop exists for this context, create a new one
+        logger.debug(
+            "No event loop found, creating a new one for sync-to-async execution."
+        )
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    # Ensure the loop isn't closed (can happen during worker shutdown/restart)
+    if loop.is_closed():
+        logger.warning("Event loop was closed. Creating a new one.")
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    # Run the coroutine until it completes. This blocks the synchronous caller.
+    # Importantly, run_until_complete does NOT close the loop afterwards.
+    try:
+        return loop.run_until_complete(coro)
+    except Exception:
+        # If the coroutine raises an exception, run_until_complete propagates it.
+        # We don't need special handling here unless we want to log differently.
+        logger.error(
+            "Exception occurred during run_until_complete", exc_info=True
+        )
+        raise
