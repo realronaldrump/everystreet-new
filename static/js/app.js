@@ -1469,6 +1469,7 @@
   }
 
   // Event Listeners & Date Presets
+  // In static/js/app.js - modify handleDatePresetClick()
   function handleDatePresetClick() {
     const range = this.dataset.range;
     if (!range) return;
@@ -1509,7 +1510,8 @@
             })
           );
 
-          fetchTripsInRange();
+          // Call fetchTrips() directly instead of fetchTripsInRange()
+          fetchTrips();
         } else {
           showNotification("Invalid date range returned", "warning");
         }
