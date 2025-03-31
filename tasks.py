@@ -226,7 +226,7 @@ class TaskStatusManager:
             return False
 
 
-# Base class for async tasks
+# Base class for async tasks (Can be kept if other tasks use it, but scheduler won't)
 class AsyncTask(Task):
     """Enhanced base class for Celery tasks that need to run async code."""
 
@@ -234,16 +234,11 @@ class AsyncTask(Task):
     def run_async(coro_func: Callable[[], Awaitable[T]]) -> T:
         """Run an async coroutine function from a Celery task."""
         try:
-            # Create a new event loop but don't close it automatically
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            return loop.run_until_complete(coro_func())
+            # Use asyncio.run() which handles loop creation/closing
+            return asyncio.run(coro_func())
         except Exception as e:
             logger.exception(f"Error in run_async execution: {e}")
-            raise
-        finally:
-            # Clean up but don't close the loop
-            asyncio.set_event_loop(None)
+            raise  # Re-raise the exception so Celery marks the task as failed
 
 
 # --- Signal Handlers (Refactored to use db_manager and TaskStatusManager) ---
@@ -604,6 +599,9 @@ async def update_task_history_entry(
 
 # --- Async Task Wrapper ---
 def async_task_wrapper(func):
+    """Decorator to handle common setup/teardown for async functions called
+    from Celery tasks."""
+
     @wraps(func)
     async def wrapped_async_func(*args, **kwargs):
         task_name = func.__name__
@@ -620,7 +618,7 @@ def async_task_wrapper(func):
             runtime = (datetime.now(timezone.utc) - start_time).total_seconds()
             error_msg = f"Error in async task logic for {task_name} after {runtime:.2f}s: {str(e)}"
             logger.exception(error_msg)
-            raise
+            raise  # Re-raise exception for Celery to handle
 
     return wrapped_async_func
 
@@ -630,7 +628,7 @@ def async_task_wrapper(func):
 
 @shared_task(
     bind=True,
-    base=AsyncTask,
+    base=AsyncTask,  # Use AsyncTask for tasks needing run_async
     max_retries=3,
     default_retry_delay=60,
     time_limit=3600,
@@ -712,7 +710,7 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
 
 @shared_task(
     bind=True,
-    base=AsyncTask,
+    base=AsyncTask,  # Use AsyncTask for tasks needing run_async
     max_retries=3,
     default_retry_delay=300,
     time_limit=7200,
@@ -793,7 +791,7 @@ def update_coverage_for_new_trips(self) -> Dict[str, Any]:
 
 @shared_task(
     bind=True,
-    base=AsyncTask,
+    base=AsyncTask,  # Use AsyncTask for tasks needing run_async
     max_retries=3,
     default_retry_delay=60,
     time_limit=1800,
@@ -820,7 +818,7 @@ def cleanup_stale_trips(self) -> Dict[str, Any]:
 
 @shared_task(
     bind=True,
-    base=AsyncTask,
+    base=AsyncTask,  # Use AsyncTask for tasks needing run_async
     max_retries=3,
     default_retry_delay=300,
     time_limit=7200,
@@ -886,7 +884,7 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
 
 @shared_task(
     bind=True,
-    base=AsyncTask,
+    base=AsyncTask,  # Use AsyncTask for tasks needing run_async
     max_retries=3,
     default_retry_delay=300,
     time_limit=7200,
@@ -961,7 +959,7 @@ def update_geocoding(self) -> Dict[str, Any]:
 
 @shared_task(
     bind=True,
-    base=AsyncTask,
+    base=AsyncTask,  # Use AsyncTask for tasks needing run_async
     max_retries=3,
     default_retry_delay=300,
     time_limit=7200,
@@ -1039,7 +1037,7 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
 
 @shared_task(
     bind=True,
-    base=AsyncTask,
+    base=AsyncTask,  # Use AsyncTask for tasks needing run_async
     max_retries=3,
     default_retry_delay=300,
     time_limit=7200,
@@ -1108,178 +1106,181 @@ def validate_trip_data(self) -> Dict[str, Any]:
     return cast(AsyncTask, self).run_async(_execute)
 
 
-# --- NEW SCHEDULER TASK ---
-@shared_task(
-    bind=True,
-    base=AsyncTask,
-    name="tasks.run_task_scheduler",
-    queue="high_priority",
-)
-def run_task_scheduler(self) -> Dict[str, Any]:
+# --- NEW SCHEDULER TASK (MODIFIED) ---
+@shared_task(bind=True, name="tasks.run_task_scheduler", queue="high_priority")
+async def run_task_scheduler(self) -> Dict[str, Any]:
     """
     This task runs frequently (e.g., every minute via Celery Beat).
     It checks the MongoDB config and triggers other tasks based on their
     enabled status, interval, and last run time.
+    Runs asynchronously to directly await DB operations.
     """
+    triggered_count = 0
+    skipped_count = 0
+    now_utc = datetime.now(timezone.utc)
+    logger.debug(f"Scheduler task running at {now_utc.isoformat()}")
 
-    @async_task_wrapper
-    async def _execute():
-        triggered_count = 0
-        skipped_count = 0
-        now_utc = datetime.now(timezone.utc)
-        logger.debug(f"Scheduler task running at {now_utc.isoformat()}")
-
-        try:
-            config = await get_task_config()
-            if not config or config.get("disabled", False):
-                logger.info(
-                    "Task scheduling is globally disabled. Exiting scheduler task."
-                )
-                return {"status": "skipped", "reason": "Globally disabled"}
-
-            tasks_to_check = config.get("tasks", {})
-
-            # Mapping from config task_id to Celery task name
-            task_name_mapping = {
-                "periodic_fetch_trips": "tasks.periodic_fetch_trips",
-                "cleanup_stale_trips": "tasks.cleanup_stale_trips",
-                "cleanup_invalid_trips": "tasks.cleanup_invalid_trips",
-                "update_geocoding": "tasks.update_geocoding",
-                "remap_unmatched_trips": "tasks.remap_unmatched_trips",
-                "validate_trip_data": "tasks.validate_trip_data",
-                "update_coverage_for_new_trips": "tasks.update_coverage_for_new_trips",
+    try:
+        # Directly await the async db helper functions
+        config = await get_task_config()
+        if not config or config.get("disabled", False):
+            logger.info(
+                "Task scheduling is globally disabled. Exiting scheduler task."
+            )
+            return {
+                "status": "success",  # Report success even if skipped due to config
+                "triggered": 0,
+                "skipped": len(TASK_METADATA),  # Skipped all possible tasks
+                "reason": "Globally disabled",
             }
 
-            tasks_to_trigger = []
+        tasks_to_check = config.get("tasks", {})
 
-            for task_id, task_config in tasks_to_check.items():
-                if task_id not in task_name_mapping:
-                    continue
+        # Mapping from config task_id to Celery task name
+        task_name_mapping = {
+            "periodic_fetch_trips": "tasks.periodic_fetch_trips",
+            "cleanup_stale_trips": "tasks.cleanup_stale_trips",
+            "cleanup_invalid_trips": "tasks.cleanup_invalid_trips",
+            "update_geocoding": "tasks.update_geocoding",
+            "remap_unmatched_trips": "tasks.remap_unmatched_trips",
+            "validate_trip_data": "tasks.validate_trip_data",
+            "update_coverage_for_new_trips": "tasks.update_coverage_for_new_trips",
+        }
 
-                is_enabled = task_config.get("enabled", True)
-                current_status = task_config.get("status")
-                interval_minutes = task_config.get("interval_minutes")
-                last_run_any = task_config.get(
-                    "last_run"
-                )  # Last *successful* run
+        tasks_to_trigger = []
 
-                if (
-                    not is_enabled
-                    or current_status == TaskStatus.RUNNING.value
-                    or interval_minutes is None
-                    or interval_minutes <= 0
-                ):
-                    skipped_count += 1
-                    continue
+        for task_id, task_config in tasks_to_check.items():
+            if task_id not in task_name_mapping:
+                continue
 
-                # Parse last_run safely
-                last_run = None
-                if isinstance(last_run_any, datetime):
-                    last_run = last_run_any
-                elif isinstance(last_run_any, str):
-                    try:
-                        last_run = datetime.fromisoformat(
-                            last_run_any.replace("Z", "+00:00")
-                        )
-                    except ValueError:
-                        pass
-                if last_run and last_run.tzinfo is None:
-                    last_run = last_run.replace(tzinfo=timezone.utc)
+            is_enabled = task_config.get("enabled", True)
+            current_status = task_config.get("status")
+            interval_minutes = task_config.get("interval_minutes")
+            last_run_any = task_config.get("last_run")
 
-                # Check if due
-                is_due = False
-                if last_run is None:
-                    is_due = True
-                else:
-                    next_due_time = last_run + timedelta(
-                        minutes=interval_minutes
-                    )
-                    if now_utc >= next_due_time:
-                        is_due = True
+            if (
+                not is_enabled
+                or current_status == TaskStatus.RUNNING.value
+                or interval_minutes is None
+                or interval_minutes <= 0
+            ):
+                skipped_count += 1
+                continue
 
-                if is_due:
-                    dependency_check = await check_dependencies(task_id)
-                    if dependency_check["can_run"]:
-                        tasks_to_trigger.append(task_id)
-                    else:
-                        logger.warning(
-                            f"Task '{task_id}' due but dependencies not met: {dependency_check.get('reason')}"
-                        )
-                        skipped_count += 1
-
-            # Trigger Due Tasks
-            if not tasks_to_trigger:
-                logger.debug("No tasks due to trigger.")
-                return {
-                    "status": "success",
-                    "triggered": 0,
-                    "skipped": skipped_count,
-                }
-
-            for task_id_to_run in tasks_to_trigger:
+            # Parse last_run safely
+            last_run = None
+            if isinstance(last_run_any, datetime):
+                last_run = last_run_any
+            elif isinstance(last_run_any, str):
                 try:
-                    celery_task_name = task_name_mapping[task_id_to_run]
-                    queue = f"{TASK_METADATA[task_id_to_run]['priority'].name.lower()}_priority"
-                    celery_task_id = (
-                        f"{task_id_to_run}_scheduled_{uuid.uuid4()}"
+                    last_run = datetime.fromisoformat(
+                        last_run_any.replace("Z", "+00:00")
                     )
+                except ValueError:
+                    pass
+            if last_run and last_run.tzinfo is None:
+                last_run = last_run.replace(tzinfo=timezone.utc)
 
-                    celery_app.send_task(
-                        celery_task_name,
-                        task_id=celery_task_id,
-                        queue=queue,
-                        kwargs={},
-                        headers={"manual_run": False},
+            # Check if due
+            is_due = False
+            if last_run is None:
+                is_due = True
+            else:
+                next_due_time = last_run + timedelta(minutes=interval_minutes)
+                if now_utc >= next_due_time:
+                    is_due = True
+
+            if is_due:
+                # Directly await the async helper
+                dependency_check = await check_dependencies(task_id)
+                if dependency_check["can_run"]:
+                    tasks_to_trigger.append(task_id)
+                else:
+                    logger.warning(
+                        f"Task '{task_id}' due but dependencies not met: {dependency_check.get('reason')}"
                     )
+                    skipped_count += 1
 
-                    # Update config: Set status to PENDING immediately
-                    # We don't update last_run here; let COMPLETED status update handle it
-                    await update_one_with_retry(
-                        task_config_collection,
-                        {"_id": "global_background_task_config"},
-                        {
-                            "$set": {
-                                f"tasks.{task_id_to_run}.status": TaskStatus.PENDING.value,
-                                f"tasks.{task_id_to_run}.last_updated": now_utc,
-                            }
-                        },
-                    )
-
-                    # Update history
-                    await update_task_history_entry(
-                        celery_task_id=celery_task_id,
-                        task_name=task_id_to_run,
-                        status=TaskStatus.PENDING.value,
-                        manual_run=False,
-                        start_time=now_utc,
-                    )
-
-                    triggered_count += 1
-                    logger.info(
-                        f"Triggered task '{task_id_to_run}' with Celery ID {celery_task_id}"
-                    )
-                    await asyncio.sleep(0.1)
-
-                except Exception as trigger_err:
-                    logger.error(
-                        f"Failed to trigger task '{task_id_to_run}': {trigger_err}",
-                        exc_info=True,
-                    )
-
+        # Trigger Due Tasks
+        if not tasks_to_trigger:
+            logger.debug("No tasks due to trigger.")
             return {
                 "status": "success",
-                "triggered": triggered_count,
+                "triggered": 0,
                 "skipped": skipped_count,
             }
 
-        except Exception as e:
-            logger.exception(f"Error in run_task_scheduler: {e}")
-            # Don't retry this scheduler task itself heavily, let the next minute's run try again
-            return {"status": "error", "message": str(e)}
+        for task_id_to_run in tasks_to_trigger:
+            try:
+                celery_task_name = task_name_mapping[task_id_to_run]
+                # Determine queue from metadata
+                priority_name = TASK_METADATA[task_id_to_run][
+                    "priority"
+                ].name.lower()
+                queue = (
+                    f"{priority_name}_priority"
+                    if priority_name != "unknown"
+                    else "default"
+                )
 
-    # Note: The scheduler task itself doesn't need retry logic like the others
-    # If it fails, the next run in 1 minute will try again.
-    return cast(AsyncTask, self).run_async(_execute)
+                celery_task_id = f"{task_id_to_run}_scheduled_{uuid.uuid4()}"
+
+                # Use celery_app directly as it's imported
+                celery_app.send_task(
+                    celery_task_name,
+                    task_id=celery_task_id,
+                    queue=queue,
+                    kwargs={},
+                    headers={"manual_run": False},
+                )
+
+                # Directly await the async db helpers
+                await update_one_with_retry(
+                    task_config_collection,
+                    {"_id": "global_background_task_config"},
+                    {
+                        "$set": {
+                            f"tasks.{task_id_to_run}.status": TaskStatus.PENDING.value,
+                            f"tasks.{task_id_to_run}.last_updated": now_utc,
+                        }
+                    },
+                )
+                await update_task_history_entry(
+                    celery_task_id=celery_task_id,
+                    task_name=task_id_to_run,
+                    status=TaskStatus.PENDING.value,
+                    manual_run=False,
+                    start_time=now_utc,
+                )
+
+                triggered_count += 1
+                logger.info(
+                    f"Triggered task '{task_id_to_run}' with Celery ID {celery_task_id} on queue {queue}"
+                )
+                await asyncio.sleep(
+                    0.1
+                )  # Small delay to allow tasks to be picked up
+
+            except Exception as trigger_err:
+                logger.error(
+                    f"Failed to trigger task '{task_id_to_run}': {trigger_err}",
+                    exc_info=True,
+                )
+                # Optionally mark the task as failed immediately in config?
+                # await update_one_with_retry(...)
+
+        return {
+            "status": "success",
+            "triggered": triggered_count,
+            "skipped": skipped_count,
+        }
+
+    except Exception as e:
+        logger.exception(f"Error in run_task_scheduler: {e}")
+        # Task itself failed, Celery will handle retry based on its config if needed
+        # It's better to let Celery handle task failure reporting.
+        # We raise the exception so Celery knows it failed.
+        raise  # Re-raise the exception
 
 
 # --- API Functions ---
@@ -1290,7 +1291,7 @@ async def get_all_task_metadata() -> Dict[str, Any]:
     try:
         task_config = await get_task_config()
         task_metadata_with_status = {}
-        datetime.now(timezone.utc)
+        datetime.now(timezone.utc)  # Defined now
 
         for task_id, metadata in TASK_METADATA.items():
             task_metadata_with_status[task_id] = metadata.copy()
@@ -1410,7 +1411,14 @@ async def _send_manual_task(
             logger.warning(f"Manual run for {task_name} skipped: {reason}")
             return {"task": task_name, "success": False, "message": reason}
 
-        queue = f"{TASK_METADATA[task_name]['priority'].name.lower()}_priority"
+        # Determine queue from metadata
+        priority_name = TASK_METADATA[task_name]["priority"].name.lower()
+        queue = (
+            f"{priority_name}_priority"
+            if priority_name != "unknown"
+            else "default"
+        )
+
         celery_task_id = f"{task_name}_manual_{uuid.uuid4()}"
 
         # Send task via Celery app instance
@@ -1431,7 +1439,7 @@ async def _send_manual_task(
             start_time=datetime.now(timezone.utc),
         )
         logger.info(
-            f"Manually triggered task {task_name} with Celery ID {celery_task_id}"
+            f"Manually triggered task {task_name} with Celery ID {celery_task_id} on queue {queue}"
         )
         return {
             "task": task_name,
