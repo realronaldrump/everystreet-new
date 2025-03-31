@@ -834,68 +834,90 @@ async def reset_task_states():
     """Reset any stuck 'RUNNING' tasks to 'FAILED' state with safeguards."""
     try:
         now = datetime.now(timezone.utc)
-        stuck_threshold = timedelta(
-            hours=2
-        )  # Consider tasks running over 2 hours as stuck
+        stuck_threshold = timedelta(hours=2)
         reset_count = 0
         skipped_count = 0
 
-        # Get current task configuration
-        config = await get_task_config()
+        config = (
+            await get_task_config()
+        )  # Uses refactored helper from tasks.py
         tasks_config = config.get("tasks", {})
-
-        # Identify actually stuck tasks
         updates = {}
+
         for task_id, task_info in tasks_config.items():
             if task_info.get("status") != TaskStatus.RUNNING.value:
                 continue
 
-            start_time = task_info.get("start_time")
-            if not start_time:
-                # No start time but status is RUNNING, consider it stuck
-                updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value
-                updates[f"tasks.{task_id}.last_error"] = (
-                    "Task reset: status was RUNNING but no start_time found"
-                )
-                updates[f"tasks.{task_id}.end_time"] = now
-                reset_count += 1
-                continue
+            start_time_any = task_info.get("start_time")
+            start_time = None
 
-            # Ensure start_time has timezone info
-            if isinstance(start_time, str):
+            # --- Robust start_time parsing ---
+            if isinstance(start_time_any, datetime):
+                start_time = start_time_any
+            elif isinstance(start_time_any, str):
                 try:
+                    # Handle ISO format with or without Z/offset
                     start_time = datetime.fromisoformat(
-                        start_time.replace("Z", "+00:00")
+                        start_time_any.replace("Z", "+00:00")
                     )
                 except ValueError:
-                    start_time = datetime.strptime(
-                        start_time, "%Y-%m-%dT%H:%M:%S.%f"
-                    )
+                    # Try common formats if ISO fails
+                    for fmt in (
+                        "%Y-%m-%dT%H:%M:%S.%f%z",
+                        "%Y-%m-%dT%H:%M:%S%z",
+                        "%Y-%m-%dT%H:%M:%S.%f",
+                        "%Y-%m-%dT%H:%M:%S",
+                    ):
+                        try:
+                            start_time = datetime.strptime(start_time_any, fmt)
+                            break
+                        except ValueError:
+                            continue
+                    if not start_time:
+                        logger.warning(
+                            f"Could not parse start_time string '{start_time_any}' for task {task_id}"
+                        )
 
-            if start_time.tzinfo is None:
-                start_time = start_time.replace(tzinfo=timezone.utc)
-
-            # Check if task has been running too long
-            runtime = now - start_time
-            if runtime > stuck_threshold:
-                # Task has been running too long, consider it stuck
+            # --- Check if stuck ---
+            if not start_time:
+                # No valid start time but status is RUNNING -> Stuck
                 updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value
                 updates[f"tasks.{task_id}.last_error"] = (
-                    f"Task reset: running for {runtime.total_seconds() / 3600:.2f} hours"
+                    "Task reset: status RUNNING, invalid/missing start_time"
                 )
                 updates[f"tasks.{task_id}.end_time"] = now
                 reset_count += 1
-            else:
-                # Task is running but not considered stuck yet
-                logger.info(
-                    "Task %s is running for %.2f minutes, not considered stuck",
-                    task_id,
-                    runtime.total_seconds() / 60,
+                logger.warning(
+                    f"Resetting task {task_id} due to missing/invalid start_time."
                 )
-                skipped_count += 1
+            else:
+                # Ensure start_time is timezone-aware (assume UTC if naive)
+                if start_time.tzinfo is None:
+                    start_time = start_time.replace(tzinfo=timezone.utc)
 
-        # Also check for any history entries stuck in RUNNING state
-        history_result = await update_many_with_retry(
+                runtime = now - start_time
+                if runtime > stuck_threshold:
+                    # Task running too long -> Stuck
+                    updates[f"tasks.{task_id}.status"] = (
+                        TaskStatus.FAILED.value
+                    )
+                    updates[f"tasks.{task_id}.last_error"] = (
+                        f"Task reset: ran for > {stuck_threshold}"
+                    )
+                    updates[f"tasks.{task_id}.end_time"] = now
+                    reset_count += 1
+                    logger.warning(
+                        f"Resetting task {task_id} running since {start_time}."
+                    )
+                else:
+                    # Running but not stuck yet
+                    skipped_count += 1
+                    logger.info(
+                        f"Task {task_id} running for {runtime}, not stuck yet."
+                    )
+
+        # Reset stuck history entries
+        history_result = await update_many_with_retry(  # Use retry wrapper
             task_history_collection,
             {
                 "status": TaskStatus.RUNNING.value,
@@ -904,26 +926,38 @@ async def reset_task_states():
             {
                 "$set": {
                     "status": TaskStatus.FAILED.value,
-                    "error": "Task reset: task history entry stuck in RUNNING state",
+                    "error": "Task reset: history entry stuck in RUNNING state",
                     "end_time": now,
                 }
             },
         )
+        history_reset_count = (
+            history_result.modified_count if history_result else 0
+        )
 
-        # Apply updates to task configuration
+        # Apply updates to task configuration using retry wrapper
         if updates:
-            await task_config_collection.update_one(
-                {"_id": "global_background_task_config"}, {"$set": updates}
+            config_update_result = (
+                await update_one_with_retry(  # Use retry wrapper
+                    task_config_collection,
+                    {"_id": "global_background_task_config"},
+                    {"$set": updates},
+                )
             )
+            if (
+                not config_update_result
+                or config_update_result.modified_count == 0
+            ):
+                logger.warning(
+                    "Attempted to reset task states in config, but no document was modified."
+                )
 
         return {
             "status": "success",
-            "message": f"Reset {reset_count} stuck tasks, skipped {skipped_count} running tasks",
+            "message": f"Reset {reset_count} stuck tasks, skipped {skipped_count}. Reset {history_reset_count} history entries.",
             "reset_count": reset_count,
             "skipped_count": skipped_count,
-            "history_reset_count": (
-                history_result.modified_count if history_result else 0
-            ),
+            "history_reset_count": history_reset_count,
         }
     except Exception as e:
         logger.exception("Error resetting task states: %s", str(e))
