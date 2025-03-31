@@ -44,12 +44,16 @@ from db import (
     trips_collection,
 )
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
-from live_tracking import cleanup_stale_trips
+
+# Use alias for imported function to avoid name clash with task
+from live_tracking import cleanup_stale_trips as cleanup_stale_trips_logic
 from street_coverage_calculation import (
     compute_incremental_coverage,
 )
 from trip_processor import TripProcessor, TripState
-from utils import validate_trip_data
+
+# Use alias for imported function to avoid name clash with task (ANTICIPATING SIMILAR ISSUE)
+from utils import validate_trip_data as validate_trip_data_logic
 from celery_app import app as celery_app
 
 # Set up task-specific logger
@@ -851,13 +855,13 @@ def update_coverage_for_new_trips(self) -> Dict[str, Any]:
     name="tasks.cleanup_stale_trips",
     queue="low_priority",
 )
-def cleanup_stale_trips_task(self) -> Dict[str, Any]:
+def cleanup_stale_trips(self) -> Dict[str, Any]:
     """Archive trips that haven't been updated recently."""
 
     @async_task_wrapper
     async def _execute():
-        # cleanup_stale_trips uses db_manager internally
-        cleanup_result = await cleanup_stale_trips()
+        # Call the imported logic function using its alias
+        cleanup_result = await cleanup_stale_trips_logic()
         count = cleanup_result.get("stale_trips_archived", 0)
         logger.info(f"Cleaned up {count} stale trips")
         return {
@@ -894,7 +898,8 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
                 {}, {"startTime": 1, "endTime": 1, "gps": 1, "_id": 1}
             )  # Ensure _id is projected
             async for trip in cursor:  # Motor cursor is async iterable
-                valid, message = validate_trip_data(trip)
+                # Call the imported logic function using its alias
+                valid, message = validate_trip_data_logic(trip)
                 if not valid:
                     update_ops.append(
                         UpdateOne(
@@ -1121,7 +1126,7 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
     name="tasks.validate_trip_data",
     queue="low_priority",
 )
-def validate_trip_data_task(self) -> Dict[str, Any]:
+def validate_trip_data(self) -> Dict[str, Any]:
     """Validate trip data consistency."""
 
     @async_task_wrapper
@@ -1238,13 +1243,14 @@ async def get_all_task_metadata() -> Dict[str, Any]:
 
 async def manual_run_task(task_id: str) -> Dict[str, Any]:
     """Run a task manually via Celery."""
+    # Ensure keys match TASK_METADATA and values match the actual function objects
     task_mapping = {
         "periodic_fetch_trips": periodic_fetch_trips,
-        "cleanup_stale_trips": cleanup_stale_trips_task,
+        "cleanup_stale_trips": cleanup_stale_trips,
         "cleanup_invalid_trips": cleanup_invalid_trips,
         "update_geocoding": update_geocoding,
         "remap_unmatched_trips": remap_unmatched_trips,
-        "validate_trip_data": validate_trip_data_task,
+        "validate_trip_data": validate_trip_data,
         "update_coverage_for_new_trips": update_coverage_for_new_trips,
     }
 
@@ -1276,7 +1282,10 @@ async def manual_run_task(task_id: str) -> Dict[str, Any]:
             "task_id": result.get("task_id"),  # Celery task ID
         }
     else:
-        return {"status": "error", "message": f"Unknown task: {task_id}"}
+        return {
+            "status": "error",
+            "message": f"Unknown or non-runnable task: {task_id}",
+        }
 
 
 async def _send_manual_task(
