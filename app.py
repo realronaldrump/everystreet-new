@@ -1550,7 +1550,8 @@ async def api_fetch_trips():
 
 @app.post("/api/fetch_trips_range")
 async def api_fetch_trips_range(data: DateRangeModel):
-    """Fetch trips from Bouncie API within a specific date range."""
+    """Apply a date range filter to retrieve trips from the database.
+    This does NOT fetch new trips from Bouncie API."""
     try:
         start_date = parse_query_date(data.start_date)
         end_date = parse_query_date(data.end_date, end_of_day=True)
@@ -1559,14 +1560,17 @@ async def api_fetch_trips_range(data: DateRangeModel):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid date range.",
             )
-        # fetch_bouncie_trips_in_range will now save with source='bouncie'
-        await fetch_bouncie_trips_in_range(
-            start_date, end_date, do_map_match=False
+
+        # Only update the UI response to show the selected date range
+        # No API calls to Bouncie are made
+        logger.info(
+            "Date range filter applied: %s to %s", start_date, end_date
         )
-        return {"status": "success", "message": "Trips fetched & stored."}
+
+        return {"status": "success", "message": "Date range filter applied."}
 
     except Exception as e:
-        logger.exception("Error fetching trips in range: %s", str(e))
+        logger.exception("Error applying date range filter: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
