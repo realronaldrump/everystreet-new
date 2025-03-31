@@ -581,7 +581,21 @@ async def update_task_history_entry(
         if runtime_ms is not None:
             update_fields["runtime"] = runtime_ms
         if result is not None:
-            update_fields["result"] = result
+            # Attempt to serialize result for storage, handle potential issues
+            try:
+                # Use json_util for robust serialization
+                serialized_result = SerializationHelper.serialize_document(
+                    {"result": result}
+                )["result"]
+                update_fields["result"] = serialized_result
+            except Exception as ser_err:
+                logger.warning(
+                    f"Could not serialize result for {task_name} history: {ser_err}"
+                )
+                update_fields["result"] = (
+                    f"<Unserializable: {type(result).__name__}>"
+                )
+
         if error is not None:
             update_fields["error"] = error
 
@@ -1106,14 +1120,20 @@ def validate_trip_data(self) -> Dict[str, Any]:
     return cast(AsyncTask, self).run_async(_execute)
 
 
-# --- NEW SCHEDULER TASK (MODIFIED) ---
-@shared_task(bind=True, name="tasks.run_task_scheduler", queue="high_priority")
+# --- NEW SCHEDULER TASK (MODIFIED DECORATOR AND LOGIC) ---
+@shared_task(
+    bind=True,
+    name="tasks.run_task_scheduler",
+    queue="high_priority",
+    ignore_result=True,  # Ignore the result to prevent serialization errors
+)
 async def run_task_scheduler(self) -> Dict[str, Any]:
     """
     This task runs frequently (e.g., every minute via Celery Beat).
     It checks the MongoDB config and triggers other tasks based on their
     enabled status, interval, and last run time.
     Runs asynchronously to directly await DB operations.
+    Result is ignored to prevent JSON serialization errors.
     """
     triggered_count = 0
     skipped_count = 0
@@ -1127,10 +1147,11 @@ async def run_task_scheduler(self) -> Dict[str, Any]:
             logger.info(
                 "Task scheduling is globally disabled. Exiting scheduler task."
             )
+            # Return a dictionary still, even if ignored, for clarity and testing
             return {
-                "status": "success",  # Report success even if skipped due to config
+                "status": "success",
                 "triggered": 0,
-                "skipped": len(TASK_METADATA),  # Skipped all possible tasks
+                "skipped": len(TASK_METADATA),
                 "reason": "Globally disabled",
             }
 
@@ -1291,7 +1312,7 @@ async def get_all_task_metadata() -> Dict[str, Any]:
     try:
         task_config = await get_task_config()
         task_metadata_with_status = {}
-        datetime.now(timezone.utc)  # Defined now
+        datetime.now(timezone.utc)
 
         for task_id, metadata in TASK_METADATA.items():
             task_metadata_with_status[task_id] = metadata.copy()
@@ -1342,6 +1363,7 @@ async def get_all_task_metadata() -> Dict[str, Any]:
                     "last_updated": SerializationHelper.serialize_datetime(
                         config_data.get("last_updated")
                     ),
+                    # Ensure priority is accessed correctly as Enum member's name
                     "priority": metadata.get(
                         "priority", TaskPriority.MEDIUM
                     ).name,
@@ -1350,7 +1372,14 @@ async def get_all_task_metadata() -> Dict[str, Any]:
         return task_metadata_with_status
     except Exception as e:
         logger.exception(f"Error getting all task metadata: {e}")
-        return TASK_METADATA  # Fallback
+        # Fallback returns original metadata without dynamic status info
+        return {
+            task_id: {
+                **metadata,
+                "priority": metadata.get("priority", TaskPriority.MEDIUM).name,
+            }
+            for task_id, metadata in TASK_METADATA.items()
+        }
 
 
 async def manual_run_task(task_id: str) -> Dict[str, Any]:

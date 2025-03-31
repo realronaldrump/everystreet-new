@@ -94,6 +94,7 @@ from models import (
 from osm_utils import generate_geojson_osm
 from tasks import (
     TASK_METADATA,
+    TaskPriority,
     TaskStatus,
     get_all_task_metadata,
     get_task_config,
@@ -490,24 +491,37 @@ async def get_undriven_streets(location: LocationModel):
 async def get_background_tasks_config():
     """Get the current configuration of background tasks."""
     try:
-        config = await get_task_config()
-        task_metadata = await get_all_task_metadata()
+        config = await get_task_config()  # From tasks.py
+        task_metadata = await get_all_task_metadata()  # From tasks.py
 
         # Ensure all tasks are properly represented
         for task_id, task_def in task_metadata.items():
-            if task_id not in config["tasks"]:
-                config["tasks"][task_id] = {}
+            if task_id not in config.get("tasks", {}):  # Safer get
+                config.setdefault("tasks", {})[
+                    task_id
+                ] = {}  # Ensure task entry exists
 
             task_config = config["tasks"][task_id]
-            task_config["display_name"] = task_def["display_name"]
-            task_config["description"] = task_def["description"]
-            task_config["priority"] = task_def["priority"].name
+
+            # --- Start of Change ---
+            # task_def already contains the processed metadata including string priority name
+            task_config["display_name"] = task_def.get(
+                "display_name", "Unknown Task"
+            )
+            task_config["description"] = task_def.get("description", "")
+            # Directly use the priority string from task_def (which comes from get_all_task_metadata)
+            task_config["priority"] = task_def.get(
+                "priority", TaskPriority.MEDIUM.name
+            )  # Use .name for default
+            # --- End of Change ---
+
             task_config["status"] = task_config.get("status", "IDLE")
             task_config["interval_minutes"] = task_config.get(
-                "interval_minutes", task_def["default_interval_minutes"]
+                "interval_minutes",
+                task_def.get("default_interval_minutes"),  # Use get for safety
             )
 
-            # Format timestamp fields
+            # Format timestamp fields (keep existing logic)
             for ts_field in [
                 "last_run",
                 "next_run",
@@ -525,6 +539,7 @@ async def get_background_tasks_config():
         # Return the enhanced config
         return config
     except Exception as e:
+        # Ensure the logger uses the correct name ('app' based on previous logs)
         logger.exception("Error getting task configuration: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
