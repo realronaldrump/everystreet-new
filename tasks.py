@@ -5,6 +5,7 @@
 This module provides task definitions for all background tasks performed by the
 application. It handles proper integration between Celery's synchronous tasks
 and FastAPI's asynchronous code patterns, using the centralized db_manager.
+Tasks are now triggered dynamically by the run_task_scheduler task.
 """
 
 import asyncio
@@ -54,7 +55,7 @@ from street_coverage_calculation import (
 )
 from trip_processor import TripProcessor, TripState
 
-# Use alias for imported function to avoid name clash with task (ANTICIPATING SIMILAR ISSUE)
+# Use alias for imported function to avoid name clash with task
 from utils import validate_trip_data as validate_trip_data_logic
 
 # Set up task-specific logger
@@ -139,6 +140,7 @@ TASK_METADATA = {
         "dependencies": ["periodic_fetch_trips"],
         "description": "Updates coverage calculations incrementally for new trips",
     },
+    # NOTE: preprocess_streets is NOT included here as it's not a scheduled background task
 }
 
 
@@ -167,44 +169,27 @@ class TaskStatusManager:
 
             if status == TaskStatus.RUNNING.value:
                 update_data[f"tasks.{task_id}.start_time"] = now
-                update_data[f"tasks.{task_id}.end_time"] = (
-                    None  # Clear end time
-                )
-                update_data[f"tasks.{task_id}.last_error"] = (
-                    None  # Clear last error
-                )
+                update_data[f"tasks.{task_id}.end_time"] = None
+                update_data[f"tasks.{task_id}.last_error"] = None
 
             elif status == TaskStatus.COMPLETED.value:
-                update_data[f"tasks.{task_id}.last_run"] = now
+                update_data[f"tasks.{task_id}.last_run"] = (
+                    now  # Record last successful run time
+                )
                 update_data[f"tasks.{task_id}.end_time"] = now
-                update_data[f"tasks.{task_id}.last_error"] = (
-                    None  # Clear last error
-                )
-                # Calculate next run based on interval
-                config = await get_task_config()  # Use the refactored helper
-                task_config_data = config.get("tasks", {}).get(task_id, {})
-                interval_minutes = task_config_data.get(
-                    "interval_minutes",
-                    TASK_METADATA.get(task_id, {}).get(
-                        "default_interval_minutes", 60
-                    ),
-                )
-                next_run = now + timedelta(minutes=interval_minutes)
-                update_data[f"tasks.{task_id}.next_run"] = next_run
+                update_data[f"tasks.{task_id}.last_error"] = None
+                # REMOVED next_run calculation - scheduler handles triggering
 
             elif status == TaskStatus.FAILED.value:
                 update_data[f"tasks.{task_id}.last_error"] = error
-                update_data[f"tasks.{task_id}.last_run"] = (
-                    now  # Record last attempt time
-                )
+                # Don't update last_run on failure, only last_updated and end_time
                 update_data[f"tasks.{task_id}.end_time"] = now
 
-            # Use update_one_with_retry from db.py
             result = await update_one_with_retry(
                 task_config_collection,
                 {"_id": "global_background_task_config"},
                 {"$set": update_data},
-                upsert=True,  # Ensure config doc exists
+                upsert=True,
             )
             return result.modified_count > 0 or result.upserted_id is not None
 
@@ -222,11 +207,9 @@ class TaskStatusManager:
             return asyncio.run(self.update_status(task_id, status, error))
         except RuntimeError as e:
             # Handle cases where asyncio.run() might conflict with existing loops
-            # This might happen in complex Celery setups, though less likely now.
             logger.error(
                 f"RuntimeError calling sync_update_status for {task_id}: {e}. Falling back slightly."
             )
-            # Fallback: Schedule the async update without waiting (less reliable for immediate state)
             try:
                 loop = asyncio.get_event_loop()
                 loop.create_task(self.update_status(task_id, status, error))
@@ -271,60 +254,51 @@ def task_started(
         return
 
     task_name = task.name.split(".")[-1]
-    celery_task_id_str = str(task_id)  # Use the actual Celery task ID
+    celery_task_id_str = str(task_id)
+
+    # Avoid processing the scheduler task itself in signals
+    if task_name == "run_task_scheduler":
+        return
 
     try:
-        # --- Check if task is enabled (using asyncio.run and db_manager) ---
+        # Check if enabled (already done by scheduler, but double-check)
         async def check_enabled():
-            config = await get_task_config()  # Use refactored helper
+            config = await get_task_config()
             globally_disabled = config.get("disabled", False)
             task_config_data = config.get("tasks", {}).get(task_name, {})
             task_disabled = not task_config_data.get("enabled", True)
             return not (globally_disabled or task_disabled)
 
         is_enabled = asyncio.run(check_enabled())
-
         if not is_enabled:
-            logger.info(
-                f"Task {task_name} ({celery_task_id_str}) is disabled, skipping execution."
+            logger.warning(
+                f"Task {task_name} ({celery_task_id_str}) started but is disabled in config."
             )
-            # To prevent execution, we might need a custom mechanism or rely on task logic to check.
-            # For now, we'll log and update status, but Celery might still run it briefly.
-            # A more robust way involves custom Task classes or checking within the task itself.
-            status_manager = TaskStatusManager.get_instance()
-            status_manager.sync_update_status(
-                task_name, TaskStatus.IDLE.value, error="Task disabled"
-            )  # Reset to IDLE
-            # Ideally, prevent the task run altogether here if possible with Celery mechanisms.
-            return  # Or raise an exception if that reliably stops Celery execution
+            # Task might still run if check failed earlier, but log it.
+            return
 
-        # --- Update Status and History (using TaskStatusManager and db_manager) ---
+        # Update Status to RUNNING
         status_manager = TaskStatusManager.get_instance()
         status_updated = status_manager.sync_update_status(
             task_name, TaskStatus.RUNNING.value
         )
-
         if not status_updated:
             logger.error(
                 f"Failed to update RUNNING status for task {task_name} ({celery_task_id_str})"
             )
-            # Continue with history update attempt
 
-        # Record history entry using asyncio.run
+        # Update History
         async def update_history():
             now = datetime.now(timezone.utc)
             await update_one_with_retry(
                 task_history_collection,
-                {
-                    "_id": celery_task_id_str
-                },  # Use Celery task ID as document ID
+                {"_id": celery_task_id_str},
                 {
                     "$set": {
                         "task_id": task_name,
                         "status": TaskStatus.RUNNING.value,
-                        "timestamp": now,  # General timestamp
-                        "start_time": now,  # Specific start time
-                        # manual_run needs context, maybe pass via headers? Defaulting to False
+                        "timestamp": now,
+                        "start_time": now,
                         "manual_run": task.request.get("manual_run", False),
                         "end_time": None,
                         "runtime": None,
@@ -361,6 +335,10 @@ def task_finished(
     task_name = task.name.split(".")[-1]
     celery_task_id_str = str(task_id)
 
+    # Avoid processing the scheduler task itself in signals
+    if task_name == "run_task_scheduler":
+        return
+
     try:
         now = datetime.now(timezone.utc)
         final_status = (
@@ -374,21 +352,19 @@ def task_finished(
         if final_status == TaskStatus.FAILED.value:
             if isinstance(retval, Exception):
                 error_msg = str(retval)
-            elif (
-                isinstance(retval, dict) and "exc_message" in retval
-            ):  # Celery often puts exception here
+            elif isinstance(retval, dict) and "exc_message" in retval:
                 error_msg = retval["exc_message"]
                 if isinstance(error_msg, list):
-                    error_msg = error_msg[0]  # Take first line
+                    error_msg = error_msg[0]
             else:
                 error_msg = f"Task failed with state {state}"
             logger.error(
                 f"Task {task_name} ({celery_task_id_str}) failed: {error_msg}"
             )
         else:
-            result_val = retval  # Store successful return value if needed
+            result_val = retval
 
-        # --- Update Status (using TaskStatusManager) ---
+        # Update Status
         status_manager = TaskStatusManager.get_instance()
         status_updated = status_manager.sync_update_status(
             task_name, final_status, error=error_msg
@@ -398,9 +374,8 @@ def task_finished(
                 f"Failed to update final status for task {task_name} ({celery_task_id_str})"
             )
 
-        # --- Update History (using asyncio.run and db_manager) ---
+        # Update History
         async def update_history():
-            # Get start time to calculate runtime
             history_doc = await find_one_with_retry(
                 task_history_collection, {"_id": celery_task_id_str}
             )
@@ -427,7 +402,6 @@ def task_finished(
                         else None,
                     }
                 },
-                # Don't upsert here, prerun should have created it
             )
 
         asyncio.run(update_history())
@@ -442,36 +416,23 @@ def task_finished(
         )
 
 
-# Note: task_failure signal might be redundant if task_postrun handles the FAILED state.
-# However, keeping it can provide slightly more specific context if needed.
 @task_failure.connect
-def task_failed_signal_handler(
-    task_id: Optional[str] = None,
-    task: Optional[Task] = None,
-    exception: Optional[Exception] = None,
-    **kwargs,
-):
-    """Handle task failures specifically (might overlap with postrun)."""
-    # This handler might be optional if task_postrun correctly handles the 'FAILURE' state.
-    # If kept, ensure it doesn't conflict or duplicate updates made by task_postrun.
-    # For simplicity, we can rely on task_postrun to handle both SUCCESS and FAILURE.
-    # logger.debug(f"task_failure signal caught for {task.name if task else 'unknown'} ({task_id})")
+def task_failed_signal_handler(*args, **kwargs):
+    # Relying on task_postrun to handle FAILED state
     pass
 
 
-# --- Task Configuration Helpers (Refactored) ---
+# --- Task Configuration Helpers ---
 
 
 async def get_task_config() -> Dict[str, Any]:
     """Get the current task configuration using db_manager."""
     try:
-        # Use find_one_with_retry from db.py
         cfg = await find_one_with_retry(
             task_config_collection, {"_id": "global_background_task_config"}
         )
 
         if not cfg:
-            # Create default config if not exists
             logger.info("No task config found, creating default.")
             cfg = {
                 "_id": "global_background_task_config",
@@ -482,7 +443,7 @@ async def get_task_config() -> Dict[str, Any]:
                         "interval_minutes": t_def["default_interval_minutes"],
                         "status": TaskStatus.IDLE.value,
                         "last_run": None,
-                        "next_run": None,
+                        "next_run": None,  # This field is now just for display estimation
                         "last_error": None,
                         "start_time": None,
                         "end_time": None,
@@ -491,7 +452,6 @@ async def get_task_config() -> Dict[str, Any]:
                     for t_id, t_def in TASK_METADATA.items()
                 },
             }
-            # Use update_one_with_retry
             await update_one_with_retry(
                 task_config_collection,
                 {"_id": "global_background_task_config"},
@@ -523,11 +483,9 @@ async def get_task_config() -> Dict[str, Any]:
                     {"_id": "global_background_task_config"},
                     {"$set": {"tasks": cfg["tasks"]}},
                 )
-
         return cfg
     except Exception as e:
         logger.exception(f"Error getting task config: {str(e)}")
-        # Return a minimal default config on error
         return {
             "_id": "global_background_task_config",
             "disabled": False,
@@ -545,7 +503,7 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
         if not dependencies:
             return {"can_run": True}
 
-        config = await get_task_config()  # Use refactored helper
+        config = await get_task_config()
         tasks_config = config.get("tasks", {})
 
         for dep_id in dependencies:
@@ -553,7 +511,7 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
                 logger.warning(
                     f"Task {task_id} dependency {dep_id} not configured."
                 )
-                continue  # Or treat as failed? For now, skip check.
+                continue
 
             dep_status = tasks_config[dep_id].get("status")
             if dep_status == TaskStatus.RUNNING.value:
@@ -565,20 +523,17 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
             if dep_status == TaskStatus.FAILED.value:
                 last_updated = tasks_config[dep_id].get("last_updated")
                 if last_updated:
-                    # Convert if string
                     if isinstance(last_updated, str):
                         try:
                             last_updated = datetime.fromisoformat(
                                 last_updated.replace("Z", "+00:00")
                             )
                         except ValueError:
-                            last_updated = None  # Ignore invalid date
-                    # Add timezone if naive
+                            last_updated = None
                     if last_updated and last_updated.tzinfo is None:
                         last_updated = last_updated.replace(
                             tzinfo=timezone.utc
                         )
-
                     if last_updated and (
                         datetime.now(timezone.utc) - last_updated
                         < timedelta(hours=1)
@@ -587,7 +542,6 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
                             "can_run": False,
                             "reason": f"Dependency {dep_id} failed recently",
                         }
-
         return {"can_run": True}
     except Exception as e:
         logger.exception(f"Error checking dependencies for {task_id}: {e}")
@@ -597,10 +551,10 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
         }
 
 
-# --- Task History Helper (Refactored) ---
+# --- Task History Helper ---
 
 
-async def update_task_history_entry(  # Renamed for clarity
+async def update_task_history_entry(
     celery_task_id: str,
     task_name: str,
     status: str,
@@ -617,7 +571,7 @@ async def update_task_history_entry(  # Renamed for clarity
         update_fields = {
             "task_id": task_name,
             "status": status,
-            "timestamp": now,  # Last updated timestamp
+            "timestamp": now,
             "manual_run": manual_run,
         }
         if start_time:
@@ -643,7 +597,7 @@ async def update_task_history_entry(  # Renamed for clarity
         )
 
 
-# --- Async Task Wrapper (No changes needed) ---
+# --- Async Task Wrapper ---
 def async_task_wrapper(func):
     @wraps(func)
     async def wrapped_async_func(*args, **kwargs):
@@ -661,12 +615,12 @@ def async_task_wrapper(func):
             runtime = (datetime.now(timezone.utc) - start_time).total_seconds()
             error_msg = f"Error in async task logic for {task_name} after {runtime:.2f}s: {str(e)}"
             logger.exception(error_msg)
-            raise  # Re-raise for Celery
+            raise
 
     return wrapped_async_func
 
 
-# --- Core Task Implementations (Refactored to use db_manager) ---
+# --- Core Task Implementations ---
 
 
 @shared_task(
@@ -685,7 +639,6 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
     @async_task_wrapper
     async def _execute():
         try:
-            # Get last successful fetch time from config using db_manager
             task_config_doc = await find_one_with_retry(
                 task_config_collection,
                 {"_id": "global_background_task_config"},
@@ -711,7 +664,6 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
                 if start_date.tzinfo is None:
                     start_date = start_date.replace(tzinfo=timezone.utc)
             else:
-                # Find the latest 'bouncie' trip using db_manager
                 last_bouncie_trip = await find_one_with_retry(
                     trips_collection,
                     {"source": "bouncie"},
@@ -728,13 +680,10 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
             start_date = max(start_date, min_start_date)
 
             logger.info(f"Periodic fetch: from {start_date} to {now_utc}")
-
-            # Fetch trips (this function internally uses db_manager now implicitly via TripProcessor)
             await fetch_bouncie_trips_in_range(
                 start_date, now_utc, do_map_match=True
             )
 
-            # Update last success time using db_manager
             await update_one_with_retry(
                 task_config_collection,
                 {"_id": "global_background_task_config"},
@@ -751,7 +700,6 @@ def periodic_fetch_trips(self) -> Dict[str, Any]:
             }
         except Exception as e:
             logger.exception(f"Error in periodic_fetch_trips _execute: {e}")
-            # Retry using Celery's mechanism by raising the exception
             raise self.retry(exc=e, countdown=60)
 
     return cast(AsyncTask, self).run_async(_execute)
@@ -775,11 +723,9 @@ def update_coverage_for_new_trips(self) -> Dict[str, Any]:
         logger.info("Starting automated incremental coverage updates")
         processed_areas = 0
         try:
-            # Get all coverage areas using db_manager
             coverage_areas = await find_with_retry(
                 coverage_metadata_collection, {}
             )
-
             for area in coverage_areas:
                 location = area.get("location")
                 area_id_str = str(area.get("_id"))
@@ -788,20 +734,16 @@ def update_coverage_for_new_trips(self) -> Dict[str, Any]:
                     if location
                     else "Unknown"
                 )
-
                 if not location:
                     logger.warning(
                         f"Skipping area {area_id_str} due to missing location data."
                     )
                     continue
-
-                task_id = f"auto_update_{area_id_str}_{uuid.uuid4()}"  # Unique ID per run
+                task_id = f"auto_update_{area_id_str}_{uuid.uuid4()}"
                 logger.info(
                     f"Processing incremental update for {display_name} (Task: {task_id})"
                 )
-
                 try:
-                    # This function internally uses db_manager for progress/metadata updates
                     result = await compute_incremental_coverage(
                         location, task_id
                     )
@@ -814,13 +756,12 @@ def update_coverage_for_new_trips(self) -> Dict[str, Any]:
                         logger.warning(
                             f"Incremental update failed or returned no result for {display_name}"
                         )
-                    await asyncio.sleep(0.5)  # Brief pause
+                    await asyncio.sleep(0.5)
                 except Exception as inner_e:
                     logger.error(
                         f"Error updating coverage for {display_name}: {inner_e}",
                         exc_info=True,
                     )
-                    # Log error in progress collection for this specific run
                     await update_one_with_retry(
                         progress_collection,
                         {"_id": task_id},
@@ -833,15 +774,14 @@ def update_coverage_for_new_trips(self) -> Dict[str, Any]:
                         },
                         upsert=True,
                     )
-                    continue  # Continue to next area
-
+                    continue
             logger.info(
                 f"Completed automated incremental updates for {processed_areas} areas"
             )
             return {"status": "success", "areas_processed": processed_areas}
         except Exception as e:
             logger.exception(f"Error in automated coverage update task: {e}")
-            raise self.retry(exc=e)  # Use Celery retry
+            raise self.retry(exc=e)
 
     return cast(AsyncTask, self).run_async(_execute)
 
@@ -861,7 +801,6 @@ def cleanup_stale_trips(self) -> Dict[str, Any]:
 
     @async_task_wrapper
     async def _execute():
-        # Call the imported logic function using its alias
         cleanup_result = await cleanup_stale_trips_logic()
         count = cleanup_result.get("stale_trips_archived", 0)
         logger.info(f"Cleaned up {count} stale trips")
@@ -894,12 +833,10 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
         modified_count = 0
         batch_size = 500
         try:
-            # Use find_with_retry and iterate
             cursor = trips_collection.find(
                 {}, {"startTime": 1, "endTime": 1, "gps": 1, "_id": 1}
-            )  # Ensure _id is projected
-            async for trip in cursor:  # Motor cursor is async iterable
-                # Call the imported logic function using its alias
+            )
+            async for trip in cursor:
                 valid, message = validate_trip_data_logic(trip)
                 if not valid:
                     update_ops.append(
@@ -915,25 +852,20 @@ def cleanup_invalid_trips(self) -> Dict[str, Any]:
                         )
                     )
                 processed_count += 1
-
                 if len(update_ops) >= batch_size:
                     if update_ops:
-                        # Use db_manager's collection directly for bulk_write (no specific retry wrapper needed unless desired)
                         result = await trips_collection.bulk_write(update_ops)
                         modified_count += result.modified_count
                         logger.info(
                             f"Marked {result.modified_count} invalid trips in batch"
                         )
-                    update_ops = []  # Reset
-
-            # Process remaining updates
+                    update_ops = []
             if update_ops:
                 result = await trips_collection.bulk_write(update_ops)
                 modified_count += result.modified_count
                 logger.info(
                     f"Marked {result.modified_count} invalid trips in final batch"
                 )
-
             return {
                 "status": "success",
                 "message": f"Processed {processed_count} trips, marked {modified_count} as invalid",
@@ -974,11 +906,9 @@ def update_geocoding(self) -> Dict[str, Any]:
                     {"destination": ""},
                 ]
             }
-            # Use find_with_retry
             trips_to_process = await find_with_retry(
                 trips_collection, query, limit=limit
             )
-
             for trip in trips_to_process:
                 trip_id = trip.get("transactionId", str(trip.get("_id")))
                 try:
@@ -988,31 +918,26 @@ def update_geocoding(self) -> Dict[str, Any]:
                         source=source,
                     )
                     processor.set_trip_data(trip)
-
                     await processor.validate()
                     if processor.state == TripState.VALIDATED:
                         await processor.process_basic()
                         if processor.state == TripState.PROCESSED:
                             await processor.geocode()
                             if processor.state == TripState.GEOCODED:
-                                # processor.save uses db_manager internally
                                 result = await processor.save()
                                 if result:
                                     geocoded_count += 1
-                                    continue  # Success
-                    # If any step failed or didn't reach GEOCODED
+                                    continue
                     failed_count += 1
                     logger.warning(
                         f"Geocoding failed for trip {trip_id}. State: {processor.state.value}"
                     )
-
                 except Exception as e:
                     logger.error(
                         f"Error geocoding trip {trip_id}: {e}", exc_info=False
                     )
                     failed_count += 1
-                await asyncio.sleep(0.2)  # Rate limiting
-
+                await asyncio.sleep(0.2)
             logger.info(
                 f"Geocoded {geocoded_count} trips ({failed_count} failed)"
             )
@@ -1048,7 +973,6 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
         failed_count = 0
         limit = 50
         try:
-            # Check dependencies using refactored helper
             dependency_check = await check_dependencies(
                 "remap_unmatched_trips"
             )
@@ -1056,8 +980,6 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
                 reason = dependency_check.get("reason", "Unknown reason")
                 logger.info(f"Deferring remap_unmatched_trips: {reason}")
                 return {"status": "deferred", "message": reason}
-
-            # Get IDs of trips already in matched_trips using db_manager
             matched_ids = [
                 doc["transactionId"]
                 async for doc in matched_trips_collection.find(
@@ -1065,13 +987,10 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
                 )
                 if "transactionId" in doc
             ]
-
             query = {"transactionId": {"$nin": matched_ids}}
-            # Use find_with_retry
             trips_to_process = await find_with_retry(
                 trips_collection, query, limit=limit
             )
-
             for trip in trips_to_process:
                 trip_id = trip.get("transactionId", str(trip.get("_id")))
                 try:
@@ -1081,11 +1000,8 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
                         source=source,
                     )
                     processor.set_trip_data(trip)
-
                     await processor.process(do_map_match=True)
-                    # processor.save uses db_manager internally
                     result = await processor.save(map_match_result=True)
-
                     if result:
                         remap_count += 1
                     else:
@@ -1099,8 +1015,7 @@ def remap_unmatched_trips(self) -> Dict[str, Any]:
                         f"Error remapping trip {trip_id}: {e}", exc_info=False
                     )
                     failed_count += 1
-                await asyncio.sleep(0.5)  # Rate limiting
-
+                await asyncio.sleep(0.5)
             logger.info(
                 f"Remapped {remap_count} trips ({failed_count} failed)"
             )
@@ -1137,11 +1052,9 @@ def validate_trip_data(self) -> Dict[str, Any]:
         limit = 100
         try:
             query = {"validated_at": {"$exists": False}}
-            # Use find_with_retry
             trips_to_process = await find_with_retry(
                 trips_collection, query, limit=limit
             )
-
             for trip in trips_to_process:
                 trip_id = str(trip.get("_id"))
                 try:
@@ -1151,7 +1064,6 @@ def validate_trip_data(self) -> Dict[str, Any]:
                         source=source,
                     )
                     processor.set_trip_data(trip)
-
                     await processor.validate()
                     status = processor.get_processing_status()
                     update_data = {
@@ -1164,7 +1076,6 @@ def validate_trip_data(self) -> Dict[str, Any]:
                         if status["state"] == TripState.FAILED.value
                         else None,
                     }
-                    # Use update_one_with_retry
                     await update_one_with_retry(
                         trips_collection,
                         {"_id": trip["_id"]},
@@ -1176,7 +1087,6 @@ def validate_trip_data(self) -> Dict[str, Any]:
                         f"Error validating trip {trip_id}: {e}", exc_info=False
                     )
                     failed_count += 1
-
             logger.info(
                 f"Validated {processed_count} trips ({failed_count} failed)"
             )
@@ -1193,33 +1103,228 @@ def validate_trip_data(self) -> Dict[str, Any]:
     return cast(AsyncTask, self).run_async(_execute)
 
 
-# --- API Functions (Refactored to use db_manager) ---
+# --- NEW SCHEDULER TASK ---
+@shared_task(
+    bind=True,
+    base=AsyncTask,
+    name="tasks.run_task_scheduler",
+    queue="high_priority",
+)
+def run_task_scheduler(self) -> Dict[str, Any]:
+    """
+    This task runs frequently (e.g., every minute via Celery Beat).
+    It checks the MongoDB config and triggers other tasks based on their
+    enabled status, interval, and last run time.
+    """
+
+    @async_task_wrapper
+    async def _execute():
+        triggered_count = 0
+        skipped_count = 0
+        now_utc = datetime.now(timezone.utc)
+        logger.debug(f"Scheduler task running at {now_utc.isoformat()}")
+
+        try:
+            config = await get_task_config()
+            if not config or config.get("disabled", False):
+                logger.info(
+                    "Task scheduling is globally disabled. Exiting scheduler task."
+                )
+                return {"status": "skipped", "reason": "Globally disabled"}
+
+            tasks_to_check = config.get("tasks", {})
+
+            # Mapping from config task_id to Celery task name
+            task_name_mapping = {
+                "periodic_fetch_trips": "tasks.periodic_fetch_trips",
+                "cleanup_stale_trips": "tasks.cleanup_stale_trips",
+                "cleanup_invalid_trips": "tasks.cleanup_invalid_trips",
+                "update_geocoding": "tasks.update_geocoding",
+                "remap_unmatched_trips": "tasks.remap_unmatched_trips",
+                "validate_trip_data": "tasks.validate_trip_data",
+                "update_coverage_for_new_trips": "tasks.update_coverage_for_new_trips",
+            }
+
+            tasks_to_trigger = []
+
+            for task_id, task_config in tasks_to_check.items():
+                if task_id not in task_name_mapping:
+                    continue
+
+                is_enabled = task_config.get("enabled", True)
+                current_status = task_config.get("status")
+                interval_minutes = task_config.get("interval_minutes")
+                last_run_any = task_config.get(
+                    "last_run"
+                )  # Last *successful* run
+
+                if (
+                    not is_enabled
+                    or current_status == TaskStatus.RUNNING.value
+                    or interval_minutes is None
+                    or interval_minutes <= 0
+                ):
+                    skipped_count += 1
+                    continue
+
+                # Parse last_run safely
+                last_run = None
+                if isinstance(last_run_any, datetime):
+                    last_run = last_run_any
+                elif isinstance(last_run_any, str):
+                    try:
+                        last_run = datetime.fromisoformat(
+                            last_run_any.replace("Z", "+00:00")
+                        )
+                    except ValueError:
+                        pass
+                if last_run and last_run.tzinfo is None:
+                    last_run = last_run.replace(tzinfo=timezone.utc)
+
+                # Check if due
+                is_due = False
+                if last_run is None:
+                    is_due = True
+                else:
+                    next_due_time = last_run + timedelta(
+                        minutes=interval_minutes
+                    )
+                    if now_utc >= next_due_time:
+                        is_due = True
+
+                if is_due:
+                    dependency_check = await check_dependencies(task_id)
+                    if dependency_check["can_run"]:
+                        tasks_to_trigger.append(task_id)
+                    else:
+                        logger.warning(
+                            f"Task '{task_id}' due but dependencies not met: {dependency_check.get('reason')}"
+                        )
+                        skipped_count += 1
+
+            # Trigger Due Tasks
+            if not tasks_to_trigger:
+                logger.debug("No tasks due to trigger.")
+                return {
+                    "status": "success",
+                    "triggered": 0,
+                    "skipped": skipped_count,
+                }
+
+            for task_id_to_run in tasks_to_trigger:
+                try:
+                    celery_task_name = task_name_mapping[task_id_to_run]
+                    queue = f"{TASK_METADATA[task_id_to_run]['priority'].name.lower()}_priority"
+                    celery_task_id = (
+                        f"{task_id_to_run}_scheduled_{uuid.uuid4()}"
+                    )
+
+                    celery_app.send_task(
+                        celery_task_name,
+                        task_id=celery_task_id,
+                        queue=queue,
+                        kwargs={},
+                        headers={"manual_run": False},
+                    )
+
+                    # Update config: Set status to PENDING immediately
+                    # We don't update last_run here; let COMPLETED status update handle it
+                    await update_one_with_retry(
+                        task_config_collection,
+                        {"_id": "global_background_task_config"},
+                        {
+                            "$set": {
+                                f"tasks.{task_id_to_run}.status": TaskStatus.PENDING.value,
+                                f"tasks.{task_id_to_run}.last_updated": now_utc,
+                            }
+                        },
+                    )
+
+                    # Update history
+                    await update_task_history_entry(
+                        celery_task_id=celery_task_id,
+                        task_name=task_id_to_run,
+                        status=TaskStatus.PENDING.value,
+                        manual_run=False,
+                        start_time=now_utc,
+                    )
+
+                    triggered_count += 1
+                    logger.info(
+                        f"Triggered task '{task_id_to_run}' with Celery ID {celery_task_id}"
+                    )
+                    await asyncio.sleep(0.1)
+
+                except Exception as trigger_err:
+                    logger.error(
+                        f"Failed to trigger task '{task_id_to_run}': {trigger_err}",
+                        exc_info=True,
+                    )
+
+            return {
+                "status": "success",
+                "triggered": triggered_count,
+                "skipped": skipped_count,
+            }
+
+        except Exception as e:
+            logger.exception(f"Error in run_task_scheduler: {e}")
+            # Don't retry this scheduler task itself heavily, let the next minute's run try again
+            return {"status": "error", "message": str(e)}
+
+    # Note: The scheduler task itself doesn't need retry logic like the others
+    # If it fails, the next run in 1 minute will try again.
+    return cast(AsyncTask, self).run_async(_execute)
+
+
+# --- API Functions ---
 
 
 async def get_all_task_metadata() -> Dict[str, Any]:
     """Return all task metadata with current status information from config."""
     try:
-        task_config = await get_task_config()  # Use refactored helper
+        task_config = await get_task_config()
         task_metadata_with_status = {}
+        datetime.now(timezone.utc)
 
         for task_id, metadata in TASK_METADATA.items():
             task_metadata_with_status[task_id] = metadata.copy()
             config_data = task_config.get("tasks", {}).get(task_id, {})
 
-            # Merge config data into metadata
+            # Calculate estimated next run for display
+            estimated_next_run = None
+            last_run_any = config_data.get("last_run")  # Last successful run
+            interval_minutes = config_data.get(
+                "interval_minutes", metadata.get("default_interval_minutes")
+            )
+
+            last_run = None
+            if isinstance(last_run_any, datetime):
+                last_run = last_run_any
+            elif isinstance(last_run_any, str):
+                try:
+                    last_run = datetime.fromisoformat(
+                        last_run_any.replace("Z", "+00:00")
+                    )
+                except ValueError:
+                    pass
+            if last_run and interval_minutes and interval_minutes > 0:
+                if last_run.tzinfo is None:
+                    last_run = last_run.replace(tzinfo=timezone.utc)
+                estimated_next_run = last_run + timedelta(
+                    minutes=interval_minutes
+                )
+
             task_metadata_with_status[task_id].update(
                 {
                     "enabled": config_data.get("enabled", True),
-                    "interval_minutes": config_data.get(
-                        "interval_minutes",
-                        metadata.get("default_interval_minutes"),
-                    ),
+                    "interval_minutes": interval_minutes,
                     "status": config_data.get("status", TaskStatus.IDLE.value),
                     "last_run": SerializationHelper.serialize_datetime(
-                        config_data.get("last_run")
+                        last_run
                     ),
                     "next_run": SerializationHelper.serialize_datetime(
-                        config_data.get("next_run")
+                        estimated_next_run
                     ),
                     "last_error": config_data.get("last_error"),
                     "start_time": SerializationHelper.serialize_datetime(
@@ -1233,7 +1338,7 @@ async def get_all_task_metadata() -> Dict[str, Any]:
                     ),
                     "priority": metadata.get(
                         "priority", TaskPriority.MEDIUM
-                    ).name,  # Add priority name
+                    ).name,
                 }
             )
         return task_metadata_with_status
@@ -1313,13 +1418,12 @@ async def _send_manual_task(
         )
 
         # Update history immediately (prerun might be slightly delayed)
-        # Use the refactored history update function
         await update_task_history_entry(
             celery_task_id=celery_task_id,
             task_name=task_name,
-            status=TaskStatus.PENDING.value,  # Mark as PENDING initially
+            status=TaskStatus.PENDING.value,
             manual_run=True,
-            start_time=datetime.now(timezone.utc),  # Approximate start
+            start_time=datetime.now(timezone.utc),
         )
         logger.info(
             f"Manually triggered task {task_name} with Celery ID {celery_task_id}"
@@ -1350,7 +1454,6 @@ async def update_task_schedule(
             changes.append(f"Global disable set to {global_disable_update}")
 
         if tasks_update:
-            # Fetch current config to compare against
             current_config = await get_task_config()
             current_tasks = current_config.get("tasks", {})
 
@@ -1391,7 +1494,6 @@ async def update_task_schedule(
                 "message": "No configuration changes detected.",
             }
 
-        # Use update_one_with_retry
         result = await update_one_with_retry(
             task_config_collection,
             {"_id": "global_background_task_config"},

@@ -1,7 +1,8 @@
 """Celery application configuration for EveryStreet.
 
 This module sets up the Celery application instance with Redis as the message
-broker and result backend. It also configures Celery Beat for scheduled tasks.
+broker and result backend. It also configures Celery Beat to run the single
+dynamic task scheduler.
 
 **Important Security Note:** Celery workers should NOT be run with superuser
 (root) privileges. Ensure your deployment environment (e.g., Dockerfile,
@@ -159,45 +160,18 @@ app.conf.update(
     # --- Event Queues Settings ---
     event_queue_expired=60,  # Expire the event queue after 60 seconds
     event_queue_ttl=10,  # Event queue TTL of 10 seconds
-    # --- Celery Beat Schedule (Periodic Tasks) ---
+    # --- Celery Beat Schedule (NOW ONLY RUNS THE SCHEDULER TASK) ---
     beat_schedule={
-        "fetch_trips_hourly": {
-            "task": "tasks.periodic_fetch_trips",
+        "run_task_scheduler_every_minute": {
+            "task": "tasks.run_task_scheduler",  # Name of the new scheduler task in tasks.py
             "schedule": timedelta(
-                minutes=int(os.getenv("TRIP_FETCH_INTERVAL_MINUTES", "60"))
-            ),
-            "options": {"queue": "default"},
+                minutes=1
+            ),  # Run frequently (e.g., every minute)
+            "options": {
+                "queue": "high_priority"
+            },  # Ensure this scheduler runs reliably
         },
-        "cleanup_stale_trips_hourly": {
-            "task": "tasks.cleanup_stale_trips",
-            "schedule": timedelta(minutes=60),
-            "options": {"queue": "low_priority"},
-        },
-        "cleanup_invalid_trips_daily": {
-            "task": "tasks.cleanup_invalid_trips",
-            "schedule": timedelta(days=1),
-            "options": {"queue": "low_priority"},
-        },
-        "update_geocoding_twice_daily": {
-            "task": "tasks.update_geocoding",
-            "schedule": timedelta(hours=12),
-            "options": {"queue": "default"},
-        },
-        "remap_unmatched_trips_6h": {
-            "task": "tasks.remap_unmatched_trips",
-            "schedule": timedelta(hours=6),
-            "options": {"queue": "default"},
-        },
-        "validate_trip_data_twice_daily": {
-            "task": "tasks.validate_trip_data",
-            "schedule": timedelta(hours=12),
-            "options": {"queue": "low_priority"},
-        },
-        "update_coverage_incremental": {
-            "task": "tasks.update_coverage_for_new_trips",
-            "schedule": timedelta(hours=2),  # Run every 2 hours
-            "options": {"queue": "default"},
-        },
+        # REMOVED ALL OTHER STATIC TASK SCHEDULES
     },
     # --- Worker Monitoring and Events ---
     worker_send_task_events=True,  # Enable sending task events for monitoring (e.g., Flower)
@@ -209,9 +183,12 @@ app.conf.update(
 # --- Signal Handlers for Logging and Error Management ---
 @signals.task_failure.connect
 def task_failure_handler(sender=None, task_id=None, exception=None, **kwargs):
-    logger.error(
-        "Task %s failed: %s", task_id, exception
-    )  # More informative error log
+    # Avoid logging scheduler task failures excessively if they are transient
+    task_name = sender.name if sender else "unknown"
+    if task_name != "tasks.run_task_scheduler":
+        logger.error("Task %s (%s) failed: %s", task_name, task_id, exception)
+    else:
+        logger.warning("Scheduler task (%s) failed: %s", task_id, exception)
 
 
 @signals.worker_ready.connect
@@ -231,13 +208,14 @@ def worker_shutdown_handler(**kwargs):
 @signals.beat_init.connect
 def beat_init_handler(**kwargs):
     logger.info(
-        "Celery beat scheduler initialized and started."
+        "Celery beat scheduler initialized and started (running scheduler task)."
     )  # Indicate beat start
 
 
 @signals.setup_logging.connect
 def setup_celery_logging(**kwargs):
-    return True  # Skip default Celery logging config, we are using basicConfig
+    # We use basicConfig, so skip Celery's default logging setup
+    return True
 
 
 # --- Handle time synchronization issues ---
