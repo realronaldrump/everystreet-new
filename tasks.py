@@ -234,11 +234,16 @@ class AsyncTask(Task):
     def run_async(coro_func: Callable[[], Awaitable[T]]) -> T:
         """Run an async coroutine function from a Celery task."""
         try:
-            # Use asyncio.run() which handles loop creation/closing
-            return asyncio.run(coro_func())
+            # Create a new event loop but don't close it automatically
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(coro_func())
         except Exception as e:
             logger.exception(f"Error in run_async execution: {e}")
-            raise  # Re-raise the exception so Celery marks the task as failed
+            raise
+        finally:
+            # Clean up but don't close the loop
+            asyncio.set_event_loop(None)
 
 
 # --- Signal Handlers (Refactored to use db_manager and TaskStatusManager) ---
