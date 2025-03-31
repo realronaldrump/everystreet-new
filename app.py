@@ -3599,11 +3599,13 @@ async def refresh_coverage_stats(location_id: str):
         serialized_data = json.loads(
             json.dumps(
                 {"success": True, "coverage": updated_coverage_data},
-                default=lambda obj: obj.isoformat()
-                if isinstance(obj, datetime)
-                else str(obj)
-                if isinstance(obj, ObjectId)
-                else None,
+                default=lambda obj: (
+                    obj.isoformat()
+                    if isinstance(obj, datetime)
+                    else str(obj)
+                    if isinstance(obj, ObjectId)
+                    else None
+                ),
             )
         )
 
