@@ -1979,7 +1979,7 @@ async def generate_and_store_geojson(
         )
 
         await upload_stream.close()
-        file_id = upload_stream.id
+        file_id = await upload_stream.close()
 
         logger.info(
             "Task %s: Finished streaming %d features to GridFS for %s (File ID: %s).",
