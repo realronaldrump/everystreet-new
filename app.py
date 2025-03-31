@@ -159,7 +159,10 @@ progress_collection = db_manager.db["progress_status"]
 initialize_db(live_trips_collection, archived_live_trips_collection)
 
 # Initialize visits module
-init_collections(places_collection, trips_collection)
+init_collections(places_collection, trips_collection)  # <-- Updated call
+
+
+# Note: Pydantic models have been moved to models.py
 
 
 # --- Coverage Calculation Orchestration ---
@@ -1547,90 +1550,23 @@ async def api_fetch_trips():
 
 @app.post("/api/fetch_trips_range")
 async def api_fetch_trips_range(data: DateRangeModel):
-    """Fetch trips from Bouncie API within a specific date range, but only
-    since the last stored Bouncie trip within that range."""
+    """Fetch trips from Bouncie API within a specific date range."""
     try:
-        # Parse requested start and end dates
-        requested_start_date = parse_query_date(data.start_date)
-        requested_end_date = parse_query_date(data.end_date, end_of_day=True)
-
-        if not requested_start_date or not requested_end_date:
+        start_date = parse_query_date(data.start_date)
+        end_date = parse_query_date(data.end_date, end_of_day=True)
+        if not start_date or not end_date:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid date range.",
             )
-
-        logger.info(
-            "Received request to fetch trips from %s to %s",
-            requested_start_date,
-            requested_end_date,
-        )
-
-        # Find the most recent Bouncie trip in the database
-        last_bouncie_trip = await find_one_with_retry(
-            trips_collection,
-            {"source": "bouncie"},  # Filter by Bouncie source
-            sort=[("endTime", -1)],
-        )
-
-        fetch_start_date = requested_start_date
-
-        if last_bouncie_trip and last_bouncie_trip.get("endTime"):
-            last_trip_end_time = last_bouncie_trip["endTime"]
-            # Ensure last trip end time is timezone-aware (UTC)
-            if last_trip_end_time.tzinfo is None:
-                last_trip_end_time = last_trip_end_time.replace(
-                    tzinfo=timezone.utc
-                )
-
-            # Start fetching from the end time of the last stored Bouncie trip + 1 second,
-            # but not earlier than the requested start date.
-            potential_start_date = last_trip_end_time + timedelta(seconds=1)
-            fetch_start_date = max(requested_start_date, potential_start_date)
-            logger.info(
-                "Last Bouncie trip found ending at %s. Adjusting fetch start date.",
-                last_trip_end_time,
-            )
-        else:
-            logger.info(
-                "No previous Bouncie trips found in DB. Fetching from requested start date."
-            )
-
-        # Ensure the fetch start date is not after the fetch end date
-        if fetch_start_date >= requested_end_date:
-            logger.info(
-                "Calculated fetch start date (%s) is after or equal to end date (%s). No new trips to fetch.",
-                fetch_start_date,
-                requested_end_date,
-            )
-            return {
-                "status": "success",
-                "message": "No new trips to fetch for the specified range based on last stored trip.",
-            }
-
-        logger.info(
-            "Fetching Bouncie trips from effective start date %s to %s",
-            fetch_start_date,
-            requested_end_date,
-        )
-
-        # fetch_bouncie_trips_in_range will save new trips with source='bouncie'
+        # fetch_bouncie_trips_in_range will now save with source='bouncie'
         await fetch_bouncie_trips_in_range(
-            fetch_start_date, requested_end_date, do_map_match=False
+            start_date, end_date, do_map_match=False
         )
-
         return {"status": "success", "message": "Trips fetched & stored."}
 
-    except HTTPException as http_exc:
-        # Re-raise HTTP exceptions directly
-        raise http_exc
     except Exception as e:
-        logger.exception(
-            "Error fetching trips in range (%s to %s): %s",
-            data.start_date,
-            data.end_date,
-            str(e),
-        )
+        logger.exception("Error fetching trips in range: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
