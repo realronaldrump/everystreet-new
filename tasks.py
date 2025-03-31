@@ -1404,20 +1404,19 @@ async def validate_trip_data(self) -> Dict[str, Any]:  # Changed to async def
             raise e
 
 
-# --- NEW SCHEDULER TASK (Keep as is - it's already async def) ---
 @shared_task(
     bind=True,
     name="tasks.run_task_scheduler",
     queue="high_priority",
     ignore_result=True,  # Ignore the result to prevent serialization errors
 )
-async def run_task_scheduler(self) -> Dict[str, Any]:
+async def run_task_scheduler(self) -> None:  # Changed return type hint to None
     """
     This task runs frequently (e.g., every minute via Celery Beat).
     It checks the MongoDB config and triggers other tasks based on their
     enabled status, interval, and last run time.
     Runs asynchronously to directly await DB operations.
-    Result is ignored to prevent JSON serialization errors.
+    Result is ignored.
     """
     triggered_count = 0
     skipped_count = 0
@@ -1432,13 +1431,8 @@ async def run_task_scheduler(self) -> Dict[str, Any]:
             logger.info(
                 "Task scheduling is globally disabled. Exiting scheduler task."
             )
-            # Return a dictionary still, even if ignored, for clarity and testing
-            return {
-                "status": "success",
-                "triggered": 0,
-                "skipped": len(TASK_METADATA),
-                "reason": "Globally disabled",
-            }
+            # Explicitly return None since result is ignored
+            return None  # ADDED HERE
 
         tasks_to_check = config.get("tasks", {})
 
@@ -1533,11 +1527,8 @@ async def run_task_scheduler(self) -> Dict[str, Any]:
         # Trigger Due Tasks
         if not tasks_to_trigger:
             logger.debug("No tasks due to trigger this cycle.")
-            return {
-                "status": "success",
-                "triggered": 0,
-                "skipped": skipped_count,  # Return the actual skipped count
-            }
+            # Explicitly return None since result is ignored
+            return None  # ADDED HERE
 
         for task_id_to_run in tasks_to_trigger:
             try:
@@ -1601,11 +1592,8 @@ async def run_task_scheduler(self) -> Dict[str, Any]:
                 # Optionally update history as failed trigger?
                 # await update_task_history_entry(...)
 
-        return {
-            "status": "success",
-            "triggered": triggered_count,
-            "skipped": skipped_count,
-        }
+        # Explicitly return None at the end of successful execution
+        return None  # ADDED HERE
 
     except Exception as e:
         logger.exception(f"Critical Error in run_task_scheduler: {e}")
@@ -1613,6 +1601,7 @@ async def run_task_scheduler(self) -> Dict[str, Any]:
         # It's better to let Celery handle task failure reporting.
         # We raise the exception so Celery knows it failed.
         raise  # Re-raise the exception
+        # No explicit return needed here as exception is raised
 
 
 # --- API Functions (Keep as is) ---
