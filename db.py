@@ -320,8 +320,7 @@ class DatabaseManager:
                     str(e),
                     exc_info=True,
                 )  # Log full traceback for unexpected errors
-                # Decide if retry makes sense for this generic exception type
-                # For now, we won't retry generic exceptions by default
+
                 raise  # Re-raise the original exception
 
         # This line should theoretically not be reached if exceptions are raised correctly

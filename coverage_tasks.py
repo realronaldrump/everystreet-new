@@ -176,7 +176,7 @@ async def process_coverage_calculation(
                     "$set": {
                         "stage": "complete",  # Keep as complete
                         "progress": 100,
-                        "message": "Coverage calculation complete. GeoJSON generation started.",  # Updated message
+                        "message": "Coverage calculation complete. GeoJSON generation started.",
                         "result": {  # Store key metrics in progress result
                             "total_length": result["total_length"],
                             "driven_length": result["driven_length"],
