@@ -616,33 +616,33 @@ class CoverageCalculator:
             f"Querying trips for {self.location_name}...",
         )
 
+        # Only filter for valid GPS data without spatial filtering
         base_trip_filter: Dict[str, Any] = {
             "gps": {"$exists": True, "$nin": [None, ""]}
         }
+        
+        # Store bounding box for later use, but don't use it to filter trips yet
         bbox = self.location.get("boundingbox")
+        min_lat, max_lat, min_lon, max_lon = None, None, None, None
         if bbox and len(bbox) == 4:
             try:
                 min_lat, max_lat, min_lon, max_lon = map(float, bbox)
-                box_query = [[min_lon, min_lat], [max_lon, max_lat]]
-                base_trip_filter["$or"] = [
-                    {"startGeoPoint": {"$geoWithin": {"$box": box_query}}},
-                    {
-                        "destinationGeoPoint": {
-                            "$geoWithin": {"$box": box_query}
-                        }
-                    },
-                ]
+                logger.info(
+                    "Task %s: Bounding box for intersection check: [%f, %f, %f, %f]",
+                    self.task_id, min_lat, max_lat, min_lon, max_lon
+                )
             except (ValueError, TypeError):
                 logger.warning(
-                    "Task %s: Invalid bounding box format for trip query, querying all trips.",
+                    "Task %s: Invalid bounding box format, will process all trips.",
                     self.task_id,
                 )
         else:
             logger.warning(
-                "Task %s: No bounding box for trip query, querying all trips.",
+                "Task %s: No bounding box available, will process all trips.",
                 self.task_id,
             )
 
+        # Remove already processed trips
         processed_object_ids = set()
         for tid in processed_trip_ids_set:
             if ObjectId.is_valid(tid):
@@ -664,14 +664,14 @@ class CoverageCalculator:
             final_trip_filter = {"$and": filter_components}
 
         try:
+            # Count all trips with GPS data
             self.total_trips_to_process = await count_documents_with_retry(
                 trips_collection, final_trip_filter
             )
             logger.info(
-                "Task %s: Found %d new trips to process for %s.",
+                "Task %s: Found %d trips with GPS data for processing.",
                 self.task_id,
                 self.total_trips_to_process,
-                self.location_name,
             )
         except OperationFailure as e:
             logger.error(
@@ -716,6 +716,7 @@ class CoverageCalculator:
 
         pending_futures_map: Dict[Future, List[Tuple[str, List[Any]]]] = {}
         processed_count_local = 0
+        intersecting_trips_count = 0
         batch_num = 0
         last_progress_update_pct = 50
 
@@ -736,7 +737,25 @@ class CoverageCalculator:
 
                     is_valid, coords = self._is_valid_trip(trip_doc.get("gps"))
                     if is_valid:
-                        valid_trips_in_batch.append((trip_id, coords))
+                        # Additional check: if we have a bounding box, check if any point
+                        # in the trip intersects with it
+                        if min_lat is not None and max_lat is not None and min_lon is not None and max_lon is not None:
+                            has_intersection = False
+                            for coord in coords:
+                                lon, lat = coord[0], coord[1]
+                                if min_lon <= lon <= max_lon and min_lat <= lat <= max_lat:
+                                    has_intersection = True
+                                    break
+                            
+                            if has_intersection:
+                                valid_trips_in_batch.append((trip_id, coords))
+                                intersecting_trips_count += 1
+                            else:
+                                # Skip trips that don't intersect with the bounding box
+                                processed_trip_ids_set.add(trip_id)
+                        else:
+                            # If no bounding box, include all valid trips
+                            valid_trips_in_batch.append((trip_id, coords))
                     else:
                         processed_trip_ids_set.add(trip_id)
 
@@ -746,6 +765,7 @@ class CoverageCalculator:
                     )
                     continue
 
+                # Continue with existing processing logic...
                 all_coords = []
                 for _, coords in valid_trips_in_batch:
                     all_coords.extend(coords)
@@ -1146,14 +1166,15 @@ class CoverageCalculator:
 
             self.processed_trips_count = processed_count_local
             logger.info(
-                "Task %s: Finished processing trips for %s. Processed: %d/%d. Newly covered segments found: %d.",
+                "Task %s: Finished processing trips for %s. Total trips processed: %d/%d. Trips intersecting area: %d. Newly covered segments found: %d.",
                 self.task_id,
                 self.location_name,
                 self.processed_trips_count,
                 self.total_trips_to_process,
+                intersecting_trips_count,
                 len(self.newly_covered_segments),
             )
-            return True  # Return True on successful completion
+            return True
 
         except Exception as e:
             logger.error(
