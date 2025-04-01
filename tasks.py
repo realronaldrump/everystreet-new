@@ -10,10 +10,17 @@ using the centralized db_manager. Tasks are now triggered dynamically by the run
 import asyncio
 import os
 import uuid
+from bouncie_trip_fetcher import (
+    CLIENT_ID,
+    AUTH_CODE,
+    AUTHORIZED_DEVICES,
+    CLIENT_SECRET,
+    REDIRECT_URI,
+)
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, Optional, TypeVar
-
+from db import count_documents_with_retry
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from pymongo import UpdateOne
@@ -476,12 +483,24 @@ async def update_task_history_entry(
 
 
 async def periodic_fetch_trips_async(self) -> Dict[str, Any]:
-    """Async logic for fetching periodic trips."""
+    """Async logic for fetching periodic trips since the last stored trip."""
     task_name = "periodic_fetch_trips"
     status_manager = TaskStatusManager.get_instance()
     start_time = datetime.now(timezone.utc)
     celery_task_id = self.request.id
     try:
+        # Log task start with detailed info
+        logger.info(
+            f"Task {task_name} ({celery_task_id}) started at {start_time.isoformat()}"
+        )
+        logger.info(
+            f"Environment variables: CLIENT_ID={'set' if CLIENT_ID else 'NOT SET'}, "
+            f"CLIENT_SECRET={'set' if CLIENT_SECRET else 'NOT SET'}, "
+            f"REDIRECT_URI={'set' if REDIRECT_URI else 'NOT SET'}, "
+            f"AUTH_CODE={'set' if AUTH_CODE else 'NOT SET'}, "
+            f"AUTHORIZED_DEVICES count: {len(AUTHORIZED_DEVICES)}"
+        )
+
         # Update status to RUNNING immediately
         await status_manager.update_status(task_name, TaskStatus.RUNNING.value)
         await update_task_history_entry(
@@ -491,94 +510,167 @@ async def periodic_fetch_trips_async(self) -> Dict[str, Any]:
             manual_run=self.request.get("manual_run", False),
             start_time=start_time,
         )
-        logger.info(f"Task {task_name} ({celery_task_id}) started.")
 
-        # --- Task Logic ---
-        # Fetch the task config to determine the start time for fetching trips.
-        task_config_doc = await get_task_config()  # Use helper to get config
-        last_success_time = None
-        if (
-            task_config_doc
-            and "tasks" in task_config_doc
-            and task_name in task_config_doc["tasks"]
-        ):
-            # Get the timestamp of the last successful run for *this specific task*
-            last_success_time = task_config_doc["tasks"][task_name].get(
-                "last_success_time"
-            )
+        # Get date range for fetching trips
+        logger.info("Determining date range for fetching trips...")
 
         now_utc = datetime.now(timezone.utc)
-        start_date_fetch = None
 
-        # Determine the start time for the Bouncie API call
-        if last_success_time:
-            # If we have a last success time, use it as the start
-            start_date_fetch = last_success_time
-            # Ensure it's a datetime object and timezone-aware
-            if isinstance(start_date_fetch, str):
-                try:
-                    start_date_fetch = datetime.fromisoformat(
-                        start_date_fetch.replace("Z", "+00:00")
-                    )
-                except ValueError:
-                    logger.warning(
-                        f"Could not parse last_success_time '{last_success_time}', falling back."
-                    )
-                    start_date_fetch = None  # Fallback if parsing fails
-            if start_date_fetch and start_date_fetch.tzinfo is None:
-                start_date_fetch = start_date_fetch.replace(
-                    tzinfo=timezone.utc
-                )
-        else:
-            # If no last success time, find the end time of the most recent Bouncie trip in DB
-            last_bouncie_trip = await find_one_with_retry(
-                trips_collection, {"source": "bouncie"}, sort=[("endTime", -1)]
+        # IMPORTANT CHANGE: Always find the most recent trip in the database, regardless of source
+        # This ensures we get all new trips since the last stored trip
+        try:
+            logger.info(
+                "Looking for the most recent trip in the database (any source)"
             )
-            if last_bouncie_trip and "endTime" in last_bouncie_trip:
-                start_date_fetch = last_bouncie_trip["endTime"]
-                # Ensure timezone awareness
-                if start_date_fetch and start_date_fetch.tzinfo is None:
-                    start_date_fetch = start_date_fetch.replace(
-                        tzinfo=timezone.utc
+            latest_trip = await find_one_with_retry(
+                trips_collection,
+                {},  # No source filter - get the most recent trip regardless of source
+                sort=[("endTime", -1)],
+            )
+
+            if latest_trip:
+                latest_trip_id = latest_trip.get("transactionId", "unknown")
+                latest_trip_source = latest_trip.get("source", "unknown")
+                latest_trip_end = latest_trip.get("endTime")
+
+                logger.info(
+                    f"Found most recent trip: id={latest_trip_id}, "
+                    f"source={latest_trip_source}, "
+                    f"endTime={latest_trip_end}"
+                )
+
+                if latest_trip_end:
+                    # Ensure timezone awareness
+                    if latest_trip_end.tzinfo is None:
+                        latest_trip_end = latest_trip_end.replace(
+                            tzinfo=timezone.utc
+                        )
+
+                    # Use the end time of the most recent trip as our start date
+                    # This way we fetch all trips since the last one we have
+                    start_date_fetch = latest_trip_end
+                    logger.info(
+                        f"Using latest trip endTime as start_date_fetch: {start_date_fetch.isoformat()}"
                     )
+                else:
+                    logger.warning(
+                        "Latest trip has no endTime, using fallback"
+                    )
+                    # Fallback: Use a reasonable default (e.g., 48 hours ago)
+                    start_date_fetch = now_utc - timedelta(hours=48)
+                    logger.info(
+                        f"Using fallback start date (48 hours ago): {start_date_fetch.isoformat()}"
+                    )
+            else:
+                logger.warning(
+                    "No trips found in database, using fallback date range"
+                )
+                # If no trips exist, use a reasonable default (e.g., 48 hours)
+                start_date_fetch = now_utc - timedelta(hours=48)
+                logger.info(
+                    f"Using fallback start date (48 hours ago): {start_date_fetch.isoformat()}"
+                )
 
-        # If still no start date, default to fetching the last few hours
-        if not start_date_fetch:
-            start_date_fetch = now_utc - timedelta(
-                hours=3
-            )  # Default fetch window
+        except Exception as e:
+            logger.exception(f"Error finding latest trip: {e}")
+            # Fallback if database query fails
+            start_date_fetch = now_utc - timedelta(hours=48)
+            logger.info(
+                f"Using fallback start date after error (48 hours ago): {start_date_fetch.isoformat()}"
+            )
 
-        # Don't fetch data older than a certain limit (e.g., 24 hours) to avoid excessive calls
-        min_start_date = now_utc - timedelta(hours=24)
-        start_date_fetch = max(start_date_fetch, min_start_date)
+        # Optional: Don't go back more than X days to avoid huge API calls
+        max_lookback = now_utc - timedelta(days=7)  # Maximum 7 days lookback
+        if start_date_fetch < max_lookback:
+            old_start = start_date_fetch
+            start_date_fetch = max_lookback
+            logger.info(
+                f"Limited start date from {old_start.isoformat()} to {start_date_fetch.isoformat()} (7 day max)"
+            )
 
         logger.info(
-            f"Task {task_name}: Fetching Bouncie trips from {start_date_fetch.isoformat()} to {now_utc.isoformat()}"
+            f"FINAL DATE RANGE: Fetching Bouncie trips from {start_date_fetch.isoformat()} to {now_utc.isoformat()}"
         )
 
-        # Call the Bouncie fetcher function (ensure it uses async DB operations)
-        fetched_trips = await fetch_bouncie_trips_in_range(
-            start_date_fetch,
-            now_utc,
-            do_map_match=True,  # Perform map matching during fetch
-        )
+        # Call the Bouncie fetcher function
+        logger.info("Calling fetch_bouncie_trips_in_range...")
+        try:
+            fetched_trips = await fetch_bouncie_trips_in_range(
+                start_date_fetch,
+                now_utc,
+                do_map_match=True,  # Perform map matching during fetch
+            )
+            logger.info(
+                f"fetch_bouncie_trips_in_range returned {len(fetched_trips)} trips"
+            )
+
+            # Log the transaction IDs of fetched trips
+            if fetched_trips:
+                trip_ids = [
+                    trip.get("transactionId", "unknown")
+                    for trip in fetched_trips
+                ]
+                logger.info(f"Fetched trip IDs: {trip_ids}")
+            else:
+                logger.warning("No trips were fetched in the date range")
+
+        except Exception as fetch_err:
+            logger.exception(
+                f"Error in fetch_bouncie_trips_in_range: {fetch_err}"
+            )
+            raise  # Re-raise to mark task as failed
 
         # Update the last successful run time in the config
-        await update_one_with_retry(
-            task_config_collection,
-            {"_id": "global_background_task_config"},
-            {"$set": {f"tasks.{task_name}.last_success_time": now_utc}},
-            upsert=True,  # Ensure config exists
-        )
+        logger.info("Updating last_success_time in task config...")
+        try:
+            update_result = await update_one_with_retry(
+                task_config_collection,
+                {"_id": "global_background_task_config"},
+                {"$set": {f"tasks.{task_name}.last_success_time": now_utc}},
+                upsert=True,  # Ensure config exists
+            )
+            logger.info(
+                f"Config update result: modified_count={update_result.modified_count}, "
+                f"upserted_id={update_result.upserted_id}"
+            )
+        except Exception as update_err:
+            logger.exception(f"Error updating task config: {update_err}")
 
-        # --- Completion ---
+        # Check DB for currently stored trips to confirm storage worked
+        try:
+            trips_after_fetch = await count_documents_with_retry(
+                trips_collection, {"source": "bouncie"}
+            )
+            logger.info(
+                f"Total trips with source='bouncie' after fetch: {trips_after_fetch}"
+            )
+
+            trips_recent = await count_documents_with_retry(
+                trips_collection,
+                {"source": "bouncie", "startTime": {"$gte": start_date_fetch}},
+            )
+            logger.info(
+                f"Trips with source='bouncie' since {start_date_fetch.isoformat()}: {trips_recent}"
+            )
+        except Exception as count_err:
+            logger.exception(f"Error counting trips in database: {count_err}")
+
+        # Completion
         result_data = {
             "status": "success",
             "message": f"Fetched {len(fetched_trips)} trips successfully",
             "trips_fetched": len(fetched_trips),
+            "date_range": {
+                "start": start_date_fetch.isoformat(),
+                "end": now_utc.isoformat(),
+            },
         }
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
+        logger.info(
+            f"Task {task_name} completed successfully. Runtime: {runtime:.0f}ms"
+        )
+
         await status_manager.update_status(
             task_name, TaskStatus.COMPLETED.value
         )
@@ -602,10 +694,12 @@ async def periodic_fetch_trips_async(self) -> Dict[str, Any]:
         logger.exception(
             f"Task {task_name} ({celery_task_id}) failed: {error_msg}"
         )
+
         # Update status to FAILED
         await status_manager.update_status(
             task_name, TaskStatus.FAILED.value, error=str(e)
         )
+
         # Update history with failure details
         await update_task_history_entry(
             celery_task_id=celery_task_id,
@@ -615,14 +709,11 @@ async def periodic_fetch_trips_async(self) -> Dict[str, Any]:
             end_time=end_time,
             runtime_ms=runtime,
         )
+
         # Use Celery's retry mechanism
         try:
-            # This tells Celery to retry the task after a countdown
-            # The exception 'e' is passed to the next retry attempt
-            raise self.retry(exc=e, countdown=60)  # Retry after 60 seconds
+            raise self.retry(exc=e, countdown=60)
         except Exception:
-            # If self.retry itself fails or max retries are exceeded, re-raise the original exception
-            # This ensures Celery marks the task as failed if retries don't succeed.
             raise e
 
 
