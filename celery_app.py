@@ -22,7 +22,7 @@ from kombu import Queue
 
 # Set up logging
 logging.basicConfig(
-    level=logging.INFO,  # Set root logger level to INFO
+    level=logging.WARNING,
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ def get_redis_connection_with_retry():
             r.ping()
             logger.info(
                 "Successfully connected to Redis broker."
-            )  # More specific log message
+            )
             return True
         except ConnectionError as e:
             retry_count += 1
@@ -225,4 +225,4 @@ def worker_init(**kwargs):
     from datetime import datetime, timezone
 
     current_time = datetime.now(timezone.utc)
-    logger.info("Worker starting at UTC time: %s", current_time.isoformat())
+    logger.debug("Worker starting at UTC time: %s", current_time.isoformat())  # Changed from INFO to DEBUG

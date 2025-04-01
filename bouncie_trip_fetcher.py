@@ -16,10 +16,10 @@ from trip_processor import TripProcessor
 # Local imports
 from utils import get_session
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-)
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+# )
 logger = logging.getLogger(__name__)
 
 # Bouncie API config

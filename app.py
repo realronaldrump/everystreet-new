@@ -117,7 +117,7 @@ load_dotenv()
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -4383,12 +4383,12 @@ async def startup_event():
     try:
         # Initialize database with all required collections and indexes
         await init_database()  # Comprehensive database initialization
-        logger.info("Database initialized successfully.")
+        logger.debug("Database initialized successfully.")
 
         # Initialize TripProcessor settings
         # This is just a dummy initialization to pre-load the module
         TripProcessor(mapbox_token=MAPBOX_ACCESS_TOKEN)
-        logger.info("TripProcessor initialized.")
+        logger.debug("TripProcessor initialized.")
 
         # Additional initialization
         used_mb, limit_mb = await db_manager.check_quota()

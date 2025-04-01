@@ -25,11 +25,6 @@ from timestamp_utils import (
 from trip_processor import TripProcessor
 from utils import haversine
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 # Initialize db collections as module-level variables

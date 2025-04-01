@@ -4,6 +4,7 @@ Optimized for Railway deployment with memory and resource constraints.
 """
 
 import os
+import logging
 
 # Server socket
 bind = "0.0.0.0:" + os.environ.get("PORT", "8080")
@@ -20,11 +21,47 @@ keepalive = 5
 
 # Logging
 errorlog = "-"
-loglevel = os.environ.get("GUNICORN_LOG_LEVEL", "info")
+loglevel = "warning"
 accesslog = "-"
 access_log_format = (
     '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
 )
+logconfig_dict = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'default': {
+            'format': '%(asctime)s [%(process)d] [%(levelname)s] %(message)s',
+            'datefmt': '[%Y-%m-%d %H:%M:%S %z]',
+        },
+        'access': {
+            'format': access_log_format,
+        },
+    },
+    'handlers': {
+        'error_console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'default',
+            'stream': 'ext://sys.stderr',
+        },
+        'access_console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'access',
+            'stream': 'ext://sys.stdout',
+        },
+    },
+    'loggers': {
+        'gunicorn.error': {
+            'level': loglevel.upper(),
+            'handlers': ['error_console'],
+            'propagate': False,
+        },
+    },
+    'root': {
+        'level': loglevel.upper(),
+        'handlers': ['error_console'],
+    },
+}
 
 # Process naming
 proc_name = "everyseg"
@@ -54,7 +91,7 @@ max_worker_memory = 512 * 1024 * 1024  # 512MB
 
 def on_starting(server):
     """Log when server starts."""
-    print(f"Starting Gunicorn with {workers} workers, timeout {timeout}s")
+    logging.getLogger("gunicorn.error").info(f"Starting Gunicorn with {workers} workers, timeout {timeout}s")
 
 
 def post_fork(server, worker):
@@ -63,6 +100,16 @@ def post_fork(server, worker):
     pass
 
 
+def on_exit(server):
+    """Log when server exits."""
+    logging.getLogger("gunicorn.error").info("Gunicorn server shutting down.")
+
+
 def worker_abort(worker):
     """Log worker timeouts."""
-    print(f"Worker {worker.pid} was aborted due to timeout or memory limits")
+    logging.getLogger("gunicorn.error").warning(f"Worker {worker.pid} was aborted due to timeout or memory limits")
+
+
+def worker_exit(server, worker):
+    """Log when worker exits."""
+    logging.getLogger("gunicorn.error").info(f"Worker {worker.pid} exited.")

@@ -51,10 +51,10 @@ from pymongo.results import (
 )
 
 # Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-)
+# logging.basicConfig( # REMOVED
+#     level=logging.INFO,
+#     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+# )
 logger = logging.getLogger(__name__)
 
 # Return type for the execute_with_retry function
@@ -113,7 +113,7 @@ class DatabaseManager:
             self._db_name = os.getenv("MONGODB_DATABASE", "every_street")
 
             # Log configuration
-            logger.info(
+            logger.debug(
                 "Database configuration initialized with pool size %s",
                 self._max_pool_size,
             )
@@ -125,7 +125,7 @@ class DatabaseManager:
             if not mongo_uri:
                 raise ValueError("MONGO_URI environment variable not set")
 
-            logger.info("Initializing MongoDB client...")
+            logger.debug("Initializing MongoDB client...")
             self._client = AsyncIOMotorClient(
                 mongo_uri,
                 tls=True,
@@ -1086,7 +1086,8 @@ async def get_trip_by_id(
 
 
 async def init_task_history_collection() -> None:
-    """Initialize indexes for the task history collection."""
+    """Initialize the task_history collection and its indexes."""
+    logger.debug("Initializing task history collection and indexes...")
     try:
         await db_manager.safe_create_index(
             "task_history",
@@ -1109,9 +1110,7 @@ async def init_task_history_collection() -> None:
             name="task_history_task_timestamp_idx",
             background=True,
         )
-        logger.info(
-            "Task history collection indexes ensured/created successfully"
-        )
+        logger.info("Task history collection indexes ensured/created successfully")
     except Exception as e:
         logger.error("Error creating task history indexes: %s", str(e))
         # Decide if this should be fatal - maybe not, log and continue?
@@ -1119,8 +1118,8 @@ async def init_task_history_collection() -> None:
 
 
 async def ensure_street_coverage_indexes() -> None:
-    """Create or ensure indexes exist for street coverage collections."""
-    logger.info("Ensuring street coverage indexes exist...")
+    """Ensure necessary indexes exist for street coverage collections."""
+    logger.debug("Ensuring street coverage indexes exist...")
 
     try:
         # --- coverage_metadata ---
@@ -1222,9 +1221,8 @@ async def ensure_street_coverage_indexes() -> None:
 
 
 async def ensure_location_indexes() -> None:
-    """Ensure indexes exist for the structured location fields (address
-    components)."""
-    logger.info("Ensuring location structure indexes exist...")
+    """Ensure necessary indexes exist for location data in trip collections."""
+    logger.debug("Ensuring location structure indexes exist...")
     try:
         # Only process trips and matched_trips
         collections = ["trips", "matched_trips"]
@@ -1349,64 +1347,34 @@ async def run_transaction(
 
 
 async def init_database() -> None:
-    """Initialize the database and create collections and indexes."""
-    try:
-        logger.info("Initializing database...")
+    """Initialize the database by ensuring all collections and indexes exist."""
+    logger.info("Initializing database...")
 
-        # Get database handle using the property to ensure client init
-        db = db_manager.db
+    # Check quota early
+    used_mb, limit_mb = await db_manager.check_quota()
+    if db_manager.quota_exceeded:
+        logger.warning(
+            "Storage quota exceeded (%.2f MB / %d MB). Database operations may fail.",
+            used_mb,
+            limit_mb,
+        )
+        # Allow initialization to continue but log the warning
 
-        # List of collections to ensure exist
-        required_collections = [
-            "trips",
-            "matched_trips",
-            "places",
-            "task_history",
-            "streets",
-            "coverage_metadata",
-            "live_trips",
-            "archived_live_trips",
-            "task_config",
-            "progress_status",
-            "osm_data",
-            # GridFS collections (managed automatically, but good to be aware)
-            "fs.files",
-            "fs.chunks",
-        ]
+    # Initialize critical collections first
+    await init_task_history_collection()
 
-        # Get existing collections
-        existing_collections = await db.list_collection_names()
+    # Ensure indexes for application core functionality
+    await ensure_street_coverage_indexes()
+    await ensure_location_indexes()
 
-        # Create collections that don't exist yet
-        for collection_name in required_collections:
-            # Skip GridFS collections as they are managed by the driver
-            if collection_name.startswith("fs."):
-                continue
-            if collection_name not in existing_collections:
-                try:
-                    await db.create_collection(collection_name)
-                    logger.info("Created collection: %s", collection_name)
-                except pymongo.errors.CollectionInvalid:
-                    logger.info(
-                        "Collection already exists (concurrent creation?): %s",
-                        collection_name,
-                    )
-                except Exception as create_err:
-                    logger.error(
-                        "Failed to create collection %s: %s",
-                        collection_name,
-                        create_err,
-                    )
-                    raise  # Fail fast if collection creation fails
-            else:
-                logger.info("Collection already exists: %s", collection_name)
+    # Initialize other collections (like places, task_config etc.)
+    # These might create indexes implicitly if defined in their models/access patterns
+    # or we can add explicit ensure calls if needed.
+    _ = db_manager.get_collection("places")
+    _ = db_manager.get_collection("task_config")
+    _ = db_manager.get_collection("progress_status")
+    _ = db_manager.get_collection("osm_data")
+    _ = db_manager.get_collection("live_trips")
+    _ = db_manager.get_collection("archived_live_trips")
 
-        # Initialize indexes (ensure these functions are robust)
-        await init_task_history_collection()
-        await ensure_street_coverage_indexes()
-        await ensure_location_indexes()
-
-        logger.info("Database initialized successfully")
-    except Exception as e:
-        logger.error("Error initializing database: %s", str(e), exc_info=True)
-        raise  # Re-raise to indicate critical failure during startup
+    logger.info("Database initialization complete.")
