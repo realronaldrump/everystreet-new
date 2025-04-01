@@ -308,26 +308,45 @@ class CoverageCalculator:
         self, stage: str, progress: float, message: str = "", error: str = ""
     ) -> None:
         try:
+            # Calculate additional metrics for UI
+            coverage_pct = 0.0
+            if self.total_driveable_length > 0:
+                current_covered_length = self.initial_driven_length
+                if self.newly_covered_segments:
+                    # Estimate additional covered length based on newly covered segments
+                    for rtree_id, info in self.streets_lookup.items():
+                        if (info["segment_id"] in self.newly_covered_segments and 
+                            info["segment_id"] not in self.initial_covered_segments):
+                            current_covered_length += info["length_m"]
+                coverage_pct = (current_covered_length / self.total_driveable_length) * 100
+
+            newly_covered_count = len(self.newly_covered_segments - self.initial_covered_segments)
+            
+            # Create enhanced metrics dictionary with detailed stats
+            enhanced_metrics = {
+                "total_trips_to_process": self.total_trips_to_process,
+                "processed_trips": self.processed_trips_count,
+                "total_length_m": round(self.total_length_calculated, 2),
+                "driveable_length_m": round(self.total_driveable_length, 2),
+                "covered_length_m": round(self.initial_driven_length, 2),
+                "coverage_percentage": round(coverage_pct, 2),
+                "initial_covered_segments": len(self.initial_covered_segments),
+                "newly_covered_segments": newly_covered_count,
+                "total_covered_segments": len(self.initial_covered_segments) + newly_covered_count,
+                "rtree_items": (
+                    self.streets_index.count(self.streets_index.bounds)
+                    if self.streets_index
+                    else 0
+                ),
+            }
+            
             update_data = {
                 "stage": stage,
                 "progress": round(progress, 2),
                 "message": message,
                 "updated_at": datetime.now(timezone.utc),
                 "location": self.location_name,
-                "metrics": {
-                    "total_trips_to_process": self.total_trips_to_process,
-                    "processed_trips": self.processed_trips_count,
-                    "total_length_m": round(self.total_length_calculated, 2),
-                    "initial_covered_segments": len(
-                        self.initial_covered_segments
-                    ),
-                    "newly_covered_segments": len(self.newly_covered_segments),
-                    "rtree_items": (
-                        self.streets_index.count(self.streets_index.bounds)
-                        if self.streets_index
-                        else 0
-                    ),
-                },
+                "metrics": enhanced_metrics,
             }
             if error:
                 update_data["error"] = error
@@ -397,7 +416,7 @@ class CoverageCalculator:
             self.location_name,
         )
         await self.update_progress(
-            "indexing", 5, f"Querying streets for {self.location_name}..."
+            "indexing", 5, f"Starting to build street index for {self.location_name}"
         )
 
         self.total_length_calculated = 0.0
@@ -536,10 +555,14 @@ class CoverageCalculator:
                 if (current_progress_pct - last_progress_update_pct >= 5) or (
                     processed_count == total_streets_count
                 ):
+                    length_km = self.total_length_calculated / 1000
+                    driveable_km = self.total_driveable_length / 1000
+                    driven_km = self.initial_driven_length / 1000
+                    
                     await self.update_progress(
                         "indexing",
                         current_progress_pct,
-                        f"Indexed {processed_count}/{total_streets_count} streets",
+                        f"Indexed {processed_count:,}/{total_streets_count:,} streets | {rtree_idx_counter:,} valid | {length_km:.2f}km total | {driveable_km:.2f}km driveable | {driven_km:.2f}km already driven",
                     )
                     last_progress_update_pct = current_progress_pct
                     await asyncio.sleep(BATCH_PROCESS_DELAY)
@@ -547,7 +570,6 @@ class CoverageCalculator:
             logger.info(
                 "Task %s: Finished building spatial index for %s. Total length: %.2fm. Driveable length: %.2fm. R-tree items: %d. Initial driven (driveable): %d segments (%.2fm).",
                 self.task_id,
-                self.location_name,
                 self.total_length_calculated,
                 self.total_driveable_length,
                 rtree_idx_counter,
@@ -613,7 +635,7 @@ class CoverageCalculator:
         await self.update_progress(
             "processing_trips",
             50,
-            f"Querying trips for {self.location_name}...",
+            f"Starting trip analysis for {self.location_name}",
         )
 
         # Only filter for valid GPS data without spatial filtering
@@ -631,15 +653,30 @@ class CoverageCalculator:
                     "Task %s: Bounding box for intersection check: [%f, %f, %f, %f]",
                     self.task_id, min_lat, max_lat, min_lon, max_lon
                 )
+                await self.update_progress(
+                    "processing_trips",
+                    51,
+                    "Identifying trips within area boundaries",
+                )
             except (ValueError, TypeError):
                 logger.warning(
                     "Task %s: Invalid bounding box format, will process all trips.",
                     self.task_id,
                 )
+                await self.update_progress(
+                    "processing_trips",
+                    51,
+                    "No valid area boundaries found - will check all trips",
+                )
         else:
             logger.warning(
                 "Task %s: No bounding box available, will process all trips.",
                 self.task_id,
+            )
+            await self.update_progress(
+                "processing_trips",
+                51,
+                "No area boundaries - processing all available trips",
             )
 
         # Remove already processed trips
@@ -647,6 +684,13 @@ class CoverageCalculator:
         for tid in processed_trip_ids_set:
             if ObjectId.is_valid(tid):
                 processed_object_ids.add(ObjectId(tid))
+        
+        if processed_object_ids:
+            await self.update_progress(
+                "processing_trips",
+                52,
+                f"Excluding {len(processed_object_ids):,} previously processed trips",
+            )
 
         filter_components = []
         for key, value in base_trip_filter.items():
@@ -663,8 +707,19 @@ class CoverageCalculator:
         else:
             final_trip_filter = {"$and": filter_components}
 
+        await self.update_progress(
+            "processing_trips",
+            53,
+            "Querying database for new GPS trips",
+        )
+
         try:
             # Count all trips with GPS data
+            await self.update_progress(
+                "processing_trips",
+                54,
+                "Counting available GPS trips in database",
+            )
             self.total_trips_to_process = await count_documents_with_retry(
                 trips_collection, final_trip_filter
             )
@@ -672,6 +727,12 @@ class CoverageCalculator:
                 "Task %s: Found %d trips with GPS data for processing.",
                 self.task_id,
                 self.total_trips_to_process,
+            )
+            
+            await self.update_progress(
+                "processing_trips",
+                55,
+                f"Found {self.total_trips_to_process:,} trips to process - preparing workers",
             )
         except OperationFailure as e:
             logger.error(
@@ -704,11 +765,16 @@ class CoverageCalculator:
                 self.location_name,
             )
             await self.update_progress(
-                "processing_trips", 90, "No new trips found."
+                "processing_trips", 90, "No new trips found to process"
             )
             return True
 
         await self.initialize_workers()
+        await self.update_progress(
+            "processing_trips",
+            56,
+            f"Initialized {self.max_workers} processing workers - loading trips",
+        )
 
         trips_cursor = trips_collection.find(
             final_trip_filter, {"gps": 1, "_id": 1}
@@ -718,7 +784,7 @@ class CoverageCalculator:
         processed_count_local = 0
         intersecting_trips_count = 0
         batch_num = 0
-        last_progress_update_pct = 50
+        last_progress_update_pct = 56
 
         try:
             async for trip_batch_docs in batch_cursor(
@@ -1043,10 +1109,19 @@ class CoverageCalculator:
                     ) or (
                         processed_count_local >= self.total_trips_to_process
                     ):
+                        new_segments_count = len(self.newly_covered_segments - self.initial_covered_segments)
+                        message = (
+                            f"Processed {processed_count_local:,}/{self.total_trips_to_process:,} trips "
+                            f"| Found {new_segments_count:,} newly covered segments"
+                        )
+                        
+                        if intersecting_trips_count > 0:
+                            message += f" | {intersecting_trips_count:,} trips intersect area"
+                            
                         await self.update_progress(
                             "processing_trips",
                             current_progress_pct,
-                            f"Processed {processed_count_local}/{self.total_trips_to_process} trips",
+                            message,
                         )
                         last_progress_update_pct = current_progress_pct
                         await asyncio.sleep(BATCH_PROCESS_DELAY)
@@ -1196,10 +1271,13 @@ class CoverageCalculator:
     async def finalize_coverage(
         self, processed_trip_ids_set: Set[str]
     ) -> Optional[Dict[str, Any]]:
+        total_driven_before = len(self.initial_covered_segments)
+        newly_driven = len(self.newly_covered_segments - self.initial_covered_segments)
+        
         await self.update_progress(
             "finalizing",
             90,
-            f"Updating street statuses for {self.location_name}...",
+            f"Updating {newly_driven:,} newly driven segments of {total_driven_before + newly_driven:,} total",
         )
 
         segments_to_update = []
@@ -1229,6 +1307,15 @@ class CoverageCalculator:
                     segment_batch = segments_to_update[
                         i : i + max_update_batch
                     ]
+                    current_batch = i // max_update_batch + 1
+                    total_batches = (len(segments_to_update) + max_update_batch - 1) // max_update_batch
+                    
+                    await self.update_progress(
+                        "finalizing",
+                        90 + (i / len(segments_to_update) * 5),
+                        f"Updating database (batch {current_batch}/{total_batches}) with {len(segment_batch):,} segments",
+                    )
+                    
                     update_result = await update_many_with_retry(
                         streets_collection,
                         {"properties.segment_id": {"$in": segment_batch}},
@@ -1266,7 +1353,7 @@ class CoverageCalculator:
         await self.update_progress(
             "finalizing",
             95,
-            f"Calculating final statistics incrementally for {self.location_name}...",
+            f"Calculating final coverage statistics for {self.location_name}",
         )
         try:
             final_total_length = 0.0
@@ -1730,7 +1817,6 @@ async def compute_coverage_for_location(
                     "stage": "error",
                     "message": error_msg,
                     "error": str(e),
-                    "updated_at": datetime.now(timezone.utc),
                 }
             },
             upsert=True,
@@ -1844,7 +1930,6 @@ async def compute_incremental_coverage(
                     "stage": "error",
                     "message": error_msg,
                     "error": str(e),
-                    "updated_at": datetime.now(timezone.utc),
                 }
             },
             upsert=True,
@@ -1886,7 +1971,8 @@ async def generate_and_store_geojson(
         {
             "$set": {
                 "stage": "generating_geojson",
-                "message": "Streaming GeoJSON features to GridFS...",
+                "progress": 90,
+                "message": "Creating interactive map data for visualization...",
             }
         },
     )
@@ -2049,7 +2135,7 @@ async def generate_and_store_geojson(
                             "$set": {
                                 "stage": "complete",
                                 "progress": 100,
-                                "message": "GeoJSON generation complete.",
+                                "message": f"Coverage analysis complete with {total_features:,} street segments | Ready to view",
                             }
                         },
                     )

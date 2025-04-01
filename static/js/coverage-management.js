@@ -1,6 +1,40 @@
 /* global bootstrap, notificationManager, confirmationDialog, L, leafletImage, Chart */
 "use strict";
 
+// Add CSS styles for activity indicator
+(() => {
+  // Add CSS for pulsing activity indicator
+  const style = document.createElement('style');
+  style.textContent = `
+    .activity-indicator.pulsing {
+      animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+      0% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+      100% {
+        opacity: 1;
+      }
+    }
+    
+    .detailed-stage-info {
+      font-style: italic;
+      color: #6c757d;
+    }
+    
+    .unit-toggle {
+      font-size: 0.75rem;
+      padding: 0.15rem 0.5rem;
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
 (() => {
   class CoverageManager {
     constructor() {
@@ -21,6 +55,8 @@
       this.currentFilter = "all"; // Track current map filter ('all', 'driven', 'undriven')
       this.tooltips = []; // Store Bootstrap tooltip instances
       this.highlightedLayer = null; // Track the currently highlighted map layer
+      this.useMiles = true; // Use miles instead of kilometers for distance
+      this.lastActivityTime = null; // Track when last activity happened
 
       // Check for notification manager
       if (typeof window.notificationManager === "undefined") {
@@ -707,78 +743,71 @@
       const modalElement = document.getElementById("taskProgressModal");
       if (!modalElement) return;
 
-      // Ensure any previous modal instance is disposed
-      const existingModal = bootstrap.Modal.getInstance(modalElement);
-      if (existingModal) {
-        existingModal.hide(); // Hide just in case, though dispose should handle it
+      this.processingStartTime = new Date();
+      this.lastActivityTime = new Date();
+
+      // Set up modal content
+      const modalProgressBar = modalElement.querySelector(".progress-bar");
+      if (modalProgressBar) {
+        modalProgressBar.style.width = `${progress}%`;
+        modalProgressBar.setAttribute("aria-valuenow", progress);
+        modalProgressBar.classList.add("progress-bar-striped", "progress-bar-animated");
       }
 
-      const modal = new bootstrap.Modal(modalElement); // Create new instance
-
-      const modalTitle = modalElement.querySelector(".modal-title");
-      const progressMessageEl = modalElement.querySelector(".progress-message");
-      const progressBarEl = modalElement.querySelector(".progress-bar");
-      const stageInfoEl = modalElement.querySelector(".stage-info");
-      const statsInfoEl = modalElement.querySelector(".stats-info");
-      const elapsedTimeEl = modalElement.querySelector(".elapsed-time");
-      const estimatedTimeEl = modalElement.querySelector(".estimated-time");
-
-      // Set title based on current processing location
-      if (modalTitle && this.currentProcessingLocation?.display_name) {
-        modalTitle.textContent = `Processing: ${this.currentProcessingLocation.display_name}`;
-      } else if (modalTitle) {
-        modalTitle.textContent = "Processing Area";
+      const progressMessage = modalElement.querySelector(".progress-message");
+      if (progressMessage) {
+        progressMessage.textContent = message;
+        progressMessage.classList.remove("text-danger");
       }
 
-      if (progressMessageEl) progressMessageEl.textContent = message;
-      if (progressBarEl) {
-        progressBarEl.style.width = `${progress}%`;
-        progressBarEl.setAttribute("aria-valuenow", progress);
-        progressBarEl.classList.remove(
-          "progress-bar-striped",
-          "progress-bar-animated",
-        );
-        if (progress < 100) {
-          progressBarEl.classList.add(
-            "progress-bar-striped",
-            "progress-bar-animated",
-          );
-        }
+      // Add activity indicator, unit toggle, and last update time if they don't exist
+      const activityIndicatorContainer = modalElement.querySelector(".activity-indicator-container");
+      if (activityIndicatorContainer && !activityIndicatorContainer.querySelector(".activity-indicator")) {
+        activityIndicatorContainer.innerHTML = `
+          <div class="d-flex align-items-center justify-content-between">
+            <small class="activity-indicator pulsing"><i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active</small>
+            <small class="last-update-time text-muted"></small>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary mt-2 unit-toggle">
+            Switch to ${this.useMiles ? 'km' : 'mi'}
+          </button>
+          <div class="detailed-stage-info text-muted mt-2 small"></div>
+        `;
       }
-      if (stageInfoEl) stageInfoEl.innerHTML = ""; // Clear previous stage
-      if (statsInfoEl) statsInfoEl.innerHTML = ""; // Clear previous stats
-      if (elapsedTimeEl) elapsedTimeEl.textContent = "Elapsed: 0s";
-      // **MODIFIED:** Remove complex estimation
-      if (estimatedTimeEl) estimatedTimeEl.textContent = ""; // Clear estimate initially
 
-      // Reset step states
-      modalElement.querySelectorAll(".step").forEach((step) => {
-        step.classList.remove("active", "complete", "error");
-      });
+      // Show the modal
+      if (!modalElement.classList.contains("show")) {
+        const bsModal = new bootstrap.Modal(modalElement, {
+          backdrop: "static",
+          keyboard: false,
+        });
+        bsModal.show();
+      }
 
-      // Set initial step as active
-      const initialStep = modalElement.querySelector(".step-initializing");
-      if (initialStep) initialStep.classList.add("active");
-
-      // Initialize timing
-      this.processingStartTime = Date.now();
-      this.lastProgressUpdate = { time: this.processingStartTime, progress: 0 };
-
-      // Clear existing timer before starting a new one
+      // Start timer to update elapsed time
       if (this.progressTimer) {
         clearInterval(this.progressTimer);
       }
-
-      // Save state to localStorage periodically
       this.progressTimer = setInterval(() => {
-        this.updateTimingInfo(); // Update elapsed time
-        this.saveProcessingState(); // Save state
+        this.updateTimingInfo();
+        
+        // Also check if activity indicator needs to be updated
+        const activityIndicator = modalElement.querySelector(".activity-indicator");
+        if (activityIndicator) {
+          if (this.lastActivityTime && (new Date() - this.lastActivityTime > 5000)) {
+            // No activity for more than 5 seconds - switch from pulsing to normal
+            activityIndicator.classList.remove("pulsing");
+            activityIndicator.innerHTML = '<i class="fas fa-circle-notch fa-spin text-secondary me-1"></i>Running';
+          } else {
+            // Recent activity - ensure pulsing is active
+            activityIndicator.classList.add("pulsing");
+            activityIndicator.innerHTML = '<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active';
+          }
+        }
       }, 1000);
 
-      // Listen for page unload to save final state
-      window.addEventListener("beforeunload", () => this.saveProcessingState());
-
-      modal.show();
+      // Update immediately to set the initial values
+      this.updateTimingInfo();
     }
 
     hideProgressModal() {
@@ -873,11 +902,36 @@
         };
       }
 
+      // Record activity timestamp
+      this.lastActivityTime = new Date();
+
       const stage = data.stage || "unknown";
       const progress = data.progress || 0;
       const message = data.message || "";
       const error = data.error || null;
       const metrics = data.metrics || {};
+      
+      // Get the last update time element and activity indicator
+      const lastUpdateTimeEl = modalElement.querySelector(".last-update-time");
+      const activityIndicatorEl = modalElement.querySelector(".activity-indicator");
+      
+      // Update the last update time
+      if (lastUpdateTimeEl) {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString();
+        lastUpdateTimeEl.textContent = `Last update: ${timeStr}`;
+      }
+      
+      // Ensure activity indicator is visible and pulsing
+      if (activityIndicatorEl) {
+        activityIndicatorEl.classList.add("pulsing");
+        // Reset the pulsing animation after 3 seconds if no new updates
+        setTimeout(() => {
+          if (this.lastActivityTime && (new Date() - this.lastActivityTime > 3000)) {
+            activityIndicatorEl.classList.remove("pulsing");
+          }
+        }, 3000);
+      }
 
       // Always update progress bar
       const progressBar = modalElement.querySelector(".progress-bar");
@@ -904,31 +958,74 @@
       if (progressMessageEl) {
         let contextMessage = message;
         if (!error) {
+          // Use the actual message from backend for most stages
           switch (stage) {
             case "preprocessing":
-              contextMessage = "Fetching street data from OpenStreetMap...";
+              contextMessage = message || "Fetching street data from OpenStreetMap...";
               break;
             case "indexing":
-              contextMessage = `Building street index (${metrics.rtree_items || 0} streets processed)`;
+              contextMessage = message || `Building street index (${metrics.rtree_items || 0} streets processed)`;
               break;
             case "processing_trips":
-              if (metrics.total_trips_to_process > 0) {
-                contextMessage = `Processing trips (${metrics.processed_trips || 0}/${metrics.total_trips_to_process})`;
+              if (message.includes("Preparing") || !message) {
+                if (metrics.total_trips_to_process > 0) {
+                  contextMessage = `Processing trips (${metrics.processed_trips || 0}/${metrics.total_trips_to_process})`;
+                } else {
+                  contextMessage = message || "Preparing to process GPS trips...";
+                }
+              } else {
+                contextMessage = message;
               }
               break;
             case "finalizing":
-              contextMessage = `Calculating final coverage statistics...`;
+              contextMessage = message || `Calculating final coverage statistics...`;
               break;
             case "generating_geojson":
-              contextMessage = "Generating detailed map data...";
+              contextMessage = message || "Generating detailed map data...";
               break;
             case "complete":
-              contextMessage = "Processing complete!";
+              contextMessage = message || "Processing complete!";
               break;
           }
         }
         progressMessageEl.textContent = error ? `Error: ${error}` : contextMessage;
         progressMessageEl.classList.toggle("text-danger", !!error);
+      }
+
+      // Show detailed stage description
+      const detailedStageEl = modalElement.querySelector(".detailed-stage-info");
+      if (detailedStageEl) {
+        let detailedText = "";
+        switch (stage) {
+          case "preprocessing":
+            detailedText = "Downloading street data from OpenStreetMap for this area";
+            break;
+          case "indexing":
+            detailedText = "Building spatial index of streets to efficiently match with GPS trips";
+            break;
+          case "processing_trips":
+            if (progress < 56) {
+              detailedText = "Querying database for GPS trips and preparing processing workers";
+            } else if (metrics.processed_trips === 0) {
+              detailedText = "Starting to process GPS trips - trips are analyzed in batches";
+            } else {
+              detailedText = "Processing GPS trips and identifying which streets they cover";
+            }
+            break;
+          case "finalizing":
+            detailedText = "Updating street coverage status and calculating statistics";
+            break;
+          case "generating_geojson":
+            detailedText = "Creating map data for visualization";
+            break;
+          case "complete":
+            detailedText = "All processing complete - map data is ready for viewing";
+            break;
+          case "error":
+            detailedText = "An error occurred during processing";
+            break;
+        }
+        detailedStageEl.textContent = detailedText;
       }
 
       // Update step indicators
@@ -945,40 +1042,157 @@
         `;
       }
 
+      // Add unit conversion helper function
+      const distanceInUserUnits = (meters, fixed = 2) => {
+        if (this.useMiles) {
+          // Convert meters to miles (1 meter = 0.000621371 miles)
+          return (meters * 0.000621371).toFixed(fixed) + " mi";
+        } else {
+          // Convert meters to kilometers
+          return (meters / 1000).toFixed(fixed) + " km";
+        }
+      };
+
+      // Toggle for miles/kilometers
+      const unitToggleEl = modalElement.querySelector(".unit-toggle");
+      if (unitToggleEl) {
+        unitToggleEl.textContent = this.useMiles ? "Switch to km" : "Switch to mi";
+        unitToggleEl.onclick = () => {
+          this.useMiles = !this.useMiles;
+          // Re-update the content with new units
+          this.updateModalContent(data);
+        };
+      }
+
       // Update stats information with clearer metrics
       let statsText = "";
       if (metrics.rtree_items !== undefined && stage === "indexing") {
+        const totalLength = metrics.total_length_m || 0;
+        const driveableLength = metrics.driveable_length_m || 0;
+        const coveredLength = metrics.covered_length_m || 0;
+        
         statsText += `
           <div class="mt-1">
             <div class="d-flex justify-content-between">
               <small>Streets Indexed:</small>
-              <small class="text-info">${metrics.rtree_items}</small>
+              <small class="text-info">${metrics.rtree_items.toLocaleString()}</small>
+            </div>
+            <div class="d-flex justify-content-between">
+              <small>Total Length:</small>
+              <small>${distanceInUserUnits(totalLength)}</small>
+            </div>
+            <div class="d-flex justify-content-between">
+              <small>Driveable Length:</small>
+              <small>${distanceInUserUnits(driveableLength)}</small>
+            </div>
+            <div class="d-flex justify-content-between">
+              <small>Already Covered:</small>
+              <small>${distanceInUserUnits(coveredLength)} (${metrics.coverage_percentage?.toFixed(1) || 0}%)</small>
             </div>
           </div>`;
       }
-      if (metrics.total_trips_to_process !== undefined && metrics.total_trips_to_process > 0 && stage === "processing_trips") {
+      
+      if (metrics.total_trips_to_process !== undefined && stage === "processing_trips") {
         const processed = metrics.processed_trips || 0;
-        const total = metrics.total_trips_to_process;
+        const total = metrics.total_trips_to_process || 0;
         const tripsProgress = total > 0 ? (processed / total) * 100 : 0;
+        const newlyFound = metrics.newly_covered_segments || 0;
+        
         statsText += `
-          <div class="mt-2">
+          <div class="mt-2">`;
+          
+        // Different messages based on progress stage
+        if (progress < 56) {
+          statsText += `
+            <div class="d-flex justify-content-between">
+              <small>Preparing Trip Processing:</small>
+              <small class="text-info">${progress.toFixed(0)}%</small>
+            </div>
+            <div class="progress mt-1 mb-2" style="height: 5px;">
+              <div class="progress-bar bg-info" style="width: ${(progress-50)*10}%"></div>
+            </div>`;
+            
+          if (total > 0) {
+            statsText += `
+              <div class="d-flex justify-content-between">
+                <small>GPS Trips Found:</small>
+                <small>${total.toLocaleString()}</small>
+              </div>`;
+          }
+          
+        } else {
+          statsText += `
             <div class="d-flex justify-content-between">
               <small>Trip Progress:</small>
-              <small class="text-info">${processed}/${total} (${tripsProgress.toFixed(1)}%)</small>
+              <small class="text-info">${processed.toLocaleString()}/${total.toLocaleString()} (${tripsProgress.toFixed(1)}%)</small>
             </div>
-            <div class="progress mt-1" style="height: 5px;">
+            <div class="progress mt-1 mb-2" style="height: 5px;">
               <div class="progress-bar bg-info" style="width: ${tripsProgress}%"></div>
-            </div>
-          </div>`;
-      }
-      if (metrics.newly_covered_segments !== undefined && (stage === "finalizing" || stage === "complete_stats")) {
-        statsText += `
-          <div class="mt-1">
+            </div>`;
+        }
+            
+        if (newlyFound > 0) {
+          statsText += `
             <div class="d-flex justify-content-between">
-              <small>New Streets Covered:</small>
-              <small class="text-success">+${metrics.newly_covered_segments}</small>
-            </div>
-          </div>`;
+              <small>Newly Found Segments:</small>
+              <small class="text-success">+${newlyFound.toLocaleString()}</small>
+            </div>`;
+        }
+            
+        if (metrics.coverage_percentage !== undefined) {
+          statsText += `
+            <div class="d-flex justify-content-between">
+              <small>Current Coverage:</small>
+              <small>${metrics.coverage_percentage.toFixed(1)}%</small>
+            </div>`;
+        }
+        
+        statsText += `</div>`;
+      }
+      
+      if ((metrics.newly_covered_segments !== undefined || metrics.coverage_percentage !== undefined) && 
+          (stage === "finalizing" || stage === "complete_stats" || stage === "complete" || stage === "generating_geojson")) {
+        const newlyFound = metrics.newly_covered_segments || 0;
+        const totalCovered = metrics.total_covered_segments || 0;
+        const initialCovered = metrics.initial_covered_segments || 0;
+        
+        statsText += `
+          <div class="mt-1">`;
+          
+        if (newlyFound > 0) {
+          statsText += `
+            <div class="d-flex justify-content-between">
+              <small>New Segments Covered:</small>
+              <small class="text-success">+${newlyFound.toLocaleString()}</small>
+            </div>`;
+        }
+        
+        statsText += `
+            <div class="d-flex justify-content-between">
+              <small>Total Segments Covered:</small>
+              <small>${totalCovered.toLocaleString()} / ${(initialCovered + newlyFound).toLocaleString()}</small>
+            </div>`;
+            
+        if (metrics.coverage_percentage !== undefined) {
+          statsText += `
+            <div class="d-flex justify-content-between">
+              <small>Final Coverage:</small>
+              <small class="text-${metrics.coverage_percentage > 50 ? 'success' : 'primary'}">${metrics.coverage_percentage.toFixed(1)}%</small>
+            </div>`;
+          
+          if (metrics.driveable_length_m && metrics.covered_length_m) {
+            const driveableLength = metrics.driveable_length_m || 0;
+            const coveredLength = metrics.covered_length_m || 0;
+            
+            statsText += `
+              <div class="d-flex justify-content-between">
+                <small>Distance Covered:</small>
+                <small>${distanceInUserUnits(coveredLength)} / ${distanceInUserUnits(driveableLength)}</small>
+              </div>`;
+          }
+        }
+        
+        statsText += `</div>`;
       }
 
       const statsInfoEl = modalElement.querySelector(".stats-info");
@@ -999,6 +1213,11 @@
           this.progressTimer = null;
           const estimatedTimeEl = modalElement.querySelector(".estimated-time");
           if (estimatedTimeEl) estimatedTimeEl.textContent = "";
+        }
+        
+        // Stop activity indicator
+        if (activityIndicatorEl) {
+          activityIndicatorEl.classList.remove("pulsing");
         }
       }
     }
