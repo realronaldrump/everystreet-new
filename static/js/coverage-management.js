@@ -1311,8 +1311,8 @@
       const processingLocation = { ...location };
 
       try {
-        // --- Declare pollingSuccessful here --- 
-        let pollingSuccessful = false; 
+        // --- Declare pollingSuccessful here ---
+        let pollingSuccessful = false;
         // -------------------------------------
 
         this.currentProcessingLocation = processingLocation;
@@ -1383,7 +1383,7 @@
               `Coverage update for ${processingLocation.display_name} completed.`,
               "success",
             );
-             // DO NOT hide modal here on success
+            // DO NOT hide modal here on success
           } catch (pollError) {
             // Ensure error is properly stringified
             const errorMessage =
@@ -1408,10 +1408,10 @@
             if (pollingSuccessful) {
               this.currentProcessingLocation = null;
             }
-             // No automatic hiding here
+            // No automatic hiding here
 
-             // Refresh areas list after polling attempt (success or fail)
-             // Moved refresh outside the success path
+            // Refresh areas list after polling attempt (success or fail)
+            // Moved refresh outside the success path
           }
         } else {
           // No task ID
@@ -1426,11 +1426,10 @@
         await this.loadCoverageAreas();
         // This check will now work correctly as pollingSuccessful is guaranteed to be defined
         if (pollingSuccessful && displayedLocationId) {
-             await this.displayCoverageDashboard(displayedLocationId);
+          await this.displayCoverageDashboard(displayedLocationId);
         }
-
       } catch (error) {
-         // Error during initial API call or setup
+        // Error during initial API call or setup
         // Ensure error is properly stringified
         const errorMessage =
           typeof error === "object"
@@ -1446,7 +1445,7 @@
         await this.loadCoverageAreas();
         // Keep context as is - don't clear it here
       }
-       // Removed finally block that was hiding the modal
+      // Removed finally block that was hiding the modal
     }
 
     // Helper to compare location objects (e.g., by display_name or osm_id)
@@ -1571,25 +1570,30 @@
                 data,
               );
               // Handle empty/null response on 200 OK as potential completion
-              if (response.ok && (data === null || data === undefined || Object.keys(data).length === 0)) {
-                  console.log(
-                    `Task ${taskId}: Empty/null response with HTTP 200, treating as potentially complete. Continuing polling for explicit 'complete' stage.`
-                  );
-                  // Create a placeholder 'processing' state to continue polling
-                  data = {
-                      stage: "processing_check", // Use a temporary stage
-                      progress: 99, // Assume high progress
-                      message: "Checking final completion status...",
-                      metrics: {},
-                  };
+              if (
+                response.ok &&
+                (data === null ||
+                  data === undefined ||
+                  Object.keys(data).length === 0)
+              ) {
+                console.log(
+                  `Task ${taskId}: Empty/null response with HTTP 200, treating as potentially complete. Continuing polling for explicit 'complete' stage.`,
+                );
+                // Create a placeholder 'processing' state to continue polling
+                data = {
+                  stage: "processing_check", // Use a temporary stage
+                  progress: 99, // Assume high progress
+                  message: "Checking final completion status...",
+                  metrics: {},
+                };
               } else {
-                  // Treat other invalid formats as unknown state
-                  data = {
-                      stage: "unknown",
-                      progress: 0,
-                      message: "Received invalid data from server",
-                      metrics: {},
-                  };
+                // Treat other invalid formats as unknown state
+                data = {
+                  stage: "unknown",
+                  progress: 0,
+                  message: "Received invalid data from server",
+                  metrics: {},
+                };
               }
             }
 
@@ -1597,21 +1601,22 @@
             // If stage is missing, but we have other data, it might be the final result
             // BUT we should still wait for the explicit 'complete' stage from GeoJSON generation.
             if (!data.stage) {
-                console.log(
-                    `Task ${taskId}: Response missing stage property. Assuming intermediate result. Continuing polling.`,
-                    data
-                );
-                // If it looks like the result object, update modal but keep polling
-                // Use a temporary stage name to indicate we're waiting for final confirmation
-                const result = data; // Keep the result data if needed
-                data = {
-                    stage: "finalizing_check", // Temporary stage
-                    progress: 98, // Indicate high progress
-                    message: "Calculation complete. Waiting for final confirmation (GeoJSON)...",
-                    result: result, // Include the result if available
-                    metrics: result.metrics || {}, // Try to get metrics from result
-                };
-                // Do NOT set taskCompletedOrFinalResultReceived = true here
+              console.log(
+                `Task ${taskId}: Response missing stage property. Assuming intermediate result. Continuing polling.`,
+                data,
+              );
+              // If it looks like the result object, update modal but keep polling
+              // Use a temporary stage name to indicate we're waiting for final confirmation
+              const result = data; // Keep the result data if needed
+              data = {
+                stage: "finalizing_check", // Temporary stage
+                progress: 98, // Indicate high progress
+                message:
+                  "Calculation complete. Waiting for final confirmation (GeoJSON)...",
+                result: result, // Include the result if available
+                metrics: result.metrics || {}, // Try to get metrics from result
+              };
+              // Do NOT set taskCompletedOrFinalResultReceived = true here
             }
 
             // ALWAYS update modal content with the latest data
@@ -1637,28 +1642,36 @@
               );
             }
             // --- Removed the premature completion logic based on missing 'stage' ---
-
           } catch (jsonError) {
             console.error(`Error parsing JSON for task ${taskId}:`, jsonError);
             // Check if the response text suggests completion despite parse error
-            let responseText = '';
+            let responseText = "";
             try {
-                responseText = await response.text(); // Try reading text
-                // If response text seems like a simple success message or empty JSON
-                if (responseText.trim() === '{}' || responseText.trim() === '' || responseText.includes('success')) {
-                    console.warn(`Task ${taskId}: JSON parse error but response suggests completion. Assuming complete.`);
-                     data = {
-                        stage: "complete",
-                        progress: 100,
-                        message: "Task completed (inferred from response).",
-                        metrics: {},
-                    };
-                    this.updateModalContent(data);
-                    taskCompletedOrFinalResultReceived = true;
-                    return data;
-                }
+              responseText = await response.text(); // Try reading text
+              // If response text seems like a simple success message or empty JSON
+              if (
+                responseText.trim() === "{}" ||
+                responseText.trim() === "" ||
+                responseText.includes("success")
+              ) {
+                console.warn(
+                  `Task ${taskId}: JSON parse error but response suggests completion. Assuming complete.`,
+                );
+                data = {
+                  stage: "complete",
+                  progress: 100,
+                  message: "Task completed (inferred from response).",
+                  metrics: {},
+                };
+                this.updateModalContent(data);
+                taskCompletedOrFinalResultReceived = true;
+                return data;
+              }
             } catch (textError) {
-                console.error(`Error reading response text for task ${taskId}:`, textError);
+              console.error(
+                `Error reading response text for task ${taskId}:`,
+                textError,
+              );
             }
 
             // If we couldn't infer completion, report parse error
@@ -1675,12 +1688,11 @@
 
           // Wait before next poll ONLY if not completed
           if (!taskCompletedOrFinalResultReceived) {
-              await new Promise((resolve) => setTimeout(resolve, 5000)); // 5-second interval
-              retries++;
+            await new Promise((resolve) => setTimeout(resolve, 5000)); // 5-second interval
+            retries++;
           } else {
-              break; // Exit loop if completed
+            break; // Exit loop if completed
           }
-
         } catch (error) {
           // Stringify any error objects to prevent [object Object] errors
           const errorMessage =
@@ -1705,14 +1717,14 @@
 
       // If loop finishes without completion or error
       if (!taskCompletedOrFinalResultReceived) {
-          this.updateModalContent({
-            stage: "error",
-            progress: 0,
-            message: "Polling timed out waiting for final completion.",
-            error: "Polling timed out",
-            metrics: {}, // Add empty metrics
-          });
-          throw new Error("Coverage calculation polling timed out");
+        this.updateModalContent({
+          stage: "error",
+          progress: 0,
+          message: "Polling timed out waiting for final completion.",
+          error: "Polling timed out",
+          metrics: {}, // Add empty metrics
+        });
+        throw new Error("Coverage calculation polling timed out");
       }
     }
 
