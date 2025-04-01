@@ -859,18 +859,17 @@
 
     updateModalContent(data) {
       const modalElement = document.getElementById("taskProgressModal");
-      if (!modalElement) return; // Ensure modal exists
+      if (!modalElement) return;
 
       // Safety check: ensure data is not null or undefined
       if (!data) {
         console.warn("Received null or undefined data in updateModalContent");
-        // Set default values instead of trying to access properties on null
         data = {
           stage: "unknown",
           progress: 0,
           message: "No data available",
           error: null,
-          metrics: {}, // Add empty metrics
+          metrics: {},
         };
       }
 
@@ -878,7 +877,6 @@
       const progress = data.progress || 0;
       const message = data.message || "";
       const error = data.error || null;
-      // **NEW:** Extract metrics
       const metrics = data.metrics || {};
 
       // Always update progress bar
@@ -894,7 +892,6 @@
         if (stage === "error") {
           progressBar.classList.add("bg-danger");
         } else if (progress < 100 && stage !== "complete") {
-          // Keep animating unless complete or error
           progressBar.classList.add(
             "progress-bar-striped",
             "progress-bar-animated",
@@ -902,17 +899,42 @@
         }
       }
 
-      // Always update message - show error message if present
+      // Update message with more context based on stage
       const progressMessageEl = modalElement.querySelector(".progress-message");
       if (progressMessageEl) {
-        progressMessageEl.textContent = error ? `Error: ${error}` : message;
+        let contextMessage = message;
+        if (!error) {
+          switch (stage) {
+            case "preprocessing":
+              contextMessage = "Fetching street data from OpenStreetMap...";
+              break;
+            case "indexing":
+              contextMessage = `Building street index (${metrics.rtree_items || 0} streets processed)`;
+              break;
+            case "processing_trips":
+              if (metrics.total_trips_to_process > 0) {
+                contextMessage = `Processing trips (${metrics.processed_trips || 0}/${metrics.total_trips_to_process})`;
+              }
+              break;
+            case "finalizing":
+              contextMessage = `Calculating final coverage statistics...`;
+              break;
+            case "generating_geojson":
+              contextMessage = "Generating detailed map data...";
+              break;
+            case "complete":
+              contextMessage = "Processing complete!";
+              break;
+          }
+        }
+        progressMessageEl.textContent = error ? `Error: ${error}` : contextMessage;
         progressMessageEl.classList.toggle("text-danger", !!error);
       }
 
       // Update step indicators
       this.updateStepIndicators(stage, progress);
 
-      // Update stage information with icon
+      // Update stage information with icon and better formatting
       const stageInfo = modalElement.querySelector(".stage-info");
       if (stageInfo) {
         stageInfo.innerHTML = `
@@ -923,41 +945,45 @@
         `;
       }
 
-      // **MODIFIED:** Update stats information using metrics
+      // Update stats information with clearer metrics
       let statsText = "";
       if (metrics.rtree_items !== undefined && stage === "indexing") {
-        statsText += `<div class="mt-1 d-flex justify-content-between"><small>Streets Indexed:</small><small>${metrics.rtree_items}</small></div>`;
+        statsText += `
+          <div class="mt-1">
+            <div class="d-flex justify-content-between">
+              <small>Streets Indexed:</small>
+              <small class="text-info">${metrics.rtree_items}</small>
+            </div>
+          </div>`;
       }
-      if (
-        metrics.total_trips_to_process !== undefined &&
-        metrics.total_trips_to_process > 0 &&
-        stage === "processing_trips"
-      ) {
+      if (metrics.total_trips_to_process !== undefined && metrics.total_trips_to_process > 0 && stage === "processing_trips") {
         const processed = metrics.processed_trips || 0;
         const total = metrics.total_trips_to_process;
         const tripsProgress = total > 0 ? (processed / total) * 100 : 0;
-        statsText += `<div class="mt-2">
+        statsText += `
+          <div class="mt-2">
             <div class="d-flex justify-content-between">
-              <small>Trips Processed:</small>
-              <small>${processed}/${total}</small>
+              <small>Trip Progress:</small>
+              <small class="text-info">${processed}/${total} (${tripsProgress.toFixed(1)}%)</small>
             </div>
             <div class="progress mt-1" style="height: 5px;">
               <div class="progress-bar bg-info" style="width: ${tripsProgress}%"></div>
             </div>
           </div>`;
       }
-      if (
-        metrics.newly_covered_segments !== undefined &&
-        (stage === "finalizing" || stage === "complete_stats")
-      ) {
-        statsText += `<div class="mt-1 d-flex justify-content-between"><small>New Segments Covered:</small><small>${metrics.newly_covered_segments}</small></div>`;
+      if (metrics.newly_covered_segments !== undefined && (stage === "finalizing" || stage === "complete_stats")) {
+        statsText += `
+          <div class="mt-1">
+            <div class="d-flex justify-content-between">
+              <small>New Streets Covered:</small>
+              <small class="text-success">+${metrics.newly_covered_segments}</small>
+            </div>
+          </div>`;
       }
 
       const statsInfoEl = modalElement.querySelector(".stats-info");
       if (statsInfoEl) {
-        statsInfoEl.innerHTML =
-          statsText ||
-          '<div class="text-muted small">Waiting for processing metrics...</div>'; // Updated placeholder
+        statsInfoEl.innerHTML = statsText || '<div class="text-muted small">Processing...</div>';
       }
 
       // Stop animation and timer if complete or error
@@ -971,9 +997,8 @@
         if (this.progressTimer) {
           clearInterval(this.progressTimer);
           this.progressTimer = null;
-          // **MODIFIED:** Update estimated time to 'done' or 'failed'
           const estimatedTimeEl = modalElement.querySelector(".estimated-time");
-          if (estimatedTimeEl) estimatedTimeEl.textContent = ""; // Clear estimate on completion/error
+          if (estimatedTimeEl) estimatedTimeEl.textContent = "";
         }
       }
     }
@@ -1068,15 +1093,15 @@
     static getStageIcon(stage) {
       const icons = {
         initializing: '<i class="fas fa-cog fa-spin"></i>',
-        preprocessing: '<i class="fas fa-magic"></i>',
-        loading_streets: '<i class="fas fa-map"></i>', // Kept for potential future use
-        indexing: '<i class="fas fa-search-location"></i>',
-        counting_trips: '<i class="fas fa-calculator"></i>', // Kept for potential future use
-        processing_trips: '<i class="fas fa-route fa-spin"></i>', // Spin during trip processing
-        calculating: '<i class="fas fa-cogs fa-spin"></i>', // Generic calculating state
-        finalizing: '<i class="fas fa-flag-checkered"></i>',
-        generating_geojson: '<i class="fas fa-file-code fa-spin"></i>', // Icon for GeoJSON gen
-        complete_stats: '<i class="fas fa-chart-bar"></i>', // Icon for stats complete
+        preprocessing: '<i class="fas fa-map-marked-alt"></i>',
+        loading_streets: '<i class="fas fa-map"></i>',
+        indexing: '<i class="fas fa-project-diagram"></i>',
+        counting_trips: '<i class="fas fa-calculator"></i>',
+        processing_trips: '<i class="fas fa-route fa-spin"></i>',
+        calculating: '<i class="fas fa-cogs fa-spin"></i>',
+        finalizing: '<i class="fas fa-chart-line"></i>',
+        generating_geojson: '<i class="fas fa-file-code fa-spin"></i>',
+        complete_stats: '<i class="fas fa-check"></i>',
         complete: '<i class="fas fa-check-circle"></i>',
         error: '<i class="fas fa-exclamation-circle"></i>',
         warning: '<i class="fas fa-exclamation-triangle"></i>',
@@ -1106,23 +1131,23 @@
     static formatStageName(stage) {
       const stageNames = {
         initializing: "Initializing",
-        preprocessing: "Preprocessing Streets",
+        preprocessing: "Fetching Streets",
         loading_streets: "Loading Streets",
         indexing: "Building Street Index",
-        counting_trips: "Counting Trips",
+        counting_trips: "Analyzing Trips",
         processing_trips: "Processing Trips",
         calculating: "Calculating Coverage",
-        finalizing: "Finalizing Results",
+        finalizing: "Calculating Statistics",
         generating_geojson: "Generating Map Data",
-        complete_stats: "Stats Calculated",
-        complete: "Completed",
+        complete_stats: "Finalizing",
+        complete: "Complete",
         error: "Error",
         warning: "Warning",
       };
       return (
         stageNames[stage] ||
         stage.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-      ); // Default formatting
+      );
     }
 
     async loadCoverageAreas() {
