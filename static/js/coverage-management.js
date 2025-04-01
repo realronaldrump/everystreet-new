@@ -1311,6 +1311,10 @@
       const processingLocation = { ...location };
 
       try {
+        // --- Declare pollingSuccessful here --- 
+        let pollingSuccessful = false; 
+        // -------------------------------------
+
         this.currentProcessingLocation = processingLocation;
         this.task_id = null; // Reset task ID
 
@@ -1368,12 +1372,13 @@
         if (data.task_id) {
           this.task_id = data.task_id; // Store task ID
           this.activeTaskIds.add(data.task_id);
-          let pollingSuccessful = false; // <-- Track polling success
+          // pollingSuccessful is already declared, just assign here
+          // let pollingSuccessful = false; // <-- REMOVE this declaration
 
           try {
             // Poll for completion
             await this.pollCoverageProgress(data.task_id);
-            pollingSuccessful = true; // <-- Mark success
+            pollingSuccessful = true; // Assign true on success
             window.notificationManager.show(
               `Coverage update for ${processingLocation.display_name} completed.`,
               "success",
@@ -1417,8 +1422,9 @@
           );
         }
 
-        // Refresh areas and dashboard AFTER successful polling (if applicable)
+        // Refresh areas and dashboard AFTER polling attempt (success or fail)
         await this.loadCoverageAreas();
+        // This check will now work correctly as pollingSuccessful is guaranteed to be defined
         if (pollingSuccessful && displayedLocationId) {
              await this.displayCoverageDashboard(displayedLocationId);
         }
