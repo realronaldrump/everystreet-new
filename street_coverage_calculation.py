@@ -79,7 +79,7 @@ MAX_WORKERS_DEFAULT = max(1, multiprocessing.cpu_count())
 MAX_STREETS_PER_WORKER = 50000
 GEOMETRY_SIMPLIFICATION_TOLERANCE = 0.00001
 ENABLE_PRECOMPUTE_BBOXES = True
-ENABLE_GEOMETRY_SIMPLIFICATION = True
+ENABLE_GEOMETRY_SIMPLIFICATION = False
 ENABLE_NUMPY_SPEEDUPS = True
 
 
@@ -1915,114 +1915,190 @@ async def generate_and_store_geojson(
         ).batch_size(1000)
 
         first_feature = True
-        async for street_batch in batch_cursor(streets_cursor, 1000):
-            for street in street_batch:
-                if "properties" not in street or "geometry" not in street:
-                    continue
+        try:
+            async for street_batch in batch_cursor(streets_cursor, 1000):
+                for street in street_batch:
+                    if "properties" not in street or "geometry" not in street:
+                        continue
 
-                props = street["properties"]
-                props["segment_id"] = props.get(
-                    "segment_id", f"missing_{total_features}"
+                    props = street["properties"]
+                    if not props or "geometry" not in street:
+                        continue
+
+                    props["segment_id"] = props.get(
+                        "segment_id", f"missing_{total_features}"
+                    )
+                    props["driven"] = props.get("driven", False)
+                    props["highway"] = props.get("highway", "unknown")
+                    props["segment_length"] = props.get("segment_length", 0.0)
+                    props["undriveable"] = props.get("undriveable", False)
+
+                    feature = {
+                        "type": "Feature",
+                        "geometry": street["geometry"],
+                        "properties": props,
+                    }
+
+                    feature_json = bson.json_util.dumps(feature)
+                    if not first_feature:
+                        await upload_stream.write(b",\n")
+                    await upload_stream.write(feature_json.encode("utf-8"))
+                    first_feature = False
+                    total_features += 1
+
+                await asyncio.sleep(0.01)
+
+            metadata_stats = (
+                await find_one_with_retry(
+                    coverage_metadata_collection,
+                    {"location.display_name": location_name},
+                    {
+                        "total_length": 1,
+                        "driven_length": 1,
+                        "driveable_length": 1,
+                        "coverage_percentage": 1,
+                        "street_types": 1,
+                        "total_segments": 1,
+                    },
                 )
-                props["driven"] = props.get("driven", False)
-                props["highway"] = props.get("highway", "unknown")
-                props["segment_length"] = props.get("segment_length", 0.0)
-                props["undriveable"] = props.get("undriveable", False)
-
-                feature = {
-                    "type": "Feature",
-                    "geometry": street["geometry"],
-                    "properties": props,
-                }
-
-                feature_json = bson.json_util.dumps(feature)
-                if not first_feature:
-                    await upload_stream.write(b",\n")
-                await upload_stream.write(feature_json.encode("utf-8"))
-                first_feature = False
-                total_features += 1
-
-            await asyncio.sleep(0.01)
-
-        metadata_stats = (
-            await find_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": location_name},
-                {
-                    "total_length": 1,
-                    "driven_length": 1,
-                    "driveable_length": 1,
-                    "coverage_percentage": 1,
-                    "street_types": 1,
-                    "total_segments": 1,
-                },
+                or {}
             )
-            or {}
-        )
 
-        geojson_metadata = {
-            "total_length": metadata_stats.get("total_length", 0),
-            "driven_length": metadata_stats.get("driven_length", 0),
-            "driveable_length": metadata_stats.get("driveable_length", 0),
-            "coverage_percentage": metadata_stats.get(
-                "coverage_percentage", 0
-            ),
-            "street_types": metadata_stats.get("street_types", []),
-            "total_features": total_features,
-            "total_segments_metadata": metadata_stats.get("total_segments", 0),
-            "geojson_generated_at": datetime.now(timezone.utc).isoformat(),
-        }
-        metadata_json = bson.json_util.dumps(geojson_metadata)
+            geojson_metadata = {
+                "total_length": metadata_stats.get("total_length", 0),
+                "driven_length": metadata_stats.get("driven_length", 0),
+                "driveable_length": metadata_stats.get("driveable_length", 0),
+                "coverage_percentage": metadata_stats.get(
+                    "coverage_percentage", 0
+                ),
+                "street_types": metadata_stats.get("street_types", []),
+                "total_features": total_features,
+                "total_segments_metadata": metadata_stats.get("total_segments", 0),
+                "geojson_generated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            metadata_json = bson.json_util.dumps(geojson_metadata)
 
-        await upload_stream.write(
-            f'\n], "metadata": {metadata_json}\n}}'.encode("utf-8")
-        )
+            await upload_stream.write(
+                f'\n], "metadata": {metadata_json}\n}}'.encode("utf-8")
+            )
 
-        await upload_stream.close()
-        file_id = await upload_stream.close()
+            await upload_stream.close()
+            file_id = upload_stream._id
 
-        logger.info(
-            "Task %s: Finished streaming %d features to GridFS for %s (File ID: %s).",
-            task_id,
-            total_features,
-            location_name,
-            file_id,
-        )
+            if file_id:
+                logger.info(
+                    "Task %s: Finished streaming %d features to GridFS for %s (File ID: %s).",
+                    task_id,
+                    total_features,
+                    location_name,
+                    file_id,
+                )
+                logger.info(
+                    "Task %s: Attempting to update metadata for '%s' with GridFS ID: %s",
+                    task_id, location_name, file_id
+                )
+                update_result = await update_one_with_retry(
+                    coverage_metadata_collection,
+                    {"location.display_name": location_name},
+                    {
+                        "$set": {
+                            "streets_geojson_gridfs_id": file_id,
+                            "status": "completed",
+                            "last_updated": datetime.now(timezone.utc),
+                            "last_error": None,
+                            "total_segments": total_features,
+                        },
+                        "$unset": {"streets_data": ""},
+                    },
+                )
+                logger.info(
+                    "Task %s: Metadata update result for '%s': Matched=%d, Modified=%d",
+                    task_id, location_name, update_result.matched_count, update_result.modified_count
+                )
+                if update_result.matched_count > 0 and update_result.modified_count > 0:
+                    logger.info(
+                        "Task %s: Successfully updated metadata for '%s' with GridFS ID %s.",
+                        task_id,
+                        location_name,
+                        file_id,
+                    )
+                    await progress_collection.update_one(
+                        {"_id": task_id},
+                        {
+                            "$set": {
+                                "stage": "complete",
+                                "progress": 100,
+                                "message": "GeoJSON generation complete.",
+                            }
+                        },
+                    )
+                else:
+                    if update_result.matched_count == 0:
+                        logger.warning(
+                            "Task %s: Failed to find metadata document for location '%s' during GridFS ID update.",
+                            task_id, location_name
+                        )
+                    else:
+                        logger.warning(
+                            "Task %s: Found metadata document for location '%s' but did not modify it (maybe ID was already set?).",
+                            task_id, location_name
+                        )
+                    await progress_collection.update_one(
+                        {"_id": task_id},
+                        {
+                            "$set": {
+                                "stage": "error",
+                                "message": "Failed to update metadata with GeoJSON ID.",
+                                "error": "Metadata update verification failed",
+                            }
+                        },
+                    )
+            else:
+                error_msg = "Failed to obtain GridFS file_id after successful stream close."
+                logger.error("Task %s: %s for %s", task_id, error_msg, location_name)
+                await progress_collection.update_one(
+                    {"_id": task_id},
+                    {
+                        "$set": {
+                            "stage": "error",
+                            "message": error_msg,
+                            "error": "GridFS file ID missing post-close",
+                        }
+                    },
+                )
+                await coverage_metadata_collection.update_one(
+                    {"location.display_name": location_name},
+                    {
+                        "$set": {
+                            "status": "error",
+                            "last_error": error_msg,
+                        },
+                        "$unset": {"streets_geojson_gridfs_id": ""},
+                    },
+                )
 
-        await update_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": location_name},
-            {
-                "$set": {
-                    "streets_geojson_gridfs_id": file_id,
-                    "status": "completed",
-                    "last_updated": datetime.now(timezone.utc),
-                    "last_error": None,
-                    "total_segments": total_features,
-                },
-                "$unset": {"streets_data": ""},
-            },
-        )
-        logger.info(
-            "Task %s: Updated metadata for %s with GridFS ID and set status to completed.",
-            task_id,
-            location_name,
-        )
-
-        await progress_collection.update_one(
-            {"_id": task_id},
-            {
-                "$set": {
-                    "stage": "complete",
-                    "progress": 100,
-                    "message": "GeoJSON generation complete.",
-                }
-            },
-        )
+        except Exception as write_error:
+            logger.error(
+                "Task %s: Error during GeoJSON stream writing/closing for %s: %s",
+                task_id, location_name, write_error, exc_info=True
+            )
+            if upload_stream and not upload_stream.closed:
+                try:
+                    await upload_stream.abort()
+                    logger.info("Task %s: Aborted GridFS upload stream for %s due to write error.", task_id, location_name)
+                except Exception as abort_err:
+                    logger.error("Task %s: Error aborting GridFS stream for %s: %s", task_id, location_name, abort_err)
+            raise write_error
 
     except Exception as e:
-        error_msg = f"Error during streamed GeoJSON generation/storage: {e}"
+        error_msg = f"Error during GeoJSON generation/storage: {e}"
         logger.error("Task %s: %s", task_id, error_msg, exc_info=True)
+        if upload_stream and not upload_stream.closed:
+            try:
+                await upload_stream.abort()
+                logger.info("Task %s: Aborted GridFS upload stream in outer error handler.", task_id)
+            except Exception as abort_err:
+                logger.error("Task %s: Error aborting GridFS stream in outer handler: %s", task_id, abort_err)
         await progress_collection.update_one(
             {"_id": task_id},
             {
@@ -2039,22 +2115,11 @@ async def generate_and_store_geojson(
                 "$set": {
                     "status": "error",
                     "last_error": f"GeoJSON generation failed: {e}",
-                }
+                },
+                "$unset": {"streets_geojson_gridfs_id": ""},
             },
         )
-        if upload_stream and not upload_stream.closed:
-            try:
-                await upload_stream.abort()
-                logger.info(
-                    "Task %s: Aborted GridFS upload stream due to error.",
-                    task_id,
-                )
-            except Exception as abort_err:
-                logger.error(
-                    "Task %s: Error aborting GridFS stream: %s",
-                    task_id,
-                    abort_err,
-                )
+
     finally:
         if "streets_cursor" in locals() and hasattr(streets_cursor, "close"):
             await streets_cursor.close()
