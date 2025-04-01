@@ -24,6 +24,7 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
+    AsyncIterator,
 )
 
 import bson
@@ -612,7 +613,7 @@ class SerializationHelper:
 # Helper for iterating through cursors in batches
 async def batch_cursor(
     cursor: AsyncIOMotorCursor, batch_size: int = 100, no_timeout: bool = True
-) -> Iterator[List[Dict[str, Any]]]:
+) -> AsyncIterator[List[Dict[str, Any]]]:
     """Process an AsyncIOMotorCursor in manageable batches to limit memory
     usage.
 
