@@ -567,15 +567,16 @@
         if (taskData?.task_id) {
           this.task_id = taskData.task_id; // Store the task ID for state saving
           this.activeTaskIds.add(taskData.task_id);
-          let pollingSuccessful = false;
+          let pollingSuccessful = false; // <-- Keep track of polling success
 
           try {
             await this.pollCoverageProgress(taskData.task_id);
-            pollingSuccessful = true;
+            pollingSuccessful = true; // <-- Mark success
             window.notificationManager.show(
               "Processing completed successfully!",
               "success",
             );
+            // DO NOT hide modal here on success
           } catch (pollError) {
             // Convert any objects to strings for better error messages
             const errorMessage =
@@ -587,21 +588,23 @@
               `Processing failed: ${errorMessage}`,
               "danger",
             );
+            this.hideProgressModal(); // <-- Hide on polling error
           } finally {
             this.activeTaskIds.delete(taskData.task_id);
             this.task_id = null; // Clear task ID
 
-            // If polling was successful, THEN clear the context
+            // If polling was successful, clear the context but DON'T hide modal
             if (pollingSuccessful) {
               this.currentProcessingLocation = null;
             }
+            // No automatic hiding here
 
-            this.hideProgressModal();
+            // Always refresh areas list after polling attempt finishes (success or fail)
             await this.loadCoverageAreas();
           }
         } else {
           // No task ID returned
-          this.hideProgressModal();
+          this.hideProgressModal(); // <-- Hide if no task ID
           window.notificationManager.show(
             "Processing started, but no task ID received for progress tracking.",
             "warning",
@@ -617,6 +620,7 @@
         }
         this.validatedLocation = null;
       } catch (error) {
+        // Error during initial API call or setup
         // Ensure error is properly stringified
         const errorMessage =
           typeof error === "object"
@@ -628,10 +632,10 @@
           `Failed to add coverage area: ${errorMessage}`,
           "danger",
         );
-        this.hideProgressModal();
+        this.hideProgressModal(); // <-- Hide on initial error
         await this.loadCoverageAreas();
       } finally {
-        // Only reset button state here, not processing context
+        // Only reset button state here, not processing context or modal
         addButton.disabled = true;
         addButton.innerHTML = originalButtonText;
       }
@@ -1364,16 +1368,17 @@
         if (data.task_id) {
           this.task_id = data.task_id; // Store task ID
           this.activeTaskIds.add(data.task_id);
-          let pollingSuccessful = false;
+          let pollingSuccessful = false; // <-- Track polling success
 
           try {
             // Poll for completion
             await this.pollCoverageProgress(data.task_id);
-            pollingSuccessful = true;
+            pollingSuccessful = true; // <-- Mark success
             window.notificationManager.show(
               `Coverage update for ${processingLocation.display_name} completed.`,
               "success",
             );
+             // DO NOT hide modal here on success
           } catch (pollError) {
             // Ensure error is properly stringified
             const errorMessage =
@@ -1385,7 +1390,10 @@
               `Coverage update for ${processingLocation.display_name} failed: ${errorMessage}`,
               "danger",
             );
+            this.hideProgressModal(); // <-- Hide on polling error
+            // Refresh areas on error
             await this.loadCoverageAreas();
+            // We might want to return or throw here depending on desired flow
             return;
           } finally {
             this.activeTaskIds.delete(data.task_id);
@@ -1395,24 +1403,28 @@
             if (pollingSuccessful) {
               this.currentProcessingLocation = null;
             }
+             // No automatic hiding here
+
+             // Refresh areas list after polling attempt (success or fail)
+             // Moved refresh outside the success path
           }
         } else {
           // No task ID
+          this.hideProgressModal(); // <-- Hide if no task ID
           window.notificationManager.show(
             "Update started, but no task ID received for progress tracking.",
             "warning",
           );
         }
 
-        // Success path - only reaches here if polling was successful
-        this.hideProgressModal();
+        // Refresh areas and dashboard AFTER successful polling (if applicable)
         await this.loadCoverageAreas();
-
-        // Refresh dashboard if needed
-        if (displayedLocationId) {
-          await this.displayCoverageDashboard(displayedLocationId);
+        if (pollingSuccessful && displayedLocationId) {
+             await this.displayCoverageDashboard(displayedLocationId);
         }
+
       } catch (error) {
+         // Error during initial API call or setup
         // Ensure error is properly stringified
         const errorMessage =
           typeof error === "object"
@@ -1424,11 +1436,11 @@
           `Coverage update failed: ${errorMessage}`,
           "danger",
         );
-        this.hideProgressModal();
+        this.hideProgressModal(); // <-- Hide on initial error
         await this.loadCoverageAreas();
-
         // Keep context as is - don't clear it here
       }
+       // Removed finally block that was hiding the modal
     }
 
     // Helper to compare location objects (e.g., by display_name or osm_id)
