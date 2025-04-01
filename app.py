@@ -3767,4 +3767,162 @@ async def get_storage_info():
         }
 
 
-# ... (rest of the code remains unchanged)
+@app.get("/api/coverage_areas/{location_id}")
+async def get_coverage_area_details(location_id: str):
+    """Get detailed information about a coverage area, fetching GeoJSON from
+    GridFS."""
+    try:
+        # Find the coverage data
+        coverage_doc = None
+        try:
+            coverage_doc = await find_one_with_retry(
+                coverage_metadata_collection, {"_id": ObjectId(location_id)}
+            )
+        except bson.errors.InvalidId:
+            # If not a valid ObjectId, try finding by display_name as a fallback
+            # This might be less reliable if names are not unique
+            logger.warning(f"Invalid ObjectId '{location_id}', attempting to find by display_name.")
+            coverage_doc = await find_one_with_retry(
+                coverage_metadata_collection,
+                {"location.display_name": location_id},
+            )
+
+        if not coverage_doc:
+            logger.error("Coverage area not found for id/name: %s", location_id)
+            raise HTTPException(
+                status_code=404, detail="Coverage area not found"
+            )
+
+        # Extract basic info
+        location_name = coverage_doc.get("location", {}).get(
+            "display_name", "Unknown"
+        )
+        location_obj = coverage_doc.get("location", {})
+        last_updated = SerializationHelper.serialize_datetime(
+            coverage_doc.get("last_updated")
+        )
+        total_length = coverage_doc.get("total_length", 0)
+        driven_length = coverage_doc.get("driven_length", 0)
+        driveable_length = coverage_doc.get("driveable_length", 0) # Fetch driveable length
+        coverage_percentage = coverage_doc.get("coverage_percentage", 0)
+        status = coverage_doc.get("status", "unknown")
+        last_error = coverage_doc.get("last_error")
+        total_segments = coverage_doc.get("total_segments", 0)
+
+        streets_geojson = {}
+        needs_reprocessing = (
+            True  # Default to true unless GridFS data is loaded
+        )
+        gridfs_id = coverage_doc.get(
+            "streets_geojson_gridfs_id"
+        )
+
+        if gridfs_id:
+            try:
+                fs = AsyncIOMotorGridFSBucket(db_manager.db)
+                gridfs_stream = await fs.open_download_stream(gridfs_id)
+                geojson_data_bytes = await gridfs_stream.read()
+                streets_geojson = json.loads(
+                    geojson_data_bytes.decode("utf-8")
+                )
+                # Validate basic structure
+                if isinstance(streets_geojson, dict) and isinstance(
+                    streets_geojson.get("features"), list
+                ):
+                    # Use total_segments from metadata if available and seems consistent
+                    if total_segments > 0 and abs(total_segments - len(streets_geojson.get("features", []))) < 10:
+                        total_streets = total_segments
+                    else:
+                        total_streets = len(streets_geojson.get("features", []))
+
+                    needs_reprocessing = False  # Successfully loaded
+                    logger.info(
+                        "Successfully loaded GeoJSON from GridFS for %s",
+                        location_name,
+                    )
+                else:
+                    logger.error(
+                        "Invalid GeoJSON structure loaded from GridFS for %s (ID: %s)",
+                        location_name,
+                        gridfs_id,
+                    )
+                    streets_geojson = {}  # Reset on invalid structure
+                    total_streets = total_segments # Fallback to metadata count
+            except NoFile:
+                logger.error(
+                    "GridFS file not found for ID %s (Location: %s)",
+                    gridfs_id,
+                    location_name,
+                )
+                total_streets = total_segments # Fallback
+            except Exception as gridfs_err:
+                logger.error(
+                    "Error reading GeoJSON from GridFS ID %s for %s: %s",
+                    gridfs_id,
+                    location_name,
+                    gridfs_err,
+                )
+                total_streets = total_segments # Fallback
+        else:
+            logger.warning(
+                "No streets_geojson_gridfs_id found for location: %s",
+                location_name,
+            )
+            total_streets = total_segments # Fallback
+            # If status is complete but no gridfs_id, maybe generation failed?
+            if status == "completed":
+                 logger.warning("Status is 'completed' but no GridFS ID found for %s", location_name)
+                 last_error = last_error or "GeoJSON generation may have failed."
+                 status = "error" # Reflect potential issue
+
+        # Get street types (existing logic is fine)
+        street_types = coverage_doc.get("street_types", [])
+        # Only recalculate if missing and data was loaded successfully
+        if not street_types and not needs_reprocessing:
+            logger.info("Recalculating street type stats from loaded GeoJSON for %s", location_name)
+            street_types = collect_street_type_stats(
+                streets_geojson.get("features", [])
+            )
+
+        # Construct the final result
+        result = {
+            "success": True,
+            "coverage": {
+                "_id": str(coverage_doc["_id"]),
+                "location_name": location_name,
+                "location": location_obj,
+                "total_length": total_length,
+                "driven_length": driven_length,
+                "driveable_length": driveable_length, # Include driveable length
+                "coverage_percentage": coverage_percentage,
+                "last_updated": last_updated,
+                "total_segments": total_segments, # Use count from metadata primarily
+                "total_streets": total_streets, # Actual count from GeoJSON if loaded
+                "streets_geojson": streets_geojson,
+                "street_types": street_types,
+                "status": status,
+                "has_error": status == "error",
+                "error_message": last_error if status == "error" else None,
+                "needs_reprocessing": needs_reprocessing,
+            },
+        }
+        # Use JSONResponse with custom default to handle ObjectId and datetime
+        return JSONResponse(content=json.loads(json.dumps(result, default=default_serializer)))
+
+    except HTTPException as http_exc:
+        # Re-raise HTTP exceptions directly
+        raise http_exc
+    except Exception as e:
+        logger.error(
+            "Error fetching coverage area details for %s: %s",
+            location_id,
+            str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error fetching coverage details: {str(e)}",
+        )
+
+
+# ADVANCED EXPORT
