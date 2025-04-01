@@ -4,7 +4,7 @@
 // Add CSS styles for activity indicator
 (() => {
   // Add CSS for pulsing activity indicator
-  const style = document.createElement('style');
+  const style = document.createElement("style");
   style.textContent = `
     .activity-indicator.pulsing {
       animation: pulse 1.5s infinite;
@@ -751,7 +751,10 @@
       if (modalProgressBar) {
         modalProgressBar.style.width = `${progress}%`;
         modalProgressBar.setAttribute("aria-valuenow", progress);
-        modalProgressBar.classList.add("progress-bar-striped", "progress-bar-animated");
+        modalProgressBar.classList.add(
+          "progress-bar-striped",
+          "progress-bar-animated",
+        );
       }
 
       const progressMessage = modalElement.querySelector(".progress-message");
@@ -761,15 +764,20 @@
       }
 
       // Add activity indicator, unit toggle, and last update time if they don't exist
-      const activityIndicatorContainer = modalElement.querySelector(".activity-indicator-container");
-      if (activityIndicatorContainer && !activityIndicatorContainer.querySelector(".activity-indicator")) {
+      const activityIndicatorContainer = modalElement.querySelector(
+        ".activity-indicator-container",
+      );
+      if (
+        activityIndicatorContainer &&
+        !activityIndicatorContainer.querySelector(".activity-indicator")
+      ) {
         activityIndicatorContainer.innerHTML = `
           <div class="d-flex align-items-center justify-content-between">
             <small class="activity-indicator pulsing"><i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active</small>
             <small class="last-update-time text-muted"></small>
           </div>
           <button type="button" class="btn btn-sm btn-outline-secondary mt-2 unit-toggle">
-            Switch to ${this.useMiles ? 'km' : 'mi'}
+            Switch to ${this.useMiles ? "km" : "mi"}
           </button>
           <div class="detailed-stage-info text-muted mt-2 small"></div>
         `;
@@ -790,18 +798,25 @@
       }
       this.progressTimer = setInterval(() => {
         this.updateTimingInfo();
-        
+
         // Also check if activity indicator needs to be updated
-        const activityIndicator = modalElement.querySelector(".activity-indicator");
+        const activityIndicator = modalElement.querySelector(
+          ".activity-indicator",
+        );
         if (activityIndicator) {
-          if (this.lastActivityTime && (new Date() - this.lastActivityTime > 5000)) {
+          if (
+            this.lastActivityTime &&
+            new Date() - this.lastActivityTime > 5000
+          ) {
             // No activity for more than 5 seconds - switch from pulsing to normal
             activityIndicator.classList.remove("pulsing");
-            activityIndicator.innerHTML = '<i class="fas fa-circle-notch fa-spin text-secondary me-1"></i>Running';
+            activityIndicator.innerHTML =
+              '<i class="fas fa-circle-notch fa-spin text-secondary me-1"></i>Running';
           } else {
             // Recent activity - ensure pulsing is active
             activityIndicator.classList.add("pulsing");
-            activityIndicator.innerHTML = '<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active';
+            activityIndicator.innerHTML =
+              '<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active';
           }
         }
       }, 1000);
@@ -910,24 +925,29 @@
       const message = data.message || "";
       const error = data.error || null;
       const metrics = data.metrics || {};
-      
+
       // Get the last update time element and activity indicator
       const lastUpdateTimeEl = modalElement.querySelector(".last-update-time");
-      const activityIndicatorEl = modalElement.querySelector(".activity-indicator");
-      
+      const activityIndicatorEl = modalElement.querySelector(
+        ".activity-indicator",
+      );
+
       // Update the last update time
       if (lastUpdateTimeEl) {
         const now = new Date();
         const timeStr = now.toLocaleTimeString();
         lastUpdateTimeEl.textContent = `Last update: ${timeStr}`;
       }
-      
+
       // Ensure activity indicator is visible and pulsing
       if (activityIndicatorEl) {
         activityIndicatorEl.classList.add("pulsing");
         // Reset the pulsing animation after 3 seconds if no new updates
         setTimeout(() => {
-          if (this.lastActivityTime && (new Date() - this.lastActivityTime > 3000)) {
+          if (
+            this.lastActivityTime &&
+            new Date() - this.lastActivityTime > 3000
+          ) {
             activityIndicatorEl.classList.remove("pulsing");
           }
         }, 3000);
@@ -961,24 +981,29 @@
           // Use the actual message from backend for most stages
           switch (stage) {
             case "preprocessing":
-              contextMessage = message || "Fetching street data from OpenStreetMap...";
+              contextMessage =
+                message || "Fetching street data from OpenStreetMap...";
               break;
             case "indexing":
-              contextMessage = message || `Building street index (${metrics.rtree_items || 0} streets processed)`;
+              contextMessage =
+                message ||
+                `Building street index (${metrics.rtree_items || 0} streets processed)`;
               break;
             case "processing_trips":
               if (message.includes("Preparing") || !message) {
                 if (metrics.total_trips_to_process > 0) {
                   contextMessage = `Processing trips (${metrics.processed_trips || 0}/${metrics.total_trips_to_process})`;
                 } else {
-                  contextMessage = message || "Preparing to process GPS trips...";
+                  contextMessage =
+                    message || "Preparing to process GPS trips...";
                 }
               } else {
                 contextMessage = message;
               }
               break;
             case "finalizing":
-              contextMessage = message || `Calculating final coverage statistics...`;
+              contextMessage =
+                message || `Calculating final coverage statistics...`;
               break;
             case "generating_geojson":
               contextMessage = message || "Generating detailed map data...";
@@ -988,38 +1013,49 @@
               break;
           }
         }
-        progressMessageEl.textContent = error ? `Error: ${error}` : contextMessage;
+        progressMessageEl.textContent = error
+          ? `Error: ${error}`
+          : contextMessage;
         progressMessageEl.classList.toggle("text-danger", !!error);
       }
 
       // Show detailed stage description
-      const detailedStageEl = modalElement.querySelector(".detailed-stage-info");
+      const detailedStageEl = modalElement.querySelector(
+        ".detailed-stage-info",
+      );
       if (detailedStageEl) {
         let detailedText = "";
         switch (stage) {
           case "preprocessing":
-            detailedText = "Downloading street data from OpenStreetMap for this area";
+            detailedText =
+              "Downloading street data from OpenStreetMap for this area";
             break;
           case "indexing":
-            detailedText = "Building spatial index of streets to efficiently match with GPS trips";
+            detailedText =
+              "Building spatial index of streets to efficiently match with GPS trips";
             break;
           case "processing_trips":
             if (progress < 56) {
-              detailedText = "Querying database for GPS trips and preparing processing workers";
+              detailedText =
+                "Querying database for GPS trips and preparing processing workers";
             } else if (metrics.processed_trips === 0) {
-              detailedText = "Starting to process GPS trips - trips are analyzed in batches";
+              detailedText =
+                "Starting to process GPS trips - trips are analyzed in batches";
             } else {
-              detailedText = "Processing GPS trips and identifying which streets they cover";
+              detailedText =
+                "Processing GPS trips and identifying which streets they cover";
             }
             break;
           case "finalizing":
-            detailedText = "Updating street coverage status and calculating statistics";
+            detailedText =
+              "Updating street coverage status and calculating statistics";
             break;
           case "generating_geojson":
             detailedText = "Creating map data for visualization";
             break;
           case "complete":
-            detailedText = "All processing complete - map data is ready for viewing";
+            detailedText =
+              "All processing complete - map data is ready for viewing";
             break;
           case "error":
             detailedText = "An error occurred during processing";
@@ -1056,7 +1092,9 @@
       // Toggle for miles/kilometers
       const unitToggleEl = modalElement.querySelector(".unit-toggle");
       if (unitToggleEl) {
-        unitToggleEl.textContent = this.useMiles ? "Switch to km" : "Switch to mi";
+        unitToggleEl.textContent = this.useMiles
+          ? "Switch to km"
+          : "Switch to mi";
         unitToggleEl.onclick = () => {
           this.useMiles = !this.useMiles;
           // Re-update the content with new units
@@ -1070,7 +1108,7 @@
         const totalLength = metrics.total_length_m || 0;
         const driveableLength = metrics.driveable_length_m || 0;
         const coveredLength = metrics.covered_length_m || 0;
-        
+
         statsText += `
           <div class="mt-1">
             <div class="d-flex justify-content-between">
@@ -1091,16 +1129,19 @@
             </div>
           </div>`;
       }
-      
-      if (metrics.total_trips_to_process !== undefined && stage === "processing_trips") {
+
+      if (
+        metrics.total_trips_to_process !== undefined &&
+        stage === "processing_trips"
+      ) {
         const processed = metrics.processed_trips || 0;
         const total = metrics.total_trips_to_process || 0;
         const tripsProgress = total > 0 ? (processed / total) * 100 : 0;
         const newlyFound = metrics.newly_covered_segments || 0;
-        
+
         statsText += `
           <div class="mt-2">`;
-          
+
         // Different messages based on progress stage
         if (progress < 56) {
           statsText += `
@@ -1109,9 +1150,9 @@
               <small class="text-info">${progress.toFixed(0)}%</small>
             </div>
             <div class="progress mt-1 mb-2" style="height: 5px;">
-              <div class="progress-bar bg-info" style="width: ${(progress-50)*10}%"></div>
+              <div class="progress-bar bg-info" style="width: ${(progress - 50) * 10}%"></div>
             </div>`;
-            
+
           if (total > 0) {
             statsText += `
               <div class="d-flex justify-content-between">
@@ -1119,7 +1160,6 @@
                 <small>${total.toLocaleString()}</small>
               </div>`;
           }
-          
         } else {
           statsText += `
             <div class="d-flex justify-content-between">
@@ -1130,7 +1170,7 @@
               <div class="progress-bar bg-info" style="width: ${tripsProgress}%"></div>
             </div>`;
         }
-            
+
         if (newlyFound > 0) {
           statsText += `
             <div class="d-flex justify-content-between">
@@ -1138,7 +1178,7 @@
               <small class="text-success">+${newlyFound.toLocaleString()}</small>
             </div>`;
         }
-            
+
         if (metrics.coverage_percentage !== undefined) {
           statsText += `
             <div class="d-flex justify-content-between">
@@ -1146,19 +1186,25 @@
               <small>${metrics.coverage_percentage.toFixed(1)}%</small>
             </div>`;
         }
-        
+
         statsText += `</div>`;
       }
-      
-      if ((metrics.newly_covered_segments !== undefined || metrics.coverage_percentage !== undefined) && 
-          (stage === "finalizing" || stage === "complete_stats" || stage === "complete" || stage === "generating_geojson")) {
+
+      if (
+        (metrics.newly_covered_segments !== undefined ||
+          metrics.coverage_percentage !== undefined) &&
+        (stage === "finalizing" ||
+          stage === "complete_stats" ||
+          stage === "complete" ||
+          stage === "generating_geojson")
+      ) {
         const newlyFound = metrics.newly_covered_segments || 0;
         const totalCovered = metrics.total_covered_segments || 0;
         const initialCovered = metrics.initial_covered_segments || 0;
-        
+
         statsText += `
           <div class="mt-1">`;
-          
+
         if (newlyFound > 0) {
           statsText += `
             <div class="d-flex justify-content-between">
@@ -1166,24 +1212,24 @@
               <small class="text-success">+${newlyFound.toLocaleString()}</small>
             </div>`;
         }
-        
+
         statsText += `
             <div class="d-flex justify-content-between">
               <small>Total Segments Covered:</small>
               <small>${totalCovered.toLocaleString()} / ${(initialCovered + newlyFound).toLocaleString()}</small>
             </div>`;
-            
+
         if (metrics.coverage_percentage !== undefined) {
           statsText += `
             <div class="d-flex justify-content-between">
               <small>Final Coverage:</small>
-              <small class="text-${metrics.coverage_percentage > 50 ? 'success' : 'primary'}">${metrics.coverage_percentage.toFixed(1)}%</small>
+              <small class="text-${metrics.coverage_percentage > 50 ? "success" : "primary"}">${metrics.coverage_percentage.toFixed(1)}%</small>
             </div>`;
-          
+
           if (metrics.driveable_length_m && metrics.covered_length_m) {
             const driveableLength = metrics.driveable_length_m || 0;
             const coveredLength = metrics.covered_length_m || 0;
-            
+
             statsText += `
               <div class="d-flex justify-content-between">
                 <small>Distance Covered:</small>
@@ -1191,13 +1237,14 @@
               </div>`;
           }
         }
-        
+
         statsText += `</div>`;
       }
 
       const statsInfoEl = modalElement.querySelector(".stats-info");
       if (statsInfoEl) {
-        statsInfoEl.innerHTML = statsText || '<div class="text-muted small">Processing...</div>';
+        statsInfoEl.innerHTML =
+          statsText || '<div class="text-muted small">Processing...</div>';
       }
 
       // Stop animation and timer if complete or error
@@ -1214,7 +1261,7 @@
           const estimatedTimeEl = modalElement.querySelector(".estimated-time");
           if (estimatedTimeEl) estimatedTimeEl.textContent = "";
         }
-        
+
         // Stop activity indicator
         if (activityIndicatorEl) {
           activityIndicatorEl.classList.remove("pulsing");
@@ -1555,8 +1602,8 @@
       const processingLocation = { ...location };
 
       try {
-        // --- Declare pollingSuccessful here --- 
-        let pollingSuccessful = false; 
+        // --- Declare pollingSuccessful here ---
+        let pollingSuccessful = false;
         // -------------------------------------
 
         this.currentProcessingLocation = processingLocation;
@@ -1627,7 +1674,7 @@
               `Coverage update for ${processingLocation.display_name} completed.`,
               "success",
             );
-             // DO NOT hide modal here on success
+            // DO NOT hide modal here on success
           } catch (pollError) {
             // Ensure error is properly stringified
             const errorMessage =
@@ -1652,10 +1699,10 @@
             if (pollingSuccessful) {
               this.currentProcessingLocation = null;
             }
-             // No automatic hiding here
+            // No automatic hiding here
 
-             // Refresh areas list after polling attempt (success or fail)
-             // Moved refresh outside the success path
+            // Refresh areas list after polling attempt (success or fail)
+            // Moved refresh outside the success path
           }
         } else {
           // No task ID
@@ -1670,11 +1717,10 @@
         await this.loadCoverageAreas();
         // This check will now work correctly as pollingSuccessful is guaranteed to be defined
         if (pollingSuccessful && displayedLocationId) {
-             await this.displayCoverageDashboard(displayedLocationId);
+          await this.displayCoverageDashboard(displayedLocationId);
         }
-
       } catch (error) {
-         // Error during initial API call or setup
+        // Error during initial API call or setup
         // Ensure error is properly stringified
         const errorMessage =
           typeof error === "object"
@@ -1690,7 +1736,7 @@
         await this.loadCoverageAreas();
         // Keep context as is - don't clear it here
       }
-       // Removed finally block that was hiding the modal
+      // Removed finally block that was hiding the modal
     }
 
     // Helper to compare location objects (e.g., by display_name or osm_id)
@@ -1815,25 +1861,30 @@
                 data,
               );
               // Handle empty/null response on 200 OK as potential completion
-              if (response.ok && (data === null || data === undefined || Object.keys(data).length === 0)) {
-                  console.log(
-                    `Task ${taskId}: Empty/null response with HTTP 200, treating as potentially complete. Continuing polling for explicit 'complete' stage.`
-                  );
-                  // Create a placeholder 'processing' state to continue polling
-                  data = {
-                      stage: "processing_check", // Use a temporary stage
-                      progress: 99, // Assume high progress
-                      message: "Checking final completion status...",
-                      metrics: {},
-                  };
+              if (
+                response.ok &&
+                (data === null ||
+                  data === undefined ||
+                  Object.keys(data).length === 0)
+              ) {
+                console.log(
+                  `Task ${taskId}: Empty/null response with HTTP 200, treating as potentially complete. Continuing polling for explicit 'complete' stage.`,
+                );
+                // Create a placeholder 'processing' state to continue polling
+                data = {
+                  stage: "processing_check", // Use a temporary stage
+                  progress: 99, // Assume high progress
+                  message: "Checking final completion status...",
+                  metrics: {},
+                };
               } else {
-                  // Treat other invalid formats as unknown state
-                  data = {
-                      stage: "unknown",
-                      progress: 0,
-                      message: "Received invalid data from server",
-                      metrics: {},
-                  };
+                // Treat other invalid formats as unknown state
+                data = {
+                  stage: "unknown",
+                  progress: 0,
+                  message: "Received invalid data from server",
+                  metrics: {},
+                };
               }
             }
 
@@ -1841,21 +1892,22 @@
             // If stage is missing, but we have other data, it might be the final result
             // BUT we should still wait for the explicit 'complete' stage from GeoJSON generation.
             if (!data.stage) {
-                console.log(
-                    `Task ${taskId}: Response missing stage property. Assuming intermediate result. Continuing polling.`,
-                    data
-                );
-                // If it looks like the result object, update modal but keep polling
-                // Use a temporary stage name to indicate we're waiting for final confirmation
-                const result = data; // Keep the result data if needed
-                data = {
-                    stage: "finalizing_check", // Temporary stage
-                    progress: 98, // Indicate high progress
-                    message: "Calculation complete. Waiting for final confirmation (GeoJSON)...",
-                    result: result, // Include the result if available
-                    metrics: result.metrics || {}, // Try to get metrics from result
-                };
-                // Do NOT set taskCompletedOrFinalResultReceived = true here
+              console.log(
+                `Task ${taskId}: Response missing stage property. Assuming intermediate result. Continuing polling.`,
+                data,
+              );
+              // If it looks like the result object, update modal but keep polling
+              // Use a temporary stage name to indicate we're waiting for final confirmation
+              const result = data; // Keep the result data if needed
+              data = {
+                stage: "finalizing_check", // Temporary stage
+                progress: 98, // Indicate high progress
+                message:
+                  "Calculation complete. Waiting for final confirmation (GeoJSON)...",
+                result: result, // Include the result if available
+                metrics: result.metrics || {}, // Try to get metrics from result
+              };
+              // Do NOT set taskCompletedOrFinalResultReceived = true here
             }
 
             // ALWAYS update modal content with the latest data
@@ -1881,28 +1933,36 @@
               );
             }
             // --- Removed the premature completion logic based on missing 'stage' ---
-
           } catch (jsonError) {
             console.error(`Error parsing JSON for task ${taskId}:`, jsonError);
             // Check if the response text suggests completion despite parse error
-            let responseText = '';
+            let responseText = "";
             try {
-                responseText = await response.text(); // Try reading text
-                // If response text seems like a simple success message or empty JSON
-                if (responseText.trim() === '{}' || responseText.trim() === '' || responseText.includes('success')) {
-                    console.warn(`Task ${taskId}: JSON parse error but response suggests completion. Assuming complete.`);
-                     data = {
-                        stage: "complete",
-                        progress: 100,
-                        message: "Task completed (inferred from response).",
-                        metrics: {},
-                    };
-                    this.updateModalContent(data);
-                    taskCompletedOrFinalResultReceived = true;
-                    return data;
-                }
+              responseText = await response.text(); // Try reading text
+              // If response text seems like a simple success message or empty JSON
+              if (
+                responseText.trim() === "{}" ||
+                responseText.trim() === "" ||
+                responseText.includes("success")
+              ) {
+                console.warn(
+                  `Task ${taskId}: JSON parse error but response suggests completion. Assuming complete.`,
+                );
+                data = {
+                  stage: "complete",
+                  progress: 100,
+                  message: "Task completed (inferred from response).",
+                  metrics: {},
+                };
+                this.updateModalContent(data);
+                taskCompletedOrFinalResultReceived = true;
+                return data;
+              }
             } catch (textError) {
-                console.error(`Error reading response text for task ${taskId}:`, textError);
+              console.error(
+                `Error reading response text for task ${taskId}:`,
+                textError,
+              );
             }
 
             // If we couldn't infer completion, report parse error
@@ -1919,12 +1979,11 @@
 
           // Wait before next poll ONLY if not completed
           if (!taskCompletedOrFinalResultReceived) {
-              await new Promise((resolve) => setTimeout(resolve, 5000)); // 5-second interval
-              retries++;
+            await new Promise((resolve) => setTimeout(resolve, 5000)); // 5-second interval
+            retries++;
           } else {
-              break; // Exit loop if completed
+            break; // Exit loop if completed
           }
-
         } catch (error) {
           // Stringify any error objects to prevent [object Object] errors
           const errorMessage =
@@ -1949,14 +2008,14 @@
 
       // If loop finishes without completion or error
       if (!taskCompletedOrFinalResultReceived) {
-          this.updateModalContent({
-            stage: "error",
-            progress: 0,
-            message: "Polling timed out waiting for final completion.",
-            error: "Polling timed out",
-            metrics: {}, // Add empty metrics
-          });
-          throw new Error("Coverage calculation polling timed out");
+        this.updateModalContent({
+          stage: "error",
+          progress: 0,
+          message: "Polling timed out waiting for final completion.",
+          error: "Polling timed out",
+          metrics: {}, // Add empty metrics
+        });
+        throw new Error("Coverage calculation polling timed out");
       }
     }
 
