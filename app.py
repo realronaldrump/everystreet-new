@@ -3265,7 +3265,11 @@ async def _mark_segment(
             {"_id": location_id},
             {"location.display_name": 1},
         )
-    ).get("location", {}).get("display_name"):
+    ).get(
+        "location", {}
+    ).get(
+        "display_name"
+    ):
         # Check both ID and name just in case
         logger.warning(
             f"Segment {segment_id} found but does not belong to location {location_id_str}. Proceeding anyway."
@@ -3436,9 +3440,7 @@ async def refresh_coverage_stats(location_id: str):
                 default=lambda obj: (
                     obj.isoformat()
                     if isinstance(obj, datetime)
-                    else str(obj)
-                    if isinstance(obj, ObjectId)
-                    else None
+                    else str(obj) if isinstance(obj, ObjectId) else None
                 ),
             )
         )
@@ -3618,9 +3620,7 @@ async def get_coverage_area_details(location_id: str):
             )  # More standard
 
         # Extract basic info (existing logic is fine)
-        location_name = coverage_doc.get("location", {}).get(
-            "display_name", "Unknown"
-        )
+        location_name = coverage_doc.get("location", {}).get("display_name", "Unknown")
         location_obj = coverage_doc.get("location", {})
         last_updated = SerializationHelper.serialize_datetime(
             coverage_doc.get("last_updated")
@@ -3633,9 +3633,7 @@ async def get_coverage_area_details(location_id: str):
 
         streets_geojson = {}
         total_streets = 0
-        needs_reprocessing = (
-            True  # Default to true unless GridFS data is loaded
-        )
+        needs_reprocessing = True  # Default to true unless GridFS data is loaded
         gridfs_id = coverage_doc.get(
             "streets_geojson_gridfs_id"
         )  # Get the GridFS ID field
@@ -3649,9 +3647,7 @@ async def get_coverage_area_details(location_id: str):
                 # Read the data
                 geojson_data_bytes = await gridfs_stream.read()
                 # Deserialize
-                streets_geojson = json.loads(
-                    geojson_data_bytes.decode("utf-8")
-                )
+                streets_geojson = json.loads(geojson_data_bytes.decode("utf-8"))
                 # Validate basic structure
                 if isinstance(streets_geojson, dict) and isinstance(
                     streets_geojson.get("features"), list
@@ -3693,9 +3689,7 @@ async def get_coverage_area_details(location_id: str):
 
         # Get street types (existing logic is fine, but might run unnecessarily if GeoJSON failed)
         street_types = coverage_doc.get("street_types", [])
-        if (
-            not street_types and not needs_reprocessing
-        ):  # Only compute if we have data
+        if not street_types and not needs_reprocessing:  # Only compute if we have data
             street_types = collect_street_type_stats(
                 streets_geojson.get("features", [])
             )
