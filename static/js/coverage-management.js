@@ -1813,7 +1813,7 @@
         covered_length_m: coverage.covered_length_m,
         driveable_length_m: coverage.driveable_length_m,
         total_length_m: coverage.total_length_m,
-        status: coverage.status
+        status: coverage.status,
       });
 
       const statsContainer = document.getElementById("dashboard-stats"); // Get the container
@@ -1822,7 +1822,8 @@
       // Use metric fields with '_m' suffix from the coverage object
       const totalLength = coverage.total_length_m || 0;
       // If driven_length_m is 0 or undefined, use covered_length_m instead
-      const drivenLength = (coverage.driven_length_m || coverage.covered_length_m || 0);
+      const drivenLength =
+        coverage.driven_length_m || coverage.covered_length_m || 0;
       const driveableLength = coverage.driveable_length_m || 0; // Get driveable length
       const coveragePercentage =
         coverage.coverage_percentage?.toFixed(1) || "0.0";
@@ -1917,8 +1918,12 @@
       topTypes.forEach((type) => {
         const coveragePct = type.coverage_percentage?.toFixed(1) || "0.0";
         // Use metric fields and unit conversion
-        const coveredDist = this.distanceInUserUnits(type.covered_length_m || 0);
-        const driveableDist = this.distanceInUserUnits(type.driveable_length_m || 0); // Use driveable for denominator display
+        const coveredDist = this.distanceInUserUnits(
+          type.covered_length_m || 0,
+        );
+        const driveableDist = this.distanceInUserUnits(
+          type.driveable_length_m || 0,
+        ); // Use driveable for denominator display
 
         let barColor = "bg-success";
         if (type.coverage_percentage < 25) barColor = "bg-danger";
@@ -2251,7 +2256,9 @@
             coverage.driveable_length_m || 0,
           ); // Use driveable length
           // If driven_length_m is 0 or undefined, use covered_length_m instead
-          const drivenDist = this.distanceInUserUnits(coverage.driven_length_m || coverage.covered_length_m || 0);
+          const drivenDist = this.distanceInUserUnits(
+            coverage.driven_length_m || coverage.covered_length_m || 0,
+          );
           let barColor = "bg-success";
           if (coverage.status === "error" || coverage.status === "canceled")
             barColor = "bg-secondary";
