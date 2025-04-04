@@ -41,9 +41,7 @@ if not REDIS_URL:
     redis_user = os.getenv("REDISUSER", "default")
 
     if redis_host and redis_password:
-        REDIS_URL = (
-            f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
-        )
+        REDIS_URL = f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
     else:
         raise ValueError(
             "REDIS_URL environment variable is not set and cannot be constructed! "
@@ -72,9 +70,7 @@ def get_redis_connection_with_retry():
             # Test the Redis connection
             r = redis.from_url(REDIS_URL)
             r.ping()
-            logger.info(
-                "Successfully connected to Redis broker."
-            )
+            logger.info("Successfully connected to Redis broker.")
             return True
         except ConnectionError as e:
             retry_count += 1
@@ -85,9 +81,7 @@ def get_redis_connection_with_retry():
                 e,
             )
             if retry_count < MAX_RETRIES:
-                logger.info(
-                    "Retrying Redis connection in %s seconds...", RETRY_DELAY
-                )
+                logger.info("Retrying Redis connection in %s seconds...", RETRY_DELAY)
                 time.sleep(RETRY_DELAY)
             else:
                 logger.error(
@@ -96,9 +90,7 @@ def get_redis_connection_with_retry():
                 )
                 raise  # Re-raise the exception to prevent Celery from starting without Redis
         except Exception as e:
-            logger.error(
-                "Unexpected error during Redis connection attempt: %s", e
-            )
+            logger.error("Unexpected error during Redis connection attempt: %s", e)
             raise  # Re-raise unexpected exceptions
 
 
@@ -164,9 +156,7 @@ app.conf.update(
     beat_schedule={
         "run_task_scheduler_every_minute": {
             "task": "tasks.run_task_scheduler",  # Name of the new scheduler task in tasks.py
-            "schedule": timedelta(
-                minutes=1
-            ),  # Run frequently (e.g., every minute)
+            "schedule": timedelta(minutes=1),  # Run frequently (e.g., every minute)
             "options": {
                 "queue": "high_priority"
             },  # Ensure this scheduler runs reliably
@@ -200,9 +190,7 @@ def worker_ready_handler(**kwargs):
 
 @signals.worker_shutting_down.connect
 def worker_shutdown_handler(**kwargs):
-    logger.info(
-        "Celery worker is shutting down..."
-    )  # Indicate worker shutdown
+    logger.info("Celery worker is shutting down...")  # Indicate worker shutdown
 
 
 @signals.beat_init.connect
@@ -225,4 +213,6 @@ def worker_init(**kwargs):
     from datetime import datetime, timezone
 
     current_time = datetime.now(timezone.utc)
-    logger.debug("Worker starting at UTC time: %s", current_time.isoformat())  # Changed from INFO to DEBUG
+    logger.debug(
+        "Worker starting at UTC time: %s", current_time.isoformat()
+    )  # Changed from INFO to DEBUG
