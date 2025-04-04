@@ -216,19 +216,19 @@ class CoverageCalculator:
         self.streets_index = (
             rtree.index.Index()
         )  # R-tree for WGS84 bounds (initial filtering)
-        self.streets_lookup: Dict[
-            int, Dict[str, Any]
-        ] = {}  # R-tree ID -> Street Metadata
-        self.street_utm_geoms_cache: Dict[
-            str, Any
-        ] = {}  # segment_id -> Shapely UTM geometry
-        self.street_utm_bboxes_cache: Dict[
-            str, Tuple[float, float, float, float]
-        ] = {}  # segment_id -> UTM bbox
+        self.streets_lookup: Dict[int, Dict[str, Any]] = (
+            {}
+        )  # R-tree ID -> Street Metadata
+        self.street_utm_geoms_cache: Dict[str, Any] = (
+            {}
+        )  # segment_id -> Shapely UTM geometry
+        self.street_utm_bboxes_cache: Dict[str, Tuple[float, float, float, float]] = (
+            {}
+        )  # segment_id -> UTM bbox
         # Keep WGS84 geom cache for GeoJSON generation if needed elsewhere, or remove if not
-        self.street_wgs84_geoms_cache: Dict[
-            str, Dict
-        ] = {}  # segment_id -> GeoJSON geometry dict
+        self.street_wgs84_geoms_cache: Dict[str, Dict] = (
+            {}
+        )  # segment_id -> GeoJSON geometry dict
 
         # Projections
         self.utm_proj: Optional[pyproj.CRS] = None
@@ -261,7 +261,6 @@ class CoverageCalculator:
         self.total_trips_to_process: int = 0
         self.processed_trips_count: int = 0
         self.submitted_trips_count: int = 0
-
 
     def initialize_projections(self) -> None:
         """Initializes WGS84 and appropriate UTM projection."""
@@ -900,9 +899,9 @@ class CoverageCalculator:
             {"gps": 1, "_id": 1},  # Only fetch necessary fields
         ).batch_size(self.trip_batch_size)
 
-        pending_futures_map: Dict[
-            Future, List[Tuple[str, List[Any]]]
-        ] = {}  # Future -> List[(trip_id, trip_coords)]
+        pending_futures_map: Dict[Future, List[Tuple[str, List[Any]]]] = (
+            {}
+        )  # Future -> List[(trip_id, trip_coords)]
         processed_count_local = 0
         completed_futures_count = 0
         failed_futures_count = 0
@@ -916,9 +915,9 @@ class CoverageCalculator:
                 trips_cursor, self.trip_batch_size
             ):
                 batch_num += 1
-                valid_trips_for_processing: List[
-                    Tuple[str, List[Any]]
-                ] = []  # Trips passing validation and bbox check
+                valid_trips_for_processing: List[Tuple[str, List[Any]]] = (
+                    []
+                )  # Trips passing validation and bbox check
 
                 logger.debug(
                     f"Task {self.task_id}: Processing main trip batch {batch_num} ({len(trip_batch_docs)} docs)..."
@@ -1285,7 +1284,9 @@ class CoverageCalculator:
                                     None,
                                 ),
                                 {},
-                            ).get("undriveable", True)  # Complex lookup, might be slow
+                            ).get(
+                                "undriveable", True
+                            )  # Complex lookup, might be slow
                         }
                     )
                     # Simplified count (includes non-driveable):
@@ -1295,7 +1296,7 @@ class CoverageCalculator:
 
                     message = (
                         f"Processed {processed_count_local:,}/{self.total_trips_to_process:,} DB trips | "
-                        f"Submitted: {self.submitted_trips_count:,} | " 
+                        f"Submitted: {self.submitted_trips_count:,} | "
                         f"Done: {completed_futures_count:,} | Failed: {failed_futures_count:,} | Pending: {len(pending_futures_map):,} | "
                         f"New Segments: {new_segments_found_count:,}"
                     )
@@ -2288,7 +2289,9 @@ async def generate_and_store_geojson(
                 "properties.name": 1,
                 "properties.maxspeed": 1,
             },
-        ).batch_size(1000)  # Adjust batch size as needed
+        ).batch_size(
+            1000
+        )  # Adjust batch size as needed
 
         first_feature = True
         async for street_batch in batch_cursor(streets_cursor, 1000):
