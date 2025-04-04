@@ -674,10 +674,13 @@
       ...trip.properties,
       gps: trip.geometry, // Keep geometry if needed elsewhere
       // Use DateUtils for reliable formatting
-      startTimeFormatted: DateUtils.formatForDisplay(trip.properties.startTime, {
-        dateStyle: "short",
-        timeStyle: "short",
-      }),
+      startTimeFormatted: DateUtils.formatForDisplay(
+        trip.properties.startTime,
+        {
+          dateStyle: "short",
+          timeStyle: "short",
+        },
+      ),
       endTimeFormatted: DateUtils.formatForDisplay(trip.properties.endTime, {
         dateStyle: "short",
         timeStyle: "short",
@@ -692,11 +695,12 @@
     // Wrap in promise for async consistency
     return new Promise((resolve) => {
       // Check if DataTable instance exists
-      if ($.fn.DataTable.isDataTable('#tripsTable')) { // Assuming table ID is tripsTable
-          window.tripsTable.clear().rows.add(formattedTrips).draw();
+      if ($.fn.DataTable.isDataTable("#tripsTable")) {
+        // Assuming table ID is tripsTable
+        window.tripsTable.clear().rows.add(formattedTrips).draw();
       } else {
-          console.warn("Trips DataTable not initialized yet.");
-          // Optionally initialize here if needed, or ensure initialization order
+        console.warn("Trips DataTable not initialized yet.");
+        // Optionally initialize here if needed, or ensure initialization order
       }
       setTimeout(resolve, 100); // Allow draw to complete
     });
@@ -869,7 +873,10 @@
       );
       AppState.mapLayers.undrivenStreets.visible = false;
       // Update map layer data and rendering on error
-      AppState.mapLayers.undrivenStreets.layer = { type: "FeatureCollection", features: [] };
+      AppState.mapLayers.undrivenStreets.layer = {
+        type: "FeatureCollection",
+        features: [],
+      };
       await updateMap();
       return null;
     }
@@ -884,7 +891,13 @@
     AppState.layerGroup.clearLayers();
 
     const visibleLayers = Object.entries(AppState.mapLayers)
-      .filter(([, info]) => info.visible && info.layer && (info.layer.features?.length > 0 || info.layer instanceof L.LayerGroup))
+      .filter(
+        ([, info]) =>
+          info.visible &&
+          info.layer &&
+          (info.layer.features?.length > 0 ||
+            info.layer instanceof L.LayerGroup),
+      )
       .sort(([, a], [, b]) => a.order - b.order);
 
     const tripLayers = new Map(); // Cache layers by ID for quick access
@@ -900,8 +913,12 @@
             style: (feature) => getTripFeatureStyle(feature, info),
             onEachFeature: (feature, layer) => {
               tripLayers.set(feature.properties.transactionId, layer);
-              layer.on("click", (e) => handleTripClick(e, feature, layer, info, name));
-              layer.on("popupopen", () => setupPopupEventListeners(layer, feature));
+              layer.on("click", (e) =>
+                handleTripClick(e, feature, layer, info, name),
+              );
+              layer.on("popupopen", () =>
+                setupPopupEventListeners(layer, feature),
+              );
             },
           });
           geoJsonLayer.addTo(AppState.layerGroup);
@@ -917,7 +934,8 @@
           onEachFeature: (feature, layer) => {
             if (feature.properties?.street_name) {
               const streetName = feature.properties.street_name;
-              const segmentLength = feature.properties.segment_length?.toFixed(2) || "Unknown";
+              const segmentLength =
+                feature.properties.segment_length?.toFixed(2) || "Unknown";
               const streetType = feature.properties.highway || "street";
               layer.bindTooltip(
                 `<strong>${streetName}</strong><br>Type: ${streetType}<br>Length: ${segmentLength}m`,
@@ -1468,10 +1486,16 @@
       for (let i = 0; i < dropdown.options.length; i++) {
         try {
           const optionLocation = JSON.parse(dropdown.options[i].value);
-          if (optionLocation && (optionLocation._id === savedLocationId || optionLocation.display_name === savedLocationId)) {
+          if (
+            optionLocation &&
+            (optionLocation._id === savedLocationId ||
+              optionLocation.display_name === savedLocationId)
+          ) {
             dropdown.selectedIndex = i;
             // If the undriven streets layer is set to be visible, fetch data now
-            if (localStorage.getItem(`layer_visible_undrivenStreets`) === "true") {
+            if (
+              localStorage.getItem(`layer_visible_undrivenStreets`) === "true"
+            ) {
               fetchUndrivenStreets();
             }
             break;
@@ -1534,8 +1558,8 @@
     }
 
     // ADD listener for filters applied event from modern-ui.js
-    document.addEventListener('filtersApplied', (e) => {
-      console.log('Filters applied event received in app.js:', e.detail);
+    document.addEventListener("filtersApplied", (e) => {
+      console.log("Filters applied event received in app.js:", e.detail);
       // Fetch data based on the new filter dates provided by the event or localStorage
       fetchTrips();
       fetchMetrics();
@@ -1644,7 +1668,9 @@
         .then(() => {
           // Restore layer visibility from localStorage *after* dropdown is populated
           Object.keys(AppState.mapLayers).forEach((layerName) => {
-            const savedVisibility = localStorage.getItem(`layer_visible_${layerName}`);
+            const savedVisibility = localStorage.getItem(
+              `layer_visible_${layerName}`,
+            );
             if (savedVisibility === "true") {
               AppState.mapLayers[layerName].visible = true;
               // Update the checkbox state in the UI

@@ -100,8 +100,10 @@
     // Cache all elements in one loop
     selectorKeys.forEach((key) => {
       // Ensure we get elements within the filters panel if IDs are ambiguous
-      if (key === 'startDate' || key === 'endDate') {
-        elements[`${key}Input`] = document.querySelector(`#filters-panel ${selectors[key]}`);
+      if (key === "startDate" || key === "endDate") {
+        elements[`${key}Input`] = document.querySelector(
+          `#filters-panel ${selectors[key]}`,
+        );
       } else {
         elements[key] = document.querySelector(selectors[key]);
       }
@@ -110,10 +112,11 @@
     if (!elements.startDateInput) elements.startDateInput = elements.startDate;
     if (!elements.endDateInput) elements.endDateInput = elements.endDate;
 
-
     // These are collections that need special handling
     elements.quickSelectBtns = document.querySelectorAll(".quick-select-btn");
-    elements.datepickers = document.querySelectorAll(CONFIG.selectors.datepicker); // Use CONFIG
+    elements.datepickers = document.querySelectorAll(
+      CONFIG.selectors.datepicker,
+    ); // Use CONFIG
     elements.loadingOverlay = document.querySelector(".loading-overlay");
     elements.progressBar = document.querySelector(
       ".loading-overlay .progress-bar",
@@ -123,8 +126,8 @@
     );
 
     // Add missing elements used later
-    elements.applyFiltersBtn = document.getElementById('apply-filters');
-    elements.resetFiltersBtn = document.getElementById('reset-filters');
+    elements.applyFiltersBtn = document.getElementById("apply-filters");
+    elements.resetFiltersBtn = document.getElementById("reset-filters");
   }
 
   // Initialize Map Controls to Prevent Event Propagation
@@ -410,7 +413,8 @@
     // Handle quick select buttons
     if (quickSelectBtns?.length) {
       quickSelectBtns.forEach((btn) => {
-        btn.addEventListener("click", function() { // Use function to access `this`
+        btn.addEventListener("click", function () {
+          // Use function to access `this`
           const range = this.dataset.range; // Use `this`
           if (!range) return;
 
@@ -461,8 +465,12 @@
 
     // Set values for the main date filters
     // Ensure elements are cached before accessing
-    if (!elements.startDateInput) elements.startDateInput = document.querySelector(CONFIG.selectors.startDate);
-    if (!elements.endDateInput) elements.endDateInput = document.querySelector(CONFIG.selectors.endDate);
+    if (!elements.startDateInput)
+      elements.startDateInput = document.querySelector(
+        CONFIG.selectors.startDate,
+      );
+    if (!elements.endDateInput)
+      elements.endDateInput = document.querySelector(CONFIG.selectors.endDate);
 
     if (elements.startDateInput) {
       elements.startDateInput.value = startDate;
@@ -521,18 +529,23 @@
     const rangeSpan = indicator.querySelector(".filter-date-range");
     if (!rangeSpan) return;
 
-    const startDate = localStorage.getItem(CONFIG.storage.startDate) || DateUtils.getCurrentDate();
-    const endDate = localStorage.getItem(CONFIG.storage.endDate) || DateUtils.getCurrentDate();
+    const startDate =
+      localStorage.getItem(CONFIG.storage.startDate) ||
+      DateUtils.getCurrentDate();
+    const endDate =
+      localStorage.getItem(CONFIG.storage.endDate) ||
+      DateUtils.getCurrentDate();
 
     // Format dates for display using DateUtils if available
     const formatDisplayDate = (dateStr) =>
-      window.DateUtils?.formatForDisplay(dateStr, { dateStyle: "medium" }) || dateStr;
+      window.DateUtils?.formatForDisplay(dateStr, { dateStyle: "medium" }) ||
+      dateStr;
 
     // Handle case where dates might be the same
     if (startDate === endDate) {
-        rangeSpan.textContent = formatDisplayDate(startDate);
+      rangeSpan.textContent = formatDisplayDate(startDate);
     } else {
-        rangeSpan.textContent = `${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`;
+      rangeSpan.textContent = `${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`;
     }
   }
 
@@ -541,8 +554,13 @@
     const { startDateInput, endDateInput } = elements;
     // Add a check here to ensure elements exist before proceeding
     if (!startDateInput || !endDateInput) {
-      console.error("Date input elements not found in modern-ui.js cache. Cannot set date range.");
-      window.notificationManager?.show("UI Error: Date inputs not found.", "danger");
+      console.error(
+        "Date input elements not found in modern-ui.js cache. Cannot set date range.",
+      );
+      window.notificationManager?.show(
+        "UI Error: Date inputs not found.",
+        "danger",
+      );
       return; // Exit if elements are missing
     }
 
@@ -582,22 +600,22 @@
   function updateDateInputs(startStr, endStr) {
     // Update the cached start date input
     if (elements.startDateInput) {
-        elements.startDateInput.value = startStr;
-        if (elements.startDateInput._flatpickr) {
-            elements.startDateInput._flatpickr.setDate(startStr);
-        }
+      elements.startDateInput.value = startStr;
+      if (elements.startDateInput._flatpickr) {
+        elements.startDateInput._flatpickr.setDate(startStr);
+      }
     } else {
-        console.warn("Cached start date input not found in updateDateInputs");
+      console.warn("Cached start date input not found in updateDateInputs");
     }
 
     // Update the cached end date input
     if (elements.endDateInput) {
-        elements.endDateInput.value = endStr;
-        if (elements.endDateInput._flatpickr) {
-            elements.endDateInput._flatpickr.setDate(endStr);
-        }
+      elements.endDateInput.value = endStr;
+      if (elements.endDateInput._flatpickr) {
+        elements.endDateInput._flatpickr.setDate(endStr);
+      }
     } else {
-        console.warn("Cached end date input not found in updateDateInputs");
+      console.warn("Cached end date input not found in updateDateInputs");
     }
   }
 
@@ -607,9 +625,12 @@
       elements;
     // Add check for inputs
     if (!startDateInput || !endDateInput) {
-        console.error("Cannot apply filters: Date input elements not found.");
-        window.notificationManager?.show("UI Error: Date inputs missing.", "danger");
-        return;
+      console.error("Cannot apply filters: Date input elements not found.");
+      window.notificationManager?.show(
+        "UI Error: Date inputs missing.",
+        "danger",
+      );
+      return;
     }
 
     // Get values safely
@@ -634,7 +655,7 @@
       new CustomEvent("filtersApplied", {
         detail: {
           startDate: startDateValue, // Use saved value
-          endDate: endDateValue,   // Use saved value
+          endDate: endDateValue, // Use saved value
         },
       }),
     );
