@@ -173,9 +173,7 @@ def validate_trip_data(trip: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
 
 
 @retry_async(max_retries=3, retry_delay=2.0)
-async def reverse_geocode_nominatim(
-    lat: float, lon: float
-) -> Optional[Dict[str, Any]]:
+async def reverse_geocode_nominatim(lat: float, lon: float) -> Optional[Dict[str, Any]]:
     """Reverse geocode coordinates using OSM Nominatim."""
     url = "https://nominatim.openstreetmap.org/reverse"
     params = {
@@ -228,9 +226,7 @@ def haversine(
     elif unit == "km":
         radius = EARTH_RADIUS_KM
     else:
-        raise ValueError(
-            "Invalid unit specified. Use 'meters', 'miles', or 'km'."
-        )
+        raise ValueError("Invalid unit specified. Use 'meters', 'miles', or 'km'.")
 
     distance = radius * c
     return distance
@@ -257,9 +253,7 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
     """
     total_distance_meters = 0.0
     # Ensure coordinates is treated as a list of lists
-    coords: list[list[float]] = (
-        coordinates if isinstance(coordinates, list) else []
-    )
+    coords: list[list[float]] = coordinates if isinstance(coordinates, list) else []
 
     if not coords or not isinstance(coords[0], list):
         logger.warning("Invalid coordinates format for distance calculation.")
@@ -270,9 +264,7 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
             lon1, lat1 = coords[i]
             lon2, lat2 = coords[i + 1]
             # Use the haversine function defined in this module
-            total_distance_meters += haversine(
-                lon1, lat1, lon2, lat2, unit="meters"
-            )
+            total_distance_meters += haversine(lon1, lat1, lon2, lat2, unit="meters")
         except (TypeError, ValueError, IndexError) as e:
             logger.warning(
                 "Skipping coordinate pair due to error: %s - Pair: %s, %s",
@@ -308,9 +300,7 @@ def run_async_from_sync(coro: Coroutine[Any, Any, T]) -> T:
         # get_event_loop_policy().get_event_loop() is generally preferred over get_event_loop()
         # as the latter might implicitly create a loop in some cases, which we want to control.
         loop = asyncio.get_event_loop_policy().get_event_loop()
-        logger.debug(
-            "Reusing existing event loop for sync-to-async execution."
-        )
+        logger.debug("Reusing existing event loop for sync-to-async execution.")
     except RuntimeError:
         # If no loop exists for this context, create a new one
         logger.debug(
@@ -332,7 +322,5 @@ def run_async_from_sync(coro: Coroutine[Any, Any, T]) -> T:
     except Exception:
         # If the coroutine raises an exception, run_until_complete propagates it.
         # We don't need special handling here unless we want to log differently.
-        logger.error(
-            "Exception occurred during run_until_complete", exc_info=True
-        )
+        logger.error("Exception occurred during run_until_complete", exc_info=True)
         raise
