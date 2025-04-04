@@ -1778,184 +1778,89 @@
     }
 
     async pollCoverageProgress(taskId) {
-      const maxRetries = 360; // ~30 minutes (5s interval) - adjust as needed
+      const maxRetries = 360; // ~30 minutes (5s interval)
       let retries = 0;
-      let taskCompletedOrFinalResultReceived = false; // Flag to track completion
-
-      while (retries < maxRetries) {
+      let taskCompleted = false; // Use a simple flag for completion
+    
+      while (retries < maxRetries && !taskCompleted) { // Loop until complete or max retries
         try {
-          // Store task info locally rather than relying on this.currentProcessingLocation
-          // This avoids the "Processing context lost" error if context is cleared elsewhere
           const response = await fetch(`/api/street_coverage/${taskId}`);
           if (response.status === 404) {
-            throw new Error(
-              "Task ID not found. It might have expired or been invalid.",
-            );
+            throw new Error("Task ID not found. It might have expired or been invalid.");
           }
           if (!response.ok) {
-            // Try to get error detail from response body
             let errorDetail = `HTTP error ${response.status}`;
             try {
               const errorData = await response.json();
               errorDetail = errorData.detail || errorDetail;
-            } catch (parseError) {
-              /* Ignore if response body isn't JSON */
-            }
+            } catch (parseError) { /* Ignore */ }
             throw new Error(`Failed to get coverage status: ${errorDetail}`);
           }
-
+    
           let data;
           try {
             data = await response.json();
-
-            // Validate that we received expected data structure
-            if (!data || typeof data !== "object") {
-              console.warn(
-                `Task ${taskId}: Received invalid data format from server`,
-                data,
-              );
-              // Handle empty/null response on 200 OK as potential completion
-              if (response.ok && (data === null || data === undefined || Object.keys(data).length === 0)) {
-                  console.log(
-                    `Task ${taskId}: Empty/null response with HTTP 200, treating as potentially complete. Continuing polling for explicit 'complete' stage.`
-                  );
-                  // Create a placeholder 'processing' state to continue polling
-                  data = {
-                      stage: "processing_check", // Use a temporary stage
-                      progress: 99, // Assume high progress
-                      message: "Checking final completion status...",
-                      metrics: {},
-                  };
-              } else {
-                  // Treat other invalid formats as unknown state
-                  data = {
-                      stage: "unknown",
-                      progress: 0,
-                      message: "Received invalid data from server",
-                      metrics: {},
-                  };
-              }
-            }
-
-            // Ensure data has the expected structure with stage property
-            // If stage is missing, but we have other data, it might be the final result
-            // BUT we should still wait for the explicit 'complete' stage from GeoJSON generation.
-            if (!data.stage) {
-                console.log(
-                    `Task ${taskId}: Response missing stage property. Assuming intermediate result. Continuing polling.`,
-                    data
-                );
-                // If it looks like the result object, update modal but keep polling
-                // Use a temporary stage name to indicate we're waiting for final confirmation
-                const result = data; // Keep the result data if needed
-                data = {
-                    stage: "finalizing_check", // Temporary stage
-                    progress: 98, // Indicate high progress
-                    message: "Calculation complete. Waiting for final confirmation (GeoJSON)...",
-                    result: result, // Include the result if available
-                    metrics: result.metrics || {}, // Try to get metrics from result
-                };
-                // Do NOT set taskCompletedOrFinalResultReceived = true here
-            }
-
-            // ALWAYS update modal content with the latest data
-            this.updateModalContent(data);
-
-            // Check for terminal states
-            if (data.stage === "complete") {
-              console.log(`Task ${taskId} completed.`);
-              taskCompletedOrFinalResultReceived = true;
-              return data; // Success
-            } else if (data.stage === "error") {
-              console.error(
-                `Task ${taskId} failed with error: ${
-                  data.error || "Unknown error"
-                }`,
-              );
-              throw new Error(
-                typeof data.message === "string"
-                  ? data.message
-                  : typeof data.error === "string"
-                    ? data.error
-                    : "Coverage calculation failed",
-              );
-            }
-            // --- Removed the premature completion logic based on missing 'stage' ---
-
-          } catch (jsonError) {
-            console.error(`Error parsing JSON for task ${taskId}:`, jsonError);
-            // Check if the response text suggests completion despite parse error
-            let responseText = '';
-            try {
-                responseText = await response.text(); // Try reading text
-                // If response text seems like a simple success message or empty JSON
-                if (responseText.trim() === '{}' || responseText.trim() === '' || responseText.includes('success')) {
-                    console.warn(`Task ${taskId}: JSON parse error but response suggests completion. Assuming complete.`);
-                     data = {
-                        stage: "complete",
-                        progress: 100,
-                        message: "Task completed (inferred from response).",
-                        metrics: {},
-                    };
-                    this.updateModalContent(data);
-                    taskCompletedOrFinalResultReceived = true;
-                    return data;
+    
+            // Basic validation
+            if (!data || typeof data !== 'object') {
+                console.warn(`Task ${taskId}: Received invalid data format:`, data);
+                // Attempt to read response text for clues
+                let responseText = '';
+                try { responseText = await response.text(); } catch(e){}
+                // If empty or suggests success, treat as potentially complete but keep polling
+                if (!responseText || responseText.trim() === '{}' || responseText.includes('success')) {
+                    console.warn(`Task ${taskId}: Invalid data but suggests success. Continuing poll...`);
+                     data = { stage: 'polling_check', progress: 99, message: 'Checking final status...', metrics: {}};
+                } else {
+                    throw new Error("Invalid non-JSON response from server");
                 }
-            } catch (textError) {
-                console.error(`Error reading response text for task ${taskId}:`, textError);
             }
-
-            // If we couldn't infer completion, report parse error
-            data = {
-              stage: "error",
-              progress: 0,
-              message: "Invalid response format from server",
-              error: "Failed to parse server response",
-              metrics: {}, // Add empty metrics
-            };
-            this.updateModalContent(data);
-            throw jsonError; // Rethrow the original JSON error
+    
+            // Ensure stage exists before processing
+            const stage = data.stage || 'unknown'; // Default to unknown if stage missing
+    
+            this.updateModalContent(data); // Update UI with latest data
+    
+            // Check for terminal states
+            if (stage === "complete") {
+              console.log(`Task ${taskId} completed successfully.`);
+              taskCompleted = true; // Set flag to exit loop
+              return data; // Return final data
+            } else if (stage === "error") {
+              console.error(`Task ${taskId} failed with error: ${data.error || "Unknown error"}`);
+              taskCompleted = true; // Set flag to exit loop
+              throw new Error(data.error || "Coverage calculation failed");
+            }
+            // --- No premature completion based on missing stage ---
+    
+          } catch (jsonError) {
+            console.error(`Error processing response for task ${taskId}:`, jsonError);
+            this.updateModalContent({ stage: "error", progress: 0, message: "Error processing server response", error: jsonError.message || 'Parse error', metrics: {} });
+            taskCompleted = true; // Stop polling on parse error
+            throw jsonError;
           }
-
+    
           // Wait before next poll ONLY if not completed
-          if (!taskCompletedOrFinalResultReceived) {
+          if (!taskCompleted) {
               await new Promise((resolve) => setTimeout(resolve, 5000)); // 5-second interval
               retries++;
-          } else {
-              break; // Exit loop if completed
           }
-
+    
         } catch (error) {
-          // Stringify any error objects to prevent [object Object] errors
-          const errorMessage =
-            typeof error === "object"
-              ? error.message || JSON.stringify(error)
-              : String(error);
-
-          console.error(
-            `Error polling coverage progress for task ${taskId}:`,
-            error,
-          );
-          this.updateModalContent({
-            stage: "error",
-            progress: 0,
-            message: `Polling failed: ${errorMessage}`,
-            error: errorMessage,
-            metrics: {}, // Add empty metrics
-          }); // Update modal to show polling error
+          const errorMessage = typeof error === "object" ? error.message || JSON.stringify(error) : String(error);
+          console.error(`Error polling coverage progress for task ${taskId}:`, error);
+          // Update modal only if the task hasn't already completed with an error state reported by the backend
+          if (!taskCompleted) {
+              this.updateModalContent({ stage: "error", progress: 0, message: `Polling failed: ${errorMessage}`, error: errorMessage, metrics: {} });
+          }
+          taskCompleted = true; // Stop polling on any significant error during fetch/processing
           throw error; // Re-throw to signal failure to the caller
         }
-      }
-
-      // If loop finishes without completion or error
-      if (!taskCompletedOrFinalResultReceived) {
-          this.updateModalContent({
-            stage: "error",
-            progress: 0,
-            message: "Polling timed out waiting for final completion.",
-            error: "Polling timed out",
-            metrics: {}, // Add empty metrics
-          });
+      } // End while loop
+    
+      // If loop finishes without completion
+      if (!taskCompleted) {
+          this.updateModalContent({ stage: "error", progress: 0, message: "Polling timed out waiting for completion.", error: "Polling timed out", metrics: {} });
           throw new Error("Coverage calculation polling timed out");
       }
     }
@@ -2135,103 +2040,89 @@
 
     updateDashboardStats(coverage) {
       if (!coverage) return;
-
-      // Set the location name (handled in displayCoverageDashboard)
-
-      const totalMiles = (coverage.total_length * 0.000621371).toFixed(2);
-      const drivenMiles = (coverage.driven_length * 0.000621371).toFixed(2);
-      const coveragePercentage =
-        coverage.coverage_percentage?.toFixed(1) || "0.0";
-
-      // Update the coverage percentage bar
+    
+      // Use metric fields with '_m' suffix
+      const totalLength = coverage.total_length_m || 0;
+      const drivenLength = coverage.driven_length_m || 0;
+      const driveableLength = coverage.driveable_length_m || 0; // Added driveable for potential use
+    
+      const totalMiles = (totalLength * 0.000621371).toFixed(2);
+      const drivenMiles = (drivenLength * 0.000621371).toFixed(2);
+      const coveragePercentage = coverage.coverage_percentage?.toFixed(1) || "0.0";
+    
+      // Update the coverage percentage bar (logic seems ok)
       const coverageBar = document.getElementById("coverage-percentage-bar");
       if (coverageBar) {
         coverageBar.style.width = `${coveragePercentage}%`;
         coverageBar.setAttribute("aria-valuenow", coveragePercentage);
-        coverageBar.classList.remove(
-          "bg-success",
-          "bg-warning",
-          "bg-danger",
-          "bg-secondary",
-        ); // Reset colors
+        coverageBar.classList.remove("bg-success", "bg-warning", "bg-danger", "bg-secondary");
         let barColor = "bg-success";
-        if (coverage.status === "error" || coverage.status === "canceled")
-          barColor = "bg-secondary";
+        if (coverage.status === "error" || coverage.status === "canceled") barColor = "bg-secondary";
         else if (parseFloat(coveragePercentage) < 25) barColor = "bg-danger";
         else if (parseFloat(coveragePercentage) < 75) barColor = "bg-warning";
         coverageBar.classList.add(barColor);
       }
-
-      const coveragePercentageText = document.getElementById(
-        "dashboard-coverage-percentage-text",
-      );
-      if (coveragePercentageText)
-        coveragePercentageText.textContent = `${coveragePercentage}%`;
-
+    
+      const coveragePercentageText = document.getElementById("dashboard-coverage-percentage-text");
+      if (coveragePercentageText) coveragePercentageText.textContent = `${coveragePercentage}%`;
+    
       // Update the stats
-      const totalStreetsEl = document.getElementById("dashboard-total-streets");
+      const totalSegmentsEl = document.getElementById("dashboard-total-segments"); // Changed ID for clarity
       const totalLengthEl = document.getElementById("dashboard-total-length");
       const drivenLengthEl = document.getElementById("dashboard-driven-length");
       const lastUpdatedEl = document.getElementById("dashboard-last-updated");
-
-      if (totalStreetsEl)
-        totalStreetsEl.textContent =
-          coverage.total_streets || coverage.total_segments || 0; // Use total_streets if available
-      if (totalLengthEl) totalLengthEl.textContent = `${totalMiles} miles`;
-      if (drivenLengthEl) drivenLengthEl.textContent = `${drivenMiles} miles`;
+    
+      // Use total_segments from coverage data
+      if (totalSegmentsEl) totalSegmentsEl.textContent = coverage.total_segments?.toLocaleString() || '0';
+      if (totalLengthEl) totalLengthEl.textContent = `${totalMiles} miles`; // Or use distanceInUserUnits(totalLength)
+      if (drivenLengthEl) drivenLengthEl.textContent = `${drivenMiles} miles`; // Or use distanceInUserUnits(drivenLength)
       if (lastUpdatedEl) {
-        lastUpdatedEl.textContent = coverage.last_updated
-          ? new Date(coverage.last_updated).toLocaleString()
-          : "Never";
+        lastUpdatedEl.textContent = coverage.last_updated ? new Date(coverage.last_updated).toLocaleString() : "Never";
       }
-
+    
       // Update street type coverage breakdown
       this.updateStreetTypeCoverage(coverage.street_types);
     }
 
     updateStreetTypeCoverage(streetTypes) {
-      const streetTypeCoverageEl = document.getElementById(
-        "street-type-coverage",
-      );
+      const streetTypeCoverageEl = document.getElementById("street-type-coverage");
       if (!streetTypeCoverageEl) return;
-
+    
       if (!streetTypes || !streetTypes.length) {
-        streetTypeCoverageEl.innerHTML =
-          '<div class="alert alert-secondary small p-2">No street type data available.</div>';
+        streetTypeCoverageEl.innerHTML = '<div class="alert alert-secondary small p-2">No street type data available.</div>';
         return;
       }
-
-      const sortedTypes = [...streetTypes].sort((a, b) => b.length - a.length);
+    
+      // Sort by total length
+      const sortedTypes = [...streetTypes].sort((a, b) => (b.total_length_m || 0) - (a.total_length_m || 0));
       const topTypes = sortedTypes.slice(0, 6); // Show top 6
-
+    
       let html = "";
       topTypes.forEach((type) => {
         const coveragePct = type.coverage_percentage?.toFixed(1) || "0.0";
-        const totalMiles = (type.length * 0.000621371).toFixed(2);
-        const coveredMiles = (type.covered_length * 0.000621371).toFixed(2);
-
+        // Use metric fields and unit conversion
+        const totalDist = distanceInUserUnits(type.total_length_m || 0);
+        const coveredDist = distanceInUserUnits(type.covered_length_m || 0);
+        const driveableDist = distanceInUserUnits(type.driveable_length_m || 0); // Added driveable
+    
         let barColor = "bg-success";
         if (type.coverage_percentage < 25) barColor = "bg-danger";
         else if (type.coverage_percentage < 75) barColor = "bg-warning";
-
+    
         html += `
           <div class="street-type-item mb-2">
             <div class="d-flex justify-content-between mb-1">
-              <small><strong>${this.formatStreetType(
-                type.type,
-              )}</strong></small>
-              <small>${coveragePct}% (${coveredMiles}/${totalMiles} mi)</small>
+              <small><strong>${this.formatStreetType(type.type)}</strong></small>
+              <small>${coveragePct}% (${coveredDist} / ${driveableDist})</small>
             </div>
-            <div class="progress" style="height: 8px;" title="${this.formatStreetType(
-              type.type,
-            )}: ${coveragePct}% Covered">
+            <div class="progress" style="height: 8px;" title="${this.formatStreetType(type.type)}: ${coveragePct}% Covered">
               <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePct}%"
                    aria-valuenow="${coveragePct}" aria-valuemin="0" aria-valuemax="100"></div>
             </div>
           </div>
         `;
       });
-
+    
       streetTypeCoverageEl.innerHTML = html;
     }
 
@@ -2832,129 +2723,92 @@
         console.warn("Map bounds invalid, setting default view.");
       }
     }
-
     createStreetTypeChart(streetTypes) {
       const chartContainer = document.getElementById("street-type-chart");
       if (!chartContainer) return;
-
-      // Clear previous chart instance if it exists
+    
+      // Clear previous chart instance
       if (this.streetTypeChartInstance) {
         this.streetTypeChartInstance.destroy();
         this.streetTypeChartInstance = null;
       }
-
+    
       if (!streetTypes || !streetTypes.length) {
-        chartContainer.innerHTML =
-          '<div class="alert alert-secondary small p-2">No street type data for chart.</div>';
+        chartContainer.innerHTML = '<div class="alert alert-secondary small p-2">No street type data for chart.</div>';
         return;
       }
-
-      // Ensure Chart.js is loaded
+    
       if (typeof Chart === "undefined") {
         console.error("Chart.js is not loaded");
-        chartContainer.innerHTML =
-          '<div class="alert alert-warning">Chart.js library not found.</div>';
+        chartContainer.innerHTML = '<div class="alert alert-warning">Chart.js library not found.</div>';
         return;
       }
-
-      // Prepare data (top 5-7 types)
-      const sortedTypes = [...streetTypes].sort((a, b) => b.length - a.length);
+    
+      // Prepare data (top 7 types based on driveable length)
+      const sortedTypes = [...streetTypes].sort((a, b) => (b.driveable_length_m || 0) - (a.driveable_length_m || 0));
       const topTypes = sortedTypes.slice(0, 7);
       const labels = topTypes.map((t) => this.formatStreetType(t.type));
-      const totalLengths = topTypes.map((t) =>
-        parseFloat((t.length * 0.000621371).toFixed(2)),
-      );
-      const drivenLengths = topTypes.map((t) =>
-        parseFloat((t.covered_length * 0.000621371).toFixed(2)),
-      );
-      const notDrivenLengths = totalLengths.map((total, i) =>
-        parseFloat((total - drivenLengths[i]).toFixed(2)),
-      );
-
+    
+      // Use distanceInUserUnits for data conversion
+      const drivenLengths = topTypes.map(t => parseFloat(distanceInUserUnits(t.covered_length_m || 0, 2).split(' ')[0]));
+      const driveableLengths = topTypes.map(t => parseFloat(distanceInUserUnits(t.driveable_length_m || 0, 2).split(' ')[0]));
+      // Calculate not driven based on driveable length
+      const notDrivenLengths = driveableLengths.map((total, i) => parseFloat(Math.max(0, total - drivenLengths[i]).toFixed(2)));
+      const lengthUnit = this.useMiles ? 'mi' : 'km';
+    
+    
       // Ensure container has a canvas
       chartContainer.innerHTML = "<canvas></canvas>";
       const ctx = chartContainer.querySelector("canvas").getContext("2d");
-
+    
       const drivenColor = "rgba(76, 175, 80, 0.8)"; // Green
-      const notDrivenColor = "rgba(255, 82, 82, 0.7)"; // Red (slightly transparent)
-
+      const notDrivenColor = "rgba(255, 82, 82, 0.7)"; // Red
+    
       this.streetTypeChartInstance = new Chart(ctx, {
         type: "bar",
         data: {
           labels: labels,
           datasets: [
-            {
-              label: "Driven",
-              data: drivenLengths,
-              backgroundColor: drivenColor,
-            },
-            {
-              label: "Not Driven",
-              data: notDrivenLengths,
-              backgroundColor: notDrivenColor,
-            },
+            { label: "Driven", data: drivenLengths, backgroundColor: drivenColor },
+            { label: "Not Driven (Driveable)", data: notDrivenLengths, backgroundColor: notDrivenColor },
           ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          indexAxis: "y", // Horizontal bars
+          indexAxis: "y",
           scales: {
             x: {
               stacked: true,
               ticks: { color: "#ccc", font: { size: 10 } },
               grid: { color: "rgba(255, 255, 255, 0.1)" },
-              title: {
-                display: true,
-                text: "Miles",
-                color: "#ccc",
-                font: { size: 11 },
-              },
+              title: { display: true, text: `Distance (${lengthUnit})`, color: "#ccc", font: { size: 11 } },
             },
             y: {
               stacked: true,
-              ticks: { color: "#eee", font: { size: 11 } }, // Slightly larger labels
-              grid: { display: false }, // Cleaner look
+              ticks: { color: "#eee", font: { size: 11 } },
+              grid: { display: false },
             },
           },
           plugins: {
             tooltip: {
-              mode: "index",
-              intersect: false,
+              mode: "index", intersect: false,
               callbacks: {
                 label: (context) => {
                   const label = context.dataset.label || "";
                   const value = context.raw || 0;
-                  const total = totalLengths[context.dataIndex];
-                  const percentage =
-                    total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                  return `${label}: ${value.toFixed(2)} mi (${percentage}%)`;
+                  const total = driveableLengths[context.dataIndex]; // Use driveable length for total in tooltip
+                  const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                  return `${label}: ${value.toFixed(2)} ${lengthUnit} (${percentage}%)`;
                 },
                 footer: (tooltipItems) => {
-                  // Calculate total for the bar
-                  const total = tooltipItems.reduce(
-                    (sum, item) => sum + (item.raw || 0),
-                    0,
-                  );
-                  return `Total: ${total.toFixed(2)} mi`;
+                  const total = driveableLengths[tooltipItems[0].dataIndex]; // Total driveable for the bar
+                  return `Total Driveable: ${total.toFixed(2)} ${lengthUnit}`;
                 },
               },
             },
-            legend: {
-              position: "bottom", // Move legend to bottom
-              labels: {
-                color: "#eee",
-                usePointStyle: true,
-                padding: 10,
-                font: { size: 11 },
-              },
-            },
-            title: {
-              display: true,
-              text: "Coverage by Street Type (Top 7)",
-              color: "#eee",
-              padding: { top: 5, bottom: 10 },
-            },
+            legend: { position: "bottom", labels: { color: "#eee", usePointStyle: true, padding: 10, font: { size: 11 } } },
+            title: { display: true, text: "Driveable Coverage by Street Type (Top 7)", color: "#eee", padding: { top: 5, bottom: 10 } },
           },
         },
       });

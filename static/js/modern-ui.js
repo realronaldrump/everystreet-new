@@ -99,12 +99,21 @@
 
     // Cache all elements in one loop
     selectorKeys.forEach((key) => {
-      elements[key] = document.querySelector(selectors[key]);
+      // Ensure we get elements within the filters panel if IDs are ambiguous
+      if (key === 'startDate' || key === 'endDate') {
+        elements[`${key}Input`] = document.querySelector(`#filters-panel ${selectors[key]}`);
+      } else {
+        elements[key] = document.querySelector(selectors[key]);
+      }
     });
+    // Correct element references if needed after potential prefixing
+    if (!elements.startDateInput) elements.startDateInput = elements.startDate;
+    if (!elements.endDateInput) elements.endDateInput = elements.endDate;
+
 
     // These are collections that need special handling
     elements.quickSelectBtns = document.querySelectorAll(".quick-select-btn");
-    elements.datepickers = document.querySelectorAll(selectors.datepicker);
+    elements.datepickers = document.querySelectorAll(CONFIG.selectors.datepicker); // Use CONFIG
     elements.loadingOverlay = document.querySelector(".loading-overlay");
     elements.progressBar = document.querySelector(
       ".loading-overlay .progress-bar",
@@ -112,6 +121,10 @@
     elements.loadingText = document.querySelector(
       ".loading-overlay .loading-text",
     );
+
+    // Add missing elements used later
+    elements.applyFiltersBtn = document.getElementById('apply-filters');
+    elements.resetFiltersBtn = document.getElementById('reset-filters');
   }
 
   // Initialize Map Controls to Prevent Event Propagation
@@ -368,9 +381,9 @@
       filtersPanel,
       contentOverlay,
       filtersClose,
-      applyFiltersBtn,
-      resetFiltersBtn,
-      quickSelectBtns,
+      applyFiltersBtn, // Use cached element
+      resetFiltersBtn, // Use cached element
+      quickSelectBtns, // Use cached element
     } = elements;
 
     // Add filter indicator
@@ -397,17 +410,17 @@
     // Handle quick select buttons
     if (quickSelectBtns?.length) {
       quickSelectBtns.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const range = btn.dataset.range;
+        btn.addEventListener("click", function() { // Use function to access `this`
+          const range = this.dataset.range; // Use `this`
           if (!range) return;
 
-          setDateRange(range);
+          setDateRange(range); // This will now also apply filters
 
           // Update active button state
           quickSelectBtns.forEach((b) =>
             b.classList.remove(CONFIG.classes.active),
           );
-          btn.classList.add(CONFIG.classes.active);
+          this.classList.add(CONFIG.classes.active); // Use `this`
         });
       });
     }
@@ -447,17 +460,21 @@
     }
 
     // Set values for the main date filters
-    if (startDateInput) {
-      startDateInput.value = startDate;
-      if (startDateInput._flatpickr) {
-        startDateInput._flatpickr.setDate(startDate);
+    // Ensure elements are cached before accessing
+    if (!elements.startDateInput) elements.startDateInput = document.querySelector(CONFIG.selectors.startDate);
+    if (!elements.endDateInput) elements.endDateInput = document.querySelector(CONFIG.selectors.endDate);
+
+    if (elements.startDateInput) {
+      elements.startDateInput.value = startDate;
+      if (elements.startDateInput._flatpickr) {
+        elements.startDateInput._flatpickr.setDate(startDate);
       }
     }
 
-    if (endDateInput) {
-      endDateInput.value = endDate;
-      if (endDateInput._flatpickr) {
-        endDateInput._flatpickr.setDate(endDate);
+    if (elements.endDateInput) {
+      elements.endDateInput.value = endDate;
+      if (elements.endDateInput._flatpickr) {
+        elements.endDateInput._flatpickr.setDate(endDate);
       }
     }
   }
@@ -504,28 +521,29 @@
     const rangeSpan = indicator.querySelector(".filter-date-range");
     if (!rangeSpan) return;
 
-    const startDate = localStorage.getItem(CONFIG.storage.startDate);
-    const endDate = localStorage.getItem(CONFIG.storage.endDate);
+    const startDate = localStorage.getItem(CONFIG.storage.startDate) || DateUtils.getCurrentDate();
+    const endDate = localStorage.getItem(CONFIG.storage.endDate) || DateUtils.getCurrentDate();
 
-    if (!startDate || !endDate) {
-      rangeSpan.textContent = "Today";
-      return;
-    }
-
-    // Format dates for display
+    // Format dates for display using DateUtils if available
     const formatDisplayDate = (dateStr) =>
-      DateUtils.formatForDisplay(dateStr, { dateStyle: "medium" });
-    rangeSpan.textContent = `${formatDisplayDate(
-      startDate,
-    )} - ${formatDisplayDate(endDate)}`;
+      window.DateUtils?.formatForDisplay(dateStr, { dateStyle: "medium" }) || dateStr;
+
+    // Handle case where dates might be the same
+    if (startDate === endDate) {
+        rangeSpan.textContent = formatDisplayDate(startDate);
+    } else {
+        rangeSpan.textContent = `${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`;
+    }
   }
 
-  // Set date range based on preset
+  // Set date range based on preset and apply filters
   function setDateRange(range) {
     const { startDateInput, endDateInput } = elements;
+    // Add a check here to ensure elements exist before proceeding
     if (!startDateInput || !endDateInput) {
-      console.warn("Date inputs not found");
-      return;
+      console.error("Date input elements not found in modern-ui.js cache. Cannot set date range.");
+      window.notificationManager?.show("UI Error: Date inputs not found.", "danger");
+      return; // Exit if elements are missing
     }
 
     // Show loading indicator
@@ -542,6 +560,8 @@
           localStorage.setItem(CONFIG.storage.startDate, startDate);
           localStorage.setItem(CONFIG.storage.endDate, endDate);
           updateFilterIndicator();
+          // Apply filters immediately after setting range from preset
+          applyFilters();
         }
       })
       .catch((error) => {
@@ -560,32 +580,45 @@
 
   // Update all instances of date inputs with the same ID
   function updateDateInputs(startStr, endStr) {
-    // Update all start date inputs
-    document.querySelectorAll("#start-date").forEach((input) => {
-      input.value = startStr;
-      if (input._flatpickr) {
-        input._flatpickr.setDate(startStr);
-      }
-    });
+    // Update the cached start date input
+    if (elements.startDateInput) {
+        elements.startDateInput.value = startStr;
+        if (elements.startDateInput._flatpickr) {
+            elements.startDateInput._flatpickr.setDate(startStr);
+        }
+    } else {
+        console.warn("Cached start date input not found in updateDateInputs");
+    }
 
-    // Update all end date inputs
-    document.querySelectorAll("#end-date").forEach((input) => {
-      input.value = endStr;
-      if (input._flatpickr) {
-        input._flatpickr.setDate(endStr);
-      }
-    });
+    // Update the cached end date input
+    if (elements.endDateInput) {
+        elements.endDateInput.value = endStr;
+        if (elements.endDateInput._flatpickr) {
+            elements.endDateInput._flatpickr.setDate(endStr);
+        }
+    } else {
+        console.warn("Cached end date input not found in updateDateInputs");
+    }
   }
 
   // Apply the current filters
   function applyFilters() {
     const { startDateInput, endDateInput, filtersPanel, contentOverlay } =
       elements;
-    if (!startDateInput || !endDateInput) return;
+    // Add check for inputs
+    if (!startDateInput || !endDateInput) {
+        console.error("Cannot apply filters: Date input elements not found.");
+        window.notificationManager?.show("UI Error: Date inputs missing.", "danger");
+        return;
+    }
+
+    // Get values safely
+    const startDateValue = startDateInput.value;
+    const endDateValue = endDateInput.value;
 
     // Save to localStorage
-    localStorage.setItem(CONFIG.storage.startDate, startDateInput.value);
-    localStorage.setItem(CONFIG.storage.endDate, endDateInput.value);
+    localStorage.setItem(CONFIG.storage.startDate, startDateValue);
+    localStorage.setItem(CONFIG.storage.endDate, endDateValue);
 
     // Update the indicator
     updateFilterIndicator();
@@ -600,15 +633,15 @@
     document.dispatchEvent(
       new CustomEvent("filtersApplied", {
         detail: {
-          startDate: startDateInput.value,
-          endDate: endDateInput.value,
+          startDate: startDateValue, // Use saved value
+          endDate: endDateValue,   // Use saved value
         },
       }),
     );
 
     // Show confirmation
     window.notificationManager?.show(
-      `Filters applied: ${startDateInput.value} to ${endDateInput.value}`,
+      `Filters applied: ${startDateValue} to ${endDateValue}`,
       "success",
     );
   }
@@ -618,7 +651,7 @@
     const { quickSelectBtns } = elements;
     const today = new Date().toISOString().split("T")[0];
 
-    // Update inputs
+    // Update inputs using the centralized function
     updateDateInputs(today, today);
 
     // Save to localStorage
@@ -635,9 +668,12 @@
     // Update the indicator
     updateFilterIndicator();
 
+    // Apply the reset filters immediately
+    applyFilters();
+
     // Show notification
     window.notificationManager?.show(
-      "Date filters have been reset to today",
+      "Date filters reset to Today and applied.", // Updated message
       "info",
     );
   }
@@ -680,101 +716,6 @@
       clearTimeout(timeout);
       timeout = setTimeout(() => func.apply(this, args), wait);
     };
-  }
-
-  // Action Handlers
-  async function handleFetchTrips() {
-    showLoading("Fetching trips...");
-
-    // Get date range
-    const startDate =
-      localStorage.getItem(CONFIG.storage.startDate) ||
-      new Date().toISOString().split("T")[0];
-    const endDate =
-      localStorage.getItem(CONFIG.storage.endDate) ||
-      new Date().toISOString().split("T")[0];
-
-    try {
-      const response = await fetch("/api/fetch_trips", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          start_date: startDate,
-          end_date: endDate,
-          include_points: true,
-        }),
-      });
-
-      if (!response.ok)
-        throw new Error(`HTTP error! Status: ${response.status}`);
-
-      const data = await response.json();
-      hideLoading();
-
-      // Show notification
-      window.notificationManager?.show(
-        `Successfully fetched ${data.trips_count || 0} trips.`,
-        "success",
-      );
-
-      // Reload map data
-      refreshMapData();
-    } catch (error) {
-      console.error("Error fetching trips:", error);
-      hideLoading();
-      window.notificationManager?.show(
-        `Error fetching trips: ${error.message}`,
-        "danger",
-      );
-    }
-  }
-
-  async function handleMapMatch() {
-    showLoading("Map matching trips...");
-
-    // Get date range
-    const startDate =
-      localStorage.getItem(CONFIG.storage.startDate) ||
-      new Date().toISOString().split("T")[0];
-    const endDate =
-      localStorage.getItem(CONFIG.storage.endDate) ||
-      new Date().toISOString().split("T")[0];
-
-    try {
-      const response = await fetch("/api/map_match_trips", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          start_date: startDate,
-          end_date: endDate,
-          force_rematch: false,
-        }),
-      });
-
-      if (!response.ok)
-        throw new Error(`HTTP error! Status: ${response.status}`);
-
-      const data = await response.json();
-      hideLoading();
-
-      // Show notification
-      window.notificationManager?.show(
-        `Successfully matched ${
-          data.matched_count || 0
-        } trips to the road network.`,
-        "success",
-      );
-
-      // Reload map data
-      refreshMapData();
-    } catch (error) {
-      console.error("Error map matching trips:", error);
-      hideLoading();
-      window.notificationManager?.show(
-        `Error map matching: ${error.message}`,
-        "danger",
-      );
-    }
   }
 
   // Refresh map data by calling appropriate functions

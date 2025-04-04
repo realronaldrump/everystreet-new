@@ -165,11 +165,7 @@
 
   // Date & Filter Functions
   const getStartDate = () => {
-    const startDateInput =
-      AppState.dom.startDateInput || getElement("start-date");
-    if (startDateInput?.value)
-      return DateUtils.formatDate(startDateInput.value);
-
+    // Primarily rely on localStorage, managed by modern-ui.js
     const storedDate = getStorageItem(CONFIG.STORAGE_KEYS.startDate);
     return storedDate
       ? DateUtils.formatDate(storedDate)
@@ -177,9 +173,7 @@
   };
 
   const getEndDate = () => {
-    const endDateInput = AppState.dom.endDateInput || getElement("end-date");
-    if (endDateInput?.value) return DateUtils.formatDate(endDateInput.value);
-
+    // Primarily rely on localStorage, managed by modern-ui.js
     const storedDate = getStorageItem(CONFIG.STORAGE_KEYS.endDate);
     return storedDate
       ? DateUtils.formatDate(storedDate)
@@ -646,21 +640,23 @@
         lm.updateSubOperation(opId, "Fetching Data", 50);
         lm.updateSubOperation(opId, "Processing Data", 15);
 
-        await Promise.all([
-          updateTripsTable(geojson),
-          updateMapWithTrips(geojson),
-        ]);
+        // Ensure trips table is updated before map potentially fits bounds
+        await updateTripsTable(geojson);
+        // Now update the map layer data
+        await updateMapWithTrips(geojson);
 
-        lm.updateSubOperation(opId, "Processing Data", 30);
-        lm.updateSubOperation(opId, "Displaying Data", 10);
-
+        // Fetch matched trips and update the map layer data
         try {
           await fetchMatchedTrips();
         } catch (err) {
           handleError(err, "Fetching Matched Trips");
-        } finally {
-          lm.updateSubOperation(opId, "Displaying Data", 20);
         }
+
+        // Update map rendering after all layers are potentially updated
+        await updateMap();
+
+        lm.updateSubOperation(opId, "Processing Data", 30);
+        lm.updateSubOperation(opId, "Displaying Data", 20); // Adjusted timing
 
         document.dispatchEvent(
           new CustomEvent("tripsLoaded", {
@@ -676,25 +672,33 @@
 
     const formattedTrips = geojson.features.map((trip) => ({
       ...trip.properties,
-      gps: trip.geometry,
-      startTimeFormatted: DateUtils.formatForDisplay(
-        trip.properties.startTime,
-        { dateStyle: "short", timeStyle: "short" },
-      ),
+      gps: trip.geometry, // Keep geometry if needed elsewhere
+      // Use DateUtils for reliable formatting
+      startTimeFormatted: DateUtils.formatForDisplay(trip.properties.startTime, {
+        dateStyle: "short",
+        timeStyle: "short",
+      }),
       endTimeFormatted: DateUtils.formatForDisplay(trip.properties.endTime, {
         dateStyle: "short",
         timeStyle: "short",
       }),
-      startTimeRaw: trip.properties.startTime,
-      endTimeRaw: trip.properties.endTime,
+      startTimeRaw: trip.properties.startTime, // Keep raw for sorting/filtering
+      endTimeRaw: trip.properties.endTime, // Keep raw for sorting/filtering
       destination: trip.properties.destination || "N/A",
       startLocation: trip.properties.startLocation || "N/A",
       distance: Number(trip.properties.distance).toFixed(2),
     }));
 
+    // Wrap in promise for async consistency
     return new Promise((resolve) => {
-      window.tripsTable.clear().rows.add(formattedTrips).draw();
-      setTimeout(resolve, 100);
+      // Check if DataTable instance exists
+      if ($.fn.DataTable.isDataTable('#tripsTable')) { // Assuming table ID is tripsTable
+          window.tripsTable.clear().rows.add(formattedTrips).draw();
+      } else {
+          console.warn("Trips DataTable not initialized yet.");
+          // Optionally initialize here if needed, or ensure initialization order
+      }
+      setTimeout(resolve, 100); // Allow draw to complete
     });
   }
 
@@ -737,6 +741,7 @@
 
     const geojson = await response.json();
     AppState.mapLayers.matchedTrips.layer = geojson;
+    return geojson;
   }
 
   async function fetchUndrivenStreets() {
@@ -851,7 +856,10 @@
         );
       }
 
-      await updateMapWithUndrivenStreets(geojson); // This now correctly resides within the try block
+      // Update map layer data
+      await updateMapWithUndrivenStreets(geojson);
+      // Explicitly update map rendering
+      await updateMap();
       return geojson;
     } catch (error) {
       console.error("Error fetching undriven streets:", error);
@@ -860,7 +868,9 @@
         "danger",
       );
       AppState.mapLayers.undrivenStreets.visible = false;
-      await updateMap(); // Ensure map is updated to hide layer on error
+      // Update map layer data and rendering on error
+      AppState.mapLayers.undrivenStreets.layer = { type: "FeatureCollection", features: [] };
+      await updateMap();
       return null;
     }
   }
@@ -874,63 +884,64 @@
     AppState.layerGroup.clearLayers();
 
     const visibleLayers = Object.entries(AppState.mapLayers)
-      .filter(([, info]) => info.visible && info.layer)
+      .filter(([, info]) => info.visible && info.layer && (info.layer.features?.length > 0 || info.layer instanceof L.LayerGroup))
       .sort(([, a], [, b]) => a.order - b.order);
 
-    const tripLayers = new Map();
+    const tripLayers = new Map(); // Cache layers by ID for quick access
 
-    await Promise.all(
-      visibleLayers.map(async ([name, info]) => {
-        if (["customPlaces"].includes(name)) {
-          info.layer.addTo(AppState.layerGroup);
-        } else if (["trips", "matchedTrips"].includes(name)) {
+    // Use Promise.all for potentially parallel layer processing if needed
+    // but keep it sequential for simplicity unless performance demands otherwise
+    for (const [name, info] of visibleLayers) {
+      if (name === "customPlaces" && info.layer instanceof L.LayerGroup) {
+        info.layer.addTo(AppState.layerGroup);
+      } else if (["trips", "matchedTrips"].includes(name)) {
+        if (info.layer && info.layer.features) {
           const geoJsonLayer = L.geoJSON(info.layer, {
             style: (feature) => getTripFeatureStyle(feature, info),
             onEachFeature: (feature, layer) => {
               tripLayers.set(feature.properties.transactionId, layer);
-              layer.on("click", (e) =>
-                handleTripClick(e, feature, layer, info, name),
-              );
-              layer.on("popupopen", () =>
-                setupPopupEventListeners(layer, feature),
-              );
-            },
-          });
-          geoJsonLayer.addTo(AppState.layerGroup);
-        } else if (name === "undrivenStreets" && info.layer?.features) {
-          // Handle undriven streets layer
-          const geoJsonLayer = L.geoJSON(info.layer, {
-            style: () => ({
-              color: info.color,
-              weight: 3,
-              opacity: info.opacity,
-              className: "undriven-street",
-            }),
-            onEachFeature: (feature, layer) => {
-              // Add street name popup
-              if (feature.properties?.street_name) {
-                const streetName = feature.properties.street_name;
-                const segmentLength =
-                  feature.properties.segment_length?.toFixed(2) || "Unknown";
-                const streetType = feature.properties.highway || "street";
-
-                layer.bindTooltip(
-                  `<strong>${streetName}</strong><br>Type: ${streetType}<br>Length: ${segmentLength}m`,
-                  { sticky: true },
-                );
-              }
+              layer.on("click", (e) => handleTripClick(e, feature, layer, info, name));
+              layer.on("popupopen", () => setupPopupEventListeners(layer, feature));
             },
           });
           geoJsonLayer.addTo(AppState.layerGroup);
         }
-      }),
-    );
+      } else if (name === "undrivenStreets" && info.layer?.features) {
+        const geoJsonLayer = L.geoJSON(info.layer, {
+          style: () => ({
+            color: info.color,
+            weight: 3,
+            opacity: info.opacity,
+            className: "undriven-street",
+          }),
+          onEachFeature: (feature, layer) => {
+            if (feature.properties?.street_name) {
+              const streetName = feature.properties.street_name;
+              const segmentLength = feature.properties.segment_length?.toFixed(2) || "Unknown";
+              const streetType = feature.properties.highway || "street";
+              layer.bindTooltip(
+                `<strong>${streetName}</strong><br>Type: ${streetType}<br>Length: ${segmentLength}m`,
+                { sticky: true },
+              );
+            }
+          },
+        });
+        geoJsonLayer.addTo(AppState.layerGroup);
+      }
+    }
 
+    // Bring selected trip to front after all layers are added
     if (AppState.selectedTripId && tripLayers.has(AppState.selectedTripId)) {
       tripLayers.get(AppState.selectedTripId)?.bringToFront();
     }
 
-    if (fitBounds) fitMapBounds();
+    if (fitBounds) {
+      fitMapBounds(); // Ensure this is called after layers are added
+    }
+
+    // Invalidate map size after updates, especially if container changed
+    AppState.map.invalidateSize();
+
     document.dispatchEvent(new CustomEvent("mapUpdated"));
   }
 
@@ -1457,8 +1468,12 @@
       for (let i = 0; i < dropdown.options.length; i++) {
         try {
           const optionLocation = JSON.parse(dropdown.options[i].value);
-          if (optionLocation && optionLocation._id === savedLocationId) {
+          if (optionLocation && (optionLocation._id === savedLocationId || optionLocation.display_name === savedLocationId)) {
             dropdown.selectedIndex = i;
+            // If the undriven streets layer is set to be visible, fetch data now
+            if (localStorage.getItem(`layer_visible_undrivenStreets`) === "true") {
+              fetchUndrivenStreets();
+            }
             break;
           }
         } catch (e) {
@@ -1469,73 +1484,7 @@
   }
 
   // Event Listeners & Date Presets
-  // In static/js/app.js - modify handleDatePresetClick()
-  function handleDatePresetClick() {
-    const range = this.dataset.range;
-    if (!range) return;
-
-    const loadingManager = window.loadingManager || {
-      startOperation: () => {},
-      finish: () => {},
-    };
-
-    loadingManager.startOperation("DatePreset", 100);
-
-    DateUtils.getDateRangePreset(range)
-      .then(({ startDate, endDate }) => {
-        if (startDate && endDate) {
-          const startInput = getElement("#start-date");
-          const endInput = getElement("#end-date");
-
-          if (startInput && endInput) {
-            if (startInput._flatpickr) {
-              startInput._flatpickr.setDate(startDate);
-            } else {
-              startInput.value = startDate;
-            }
-
-            if (endInput._flatpickr) {
-              endInput._flatpickr.setDate(endDate);
-            } else {
-              endInput.value = endDate;
-            }
-          }
-
-          setStorageItem(CONFIG.STORAGE_KEYS.startDate, startDate);
-          setStorageItem(CONFIG.STORAGE_KEYS.endDate, endDate);
-
-          document.dispatchEvent(
-            new CustomEvent("datePresetSelected", {
-              detail: { preset: range, startDate, endDate },
-            }),
-          );
-
-          // Call fetchTrips() directly instead of fetchTripsInRange()
-          fetchTrips();
-        } else {
-          showNotification("Invalid date range returned", "warning");
-        }
-      })
-      .catch((err) => {
-        handleError(err, "Setting Date Preset");
-        showNotification(
-          "Error setting date range. Please try again.",
-          "danger",
-        );
-      })
-      .finally(() => {
-        loadingManager.finish("DatePreset");
-      });
-  }
-
   function initializeEventListeners() {
-    addSingleEventListener("apply-filters", "click", () => {
-      setStorageItem(CONFIG.STORAGE_KEYS.startDate, getStartDate());
-      setStorageItem(CONFIG.STORAGE_KEYS.endDate, getEndDate());
-      fetchTrips();
-      fetchMetrics();
-    });
-
     addSingleEventListener("controls-toggle", "click", function () {
       const mapControls = getElement("map-controls");
       const controlsContent = getElement("controls-content");
@@ -1566,10 +1515,6 @@
 
     addSingleEventListener("map-match-trips", "click", mapMatchTrips);
 
-    document.querySelectorAll(".quick-select-btn").forEach((btn) => {
-      addSingleEventListener(btn, "click", handleDatePresetClick);
-    });
-
     addSingleEventListener("highlight-recent-trips", "change", function () {
       AppState.mapSettings.highlightRecentTrips = this.checked;
       debouncedUpdateMap();
@@ -1587,6 +1532,14 @@
         }
       });
     }
+
+    // ADD listener for filters applied event from modern-ui.js
+    document.addEventListener('filtersApplied', (e) => {
+      console.log('Filters applied event received in app.js:', e.detail);
+      // Fetch data based on the new filter dates provided by the event or localStorage
+      fetchTrips();
+      fetchMetrics();
+    });
   }
 
   function initializeDOMCache() {
@@ -1680,30 +1633,36 @@
           if (!isMapReady()) {
             console.error("Failed to initialize map components");
             showNotification(CONFIG.ERROR_MESSAGES.mapInitFailed, "danger");
-            return;
+            return Promise.reject("Map initialization failed"); // Reject promise on failure
           }
 
           initializeLayerControls();
 
-          // Load coverage areas for the undriven streets dropdown
-          populateLocationDropdown();
-
-          // Restore layer visibility from localStorage, including undriven streets
+          // Load coverage areas for the undriven streets dropdown *before* restoring state
+          return populateLocationDropdown(); // Return promise
+        })
+        .then(() => {
+          // Restore layer visibility from localStorage *after* dropdown is populated
           Object.keys(AppState.mapLayers).forEach((layerName) => {
-            const savedVisibility = localStorage.getItem(
-              `layer_visible_${layerName}`,
-            );
+            const savedVisibility = localStorage.getItem(`layer_visible_${layerName}`);
             if (savedVisibility === "true") {
               AppState.mapLayers[layerName].visible = true;
+              // Update the checkbox state in the UI
+              const toggle = document.getElementById(`${layerName}-toggle`);
+              if (toggle) toggle.checked = true;
 
-              // If the undriven streets layer was previously visible, we'll fetch it
-              // after a short delay to ensure the location dropdown is populated
-              if (layerName === "undrivenStreets") {
-                setTimeout(() => fetchUndrivenStreets(), 1500);
-              }
+              // Special handling for undrivenStreets - fetch ONLY if a location is selected
+              // The selection logic is handled within populateLocationDropdown now
+              // No need for setTimeout here anymore, selection triggers fetch
+            } else {
+              AppState.mapLayers[layerName].visible = false;
+              const toggle = document.getElementById(`${layerName}-toggle`);
+              if (toggle) toggle.checked = false;
             }
           });
+          updateLayerOrderUI(); // Update UI after restoring visibility
 
+          // Initial data fetch based on stored dates (modern-ui handles initial storage)
           return Promise.all([fetchTrips(), fetchMetrics()]);
         })
         .then((results) => {
