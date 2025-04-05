@@ -519,7 +519,7 @@ class ConfirmationDialog {
         options.confirmButtonClass || this.config.defaultConfirmButtonClass;
 
       modalElement.querySelector(".modal-title").textContent = title;
-      modalElement.querySelector(".modal-body").textContent = message;
+      modalElement.querySelector(".modal-body").innerHTML = message;
 
       const confirmBtn = modalElement.querySelector(".confirm-btn");
       const cancelBtn = modalElement.querySelector(".cancel-btn");

@@ -152,6 +152,7 @@ archived_live_trips_collection = db_manager.db["archived_live_trips"]
 task_config_collection = db_manager.db["task_config"]
 task_history_collection = db_manager.db["task_history"]
 progress_collection = db_manager.db["progress_status"]
+osm_data_collection = db_manager.db["osm_data"]
 
 # Initialize live tracking module
 initialize_db(live_trips_collection, archived_live_trips_collection)
@@ -3492,7 +3493,7 @@ async def get_coverage_areas():
 
 @app.post("/api/coverage_areas/delete")
 async def delete_coverage_area(location: LocationModel):
-    """Delete a coverage area."""
+    """Delete a coverage area and all associated data."""
     try:
         display_name = location.display_name
         if not display_name:
@@ -3501,26 +3502,68 @@ async def delete_coverage_area(location: LocationModel):
                 detail="Invalid location display name",
             )
 
-        delete_result = await delete_one_with_retry(
+        # First get the metadata to find GridFS ID if it exists
+        coverage_metadata = await find_one_with_retry(
             coverage_metadata_collection,
             {"location.display_name": display_name},
         )
 
-        await delete_many_with_retry(
-            streets_collection, {"properties.location": display_name}
-        )
-
-        if delete_result.deleted_count == 0:
+        if not coverage_metadata:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Coverage area not found",
             )
 
+        # Delete GridFS data if it exists
+        if gridfs_id := coverage_metadata.get("streets_geojson_gridfs_id"):
+            try:
+                fs = AsyncIOMotorGridFSBucket(db_manager.db)
+                await fs.delete(gridfs_id)
+                logger.info(f"Deleted GridFS file {gridfs_id} for {display_name}")
+            except Exception as gridfs_err:
+                logger.warning(f"Error deleting GridFS file for {display_name}: {gridfs_err}")
+
+        # Delete progress data related to this location
+        try:
+            await delete_many_with_retry(
+                progress_collection, 
+                {"location": display_name}
+            )
+            logger.info(f"Deleted progress data for {display_name}")
+        except Exception as progress_err:
+            logger.warning(f"Error deleting progress data for {display_name}: {progress_err}")
+
+        # Delete cached OSM data for this location
+        try:
+            await delete_many_with_retry(
+                osm_data_collection,
+                {"location.display_name": display_name}
+            )
+            logger.info(f"Deleted cached OSM data for {display_name}")
+        except Exception as osm_err:
+            logger.warning(f"Error deleting OSM data for {display_name}: {osm_err}")
+
+        # Delete street segments
+        await delete_many_with_retry(
+            streets_collection, {"properties.location": display_name}
+        )
+        logger.info(f"Deleted street segments for {display_name}")
+
+        # Finally delete coverage metadata
+        _ = await delete_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": display_name},
+        )
+        logger.info(f"Deleted coverage metadata for {display_name}")
+
         return {
             "status": "success",
-            "message": "Coverage area deleted successfully",
+            "message": "Coverage area and all associated data deleted successfully",
         }
 
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
         logger.exception("Error deleting coverage area: %s", str(e))
         raise HTTPException(

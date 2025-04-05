@@ -1577,7 +1577,15 @@
 
       const confirmed = await window.confirmationDialog.show({
         title: "Delete Coverage Area",
-        message: `Are you sure you want to delete all coverage data and street segments for <strong>${location.display_name}</strong>? This action cannot be undone.`,
+        message: `Are you sure you want to delete <strong>${location.display_name}</strong>?<br><br>
+          This will permanently delete:
+          <ul>
+            <li>All street segments and their driven status</li>
+            <li>All coverage statistics and metadata</li>
+            <li>All cached map data</li>
+            <li>All manual street markings</li>
+          </ul>
+          This action cannot be undone.`,
         confirmText: "Delete",
         confirmButtonClass: "btn-danger",
       });
@@ -1618,7 +1626,7 @@
         }
 
         window.notificationManager.show(
-          `Coverage area '${location.display_name}' deleted successfully.`,
+          `Coverage area '${location.display_name}' and all associated data deleted successfully.`,
           "success",
         );
       } catch (error) {
