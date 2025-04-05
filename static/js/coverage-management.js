@@ -2969,6 +2969,78 @@
           const status = props.driven ? "Driven" : "Not Driven";
           const segmentId = props.segment_id || "N/A";
 
+          // Store original style for resetting highlight
+          layer.originalStyle = { ...layer.options };
+          // Store the feature properties for use in manual marking
+          layer.featureProperties = props;
+
+          // Create popup content with action buttons - same as in addStreetsToMap
+          const popupContent = document.createElement("div");
+          popupContent.className = "street-popup";
+          popupContent.innerHTML = `
+            <h6>${streetName}</h6>
+            <hr class="my-1">
+            <small>
+              <strong>Type:</strong> ${this.formatStreetType(streetType)}<br>
+              <strong>Length:</strong> ${lengthMiles} mi<br>
+              <strong>Status:</strong> <span class="${
+                props.driven ? "text-success" : "text-danger"
+              }">${status}</span><br>
+              ${
+                props.undriveable
+                  ? '<strong>Marked as:</strong> <span class="text-warning">Undriveable</span><br>'
+                  : ""
+              }
+              <strong>ID:</strong> ${segmentId}
+            </small>
+            <div class="street-actions mt-2 d-flex gap-2">
+              ${
+                props.driven
+                  ? `<button class="btn btn-sm btn-outline-danger mark-undriven-btn">Mark as Undriven</button>`
+                  : `<button class="btn btn-sm btn-outline-success mark-driven-btn">Mark as Driven</button>`
+              }
+              ${
+                props.undriveable
+                  ? `<button class="btn btn-sm btn-outline-info mark-driveable-btn">Mark as Driveable</button>`
+                  : `<button class="btn btn-sm btn-outline-warning mark-undriveable-btn">Mark as Undriveable</button>`
+              }
+            </div>
+          `;
+
+          // Add event listeners to the buttons
+          const self = this;
+          const markDrivenBtn = popupContent.querySelector(".mark-driven-btn");
+          const markUndrivenBtn = popupContent.querySelector(".mark-undriven-btn");
+          const markUndriveableBtn = popupContent.querySelector(".mark-undriveable-btn");
+          const markDriveableBtn = popupContent.querySelector(".mark-driveable-btn");
+
+          if (markDrivenBtn) {
+            markDrivenBtn.addEventListener("click", function () {
+              self.markStreetSegment(layer, "driven");
+            });
+          }
+
+          if (markUndrivenBtn) {
+            markUndrivenBtn.addEventListener("click", function () {
+              self.markStreetSegment(layer, "undriven");
+            });
+          }
+
+          if (markUndriveableBtn) {
+            markUndriveableBtn.addEventListener("click", function () {
+              self.markStreetSegment(layer, "undriveable");
+            });
+          }
+
+          if (markDriveableBtn) {
+            markDriveableBtn.addEventListener("click", function () {
+              self.markStreetSegment(layer, "driveable");
+            });
+          }
+
+          layer.bindPopup(popupContent, { closeButton: false, minWidth: 220 });
+
+          // Store street info for other uses
           layer.streetInfo = {
             name: streetName,
             type: streetType,
@@ -2978,17 +3050,33 @@
             segmentId: segmentId,
           };
 
-          layer.bindPopup(
-            `
-              <div class="street-popup"><h6>${streetName}</h6><hr class="my-1"><small>
-              <strong>Type:</strong> ${this.formatStreetType(streetType)}<br>
-              <strong>Length:</strong> ${lengthMiles} mi<br>
-              <strong>Status:</strong> <span class="${
-                props.driven ? "text-success" : "text-danger"
-              }">${status}</span><br>
-              <strong>ID:</strong> ${segmentId}</small></div>`,
-            { closeButton: false, minWidth: 150 },
-          );
+          // Add click handler for highlighting - same as in addStreetsToMap
+          layer.on("click", (e) => {
+            const clickedLayer = e.target;
+            const infoPanel = document.querySelector(".map-info-panel");
+
+            // Reset previously highlighted layer
+            if (this.highlightedLayer && this.highlightedLayer !== clickedLayer) {
+              try {
+                this.highlightedLayer.setStyle(this.highlightedLayer.originalStyle);
+              } catch (styleError) {
+                console.warn("Could not reset style on previously highlighted layer:", styleError);
+              }
+            }
+
+            // Highlight the clicked layer
+            this.highlightedLayer = clickedLayer;
+            try {
+              clickedLayer.setStyle({
+                weight: 5,
+                opacity: 1,
+                color: '#ffff00',
+                dashArray: '',
+              });
+            } catch (styleError) {
+              console.warn("Could not set highlight style:", styleError);
+            }
+          });
         },
       }).addTo(this.streetLayers); // Add the filtered layer to the group
 
