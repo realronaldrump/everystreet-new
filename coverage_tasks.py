@@ -113,9 +113,7 @@ def collect_street_type_stats(features: List[Dict]) -> List[Dict[str, Any]]:
 
 
 # --- Coverage Calculation Orchestration ---
-async def process_coverage_calculation(
-    location: Dict[str, Any], task_id: str
-) -> None:
+async def process_coverage_calculation(location: Dict[str, Any], task_id: str) -> None:
     """Orchestrates the full coverage calculation process in the background.
 
     Delegates the core calculation, progress updates, and result handling to
@@ -330,9 +328,7 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
         task_id: Unique identifier for tracking this combined task run.
     """
     display_name = location.get("display_name", "Unknown Location")
-    logger.info(
-        "Starting full area processing task %s for %s", task_id, display_name
-    )
+    logger.info("Starting full area processing task %s for %s", task_id, display_name)
     overall_status = "processing"  # Track overall task status
 
     try:
@@ -372,9 +368,7 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
                     "street_types": [],
                     "streets_geojson_gridfs_id": None,  # Clear old GeoJSON ref
                 },
-                "$unset": {
-                    "streets_data": ""
-                },  # Remove legacy field if present
+                "$unset": {"streets_data": ""},  # Remove legacy field if present
             },
             upsert=True,
         )
@@ -455,15 +449,10 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
         # Call the full coverage calculation orchestration function
         # This now handles its own progress/metadata updates for the calculation part
         # and returns the final stats dict or None
-        calculation_result = await compute_coverage_for_location(
-            location, task_id
-        )
+        calculation_result = await compute_coverage_for_location(location, task_id)
 
         # Check the final outcome based on the result from the calculation function
-        if (
-            calculation_result is None
-            or calculation_result.get("status") == "error"
-        ):
+        if calculation_result is None or calculation_result.get("status") == "error":
             overall_status = "error"
             final_error = (
                 calculation_result.get("last_error", "Calculation failed")
