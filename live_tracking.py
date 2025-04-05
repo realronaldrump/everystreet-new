@@ -81,19 +81,58 @@ async def serialize_live_trip(trip_data: Dict[str, Any]) -> Dict[str, Any]:
 
     # Format time values for display
     if "startTime" in serialized:
+        start_time_value = serialized["startTime"]
+        start_time_obj = None
         try:
-            start_time = (
-                datetime.fromisoformat(
-                    serialized["startTime"].replace("Z", "+00:00")
+            if isinstance(start_time_value, datetime):
+                start_time_obj = start_time_value
+            elif isinstance(start_time_value, str):
+                # Ensure the string has timezone info for consistent parsing
+                if 'Z' in start_time_value:
+                    start_time_value = start_time_value.replace("Z", "+00:00")
+                elif '+' not in start_time_value and '-' not in start_time_value[10:]: # Basic check if tz offset exists
+                     # Assume UTC if no timezone specified - adjust if needed based on actual data source
+                     # Alternatively, could raise an error if timezone is expected
+                     # For now, let's assume UTC for ISO strings without TZ
+                     pass # fromisoformat handles this if TZ is missing
+
+                start_time_obj = datetime.fromisoformat(start_time_value)
+            else:
+                # Handle other unexpected types like numbers if necessary, or log error
+                 logger.error(
+                    "Unexpected type for startTime during serialization for trip %s: %s",
+                    serialized.get('transactionId', 'N/A'),
+                    type(start_time_value)
                 )
-                if isinstance(serialized["startTime"], str)
-                else serialized["startTime"]
-            )
-            serialized["startTimeFormatted"] = start_time.strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
-        except (ValueError, AttributeError):
-            serialized["startTimeFormatted"] = "Unknown"
+
+            # Now format if we have a valid datetime object
+            if isinstance(start_time_obj, datetime):
+                 # Ensure it has timezone info before formatting, default to UTC if naive
+                if start_time_obj.tzinfo is None:
+                    start_time_obj = start_time_obj.replace(tzinfo=timezone.utc)
+
+                # Format consistently
+                serialized["startTimeFormatted"] = start_time_obj.strftime(
+                    "%Y-%m-%d %H:%M:%S %Z" # Add timezone abbreviation
+                )
+            else:
+                 # This case means conversion failed or type was unexpected
+                 logger.error(
+                    "Could not obtain a valid datetime object for startTime from value: %s (type: %s) for trip %s",
+                    serialized["startTime"], type(serialized["startTime"]), serialized.get('transactionId', 'N/A')
+                 )
+                 serialized["startTimeFormatted"] = "Error: Invalid Time Data"
+
+        except (ValueError, AttributeError, TypeError) as e:
+             logger.error(
+                "Error formatting startTime %s (%s) for trip %s: %s",
+                serialized["startTime"], type(serialized["startTime"]), serialized.get('transactionId', 'N/A'), e
+             )
+             serialized["startTimeFormatted"] = "Error: Formatting Failed"
+    else:
+         # If startTime is missing entirely from the document
+         logger.error("startTime field missing during serialization for trip %s", serialized.get('transactionId', 'N/A'))
+         serialized["startTimeFormatted"] = "Error: Missing Start Time"
 
     # If we have coordinates but missing metrics, recalculate them
     if serialized.get("coordinates") and serialized.get("distance") == 0:
