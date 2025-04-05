@@ -1110,7 +1110,9 @@ async def init_task_history_collection() -> None:
             name="task_history_task_timestamp_idx",
             background=True,
         )
-        logger.info("Task history collection indexes ensured/created successfully")
+        logger.info(
+            "Task history collection indexes ensured/created successfully"
+        )
     except Exception as e:
         logger.error("Error creating task history indexes: %s", str(e))
         # Decide if this should be fatal - maybe not, log and continue?

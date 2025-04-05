@@ -1,9 +1,9 @@
 # preprocess_streets.py
 """Preprocess streets module.
 
-Fetches OSM data from Overpass (excluding non-drivable ways), segments street
-geometries in parallel using a dynamically determined UTM zone for accuracy,
-and updates the database.
+Fetches OSM data from Overpass (excluding non-drivable ways, parking lots,
+private roads), segments street geometries in parallel using a dynamically
+determined UTM zone for accuracy, and updates the database.
 """
 
 import asyncio
@@ -52,6 +52,13 @@ EXCLUDED_HIGHWAY_TYPES_REGEX = (
     "footway|path|steps|pedestrian|bridleway|cycleway|corridor|"
     "platform|raceway|proposed|construction|track"
 )
+# Define access types to explicitly exclude (private, restricted, etc.)
+EXCLUDED_ACCESS_TYPES_REGEX = (
+    "private|no|customers|delivery|agricultural|forestry"
+)
+# Define service types (associated with highway=service) to exclude
+EXCLUDED_SERVICE_TYPES_REGEX = "parking_aisle|driveway"
+
 
 SEGMENT_LENGTH_METERS = 100  # Street segment length
 # Increased BATCH_SIZE for potentially better insert performance
@@ -115,26 +122,51 @@ async def fetch_osm_data(
 ) -> Dict[str, Any]:
     """Fetch OSM data from Overpass API for a given location.
 
-    If streets_only is True, filters out non-vehicular ways using Overpass query.
+    If streets_only is True, filters out non-vehicular ways, parking lots,
+    private roads, and certain service roads using an enhanced Overpass query.
     """
     area_id = int(location["osm_id"])
     if location["osm_type"] == "relation":
         area_id += 3600000000
 
     if streets_only:
-        # Query for drivable streets, excluding non-vehicular highway types
+        # Enhanced query to filter for drivable, public streets
         query = f"""
         [out:json][timeout:180];
+        // Define the search area based on OSM ID
         area({area_id})->.searchArea;
         (
-          // Fetch ways with highway tag, EXCLUDING specified non-vehicular types
-          way["highway"]["highway"!~"{EXCLUDED_HIGHWAY_TYPES_REGEX}"](area.searchArea);
+          // Initial selection: Ways with a highway tag in the area
+          way["highway"](area.searchArea)
+          // Exclude non-vehicular highway types
+          ["highway"!~"{EXCLUDED_HIGHWAY_TYPES_REGEX}"]
+          // Exclude features tagged primarily as parking areas
+          ["amenity"!="parking"]
+          // Exclude ways with explicitly restricted access tags
+          ["access"!~"{EXCLUDED_ACCESS_TYPES_REGEX}"]
+          // Exclude ways where motor vehicles are explicitly forbidden
+          ["motor_vehicle"!="no"]
+          // Exclude ways marked as generally impassable
+          ["impassable"!="yes"]
+          // Store these candidates
+          ->.potential_ways;
+
+          // Identify specific service ways to exclude (parking aisles, driveways)
+          // These often represent non-drivable parts of parking lots or private property
+          way(area.searchArea)["highway"="service"]["service"~"{EXCLUDED_SERVICE_TYPES_REGEX}"]
+          ->.unwanted_service_ways;
+
+          // Final result: potential ways MINUS unwanted service ways
+          (
+            way.potential_ways; - way.unwanted_service_ways;
+          );
         );
-        (._;>;); // Recurse down to nodes
+        // Recurse down to nodes to get geometry data for the final set of ways
+        (._;>;);
         out geom; // Output geometry
         """
         logger.info(
-            "Using Overpass query that excludes non-vehicular ways for preprocessing."
+            "Using enhanced Overpass query to exclude non-drivable/private ways for preprocessing."
         )
     else:
         # Query for boundary (no change needed here)
@@ -438,7 +470,7 @@ def process_element_parallel(
                     "last_manual_update": None,  # Timestamp of last manual mark
                     # --- End Initial State ---
                     "matched_trips": [],
-                    "tags": tags,
+                    "tags": tags,  # Store original tags for potential future analysis/filtering
                 },
             }
             features.append(feature)
@@ -505,7 +537,7 @@ async def process_osm_data(
             return
 
         logger.info(
-            "Processing %d street ways for %s",
+            "Processing %d potentially drivable street ways for %s",  # Updated log message
             len(way_elements),
             location_name,
         )
@@ -583,9 +615,28 @@ async def process_osm_data(
                             gc.collect()  # Optional: Explicit GC after large insert
                             await asyncio.sleep(0.05)  # Yield control briefly
                         except BulkWriteError as bwe:
-                            logger.error(
-                                f"Error inserting batch (BulkWriteError): {bwe.details}"
-                            )
+                            # Log duplicate key errors specifically if possible
+                            write_errors = bwe.details.get("writeErrors", [])
+                            dup_keys = [
+                                e
+                                for e in write_errors
+                                if e.get("code") == 11000
+                            ]
+                            if dup_keys:
+                                logger.warning(
+                                    f"Skipped {len(dup_keys)} duplicate segments during batch insert for {location_name}."
+                                )
+                            # Log other errors more verbosely
+                            other_errors = [
+                                e
+                                for e in write_errors
+                                if e.get("code") != 11000
+                            ]
+                            if other_errors:
+                                logger.error(
+                                    f"Non-duplicate BulkWriteError inserting batch for {location_name}: {other_errors}"
+                                )
+
                             # Decide how to handle insert errors (e.g., skip batch, retry individual?)
                             # For now, log and continue, potentially losing some segments in this batch
                             batch_to_insert = []  # Clear batch
@@ -635,9 +686,23 @@ async def process_osm_data(
                         location_name,
                     )
                 except BulkWriteError as bwe:
-                    logger.error(
-                        f"Error inserting final batch (BulkWriteError): {bwe.details}"
-                    )
+                    # Log duplicate key errors specifically if possible
+                    write_errors = bwe.details.get("writeErrors", [])
+                    dup_keys = [
+                        e for e in write_errors if e.get("code") == 11000
+                    ]
+                    if dup_keys:
+                        logger.warning(
+                            f"Skipped {len(dup_keys)} duplicate segments during final batch insert for {location_name}."
+                        )
+                    # Log other errors more verbosely
+                    other_errors = [
+                        e for e in write_errors if e.get("code") != 11000
+                    ]
+                    if other_errors:
+                        logger.error(
+                            f"Non-duplicate BulkWriteError inserting final batch for {location_name}: {other_errors}"
+                        )
                 except Exception as insert_err:
                     logger.error(
                         "Error inserting final batch: %s",
@@ -672,7 +737,8 @@ async def process_osm_data(
         else:
             # This case should be handled earlier if way_elements is empty, but double-check
             logger.warning(
-                "No valid street segments were generated for %s", location_name
+                "No valid street segments were generated for %s after filtering and processing.",
+                location_name,
             )
             # Use retry wrapper for DB operation
             await update_one_with_retry(
@@ -685,7 +751,7 @@ async def process_osm_data(
                         "total_segments": 0,
                         "last_updated": datetime.now(timezone.utc),
                         "status": "completed",
-                        "last_error": "No segments generated",
+                        "last_error": "No segments generated after filtering",
                     }
                 },
                 upsert=True,
@@ -717,8 +783,8 @@ async def process_osm_data(
 async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
     """
     Preprocess street data for a validated location:
-    Fetch filtered OSM data, determine appropriate UTM zone, segment streets,
-    and update the database.
+    Fetch filtered OSM data (excluding non-drivable/private ways),
+    determine appropriate UTM zone, segment streets, and update the database.
     """
     location_name = validated_location["display_name"]
     try:
@@ -814,12 +880,15 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
                 location_name,
                 del_err,
             )
+            # Optionally, decide if this error should halt processing
+            # For now, log and continue, but new data might conflict if deletion failed partially
 
         # --- Step 2: Fetch OSM data (filtered) ---
         osm_data = None
         try:
             logger.info(
-                "Fetching filtered OSM street data for %s...", location_name
+                "Fetching filtered OSM street data for %s using enhanced query...",
+                location_name,
             )
             osm_data = await asyncio.wait_for(
                 fetch_osm_data(validated_location, streets_only=True),
@@ -861,7 +930,7 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
 
         if not osm_data or not osm_data.get("elements"):
             logger.warning(
-                "No OSM elements returned for %s. Preprocessing finished.",
+                "No OSM elements returned for %s after filtering. Preprocessing finished.",
                 location_name,
             )
             # Use retry wrapper for DB operation
@@ -882,7 +951,8 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
         # --- Step 3: Process OSM data (segmentation, DB insertion) ---
         try:
             logger.info(
-                "Processing and segmenting OSM data for %s...", location_name
+                "Processing and segmenting filtered OSM data for %s...",
+                location_name,
             )
             # Pass the dynamically created transformers to process_osm_data
             await asyncio.wait_for(

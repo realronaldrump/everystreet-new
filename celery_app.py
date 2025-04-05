@@ -72,9 +72,7 @@ def get_redis_connection_with_retry():
             # Test the Redis connection
             r = redis.from_url(REDIS_URL)
             r.ping()
-            logger.info(
-                "Successfully connected to Redis broker."
-            )
+            logger.info("Successfully connected to Redis broker.")
             return True
         except ConnectionError as e:
             retry_count += 1
@@ -225,4 +223,6 @@ def worker_init(**kwargs):
     from datetime import datetime, timezone
 
     current_time = datetime.now(timezone.utc)
-    logger.debug("Worker starting at UTC time: %s", current_time.isoformat())  # Changed from INFO to DEBUG
+    logger.debug(
+        "Worker starting at UTC time: %s", current_time.isoformat()
+    )  # Changed from INFO to DEBUG

@@ -219,9 +219,11 @@ async def update_geo_points(
                             "Progress: Updated %d/%d documents (%.1f%%)",
                             updated_count,
                             total_docs,
-                            (updated_count / total_docs * 100)
-                            if total_docs
-                            else 0,
+                            (
+                                (updated_count / total_docs * 100)
+                                if total_docs
+                                else 0
+                            ),
                         )
 
             # Process any remaining documents in the current batch

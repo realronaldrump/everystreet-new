@@ -164,9 +164,9 @@ async def fetch_bouncie_trips_in_range(
     if progress_tracker is not None:
         progress_tracker["fetch_and_store_trips"]["status"] = "running"
         progress_tracker["fetch_and_store_trips"]["progress"] = 0
-        progress_tracker["fetch_and_store_trips"]["message"] = (
-            "Starting trip fetch"
-        )
+        progress_tracker["fetch_and_store_trips"][
+            "message"
+        ] = "Starting trip fetch"
 
     try:
         session = await get_session()
@@ -175,17 +175,17 @@ async def fetch_bouncie_trips_in_range(
             logger.error("Failed to obtain access token; aborting fetch")
             if progress_tracker is not None:
                 progress_tracker["fetch_and_store_trips"]["status"] = "failed"
-                progress_tracker["fetch_and_store_trips"]["message"] = (
-                    "Failed to obtain access token"
-                )
+                progress_tracker["fetch_and_store_trips"][
+                    "message"
+                ] = "Failed to obtain access token"
             return all_new_trips
 
         # Process each device
         for device_index, imei in enumerate(AUTHORIZED_DEVICES, start=1):
             if progress_tracker is not None:
-                progress_tracker["fetch_and_store_trips"]["message"] = (
-                    f"Fetching trips for device {device_index} of {total_devices}"
-                )
+                progress_tracker["fetch_and_store_trips"][
+                    "message"
+                ] = f"Fetching trips for device {device_index} of {total_devices}"
 
             device_new_trips = []
             current_start = start_dt
@@ -254,8 +254,8 @@ async def fetch_bouncie_trips_in_range(
         ):
             progress_tracker["fetch_and_store_trips"]["status"] = "completed"
             progress_tracker["fetch_and_store_trips"]["progress"] = 100
-            progress_tracker["fetch_and_store_trips"]["message"] = (
-                f"Completed with {len(all_new_trips)} new trips"
-            )
+            progress_tracker["fetch_and_store_trips"][
+                "message"
+            ] = f"Completed with {len(all_new_trips)} new trips"
 
     return all_new_trips

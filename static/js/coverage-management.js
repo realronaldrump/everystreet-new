@@ -4,7 +4,7 @@
 // Add CSS styles for activity indicator
 (() => {
   // Add CSS for pulsing activity indicator
-  const style = document.createElement('style');
+  const style = document.createElement("style");
   style.textContent = `
     .activity-indicator.pulsing {
       animation: pulse 1.5s infinite;
@@ -751,7 +751,10 @@
       if (modalProgressBar) {
         modalProgressBar.style.width = `${progress}%`;
         modalProgressBar.setAttribute("aria-valuenow", progress);
-        modalProgressBar.classList.add("progress-bar-striped", "progress-bar-animated");
+        modalProgressBar.classList.add(
+          "progress-bar-striped",
+          "progress-bar-animated",
+        );
       }
 
       const progressMessage = modalElement.querySelector(".progress-message");
@@ -761,15 +764,20 @@
       }
 
       // Add activity indicator, unit toggle, and last update time if they don't exist
-      const activityIndicatorContainer = modalElement.querySelector(".activity-indicator-container");
-      if (activityIndicatorContainer && !activityIndicatorContainer.querySelector(".activity-indicator")) {
+      const activityIndicatorContainer = modalElement.querySelector(
+        ".activity-indicator-container",
+      );
+      if (
+        activityIndicatorContainer &&
+        !activityIndicatorContainer.querySelector(".activity-indicator")
+      ) {
         activityIndicatorContainer.innerHTML = `
           <div class="d-flex align-items-center justify-content-between">
             <small class="activity-indicator pulsing"><i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active</small>
             <small class="last-update-time text-muted"></small>
           </div>
           <button type="button" class="btn btn-sm btn-outline-secondary mt-2 unit-toggle">
-            Switch to ${this.useMiles ? 'km' : 'mi'}
+            Switch to ${this.useMiles ? "km" : "mi"}
           </button>
           <div class="detailed-stage-info text-muted mt-2 small"></div>
         `;
@@ -790,18 +798,25 @@
       }
       this.progressTimer = setInterval(() => {
         this.updateTimingInfo();
-        
+
         // Also check if activity indicator needs to be updated
-        const activityIndicator = modalElement.querySelector(".activity-indicator");
+        const activityIndicator = modalElement.querySelector(
+          ".activity-indicator",
+        );
         if (activityIndicator) {
-          if (this.lastActivityTime && (new Date() - this.lastActivityTime > 5000)) {
+          if (
+            this.lastActivityTime &&
+            new Date() - this.lastActivityTime > 5000
+          ) {
             // No activity for more than 5 seconds - switch from pulsing to normal
             activityIndicator.classList.remove("pulsing");
-            activityIndicator.innerHTML = '<i class="fas fa-circle-notch fa-spin text-secondary me-1"></i>Running';
+            activityIndicator.innerHTML =
+              '<i class="fas fa-circle-notch fa-spin text-secondary me-1"></i>Running';
           } else {
             // Recent activity - ensure pulsing is active
             activityIndicator.classList.add("pulsing");
-            activityIndicator.innerHTML = '<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active';
+            activityIndicator.innerHTML =
+              '<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active';
           }
         }
       }, 1000);
@@ -889,21 +904,23 @@
     updateModalContent(data) {
       const modalElement = document.getElementById("taskProgressModal");
       if (!modalElement) return;
-    
+
       // Extract data from processing status
       const { stage, progress = 0, metrics = {} } = data || {};
       const progressBar = modalElement.querySelector(".progress-bar");
       const statusEl = modalElement.querySelector(".status-text");
       const stageIconEl = modalElement.querySelector(".stage-icon");
       const stageBadgeEl = modalElement.querySelector(".stage-badge");
-      const activityIndicatorEl = modalElement.querySelector(".activity-indicator");
-    
+      const activityIndicatorEl = modalElement.querySelector(
+        ".activity-indicator",
+      );
+
       // Update progress bar if found
       if (progressBar) {
         progressBar.style.width = `${progress}%`;
         progressBar.setAttribute("aria-valuenow", progress);
       }
-    
+
       // Update stage text with icon if found
       if (stageIconEl && stageBadgeEl) {
         stageIconEl.className = `stage-icon me-1 ${this.constructor.getStageIcon(stage)}`;
@@ -919,7 +936,9 @@
       // Toggle for miles/kilometers
       const unitToggleEl = modalElement.querySelector(".unit-toggle");
       if (unitToggleEl) {
-        unitToggleEl.textContent = this.useMiles ? "Switch to km" : "Switch to mi";
+        unitToggleEl.textContent = this.useMiles
+          ? "Switch to km"
+          : "Switch to mi";
         unitToggleEl.onclick = () => {
           this.useMiles = !this.useMiles;
           // Re-update the content with new units
@@ -933,7 +952,7 @@
         const totalLength = metrics.total_length_m || 0;
         const driveableLength = metrics.driveable_length_m || 0;
         const coveredLength = metrics.covered_length_m || 0;
-        
+
         statsText += `
           <div class="mt-1">
             <div class="d-flex justify-content-between">
@@ -954,16 +973,19 @@
             </div>
           </div>`;
       }
-      
-      if (metrics.total_trips_to_process !== undefined && stage === "processing_trips") {
+
+      if (
+        metrics.total_trips_to_process !== undefined &&
+        stage === "processing_trips"
+      ) {
         const processed = metrics.processed_trips || 0;
         const total = metrics.total_trips_to_process || 0;
         const tripsProgress = total > 0 ? (processed / total) * 100 : 0;
         const newlyFound = metrics.newly_covered_segments || 0;
-        
+
         statsText += `
           <div class="mt-2">`;
-          
+
         // Different messages based on progress stage
         if (progress < 56) {
           statsText += `
@@ -972,9 +994,9 @@
               <small class="text-info">${progress.toFixed(0)}%</small>
             </div>
             <div class="progress mt-1 mb-2" style="height: 5px;">
-              <div class="progress-bar bg-info" style="width: ${(progress-50)*10}%"></div>
+              <div class="progress-bar bg-info" style="width: ${(progress - 50) * 10}%"></div>
             </div>`;
-            
+
           if (total > 0) {
             statsText += `
               <div class="d-flex justify-content-between">
@@ -982,7 +1004,6 @@
                 <small>${total.toLocaleString()}</small>
               </div>`;
           }
-          
         } else {
           statsText += `
             <div class="d-flex justify-content-between">
@@ -993,7 +1014,7 @@
               <div class="progress-bar bg-info" style="width: ${tripsProgress}%"></div>
             </div>`;
         }
-            
+
         if (newlyFound > 0) {
           statsText += `
             <div class="d-flex justify-content-between">
@@ -1001,7 +1022,7 @@
               <small class="text-success">+${newlyFound.toLocaleString()}</small>
             </div>`;
         }
-            
+
         if (metrics.coverage_percentage !== undefined) {
           statsText += `
             <div class="d-flex justify-content-between">
@@ -1009,19 +1030,25 @@
               <small>${metrics.coverage_percentage.toFixed(1)}%</small>
             </div>`;
         }
-        
+
         statsText += `</div>`;
       }
-      
-      if ((metrics.newly_covered_segments !== undefined || metrics.coverage_percentage !== undefined) && 
-          (stage === "finalizing" || stage === "complete_stats" || stage === "complete" || stage === "generating_geojson")) {
+
+      if (
+        (metrics.newly_covered_segments !== undefined ||
+          metrics.coverage_percentage !== undefined) &&
+        (stage === "finalizing" ||
+          stage === "complete_stats" ||
+          stage === "complete" ||
+          stage === "generating_geojson")
+      ) {
         const newlyFound = metrics.newly_covered_segments || 0;
         const totalCovered = metrics.total_covered_segments || 0;
         const initialCovered = metrics.initial_covered_segments || 0;
-        
+
         statsText += `
           <div class="mt-1">`;
-          
+
         if (newlyFound > 0) {
           statsText += `
             <div class="d-flex justify-content-between">
@@ -1029,24 +1056,24 @@
               <small class="text-success">+${newlyFound.toLocaleString()}</small>
             </div>`;
         }
-        
+
         statsText += `
             <div class="d-flex justify-content-between">
               <small>Total Segments Covered:</small>
               <small>${totalCovered.toLocaleString()} / ${(initialCovered + newlyFound).toLocaleString()}</small>
             </div>`;
-            
+
         if (metrics.coverage_percentage !== undefined) {
           statsText += `
             <div class="d-flex justify-content-between">
               <small>Final Coverage:</small>
-              <small class="text-${metrics.coverage_percentage > 50 ? 'success' : 'primary'}">${metrics.coverage_percentage.toFixed(1)}%</small>
+              <small class="text-${metrics.coverage_percentage > 50 ? "success" : "primary"}">${metrics.coverage_percentage.toFixed(1)}%</small>
             </div>`;
-          
+
           if (metrics.driveable_length_m && metrics.covered_length_m) {
             const driveableLength = metrics.driveable_length_m || 0;
             const coveredLength = metrics.covered_length_m || 0;
-            
+
             statsText += `
               <div class="d-flex justify-content-between">
                 <small>Distance Covered:</small>
@@ -1054,13 +1081,14 @@
               </div>`;
           }
         }
-        
+
         statsText += `</div>`;
       }
 
       const statsInfoEl = modalElement.querySelector(".stats-info");
       if (statsInfoEl) {
-        statsInfoEl.innerHTML = statsText || '<div class="text-muted small">Processing...</div>';
+        statsInfoEl.innerHTML =
+          statsText || '<div class="text-muted small">Processing...</div>';
       }
 
       // Stop animation and timer if complete or error
@@ -1077,7 +1105,7 @@
           const estimatedTimeEl = modalElement.querySelector(".estimated-time");
           if (estimatedTimeEl) estimatedTimeEl.textContent = "";
         }
-        
+
         // Stop activity indicator
         if (activityIndicatorEl) {
           activityIndicatorEl.classList.remove("pulsing");
@@ -1418,8 +1446,8 @@
       const processingLocation = { ...location };
 
       try {
-        // --- Declare pollingSuccessful here --- 
-        let pollingSuccessful = false; 
+        // --- Declare pollingSuccessful here ---
+        let pollingSuccessful = false;
         // -------------------------------------
 
         this.currentProcessingLocation = processingLocation;
@@ -1490,7 +1518,7 @@
               `Coverage update for ${processingLocation.display_name} completed.`,
               "success",
             );
-             // DO NOT hide modal here on success
+            // DO NOT hide modal here on success
           } catch (pollError) {
             // Ensure error is properly stringified
             const errorMessage =
@@ -1515,10 +1543,10 @@
             if (pollingSuccessful) {
               this.currentProcessingLocation = null;
             }
-             // No automatic hiding here
+            // No automatic hiding here
 
-             // Refresh areas list after polling attempt (success or fail)
-             // Moved refresh outside the success path
+            // Refresh areas list after polling attempt (success or fail)
+            // Moved refresh outside the success path
           }
         } else {
           // No task ID
@@ -1533,11 +1561,10 @@
         await this.loadCoverageAreas();
         // This check will now work correctly as pollingSuccessful is guaranteed to be defined
         if (pollingSuccessful && displayedLocationId) {
-             await this.displayCoverageDashboard(displayedLocationId);
+          await this.displayCoverageDashboard(displayedLocationId);
         }
-
       } catch (error) {
-         // Error during initial API call or setup
+        // Error during initial API call or setup
         // Ensure error is properly stringified
         const errorMessage =
           typeof error === "object"
@@ -1553,7 +1580,7 @@
         await this.loadCoverageAreas();
         // Keep context as is - don't clear it here
       }
-       // Removed finally block that was hiding the modal
+      // Removed finally block that was hiding the modal
     }
 
     // Helper to compare location objects (e.g., by display_name or osm_id)
@@ -1652,87 +1679,135 @@
       const maxRetries = 360; // ~30 minutes (5s interval)
       let retries = 0;
       let taskCompleted = false; // Use a simple flag for completion
-    
-      while (retries < maxRetries && !taskCompleted) { // Loop until complete or max retries
+
+      while (retries < maxRetries && !taskCompleted) {
+        // Loop until complete or max retries
         try {
           const response = await fetch(`/api/street_coverage/${taskId}`);
           if (response.status === 404) {
-            throw new Error("Task ID not found. It might have expired or been invalid.");
+            throw new Error(
+              "Task ID not found. It might have expired or been invalid.",
+            );
           }
           if (!response.ok) {
             let errorDetail = `HTTP error ${response.status}`;
             try {
               const errorData = await response.json();
               errorDetail = errorData.detail || errorDetail;
-            } catch (parseError) { /* Ignore */ }
+            } catch (parseError) {
+              /* Ignore */
+            }
             throw new Error(`Failed to get coverage status: ${errorDetail}`);
           }
-    
+
           let data;
           try {
             data = await response.json();
-    
+
             // Basic validation
-            if (!data || typeof data !== 'object') {
-                console.warn(`Task ${taskId}: Received invalid data format:`, data);
-                // Attempt to read response text for clues
-                let responseText = '';
-                try { responseText = await response.text(); } catch(e){}
-                // If empty or suggests success, treat as potentially complete but keep polling
-                if (!responseText || responseText.trim() === '{}' || responseText.includes('success')) {
-                    console.warn(`Task ${taskId}: Invalid data but suggests success. Continuing poll...`);
-                     data = { stage: 'polling_check', progress: 99, message: 'Checking final status...', metrics: {}};
-                } else {
-                    throw new Error("Invalid non-JSON response from server");
-                }
+            if (!data || typeof data !== "object") {
+              console.warn(
+                `Task ${taskId}: Received invalid data format:`,
+                data,
+              );
+              // Attempt to read response text for clues
+              let responseText = "";
+              try {
+                responseText = await response.text();
+              } catch (e) {}
+              // If empty or suggests success, treat as potentially complete but keep polling
+              if (
+                !responseText ||
+                responseText.trim() === "{}" ||
+                responseText.includes("success")
+              ) {
+                console.warn(
+                  `Task ${taskId}: Invalid data but suggests success. Continuing poll...`,
+                );
+                data = {
+                  stage: "polling_check",
+                  progress: 99,
+                  message: "Checking final status...",
+                  metrics: {},
+                };
+              } else {
+                throw new Error("Invalid non-JSON response from server");
+              }
             }
-    
+
             // Ensure stage exists before processing
-            const stage = data.stage || 'unknown'; // Default to unknown if stage missing
-    
+            const stage = data.stage || "unknown"; // Default to unknown if stage missing
+
             this.updateModalContent(data); // Update UI with latest data
-    
+
             // Check for terminal states
             if (stage === "complete") {
               console.log(`Task ${taskId} completed successfully.`);
               taskCompleted = true; // Set flag to exit loop
               return data; // Return final data
             } else if (stage === "error") {
-              console.error(`Task ${taskId} failed with error: ${data.error || "Unknown error"}`);
+              console.error(
+                `Task ${taskId} failed with error: ${data.error || "Unknown error"}`,
+              );
               taskCompleted = true; // Set flag to exit loop
               throw new Error(data.error || "Coverage calculation failed");
             }
             // --- No premature completion based on missing stage ---
-    
           } catch (jsonError) {
-            console.error(`Error processing response for task ${taskId}:`, jsonError);
-            this.updateModalContent({ stage: "error", progress: 0, message: "Error processing server response", error: jsonError.message || 'Parse error', metrics: {} });
+            console.error(
+              `Error processing response for task ${taskId}:`,
+              jsonError,
+            );
+            this.updateModalContent({
+              stage: "error",
+              progress: 0,
+              message: "Error processing server response",
+              error: jsonError.message || "Parse error",
+              metrics: {},
+            });
             taskCompleted = true; // Stop polling on parse error
             throw jsonError;
           }
-    
+
           // Wait before next poll ONLY if not completed
           if (!taskCompleted) {
-              await new Promise((resolve) => setTimeout(resolve, 5000)); // 5-second interval
-              retries++;
+            await new Promise((resolve) => setTimeout(resolve, 5000)); // 5-second interval
+            retries++;
           }
-    
         } catch (error) {
-          const errorMessage = typeof error === "object" ? error.message || JSON.stringify(error) : String(error);
-          console.error(`Error polling coverage progress for task ${taskId}:`, error);
+          const errorMessage =
+            typeof error === "object"
+              ? error.message || JSON.stringify(error)
+              : String(error);
+          console.error(
+            `Error polling coverage progress for task ${taskId}:`,
+            error,
+          );
           // Update modal only if the task hasn't already completed with an error state reported by the backend
           if (!taskCompleted) {
-              this.updateModalContent({ stage: "error", progress: 0, message: `Polling failed: ${errorMessage}`, error: errorMessage, metrics: {} });
+            this.updateModalContent({
+              stage: "error",
+              progress: 0,
+              message: `Polling failed: ${errorMessage}`,
+              error: errorMessage,
+              metrics: {},
+            });
           }
           taskCompleted = true; // Stop polling on any significant error during fetch/processing
           throw error; // Re-throw to signal failure to the caller
         }
       } // End while loop
-    
+
       // If loop finishes without completion
       if (!taskCompleted) {
-          this.updateModalContent({ stage: "error", progress: 0, message: "Polling timed out waiting for completion.", error: "Polling timed out", metrics: {} });
-          throw new Error("Coverage calculation polling timed out");
+        this.updateModalContent({
+          stage: "error",
+          progress: 0,
+          message: "Polling timed out waiting for completion.",
+          error: "Polling timed out",
+          metrics: {},
+        });
+        throw new Error("Coverage calculation polling timed out");
       }
     }
 
@@ -1911,75 +1986,100 @@
 
     updateDashboardStats(coverage) {
       if (!coverage) return;
-    
+
       // Use metric fields with '_m' suffix
       const totalLength = coverage.total_length_m || 0;
       const drivenLength = coverage.driven_length_m || 0;
       const driveableLength = coverage.driveable_length_m || 0; // Added driveable for potential use
-    
+
       const totalMiles = (totalLength * 0.000621371).toFixed(2);
       const drivenMiles = (drivenLength * 0.000621371).toFixed(2);
-      const coveragePercentage = coverage.coverage_percentage?.toFixed(1) || "0.0";
-    
+      const coveragePercentage =
+        coverage.coverage_percentage?.toFixed(1) || "0.0";
+
       // Update the coverage percentage bar (logic seems ok)
       const coverageBar = document.getElementById("coverage-percentage-bar");
       if (coverageBar) {
         coverageBar.style.width = `${coveragePercentage}%`;
         coverageBar.setAttribute("aria-valuenow", coveragePercentage);
-        coverageBar.classList.remove("bg-success", "bg-warning", "bg-danger", "bg-secondary");
+        coverageBar.classList.remove(
+          "bg-success",
+          "bg-warning",
+          "bg-danger",
+          "bg-secondary",
+        );
         let barColor = "bg-success";
-        if (coverage.status === "error" || coverage.status === "canceled") barColor = "bg-secondary";
+        if (coverage.status === "error" || coverage.status === "canceled")
+          barColor = "bg-secondary";
         else if (parseFloat(coveragePercentage) < 25) barColor = "bg-danger";
         else if (parseFloat(coveragePercentage) < 75) barColor = "bg-warning";
         coverageBar.classList.add(barColor);
       }
-    
-      const coveragePercentageText = document.getElementById("dashboard-coverage-percentage-text");
-      if (coveragePercentageText) coveragePercentageText.textContent = `${coveragePercentage}%`;
-    
+
+      const coveragePercentageText = document.getElementById(
+        "dashboard-coverage-percentage-text",
+      );
+      if (coveragePercentageText)
+        coveragePercentageText.textContent = `${coveragePercentage}%`;
+
       // Update the stats
-      const totalSegmentsEl = document.getElementById("dashboard-total-segments"); // Changed ID for clarity
+      const totalSegmentsEl = document.getElementById(
+        "dashboard-total-segments",
+      ); // Changed ID for clarity
       const totalLengthEl = document.getElementById("dashboard-total-length");
       const drivenLengthEl = document.getElementById("dashboard-driven-length");
       const lastUpdatedEl = document.getElementById("dashboard-last-updated");
-    
+
       // Use total_segments from coverage data
-      if (totalSegmentsEl) totalSegmentsEl.textContent = coverage.total_segments?.toLocaleString() || '0';
+      if (totalSegmentsEl)
+        totalSegmentsEl.textContent =
+          coverage.total_segments?.toLocaleString() || "0";
       if (totalLengthEl) totalLengthEl.textContent = `${totalMiles} miles`; // Or use this.distanceInUserUnits(totalLength)
       if (drivenLengthEl) drivenLengthEl.textContent = `${drivenMiles} miles`; // Or use this.distanceInUserUnits(drivenLength)
       if (lastUpdatedEl) {
-        lastUpdatedEl.textContent = coverage.last_updated ? new Date(coverage.last_updated).toLocaleString() : "Never";
+        lastUpdatedEl.textContent = coverage.last_updated
+          ? new Date(coverage.last_updated).toLocaleString()
+          : "Never";
       }
-    
+
       // Update street type coverage breakdown
       this.updateStreetTypeCoverage(coverage.street_types);
     }
 
     updateStreetTypeCoverage(streetTypes) {
-      const streetTypeCoverageEl = document.getElementById("street-type-coverage");
+      const streetTypeCoverageEl = document.getElementById(
+        "street-type-coverage",
+      );
       if (!streetTypeCoverageEl) return;
-    
+
       if (!streetTypes || !streetTypes.length) {
-        streetTypeCoverageEl.innerHTML = '<div class="alert alert-secondary small p-2">No street type data available.</div>';
+        streetTypeCoverageEl.innerHTML =
+          '<div class="alert alert-secondary small p-2">No street type data available.</div>';
         return;
       }
-    
+
       // Sort by total length
-      const sortedTypes = [...streetTypes].sort((a, b) => (b.total_length_m || 0) - (a.total_length_m || 0));
+      const sortedTypes = [...streetTypes].sort(
+        (a, b) => (b.total_length_m || 0) - (a.total_length_m || 0),
+      );
       const topTypes = sortedTypes.slice(0, 6); // Show top 6
-    
+
       let html = "";
       topTypes.forEach((type) => {
         const coveragePct = type.coverage_percentage?.toFixed(1) || "0.0";
         // Use metric fields and unit conversion
         const totalDist = this.distanceInUserUnits(type.total_length_m || 0);
-        const coveredDist = this.distanceInUserUnits(type.covered_length_m || 0);
-        const driveableDist = this.distanceInUserUnits(type.driveable_length_m || 0); // Added driveable
-    
+        const coveredDist = this.distanceInUserUnits(
+          type.covered_length_m || 0,
+        );
+        const driveableDist = this.distanceInUserUnits(
+          type.driveable_length_m || 0,
+        ); // Added driveable
+
         let barColor = "bg-success";
         if (type.coverage_percentage < 25) barColor = "bg-danger";
         else if (type.coverage_percentage < 75) barColor = "bg-warning";
-    
+
         html += `
           <div class="street-type-item mb-2">
             <div class="d-flex justify-content-between mb-1">
@@ -1993,7 +2093,7 @@
           </div>
         `;
       });
-    
+
       streetTypeCoverageEl.innerHTML = html;
     }
 
@@ -2597,51 +2697,72 @@
     createStreetTypeChart(streetTypes) {
       const chartContainer = document.getElementById("street-type-chart");
       if (!chartContainer) return;
-    
+
       // Clear previous chart instance
       if (this.streetTypeChartInstance) {
         this.streetTypeChartInstance.destroy();
         this.streetTypeChartInstance = null;
       }
-    
+
       if (!streetTypes || !streetTypes.length) {
-        chartContainer.innerHTML = '<div class="alert alert-secondary small p-2">No street type data for chart.</div>';
+        chartContainer.innerHTML =
+          '<div class="alert alert-secondary small p-2">No street type data for chart.</div>';
         return;
       }
-    
+
       if (typeof Chart === "undefined") {
         console.error("Chart.js is not loaded");
-        chartContainer.innerHTML = '<div class="alert alert-warning">Chart.js library not found.</div>';
+        chartContainer.innerHTML =
+          '<div class="alert alert-warning">Chart.js library not found.</div>';
         return;
       }
-    
+
       // Prepare data (top 7 types based on driveable length)
-      const sortedTypes = [...streetTypes].sort((a, b) => (b.driveable_length_m || 0) - (a.driveable_length_m || 0));
+      const sortedTypes = [...streetTypes].sort(
+        (a, b) => (b.driveable_length_m || 0) - (a.driveable_length_m || 0),
+      );
       const topTypes = sortedTypes.slice(0, 7);
       const labels = topTypes.map((t) => this.formatStreetType(t.type));
-    
+
       // Use distanceInUserUnits for data conversion
-      const drivenLengths = topTypes.map(t => parseFloat(this.distanceInUserUnits(t.covered_length_m || 0, 2).split(' ')[0]));
-      const driveableLengths = topTypes.map(t => parseFloat(this.distanceInUserUnits(t.driveable_length_m || 0, 2).split(' ')[0]));
+      const drivenLengths = topTypes.map((t) =>
+        parseFloat(
+          this.distanceInUserUnits(t.covered_length_m || 0, 2).split(" ")[0],
+        ),
+      );
+      const driveableLengths = topTypes.map((t) =>
+        parseFloat(
+          this.distanceInUserUnits(t.driveable_length_m || 0, 2).split(" ")[0],
+        ),
+      );
       // Calculate not driven based on driveable length
-      const notDrivenLengths = driveableLengths.map((total, i) => parseFloat(Math.max(0, total - drivenLengths[i]).toFixed(2)));
-      const lengthUnit = this.useMiles ? 'mi' : 'km';
-    
-    
+      const notDrivenLengths = driveableLengths.map((total, i) =>
+        parseFloat(Math.max(0, total - drivenLengths[i]).toFixed(2)),
+      );
+      const lengthUnit = this.useMiles ? "mi" : "km";
+
       // Ensure container has a canvas
       chartContainer.innerHTML = "<canvas></canvas>";
       const ctx = chartContainer.querySelector("canvas").getContext("2d");
-    
+
       const drivenColor = "rgba(76, 175, 80, 0.8)"; // Green
       const notDrivenColor = "rgba(255, 82, 82, 0.7)"; // Red
-    
+
       this.streetTypeChartInstance = new Chart(ctx, {
         type: "bar",
         data: {
           labels: labels,
           datasets: [
-            { label: "Driven", data: drivenLengths, backgroundColor: drivenColor },
-            { label: "Not Driven (Driveable)", data: notDrivenLengths, backgroundColor: notDrivenColor },
+            {
+              label: "Driven",
+              data: drivenLengths,
+              backgroundColor: drivenColor,
+            },
+            {
+              label: "Not Driven (Driveable)",
+              data: notDrivenLengths,
+              backgroundColor: notDrivenColor,
+            },
           ],
         },
         options: {
@@ -2653,7 +2774,12 @@
               stacked: true,
               ticks: { color: "#ccc", font: { size: 10 } },
               grid: { color: "rgba(255, 255, 255, 0.1)" },
-              title: { display: true, text: `Distance (${lengthUnit})`, color: "#ccc", font: { size: 11 } },
+              title: {
+                display: true,
+                text: `Distance (${lengthUnit})`,
+                color: "#ccc",
+                font: { size: 11 },
+              },
             },
             y: {
               stacked: true,
@@ -2663,13 +2789,15 @@
           },
           plugins: {
             tooltip: {
-              mode: "index", intersect: false,
+              mode: "index",
+              intersect: false,
               callbacks: {
                 label: (context) => {
                   const label = context.dataset.label || "";
                   const value = context.raw || 0;
                   const total = driveableLengths[context.dataIndex]; // Use driveable length for total in tooltip
-                  const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                  const percentage =
+                    total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                   return `${label}: ${value.toFixed(2)} ${lengthUnit} (${percentage}%)`;
                 },
                 footer: (tooltipItems) => {
@@ -2678,8 +2806,21 @@
                 },
               },
             },
-            legend: { position: "bottom", labels: { color: "#eee", usePointStyle: true, padding: 10, font: { size: 11 } } },
-            title: { display: true, text: "Driveable Coverage by Street Type (Top 7)", color: "#eee", padding: { top: 5, bottom: 10 } },
+            legend: {
+              position: "bottom",
+              labels: {
+                color: "#eee",
+                usePointStyle: true,
+                padding: 10,
+                font: { size: 11 },
+              },
+            },
+            title: {
+              display: true,
+              text: "Driveable Coverage by Street Type (Top 7)",
+              color: "#eee",
+              padding: { top: 5, bottom: 10 },
+            },
           },
         },
       });

@@ -57,10 +57,10 @@ def collect_street_type_stats(features: List[Dict]) -> List[Dict[str, Any]]:
         lambda: {
             "total": 0,
             "covered": 0,
-            "length": 0.0, # Assume meters from segment_length
-            "covered_length": 0.0, # Assume meters
-            "undriveable_length": 0.0, # Track undriveable separately
-            "driveable_length": 0.0, # Calculated
+            "length": 0.0,  # Assume meters from segment_length
+            "covered_length": 0.0,  # Assume meters
+            "undriveable_length": 0.0,  # Track undriveable separately
+            "driveable_length": 0.0,  # Calculated
         }
     )
 
@@ -68,7 +68,7 @@ def collect_street_type_stats(features: List[Dict]) -> List[Dict[str, Any]]:
         properties = feature.get("properties", {})
         street_type = properties.get("highway", "unknown")
         # Use segment_length which should be pre-calculated in meters
-        length = properties.get("segment_length", 0.0) or 0.0 # Ensure float
+        length = properties.get("segment_length", 0.0) or 0.0  # Ensure float
         is_covered = properties.get("driven", False)
         is_undriveable = properties.get("undriveable", False)
 
@@ -88,7 +88,9 @@ def collect_street_type_stats(features: List[Dict]) -> List[Dict[str, Any]]:
     result = []
     for street_type, stats in street_types.items():
         coverage_pct = (
-            (stats["covered_length"] / stats["driveable_length"] * 100) # Use driveable_length for percentage
+            (
+                stats["covered_length"] / stats["driveable_length"] * 100
+            )  # Use driveable_length for percentage
             if stats["driveable_length"] > 0
             else 0
         )
@@ -96,7 +98,7 @@ def collect_street_type_stats(features: List[Dict]) -> List[Dict[str, Any]]:
             {
                 "type": street_type,
                 "total_segments": stats["total"],
-                "covered_segments": stats["covered"], # Covered and driveable
+                "covered_segments": stats["covered"],  # Covered and driveable
                 "total_length_m": round(stats["length"], 2),
                 "covered_length_m": round(stats["covered_length"], 2),
                 "driveable_length_m": round(stats["driveable_length"], 2),
@@ -140,8 +142,8 @@ async def process_coverage_calculation(
                     "progress": 0,
                     "message": "Starting coverage calculation orchestration...",
                     "updated_at": datetime.now(timezone.utc),
-                    "location": display_name, # Add location context
-                    "status": "processing", # Initial status
+                    "location": display_name,  # Add location context
+                    "status": "processing",  # Initial status
                 }
             },
             upsert=True,
@@ -161,11 +163,11 @@ async def process_coverage_calculation(
                 display_name,
             )
         elif result.get("status") == "error":
-             logger.error(
+            logger.error(
                 "Coverage calculation task %s for %s completed with an error state: %s. Status should be updated by the calculation function.",
                 task_id,
                 display_name,
-                result.get("last_error", "Unknown error")
+                result.get("last_error", "Unknown error"),
             )
         else:
             logger.info(
@@ -201,7 +203,7 @@ async def process_coverage_calculation(
                 {
                     "$set": {
                         "stage": "error",
-                        "progress": 0, # Reset progress on orchestration error
+                        "progress": 0,  # Reset progress on orchestration error
                         "message": f"Orchestration Error: {str(e)[:500]}",
                         "error": str(e)[:200],
                         "updated_at": datetime.now(timezone.utc),
@@ -259,7 +261,7 @@ async def process_incremental_coverage_calculation(
         # --- Check Final Outcome ---
         # Similar to full calculation, the incremental function handles final status updates.
         if result is None:
-             logger.error(
+            logger.error(
                 "Incremental coverage task %s for %s ended with an error (result is None). Status should be updated by the calculation function.",
                 task_id,
                 display_name,
@@ -269,7 +271,7 @@ async def process_incremental_coverage_calculation(
                 "Incremental coverage task %s for %s completed with an error state: %s. Status should be updated by the calculation function.",
                 task_id,
                 display_name,
-                result.get("last_error", "Unknown error")
+                result.get("last_error", "Unknown error"),
             )
         else:
             logger.info(
@@ -331,7 +333,7 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
     logger.info(
         "Starting full area processing task %s for %s", task_id, display_name
     )
-    overall_status = "processing" # Track overall task status
+    overall_status = "processing"  # Track overall task status
 
     try:
         # 1. Initialize Progress and Metadata Status for Preprocessing
@@ -359,7 +361,7 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
                     "status": "preprocessing",  # Mark as preprocessing
                     "last_updated": datetime.now(timezone.utc),
                     "last_error": None,  # Clear previous errors
-                    "needs_stats_update": False, # Reset flag
+                    "needs_stats_update": False,  # Reset flag
                     # Reset stats, they will be calculated later
                     "total_length_m": 0.0,
                     "driven_length_m": 0.0,
@@ -368,9 +370,11 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
                     "covered_segments": 0,
                     "driveable_length_m": 0.0,
                     "street_types": [],
-                    "streets_geojson_gridfs_id": None, # Clear old GeoJSON ref
+                    "streets_geojson_gridfs_id": None,  # Clear old GeoJSON ref
                 },
-                "$unset": {"streets_data": ""} # Remove legacy field if present
+                "$unset": {
+                    "streets_data": ""
+                },  # Remove legacy field if present
             },
             upsert=True,
         )
@@ -378,7 +382,12 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
         # 2. Preprocess Streets
         await progress_collection.update_one(
             {"_id": task_id},
-            {"$set": {"progress": 5, "message": "Preprocessing streets (fetching OSM data)..."}},
+            {
+                "$set": {
+                    "progress": 5,
+                    "message": "Preprocessing streets (fetching OSM data)...",
+                }
+            },
         )
         # Call the preprocessing function from preprocess_streets.py
         # This function updates metadata status internally on success/error
@@ -393,10 +402,14 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
         preprocessing_status = metadata.get("status") if metadata else "error"
 
         if preprocessing_status == "error":
-            error_msg = metadata.get("last_error", "Preprocessing failed (unknown reason)")
+            error_msg = metadata.get(
+                "last_error", "Preprocessing failed (unknown reason)"
+            )
             logger.error(
                 "Task %s: Preprocessing failed for %s: %s",
-                task_id, display_name, error_msg,
+                task_id,
+                display_name,
+                error_msg,
             )
             overall_status = "error"
             await progress_collection.update_one(
@@ -404,7 +417,7 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
                 {
                     "$set": {
                         "stage": "error",
-                        "progress": 10, # Indicate some progress
+                        "progress": 10,  # Indicate some progress
                         "message": f"Preprocessing failed: {error_msg}",
                         "error": error_msg,
                         "updated_at": datetime.now(timezone.utc),
@@ -412,11 +425,12 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
                     }
                 },
             )
-            return # Stop processing
+            return  # Stop processing
 
         logger.info(
             "Task %s: Preprocessing completed for %s. Proceeding to coverage calculation.",
-            task_id, display_name
+            task_id,
+            display_name,
         )
         # Update metadata status to 'calculating' before starting calculation
         await update_one_with_retry(
@@ -432,7 +446,7 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
             {
                 "$set": {
                     "stage": "calculating",
-                    "progress": 25, # Arbitrary progress point after preprocessing
+                    "progress": 25,  # Arbitrary progress point after preprocessing
                     "message": "Starting coverage calculation...",
                     "updated_at": datetime.now(timezone.utc),
                 }
@@ -441,28 +455,37 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
         # Call the full coverage calculation orchestration function
         # This now handles its own progress/metadata updates for the calculation part
         # and returns the final stats dict or None
-        calculation_result = await compute_coverage_for_location(location, task_id)
+        calculation_result = await compute_coverage_for_location(
+            location, task_id
+        )
 
         # Check the final outcome based on the result from the calculation function
-        if calculation_result is None or calculation_result.get("status") == "error":
+        if (
+            calculation_result is None
+            or calculation_result.get("status") == "error"
+        ):
             overall_status = "error"
             final_error = (
-                 calculation_result.get("last_error", "Calculation failed")
-                 if calculation_result else "Calculation function returned None"
+                calculation_result.get("last_error", "Calculation failed")
+                if calculation_result
+                else "Calculation function returned None"
             )
             logger.error(
                 "Full area processing task %s failed during coverage calculation for %s: %s",
-                task_id, display_name, final_error,
+                task_id,
+                display_name,
+                final_error,
             )
             # The calculation function should have updated the final progress/metadata status to error.
             # No further updates needed here unless we want to overwrite.
         else:
-             overall_status = "complete"
-             logger.info(
+            overall_status = "complete"
+            logger.info(
                 "Full area processing task %s completed successfully for %s.",
-                task_id, display_name,
-             )
-             # The calculation function should have updated the final progress/metadata status to complete.
+                task_id,
+                display_name,
+            )
+            # The calculation function should have updated the final progress/metadata status to complete.
 
     except Exception as e:
         overall_status = "error"
@@ -502,4 +525,6 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
                 str(inner_e),
             )
     finally:
-         logger.info(f"Task {task_id} orchestration for {display_name} finished with final status: {overall_status}")
+        logger.info(
+            f"Task {task_id} orchestration for {display_name} finished with final status: {overall_status}"
+        )

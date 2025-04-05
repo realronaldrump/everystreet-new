@@ -1671,9 +1671,9 @@ async def validate_trip_data_async(self) -> Dict[str, Any]:
                     "validated_at": datetime.now(timezone.utc),
                     "validation_status": processor.state.value,  # Store the state reached
                     "invalid": not is_valid,  # Mark as invalid if validation failed
-                    "validation_message": validation_message
-                    if not is_valid
-                    else None,
+                    "validation_message": (
+                        validation_message if not is_valid else None
+                    ),
                 }
                 batch_updates.append(
                     UpdateOne({"_id": trip["_id"]}, {"$set": update_data})
