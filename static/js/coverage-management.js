@@ -3010,9 +3010,14 @@
           // Add event listeners to the buttons
           const self = this;
           const markDrivenBtn = popupContent.querySelector(".mark-driven-btn");
-          const markUndrivenBtn = popupContent.querySelector(".mark-undriven-btn");
-          const markUndriveableBtn = popupContent.querySelector(".mark-undriveable-btn");
-          const markDriveableBtn = popupContent.querySelector(".mark-driveable-btn");
+          const markUndrivenBtn =
+            popupContent.querySelector(".mark-undriven-btn");
+          const markUndriveableBtn = popupContent.querySelector(
+            ".mark-undriveable-btn",
+          );
+          const markDriveableBtn = popupContent.querySelector(
+            ".mark-driveable-btn",
+          );
 
           if (markDrivenBtn) {
             markDrivenBtn.addEventListener("click", function () {
@@ -3056,11 +3061,19 @@
             const infoPanel = document.querySelector(".map-info-panel");
 
             // Reset previously highlighted layer
-            if (this.highlightedLayer && this.highlightedLayer !== clickedLayer) {
+            if (
+              this.highlightedLayer &&
+              this.highlightedLayer !== clickedLayer
+            ) {
               try {
-                this.highlightedLayer.setStyle(this.highlightedLayer.originalStyle);
+                this.highlightedLayer.setStyle(
+                  this.highlightedLayer.originalStyle,
+                );
               } catch (styleError) {
-                console.warn("Could not reset style on previously highlighted layer:", styleError);
+                console.warn(
+                  "Could not reset style on previously highlighted layer:",
+                  styleError,
+                );
               }
             }
 
@@ -3070,8 +3083,8 @@
               clickedLayer.setStyle({
                 weight: 5,
                 opacity: 1,
-                color: '#ffff00',
-                dashArray: '',
+                color: "#ffff00",
+                dashArray: "",
               });
             } catch (styleError) {
               console.warn("Could not set highlight style:", styleError);
