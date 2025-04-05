@@ -495,7 +495,6 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
         (last_point_time - start_time).total_seconds() if start_time else 0
     )
 
-    total_distance = 0.0
     max_segment_speed = 0.0  # Max speed calculated from segments in this batch
     current_speed = 0.0  # Speed of the very last segment
 
