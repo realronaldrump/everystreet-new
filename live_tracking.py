@@ -62,9 +62,7 @@ def _parse_iso_datetime(timestamp_str: Optional[str]) -> Optional[datetime]:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc)
     except (ValueError, TypeError) as e:
-        logger.error(
-            "Error parsing timestamp string '%s': %s", timestamp_str, e
-        )
+        logger.error("Error parsing timestamp string '%s': %s", timestamp_str, e)
         return None
 
 
@@ -81,9 +79,7 @@ async def serialize_live_trip(
         Dict: A JSON-serializable representation of the trip, or None if input is invalid.
     """
     if not trip_data or not isinstance(trip_data, dict):
-        logger.warning(
-            "serialize_live_trip called with invalid data: %s", trip_data
-        )
+        logger.warning("serialize_live_trip called with invalid data: %s", trip_data)
         return None
 
     serialized = SerializationHelper.serialize_document(trip_data)
@@ -99,12 +95,8 @@ async def serialize_live_trip(
     serialized.setdefault("pointsRecorded", len(coordinates))
 
     serialized.setdefault("startOdometer", trip_data.get("startOdometer"))
-    serialized.setdefault(
-        "totalIdlingTime", trip_data.get("totalIdlingTime", 0)
-    )
-    serialized.setdefault(
-        "hardBrakingCounts", trip_data.get("hardBrakingCounts", 0)
-    )
+    serialized.setdefault("totalIdlingTime", trip_data.get("totalIdlingTime", 0))
+    serialized.setdefault("hardBrakingCounts", trip_data.get("hardBrakingCounts", 0))
     serialized.setdefault(
         "hardAccelerationCounts", trip_data.get("hardAccelerationCounts", 0)
     )
@@ -117,9 +109,7 @@ async def serialize_live_trip(
         hours = int(duration_seconds // 3600)
         minutes = int((duration_seconds % 3600) // 60)
         seconds = int(duration_seconds % 60)
-        serialized["durationFormatted"] = (
-            f"{hours}:{minutes:02d}:{seconds:02d}"
-        )
+        serialized["durationFormatted"] = f"{hours}:{minutes:02d}:{seconds:02d}"
     except (ValueError, TypeError):
         logger.error(
             "Invalid duration value '%s' for trip %s, defaulting.",
@@ -138,9 +128,7 @@ async def serialize_live_trip(
             start_time_obj = start_time_obj.replace(tzinfo=timezone.utc)
         start_time_obj = start_time_obj.astimezone(timezone.utc)
         try:
-            startTimeFormatted = start_time_obj.strftime(
-                "%Y-%m-%d %H:%M:%S %Z"
-            )
+            startTimeFormatted = start_time_obj.strftime("%Y-%m-%d %H:%M:%S %Z")
         except Exception as e:
             logger.error(
                 "Error formatting valid startTime object %s for trip %s: %s",
@@ -160,11 +148,7 @@ async def serialize_live_trip(
 
     serialized["startTimeFormatted"] = startTimeFormatted
 
-    if (
-        coordinates
-        and serialized.get("distance") == 0
-        and len(coordinates) >= 2
-    ):
+    if coordinates and serialized.get("distance") == 0 and len(coordinates) >= 2:
         logger.info(
             "Recalculating distance for trip %s as it was 0 despite having coordinates.",
             transaction_id,
@@ -177,9 +161,9 @@ async def serialize_live_trip(
             prev = coordinates[i - 1]
             curr = coordinates[i]
 
-            if not all(
-                k in prev for k in ("lon", "lat", "timestamp")
-            ) or not all(k in curr for k in ("lon", "lat", "timestamp")):
+            if not all(k in prev for k in ("lon", "lat", "timestamp")) or not all(
+                k in curr for k in ("lon", "lat", "timestamp")
+            ):
                 logger.warning(
                     "Skipping coordinate pair due to missing data in recalculation for trip %s",
                     transaction_id,
@@ -188,9 +172,7 @@ async def serialize_live_trip(
 
             prev_ts = prev["timestamp"]
             curr_ts = curr["timestamp"]
-            if not isinstance(prev_ts, datetime) or not isinstance(
-                curr_ts, datetime
-            ):
+            if not isinstance(prev_ts, datetime) or not isinstance(curr_ts, datetime):
                 logger.warning(
                     "Skipping coordinate pair due to invalid timestamp types in recalculation for trip %s",
                     transaction_id,
@@ -208,13 +190,9 @@ async def serialize_live_trip(
 
             time_diff_seconds = (curr_ts - prev_ts).total_seconds()
             if time_diff_seconds > 0:
-                segment_speed_mph = (
-                    segment_distance / time_diff_seconds
-                ) * 3600
+                segment_speed_mph = (segment_distance / time_diff_seconds) * 3600
                 valid_speeds.append(segment_speed_mph)
-                max_calculated_speed = max(
-                    max_calculated_speed, segment_speed_mph
-                )
+                max_calculated_speed = max(max_calculated_speed, segment_speed_mph)
 
         serialized["distance"] = total_distance
         if max_calculated_speed > serialized["maxSpeed"]:
@@ -238,9 +216,7 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
         data: The webhook payload conforming to Bouncie API spec.
     """
     if live_trips_collection is None:
-        logger.error(
-            "Live trips collection not initialized. Cannot process tripStart."
-        )
+        logger.error("Live trips collection not initialized. Cannot process tripStart.")
         return
 
     transaction_id = data.get("transactionId")
@@ -249,9 +225,7 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
     imei = data.get("imei")
 
     if not transaction_id:
-        logger.error(
-            "Missing transactionId in tripStart event. Payload: %s", data
-        )
+        logger.error("Missing transactionId in tripStart event. Payload: %s", data)
         return
     if not start_data or not isinstance(start_data, dict):
         logger.error(
@@ -261,9 +235,7 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
         )
         return
     if not vin or not imei:
-        logger.warning(
-            "Missing vin or imei in tripStart event for %s.", transaction_id
-        )
+        logger.warning("Missing vin or imei in tripStart event for %s.", transaction_id)
 
     start_timestamp_str = start_data.get("timestamp")
     start_time_zone = start_data.get("timeZone")
@@ -279,9 +251,7 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
         )
         start_time = datetime.now(timezone.utc)
 
-    logger.info(
-        "Processing tripStart event for transactionId: %s", transaction_id
-    )
+    logger.info("Processing tripStart event for transactionId: %s", transaction_id)
 
     sequence = int(time.time() * 1000)
 
@@ -345,18 +315,14 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
         data: The webhook payload conforming to Bouncie API spec.
     """
     if live_trips_collection is None:
-        logger.error(
-            "Live trips collection not initialized. Cannot process tripData."
-        )
+        logger.error("Live trips collection not initialized. Cannot process tripData.")
         return
 
     transaction_id = data.get("transactionId")
     trip_data_points = data.get("data")
 
     if not transaction_id:
-        logger.error(
-            "Missing transactionId in tripData event. Payload: %s", data
-        )
+        logger.error("Missing transactionId in tripData event. Payload: %s", data)
         return
     if not trip_data_points or not isinstance(trip_data_points, list):
         logger.warning(
@@ -447,9 +413,9 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
             prev = sorted_unique_coords[i - 1]
             curr = sorted_unique_coords[i]
 
-            if not all(
-                k in prev for k in ("lon", "lat", "timestamp")
-            ) or not all(k in curr for k in ("lon", "lat", "timestamp")):
+            if not all(k in prev for k in ("lon", "lat", "timestamp")) or not all(
+                k in curr for k in ("lon", "lat", "timestamp")
+            ):
                 continue
 
             segment_distance = haversine(
@@ -460,13 +426,9 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
                 unit="miles",
             )
 
-            time_diff_seconds = (
-                curr["timestamp"] - prev["timestamp"]
-            ).total_seconds()
+            time_diff_seconds = (curr["timestamp"] - prev["timestamp"]).total_seconds()
             if time_diff_seconds > 0:
-                segment_speed_mph = (
-                    segment_distance / time_diff_seconds
-                ) * 3600
+                segment_speed_mph = (segment_distance / time_diff_seconds) * 3600
                 max_segment_speed = max(max_segment_speed, segment_speed_mph)
                 if i == len(sorted_unique_coords) - 1:
                     current_speed = segment_speed_mph
@@ -493,9 +455,7 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
     avg_speed = 0.0
     if duration_seconds > 0:
         duration_hours = duration_seconds / 3600
-        avg_speed = (
-            full_trip_distance / duration_hours if duration_hours > 0 else 0.0
-        )
+        avg_speed = full_trip_distance / duration_hours if duration_hours > 0 else 0.0
 
     sequence = max(trip_doc.get("sequence", 0) + 1, int(time.time() * 1000))
 
@@ -554,9 +514,7 @@ async def process_trip_metrics(data: Dict[str, Any]) -> None:
     metrics_data = data.get("metrics")
 
     if not transaction_id:
-        logger.error(
-            "Missing transactionId in tripMetrics event. Payload: %s", data
-        )
+        logger.error("Missing transactionId in tripMetrics event. Payload: %s", data)
         return
     if not metrics_data or not isinstance(metrics_data, dict):
         logger.error(
@@ -577,9 +535,7 @@ async def process_trip_metrics(data: Dict[str, Any]) -> None:
         )
         return
 
-    logger.info(
-        "Processing tripMetrics event for transactionId: %s", transaction_id
-    )
+    logger.info("Processing tripMetrics event for transactionId: %s", transaction_id)
 
     update_fields = {}
     metrics_timestamp_str = metrics_data.get("timestamp")
@@ -600,9 +556,7 @@ async def process_trip_metrics(data: Dict[str, Any]) -> None:
     if "hardBrakingCounts" in metrics_data:
         update_fields["hardBrakingCounts"] = metrics_data["hardBrakingCounts"]
     if "hardAccelerationCounts" in metrics_data:
-        update_fields["hardAccelerationCounts"] = metrics_data[
-            "hardAccelerationCounts"
-        ]
+        update_fields["hardAccelerationCounts"] = metrics_data["hardAccelerationCounts"]
 
     if not update_fields:
         logger.warning(
@@ -611,9 +565,7 @@ async def process_trip_metrics(data: Dict[str, Any]) -> None:
         )
         return
 
-    update_fields["lastUpdate"] = metrics_timestamp or trip_doc.get(
-        "lastUpdate"
-    )
+    update_fields["lastUpdate"] = metrics_timestamp or trip_doc.get("lastUpdate")
     update_fields["sequence"] = max(
         trip_doc.get("sequence", 0) + 1, int(time.time() * 1000)
     )
@@ -629,9 +581,7 @@ async def process_trip_metrics(data: Dict[str, Any]) -> None:
             update_fields["sequence"],
         )
     elif update_result.matched_count == 0:
-        logger.error(
-            "Failed to find trip %s for metrics update.", transaction_id
-        )
+        logger.error("Failed to find trip %s for metrics update.", transaction_id)
     else:
         logger.info(
             "Trip metrics for %s processed, but no fields were modified in DB.",
@@ -657,9 +607,7 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     end_data = data.get("end")
 
     if not transaction_id:
-        logger.error(
-            "Missing transactionId in tripEnd event. Payload: %s", data
-        )
+        logger.error("Missing transactionId in tripEnd event. Payload: %s", data)
         return
     if not end_data or not isinstance(end_data, dict):
         logger.error(
@@ -707,9 +655,7 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
             )
         return
 
-    logger.info(
-        "Processing tripEnd event for transactionId: %s", transaction_id
-    )
+    logger.info("Processing tripEnd event for transactionId: %s", transaction_id)
     trip_id = trip["_id"]
     start_time = trip.get("startTime")
 
@@ -759,9 +705,7 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
         )
 
     async def delete_operation(session=None):
-        await live_trips_collection.delete_one(
-            {"_id": trip_id}, session=session
-        )
+        await live_trips_collection.delete_one({"_id": trip_id}, session=session)
 
     success = await run_transaction([archive_operation, delete_operation])
 
@@ -806,9 +750,7 @@ async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
             event_type in ("tripStart", "tripData", "tripMetrics", "tripEnd")
             and not transaction_id
         ):
-            logger.error(
-                "Missing transactionId for %s event: %s", event_type, data
-            )
+            logger.error("Missing transactionId for %s event: %s", event_type, data)
             return {
                 "status": "success",
                 "message": f"Event processed (missing transactionId for {event_type})",
@@ -853,9 +795,7 @@ async def get_active_trip(
               active trip found or no update since the given sequence.
     """
     if live_trips_collection is None:
-        logger.error(
-            "Live trips collection not initialized in get_active_trip"
-        )
+        logger.error("Live trips collection not initialized in get_active_trip")
         return None
 
     query = {"status": "active"}
@@ -980,9 +920,7 @@ async def cleanup_stale_trips(
                     {"_id": trip_id}, session=session
                 )
 
-            success = await run_transaction(
-                [archive_stale_op, delete_stale_op]
-            )
+            success = await run_transaction([archive_stale_op, delete_stale_op])
 
             if success:
                 stale_archived_count += 1
@@ -1033,9 +971,7 @@ async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
         Dict: Contains status, has_update flag, and trip data if an update is available.
     """
     if live_trips_collection is None:
-        logger.error(
-            "Live trips collection not initialized in get_trip_updates"
-        )
+        logger.error("Live trips collection not initialized in get_trip_updates")
         return {
             "status": "error",
             "has_update": False,
@@ -1044,9 +980,7 @@ async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
 
     try:
         try:
-            last_sequence = (
-                int(last_sequence) if last_sequence is not None else 0
-            )
+            last_sequence = int(last_sequence) if last_sequence is not None else 0
         except (ValueError, TypeError):
             logger.warning(
                 "Invalid last_sequence '%s' received in API request. Defaulting to 0.",
@@ -1054,13 +988,9 @@ async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
             )
             last_sequence = 0
 
-        logger.debug(
-            "API request for trip updates since sequence: %d", last_sequence
-        )
+        logger.debug("API request for trip updates since sequence: %d", last_sequence)
 
-        active_trip_update = await get_active_trip(
-            since_sequence=last_sequence
-        )
+        active_trip_update = await get_active_trip(since_sequence=last_sequence)
 
         if active_trip_update:
             logger.info(

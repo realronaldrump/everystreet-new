@@ -36,9 +36,7 @@ if not REDIS_URL:
     redis_user = os.getenv("REDISUSER", "default")
 
     if redis_host and redis_password:
-        REDIS_URL = (
-            f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
-        )
+        REDIS_URL = f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
     else:
         raise ValueError(
             "REDIS_URL environment variable is not set and cannot be constructed! "
@@ -75,9 +73,7 @@ def get_redis_connection_with_retry():
                 e,
             )
             if retry_count < MAX_RETRIES:
-                logger.info(
-                    "Retrying Redis connection in %s seconds...", RETRY_DELAY
-                )
+                logger.info("Retrying Redis connection in %s seconds...", RETRY_DELAY)
                 time.sleep(RETRY_DELAY)
             else:
                 logger.error(
@@ -86,9 +82,7 @@ def get_redis_connection_with_retry():
                 )
                 raise
         except Exception as e:
-            logger.error(
-                "Unexpected error during Redis connection attempt: %s", e
-            )
+            logger.error("Unexpected error during Redis connection attempt: %s", e)
             raise
 
 

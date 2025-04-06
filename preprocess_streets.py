@@ -43,9 +43,7 @@ EXCLUDED_HIGHWAY_TYPES_REGEX = (
     "footway|path|steps|pedestrian|bridleway|cycleway|corridor|"
     "platform|raceway|proposed|construction|track"
 )
-EXCLUDED_ACCESS_TYPES_REGEX = (
-    "private|no|customers|delivery|agricultural|forestry"
-)
+EXCLUDED_ACCESS_TYPES_REGEX = "private|no|customers|delivery|agricultural|forestry"
 EXCLUDED_SERVICE_TYPES_REGEX = "parking_aisle|driveway"
 
 
@@ -215,17 +213,10 @@ async def fetch_osm_data(
             await asyncio.sleep(2**current_try)
 
 
-def substring(
-    line: LineString, start: float, end: float
-) -> Optional[LineString]:
+def substring(line: LineString, start: float, end: float) -> Optional[LineString]:
     """Return a sub-linestring from 'start' to 'end' along the line (UTM
     coords)."""
-    if (
-        start < 0
-        or end > line.length
-        or start >= end
-        or abs(line.length) < 1e-6
-    ):
+    if start < 0 or end > line.length or start >= end or abs(line.length) < 1e-6:
         return None
 
     coords = list(line.coords)
@@ -294,10 +285,7 @@ def substring(
             break
 
         elif start <= accumulated and current_end_accum <= end:
-            if (
-                not segment_coords
-                or LineString([segment_coords[-1], p1]).length > 1e-6
-            ):
+            if not segment_coords or LineString([segment_coords[-1], p1]).length > 1e-6:
                 segment_coords.append(p1)
 
         accumulated += seg_length
@@ -332,9 +320,7 @@ def segment_street(
 
     start_distance = 0.0
     while start_distance < total_length - 1e-6:
-        end_distance = min(
-            start_distance + segment_length_meters, total_length
-        )
+        end_distance = min(start_distance + segment_length_meters, total_length)
         seg = substring(line, start_distance, end_distance)
         if seg is not None and seg.length > 1e-6:
             segments.append(seg)
@@ -388,9 +374,7 @@ def process_element_parallel(
                 continue
             segment_wgs84 = transform(proj_to_wgs84, segment_utm)
             if not segment_wgs84.is_valid or segment_wgs84.is_empty:
-                logger.warning(
-                    "Skipping invalid/empty segment %s-%d", osm_id, i
-                )
+                logger.warning("Skipping invalid/empty segment %s-%d", osm_id, i)
                 continue
 
             feature = {
@@ -420,9 +404,7 @@ def process_element_parallel(
         return features
     except Exception as e:
         osm_id_str = element_data.get("osm_id", "UNKNOWN_ID")
-        logger.error(
-            "Error processing element %s: %s", osm_id_str, e, exc_info=True
-        )
+        logger.error("Error processing element %s: %s", osm_id_str, e, exc_info=True)
         return []
 
 
@@ -488,8 +470,7 @@ async def process_osm_data(
                 "project_to_wgs84": project_to_wgs84_func,
             }
             for element in way_elements
-            if element.get("id") is not None
-            and element.get("geometry") is not None
+            if element.get("id") is not None and element.get("geometry") is not None
         ]
 
         processed_segments_count = 0
@@ -512,9 +493,7 @@ async def process_osm_data(
                         batch_to_insert.extend(segment_features)
                         total_segments_count += len(segment_features)
                         for feature in segment_features:
-                            length = feature.get("properties", {}).get(
-                                "segment_length"
-                            )
+                            length = feature.get("properties", {}).get("segment_length")
                             if isinstance(length, (int, float)):
                                 total_length += length
                             else:
@@ -541,18 +520,14 @@ async def process_osm_data(
                         except BulkWriteError as bwe:
                             write_errors = bwe.details.get("writeErrors", [])
                             dup_keys = [
-                                e
-                                for e in write_errors
-                                if e.get("code") == 11000
+                                e for e in write_errors if e.get("code") == 11000
                             ]
                             if dup_keys:
                                 logger.warning(
                                     f"Skipped {len(dup_keys)} duplicate segments during batch insert for {location_name}."
                                 )
                             other_errors = [
-                                e
-                                for e in write_errors
-                                if e.get("code") != 11000
+                                e for e in write_errors if e.get("code") != 11000
                             ]
                             if other_errors:
                                 logger.error(
@@ -588,9 +563,7 @@ async def process_osm_data(
 
             if batch_to_insert:
                 try:
-                    await streets_collection.insert_many(
-                        batch_to_insert, ordered=False
-                    )
+                    await streets_collection.insert_many(batch_to_insert, ordered=False)
                     processed_segments_count += len(batch_to_insert)
                     logger.info(
                         "Inserted final batch of %d segments (%d/%d total processed for %s)",
@@ -601,16 +574,12 @@ async def process_osm_data(
                     )
                 except BulkWriteError as bwe:
                     write_errors = bwe.details.get("writeErrors", [])
-                    dup_keys = [
-                        e for e in write_errors if e.get("code") == 11000
-                    ]
+                    dup_keys = [e for e in write_errors if e.get("code") == 11000]
                     if dup_keys:
                         logger.warning(
                             f"Skipped {len(dup_keys)} duplicate segments during final batch insert for {location_name}."
                         )
-                    other_errors = [
-                        e for e in write_errors if e.get("code") != 11000
-                    ]
+                    other_errors = [e for e in write_errors if e.get("code") != 11000]
                     if other_errors:
                         logger.error(
                             f"Non-duplicate BulkWriteError inserting final batch for {location_name}: {other_errors}"
@@ -718,9 +687,7 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
                 },
                 upsert=True,
             )
-            raise ValueError(
-                f"Location {location_name} lacks lat/lon for dynamic UTM."
-            )
+            raise ValueError(f"Location {location_name} lacks lat/lon for dynamic UTM.")
 
         dynamic_utm_crs = get_dynamic_utm_crs(center_lat, center_lon)
         logger.info(
@@ -758,9 +725,7 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
             upsert=True,
         )
 
-        logger.info(
-            "Clearing existing street segments for %s...", location_name
-        )
+        logger.info("Clearing existing street segments for %s...", location_name)
         try:
             delete_result = await delete_many_with_retry(
                 streets_collection, {"properties.location": location_name}
@@ -880,9 +845,7 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
             return
 
     except Exception as e:
-        location_name_safe = validated_location.get(
-            "display_name", "Unknown Location"
-        )
+        location_name_safe = validated_location.get("display_name", "Unknown Location")
         logger.error(
             "Unhandled error during street preprocessing orchestration for %s: %s",
             location_name_safe,
