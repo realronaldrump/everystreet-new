@@ -50,7 +50,9 @@
 
 /* Trip path styling enhancements */
 .leaflet-interactive {
-  transition: stroke-width 0.3s, opacity 0.3s;
+  transition:
+    stroke-width 0.3s,
+    opacity 0.3s;
 }
 
 .leaflet-interactive:hover {
@@ -143,7 +145,7 @@
 
 .leaflet-popup-content {
   margin: 12px 18px;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 .leaflet-popup-tip {
@@ -168,7 +170,8 @@
   }
 }
 
-.card, .list-group-item {
+.card,
+.list-group-item {
   animation: fadeInUp 0.3s ease-out;
 }
 
@@ -180,11 +183,11 @@
     right: 1rem !important;
     max-width: calc(100% - 2rem) !important;
   }
-  
+
   .leaflet-control-zoom {
     margin: 10px !important;
   }
-  
+
   .leaflet-control-zoom a {
     width: 32px !important;
     height: 32px !important;
@@ -199,11 +202,11 @@
     max-width: calc(100% - 2rem) !important;
     bottom: 1rem !important;
   }
-  
+
   .leaflet-control-zoom {
     margin: 10px !important;
   }
-  
+
   .leaflet-control-zoom a {
     width: 32px !important;
     height: 32px !important;
@@ -231,4 +234,4 @@
 
 [data-bs-theme="light"] .bg-glass {
   background: rgba(248, 249, 250, 0.8) !important;
-} 
+}
