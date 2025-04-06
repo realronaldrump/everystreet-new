@@ -31,9 +31,7 @@ EXCLUDED_HIGHWAY_TYPES_REGEX = (
 )
 
 
-async def process_elements(
-    elements: List[Dict], streets_only: bool
-) -> List[Dict]:
+async def process_elements(elements: List[Dict], streets_only: bool) -> List[Dict]:
     """Process OSM elements and convert them to GeoJSON features.
 
     Args:
@@ -139,9 +137,7 @@ async def generate_geojson_osm(
             (._;>;); // Recurse down to nodes
             out geom; // Output geometry
             """
-            logger.info(
-                "Using Overpass query that excludes non-vehicular ways."
-            )
+            logger.info("Using Overpass query that excludes non-vehicular ways.")
         else:
             query = f"""
             [out:json][timeout:60];
@@ -167,9 +163,7 @@ async def generate_geojson_osm(
                 response.raise_for_status()
                 data = await response.json()
 
-        features = await process_elements(
-            data.get("elements", []), streets_only
-        )
+        features = await process_elements(data.get("elements", []), streets_only)
 
         if not features:
             logger.warning(
@@ -182,9 +176,7 @@ async def generate_geojson_osm(
         gdf = gpd.GeoDataFrame.from_features(features)
         if "geometry" not in gdf.columns and features:
             gdf = gdf.set_geometry(
-                gpd.GeoSeries.from_features(features, crs="EPSG:4326")[
-                    "geometry"
-                ]
+                gpd.GeoSeries.from_features(features, crs="EPSG:4326")["geometry"]
             )
         elif "geometry" in gdf.columns:
             gdf = gdf.set_geometry("geometry")
@@ -251,9 +243,7 @@ async def generate_geojson_osm(
         return geojson_data, None
 
     except aiohttp.ClientResponseError as http_err:
-        error_detail = (
-            f"Overpass API error: {http_err.status} - {http_err.message}"
-        )
+        error_detail = f"Overpass API error: {http_err.status} - {http_err.message}"
         logger.error(error_detail, exc_info=True)
         try:
             error_body = await http_err.response.text()
@@ -262,9 +252,7 @@ async def generate_geojson_osm(
             pass
         return None, error_detail
     except aiohttp.ClientError as client_err:
-        error_detail = (
-            f"Error communicating with Overpass API: {str(client_err)}"
-        )
+        error_detail = f"Error communicating with Overpass API: {str(client_err)}"
         logger.error(error_detail, exc_info=True)
         return None, error_detail
     except Exception as e:

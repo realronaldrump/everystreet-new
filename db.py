@@ -73,9 +73,7 @@ class DatabaseManager:
         if not getattr(self, "_initialized", False):
             self._client: Optional[AsyncIOMotorClient] = None
             self._db: Optional[AsyncIOMotorDatabase] = None
-            self._gridfs_bucket_instance: Optional[
-                AsyncIOMotorGridFSBucket
-            ] = None
+            self._gridfs_bucket_instance: Optional[AsyncIOMotorGridFSBucket] = None
             self._quota_exceeded = False
             self._connection_healthy = True
             self._db_semaphore = asyncio.Semaphore(10)
@@ -99,9 +97,7 @@ class DatabaseManager:
             self._socket_timeout_ms = int(
                 os.getenv("MONGODB_SOCKET_TIMEOUT_MS", "30000")
             )
-            self._max_retry_attempts = int(
-                os.getenv("MONGODB_MAX_RETRY_ATTEMPTS", "5")
-            )
+            self._max_retry_attempts = int(os.getenv("MONGODB_MAX_RETRY_ATTEMPTS", "5"))
             self._db_name = os.getenv("MONGODB_DATABASE", "every_street")
 
             logger.debug(
@@ -151,9 +147,7 @@ class DatabaseManager:
         if self._db is None or not self._connection_healthy:
             self._initialize_client()
         if self._db is None:
-            raise ConnectionFailure(
-                "Database instance could not be initialized."
-            )
+            raise ConnectionFailure("Database instance could not be initialized.")
         return self._db
 
     @property
@@ -170,9 +164,7 @@ class DatabaseManager:
         """Get a GridFS bucket instance, initializing if needed."""
         db_instance = self.db
         if self._gridfs_bucket_instance is None:
-            self._gridfs_bucket_instance = AsyncIOMotorGridFSBucket(
-                db_instance
-            )
+            self._gridfs_bucket_instance = AsyncIOMotorGridFSBucket(db_instance)
         return self._gridfs_bucket_instance
 
     @property
@@ -189,10 +181,7 @@ class DatabaseManager:
         Returns:
             MongoDB collection
         """
-        if (
-            collection_name not in self._collections
-            or not self._connection_healthy
-        ):
+        if collection_name not in self._collections or not self._connection_healthy:
             self._collections[collection_name] = self.db[collection_name]
         return self._collections[collection_name]
 
@@ -409,14 +398,10 @@ class DatabaseManager:
                 collection = self.get_collection(collection_name)
                 existing_indexes_info = await collection.index_information()
                 keys_tuple_check = tuple(
-                    sorted(
-                        list(keys) if isinstance(keys, list) else [(keys, 1)]
-                    )
+                    sorted(list(keys) if isinstance(keys, list) else [(keys, 1)])
                 )
                 for idx_name, idx_info in existing_indexes_info.items():
-                    idx_keys_check = tuple(
-                        sorted(list(idx_info.get("key", [])))
-                    )
+                    idx_keys_check = tuple(sorted(list(idx_info.get("key", []))))
                     if idx_keys_check == keys_tuple_check:
                         return idx_name
             except Exception:
@@ -427,9 +412,7 @@ class DatabaseManager:
                 self._quota_exceeded = True
                 logger.warning("Cannot create index due to quota exceeded")
             elif e.code in (85, 86, 68):
-                logger.warning(
-                    "Index conflict or options mismatch: %s", str(e)
-                )
+                logger.warning("Index conflict or options mismatch: %s", str(e))
             else:
                 logger.error("Error creating index: %s", str(e))
                 raise
@@ -535,13 +518,9 @@ class SerializationHelper:
                 if isinstance(value, ObjectId):
                     fallback_result[key] = str(value)
                 elif isinstance(value, datetime):
-                    fallback_result[key] = (
-                        SerializationHelper.serialize_datetime(value)
-                    )
+                    fallback_result[key] = SerializationHelper.serialize_datetime(value)
                 elif isinstance(value, (dict, list)):
-                    fallback_result[key] = (
-                        f"<Complex Type: {type(value).__name__}>"
-                    )
+                    fallback_result[key] = f"<Complex Type: {type(value).__name__}>"
                 else:
                     fallback_result[key] = value
             return fallback_result
@@ -619,13 +598,9 @@ def parse_query_date(
         try:
             dt_date = datetime.strptime(date_str, "%Y-%m-%d").date()
             if end_of_day:
-                dt = datetime.combine(
-                    dt_date, datetime.max.time(), tzinfo=timezone.utc
-                )
+                dt = datetime.combine(dt_date, datetime.max.time(), tzinfo=timezone.utc)
             else:
-                dt = datetime.combine(
-                    dt_date, datetime.min.time(), tzinfo=timezone.utc
-                )
+                dt = datetime.combine(dt_date, datetime.min.time(), tzinfo=timezone.utc)
             return dt
         except ValueError:
             logger.warning(
@@ -853,9 +828,7 @@ async def update_many_with_retry(
     """
 
     async def _operation():
-        return await collection.update_many(
-            filter_query, update, upsert=upsert
-        )
+        return await collection.update_many(filter_query, update, upsert=upsert)
 
     return await db_manager.execute_with_retry(
         _operation, operation_name=f"update_many on {collection.name}"
@@ -1039,9 +1012,7 @@ async def init_task_history_collection() -> None:
             name="task_history_task_timestamp_idx",
             background=True,
         )
-        logger.info(
-            "Task history collection indexes ensured/created successfully"
-        )
+        logger.info("Task history collection indexes ensured/created successfully")
     except Exception as e:
         logger.error("Error creating task history indexes: %s", str(e))
 
@@ -1207,9 +1178,7 @@ async def run_transaction(
                     logger.debug("Starting transaction...")
                     results = []
                     for i, op in enumerate(operations):
-                        logger.debug(
-                            "Executing operation %d in transaction...", i + 1
-                        )
+                        logger.debug("Executing operation %d in transaction...", i + 1)
                         result = await op(session=session)
                         results.append(result)
                     logger.debug("Committing transaction...")

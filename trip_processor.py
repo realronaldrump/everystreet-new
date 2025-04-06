@@ -103,9 +103,7 @@ class TripProcessor:
     processing including validation, parsing, geocoding, and map matching using
     a state machine approach to track status."""
 
-    def __init__(
-        self, mapbox_token: Optional[str] = None, source: str = "api"
-    ):
+    def __init__(self, mapbox_token: Optional[str] = None, source: str = "api"):
         """Initialize the trip processor.
 
         Args:
@@ -128,9 +126,7 @@ class TripProcessor:
         self.project_to_utm = None
         self.project_to_wgs84 = None
 
-    def _set_state(
-        self, new_state: TripState, error: Optional[str] = None
-    ) -> None:
+    def _set_state(self, new_state: TripState, error: Optional[str] = None) -> None:
         """Update the processing state and record it in history.
 
         Args:
@@ -234,9 +230,7 @@ class TripProcessor:
             for field in required:
                 if field not in self.trip_data:
                     error_message = f"Missing required field: {field}"
-                    logger.warning(
-                        "Trip %s: %s", transaction_id, error_message
-                    )
+                    logger.warning("Trip %s: %s", transaction_id, error_message)
                     self._set_state(TripState.FAILED, error_message)
                     return False
 
@@ -246,9 +240,7 @@ class TripProcessor:
                     gps_data = json.loads(gps_data)
                 except json.JSONDecodeError:
                     error_message = "Invalid GPS data format"
-                    logger.warning(
-                        "Trip %s: %s", transaction_id, error_message
-                    )
+                    logger.warning("Trip %s: %s", transaction_id, error_message)
                     self._set_state(TripState.FAILED, error_message)
                     return False
 
@@ -277,9 +269,7 @@ class TripProcessor:
             self.processed_data = self.trip_data.copy()
 
             self.processed_data["validated_at"] = datetime.now(timezone.utc)
-            self.processed_data["validation_status"] = (
-                TripState.VALIDATED.value
-            )
+            self.processed_data["validation_status"] = TripState.VALIDATED.value
 
             self._set_state(TripState.VALIDATED)
             logger.debug("Trip %s validated successfully", transaction_id)
@@ -334,9 +324,7 @@ class TripProcessor:
                     gps_data = json.loads(gps_data)
                     self.processed_data["gps"] = gps_data
                 except json.JSONDecodeError:
-                    self._set_state(
-                        TripState.FAILED, "Failed to parse GPS data"
-                    )
+                    self._set_state(TripState.FAILED, "Failed to parse GPS data")
                     return False
 
             coords = gps_data.get("coordinates", [])
@@ -371,15 +359,11 @@ class TripProcessor:
 
             if "totalIdleDuration" in self.processed_data:
                 self.processed_data["totalIdleDurationFormatted"] = (
-                    self.format_idle_time(
-                        self.processed_data["totalIdleDuration"]
-                    )
+                    self.format_idle_time(self.processed_data["totalIdleDuration"])
                 )
 
             self._set_state(TripState.PROCESSED)
-            logger.debug(
-                "Completed basic processing for trip %s", transaction_id
-            )
+            logger.debug("Completed basic processing for trip %s", transaction_id)
             return True
 
         except Exception as e:
@@ -411,9 +395,7 @@ class TripProcessor:
             return None
 
     @staticmethod
-    def _extract_coords_from_geometry(
-        geometry, fallback_coords, transaction_id
-    ):
+    def _extract_coords_from_geometry(geometry, fallback_coords, transaction_id):
         """Extract a simple [lng, lat] point from various geometry types."""
         if not geometry or "coordinates" not in geometry:
             return fallback_coords
@@ -478,9 +460,7 @@ class TripProcessor:
             logger.debug("Geocoding trip %s", transaction_id)
 
             start_coord = self.processed_data["startGeoPoint"]["coordinates"]
-            end_coord = self.processed_data["destinationGeoPoint"][
-                "coordinates"
-            ]
+            end_coord = self.processed_data["destinationGeoPoint"]["coordinates"]
 
             start_pt = Point(start_coord[0], start_coord[1])
             end_pt = Point(end_coord[0], end_coord[1])
@@ -503,9 +483,7 @@ class TripProcessor:
                 start_place = await self.get_place_at_point(start_pt)
                 if start_place:
                     structured_start = LOCATION_SCHEMA.copy()
-                    structured_start["formatted_address"] = start_place.get(
-                        "name", ""
-                    )
+                    structured_start["formatted_address"] = start_place.get("name", "")
 
                     for component in [
                         "address",
@@ -516,13 +494,13 @@ class TripProcessor:
                     ]:
                         if component in start_place:
                             if component == "address":
-                                structured_start["address_components"][
-                                    "street"
-                                ] = start_place[component]
+                                structured_start["address_components"]["street"] = (
+                                    start_place[component]
+                                )
                             else:
-                                structured_start["address_components"][
-                                    component
-                                ] = start_place[component]
+                                structured_start["address_components"][component] = (
+                                    start_place[component]
+                                )
 
                     if "geometry" in start_place:
                         extracted_coords = self._extract_coords_from_geometry(
@@ -530,12 +508,8 @@ class TripProcessor:
                             [start_coord[0], start_coord[1]],
                             transaction_id,
                         )
-                        structured_start["coordinates"]["lng"] = (
-                            extracted_coords[0]
-                        )
-                        structured_start["coordinates"]["lat"] = (
-                            extracted_coords[1]
-                        )
+                        structured_start["coordinates"]["lng"] = extracted_coords[0]
+                        structured_start["coordinates"]["lat"] = extracted_coords[1]
                     else:
                         structured_start["coordinates"]["lng"] = start_coord[0]
                         structured_start["coordinates"]["lat"] = start_coord[1]
@@ -573,9 +547,9 @@ class TripProcessor:
                                 our_key,
                             ) in component_mapping.items():
                                 if nominatim_key in addr:
-                                    structured_start["address_components"][
-                                        our_key
-                                    ] = addr[nominatim_key]
+                                    structured_start["address_components"][our_key] = (
+                                        addr[nominatim_key]
+                                    )
 
                         structured_start["coordinates"]["lng"] = start_coord[0]
                         structured_start["coordinates"]["lat"] = start_coord[1]
@@ -586,9 +560,7 @@ class TripProcessor:
                 end_place = await self.get_place_at_point(end_pt)
                 if end_place:
                     structured_dest = LOCATION_SCHEMA.copy()
-                    structured_dest["formatted_address"] = end_place.get(
-                        "name", ""
-                    )
+                    structured_dest["formatted_address"] = end_place.get("name", "")
 
                     for component in [
                         "address",
@@ -599,13 +571,13 @@ class TripProcessor:
                     ]:
                         if component in end_place:
                             if component == "address":
-                                structured_dest["address_components"][
-                                    "street"
-                                ] = end_place[component]
+                                structured_dest["address_components"]["street"] = (
+                                    end_place[component]
+                                )
                             else:
-                                structured_dest["address_components"][
-                                    component
-                                ] = end_place[component]
+                                structured_dest["address_components"][component] = (
+                                    end_place[component]
+                                )
 
                     if "geometry" in end_place:
                         extracted_coords = self._extract_coords_from_geometry(
@@ -613,12 +585,8 @@ class TripProcessor:
                             [end_coord[0], end_coord[1]],
                             transaction_id,
                         )
-                        structured_dest["coordinates"]["lng"] = (
-                            extracted_coords[0]
-                        )
-                        structured_dest["coordinates"]["lat"] = (
-                            extracted_coords[1]
-                        )
+                        structured_dest["coordinates"]["lng"] = extracted_coords[0]
+                        structured_dest["coordinates"]["lat"] = extracted_coords[1]
                     else:
                         structured_dest["coordinates"]["lng"] = end_coord[0]
                         structured_dest["coordinates"]["lat"] = end_coord[1]
@@ -656,9 +624,9 @@ class TripProcessor:
                                 our_key,
                             ) in component_mapping.items():
                                 if nominatim_key in addr:
-                                    structured_dest["address_components"][
-                                        our_key
-                                    ] = addr[nominatim_key]
+                                    structured_dest["address_components"][our_key] = (
+                                        addr[nominatim_key]
+                                    )
 
                         structured_dest["coordinates"]["lng"] = end_coord[0]
                         structured_dest["coordinates"]["lat"] = end_coord[1]
@@ -709,9 +677,7 @@ class TripProcessor:
             logger.debug("Starting map matching for trip %s", transaction_id)
 
             if not config.mapbox_access_token:
-                logger.warning(
-                    "No Mapbox token provided, skipping map matching"
-                )
+                logger.warning("No Mapbox token provided, skipping map matching")
                 return False
 
             gps_data = self.processed_data["gps"]
@@ -728,17 +694,11 @@ class TripProcessor:
 
             match_result = await self._map_match_coordinates(coords)
             if match_result.get("code") != "Ok":
-                error_msg = match_result.get(
-                    "message", "Unknown map matching error"
-                )
-                self._set_state(
-                    TripState.FAILED, f"Map matching failed: {error_msg}"
-                )
+                error_msg = match_result.get("message", "Unknown map matching error")
+                self._set_state(TripState.FAILED, f"Map matching failed: {error_msg}")
                 return False
 
-            self.processed_data["matchedGps"] = match_result["matchings"][0][
-                "geometry"
-            ]
+            self.processed_data["matchedGps"] = match_result["matchings"][0]["geometry"]
             self.processed_data["matched_at"] = datetime.now(timezone.utc)
 
             self._set_state(TripState.MAP_MATCHED)
@@ -845,17 +805,13 @@ class TripProcessor:
                             await asyncio.sleep(wait_time)
 
                         try:
-                            async with session.get(
-                                url, params=params
-                            ) as response:
+                            async with session.get(url, params=params) as response:
                                 if response.status == 429:
                                     logger.warning(
                                         "Received 429 Too Many Requests. Attempt=%d",
                                         retry_attempt,
                                     )
-                                    retry_after = response.headers.get(
-                                        "Retry-After"
-                                    )
+                                    retry_after = response.headers.get("Retry-After")
                                     wait_time = (
                                         float(retry_after)
                                         if retry_after is not None
@@ -956,9 +912,7 @@ class TripProcessor:
                 if len(chunk_coords) < 2:
                     return []
                 if len(chunk_coords) > 100:
-                    logger.error(
-                        "match_chunk received >100 coords unexpectedly."
-                    )
+                    logger.error("match_chunk received >100 coords unexpectedly.")
                     return []
                 try:
                     data = await call_mapbox_api(chunk_coords)
@@ -969,12 +923,10 @@ class TripProcessor:
                     logger.warning("Mapbox chunk error: %s", msg)
 
                     if "invalid coordinates" in msg.lower():
-                        filtered_coords = filter_invalid_coordinates(
+                        filtered_coords = filter_invalid_coordinates(chunk_coords)
+                        if len(filtered_coords) >= 2 and len(filtered_coords) < len(
                             chunk_coords
-                        )
-                        if len(filtered_coords) >= 2 and len(
-                            filtered_coords
-                        ) < len(chunk_coords):
+                        ):
                             logger.info(
                                 "Retrying with %d filtered coordinates",
                                 len(filtered_coords),
@@ -982,9 +934,7 @@ class TripProcessor:
                             return await match_chunk(filtered_coords, depth)
 
                 except Exception as exc:
-                    logger.warning(
-                        "Unexpected error in mapbox chunk: %s", str(exc)
-                    )
+                    logger.warning("Unexpected error in mapbox chunk: %s", str(exc))
 
                 if depth < max_retries and len(chunk_coords) > min_sub_chunk:
                     mid = len(chunk_coords) // 2
@@ -999,10 +949,7 @@ class TripProcessor:
                     )
                     matched_first = await match_chunk(first_half, depth + 1)
                     matched_second = await match_chunk(second_half, depth + 1)
-                    if (
-                        matched_first is not None
-                        and matched_second is not None
-                    ):
+                    if matched_first is not None and matched_second is not None:
                         if (
                             matched_first
                             and matched_second
@@ -1122,9 +1069,7 @@ class TripProcessor:
                             (end_sub - start_sub),
                         )
                         new_coords = (
-                            new_coords[:start_sub]
-                            + local_match
-                            + new_coords[end_sub:]
+                            new_coords[:start_sub] + local_match + new_coords[end_sub:]
                         )
                         offset += len(local_match) - (end_sub - start_sub)
                         fix_count += 1
@@ -1155,9 +1100,7 @@ class TripProcessor:
                 ],
             }
 
-    async def save(
-        self, map_match_result: Optional[bool] = None
-    ) -> Optional[str]:
+    async def save(self, map_match_result: Optional[bool] = None) -> Optional[str]:
         """Save the processed trip to the trips collection.
 
         Args:
@@ -1230,9 +1173,7 @@ class TripProcessor:
                         "destination": trip_to_save.get("destination"),
                         "maxSpeed": trip_to_save.get("maxSpeed"),
                         "averageSpeed": trip_to_save.get("averageSpeed"),
-                        "hardBrakingCount": trip_to_save.get(
-                            "hardBrakingCount"
-                        ),
+                        "hardBrakingCount": trip_to_save.get("hardBrakingCount"),
                         "hardAccelerationCount": trip_to_save.get(
                             "hardAccelerationCount"
                         ),
@@ -1242,9 +1183,7 @@ class TripProcessor:
                     }
 
                     matched_trip_data = {
-                        k: v
-                        for k, v in matched_trip_data.items()
-                        if v is not None
+                        k: v for k, v in matched_trip_data.items() if v is not None
                     }
 
                     try:
@@ -1271,9 +1210,7 @@ class TripProcessor:
                 collection.name,
             )
 
-            saved_doc = await collection.find_one(
-                {"transactionId": transaction_id}
-            )
+            saved_doc = await collection.find_one({"transactionId": transaction_id})
 
             return str(saved_doc["_id"]) if saved_doc else None
 
@@ -1327,13 +1264,9 @@ class TripProcessor:
             coords_data.sort(key=lambda x: x["timestamp"])
 
         if not start_time and len(coords_data) > 0:
-            start_time = coords_data[0].get(
-                "timestamp", datetime.now(timezone.utc)
-            )
+            start_time = coords_data[0].get("timestamp", datetime.now(timezone.utc))
         if not end_time and len(coords_data) > 0:
-            end_time = coords_data[-1].get(
-                "timestamp", datetime.now(timezone.utc)
-            )
+            end_time = coords_data[-1].get("timestamp", datetime.now(timezone.utc))
 
         if not transaction_id:
             transaction_id = f"{source}-{uuid.uuid4()}"
@@ -1352,9 +1285,7 @@ class TripProcessor:
             "transactionId": transaction_id,
             "startTime": start_time,
             "endTime": end_time,
-            "gps": json.dumps(
-                {"type": "LineString", "coordinates": coordinates}
-            ),
+            "gps": json.dumps({"type": "LineString", "coordinates": coordinates}),
             "distance": total_distance,
             "imei": imei,
             "source": source,
