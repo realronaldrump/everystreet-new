@@ -18,11 +18,11 @@
   document.addEventListener("DOMContentLoaded", () => {
     initializeEventListeners();
     // Make sure Chart.js and the date adapter are fully loaded before initializing charts
-    if (typeof Chart === 'undefined') {
-      console.error('Chart.js is not loaded');
+    if (typeof Chart === "undefined") {
+      console.error("Chart.js is not loaded");
       return;
     }
-    
+
     // Wait briefly to ensure date adapter is registered
     setTimeout(() => {
       initializeCharts();
@@ -42,9 +42,9 @@
       if (tripCountsCtx) {
         tripCountsChart = new Chart(tripCountsCtx, {
           type: "line",
-          data: { 
+          data: {
             datasets: [],
-            labels: [] 
+            labels: [],
           },
           options: {
             responsive: true,
@@ -82,9 +82,9 @@
       if (distanceCtx) {
         distanceChart = new Chart(distanceCtx, {
           type: "bar",
-          data: { 
+          data: {
             datasets: [],
-            labels: [] 
+            labels: [],
           },
           options: {
             responsive: true,
@@ -174,7 +174,7 @@
       if (window.notificationManager) {
         window.notificationManager.show(
           `Error initializing charts: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -191,18 +191,18 @@
         console.error("DateUtils not available for date initialization");
         return;
       }
-      
+
       try {
         // Get saved dates from localStorage or use defaults
         let savedStartDate = localStorage.getItem("startDate");
         let savedEndDate = localStorage.getItem("endDate");
-        
+
         if (!savedStartDate) {
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
           savedStartDate = dateUtils.formatDate(thirtyDaysAgo);
         }
-        
+
         if (!savedEndDate) {
           savedEndDate = dateUtils.formatDate(new Date());
         }
@@ -214,7 +214,9 @@
           endDateEl._flatpickr.setDate(savedEndDate);
         } else {
           // Initialize date pickers if they don't exist yet
-          dateUtils.initDatePicker(startDateEl, { defaultDate: savedStartDate });
+          dateUtils.initDatePicker(startDateEl, {
+            defaultDate: savedStartDate,
+          });
           dateUtils.initDatePicker(endDateEl, { defaultDate: savedEndDate });
         }
       } catch (error) {
@@ -254,7 +256,9 @@
       const dateUtils = window.DateUtils;
 
       if (!startDateInput || !endDateInput || !dateUtils) {
-        console.error("Missing required elements or DateUtils for setDateRange");
+        console.error(
+          "Missing required elements or DateUtils for setDateRange",
+        );
         return;
       }
 
@@ -286,7 +290,8 @@
       }
 
       // Use DateUtils to get the range
-      dateUtils.getDateRangePreset(preset)
+      dateUtils
+        .getDateRangePreset(preset)
         .then(({ startDate, endDate }) => {
           updateDateInputs(startDateInput, endDateInput, startDate, endDate);
           fetchDrivingInsights();
@@ -324,7 +329,7 @@
       console.error("DateUtils not available for getFilterParams");
       return new URLSearchParams();
     }
-    
+
     // Use stored date range or default to last 30 days
     const startDate =
       localStorage.getItem("startDate") ||
@@ -349,16 +354,16 @@
   }
 
   function formatDateForDisplay(dateStr) {
-    if (!dateStr) return '';
-    
+    if (!dateStr) return "";
+
     // Simple date formatter that doesn't rely on adapters
     try {
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) return dateStr;
-      
-      return new Intl.DateTimeFormat('en-US', {
-        month: 'short',
-        day: 'numeric'
+
+      return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
       }).format(date);
     } catch (e) {
       return dateStr;
@@ -456,29 +461,36 @@
 
   //  CHART UPDATE FUNCTIONS
   function updateTripCountsChart(data) {
-    if (!tripCountsChart || !data || !data.daily_distances || !data.daily_distances.length) return;
+    if (
+      !tripCountsChart ||
+      !data ||
+      !data.daily_distances ||
+      !data.daily_distances.length
+    )
+      return;
 
     try {
       // Format dates for display and prepare data arrays
       const labels = [];
       const tripCounts = [];
       const movingAvg = [];
-      
+
       // Process the data
       data.daily_distances.forEach((d, i, arr) => {
         // Format date for display
         const dateLabel = formatDateForDisplay(d.date);
         labels.push(dateLabel);
-        
+
         // Trip count for this day
         tripCounts.push(d.count);
-        
+
         // Calculate 7-day moving average
         const slice = arr.slice(Math.max(i - 6, 0), i + 1);
-        const avg = slice.reduce((sum, entry) => sum + entry.count, 0) / slice.length;
+        const avg =
+          slice.reduce((sum, entry) => sum + entry.count, 0) / slice.length;
         movingAvg.push(Number(avg.toFixed(1)));
       });
-      
+
       // Update chart data
       tripCountsChart.data.labels = labels;
       tripCountsChart.data.datasets = [
@@ -497,9 +509,9 @@
           borderDash: [5, 5],
           tension: 0.1,
           fill: false,
-        }
+        },
       ];
-      
+
       tripCountsChart.update();
     } catch (error) {
       console.error("Error updating trip counts chart:", error);
@@ -513,17 +525,17 @@
       // Format dates for display and prepare data arrays
       const labels = [];
       const distances = [];
-      
+
       // Process the data
-      data.forEach(d => {
+      data.forEach((d) => {
         // Format date for display
         const dateLabel = formatDateForDisplay(d.date);
         labels.push(dateLabel);
-        
+
         // Distance value
         distances.push(Number(d.distance.toFixed(2)));
       });
-      
+
       // Update chart data
       distanceChart.data.labels = labels;
       distanceChart.data.datasets = [
@@ -533,9 +545,9 @@
           backgroundColor: "#03DAC6",
           borderColor: "#018786",
           borderWidth: 1,
-        }
+        },
       ];
-      
+
       distanceChart.update();
     } catch (error) {
       console.error("Error updating distance chart:", error);
