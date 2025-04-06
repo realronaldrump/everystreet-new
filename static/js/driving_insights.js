@@ -592,11 +592,40 @@
 
     // Handle "most visited" element specially due to complex formatting
     const mostVisitedEl = document.getElementById("most-visited");
-    if (mostVisitedEl && data.most_visited?._id) {
-      const { _id, count, isCustomPlace } = data.most_visited;
-      mostVisitedEl.innerHTML = `${_id} ${
-        isCustomPlace ? '<span class="badge bg-primary">Custom</span>' : ""
-      } (${count} visits)`;
+    if (mostVisitedEl && data.most_visited) {
+      try {
+        const { _id, count, isCustomPlace } = data.most_visited;
+        
+        // Extract place name from _id which might be in different formats
+        let placeName = "Unknown";
+        
+        if (typeof _id === "string") {
+          // Try to parse the string as JSON in case it's a stringified object
+          try {
+            const parsedObj = JSON.parse(_id);
+            if (parsedObj && parsedObj.formatted_address) {
+              placeName = parsedObj.formatted_address;
+            } else {
+              placeName = _id;
+            }
+          } catch (e) {
+            // Not JSON, use as is
+            placeName = _id;
+          }
+        } else if (typeof _id === "object" && _id !== null) {
+          // Handle object format - look for common location properties
+          placeName = _id.formatted_address || _id.name || _id.place_name || 
+                      _id.placeName || _id.location || _id.address || 
+                      (typeof _id.toString === 'function' ? _id.toString() : 'Unknown');
+        }
+        
+        mostVisitedEl.innerHTML = `${placeName} ${
+          isCustomPlace ? '<span class="badge bg-primary">Custom</span>' : ""
+        } (${count} visits)`;
+      } catch (error) {
+        console.error("Error formatting most visited location:", error);
+        mostVisitedEl.textContent = "Error displaying most visited location";
+      }
     } else if (mostVisitedEl) {
       mostVisitedEl.textContent = "-";
     }
