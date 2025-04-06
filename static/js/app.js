@@ -215,7 +215,8 @@
       weight = 4;
       opacity = 0.8;
     } else if (isRecent) {
-      color = layerInfo.highlightColor || "#FF4081"; // Pink for recent
+      // Explicitly set orange for recent, overriding layerInfo.highlightColor for this case
+      color = "#FFA500"; // Orange for recent
       weight = 4;
       opacity = 0.9;
     }
