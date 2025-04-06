@@ -14,14 +14,18 @@
       tileLayerUrls: {
         dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-        satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        streets: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        satellite:
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        streets: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
       },
       tileLayerAttribution: {
         dark: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        light: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        satellite: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-        streets: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        light:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        satellite:
+          "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
+        streets:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       },
       maxZoom: 19,
       recentTripThreshold: 6 * 60 * 60 * 1000, // 6 hours in ms
@@ -292,65 +296,76 @@
       window.map = AppState.map;
 
       // Initialize the currentTheme variable
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-      
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
+
       // Add the tile layer based on the theme
-      const tileUrl = CONFIG.MAP.tileLayerUrls[theme] || CONFIG.MAP.tileLayerUrls.dark;
-      const attribution = CONFIG.MAP.tileLayerAttribution[theme] || CONFIG.MAP.tileLayerAttribution.dark;
-      
+      const tileUrl =
+        CONFIG.MAP.tileLayerUrls[theme] || CONFIG.MAP.tileLayerUrls.dark;
+      const attribution =
+        CONFIG.MAP.tileLayerAttribution[theme] ||
+        CONFIG.MAP.tileLayerAttribution.dark;
+
       AppState.baseLayer = L.tileLayer(tileUrl, {
         attribution,
         maxZoom: CONFIG.MAP.maxZoom,
-        crossOrigin: true
+        crossOrigin: true,
       }).addTo(AppState.map);
 
       // Add custom zoom controls in a better position
-      L.control.zoom({
-        position: 'topright'
-      }).addTo(AppState.map);
+      L.control
+        .zoom({
+          position: "topright",
+        })
+        .addTo(AppState.map);
 
       // Add scale control
-      L.control.scale({
-        imperial: true,
-        metric: true,
-        position: 'bottomright'
-      }).addTo(AppState.map);
+      L.control
+        .scale({
+          imperial: true,
+          metric: true,
+          position: "bottomright",
+        })
+        .addTo(AppState.map);
 
       // Add layer group for vector data
       AppState.layerGroup = L.layerGroup().addTo(AppState.map);
 
       // Add basemap selector
       const basemaps = {
-        "Dark": L.tileLayer(CONFIG.MAP.tileLayerUrls.dark, {
+        Dark: L.tileLayer(CONFIG.MAP.tileLayerUrls.dark, {
           attribution: CONFIG.MAP.tileLayerAttribution.dark,
-          maxZoom: CONFIG.MAP.maxZoom
+          maxZoom: CONFIG.MAP.maxZoom,
         }),
-        "Light": L.tileLayer(CONFIG.MAP.tileLayerUrls.light, {
+        Light: L.tileLayer(CONFIG.MAP.tileLayerUrls.light, {
           attribution: CONFIG.MAP.tileLayerAttribution.light,
-          maxZoom: CONFIG.MAP.maxZoom
+          maxZoom: CONFIG.MAP.maxZoom,
         }),
-        "Satellite": L.tileLayer(CONFIG.MAP.tileLayerUrls.satellite, {
+        Satellite: L.tileLayer(CONFIG.MAP.tileLayerUrls.satellite, {
           attribution: CONFIG.MAP.tileLayerAttribution.satellite,
-          maxZoom: CONFIG.MAP.maxZoom
+          maxZoom: CONFIG.MAP.maxZoom,
         }),
-        "Streets": L.tileLayer(CONFIG.MAP.tileLayerUrls.streets, {
+        Streets: L.tileLayer(CONFIG.MAP.tileLayerUrls.streets, {
           attribution: CONFIG.MAP.tileLayerAttribution.streets,
-          maxZoom: CONFIG.MAP.maxZoom
-        })
+          maxZoom: CONFIG.MAP.maxZoom,
+        }),
       };
-      
+
       // Use the current theme as the default basemap
       const defaultBasemap = theme === "light" ? "Light" : "Dark";
-      if (basemaps[defaultBasemap]) { // Check if exists
-          basemaps[defaultBasemap].addTo(AppState.map);
+      if (basemaps[defaultBasemap]) {
+        // Check if exists
+        basemaps[defaultBasemap].addTo(AppState.map);
       } else {
-          basemaps["Dark"].addTo(AppState.map); // Fallback to Dark
+        basemaps["Dark"].addTo(AppState.map); // Fallback to Dark
       }
-      
-      L.control.layers(basemaps, null, {
-        position: 'topright',
-        collapsed: true
-      }).addTo(AppState.map);
+
+      L.control
+        .layers(basemaps, null, {
+          position: "topright",
+          collapsed: true,
+        })
+        .addTo(AppState.map);
 
       // Map events for better user experience
       AppState.map.on("zoomend", () => {
@@ -363,7 +378,7 @@
       });
 
       // Dispatch mapInitialized event after map setup is complete
-      document.dispatchEvent(new CustomEvent('mapInitialized'));
+      document.dispatchEvent(new CustomEvent("mapInitialized"));
 
       // Set map initialized flag
       AppState.mapInitialized = true;
@@ -372,7 +387,7 @@
       handleError(error, "Map initialization");
       showNotification(
         `${CONFIG.ERROR_MESSAGES.mapInitFailed}: ${error.message}`,
-        "danger"
+        "danger",
       );
       return false;
     }
@@ -381,40 +396,42 @@
   // Update URL with current map state to allow sharing
   function updateUrlWithMapState() {
     if (!AppState.map || !window.history) return;
-    
+
     const center = AppState.map.getCenter();
     const zoom = AppState.map.getZoom();
     const lat = center.lat.toFixed(5);
     const lng = center.lng.toFixed(5);
-    
+
     const url = new URL(window.location.href);
-    url.searchParams.set('zoom', zoom);
-    url.searchParams.set('lat', lat);
-    url.searchParams.set('lng', lng);
-    
-    window.history.replaceState({}, '', url.toString());
+    url.searchParams.set("zoom", zoom);
+    url.searchParams.set("lat", lat);
+    url.searchParams.set("lng", lng);
+
+    window.history.replaceState({}, "", url.toString());
   }
 
   // Adjust layer weights based on zoom level
   function adjustLayerStylesForZoom() {
     if (!AppState.map || !AppState.layerGroup) return;
-    
+
     const zoom = AppState.map.getZoom();
-    
+
     // Iterate through all layers and adjust their styling
-    AppState.layerGroup.eachLayer(layer => {
+    AppState.layerGroup.eachLayer((layer) => {
       if (layer.feature && layer.feature.properties) {
         // Get the appropriate layerInfo
-        let layerName = 'trips';
-        if (layer.feature.properties.transactionId && 
-            layer.feature.properties.transactionId.startsWith('MATCHED-')) {
-          layerName = 'matchedTrips';
-        } else if (layer.feature.properties.type === 'undriven') {
-          layerName = 'undrivenStreets';
+        let layerName = "trips";
+        if (
+          layer.feature.properties.transactionId &&
+          layer.feature.properties.transactionId.startsWith("MATCHED-")
+        ) {
+          layerName = "matchedTrips";
+        } else if (layer.feature.properties.type === "undriven") {
+          layerName = "undrivenStreets";
         }
-        
+
         const layerInfo = AppState.mapLayers[layerName];
-        
+
         // Apply style based on zoom level
         if (zoom > 14) {
           // Higher zoom - make lines more prominent
@@ -1777,9 +1794,9 @@
             const savedVisibility = localStorage.getItem(
               `layer_visible_${layerName}`,
             );
-            
+
             // Only update visibility if a saved state EXISTS in localStorage
-            if (savedVisibility !== null) { 
+            if (savedVisibility !== null) {
               const isVisible = savedVisibility === "true";
               AppState.mapLayers[layerName].visible = isVisible;
               // Update the checkbox state in the UI
@@ -1788,15 +1805,22 @@
             } else {
               // No saved state, ensure checkbox matches the LAYER_DEFAULT
               const toggle = document.getElementById(`${layerName}-toggle`);
-              if (toggle) toggle.checked = AppState.mapLayers[layerName].visible;
+              if (toggle)
+                toggle.checked = AppState.mapLayers[layerName].visible;
             }
 
             // Special handling for undrivenStreets - fetch ONLY if visible AND a location is selected
             // The selection logic and fetch trigger are handled within populateLocationDropdown
             // This check ensures we don't fetch if the layer was saved as hidden or default hidden
-            if (layerName === 'undrivenStreets' && !AppState.mapLayers[layerName].visible) {
-                // Explicitly clear the layer data if it's not visible
-                AppState.mapLayers[layerName].layer = { type: "FeatureCollection", features: [] };
+            if (
+              layerName === "undrivenStreets" &&
+              !AppState.mapLayers[layerName].visible
+            ) {
+              // Explicitly clear the layer data if it's not visible
+              AppState.mapLayers[layerName].layer = {
+                type: "FeatureCollection",
+                features: [],
+              };
             }
           });
           updateLayerOrderUI(); // Update UI after restoring visibility
