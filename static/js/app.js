@@ -1616,33 +1616,50 @@
 
   // Event Listeners & Date Presets
   function initializeEventListeners() {
-    addSingleEventListener("controls-toggle", "click", function () {
-      const mapControls = getElement("map-controls");
-      const controlsContent = getElement("controls-content");
+    // Get references to the toggle button and the content area
+    const controlsToggle = getElement("controls-toggle");
+    const controlsContent = getElement("controls-content"); // Assumes this has id="controls-content" and class="collapse"
 
-      if (mapControls) {
-        mapControls.classList.toggle("minimized");
+    // Ensure both elements exist before adding listeners
+    if (controlsToggle && controlsContent) {
+      const icon = controlsToggle.querySelector("i"); // Get the icon element
 
-        if (controlsContent && window.bootstrap?.Collapse) {
-          const bsCollapse = bootstrap.Collapse.getInstance(controlsContent);
-          if (bsCollapse) {
-            mapControls.classList.contains("minimized")
-              ? bsCollapse.hide()
-              : bsCollapse.show();
-          } else {
-            new bootstrap.Collapse(controlsContent, {
-              toggle: !mapControls.classList.contains("minimized"),
-            });
-          }
-        }
-      }
-
-      const icon = this.querySelector("i");
+      // Set initial icon state based on whether content starts shown
       if (icon) {
-        icon.classList.toggle("fa-chevron-up");
-        icon.classList.toggle("fa-chevron-down");
+         if (controlsContent.classList.contains('show')) {
+            icon.classList.remove("fa-chevron-down");
+            icon.classList.add("fa-chevron-up");
+         } else {
+            icon.classList.remove("fa-chevron-up");
+            icon.classList.add("fa-chevron-down");
+         }
       }
-    });
+
+      // Use Bootstrap events to sync the icon when collapse starts showing
+      controlsContent.addEventListener('show.bs.collapse', function () {
+        if (icon) {
+          icon.classList.remove("fa-chevron-down");
+          icon.classList.add("fa-chevron-up");
+        }
+        // Optional: If you need a class on the parent container during/after transition, add it here.
+        // getElement("map-controls")?.classList.remove("minimized");
+      });
+
+      // Use Bootstrap events to sync the icon when collapse starts hiding
+      controlsContent.addEventListener('hide.bs.collapse', function () {
+        if (icon) {
+          icon.classList.remove("fa-chevron-up");
+          icon.classList.add("fa-chevron-down");
+        }
+        // Optional: If you need a class on the parent container during/after transition, add it here.
+        // getElement("map-controls")?.classList.add("minimized");
+      });
+
+      // Note: The actual collapse/expand is handled by Bootstrap via
+      // data-bs-toggle="collapse" and data-bs-target="#controls-content"
+      // attributes in the HTML structure for the controlsToggle button.
+      // The original complex click listener logic is removed.
+    }
 
     addSingleEventListener("map-match-trips", "click", mapMatchTrips);
 
