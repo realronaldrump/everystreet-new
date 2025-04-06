@@ -52,7 +52,6 @@ async def create_geojson(trips: List[Dict[str, Any]]) -> str:
 
     for trip in trips:
         try:
-            # Parse GPS data if it's a string
             gps_data = trip.get("gps")
             if not gps_data:
                 logger.warning(
@@ -72,15 +71,11 @@ async def create_geojson(trips: List[Dict[str, Any]]) -> str:
                     )
                     continue
 
-            # Copy all properties except large/complex objects
             properties_dict = {}
             for key, value in trip.items():
-                if (
-                    key != "gps" and value is not None
-                ):  # Skip GPS data and null values
+                if key != "gps" and value is not None:
                     properties_dict[key] = value
 
-            # Create feature
             feature = {
                 "type": "Feature",
                 "geometry": gps_data,
@@ -95,7 +90,6 @@ async def create_geojson(trips: List[Dict[str, Any]]) -> str:
                 e,
             )
 
-    # Create feature collection
     fc = {"type": "FeatureCollection", "features": features}
 
     if not features:
@@ -124,7 +118,6 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
 
     for trip in trips:
         try:
-            # Parse GPS data if it's a string
             gps_data = trip.get("gps")
             if not gps_data:
                 logger.warning(
@@ -144,21 +137,17 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
                     )
                     continue
 
-            # Create track
             track = gpxpy.gpx.GPXTrack()
             track.name = f"Trip {trip.get('transactionId', 'UNKNOWN')}"
 
-            # Add description if available
             if trip.get("startLocation") and trip.get("destination"):
                 track.description = f"From {trip.get('startLocation')} to {trip.get('destination')}"
 
             gpx.tracks.append(track)
 
-            # Create segment
             segment = gpxpy.gpx.GPXTrackSegment()
             track.segments.append(segment)
 
-            # Process coordinates based on geometry type
             if gps_data.get("type") == "LineString":
                 for coord in gps_data.get("coordinates", []):
                     if len(coord) >= 2:
@@ -235,10 +224,8 @@ async def export_geojson_response(data, filename: str) -> StreamingResponse:
         StreamingResponse: Formatted response with GeoJSON content
     """
     if isinstance(data, list):
-        # It's a list of trips
         content = await create_geojson(data)
     else:
-        # It's already a GeoJSON dict
         content = json.dumps(data, default=default_serializer)
 
     return StreamingResponse(
@@ -261,10 +248,8 @@ async def export_gpx_response(data, filename: str) -> StreamingResponse:
         StreamingResponse: Formatted response with GPX content
     """
     if isinstance(data, list):
-        # It's a list of trips
         content = await create_gpx(data)
     else:
-        # It's a GeoJSON dict, convert features to trips
         trips = []
         for feature in data.get("features", []):
             trips.append(
@@ -341,17 +326,14 @@ async def create_export_response(
     if fmt == "gpx":
         return await export_gpx_response(data, filename_base)
     if fmt == "shapefile":
-        # Handle shapefiles from GeoJSON
         if isinstance(data, dict) and data.get("type") == "FeatureCollection":
             geojson_data = data
         else:
-            # Convert trip data to GeoJSON first
             geojson_string = await create_geojson(data)
             geojson_data = json.loads(geojson_string)
 
         return await export_shapefile_response(geojson_data, filename_base)
     if fmt == "json":
-        # Return JSON directly
         if isinstance(data, list):
             content = json.dumps(data, default=default_serializer)
         else:
@@ -365,16 +347,13 @@ async def create_export_response(
             },
         )
     if fmt == "csv":
-        # Convert trips to CSV
         from io import StringIO
 
-        # Ensure we have a list of trips
         if not isinstance(data, list):
             if (
                 isinstance(data, dict)
                 and data.get("type") == "FeatureCollection"
             ):
-                # Extract trip data from GeoJSON
                 trips = []
                 for feature in data.get("features", []):
                     if feature.get("properties"):
@@ -386,7 +365,6 @@ async def create_export_response(
         if not data:
             output = StringIO("No data to export")
         else:
-            # Use the enhanced create_csv_export function from app.py
             csv_content = await create_csv_export(
                 data,
                 include_gps_in_csv=include_gps_in_csv,
@@ -401,7 +379,6 @@ async def create_export_response(
                 "Content-Disposition": f'attachment; filename="{filename_base}.csv"'
             },
         )
-    # Invalid format
     raise ValueError(f"Unsupported export format: {fmt}")
 
 
@@ -469,7 +446,6 @@ async def process_trip_for_export(
     """
     result = {}
 
-    # Define field mappings for each category
     basic_info_fields = [
         "_id",
         "transactionId",
@@ -523,7 +499,6 @@ async def process_trip_for_export(
 
     custom_fields = ["notes", "tags", "category", "purpose", "customFields"]
 
-    # Copy fields according to preferences
     all_fields = []
     if include_basic_info:
         all_fields.extend(basic_info_fields)
@@ -538,12 +513,10 @@ async def process_trip_for_export(
     if include_custom:
         all_fields.extend(custom_fields)
 
-    # Copy fields from original trip
     for field in all_fields:
         if field in trip:
             result[field] = trip[field]
 
-    # Always include _id for reference
     if "_id" not in result and "_id" in trip:
         result["_id"] = trip["_id"]
 
@@ -571,10 +544,8 @@ async def create_csv_export(
     import csv
     from io import StringIO
 
-    # Create CSV buffer
     output = StringIO()
 
-    # Prepare flattened fieldnames if needed
     location_fields = []
     if flatten_location_fields:
         location_fields = [
@@ -600,24 +571,19 @@ async def create_csv_export(
             "destination_lng",
         ]
 
-    # Collect all possible field names from all trips
     fieldnames = set()
     for trip in trips:
         fieldnames.update(trip.keys())
 
-    # Add location fields if flattening
     if flatten_location_fields:
         fieldnames.update(location_fields)
-        # Remove the original location fields since we'll flatten them
         if "startLocation" in fieldnames:
             fieldnames.remove("startLocation")
         if "destination" in fieldnames:
             fieldnames.remove("destination")
 
-    # Sort fields for consistent order
     fieldnames = sorted(fieldnames)
 
-    # Move important fields to the beginning for better readability
     priority_fields = [
         "_id",
         "transactionId",
@@ -632,18 +598,14 @@ async def create_csv_export(
             fieldnames.remove(field)
             fieldnames.insert(0, field)
 
-    # Create CSV writer
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
 
-    # Write each trip as a row, handling nested objects
     for trip in trips:
         flat_trip = {}
         for key, value in trip.items():
-            # Handle GPS and geometry fields based on user preference
             if key in ["gps", "geometry", "path", "simplified_path", "route"]:
                 if include_gps_in_csv:
-                    # Include as JSON string if requested
                     flat_trip[key] = json.dumps(
                         value, default=default_serializer
                     )
@@ -651,25 +613,19 @@ async def create_csv_export(
                     flat_trip[key] = (
                         "[Geometry data not included in CSV format]"
                     )
-            # Handle location fields if flattening is enabled
             elif flatten_location_fields and key in [
                 "startLocation",
                 "destination",
             ]:
-                # Skip the original field, we'll add flattened versions below
                 pass
-            # Handle nested objects by converting to JSON string
             elif isinstance(value, (dict, list)):
                 flat_trip[key] = json.dumps(value, default=default_serializer)
-            # Handle dates
             elif isinstance(value, datetime):
                 flat_trip[key] = value.isoformat()
             else:
                 flat_trip[key] = value
 
-        # Add flattened location fields if needed
         if flatten_location_fields:
-            # Process startLocation
             start_loc = trip.get("startLocation", {})
             if isinstance(start_loc, str):
                 try:
@@ -682,7 +638,6 @@ async def create_csv_export(
                     "formatted_address", ""
                 )
 
-                # Extract address components
                 addr_comps = start_loc.get("address_components", {})
                 if isinstance(addr_comps, dict):
                     flat_trip["startLocation_street_number"] = addr_comps.get(
@@ -707,13 +662,11 @@ async def create_csv_export(
                         "country", ""
                     )
 
-                # Extract coordinates
                 coords = start_loc.get("coordinates", {})
                 if isinstance(coords, dict):
                     flat_trip["startLocation_lat"] = coords.get("lat", "")
                     flat_trip["startLocation_lng"] = coords.get("lng", "")
 
-            # Process destination
             dest = trip.get("destination", {})
             if isinstance(dest, str):
                 try:
@@ -726,7 +679,6 @@ async def create_csv_export(
                     "formatted_address", ""
                 )
 
-                # Extract address components
                 addr_comps = dest.get("address_components", {})
                 if isinstance(addr_comps, dict):
                     flat_trip["destination_street_number"] = addr_comps.get(
@@ -749,7 +701,6 @@ async def create_csv_export(
                         "country", ""
                     )
 
-                # Extract coordinates
                 coords = dest.get("coordinates", {})
                 if isinstance(coords, dict):
                     flat_trip["destination_lat"] = coords.get("lat", "")

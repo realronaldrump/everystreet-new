@@ -30,7 +30,6 @@ from utils import haversine, reverse_geocode_nominatim
 logger = logging.getLogger(__name__)
 
 
-# Define the trip processing states
 class TripState(Enum):
     NEW = "new"
     VALIDATED = "validated"
@@ -41,7 +40,6 @@ class TripState(Enum):
     FAILED = "failed"
 
 
-# Configuration singleton
 class Config:
     """Singleton for application configuration."""
 
@@ -50,7 +48,6 @@ class Config:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(Config, cls).__new__(cls)
-            # Default configuration values
             cls._instance.mapbox_access_token = None
 
         return cls._instance
@@ -64,7 +61,6 @@ class Config:
         self._mapbox_access_token = value
 
 
-# RateLimiter for MapBox API
 class RateLimiter:
     """Rate limiter for API requests with thread-safe design."""
 
@@ -84,29 +80,22 @@ class RateLimiter:
             current_time = time.time()
             elapsed = current_time - self.window_start
 
-            # Reset window if it's been longer than the window duration
             if elapsed > self.window_seconds:
                 self.request_count = 0
                 self.window_start = current_time
                 return False, 0
 
-            # Check if we're about to exceed the rate limit
             if self.request_count >= self.max_requests:
-                # Calculate time to wait until window resets
                 wait_time = self.window_seconds - elapsed
                 return True, max(0.1, wait_time)
 
-            # Increment the request count
             self.request_count += 1
             return False, 0
 
 
-# Create singletons
 config = Config()
-mapbox_rate_limiter = RateLimiter(60, 60)  # 60 requests per 60 seconds
-map_match_semaphore = asyncio.Semaphore(
-    3
-)  # Limit concurrent map matching requests
+mapbox_rate_limiter = RateLimiter(60, 60)
+map_match_semaphore = asyncio.Semaphore(3)
 
 
 class TripProcessor:
@@ -123,24 +112,18 @@ class TripProcessor:
             mapbox_token: The Mapbox access token for map matching
             source: Source of the trip data (api, upload, upload_gpx, upload_geojson, bouncie etc.)
         """
-        # Set mapbox token in config singleton
         if mapbox_token:
             config.mapbox_access_token = mapbox_token
 
-        self.source = (
-            source  # Store the source (e.g., 'bouncie', 'upload_gpx')
-        )
+        self.source = source
 
-        # State tracking
         self.state = TripState.NEW
         self.state_history = []
         self.errors: Dict[str, str] = {}
 
-        # Trip data
         self.trip_data: Dict[str, Any] = {}
         self.processed_data: Dict[str, Any] = {}
 
-        # Initialize projections for map matching
         self.utm_proj = None
         self.project_to_utm = None
         self.project_to_wgs84 = None
@@ -176,9 +159,7 @@ class TripProcessor:
             trip_data: The raw trip data dictionary
         """
         self.trip_data = trip_data
-        self.processed_data = (
-            trip_data.copy()
-        )  # Start with a copy to build upon
+        self.processed_data = trip_data.copy()
         self.state = TripState.NEW
         self._set_state(TripState.NEW)
 
@@ -210,7 +191,6 @@ class TripProcessor:
             return {}
 
         try:
-            # Run all steps in sequence
             await self.validate()
             if self.state == TripState.FAILED:
                 return {}
@@ -250,7 +230,6 @@ class TripProcessor:
             transaction_id = self.trip_data.get("transactionId", "unknown")
             logger.debug("Validating trip %s", transaction_id)
 
-            # Check required fields
             required = ["transactionId", "startTime", "endTime", "gps"]
             for field in required:
                 if field not in self.trip_data:
@@ -261,7 +240,6 @@ class TripProcessor:
                     self._set_state(TripState.FAILED, error_message)
                     return False
 
-            # Validate GPS data
             gps_data = self.trip_data.get("gps")
             if isinstance(gps_data, str):
                 try:
@@ -296,16 +274,13 @@ class TripProcessor:
                 self._set_state(TripState.FAILED, error_message)
                 return False
 
-            # Copy validated data to processed data
             self.processed_data = self.trip_data.copy()
 
-            # Add validation timestamp
             self.processed_data["validated_at"] = datetime.now(timezone.utc)
             self.processed_data["validation_status"] = (
                 TripState.VALIDATED.value
             )
 
-            # Update state
             self._set_state(TripState.VALIDATED)
             logger.debug("Trip %s validated successfully", transaction_id)
             return True
@@ -331,7 +306,6 @@ class TripProcessor:
 
             if self.state != TripState.VALIDATED:
                 if self.state == TripState.NEW:
-                    # Try to validate first
                     await self.validate()
                     if self.state != TripState.VALIDATED:
                         return False
@@ -344,7 +318,6 @@ class TripProcessor:
 
             logger.debug("Processing basic data for trip %s", transaction_id)
 
-            # Handle timestamps
             from dateutil import parser
 
             for key in ("startTime", "endTime"):
@@ -355,7 +328,6 @@ class TripProcessor:
                         dt = dt.replace(tzinfo=timezone.utc)
                     self.processed_data[key] = dt
 
-            # Parse GPS data
             gps_data = self.processed_data.get("gps")
             if isinstance(gps_data, str):
                 try:
@@ -367,17 +339,14 @@ class TripProcessor:
                     )
                     return False
 
-            # Get coordinates
             coords = gps_data.get("coordinates", [])
             if len(coords) < 2:
                 self._set_state(TripState.FAILED, "Insufficient coordinates")
                 return False
 
-            # Extract start and end points for later geocoding
             start_coord = coords[0]
             end_coord = coords[-1]
 
-            # Set geo-points for spatial queries
             self.processed_data["startGeoPoint"] = {
                 "type": "Point",
                 "coordinates": [start_coord[0], start_coord[1]],
@@ -387,12 +356,10 @@ class TripProcessor:
                 "coordinates": [end_coord[0], end_coord[1]],
             }
 
-            # Calculate basic metrics if not present
             if (
                 "distance" not in self.processed_data
                 or not self.processed_data["distance"]
             ):
-                # Calculate distance by summing segments
                 total_distance = 0
                 for i in range(1, len(coords)):
                     prev = coords[i - 1]
@@ -402,7 +369,6 @@ class TripProcessor:
                     )
                 self.processed_data["distance"] = total_distance
 
-            # Format idle time if available
             if "totalIdleDuration" in self.processed_data:
                 self.processed_data["totalIdleDurationFormatted"] = (
                     self.format_idle_time(
@@ -410,7 +376,6 @@ class TripProcessor:
                     )
                 )
 
-            # Update state
             self._set_state(TripState.PROCESSED)
             logger.debug(
                 "Completed basic processing for trip %s", transaction_id
@@ -457,12 +422,9 @@ class TripProcessor:
         coords = geometry["coordinates"]
 
         if geom_type == "Point":
-            # Point format: [lng, lat]
             if isinstance(coords, list) and len(coords) >= 2:
                 return coords
         elif geom_type == "Polygon":
-            # Polygon format: [[[lng, lat], [lng, lat], ...]]
-            # Use the first point of the first ring as a representative point
             if (
                 isinstance(coords, list)
                 and coords
@@ -471,7 +433,7 @@ class TripProcessor:
                 and isinstance(coords[0][0], list)
                 and len(coords[0][0]) >= 2
             ):
-                return coords[0][0]  # First point of the first ring
+                return coords[0][0]
             logger.warning(
                 "Invalid polygon format in geometry for trip %s: %s",
                 transaction_id,
@@ -484,7 +446,6 @@ class TripProcessor:
                 transaction_id,
             )
 
-        # Default fallback for unsupported types or invalid structures
         return fallback_coords
 
     async def geocode(self) -> bool:
@@ -498,7 +459,6 @@ class TripProcessor:
             transaction_id = self.trip_data.get("transactionId", "unknown")
 
             if self.state == TripState.NEW:
-                # Try to validate and process first
                 await self.validate()
                 if self.state == TripState.VALIDATED:
                     await self.process_basic()
@@ -517,7 +477,6 @@ class TripProcessor:
 
             logger.debug("Geocoding trip %s", transaction_id)
 
-            # Extract coordinates from geo-points
             start_coord = self.processed_data["startGeoPoint"]["coordinates"]
             end_coord = self.processed_data["destinationGeoPoint"][
                 "coordinates"
@@ -526,7 +485,6 @@ class TripProcessor:
             start_pt = Point(start_coord[0], start_coord[1])
             end_pt = Point(end_coord[0], end_coord[1])
 
-            # Define the base location schema
             LOCATION_SCHEMA = {
                 "formatted_address": "",
                 "address_components": {
@@ -541,18 +499,14 @@ class TripProcessor:
                 "coordinates": {"lat": 0.0, "lng": 0.0},
             }
 
-            # Process start location - always in structured format
             if not self.processed_data.get("startLocation"):
-                # First check for custom places
                 start_place = await self.get_place_at_point(start_pt)
                 if start_place:
-                    # Create structured location
                     structured_start = LOCATION_SCHEMA.copy()
                     structured_start["formatted_address"] = start_place.get(
                         "name", ""
                     )
 
-                    # Extract address components if available
                     for component in [
                         "address",
                         "city",
@@ -570,7 +524,6 @@ class TripProcessor:
                                     component
                                 ] = start_place[component]
 
-                    # Set coordinates
                     if "geometry" in start_place:
                         extracted_coords = self._extract_coords_from_geometry(
                             start_place["geometry"],
@@ -587,33 +540,28 @@ class TripProcessor:
                         structured_start["coordinates"]["lng"] = start_coord[0]
                         structured_start["coordinates"]["lat"] = start_coord[1]
 
-                    # Store structured location
                     self.processed_data["startLocation"] = structured_start
                     self.processed_data["startPlaceId"] = str(
                         start_place.get("_id", "")
                     )
                 else:
-                    # Fall back to reverse geocoding
                     rev_start = await reverse_geocode_nominatim(
                         start_coord[1], start_coord[0]
                     )
                     if rev_start:
-                        # Create structured location
                         structured_start = LOCATION_SCHEMA.copy()
                         structured_start["formatted_address"] = rev_start.get(
                             "display_name", ""
                         )
 
-                        # Extract address components from Nominatim response
                         if "address" in rev_start:
                             addr = rev_start["address"]
-                            # Map Nominatim address components to our schema
                             component_mapping = {
                                 "house_number": "street_number",
                                 "road": "street",
                                 "city": "city",
-                                "town": "city",  # Fallback
-                                "village": "city",  # Fallback
+                                "town": "city",
+                                "village": "city",
                                 "county": "county",
                                 "state": "state",
                                 "postcode": "postal_code",
@@ -629,25 +577,19 @@ class TripProcessor:
                                         our_key
                                     ] = addr[nominatim_key]
 
-                        # Set coordinates
                         structured_start["coordinates"]["lng"] = start_coord[0]
                         structured_start["coordinates"]["lat"] = start_coord[1]
 
-                        # Store structured location
                         self.processed_data["startLocation"] = structured_start
 
-            # Process destination location - always in structured format
             if not self.processed_data.get("destination"):
-                # First check for custom places
                 end_place = await self.get_place_at_point(end_pt)
                 if end_place:
-                    # Create structured location
                     structured_dest = LOCATION_SCHEMA.copy()
                     structured_dest["formatted_address"] = end_place.get(
                         "name", ""
                     )
 
-                    # Extract address components if available
                     for component in [
                         "address",
                         "city",
@@ -665,7 +607,6 @@ class TripProcessor:
                                     component
                                 ] = end_place[component]
 
-                    # Set coordinates
                     if "geometry" in end_place:
                         extracted_coords = self._extract_coords_from_geometry(
                             end_place["geometry"],
@@ -682,33 +623,28 @@ class TripProcessor:
                         structured_dest["coordinates"]["lng"] = end_coord[0]
                         structured_dest["coordinates"]["lat"] = end_coord[1]
 
-                    # Store structured location
                     self.processed_data["destination"] = structured_dest
                     self.processed_data["destinationPlaceId"] = str(
                         end_place.get("_id", "")
                     )
                 else:
-                    # Fall back to reverse geocoding
                     rev_end = await reverse_geocode_nominatim(
                         end_coord[1], end_coord[0]
                     )
                     if rev_end:
-                        # Create structured location
                         structured_dest = LOCATION_SCHEMA.copy()
                         structured_dest["formatted_address"] = rev_end.get(
                             "display_name", ""
                         )
 
-                        # Extract address components from Nominatim response
                         if "address" in rev_end:
                             addr = rev_end["address"]
-                            # Map Nominatim address components to our schema
                             component_mapping = {
                                 "house_number": "street_number",
                                 "road": "street",
                                 "city": "city",
-                                "town": "city",  # Fallback
-                                "village": "city",  # Fallback
+                                "town": "city",
+                                "village": "city",
                                 "county": "county",
                                 "state": "state",
                                 "postcode": "postal_code",
@@ -724,20 +660,15 @@ class TripProcessor:
                                         our_key
                                     ] = addr[nominatim_key]
 
-                        # Set coordinates
                         structured_dest["coordinates"]["lng"] = end_coord[0]
                         structured_dest["coordinates"]["lat"] = end_coord[1]
 
-                        # Store structured location
                         self.processed_data["destination"] = structured_dest
 
-            # Add location schema version
             self.processed_data["location_schema_version"] = 2
 
-            # Add geocoding timestamp
             self.processed_data["geocoded_at"] = datetime.now(timezone.utc)
 
-            # Update state
             self._set_state(TripState.GEOCODED)
             logger.debug("Geocoded trip %s", transaction_id)
             return True
@@ -761,7 +692,6 @@ class TripProcessor:
             transaction_id = self.trip_data.get("transactionId", "unknown")
 
             if self.state == TripState.NEW:
-                # Try to validate, process, and geocode first
                 await self.process(do_map_match=False)
                 if self.state != TripState.GEOCODED:
                     logger.warning(
@@ -784,7 +714,6 @@ class TripProcessor:
                 )
                 return False
 
-            # Get coordinates
             gps_data = self.processed_data["gps"]
             if isinstance(gps_data, str):
                 gps_data = json.loads(gps_data)
@@ -797,7 +726,6 @@ class TripProcessor:
                 )
                 return False
 
-            # Perform map matching
             match_result = await self._map_match_coordinates(coords)
             if match_result.get("code") != "Ok":
                 error_msg = match_result.get(
@@ -808,13 +736,11 @@ class TripProcessor:
                 )
                 return False
 
-            # Store matched result
             self.processed_data["matchedGps"] = match_result["matchings"][0][
                 "geometry"
             ]
             self.processed_data["matched_at"] = datetime.now(timezone.utc)
 
-            # Update state
             self._set_state(TripState.MAP_MATCHED)
             logger.debug("Map matched trip %s", transaction_id)
             return True
@@ -834,17 +760,14 @@ class TripProcessor:
         Args:
             coords: The coordinates to use for determining UTM zone
         """
-        # Get center point
         lats = [c[1] for c in coords]
         lons = [c[0] for c in coords]
         center_lat = sum(lats) / len(lats)
         center_lon = sum(lons) / len(lons)
 
-        # Determine UTM zone
         utm_zone = int((center_lon + 180) / 6) + 1
         hemisphere = "north" if center_lat >= 0 else "south"
 
-        # Create projections
         self.utm_proj = pyproj.CRS(
             f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84"
         )
@@ -884,11 +807,9 @@ class TripProcessor:
                 "message": "At least two coordinates are required for map matching.",
             }
 
-        # Initialize projections if needed
         if not self.utm_proj:
             self._initialize_projections(coordinates)
 
-        # Create a session with proper configuration
         timeout = aiohttp.ClientTimeout(
             total=30, connect=10, sock_connect=10, sock_read=20
         )
@@ -912,7 +833,6 @@ class TripProcessor:
 
                 async with map_match_semaphore:
                     for retry_attempt in range(1, max_attempts_for_429 + 1):
-                        # Check rate limiting before making request
                         (
                             should_wait,
                             wait_time,
@@ -963,7 +883,6 @@ class TripProcessor:
                                             message="Too Many Requests (exceeded max attempts)",
                                         )
 
-                                # Check for other error responses
                                 if 400 <= response.status < 500:
                                     error_text = await response.text()
                                     logger.warning(
@@ -977,7 +896,6 @@ class TripProcessor:
                                         "details": error_text,
                                     }
 
-                                # Handle server errors with retries
                                 if response.status >= 500:
                                     if retry_attempt < max_attempts_for_429:
                                         wait_time = min_backoff_seconds * (
@@ -1003,7 +921,6 @@ class TripProcessor:
                                 return data
 
                         except Exception as e:
-                            # Handle various exceptions with retries
                             if retry_attempt < max_attempts_for_429:
                                 wait_time = min_backoff_seconds * (
                                     2 ** (retry_attempt - 1)
@@ -1028,8 +945,6 @@ class TripProcessor:
                                     "message": f"Mapbox API error after {max_attempts_for_429} retries: {str(e)}",
                                 }
 
-                    # This should only be reached if all retry attempts failed
-                    # but no exception was raised
                     return {
                         "code": "Error",
                         "message": "All retry attempts failed",
@@ -1050,13 +965,10 @@ class TripProcessor:
                     if data.get("code") == "Ok" and data.get("matchings"):
                         return data["matchings"][0]["geometry"]["coordinates"]
 
-                    # Handle different types of errors
                     msg = data.get("message", "Mapbox API error (code != Ok)")
                     logger.warning("Mapbox chunk error: %s", msg)
 
-                    # Special handling for invalid input
                     if "invalid coordinates" in msg.lower():
-                        # Try to clean up coordinates
                         filtered_coords = filter_invalid_coordinates(
                             chunk_coords
                         )
@@ -1074,7 +986,6 @@ class TripProcessor:
                         "Unexpected error in mapbox chunk: %s", str(exc)
                     )
 
-                # Fallback to splitting if needed and allowed
                 if depth < max_retries and len(chunk_coords) > min_sub_chunk:
                     mid = len(chunk_coords) // 2
                     first_half = chunk_coords[:mid]
@@ -1113,7 +1024,6 @@ class TripProcessor:
                 """Filter out potentially invalid coordinates."""
                 valid_coords = []
                 for coord in coords:
-                    # Check for basic validity
                     if (
                         len(coord) >= 2
                         and isinstance(coord[0], (int, float))
@@ -1125,7 +1035,6 @@ class TripProcessor:
 
                 return valid_coords
 
-            # Split into chunks for processing
             n = len(coordinates)
             chunk_indices = []
             start_idx = 0
@@ -1144,7 +1053,6 @@ class TripProcessor:
                 overlap,
             )
 
-            # Process chunks
             final_matched: List[List[float]] = []
             for cindex, (start_i, end_i) in enumerate(chunk_indices, 1):
                 chunk_coords = coordinates[start_i:end_i]
@@ -1171,7 +1079,6 @@ class TripProcessor:
                 len(final_matched),
             )
 
-            # Detect and fix large jumps in the matched route
             def detect_big_jumps(
                 coords: List[List[float]], threshold_m: float = 200
             ) -> List[int]:
@@ -1260,7 +1167,6 @@ class TripProcessor:
             ObjectId of the saved document if successful, None otherwise
         """
         try:
-            # Skip if not processed enough
             if self.state not in [
                 TripState.VALIDATED,
                 TripState.PROCESSED,
@@ -1275,38 +1181,30 @@ class TripProcessor:
                 )
                 return None
 
-            # Ensure proper serialization
             trip_to_save = self.processed_data.copy()
 
-            # For GPS data, ensure it's stored as a string
             if isinstance(trip_to_save.get("gps"), dict):
                 trip_to_save["gps"] = json.dumps(trip_to_save["gps"])
 
-            # Add source metadata (already set during init)
             trip_to_save["source"] = self.source
             trip_to_save["saved_at"] = datetime.now(timezone.utc)
             trip_to_save["processing_history"] = self.state_history
 
-            # Remove _id field if present (for upsert)
             if "_id" in trip_to_save:
                 del trip_to_save["_id"]
 
-            # Always save to the main trips collection
             collection = trips_collection
             transaction_id = trip_to_save.get("transactionId")
 
-            # Upsert the trip into the trips collection
             await collection.update_one(
                 {"transactionId": transaction_id},
                 {"$set": trip_to_save},
                 upsert=True,
             )
 
-            # If map matched and we have matched data, also save to matched_trips collection
             if (
                 map_match_result or self.state == TripState.MAP_MATCHED
             ) and "matchedGps" in trip_to_save:
-                # Ensure matchedGps is a dict before saving
                 matched_gps_data = trip_to_save["matchedGps"]
                 if isinstance(matched_gps_data, str):
                     try:
@@ -1316,18 +1214,16 @@ class TripProcessor:
                             "Invalid JSON in matchedGps for trip %s, skipping matched save.",
                             transaction_id,
                         )
-                        matched_gps_data = None  # Prevent saving invalid data
+                        matched_gps_data = None
 
                 if matched_gps_data:
-                    # Create a separate dict for matched trip to avoid saving full history etc.
                     matched_trip_data = {
                         "transactionId": transaction_id,
                         "startTime": trip_to_save.get("startTime"),
                         "endTime": trip_to_save.get("endTime"),
                         "matchedGps": matched_gps_data,
-                        "source": self.source,  # Keep source info
+                        "source": self.source,
                         "matched_at": trip_to_save.get("matched_at"),
-                        # Include other relevant fields if needed for matched trip display/analysis
                         "distance": trip_to_save.get("distance"),
                         "imei": trip_to_save.get("imei"),
                         "startLocation": trip_to_save.get("startLocation"),
@@ -1345,7 +1241,6 @@ class TripProcessor:
                         ),
                     }
 
-                    # Remove None values before saving
                     matched_trip_data = {
                         k: v
                         for k, v in matched_trip_data.items()
@@ -1376,7 +1271,6 @@ class TripProcessor:
                 collection.name,
             )
 
-            # Find the saved document in the main collection to get the _id
             saved_doc = await collection.find_one(
                 {"transactionId": transaction_id}
             )
@@ -1387,7 +1281,6 @@ class TripProcessor:
             logger.error("Error saving trip: %s", str(e))
             return None
 
-    # Utility methods moved from trip_processing.py
     @staticmethod
     def format_idle_time(seconds: Any) -> str:
         """Convert idle time in seconds to a HH:MM:SS string."""
@@ -1412,7 +1305,7 @@ class TripProcessor:
         end_time: Optional[datetime] = None,
         transaction_id: Optional[str] = None,
         imei: str = "UPLOADED",
-        source: str = "upload",  # Default source if not specified otherwise
+        source: str = "upload",
         mapbox_token: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create and process a trip from raw coordinates data.
@@ -1430,11 +1323,9 @@ class TripProcessor:
             Processed trip data
         """
 
-        # Sort coordinates by timestamp
         if len(coords_data) > 0 and "timestamp" in coords_data[0]:
             coords_data.sort(key=lambda x: x["timestamp"])
 
-        # Extract timestamps if not provided
         if not start_time and len(coords_data) > 0:
             start_time = coords_data[0].get(
                 "timestamp", datetime.now(timezone.utc)
@@ -1444,14 +1335,11 @@ class TripProcessor:
                 "timestamp", datetime.now(timezone.utc)
             )
 
-        # Generate transaction ID if not provided
         if not transaction_id:
             transaction_id = f"{source}-{uuid.uuid4()}"
 
-        # Create coordinates for GeoJSON
         coordinates = [[c["lon"], c["lat"]] for c in coords_data]
 
-        # Calculate distance
         total_distance = 0.0
         for i in range(1, len(coordinates)):
             prev = coordinates[i - 1]
@@ -1460,7 +1348,6 @@ class TripProcessor:
                 prev[0], prev[1], curr[0], curr[1], unit="miles"
             )
 
-        # Create trip data, ensuring source is included
         trip_data = {
             "transactionId": transaction_id,
             "startTime": start_time,
@@ -1470,15 +1357,11 @@ class TripProcessor:
             ),
             "distance": total_distance,
             "imei": imei,
-            "source": source,  # Ensure source is set here
+            "source": source,
         }
 
-        # Create processor and process trip
-        processor = cls(
-            mapbox_token=mapbox_token, source=source
-        )  # Pass source to processor
+        processor = cls(mapbox_token=mapbox_token, source=source)
         processor.set_trip_data(trip_data)
-        # Skip map matching by default
         await processor.process(do_map_match=False)
 
         return processor.processed_data

@@ -15,6 +15,7 @@ import threading
 from datetime import datetime, timezone
 from typing import (
     Any,
+    AsyncIterator,
     Awaitable,
     Callable,
     Dict,
@@ -23,7 +24,6 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
-    AsyncIterator,
 )
 
 import bson
@@ -36,7 +36,7 @@ from motor.motor_asyncio import (
     AsyncIOMotorCollection,
     AsyncIOMotorCursor,
     AsyncIOMotorDatabase,
-    AsyncIOMotorGridFSBucket,  # <-- Import GridFS bucket class
+    AsyncIOMotorGridFSBucket,
 )
 from pymongo.errors import (
     ConnectionFailure,
@@ -50,14 +50,8 @@ from pymongo.results import (
     UpdateResult,
 )
 
-# Set up logging
-# logging.basicConfig( # REMOVED
-#     level=logging.INFO,
-#     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-# )
 logger = logging.getLogger(__name__)
 
-# Return type for the execute_with_retry function
 T = TypeVar("T")
 
 
@@ -81,13 +75,12 @@ class DatabaseManager:
             self._db: Optional[AsyncIOMotorDatabase] = None
             self._gridfs_bucket_instance: Optional[
                 AsyncIOMotorGridFSBucket
-            ] = None  # Cache for GridFS bucket
+            ] = None
             self._quota_exceeded = False
             self._connection_healthy = True
             self._db_semaphore = asyncio.Semaphore(10)
             self._collections: Dict[str, AsyncIOMotorCollection] = {}
             self._initialized = True
-            # Exponential backoff in seconds
             self._conn_retry_backoff = [
                 1,
                 2,
@@ -96,7 +89,6 @@ class DatabaseManager:
                 30,
             ]
 
-            # Configuration from environment variables
             self._max_pool_size = int(os.getenv("MONGODB_MAX_POOL_SIZE", "10"))
             self._connection_timeout_ms = int(
                 os.getenv("MONGODB_CONNECTION_TIMEOUT_MS", "5000")
@@ -112,7 +104,6 @@ class DatabaseManager:
             )
             self._db_name = os.getenv("MONGODB_DATABASE", "every_street")
 
-            # Log configuration
             logger.debug(
                 "Database configuration initialized with pool size %s",
                 self._max_pool_size,
@@ -129,13 +120,13 @@ class DatabaseManager:
             self._client = AsyncIOMotorClient(
                 mongo_uri,
                 tls=True,
-                tlsAllowInvalidCertificates=True,  # Consider setting to False in production if possible
+                tlsAllowInvalidCertificates=True,
                 tlsCAFile=certifi.where(),
                 tz_aware=True,
                 tzinfo=timezone.utc,
                 maxPoolSize=self._max_pool_size,
                 minPoolSize=0,
-                maxIdleTimeMS=60000,  # Increased idle time
+                maxIdleTimeMS=60000,
                 connectTimeoutMS=self._connection_timeout_ms,
                 serverSelectionTimeoutMS=self._server_selection_timeout_ms,
                 socketTimeoutMS=self._socket_timeout_ms,
@@ -146,8 +137,8 @@ class DatabaseManager:
             )
             self._db = self._client[self._db_name]
             self._connection_healthy = True
-            self._collections = {}  # Reset cached collections
-            self._gridfs_bucket_instance = None  # Reset GridFS cache
+            self._collections = {}
+            self._gridfs_bucket_instance = None
             logger.info("MongoDB client initialized successfully")
         except Exception as e:
             self._connection_healthy = False
@@ -159,7 +150,6 @@ class DatabaseManager:
         """Get the database instance, initializing the client if needed."""
         if self._db is None or not self._connection_healthy:
             self._initialize_client()
-        # Ensure _db is not None after initialization attempt
         if self._db is None:
             raise ConnectionFailure(
                 "Database instance could not be initialized."
@@ -171,7 +161,6 @@ class DatabaseManager:
         """Get the client instance, initializing if needed."""
         if self._client is None or not self._connection_healthy:
             self._initialize_client()
-        # Ensure _client is not None after initialization attempt
         if self._client is None:
             raise ConnectionFailure("MongoDB client could not be initialized.")
         return self._client
@@ -179,9 +168,7 @@ class DatabaseManager:
     @property
     def gridfs_bucket(self) -> AsyncIOMotorGridFSBucket:
         """Get a GridFS bucket instance, initializing if needed."""
-        # Ensure the database connection is established first
         db_instance = self.db
-        # Create or return cached instance
         if self._gridfs_bucket_instance is None:
             self._gridfs_bucket_instance = AsyncIOMotorGridFSBucket(
                 db_instance
@@ -206,7 +193,6 @@ class DatabaseManager:
             collection_name not in self._collections
             or not self._connection_healthy
         ):
-            # Use the db property to ensure client/db are initialized
             self._collections[collection_name] = self.db[collection_name]
         return self._collections[collection_name]
 
@@ -242,11 +228,9 @@ class DatabaseManager:
 
             try:
                 async with self._db_semaphore:
-                    # Use properties which handle initialization
                     _ = self.client
                     _ = self.db
                     if not self._connection_healthy:
-                        # If initialization failed previously, retry it here
                         self._initialize_client()
 
                     return await operation()
@@ -276,15 +260,12 @@ class DatabaseManager:
                 await asyncio.sleep(retry_delay)
 
             except OperationFailure as e:
-                # Check for specific potentially transient MongoDB errors
-                # Example: Error codes for transient transaction errors, network errors, etc.
-                # Consult MongoDB documentation for relevant error codes.
                 is_transient = e.has_error_label(
                     "TransientTransactionError"
                 ) or e.code in [
                     11600,
                     11602,
-                ]  # Example codes
+                ]
 
                 if is_transient and attempts < max_attempts:
                     logger.warning(
@@ -298,7 +279,6 @@ class DatabaseManager:
                     )
                     await asyncio.sleep(retry_delay)
                 else:
-                    # For non-transient OperationFailures or if max attempts reached
                     logger.error(
                         "Error in %s (attempt %d/%d, Code: %s): %s",
                         operation_name,
@@ -307,11 +287,10 @@ class DatabaseManager:
                         e.code,
                         str(e),
                         exc_info=False,
-                    )  # Keep log concise unless needed
-                    raise  # Re-raise the original OperationFailure
+                    )
+                    raise
 
             except Exception as e:
-                # Catch-all for other unexpected errors
                 logger.error(
                     "Unexpected error in %s (attempt %d/%d): %s",
                     operation_name,
@@ -319,11 +298,10 @@ class DatabaseManager:
                     max_attempts,
                     str(e),
                     exc_info=True,
-                )  # Log full traceback for unexpected errors
+                )
 
-                raise  # Re-raise the original exception
+                raise
 
-        # This line should theoretically not be reached if exceptions are raised correctly
         raise RuntimeError(
             f"All {max_attempts} retry attempts failed for {operation_name}"
         )
@@ -337,13 +315,10 @@ class DatabaseManager:
         try:
 
             async def _check_quota() -> Tuple[float, float]:
-                # Use the db property to ensure initialization
                 stats = await self.db.command("dbStats")
                 data_size = stats.get("dataSize", 0)
                 used_mb = data_size / (1024 * 1024)
-                limit_mb = (
-                    512  # Free-tier limit (Consider making this configurable)
-                )
+                limit_mb = 512
                 self._quota_exceeded = used_mb > limit_mb
                 return used_mb, limit_mb
 
@@ -380,25 +355,18 @@ class DatabaseManager:
             return None
 
         try:
-            collection = self.get_collection(
-                collection_name
-            )  # Use getter to ensure init
+            collection = self.get_collection(collection_name)
 
-            # Get existing indexes
             existing_indexes = await collection.index_information()
 
-            # Check if an index with the same keys already exists regardless of name
-            # Convert keys to a more comparable format
             keys_tuple = tuple(
                 sorted(list(keys) if isinstance(keys, list) else [(keys, 1)])
             )
 
-            # Check against existing indexes
             for idx_name, idx_info in existing_indexes.items():
-                if idx_name == "_id_":  # Skip the default _id index
+                if idx_name == "_id_":
                     continue
 
-                # Compare key patterns (sorted tuple for reliable comparison)
                 idx_keys = tuple(sorted(list(idx_info.get("key", []))))
                 if idx_keys == keys_tuple:
                     logger.info(
@@ -409,8 +377,6 @@ class DatabaseManager:
                     )
                     return idx_name
 
-            # If we get here, no matching index was found
-            # Check if index with the specific requested name already exists
             if "name" in kwargs:
                 index_name = kwargs["name"]
                 if index_name in existing_indexes:
@@ -435,12 +401,10 @@ class DatabaseManager:
             )
             return result
         except DuplicateKeyError:
-            # This can happen with concurrent index creation
             logger.warning(
                 "Index already exists on %s, ignoring DuplicateKeyError",
                 collection_name,
             )
-            # Try to find the existing index name based on keys
             try:
                 collection = self.get_collection(collection_name)
                 existing_indexes_info = await collection.index_information()
@@ -456,13 +420,13 @@ class DatabaseManager:
                     if idx_keys_check == keys_tuple_check:
                         return idx_name
             except Exception:
-                pass  # Ignore errors trying to find the name
-            return None  # Return None if name couldn't be found
+                pass
+            return None
         except OperationFailure as e:
             if "over your space quota" in str(e).lower():
                 self._quota_exceeded = True
                 logger.warning("Cannot create index due to quota exceeded")
-            elif e.code in (85, 86, 68):  # Index conflicts/options mismatch
+            elif e.code in (85, 86, 68):
                 logger.warning(
                     "Index conflict or options mismatch: %s", str(e)
                 )
@@ -483,7 +447,6 @@ class DatabaseManager:
             except Exception as e:
                 logger.error("Error closing MongoDB client: %s", str(e))
             finally:
-                # Reset state regardless of close success/failure
                 self._client = None
                 self._db = None
                 self._collections = {}
@@ -494,12 +457,11 @@ class DatabaseManager:
     def __del__(self) -> None:
         """Ensure connections are closed when the manager is garbage
         collected."""
-        # Don't use asyncio here as this might be called during shutdown
         if hasattr(self, "_client") and self._client:
             try:
                 self._client.close()
             except Exception:
-                pass  # Ignore errors during garbage collection cleanup
+                pass
             finally:
                 self._client = None
                 self._db = None
@@ -507,12 +469,9 @@ class DatabaseManager:
                 self._gridfs_bucket_instance = None
 
 
-# Create singleton instance
 db_manager = DatabaseManager()
 
 
-# Define collections with centralized access using the getter
-# This ensures the db connection is initialized before accessing collections
 def _get_collection(name: str) -> AsyncIOMotorCollection:
     return db_manager.get_collection(name)
 
@@ -531,7 +490,6 @@ task_history_collection = _get_collection("task_history")
 progress_collection = _get_collection("progress_status")
 
 
-# Serialization Functions
 class SerializationHelper:
     """Helper class for serializing MongoDB documents to JSON."""
 
@@ -547,10 +505,9 @@ class SerializationHelper:
         """
         if dt is None:
             return None
-        # Ensure timezone is UTC if naive
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        return dt.isoformat().replace("+00:00", "Z")  # Use Z for UTC
+        return dt.isoformat().replace("+00:00", "Z")
 
     @staticmethod
     def serialize_document(doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -565,9 +522,6 @@ class SerializationHelper:
         """
         if not doc:
             return {}
-        # Use bson's json_util for robust serialization
-        # dumps converts to JSON string, loads converts back to Python dict
-        # This handles ObjectId, datetime, etc., correctly.
         try:
             return json.loads(json_util.dumps(doc))
         except (TypeError, ValueError) as e:
@@ -576,7 +530,6 @@ class SerializationHelper:
                 e,
                 str(doc)[:200],
             )
-            # Fallback to basic serialization if json_util fails (less robust)
             fallback_result = {}
             for key, value in doc.items():
                 if isinstance(value, ObjectId):
@@ -585,7 +538,6 @@ class SerializationHelper:
                     fallback_result[key] = (
                         SerializationHelper.serialize_datetime(value)
                     )
-                # Avoid deep recursion for complex types in fallback
                 elif isinstance(value, (dict, list)):
                     fallback_result[key] = (
                         f"<Complex Type: {type(value).__name__}>"
@@ -605,11 +557,9 @@ class SerializationHelper:
         Returns:
             JSON serializable trip dictionary
         """
-        # Use the robust serialize_document which uses json_util
         return SerializationHelper.serialize_document(trip)
 
 
-# Helper for iterating through cursors in batches
 async def batch_cursor(
     cursor: AsyncIOMotorCursor, batch_size: int = 100, no_timeout: bool = True
 ) -> AsyncIterator[List[Dict[str, Any]]]:
@@ -632,19 +582,14 @@ async def batch_cursor(
             if len(batch) >= batch_size:
                 yield batch
                 batch = []
-                await asyncio.sleep(0)  # Yield control briefly
+                await asyncio.sleep(0)
 
-        # Yield any remaining documents in the last batch
         if batch:
             yield batch
     finally:
-        # Ensure cursor is closed if possible (Motor often handles this automatically)
-        # if hasattr(cursor, 'close') and asyncio.iscoroutinefunction(cursor.close):
-        #      await cursor.close()
         pass
 
 
-# Date parameter parsing utilities
 def parse_query_date(
     date_str: Optional[str], end_of_day: bool = False
 ) -> Optional[datetime]:
@@ -662,12 +607,9 @@ def parse_query_date(
         return None
 
     try:
-        # Handle ISO format, replacing 'Z' if present
         dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        # If naive, assume UTC
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        # Convert to UTC if it has another timezone
         dt = dt.astimezone(timezone.utc)
 
         if end_of_day:
@@ -675,9 +617,7 @@ def parse_query_date(
         return dt
     except ValueError:
         try:
-            # Handle YYYY-MM-DD format
             dt_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-            # Create datetime object at start or end of day in UTC
             if end_of_day:
                 dt = datetime.combine(
                     dt_date, datetime.max.time(), tzinfo=timezone.utc
@@ -785,19 +725,16 @@ async def build_query_from_request(
     )
     query = date_filter.get_query_dict()
 
-    # Add IMEI filter if requested and present
     imei_param = request.query_params.get("imei")
     if include_imei and imei_param:
         query["imei"] = imei_param
 
-    # Add any additional filters
     if additional_filters:
         query.update(additional_filters)
 
     return query
 
 
-# Database Operation Functions with Retry - these are convenience wrappers around execute_with_retry
 async def find_one_with_retry(
     collection: AsyncIOMotorCollection,
     query: Dict[str, Any],
@@ -859,13 +796,11 @@ async def find_with_retry(
         if limit:
             cursor = cursor.limit(limit)
 
-        # Use batch_cursor for potentially large result sets
         results = []
         async for batch in batch_cursor(cursor, batch_size):
             results.extend(batch)
-            # Check limit after extending each batch
             if limit and len(results) >= limit:
-                return results[:limit]  # Return only up to the limit
+                return results[:limit]
         return results
 
     return await db_manager.execute_with_retry(
@@ -994,7 +929,7 @@ async def aggregate_with_retry(
     collection: AsyncIOMotorCollection,
     pipeline: List[Dict[str, Any]],
     batch_size: int = 100,
-    allow_disk_use: bool = True,  # Allow using disk for large aggregations
+    allow_disk_use: bool = True,
 ) -> List[Dict[str, Any]]:
     """Execute aggregate with retry logic.
 
@@ -1044,9 +979,6 @@ async def count_documents_with_retry(
     )
 
 
-# Common Query Pattern Helper Functions
-
-
 async def get_trip_by_id(
     trip_id: str,
     collection: Optional[AsyncIOMotorCollection] = None,
@@ -1065,22 +997,19 @@ async def get_trip_by_id(
     if collection is None:
         collection = trips_collection
 
-    # Always try transactionId first as it might be more common
     trip = await find_one_with_retry(collection, {"transactionId": trip_id})
 
-    # If not found and check_both_id_types is True, try as ObjectId
     if not trip and check_both_id_types and ObjectId.is_valid(trip_id):
         try:
             object_id = ObjectId(trip_id)
             trip = await find_one_with_retry(collection, {"_id": object_id})
         except bson.errors.InvalidId:
-            # This shouldn't happen due to is_valid check, but defensive coding
             pass
         except Exception as e:
             logger.warning(
                 "Unexpected error finding trip by ObjectId %s: %s", trip_id, e
             )
-            pass  # Don't let this error propagate widely
+            pass
 
     return trip
 
@@ -1115,8 +1044,6 @@ async def init_task_history_collection() -> None:
         )
     except Exception as e:
         logger.error("Error creating task history indexes: %s", str(e))
-        # Decide if this should be fatal - maybe not, log and continue?
-        # raise
 
 
 async def ensure_street_coverage_indexes() -> None:
@@ -1124,15 +1051,13 @@ async def ensure_street_coverage_indexes() -> None:
     logger.debug("Ensuring street coverage indexes exist...")
 
     try:
-        # --- coverage_metadata ---
         await db_manager.safe_create_index(
             "coverage_metadata",
             [("location.display_name", pymongo.ASCENDING)],
             name="coverage_metadata_display_name_idx",
-            unique=True,  # Display name should be unique for a coverage area
+            unique=True,
             background=True,
         )
-        # Index for status checks during bulk updates
         await db_manager.safe_create_index(
             "coverage_metadata",
             [
@@ -1143,7 +1068,6 @@ async def ensure_street_coverage_indexes() -> None:
             background=True,
         )
 
-        # --- streets ---
         await db_manager.safe_create_index(
             "streets",
             [("properties.location", pymongo.ASCENDING)],
@@ -1154,8 +1078,6 @@ async def ensure_street_coverage_indexes() -> None:
             "streets",
             [("properties.segment_id", pymongo.ASCENDING)],
             name="streets_properties_segment_id_idx",
-            # Consider unique=True if segment_id should be unique per location
-            # unique=True, partialFilterExpression={"properties.location": {"$exists": True}}
             background=True,
         )
         await db_manager.safe_create_index(
@@ -1164,7 +1086,6 @@ async def ensure_street_coverage_indexes() -> None:
             name="streets_geometry_idx",
             background=True,
         )
-        # Index for aggregation performance
         await db_manager.safe_create_index(
             "streets",
             [
@@ -1177,26 +1098,24 @@ async def ensure_street_coverage_indexes() -> None:
             background=True,
         )
 
-        # --- trips (relevant for coverage calculation) ---
         await db_manager.safe_create_index(
             "trips",
             [("startTime", pymongo.ASCENDING)],
-            name="trips_startTime_idx",  # Renamed for clarity
+            name="trips_startTime_idx",
             background=True,
         )
         await db_manager.safe_create_index(
             "trips",
             [("startGeoPoint", "2dsphere")],
-            name="trips_startGeoPoint_2dsphere_idx",  # Renamed for clarity
+            name="trips_startGeoPoint_2dsphere_idx",
             background=True,
         )
         await db_manager.safe_create_index(
             "trips",
             [("destinationGeoPoint", "2dsphere")],
-            name="trips_destinationGeoPoint_2dsphere_idx",  # Renamed for clarity
+            name="trips_destinationGeoPoint_2dsphere_idx",
             background=True,
         )
-        # Index to support filtering by bounding box and processed status
         await db_manager.safe_create_index(
             "trips",
             [
@@ -1207,7 +1126,6 @@ async def ensure_street_coverage_indexes() -> None:
             name="trips_coverage_query_idx",
             background=True,
         )
-        # Index on source field
         await db_manager.safe_create_index(
             "trips",
             [("source", pymongo.ASCENDING)],
@@ -1218,7 +1136,6 @@ async def ensure_street_coverage_indexes() -> None:
         logger.info("Street coverage indexes ensured/created successfully")
     except Exception as e:
         logger.error("Error creating street coverage indexes: %s", str(e))
-        # Decide if this should be fatal - likely yes for coverage features
         raise
 
 
@@ -1226,17 +1143,15 @@ async def ensure_location_indexes() -> None:
     """Ensure necessary indexes exist for location data in trip collections."""
     logger.debug("Ensuring location structure indexes exist...")
     try:
-        # Only process trips and matched_trips
         collections = ["trips", "matched_trips"]
 
         for collection_name in collections:
-            # Index on city for city-level analytics
             await db_manager.safe_create_index(
                 collection_name,
                 [("startLocation.address_components.city", 1)],
                 name=f"{collection_name}_start_city_idx",
                 background=True,
-                sparse=True,  # Index only if field exists
+                sparse=True,
             )
             await db_manager.safe_create_index(
                 collection_name,
@@ -1246,7 +1161,6 @@ async def ensure_location_indexes() -> None:
                 sparse=True,
             )
 
-            # Index on state for regional analytics
             await db_manager.safe_create_index(
                 collection_name,
                 [("startLocation.address_components.state", 1)],
@@ -1262,14 +1176,11 @@ async def ensure_location_indexes() -> None:
                 sparse=True,
             )
 
-            # Note: Geospatial indexes on startGeoPoint/destinationGeoPoint are handled in ensure_street_coverage_indexes
-
         logger.info("Location structure indexes ensured/created successfully")
     except Exception as e:
         logger.error("Error creating location structure indexes: %s", str(e))
 
 
-# Transaction handling
 async def run_transaction(
     operations: List[Callable[[], Awaitable[Any]]],
     max_retries: int = 3,
@@ -1285,9 +1196,8 @@ async def run_transaction(
     Returns:
         True if transaction succeeded, False otherwise
     """
-    # Use client property to ensure initialization
     client = db_manager.client
-    session = None  # Initialize session variable
+    session = None
 
     retry_count = 0
     while retry_count <= max_retries:
@@ -1300,26 +1210,22 @@ async def run_transaction(
                         logger.debug(
                             "Executing operation %d in transaction...", i + 1
                         )
-                        result = await op(
-                            session=session
-                        )  # Pass session to operation if needed
+                        result = await op(session=session)
                         results.append(result)
                     logger.debug("Committing transaction...")
                 logger.info("Transaction committed successfully.")
-                return True  # Indicate success
+                return True
         except (ConnectionFailure, OperationFailure) as e:
-            # Check if this is a write conflict or other transient error
             is_transient = False
             if hasattr(e, "has_error_label"):
                 is_transient = e.has_error_label("TransientTransactionError")
             elif hasattr(e, "details") and isinstance(e.details, dict):
-                # Check for error labels in the details
                 error_labels = e.details.get("errorLabels", [])
                 is_transient = "TransientTransactionError" in error_labels
 
             if is_transient and retry_count < max_retries:
                 retry_count += 1
-                wait_time = 0.1 * (2**retry_count)  # Exponential backoff
+                wait_time = 0.1 * (2**retry_count)
                 logger.warning(
                     "Transient transaction error detected (attempt %d/%d), retrying in %.2f seconds: %s",
                     retry_count,
@@ -1330,7 +1236,6 @@ async def run_transaction(
                 await asyncio.sleep(wait_time)
                 continue
             else:
-                # Non-transient error or max retries reached
                 logger.error(
                     "Transaction failed after %d attempts: %s",
                     retry_count + 1,
@@ -1339,7 +1244,6 @@ async def run_transaction(
                 )
                 return False
         except Exception as e:
-            # Catch other unexpected errors during transaction
             logger.error(
                 "Unexpected error during transaction: %s",
                 str(e),
@@ -1352,7 +1256,6 @@ async def init_database() -> None:
     """Initialize the database by ensuring all collections and indexes exist."""
     logger.info("Initializing database...")
 
-    # Check quota early
     used_mb, limit_mb = await db_manager.check_quota()
     if db_manager.quota_exceeded:
         logger.warning(
@@ -1360,18 +1263,12 @@ async def init_database() -> None:
             used_mb,
             limit_mb,
         )
-        # Allow initialization to continue but log the warning
 
-    # Initialize critical collections first
     await init_task_history_collection()
 
-    # Ensure indexes for application core functionality
     await ensure_street_coverage_indexes()
     await ensure_location_indexes()
 
-    # Initialize other collections (like places, task_config etc.)
-    # These might create indexes implicitly if defined in their models/access patterns
-    # or we can add explicit ensure calls if needed.
     _ = db_manager.get_collection("places")
     _ = db_manager.get_collection("task_config")
     _ = db_manager.get_collection("progress_status")

@@ -11,15 +11,12 @@ from aiohttp import ClientConnectorError, ClientResponseError
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Earth radius constants
 EARTH_RADIUS_METERS = 6371000.0
 EARTH_RADIUS_MILES = 3958.8
 EARTH_RADIUS_KM = 6371.0
 
-# Type for retry decorator
 T = TypeVar("T")
 
-# Shared session
 _SESSION: Optional[aiohttp.ClientSession] = None
 _SESSION_LOCK = asyncio.Lock()
 
@@ -36,8 +33,8 @@ async def get_session() -> aiohttp.ClientSession:
                 "Accept": "application/json",
             }
             connector = aiohttp.TCPConnector(
-                limit=20,  # Connection pool size
-                force_close=False,  # Keep-alive
+                limit=20,
+                force_close=False,
                 enable_cleanup_closed=True,
             )
             _SESSION = aiohttp.ClientSession(
@@ -143,13 +140,11 @@ async def validate_location_osm(
 
 def validate_trip_data(trip: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """Validate that a trip dictionary contains the required fields."""
-    # Check required fields
     required = ["transactionId", "startTime", "endTime", "gps"]
     for field in required:
         if field not in trip:
             return False, f"Missing required field: {field}"
 
-    # Validate GPS data
     gps_data = trip["gps"]
     try:
         if isinstance(gps_data, str):
@@ -191,7 +186,7 @@ async def reverse_geocode_nominatim(
     async with session.get(url, params=params, headers=headers) as response:
         if response.status == 200:
             return await response.json()
-        if response.status == 429:  # Rate limit
+        if response.status == 429:
             retry_after = int(response.headers.get("Retry-After", 5))
             raise ClientResponseError(
                 request_info=response.request_info,
@@ -208,10 +203,8 @@ def haversine(
     lon1: float, lat1: float, lon2: float, lat2: float, unit: str = "meters"
 ) -> float:
     """Calculate the great-circle distance between two points."""
-    # Convert decimal degrees to radians
     lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
 
-    # Haversine formula
     dlon = lon2 - lon1
     dlat = lat2 - lat1
     a = (
@@ -220,7 +213,6 @@ def haversine(
     )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-    # Determine radius based on unit
     if unit == "meters":
         radius = EARTH_RADIUS_METERS
     elif unit == "miles":
@@ -236,12 +228,8 @@ def haversine(
     return distance
 
 
-# --- Utility Functions Moved from app.py ---
-
-
 def meters_to_miles(meters: float) -> float:
     """Convert meters to miles."""
-    # 1 mile = 1609.34 meters
     return meters / 1609.34
 
 
@@ -256,20 +244,18 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
         Total distance in miles
     """
     total_distance_meters = 0.0
-    # Ensure coordinates is treated as a list of lists
     coords: list[list[float]] = (
         coordinates if isinstance(coordinates, list) else []
     )
 
     if not coords or not isinstance(coords[0], list):
         logger.warning("Invalid coordinates format for distance calculation.")
-        return 0.0  # Or raise an error depending on desired behavior
+        return 0.0
 
     for i in range(len(coords) - 1):
         try:
             lon1, lat1 = coords[i]
             lon2, lat2 = coords[i + 1]
-            # Use the haversine function defined in this module
             total_distance_meters += haversine(
                 lon1, lat1, lon2, lat2, unit="meters"
             )
@@ -280,9 +266,8 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
                 coords[i],
                 coords[i + 1] if i + 1 < len(coords) else "N/A",
             )
-            continue  # Skip this segment if coordinates are malformed
+            continue
 
-    # Use the meters_to_miles function defined in this module
     return meters_to_miles(total_distance_meters)
 
 
@@ -304,34 +289,25 @@ def run_async_from_sync(coro: Coroutine[Any, Any, T]) -> T:
         The result of the coroutine.
     """
     try:
-        # Try to get the loop for the current context (thread/process)
-        # get_event_loop_policy().get_event_loop() is generally preferred over get_event_loop()
-        # as the latter might implicitly create a loop in some cases, which we want to control.
         loop = asyncio.get_event_loop_policy().get_event_loop()
         logger.debug(
             "Reusing existing event loop for sync-to-async execution."
         )
     except RuntimeError:
-        # If no loop exists for this context, create a new one
         logger.debug(
             "No event loop found, creating a new one for sync-to-async execution."
         )
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    # Ensure the loop isn't closed (can happen during worker shutdown/restart)
     if loop.is_closed():
         logger.warning("Event loop was closed. Creating a new one.")
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    # Run the coroutine until it completes. This blocks the synchronous caller.
-    # Importantly, run_until_complete does NOT close the loop afterwards.
     try:
         return loop.run_until_complete(coro)
     except Exception:
-        # If the coroutine raises an exception, run_until_complete propagates it.
-        # We don't need special handling here unless we want to log differently.
         logger.error(
             "Exception occurred during run_until_complete", exc_info=True
         )

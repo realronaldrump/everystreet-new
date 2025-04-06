@@ -47,7 +47,6 @@ async def update_geo_points(
     semaphore = asyncio.Semaphore(max_concurrent_batches)
 
     try:
-        # Find total count of documents missing geo-points
         query = {
             "$or": [
                 {"startGeoPoint": {"$exists": False}},
@@ -55,7 +54,6 @@ async def update_geo_points(
             ]
         }
 
-        # Get count with retry
         async def get_count():
             return await collection.count_documents(query)
 
@@ -72,17 +70,15 @@ async def update_geo_points(
         if total_docs == 0:
             return 0
 
-        # Process documents in batches
         async def process_batch(
             batch_docs: List[Dict[str, Any]], batch_num: int
         ) -> int:
-            async with semaphore:  # Limit concurrent batch processing
+            async with semaphore:
                 try:
                     batch_updates = []
 
                     for doc in batch_docs:
                         try:
-                            # Parse GPS data if needed
                             gps_data = doc.get("gps")
                             if not gps_data:
                                 continue
@@ -105,11 +101,9 @@ async def update_geo_points(
                                 )
                                 continue
 
-                            # Extract start and end coordinates
                             start_coord = coords[0]
                             end_coord = coords[-1]
 
-                            # Prepare update
                             update_fields = {}
                             if "startGeoPoint" not in doc:
                                 update_fields["startGeoPoint"] = {
@@ -141,7 +135,6 @@ async def update_geo_points(
                             )
                             continue
 
-                    # Execute batch update if there are any updates
                     if batch_updates:
                         try:
 
@@ -180,11 +173,9 @@ async def update_geo_points(
                     )
                     return 0
 
-        # Process in batches with cursors
         batch_num = 0
         batch_tasks = []
 
-        # Use cursor with no_cursor_timeout and process in batches
         async def get_cursor():
             return collection.find(query, no_cursor_timeout=True).batch_size(
                 batch_size
@@ -207,7 +198,6 @@ async def update_geo_points(
                     )
                     current_batch = []
 
-                    # If we have enough batch tasks, wait for some to complete
                     if len(batch_tasks) >= max_concurrent_batches * 2:
                         completed_batch_results = await asyncio.gather(
                             *batch_tasks
@@ -226,17 +216,14 @@ async def update_geo_points(
                             ),
                         )
 
-            # Process any remaining documents in the current batch
             if current_batch:
                 batch_num += 1
                 batch_tasks.append(process_batch(current_batch, batch_num))
 
-            # Wait for all remaining batch tasks to complete
             if batch_tasks:
                 completed_batch_results = await asyncio.gather(*batch_tasks)
                 updated_count += sum(completed_batch_results)
         finally:
-            # Ensure cursor is closed
             await cursor.close()
 
     except Exception as e:
@@ -262,7 +249,6 @@ if __name__ == "__main__":
 
     from motor.motor_asyncio import AsyncIOMotorClient
 
-    # Connect to database
     MONGO_URI = os.environ.get("MONGO_URI")
     if not MONGO_URI:
         logger.error("MONGO_URI environment variable not set")
@@ -271,7 +257,6 @@ if __name__ == "__main__":
     client = AsyncIOMotorClient(MONGO_URI, tz_aware=True)
     db = client["every_street"]
 
-    # Process command line argument
     if len(sys.argv) > 1:
         collection_name = sys.argv[1]
         collections = {
