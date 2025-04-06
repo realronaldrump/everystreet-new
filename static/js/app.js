@@ -310,13 +310,6 @@
         position: 'topright'
       }).addTo(AppState.map);
 
-      // Add scale control
-      L.control.scale({
-        imperial: true,
-        metric: true,
-        position: 'bottomright'
-      }).addTo(AppState.map);
-
       // Add layer group for vector data
       AppState.layerGroup = L.layerGroup().addTo(AppState.map);
 
