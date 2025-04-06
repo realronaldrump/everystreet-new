@@ -585,6 +585,10 @@ class LiveTripTracker {
     const avgSpeed = typeof trip.avgSpeed === "number" ? trip.avgSpeed : 0;
     const maxSpeed = typeof trip.maxSpeed === "number" ? trip.maxSpeed : 0;
     const pointsRecorded = trip.pointsRecorded || trip.coordinates?.length || 0;
+    const startOdometer = trip.startOdometer !== undefined && trip.startOdometer !== null ? trip.startOdometer : 'N/A';
+    const totalIdlingTime = typeof trip.totalIdlingTime === 'number' ? trip.totalIdlingTime : 0;
+    const hardBrakingCounts = typeof trip.hardBrakingCounts === 'number' ? trip.hardBrakingCounts : 0;
+    const hardAccelerationCounts = typeof trip.hardAccelerationCounts === 'number' ? trip.hardAccelerationCounts : 0;
 
     // Format start time for display using DateUtils
     let startTimeFormatted = "UNKNOWN";
@@ -615,6 +619,10 @@ class LiveTripTracker {
       "Average Speed": `${avgSpeed.toFixed(1)} mph`,
       "Max Speed": `${maxSpeed.toFixed(1)} mph`,
       "Points Recorded": pointsRecorded,
+      "Start Odometer": `${startOdometer}${startOdometer !== 'N/A' ? ' miles' : ''}`,
+      "Total Idling Time": `${DateUtils.formatSecondsToHMS(totalIdlingTime)}`,
+      "Hard Braking": hardBrakingCounts,
+      "Hard Acceleration": hardAccelerationCounts,
       "Last Update": lastUpdate ? DateUtils.formatTimeAgo(lastUpdate) : "N/A",
     };
 

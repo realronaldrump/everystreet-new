@@ -107,6 +107,12 @@ async def serialize_live_trip(
     coordinates = serialized.get("coordinates", [])
     serialized.setdefault("pointsRecorded", len(coordinates))
 
+    # --- Include additional metrics from Bouncie events ---
+    serialized.setdefault("startOdometer", trip_data.get("startOdometer"))
+    serialized.setdefault("totalIdlingTime", trip_data.get("totalIdlingTime", 0)) # seconds
+    serialized.setdefault("hardBrakingCounts", trip_data.get("hardBrakingCounts", 0))
+    serialized.setdefault("hardAccelerationCounts", trip_data.get("hardAccelerationCounts", 0))
+
     # --- Calculate formatted duration ---
     duration_seconds = serialized.get("duration", 0)
     try:
@@ -131,32 +137,17 @@ async def serialize_live_trip(
 
     # --- Format Start Time ---
     start_time_value = serialized.get("startTime")
-    start_time_obj = None
-    serialized["startTimeFormatted"] = "Processing..."  # Default value
+    startTimeFormatted = "Awaiting Start..." # Default if missing or None
 
     if isinstance(start_time_value, datetime):
         start_time_obj = start_time_value
         # Ensure timezone aware (assume UTC if naive)
         if start_time_obj.tzinfo is None:
             start_time_obj = start_time_obj.replace(tzinfo=timezone.utc)
-        start_time_obj = start_time_obj.astimezone(
-            timezone.utc
-        )  # Standardize to UTC
-    elif isinstance(start_time_value, str):
-        start_time_obj = _parse_iso_datetime(start_time_value)
-    elif start_time_value is not None:
-        # Log unexpected type but don't crash
-        logger.error(
-            "Unexpected type for startTime during serialization for trip %s: %s",
-            transaction_id,
-            type(start_time_value),
-        )
-
-    # Format if we have a valid datetime object
-    if isinstance(start_time_obj, datetime):
+        start_time_obj = start_time_obj.astimezone(timezone.utc) # Standardize to UTC
         try:
             # Format consistently with timezone abbreviation (should be UTC)
-            serialized["startTimeFormatted"] = start_time_obj.strftime(
+            startTimeFormatted = start_time_obj.strftime(
                 "%Y-%m-%d %H:%M:%S %Z"
             )
         except Exception as e:
@@ -166,24 +157,20 @@ async def serialize_live_trip(
                 transaction_id,
                 e,
             )
-            # Fallback to ISO string if formatting fails
-            serialized["startTimeFormatted"] = start_time_obj.isoformat()
+            # Fallback if formatting fails
+            startTimeFormatted = "Error Formatting"
     elif start_time_value is not None:
-        # Parsing failed or type was unexpected, keep "Processing..."
+        # If startTime exists but is not a datetime object, log a warning.
+        # This indicates a potential data issue upstream.
         logger.warning(
-            "Could not format startTime for trip %s from value: %s",
+            "Unexpected type for startTime during serialization for trip %s: %s. Expected datetime, got %s.",
             transaction_id,
             start_time_value,
+            type(start_time_value).__name__,
         )
-    else:
-        # startTime was completely missing or None
-        logger.warning(
-            "startTime field missing or None during serialization for trip %s",
-            transaction_id,
-        )
-        serialized["startTimeFormatted"] = (
-            "Awaiting Start..."  # More informative
-        )
+        startTimeFormatted = "Invalid Data"
+
+    serialized["startTimeFormatted"] = startTimeFormatted
 
     # --- Recalculate metrics if coordinates exist but metrics seem default/missing ---
     # This serves as a fallback if tripMetrics events are missed or data is inconsistent.
