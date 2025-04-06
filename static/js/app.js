@@ -1834,6 +1834,9 @@
           });
           updateLayerOrderUI(); // Update UI after restoring visibility
 
+          // Initialize the live tracker now that the map exists
+          initializeLiveTracker();
+
           // Initial data fetch based on stored dates (modern-ui handles initial storage)
           return Promise.all([fetchTrips(), fetchMetrics()]);
         })
