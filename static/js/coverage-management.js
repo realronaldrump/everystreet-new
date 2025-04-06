@@ -1,267 +1,174 @@
 /* global bootstrap, notificationManager, confirmationDialog, L, leafletImage, Chart */
 "use strict";
 
-// Define constants for status strings to avoid typos
-const STATUS = {
+// Define STATUS constants if not globally available
+const STATUS = window.STATUS || {
   INITIALIZING: "initializing",
   PREPROCESSING: "preprocessing",
   LOADING_STREETS: "loading_streets",
   INDEXING: "indexing",
   COUNTING_TRIPS: "counting_trips",
   PROCESSING_TRIPS: "processing_trips",
-  CALCULATING: "calculating", // Generic calculation/processing
+  CALCULATING: "calculating",
   FINALIZING: "finalizing",
   GENERATING_GEOJSON: "generating_geojson",
   COMPLETE_STATS: "complete_stats",
   COMPLETE: "complete",
-  COMPLETED: "completed", // Sometimes used by backend? Standardize if possible.
+  COMPLETED: "completed", // Treat as COMPLETE
   ERROR: "error",
   WARNING: "warning",
   CANCELED: "canceled",
   UNKNOWN: "unknown",
-  POLLING_CHECK: "polling_check", // Internal state for polling
+  POLLING_CHECK: "polling_check",
 };
 
-// Add CSS styles for activity indicator and map interactions
+// Add dynamic styles if they don't exist
 (() => {
   const style = document.createElement("style");
-  style.id = "coverage-manager-dynamic-styles"; // Add ID to prevent duplicates
+  style.id = "coverage-manager-dynamic-styles";
   style.textContent = `
     /* --- Progress Modal --- */
-    .activity-indicator.pulsing {
-      animation: pulse 1.5s infinite;
-    }
-    @keyframes pulse {
-      0% { opacity: 1; }
-      50% { opacity: 0.5; }
-      100% { opacity: 1; }
-    }
-    .detailed-stage-info {
-      font-style: italic;
-      color: #adb5bd; /* Lighter gray for dark theme */
-      font-size: 0.9em;
-      margin-top: 5px;
-    }
-    .stats-info {
-      font-size: 0.9em;
-    }
-    .stats-info small {
-       color: #ced4da; /* Slightly lighter text */
-    }
+    .activity-indicator.pulsing { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    .detailed-stage-info { font-style: italic; color: #adb5bd; font-size: 0.9em; margin-top: 5px; }
+    .stats-info { font-size: 0.9em; }
+    .stats-info small { color: #ced4da; }
     .stats-info .text-info { color: #3db9d5 !important; }
     .stats-info .text-success { color: #4caf50 !important; }
     .stats-info .text-primary { color: #59a6ff !important; }
 
     /* --- Map Styling --- */
-    .leaflet-popup-content-wrapper {
-      background-color: rgba(51, 51, 51, 0.95); /* Slightly more opaque */
-      color: #eee;
-      box-shadow: 0 3px 14px rgba(0, 0, 0, 0.5);
-      border-radius: 5px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-    .leaflet-popup-tip {
-      background: rgba(51, 51, 51, 0.95);
-      box-shadow: none;
-    }
-    .leaflet-popup-content {
-        margin: 10px 15px; /* More padding */
-        line-height: 1.5;
-    }
-    .leaflet-popup-content h6 {
-        margin-bottom: 8px;
-        color: #59a6ff; /* Header color */
-        font-size: 1.1em;
-    }
-     .leaflet-popup-content hr {
-        border-top: 1px solid rgba(255, 255, 255, 0.2);
-        margin: 8px 0;
-    }
-    .leaflet-popup-content small {
-        font-size: 0.9em;
-        color: #ced4da;
-    }
-    .leaflet-popup-content .street-actions button {
-        font-size: 0.75rem;
-        padding: 0.2rem 0.5rem;
-    }
+    .leaflet-popup-content-wrapper { background-color: rgba(51, 51, 51, 0.95); color: #eee; box-shadow: 0 3px 14px rgba(0, 0, 0, 0.5); border-radius: 5px; border: 1px solid rgba(255, 255, 255, 0.2); }
+    .leaflet-popup-tip { background: rgba(51, 51, 51, 0.95); box-shadow: none; }
+    .leaflet-popup-content { margin: 10px 15px; line-height: 1.5; }
+    .leaflet-popup-content h6 { margin-bottom: 8px; color: #59a6ff; font-size: 1.1em; }
+    .leaflet-popup-content hr { border-top: 1px solid rgba(255, 255, 255, 0.2); margin: 8px 0; }
+    .leaflet-popup-content small { font-size: 0.9em; color: #ced4da; }
+    .leaflet-popup-content .street-actions button { font-size: 0.75rem; padding: 0.2rem 0.5rem; }
     .leaflet-popup-content .text-success { color: #4caf50 !important; }
     .leaflet-popup-content .text-danger { color: #ff5252 !important; }
     .leaflet-popup-content .text-warning { color: #ffc107 !important; }
     .leaflet-popup-content .text-info { color: #17a2b8 !important; }
 
-
     /* Map Info Panel (Hover/Click) */
-    .map-info-panel {
-      position: absolute;
-      top: 10px; /* Position it relative to the map container */
-      left: 10px;
-      z-index: 1000;
-      background: rgba(40, 40, 40, 0.9);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 4px;
-      font-size: 12px;
-      pointer-events: none; /* Allow clicks to pass through */
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
-      max-width: 250px; /* Slightly wider */
-      border-left: 3px solid #007bff;
-      display: none; /* Initially hidden */
-    }
+    .map-info-panel { position: absolute; top: 10px; left: 10px; z-index: 1000; background: rgba(40, 40, 40, 0.9); color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; pointer-events: none; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4); max-width: 250px; border-left: 3px solid #007bff; display: none; }
     .map-info-panel strong { color: #fff; }
     .map-info-panel .text-success { color: #4caf50 !important; }
     .map-info-panel .text-danger { color: #ff5252 !important; }
     .map-info-panel .text-info { color: #17a2b8 !important; }
     .map-info-panel .text-warning { color: #ffc107 !important; }
     .map-info-panel .text-muted { color: #adb5bd !important; }
-    .map-info-panel hr.panel-divider {
-        border-top: 1px solid rgba(255, 255, 255, 0.2);
-        margin: 5px 0;
-    }
+    .map-info-panel hr.panel-divider { border-top: 1px solid rgba(255, 255, 255, 0.2); margin: 5px 0; }
 
     /* Coverage Summary Control */
-    .coverage-summary-control {
-        background: rgba(40, 40, 40, 0.9);
-        color: white;
-        padding: 10px;
-        border-radius: 4px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        min-width: 150px;
-    }
+    .coverage-summary-control { background: rgba(40, 40, 40, 0.9); color: white; padding: 10px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1) !important; min-width: 150px; }
     .summary-title { font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #ccc; text-transform: uppercase; letter-spacing: 0.5px;}
     .summary-percentage { font-size: 24px; font-weight: bold; margin-bottom: 5px; color: #fff; }
     .summary-progress { margin-bottom: 8px; }
     .summary-details { font-size: 11px; color: #ccc; text-align: right; }
 
     /* Street Highlight Styles */
-    .street-highlighted {
-        /* Define a specific class for highlighting if needed,
-           otherwise rely on setStyle changes */
-    }
+    .street-highlighted { /* Define a specific class for highlighting if needed, otherwise rely on setStyle changes */ }
   `;
-  // Add only if not already present
   if (!document.getElementById(style.id)) {
     document.head.appendChild(style);
   }
 })();
 
 (() => {
+  /**
+   * Manages the coverage calculation UI, map display, and interactions.
+   */
   class CoverageManager {
     constructor() {
-      this.map = null; // General map (if any) - currently unused
-      this.coverageMap = null; // Specific map for coverage display
-      this.streetLayers = null; // Layer group for street features on the map
-      this.streetsGeoJson = null; // Store the raw GeoJSON data for filtering
-      this.streetsGeoJsonLayer = null; // Store the Leaflet GeoJSON layer instance
-      this.mapBounds = null; // Store bounds for fitting map
-      this.selectedLocation = null; // Stores the full data of the currently displayed location
-      this.currentProcessingLocation = null; // Location being processed via modal
-      this.processingStartTime = null;
-      this.lastProgressUpdate = null; // Store last data point for timing estimates
-      this.progressTimer = null;
-      this.activeTaskIds = new Set(); // Keep track of tasks being polled
-      this.validatedLocation = null; // Stores result from /api/validate_location
-      this.currentFilter = "all"; // Track current map filter ('all', 'driven', 'undriven')
-      this.tooltips = []; // Store Bootstrap tooltip instances
-      this.highlightedLayer = null; // Track the currently highlighted map layer (on click)
-      this.hoverHighlightLayer = null; // Track the currently hovered map layer
-      this.mapInfoPanel = null; // Reference to the hover/click info panel element
-      this.coverageSummaryControl = null; // Reference to the map summary control
-      this.streetTypeChartInstance = null; // Reference to the Chart.js instance
-      this.lastActivityTime = null; // Track when last activity happened for modal indicator
+      // Map and Layer References
+      this.map = null; // Main map instance (Leaflet)
+      this.coverageMap = null; // Specific map instance for the dashboard view
+      this.streetLayers = null; // LayerGroup holding individual street segments
+      this.streetsGeoJson = null; // Raw GeoJSON data for all streets in the selected area
+      this.streetsGeoJsonLayer = null; // The L.geoJSON layer created from streetsGeoJson
+      this.mapBounds = null; // Bounds of the displayed streets
+      this.highlightedLayer = null; // Layer currently highlighted by click
+      this.hoverHighlightLayer = null; // Layer currently highlighted by hover
 
-      // --- Removed useMiles --- Units are always miles now
+      // State Management
+      this.selectedLocation = null; // Full data object for the currently viewed coverage area
+      this.currentProcessingLocation = null; // Location object currently being processed (for modal)
+      this.processingStartTime = null; // Timestamp when processing started
+      this.lastProgressUpdate = null; // Timestamp of last progress update received
+      this.progressTimer = null; // Interval timer for updating elapsed time in modal
+      this.activeTaskIds = new Set(); // Set of task IDs currently being processed/polled
+      this.validatedLocation = null; // Location data validated via API before adding
+      this.currentFilter = "all"; // Current map filter ('all', 'driven', 'undriven')
+      this.lastActivityTime = null; // Timestamp of the last SSE message or poll update
 
-      // Check for notification manager
-      if (typeof window.notificationManager === "undefined") {
-        console.warn(
-          "notificationManager not found, fallbacks will use console.log",
-        );
-        // Simple fallback
-        window.notificationManager = {
-          show: (message, type = "info") => {
-            console.log(`[${type.toUpperCase()}] ${message}`);
-          },
-        };
-      }
-      // Check for confirmation dialog
-      if (typeof window.confirmationDialog === "undefined") {
-        console.warn(
-          "confirmationDialog not found, fallbacks will use standard confirm()",
-        );
-        // Simple fallback
-        window.confirmationDialog = {
-          show: async (options) => {
-            // Basic confirmation, doesn't support all options like title/button class
-            return confirm(options.message || "Are you sure?");
-          },
-        };
-      }
+      // UI Elements & Controls
+      this.tooltips = []; // Array to hold Bootstrap tooltip instances
+      this.mapInfoPanel = null; // DOM element for the hover/click info panel on the map
+      this.coverageSummaryControl = null; // Leaflet control for the summary box
+      this.streetTypeChartInstance = null; // Chart.js instance for the street type breakdown
 
-      // Initialize modals once DOM is ready
-      document.addEventListener("DOMContentLoaded", () => {
-        this.setupAutoRefresh();
-        this.checkForInterruptedTasks(); // Check for interrupted tasks on page load
-        this.setupConnectionMonitoring(); // Setup connection status monitoring
-        this.initTooltips(); // Initialize tooltips
-        this.createMapInfoPanel(); // Create the hover/click info panel element
-      });
+      // External Dependencies (with fallbacks)
+      this.notificationManager = window.notificationManager || {
+        show: (message, type = "info") =>
+          console.log(`[${type.toUpperCase()}] ${message}`),
+      };
+      this.confirmationDialog = window.confirmationDialog || {
+        show: async (options) => confirm(options.message || "Are you sure?"),
+      };
 
-      this.setupEventListeners();
-      this.loadCoverageAreas();
+      // Initialization
+      this.setupAutoRefresh();
+      this.checkForInterruptedTasks();
+      this.setupConnectionMonitoring();
+      this.initTooltips(); // Initialize tooltips now directly
+      this.createMapInfoPanel(); // Create panel container now directly
+      this.setupEventListeners(); // Setup general listeners
+      this.loadCoverageAreas(); // Load initial area list
     }
 
-    // --- Unit Conversion ---
     /**
-     * Converts meters to miles and formats as a string.
-     * @param {number} meters - The distance in meters.
-     * @param {number} [fixed=2] - The number of decimal places.
+     * Converts meters to miles string.
+     * @param {number} meters - Distance in meters.
+     * @param {number} [fixed=2] - Number of decimal places.
      * @returns {string} Distance in miles (e.g., "1.23 mi").
      */
     distanceInUserUnits(meters, fixed = 2) {
       if (typeof meters !== "number" || isNaN(meters)) {
         meters = 0;
       }
-      // Convert meters to miles (1 meter = 0.000621371 miles)
       return (meters * 0.000621371).toFixed(fixed) + " mi";
     }
 
-    // --- Initialization and Setup ---
-
+    /**
+     * Sets up listeners for online/offline events.
+     */
     setupConnectionMonitoring() {
       const handleConnectionChange = () => {
         const isOnline = navigator.onLine;
         const alertsContainer = document.querySelector("#alerts-container");
         if (!alertsContainer) return;
 
-        // Remove existing status bars first
+        // Remove existing connection status alerts
         alertsContainer
           .querySelectorAll(".connection-status")
           .forEach((el) => el.remove());
 
-        if (!isOnline) {
-          const statusBar = document.createElement("div");
-          statusBar.className =
-            "connection-status alert alert-danger alert-dismissible fade show";
-          statusBar.innerHTML = `
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            <strong>Offline</strong> - Changes cannot be saved while offline.
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          `;
-          alertsContainer.insertBefore(statusBar, alertsContainer.firstChild); // Add to top
-        } else {
-          // Optionally show a temporary "Connected" message
-          const statusBar = document.createElement("div");
-          statusBar.className =
-            "connection-status alert alert-success alert-dismissible fade show";
-          statusBar.innerHTML = `
-            <i class="fas fa-wifi me-2"></i>
-            <strong>Connected</strong>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          `;
-          alertsContainer.insertBefore(statusBar, alertsContainer.firstChild);
-          // Auto-hide after 5 seconds
+        const statusBar = document.createElement("div");
+        statusBar.className = `connection-status alert alert-dismissible fade show ${
+          isOnline ? "alert-success" : "alert-danger"
+        }`;
+        statusBar.innerHTML = `
+          <i class="fas ${isOnline ? "fa-wifi" : "fa-exclamation-triangle"} me-2"></i>
+          <strong>${isOnline ? "Connected" : "Offline"}</strong> ${
+            isOnline ? "" : "- Changes cannot be saved while offline."
+          }
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        alertsContainer.insertBefore(statusBar, alertsContainer.firstChild);
+
+        // Auto-dismiss the 'Connected' message after a delay
+        if (isOnline) {
           setTimeout(() => {
             const bsAlert = bootstrap.Alert.getOrCreateInstance(statusBar);
             if (bsAlert) {
@@ -275,13 +182,14 @@ const STATUS = {
 
       window.addEventListener("online", handleConnectionChange);
       window.addEventListener("offline", handleConnectionChange);
-
-      // Check initial state
-      handleConnectionChange(); // Run once on load
+      handleConnectionChange(); // Initial check
     }
 
+    /**
+     * Initializes Bootstrap tooltips on the page.
+     */
     initTooltips() {
-      // Dispose any existing tooltips
+      // Dispose existing tooltips first
       this.tooltips.forEach((tooltip) => {
         if (tooltip && typeof tooltip.dispose === "function") {
           tooltip.dispose();
@@ -289,7 +197,7 @@ const STATUS = {
       });
       this.tooltips = [];
 
-      // Initialize tooltips on elements with data-bs-toggle="tooltip"
+      // Initialize new tooltips
       const tooltipTriggerList = document.querySelectorAll(
         '[data-bs-toggle="tooltip"]',
       );
@@ -298,15 +206,16 @@ const STATUS = {
       });
     }
 
+    /**
+     * Enhances tables for better responsiveness by adding data-label attributes.
+     */
     enhanceResponsiveTables() {
-      const tables = document.querySelectorAll("#coverage-areas-table");
+      const tables = document.querySelectorAll("#coverage-areas-table"); // Target specific table
       tables.forEach((table) => {
-        // Add data-labels for mobile view
         const headers = Array.from(table.querySelectorAll("thead th")).map(
           (th) => th.textContent.trim(),
         );
         const rows = table.querySelectorAll("tbody tr");
-
         rows.forEach((row) => {
           const cells = row.querySelectorAll("td");
           cells.forEach((cell, i) => {
@@ -318,33 +227,40 @@ const STATUS = {
       });
     }
 
+    /**
+     * Sets up an interval to periodically refresh the coverage areas list if processing is ongoing.
+     */
     setupAutoRefresh() {
-      // Refresh the table periodically if any area is processing
       setInterval(async () => {
-        // Check if any row has the processing class OR if the modal is showing a processing state
-        const isProcessingRow = document.querySelector(".processing-row");
+        const isProcessingRow = document.querySelector(".processing-row"); // Check table row status
         const isModalProcessing =
           this.currentProcessingLocation &&
           document
             .getElementById("taskProgressModal")
             ?.classList.contains("show");
 
+        // Refresh only if a task is actively processing (indicated by UI)
         if (isProcessingRow || isModalProcessing) {
           await this.loadCoverageAreas();
         }
-      }, 10000); // Refresh every 10 seconds if something is processing
+      }, 10000); // Refresh every 10 seconds
     }
 
+    /**
+     * Sets up primary event listeners for the page.
+     */
     setupEventListeners() {
-      // --- Add New Area ---
+      // Validate Location Button
       document
         .getElementById("validate-location")
         ?.addEventListener("click", () => this.validateLocation());
 
+      // Add Coverage Area Button
       document
         .getElementById("add-coverage-area")
         ?.addEventListener("click", () => this.addCoverageArea());
 
+      // Location Input Change (reset validation)
       document
         .getElementById("location-input")
         ?.addEventListener("input", () => {
@@ -355,16 +271,18 @@ const STATUS = {
           locationInput?.classList.remove("is-invalid", "is-valid");
         });
 
-      // --- Progress Modal ---
-      document.getElementById("cancel-processing")?.addEventListener(
-        "click",
-        () => this.cancelProcessing(this.currentProcessingLocation), // Use current context
-      );
+      // Cancel Processing Button (in modal)
+      document
+        .getElementById("cancel-processing")
+        ?.addEventListener("click", () =>
+          this.cancelProcessing(this.currentProcessingLocation),
+        );
 
+      // Progress Modal Close Event
       document
         .getElementById("taskProgressModal")
         ?.addEventListener("hidden.bs.modal", () => {
-          // Only refresh if the task wasn't canceled or errored out before closing
+          // Refresh list if modal closed while task was potentially still running but not explicitly canceled/errored
           if (
             this.currentProcessingLocation &&
             this.currentProcessingLocation.status !== STATUS.CANCELED &&
@@ -372,39 +290,38 @@ const STATUS = {
           ) {
             this.loadCoverageAreas();
           }
-          this.clearProcessingContext(); // Clear context and timer when modal hides
+          this.clearProcessingContext(); // Always clear context when modal closes
         });
 
-      // Save state on page unload ONLY if modal is actively processing
+      // Save processing state before page unloads
       window.addEventListener("beforeunload", () => {
         if (this.currentProcessingLocation) {
           this.saveProcessingState();
         }
       });
 
-      // --- Table Actions (Event Delegation) ---
+      // Event Delegation for Coverage Areas Table Actions
       document
         .querySelector("#coverage-areas-table")
         ?.addEventListener("click", (e) => {
-          const targetButton = e.target.closest("button[data-action]"); // Target buttons with data-action
+          const targetButton = e.target.closest("button[data-action]");
           const targetLink = e.target.closest("a.location-name-link");
 
           if (targetButton) {
             e.preventDefault();
             const action = targetButton.dataset.action;
             const locationId = targetButton.dataset.locationId;
-            const locationStr = targetButton.dataset.location; // Get stringified location for delete/cancel
+            const locationStr = targetButton.dataset.location; // Used for delete/cancel
 
             if (!locationId && !locationStr) {
               console.error("Action button missing location identifier.");
-              window.notificationManager.show(
+              this.notificationManager.show(
                 "Action failed: Missing location identifier.",
                 "danger",
               );
               return;
             }
 
-            // Find the full area data from the table row if needed (for delete/cancel)
             let locationData = null;
             if (locationStr) {
               try {
@@ -414,7 +331,7 @@ const STATUS = {
                   "Failed to parse location data from button:",
                   parseError,
                 );
-                window.notificationManager.show(
+                this.notificationManager.show(
                   "Action failed: Invalid location data.",
                   "danger",
                 );
@@ -422,6 +339,7 @@ const STATUS = {
               }
             }
 
+            // Handle different actions
             switch (action) {
               case "update-full":
                 if (locationId) this.updateCoverageForArea(locationId, "full");
@@ -431,15 +349,16 @@ const STATUS = {
                   this.updateCoverageForArea(locationId, "incremental");
                 break;
               case "delete":
-                if (locationData) this.deleteArea(locationData); // Delete needs display_name
+                if (locationData) this.deleteArea(locationData);
                 break;
               case "cancel":
-                if (locationData) this.cancelProcessing(locationData); // Cancel needs display_name
+                if (locationData) this.cancelProcessing(locationData);
                 break;
               default:
                 console.warn("Unknown table action:", action);
             }
           } else if (targetLink) {
+            // Handle clicking the location name link
             e.preventDefault();
             const locationId = targetLink.dataset.locationId;
             if (locationId) {
@@ -450,9 +369,9 @@ const STATUS = {
           }
         });
 
-      // --- Dashboard Actions (Event Delegation on Document) ---
+      // Event Delegation for Dashboard Actions (e.g., update missing data button)
       document.addEventListener("click", (e) => {
-        // Handle clicks on the "Update Missing Data" button within the dashboard
+        // Update Missing Data Button (often shown when map data is missing/errored)
         const updateMissingDataBtn = e.target.closest(
           ".update-missing-data-btn",
         );
@@ -460,38 +379,35 @@ const STATUS = {
           e.preventDefault();
           const locationId = updateMissingDataBtn.dataset.locationId;
           if (locationId) {
-            // Trigger a full update when data is missing
-            this.updateCoverageForArea(locationId, "full");
+            this.updateCoverageForArea(locationId, "full"); // Trigger a full update
           } else {
             console.error("Missing location ID on update button.");
-            window.notificationManager.show(
+            this.notificationManager.show(
               "Failed to initiate update: Missing location ID.",
               "danger",
             );
           }
         }
 
-        // Handle map filter buttons
+        // Map Filter Buttons
         const filterButton = e.target.closest(
           ".map-controls button[data-filter]",
         );
         if (filterButton) {
           this.setMapFilter(filterButton.dataset.filter);
-          // No need to call toggleFilterButtonState separately, setMapFilter handles it
         }
 
-        // Handle map export button
+        // Export Map Button
         const exportButton = e.target.closest("#export-coverage-map");
         if (exportButton) {
           this.exportCoverageMap();
         }
       });
-
-      // --- Map Interaction (specific listeners added when map initializes) ---
     }
 
-    // --- Interrupted Task Handling ---
-
+    /**
+     * Checks localStorage for any interrupted processing tasks on page load.
+     */
     checkForInterruptedTasks() {
       const savedProgress = localStorage.getItem("coverageProcessingState");
       if (savedProgress) {
@@ -500,12 +416,9 @@ const STATUS = {
           const now = new Date();
           const savedTime = new Date(progressData.timestamp);
 
-          // Only restore if the saved state is recent (< 1 hour)
+          // Check if the saved state is relatively recent (e.g., within the last hour)
           if (now - savedTime < 60 * 60 * 1000) {
-            // Check if task is still active on backend? (Optional, more complex)
-            // For now, assume we should offer to resume if recent.
-
-            const location = progressData.location; // Should contain display_name etc.
+            const location = progressData.location;
             const taskId = progressData.taskId;
 
             if (!location || !location.display_name || !taskId) {
@@ -517,10 +430,10 @@ const STATUS = {
               return;
             }
 
-            // Show notification with option to resume
+            // Create notification for the user
             const notification = document.createElement("div");
             notification.className =
-              "alert alert-info alert-dismissible fade show mt-3"; // Added margin top
+              "alert alert-info alert-dismissible fade show mt-3";
             notification.innerHTML = `
               <h5><i class="fas fa-info-circle me-2"></i>Interrupted Task Found</h5>
               <p>A processing task for <strong>${
@@ -533,7 +446,7 @@ const STATUS = {
               <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             `;
 
-            // Add event listeners
+            // Add event listeners for resume/discard
             notification
               .querySelector(".resume-task")
               .addEventListener("click", () => {
@@ -543,7 +456,6 @@ const STATUS = {
                 if (bsAlert) bsAlert.close();
                 else notification.remove();
               });
-
             notification
               .querySelector(".discard-task")
               .addEventListener("click", () => {
@@ -554,10 +466,10 @@ const STATUS = {
                 else notification.remove();
               });
 
-            // Insert at top of alerts container
-            document.querySelector("#alerts-container")?.prepend(notification); // Use prepend
+            // Add notification to the page
+            document.querySelector("#alerts-container")?.prepend(notification);
           } else {
-            // If too old, just remove it
+            // Saved state is too old, discard it
             localStorage.removeItem("coverageProcessingState");
           }
         } catch (e) {
@@ -567,13 +479,16 @@ const STATUS = {
       }
     }
 
+    /**
+     * Resumes polling for an interrupted task based on saved data.
+     * @param {object} savedData - The parsed data from localStorage.
+     */
     resumeInterruptedTask(savedData) {
-      // Re-initiate polling for the saved task ID
       const location = savedData.location;
       const taskId = savedData.taskId;
 
       if (!location || !location.display_name || !taskId) {
-        window.notificationManager.show(
+        this.notificationManager.show(
           "Cannot resume task: Incomplete data.",
           "warning",
         );
@@ -581,52 +496,50 @@ const STATUS = {
         return;
       }
 
-      this.currentProcessingLocation = location; // Set context
-      this.task_id = taskId; // Set task ID for saving state again if needed
+      // Set context and show modal
+      this.currentProcessingLocation = location;
+      this.task_id = taskId; // Ensure task_id is set on the instance
       this.showProgressModal(
         `Checking status for ${location.display_name}...`,
-        savedData.progress || 0, // Start with saved progress
+        savedData.progress || 0,
       );
-      this.activeTaskIds.add(taskId); // Track polling
+      this.activeTaskIds.add(taskId);
 
-      // Immediately start polling
+      // Start polling
       this.pollCoverageProgress(taskId)
         .then(async (finalData) => {
-          // Polling finished (successfully or with backend error state)
+          // Task completed (or was already complete)
           if (finalData?.stage !== STATUS.ERROR) {
-            window.notificationManager.show(
+            this.notificationManager.show(
               `Task for ${location.display_name} completed.`,
               "success",
             );
           }
-          // Modal might already be showing final state, don't hide automatically
-          // Refresh lists and potentially dashboard
-          await this.loadCoverageAreas();
-          // If this location was selected, refresh dashboard
-          if (
-            this.selectedLocation?.location?.display_name ===
-            location.display_name
-          ) {
+          await this.loadCoverageAreas(); // Refresh the main list
+          // If the completed task was for the currently viewed dashboard, refresh it
+          if (this.selectedLocation?._id === location._id) {
+            // Assuming location has _id
             await this.displayCoverageDashboard(this.selectedLocation._id);
           }
         })
         .catch(async (pollError) => {
-          // Polling itself failed (network error, timeout, etc.) or task ended in error
-          window.notificationManager.show(
+          // Polling failed or task errored/canceled
+          this.notificationManager.show(
             `Failed to resume task for ${location.display_name}: ${pollError.message || pollError}`,
             "danger",
           );
-          // Modal might show error state, don't hide automatically here, let user close
-          await this.loadCoverageAreas(); // Refresh table to show error status
+          await this.loadCoverageAreas(); // Refresh list even on error
         })
         .finally(() => {
+          // Clean up regardless of outcome
           this.activeTaskIds.delete(taskId);
-          // Don't clear context or hide modal here, let modal close event handle it
-          // Remove saved state ONLY if polling didn't fail immediately
-          // localStorage.removeItem("coverageProcessingState"); // Let modal close handle this
+          // Modal hiding is handled by updateModalContent or modal close event
         });
     }
 
+    /**
+     * Saves the current processing state (location, task ID, progress) to localStorage.
+     */
     saveProcessingState() {
       if (this.currentProcessingLocation && this.task_id) {
         const progressBar = document.querySelector(
@@ -635,48 +548,49 @@ const STATUS = {
         const progressMessageEl = document.querySelector(
           "#taskProgressModal .progress-message",
         );
-
         const saveData = {
-          location: this.currentProcessingLocation, // Store the whole location object used to start
+          location: this.currentProcessingLocation,
           taskId: this.task_id,
-          stage: progressMessageEl?.dataset.stage || STATUS.UNKNOWN, // Store the raw stage string if available
+          stage: progressMessageEl?.dataset.stage || STATUS.UNKNOWN,
           progress: parseInt(progressBar?.getAttribute("aria-valuenow") || "0"),
           timestamp: new Date().toISOString(),
         };
-
         localStorage.setItem(
           "coverageProcessingState",
           JSON.stringify(saveData),
         );
         console.log("Saved processing state:", saveData);
       } else {
-        // If context is missing, ensure saved state is cleared
+        // If no active processing, ensure saved state is cleared
         localStorage.removeItem("coverageProcessingState");
       }
     }
 
+    /**
+     * Clears the context related to the currently processing task.
+     */
     clearProcessingContext() {
-      // Clear timer
       if (this.progressTimer) {
         clearInterval(this.progressTimer);
         this.progressTimer = null;
       }
-      // Remove saved state from local storage
+      // Clear saved state as processing is no longer active in this session
       localStorage.removeItem("coverageProcessingState");
-      // Remove unload listener
-      window.removeEventListener("beforeunload", this.saveProcessingState); // Use bound function or arrow fn if needed
+      // Remove the listener that saves state on page unload
+      window.removeEventListener("beforeunload", this.saveProcessingState);
 
-      // Clear processing context variables
+      // Reset instance variables
       this.currentProcessingLocation = null;
       this.processingStartTime = null;
       this.lastProgressUpdate = null;
-      this.task_id = null; // Clear task ID
+      this.task_id = null; // Clear the task ID
       this.lastActivityTime = null;
       console.log("Processing context cleared.");
     }
 
-    // --- API Interaction ---
-
+    /**
+     * Validates the location entered by the user via an API call.
+     */
     async validateLocation() {
       const locationInputEl = document.getElementById("location-input");
       const locationTypeEl = document.getElementById("location-type");
@@ -696,24 +610,26 @@ const STATUS = {
       const locationInput = locationInputEl.value.trim();
       const locType = locationTypeEl.value;
 
-      // Clear previous validation state
+      // Reset UI state
       locationInputEl.classList.remove("is-invalid", "is-valid");
       addButton.disabled = true;
       this.validatedLocation = null;
 
+      // Basic input validation
       if (!locationInput) {
         locationInputEl.classList.add("is-invalid");
-        window.notificationManager.show("Please enter a location.", "warning");
+        this.notificationManager.show("Please enter a location.", "warning");
         return;
       }
       if (!locType) {
-        window.notificationManager.show(
+        this.notificationManager.show(
           "Please select a location type.",
           "warning",
         );
         return;
       }
 
+      // Set button loading state
       const originalButtonText = validateButton.innerHTML;
       validateButton.disabled = true;
       validateButton.innerHTML =
@@ -729,7 +645,7 @@ const STATUS = {
           }),
         });
 
-        const data = await response.json(); // Try parsing JSON regardless of status
+        const data = await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -738,19 +654,19 @@ const STATUS = {
           );
         }
 
-        // API returns the validated location object on success
+        // Check if response contains necessary data
         if (!data || !data.osm_id || !data.display_name) {
           locationInputEl.classList.add("is-invalid");
-          window.notificationManager.show(
+          this.notificationManager.show(
             "Location not found or invalid response. Check input.",
             "warning",
           );
         } else {
-          // Success
+          // Success: Update UI and store validated data
           locationInputEl.classList.add("is-valid");
-          this.validatedLocation = data; // Store the whole validated object
+          this.validatedLocation = data;
           addButton.disabled = false;
-          window.notificationManager.show(
+          this.notificationManager.show(
             `Location validated: ${data.display_name}`,
             "success",
           );
@@ -758,19 +674,23 @@ const STATUS = {
       } catch (error) {
         console.error("Error validating location:", error);
         locationInputEl.classList.add("is-invalid");
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Validation failed: ${error.message}.`,
           "danger",
         );
       } finally {
+        // Reset button state
         validateButton.disabled = false;
         validateButton.innerHTML = originalButtonText;
       }
     }
 
+    /**
+     * Adds a new coverage area after validation and initiates processing.
+     */
     async addCoverageArea() {
       if (!this.validatedLocation || !this.validatedLocation.display_name) {
-        window.notificationManager.show(
+        this.notificationManager.show(
           "Please validate a location first.",
           "warning",
         );
@@ -784,121 +704,120 @@ const STATUS = {
       addButton.disabled = true;
       addButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
 
-      // Use the validated location data directly
-      const locationToAdd = { ...this.validatedLocation };
+      const locationToAdd = { ...this.validatedLocation }; // Use validated data
 
       try {
-        // Check if area already exists (fetch current list)
+        // Check if area already exists
         const currentAreasResponse = await fetch("/api/coverage_areas");
         if (!currentAreasResponse.ok)
           throw new Error("Failed to fetch current coverage areas");
         const { areas } = await currentAreasResponse.json();
-
         const exists = areas.some(
           (area) => area.location?.display_name === locationToAdd.display_name,
         );
 
         if (exists) {
-          window.notificationManager.show(
+          this.notificationManager.show(
             "This area is already tracked.",
             "warning",
           );
-          addButton.innerHTML = originalButtonText; // Reset button text
-          // Don't disable, allow re-validation if needed
-          return;
+          addButton.innerHTML = originalButtonText; // Reset button text, keep disabled
+          return; // Don't proceed if area exists
         }
 
-        // --- Start Processing ---
-        this.currentProcessingLocation = locationToAdd; // Set context
-        this.task_id = null; // Reset task ID
+        // Set processing context and show modal
+        this.currentProcessingLocation = locationToAdd;
+        this.task_id = null; // Reset task ID for new task
         this.showProgressModal(
           `Starting processing for ${locationToAdd.display_name}...`,
           0,
         );
-        // Add unload listener *after* starting processing
-        window.addEventListener("beforeunload", this.saveProcessingState);
+        window.addEventListener("beforeunload", this.saveProcessingState); // Add listener to save state if page closes
 
-        // Trigger the backend preprocessing
+        // Start the backend processing task
         const preprocessResponse = await fetch("/api/preprocess_streets", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(locationToAdd), // Send the validated location object
+          body: JSON.stringify(locationToAdd),
         });
 
         const taskData = await preprocessResponse.json();
 
         if (!preprocessResponse.ok) {
-          this.hideProgressModal(); // Hide modal on initial failure
+          this.hideProgressModal(); // Hide modal on immediate failure
           throw new Error(
             taskData.detail ||
               `Failed to start processing (HTTP ${preprocessResponse.status})`,
           );
         }
 
-        window.notificationManager.show(
+        this.notificationManager.show(
           "Coverage area processing started.",
           "info",
         );
 
-        // Start polling if we got a task ID
+        // If task ID received, start polling for progress
         if (taskData?.task_id) {
-          this.task_id = taskData.task_id; // Store the task ID for state saving
+          this.task_id = taskData.task_id;
           this.activeTaskIds.add(taskData.task_id);
           this.saveProcessingState(); // Save state now that we have a task ID
-
-          await this.pollCoverageProgress(taskData.task_id);
-          // Polling finished (successfully or with backend error state)
-          window.notificationManager.show(
+          await this.pollCoverageProgress(taskData.task_id); // Wait for polling to complete
+          // Polling completed (successfully or with handled error)
+          this.notificationManager.show(
             `Processing for ${locationToAdd.display_name} completed.`,
             "success",
           );
-          // Modal will show final state, don't hide automatically
-          await this.loadCoverageAreas(); // Refresh table
+          await this.loadCoverageAreas(); // Refresh the list
         } else {
-          // No task ID returned (shouldn't happen on success?)
-          this.hideProgressModal(); // Hide if no task ID
-          window.notificationManager.show(
+          // No task ID received, cannot track progress
+          this.hideProgressModal();
+          this.notificationManager.show(
             "Processing started, but no task ID received for progress tracking.",
             "warning",
           );
-          await this.loadCoverageAreas();
+          await this.loadCoverageAreas(); // Refresh list anyway
         }
 
-        // Reset input form ONLY on successful initiation
+        // Reset the input form
         const locationInput = document.getElementById("location-input");
         if (locationInput) {
           locationInput.value = "";
           locationInput.classList.remove("is-valid", "is-invalid");
         }
-        this.validatedLocation = null;
+        this.validatedLocation = null; // Clear validated location
       } catch (error) {
-        // Error during initial API call or setup
         console.error("Error adding coverage area:", error);
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Failed to add coverage area: ${error.message}`,
           "danger",
         );
         this.hideProgressModal(); // Hide modal on error
-        await this.loadCoverageAreas(); // Refresh table to remove temp row if any
+        await this.loadCoverageAreas(); // Refresh list to show current state
       } finally {
-        // Only reset button state here, context/modal handled by specific paths/events
-        addButton.disabled = true; // Keep disabled until next validation
+        // Reset add button state (keep disabled as validation is cleared)
+        addButton.disabled = true;
         addButton.innerHTML = originalButtonText;
+        // Processing context is cleared when modal closes or polling finishes
       }
     }
 
+    /**
+     * Initiates an update (full or incremental) for an existing coverage area.
+     * @param {string} locationId - The ID (_id) of the location to update.
+     * @param {string} [mode="full"] - The update mode ('full' or 'incremental').
+     */
     async updateCoverageForArea(locationId, mode = "full") {
       if (!locationId) {
-        window.notificationManager.show(
+        this.notificationManager.show(
           "Invalid location ID provided for update.",
           "warning",
         );
         return;
       }
 
-      // Fetch the location details first to ensure we have the correct object for context
       let locationData;
       try {
+        // Fetch current details to get the location object needed for the update API
         const response = await fetch(`/api/coverage_areas/${locationId}`);
         const data = await response.json();
         if (!data.success || !data.coverage || !data.coverage.location) {
@@ -906,59 +825,55 @@ const STATUS = {
             data.error || "Failed to fetch location details for update.",
           );
         }
-        locationData = data.coverage.location; // Get the location object
+        locationData = data.coverage.location;
         if (!locationData.display_name)
           throw new Error("Location details missing display name.");
       } catch (fetchError) {
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Failed to start update: ${fetchError.message}`,
           "danger",
         );
         return;
       }
 
-      // Prevent multiple updates on the same location simultaneously
+      // Check if this location is already being processed
       if (
         this.currentProcessingLocation?.display_name ===
         locationData.display_name
       ) {
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Update already in progress for ${locationData.display_name}.`,
           "info",
         );
-        // Optionally bring the existing modal to the front if hidden
+        // Optionally re-show the modal if it was hidden
         this.showProgressModal(
           `Update already running for ${locationData.display_name}...`,
         );
         return;
       }
 
-      // Store the location for the entire process
-      const processingLocation = { ...locationData };
+      const processingLocation = { ...locationData }; // Use fetched data
 
       try {
+        // Set processing context and show modal
         this.currentProcessingLocation = processingLocation;
         this.task_id = null; // Reset task ID
-
-        // Check if we are updating the currently displayed dashboard location
         const isUpdatingDisplayedLocation =
           this.selectedLocation?._id === locationId;
-
         this.showProgressModal(
           `Requesting coverage update (${mode}) for ${processingLocation.display_name}...`,
         );
-        // Add unload listener *after* starting processing
-        window.addEventListener("beforeunload", this.saveProcessingState);
+        window.addEventListener("beforeunload", this.saveProcessingState); // Save state if page closes
 
+        // Determine API endpoint based on mode
         const endpoint =
           mode === "incremental"
             ? "/api/street_coverage/incremental"
-            : "/api/street_coverage";
+            : "/api/street_coverage"; // Default to full update
 
-        // Send location properties directly (not nested) as expected by the API
-        // Assuming API expects the LocationModel structure directly
-        const payload = { ...processingLocation };
+        const payload = { ...processingLocation }; // API expects the location object
 
+        // Call the update API
         const response = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -967,8 +882,9 @@ const STATUS = {
 
         const data = await response.json();
 
+        // Handle API response
         if (!response.ok) {
-          // Handle specific errors like 422 Validation Error
+          // Handle validation errors (422) specifically
           if (response.status === 422 && data.detail) {
             const errorMsg = Array.isArray(data.detail)
               ? data.detail
@@ -982,54 +898,59 @@ const STATUS = {
           );
         }
 
+        // Start polling if task ID received
         if (data.task_id) {
-          this.task_id = data.task_id; // Store task ID
+          this.task_id = data.task_id;
           this.activeTaskIds.add(data.task_id);
-          this.saveProcessingState(); // Save state now
-
-          await this.pollCoverageProgress(data.task_id);
-          // Polling finished
-          window.notificationManager.show(
+          this.saveProcessingState(); // Save state with new task ID
+          await this.pollCoverageProgress(data.task_id); // Wait for completion
+          this.notificationManager.show(
             `Coverage update for ${processingLocation.display_name} completed.`,
             "success",
           );
-          // Modal shows final state, don't hide automatically
-          await this.loadCoverageAreas(); // Refresh table
+          await this.loadCoverageAreas(); // Refresh list
+          // If the updated location was being viewed, refresh the dashboard
           if (isUpdatingDisplayedLocation) {
-            await this.displayCoverageDashboard(locationId); // Refresh dashboard
+            await this.displayCoverageDashboard(locationId);
           }
         } else {
-          this.hideProgressModal(); // Hide if no task ID
-          window.notificationManager.show(
+          // No task ID, cannot track progress
+          this.hideProgressModal();
+          this.notificationManager.show(
             "Update started, but no task ID received for progress tracking.",
             "warning",
           );
-          await this.loadCoverageAreas();
+          await this.loadCoverageAreas(); // Refresh list
         }
       } catch (error) {
         console.error("Error updating coverage:", error);
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Coverage update failed: ${error.message}`,
           "danger",
         );
         this.hideProgressModal(); // Hide modal on error
-        await this.loadCoverageAreas(); // Refresh table to show potential error status
+        await this.loadCoverageAreas(); // Refresh list
       }
-      // No finally block to hide modal - let close event handle context cleanup
+      // Processing context is cleared when modal closes or polling finishes
     }
 
+    /**
+     * Cancels an ongoing processing task for a specific location.
+     * @param {object|null} location - The location object to cancel processing for. Defaults to currentProcessingLocation.
+     */
     async cancelProcessing(location = null) {
       const locationToCancel = location || this.currentProcessingLocation;
+
       if (!locationToCancel || !locationToCancel.display_name) {
-        window.notificationManager.show(
+        this.notificationManager.show(
           "No active processing context found to cancel.",
           "warning",
         );
         return;
       }
 
-      // Add confirmation dialog
-      const confirmed = await window.confirmationDialog.show({
+      // Confirm cancellation with the user
+      const confirmed = await this.confirmationDialog.show({
         title: "Cancel Processing",
         message: `Are you sure you want to cancel processing for <strong>${locationToCancel.display_name}</strong>? This cannot be undone.`,
         confirmText: "Yes, Cancel",
@@ -1039,22 +960,21 @@ const STATUS = {
 
       if (!confirmed) return;
 
-      window.notificationManager.show(
+      this.notificationManager.show(
         `Attempting to cancel processing for ${locationToCancel.display_name}...`,
         "info",
       );
 
       try {
-        // API expects the LocationModel structure
-        const payload = { display_name: locationToCancel.display_name }; // Send only needed field if possible
-
+        // API expects display_name to identify the task to cancel
+        const payload = { display_name: locationToCancel.display_name };
         const response = await fetch("/api/coverage_areas/cancel", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
 
-        const data = await response.json(); // Try parsing JSON regardless of status
+        const data = await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -1063,40 +983,45 @@ const STATUS = {
           );
         }
 
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Processing for ${locationToCancel.display_name} cancelled.`,
           "success",
         );
-        this.hideProgressModal(); // Close the progress modal
-        await this.loadCoverageAreas(); // Refresh the table to show 'canceled' status
+        this.hideProgressModal(); // Hide modal after successful cancellation
+        await this.loadCoverageAreas(); // Refresh the list
       } catch (error) {
         console.error("Error cancelling processing:", error);
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Failed to cancel processing: ${error.message}`,
           "danger",
         );
-        // Don't hide modal on failure, maybe the task is still running
+        // Don't automatically hide modal on error, user might want to see the state
       } finally {
-        // Clear context only if cancellation was attempted for the *current* processing location
+        // If the canceled task was the one currently being processed, clear its context
         if (
           this.currentProcessingLocation?.display_name ===
           locationToCancel.display_name
         ) {
-          // Context cleared via hideProgressModal -> hidden.bs.modal event
+          // Context is cleared when modal is hidden or polling loop exits
         }
       }
     }
 
+    /**
+     * Deletes a coverage area and its associated data.
+     * @param {object} location - The location object to delete.
+     */
     async deleteArea(location) {
       if (!location || !location.display_name) {
-        window.notificationManager.show(
+        this.notificationManager.show(
           "Invalid location data for deletion.",
           "warning",
         );
         return;
       }
 
-      const confirmed = await window.confirmationDialog.show({
+      // Confirm deletion with the user
+      const confirmed = await this.confirmationDialog.show({
         title: "Delete Coverage Area",
         message: `Are you sure you want to delete <strong>${location.display_name}</strong>?<br><br>This will permanently delete all associated street data, statistics, and history. This action cannot be undone.`,
         confirmText: "Delete Permanently",
@@ -1106,21 +1031,20 @@ const STATUS = {
       if (!confirmed) return;
 
       try {
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Deleting coverage area: ${location.display_name}...`,
           "info",
         );
 
-        // API expects LocationModel structure
-        const payload = { display_name: location.display_name }; // Send minimal data
-
+        // API expects display_name to identify the area to delete
+        const payload = { display_name: location.display_name };
         const response = await fetch("/api/coverage_areas/delete", {
-          method: "POST",
+          method: "POST", // Using POST as DELETE might not support body easily in all setups
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
 
-        const data = await response.json(); // Try parsing JSON regardless of status
+        const data = await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -1128,16 +1052,17 @@ const STATUS = {
           );
         }
 
-        await this.loadCoverageAreas(); // Refresh the table
+        // Refresh the coverage areas list
+        await this.loadCoverageAreas();
 
-        // Hide dashboard if the deleted location was being viewed
+        // If the deleted area was the one displayed in the dashboard, hide the dashboard
         if (
           this.selectedLocation?.location?.display_name ===
           location.display_name
         ) {
           const dashboard = document.getElementById("coverage-dashboard");
           if (dashboard) dashboard.style.display = "none";
-          this.selectedLocation = null; // Clear selected location
+          this.selectedLocation = null;
           if (this.coverageMap) {
             this.coverageMap.remove();
             this.coverageMap = null;
@@ -1145,19 +1070,22 @@ const STATUS = {
           this.clearDashboardUI(); // Clear stats, chart etc.
         }
 
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Coverage area '${location.display_name}' deleted.`,
           "success",
         );
       } catch (error) {
         console.error("Error deleting coverage area:", error);
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Error deleting coverage area: ${error.message}`,
           "danger",
         );
       }
     }
 
+    /**
+     * Fetches the list of coverage areas from the API and updates the table.
+     */
     async loadCoverageAreas() {
       try {
         const response = await fetch("/api/coverage_areas");
@@ -1168,24 +1096,22 @@ const STATUS = {
           } catch (e) {}
           throw new Error(`Failed to fetch coverage areas (${errorDetail})`);
         }
+
         const data = await response.json();
         if (!data.success)
           throw new Error(data.error || "API returned failure");
 
-        this.constructor.updateCoverageTable(data.areas, this); // Pass instance for distance formatting
-
-        // Apply responsive enhancements after table update
-        this.enhanceResponsiveTables();
-
-        // Re-initialize tooltips after table update
-        this.initTooltips();
+        // Update the table using the static method, passing the instance for context (e.g., distance units)
+        CoverageManager.updateCoverageTable(data.areas, this);
+        this.enhanceResponsiveTables(); // Add data-labels for mobile
+        this.initTooltips(); // Re-initialize tooltips for new buttons
       } catch (error) {
         console.error("Error loading coverage areas:", error);
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Failed to load coverage areas: ${error.message}.`,
           "danger",
         );
-        // Show error in table body
+        // Display error in the table body
         const tableBody = document.querySelector("#coverage-areas-table tbody");
         if (tableBody) {
           tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error loading data: ${error.message}</td></tr>`;
@@ -1193,25 +1119,33 @@ const STATUS = {
       }
     }
 
-    // --- Progress Polling ---
-
+    /**
+     * Polls the backend for the status of a specific background task.
+     * @param {string} taskId - The ID of the task to poll.
+     * @returns {Promise<object>} A promise that resolves with the final task data when completed.
+     * @throws {Error} If polling fails, times out, or the task errors/is canceled.
+     */
     async pollCoverageProgress(taskId) {
-      const maxRetries = 360; // ~30 minutes (5s interval)
+      const maxRetries = 360; // Max polling attempts (e.g., 360 * 5s = 30 minutes)
       let retries = 0;
       let lastStage = null;
       let consecutiveSameStage = 0;
 
+      console.log(`Starting polling for task ${taskId}`);
+
       while (retries < maxRetries) {
+        // Check if the task is still considered active by the manager
         if (!this.activeTaskIds.has(taskId)) {
           console.log(
             `Polling stopped for task ${taskId} as it's no longer active.`,
           );
-          throw new Error("Polling canceled"); // Or return specific status
+          throw new Error("Polling canceled"); // Or resolve/reject based on desired behavior
         }
 
         try {
           const response = await fetch(`/api/street_coverage/${taskId}`);
 
+          // Handle specific HTTP errors
           if (response.status === 404) {
             throw new Error("Task not found (expired or invalid).");
           }
@@ -1223,13 +1157,14 @@ const STATUS = {
             throw new Error(`Failed to get task status: ${errorDetail}`);
           }
 
+          // Parse response data
           let data;
           try {
             data = await response.json();
+            // Basic validation of the response structure
             if (!data || typeof data !== "object" || !data.stage) {
-              // Handle potentially incomplete final responses gracefully
+              // Handle potentially empty but successful responses after a few retries
               if (response.ok && retries > 5) {
-                // If OK and polled a few times
                 console.warn(
                   `Task ${taskId}: Received incomplete data, assuming completion.`,
                 );
@@ -1249,11 +1184,11 @@ const STATUS = {
             );
           }
 
-          // Update modal UI
+          // Update UI based on received data
           this.updateModalContent(data);
           this.updateStepIndicators(data.stage, data.progress);
-          this.lastActivityTime = new Date(); // Update activity time on successful poll
-          this.saveProcessingState(); // Save state after UI update
+          this.lastActivityTime = new Date(); // Record activity
+          this.saveProcessingState(); // Update saved state with latest progress
 
           // Check for terminal states
           if (
@@ -1261,30 +1196,33 @@ const STATUS = {
             data.stage === STATUS.COMPLETED
           ) {
             console.log(`Task ${taskId} completed successfully.`);
-            this.updateModalContent({ ...data, progress: 100 }); // Ensure 100%
+            this.updateModalContent({ ...data, progress: 100 }); // Ensure progress bar is full
             this.updateStepIndicators(STATUS.COMPLETE, 100);
-            return data; // Success
+            this.activeTaskIds.delete(taskId); // Task finished, remove from active set
+            return data; // Resolve the promise with final data
           } else if (data.stage === STATUS.ERROR) {
             console.error(
               `Task ${taskId} failed with error: ${data.error || data.message || "Unknown error"}`,
             );
+            this.activeTaskIds.delete(taskId);
             throw new Error(
               data.error || data.message || "Coverage calculation failed",
             );
           } else if (data.stage === STATUS.CANCELED) {
             console.log(`Task ${taskId} was canceled.`);
+            this.activeTaskIds.delete(taskId);
             throw new Error("Task was canceled");
           }
 
-          // Check for stalled progress
+          // Check for stalled task
           if (data.stage === lastStage) {
             consecutiveSameStage++;
             if (consecutiveSameStage > 12) {
-              // Stalled for > 1 minute
+              // ~1 minute if polling every 5s
               console.warn(
                 `Task ${taskId} seems stalled at stage: ${data.stage}`,
               );
-              // Optionally add warning to modal?
+              // Could potentially add logic here to increase polling interval if stalled
             }
           } else {
             lastStage = data.stage;
@@ -1292,17 +1230,17 @@ const STATUS = {
           }
 
           // Wait before next poll
-          await new Promise((resolve) => setTimeout(resolve, 5000)); // 5-second interval
+          await new Promise((resolve) => setTimeout(resolve, 5000)); // Poll every 5 seconds
           retries++;
         } catch (error) {
-          // Handle polling errors (network, parse, 404, backend error state)
+          // Handle errors during polling (network error, task error, etc.)
           console.error(
             `Error polling coverage progress for task ${taskId}:`,
             error,
           );
           this.updateModalContent({
             stage: STATUS.ERROR,
-            progress: this.currentProcessingLocation?.progress || 0, // Keep last known progress
+            progress: this.currentProcessingLocation?.progress || 0, // Show last known progress
             message: `Polling failed: ${error.message}`,
             error: error.message,
             metrics: {},
@@ -1311,15 +1249,15 @@ const STATUS = {
             STATUS.ERROR,
             this.currentProcessingLocation?.progress || 0,
           );
-          this.activeTaskIds.delete(taskId); // Stop polling this task
-          throw error; // Re-throw to signal failure to the caller
+          this.activeTaskIds.delete(taskId); // Task is no longer actively polled
+          throw error; // Reject the promise
         }
-      } // End while loop
+      }
 
-      // If loop finishes without completion (timeout)
+      // If loop completes without returning/throwing, it timed out
       this.updateModalContent({
         stage: STATUS.ERROR,
-        progress: this.currentProcessingLocation?.progress || 99,
+        progress: this.currentProcessingLocation?.progress || 99, // Show almost complete
         message: "Polling timed out waiting for completion.",
         error: "Polling timed out",
         metrics: {},
@@ -1332,8 +1270,11 @@ const STATUS = {
       throw new Error("Coverage calculation polling timed out");
     }
 
-    // --- UI Updates (Table, Modal, Dashboard) ---
-
+    /**
+     * Static method to update the coverage areas HTML table.
+     * @param {Array<object>} areas - Array of coverage area objects from the API.
+     * @param {CoverageManager} instance - The CoverageManager instance (for accessing methods like distanceInUserUnits).
+     */
     static updateCoverageTable(areas, instance) {
       const tableBody = document.querySelector("#coverage-areas-table tbody");
       if (!tableBody) return;
@@ -1346,7 +1287,7 @@ const STATUS = {
         return;
       }
 
-      // Sort areas by name
+      // Sort areas alphabetically by display name
       areas.sort((a, b) =>
         (a.location?.display_name || "").localeCompare(
           b.location?.display_name || "",
@@ -1371,6 +1312,7 @@ const STATUS = {
         const hasError = status === STATUS.ERROR;
         const isCanceled = status === STATUS.CANCELED;
 
+        // Apply row classes based on status
         row.className = isProcessing
           ? "processing-row table-info"
           : hasError
@@ -1379,30 +1321,32 @@ const STATUS = {
               ? "table-warning"
               : "";
 
+        // Format data for display
         const lastUpdated = area.last_updated
           ? new Date(area.last_updated).toLocaleString()
           : "Never";
-        // Use the instance's method for conversion - API provides meters
         const totalLengthMiles = instance.distanceInUserUnits(
           area.total_length,
-        );
+        ); // Use instance method
         const drivenLengthMiles = instance.distanceInUserUnits(
           area.driven_length,
-        );
+        ); // Use instance method
         const coveragePercentage =
           area.coverage_percentage?.toFixed(1) || "0.0";
 
+        // Determine progress bar color
         let progressBarColor = "bg-success";
         if (hasError || isCanceled) progressBarColor = "bg-secondary";
         else if (area.coverage_percentage < 25) progressBarColor = "bg-danger";
         else if (area.coverage_percentage < 75) progressBarColor = "bg-warning";
 
-        // Escape location data for delete/cancel actions (needs display_name)
+        // Safely stringify location data for the delete/cancel buttons
         const escapedLocation = JSON.stringify({
           display_name: area.location?.display_name || "",
         }).replace(/'/g, "&apos;");
-        const locationId = area._id; // Use ID for updates/viewing
+        const locationId = area._id; // Use the database ID for updates/viewing
 
+        // Populate row HTML
         row.innerHTML = `
           <td data-label="Location">
             <a href="#" class="location-name-link text-info fw-bold" data-location-id="${locationId}">
@@ -1445,6 +1389,11 @@ const STATUS = {
       });
     }
 
+    /**
+     * Shows the progress modal with initial message and progress.
+     * @param {string} [message="Processing..."] - Initial message to display.
+     * @param {number} [progress=0] - Initial progress percentage.
+     */
     showProgressModal(message = "Processing...", progress = 0) {
       const modalElement = document.getElementById("taskProgressModal");
       if (!modalElement) return;
@@ -1452,61 +1401,50 @@ const STATUS = {
       const modalTitle = modalElement.querySelector(".modal-title");
       const modalProgressBar = modalElement.querySelector(".progress-bar");
       const progressMessage = modalElement.querySelector(".progress-message");
-      const progressDetails = modalElement.querySelector(".progress-details"); // Container for stage, stats, time
+      const progressDetails = modalElement.querySelector(".progress-details");
       const cancelBtn = document.getElementById("cancel-processing");
 
-      // Ensure details container exists
       if (!progressDetails) {
         console.error("Progress details container not found in modal.");
         return;
       }
 
-      // Reset modal state visually
+      // Set initial modal content
       if (modalTitle)
         modalTitle.textContent = this.currentProcessingLocation?.display_name
           ? `Processing: ${this.currentProcessingLocation.display_name}`
           : "Processing Coverage";
-
       if (modalProgressBar) {
         modalProgressBar.style.width = `${progress}%`;
         modalProgressBar.setAttribute("aria-valuenow", progress);
-        modalProgressBar.classList.remove(
-          "bg-success",
-          "bg-danger",
-          "bg-warning",
-        ); // Reset color
-        modalProgressBar.classList.add(
-          "progress-bar-striped",
-          "progress-bar-animated",
-        );
+        modalProgressBar.className =
+          "progress-bar progress-bar-striped progress-bar-animated bg-primary"; // Reset classes
       }
       if (progressMessage) {
         progressMessage.textContent = message;
-        progressMessage.classList.remove("text-danger", "text-success");
-        progressMessage.removeAttribute("data-stage"); // Clear stage data attribute
+        progressMessage.className = "progress-message"; // Reset classes
+        progressMessage.removeAttribute("data-stage");
       }
-
-      // Clear previous details
+      // Clear details sections
       progressDetails.querySelector(".stage-info").innerHTML = "";
       progressDetails.querySelector(".stats-info").innerHTML = "";
       progressDetails.querySelector(".elapsed-time").textContent =
         "Elapsed: 0s";
-      progressDetails.querySelector(".estimated-time").textContent = ""; // No estimation
+      progressDetails.querySelector(".estimated-time").textContent = ""; // Estimation removed
 
-      if (cancelBtn) cancelBtn.disabled = false; // Enable cancel button initially
+      // Enable cancel button initially
+      if (cancelBtn) cancelBtn.disabled = false;
 
-      // Start timer only if not already running
-      if (!this.progressTimer) {
-        this.processingStartTime = Date.now();
-        this.lastActivityTime = Date.now();
-        this.progressTimer = setInterval(() => {
-          this.updateTimingInfo();
-          this.updateActivityIndicator();
-        }, 1000);
-        // Run immediately to set initial values
+      // Start or reset the elapsed timer
+      if (this.progressTimer) clearInterval(this.progressTimer);
+      this.processingStartTime = Date.now();
+      this.lastActivityTime = Date.now(); // Set initial activity time
+      this.progressTimer = setInterval(() => {
         this.updateTimingInfo();
         this.updateActivityIndicator();
-      }
+      }, 1000);
+      this.updateTimingInfo(); // Run once immediately
+      this.updateActivityIndicator(); // Run once immediately
 
       // Show the modal using Bootstrap API
       const bsModal = bootstrap.Modal.getOrCreateInstance(modalElement, {
@@ -1516,28 +1454,37 @@ const STATUS = {
       bsModal.show();
     }
 
+    /**
+     * Hides the progress modal.
+     */
     hideProgressModal() {
       const modalElement = document.getElementById("taskProgressModal");
       if (!modalElement) return;
-
       const modal = bootstrap.Modal.getInstance(modalElement);
       if (modal) {
         modal.hide();
+        // The 'hidden.bs.modal' event listener handles context cleanup
       } else {
-        // Fallback if instance not found (shouldn't happen with getOrCreateInstance)
+        // Fallback if Bootstrap instance isn't found
         modalElement.style.display = "none";
         modalElement.classList.remove("show");
         document.body.classList.remove("modal-open");
         const backdrop = document.querySelector(".modal-backdrop");
         if (backdrop) backdrop.remove();
+        this.clearProcessingContext(); // Manually clear context in fallback
       }
-      // Context cleanup happens on 'hidden.bs.modal' event
     }
 
+    /**
+     * Updates the content of the progress modal based on task status data.
+     * @param {object} data - Task status data from the API or polling.
+     */
     updateModalContent(data) {
       const modalElement = document.getElementById("taskProgressModal");
-      if (!modalElement || !this.currentProcessingLocation) return; // Only update if modal is relevant
+      // Ensure modal and processing context exist
+      if (!modalElement || !this.currentProcessingLocation) return;
 
+      // Destructure data with defaults
       const {
         stage = STATUS.UNKNOWN,
         progress = 0,
@@ -1546,22 +1493,19 @@ const STATUS = {
         error = null,
       } = data || {};
 
+      // Get modal elements
       const progressBar = modalElement.querySelector(".progress-bar");
       const progressMessageEl = modalElement.querySelector(".progress-message");
       const stageInfoEl = modalElement.querySelector(".stage-info");
       const statsInfoEl = modalElement.querySelector(".stats-info");
       const cancelBtn = document.getElementById("cancel-processing");
 
-      // Update progress bar
+      // Update Progress Bar
       if (progressBar) {
         progressBar.style.width = `${progress}%`;
         progressBar.setAttribute("aria-valuenow", progress);
-        progressBar.classList.remove(
-          "progress-bar-striped",
-          "progress-bar-animated",
-          "bg-success",
-          "bg-danger",
-        );
+        // Reset classes and apply appropriate ones
+        progressBar.className = "progress-bar"; // Base class
         if (stage === STATUS.COMPLETE || stage === STATUS.COMPLETED) {
           progressBar.classList.add("bg-success");
         } else if (stage === STATUS.ERROR) {
@@ -1570,66 +1514,71 @@ const STATUS = {
           progressBar.classList.add(
             "progress-bar-striped",
             "progress-bar-animated",
+            "bg-primary",
           );
         }
       }
 
-      // Update main message and store stage
+      // Update Progress Message
       if (progressMessageEl) {
         progressMessageEl.textContent = error ? `Error: ${error}` : message;
-        progressMessageEl.dataset.stage = stage; // Store stage for state saving
-        progressMessageEl.classList.toggle(
-          "text-danger",
-          stage === STATUS.ERROR,
-        );
-        progressMessageEl.classList.toggle(
-          "text-success",
-          stage === STATUS.COMPLETE || stage === STATUS.COMPLETED,
-        );
+        progressMessageEl.dataset.stage = stage; // Store stage for potential use
+        // Apply text color based on status
+        progressMessageEl.className = "progress-message"; // Reset classes
+        if (stage === STATUS.ERROR)
+          progressMessageEl.classList.add("text-danger");
+        if (stage === STATUS.COMPLETE || stage === STATUS.COMPLETED)
+          progressMessageEl.classList.add("text-success");
       }
 
-      // Update stage info (e.g., "Step 3/5: Indexing Streets")
+      // Update Stage Info (Icon + Name)
       if (stageInfoEl) {
-        const stageName = this.constructor.formatStageName(stage);
-        const stageIcon = this.constructor.getStageIcon(stage);
+        const stageName = CoverageManager.formatStageName(stage);
+        const stageIcon = CoverageManager.getStageIcon(stage);
         stageInfoEl.innerHTML = `${stageIcon} ${stageName}`;
-        stageInfoEl.className = `stage-info mb-2 text-${this.constructor.getStageTextClass(stage)}`;
+        stageInfoEl.className = `stage-info mb-2 text-${CoverageManager.getStageTextClass(stage)}`;
       }
 
-      // Update detailed stats
+      // Update Statistics Info
       if (statsInfoEl) {
         statsInfoEl.innerHTML = this.formatMetricStats(stage, metrics);
       }
 
-      // Disable cancel button on final states
+      // Enable/Disable Cancel Button
       if (cancelBtn) {
-        cancelBtn.disabled =
-          stage === STATUS.COMPLETE ||
-          stage === STATUS.COMPLETED ||
-          stage === STATUS.ERROR ||
-          stage === STATUS.CANCELED;
+        cancelBtn.disabled = [
+          STATUS.COMPLETE,
+          STATUS.COMPLETED,
+          STATUS.ERROR,
+          STATUS.CANCELED,
+        ].includes(stage);
       }
 
-      // Stop timer and animation on final states
+      // Stop timer and activity indicator if task is finished/errored/canceled
       if (
-        stage === STATUS.COMPLETE ||
-        stage === STATUS.COMPLETED ||
-        stage === STATUS.ERROR ||
-        stage === STATUS.CANCELED
+        [
+          STATUS.COMPLETE,
+          STATUS.COMPLETED,
+          STATUS.ERROR,
+          STATUS.CANCELED,
+        ].includes(stage)
       ) {
         if (this.progressTimer) {
           clearInterval(this.progressTimer);
           this.progressTimer = null;
-          // Ensure final elapsed time is displayed correctly
-          this.updateTimingInfo();
-          // Clear estimated time display
+          this.updateTimingInfo(); // Final update
           const estimatedTimeEl = modalElement.querySelector(".estimated-time");
-          if (estimatedTimeEl) estimatedTimeEl.textContent = "";
+          if (estimatedTimeEl) estimatedTimeEl.textContent = ""; // Clear estimation
         }
         this.updateActivityIndicator(false); // Set indicator to inactive
       }
     }
 
+    /**
+     * Updates the visual step indicators in the progress modal.
+     * @param {string} stage - The current task stage.
+     * @param {number} progress - The current progress percentage.
+     */
     updateStepIndicators(stage, progress) {
       const modalElement = document.getElementById("taskProgressModal");
       if (!modalElement) return;
@@ -1638,11 +1587,11 @@ const STATUS = {
         initializing: modalElement.querySelector(".step-initializing"),
         preprocessing: modalElement.querySelector(".step-preprocessing"),
         indexing: modalElement.querySelector(".step-indexing"),
-        calculating: modalElement.querySelector(".step-calculating"), // Represents trip processing
-        complete: modalElement.querySelector(".step-complete"), // Represents finalizing/generating GeoJSON/completion
+        calculating: modalElement.querySelector(".step-calculating"),
+        complete: modalElement.querySelector(".step-complete"),
       };
 
-      // Reset all steps first
+      // Reset all steps
       Object.values(steps).forEach((step) => {
         if (step) step.classList.remove("active", "complete", "error");
       });
@@ -1657,9 +1606,8 @@ const STATUS = {
         if (steps[stepKey]) steps[stepKey].classList.add("error");
       };
 
+      // Determine which step errored based on stage and progress
       if (stage === STATUS.ERROR) {
-        // Try to mark the step where the error likely occurred
-        // This mapping is approximate
         if ([STATUS.INITIALIZING].includes(stage) || progress < 5) {
           markError("initializing");
         } else if (
@@ -1685,7 +1633,7 @@ const STATUS = {
           markComplete("indexing");
           markError("calculating");
         } else {
-          // Error during final stages
+          // Error during finalization or generation
           markComplete("initializing");
           markComplete("preprocessing");
           markComplete("indexing");
@@ -1695,7 +1643,7 @@ const STATUS = {
       } else if (stage === STATUS.COMPLETE || stage === STATUS.COMPLETED) {
         Object.keys(steps).forEach(markComplete); // Mark all as complete
       } else {
-        // Mark progress based on current stage
+        // Mark steps as complete up to the current stage, and mark the current stage as active
         if ([STATUS.INITIALIZING].includes(stage)) {
           markActive("initializing");
         } else if (
@@ -1731,20 +1679,22 @@ const STATUS = {
           markComplete("calculating");
           markActive("complete");
         } else {
-          // Default or unknown stage - mark initial as active
+          // Default to initializing if stage is unknown
           markActive("initializing");
         }
       }
     }
 
+    /**
+     * Updates the elapsed time display in the progress modal.
+     */
     updateTimingInfo() {
-      if (!this.processingStartTime) return; // Don't run if modal not active
+      if (!this.processingStartTime) return; // Ensure start time is set
 
       const now = Date.now();
       const elapsedMs = now - this.processingStartTime;
       const elapsedSeconds = Math.floor(elapsedMs / 1000);
 
-      // Format elapsed time
       let elapsedText = `${elapsedSeconds}s`;
       if (elapsedSeconds >= 60) {
         const minutes = Math.floor(elapsedSeconds / 60);
@@ -1752,18 +1702,21 @@ const STATUS = {
         elapsedText = `${minutes}m ${seconds}s`;
       }
 
-      // Update time display elements within the modal
       const elapsedTimeEl = document.querySelector(
         "#taskProgressModal .elapsed-time",
       );
       const estimatedTimeEl = document.querySelector(
         "#taskProgressModal .estimated-time",
-      ); // Keep reference if needed elsewhere
+      ); // Keep reference even if not used
 
       if (elapsedTimeEl) elapsedTimeEl.textContent = `Elapsed: ${elapsedText}`;
-      if (estimatedTimeEl) estimatedTimeEl.textContent = ""; // Estimation removed
+      if (estimatedTimeEl) estimatedTimeEl.textContent = ""; // Estimation removed for simplicity/accuracy
     }
 
+    /**
+     * Updates the activity indicator (pulsing icon, last update time) in the progress modal.
+     * @param {boolean|null} [isActive=null] - Force the state, or calculate based on lastActivityTime.
+     */
     updateActivityIndicator(isActive = null) {
       const modalElement = document.getElementById("taskProgressModal");
       if (!modalElement) return;
@@ -1772,6 +1725,7 @@ const STATUS = {
         ".activity-indicator",
       );
       const lastUpdateEl = modalElement.querySelector(".last-update-time");
+
       if (!activityIndicator || !lastUpdateEl) return;
 
       const now = new Date();
@@ -1780,50 +1734,66 @@ const STATUS = {
       if (isActive !== null) {
         currentlyActive = isActive;
       } else {
+        // Consider active if last activity was within 10 seconds
         currentlyActive =
-          this.lastActivityTime && now - this.lastActivityTime < 10000; // Active if polled within last 10s
+          this.lastActivityTime && now - this.lastActivityTime < 10000;
       }
 
+      // Update indicator icon and text
       if (currentlyActive) {
         activityIndicator.classList.add("pulsing");
         activityIndicator.innerHTML =
           '<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active';
-        if (this.lastActivityTime) {
-          lastUpdateEl.textContent = `Last update: ${this.formatTimeAgo(this.lastActivityTime)}`;
-        } else {
-          lastUpdateEl.textContent = "";
-        }
       } else {
         activityIndicator.classList.remove("pulsing");
         activityIndicator.innerHTML =
           '<i class="fas fa-hourglass-half text-secondary me-1"></i>Idle';
-        if (this.lastActivityTime) {
-          lastUpdateEl.textContent = `Last update: ${this.formatTimeAgo(this.lastActivityTime)}`;
-        } else {
-          lastUpdateEl.textContent = "No recent activity";
-        }
+      }
+
+      // Update last update time text
+      if (this.lastActivityTime) {
+        lastUpdateEl.textContent = `Last update: ${this.formatTimeAgo(this.lastActivityTime)}`;
+      } else {
+        lastUpdateEl.textContent = currentlyActive ? "" : "No recent activity";
       }
     }
 
+    /**
+     * Formats a date object into a relative time string (e.g., "5s ago", "2m ago").
+     * @param {Date} date - The date object to format.
+     * @returns {string} The formatted relative time string.
+     */
     formatTimeAgo(date) {
       if (!date) return "never";
       const seconds = Math.floor((new Date() - date) / 1000);
+
       if (seconds < 5) return "just now";
       if (seconds < 60) return `${seconds}s ago`;
+
       const minutes = Math.floor(seconds / 60);
       if (minutes < 60) return `${minutes}m ago`;
+
       const hours = Math.floor(minutes / 60);
       if (hours < 24) return `${hours}h ago`;
+
       const days = Math.floor(hours / 24);
       return `${days}d ago`;
     }
 
+    /**
+     * Formats metric statistics into HTML for display in the progress modal.
+     * @param {string} stage - The current task stage.
+     * @param {object} metrics - The metrics object from the task status.
+     * @returns {string} HTML string representing the formatted stats.
+     */
     formatMetricStats(stage, metrics) {
       if (!metrics || Object.keys(metrics).length === 0) {
         return '<div class="text-muted small">Calculating...</div>';
       }
 
-      let statsHtml = '<div class="mt-1">';
+      let statsHtml = '<div class="mt-1">'; // Container
+
+      // Helper to add a stat row
       const addStat = (
         label,
         value,
@@ -1834,18 +1804,20 @@ const STATUS = {
         if (value !== undefined && value !== null) {
           const iconHtml = icon ? `<i class="${icon} me-1"></i>` : "";
           statsHtml += `
-                    <div class="d-flex justify-content-between">
-                        <small>${iconHtml}${label}:</small>
-                        <small class="${colorClass}">${value.toLocaleString()}${unit}</small>
-                    </div>`;
+            <div class="d-flex justify-content-between">
+              <small>${iconHtml}${label}:</small>
+              <small class="${colorClass}">${value.toLocaleString()}${unit}</small>
+            </div>`;
         }
       };
 
-      // Display relevant metrics based on stage
+      // Display relevant metrics based on the current stage
       if (
-        stage === STATUS.INDEXING ||
-        stage === STATUS.PREPROCESSING ||
-        stage === STATUS.LOADING_STREETS
+        [
+          STATUS.INDEXING,
+          STATUS.PREPROCESSING,
+          STATUS.LOADING_STREETS,
+        ].includes(stage)
       ) {
         addStat("Streets Found", metrics.total_segments, "", "fas fa-road");
         addStat(
@@ -1861,9 +1833,11 @@ const STATUS = {
           "fas fa-car",
         );
       } else if (
-        stage === STATUS.PROCESSING_TRIPS ||
-        stage === STATUS.CALCULATING ||
-        stage === STATUS.COUNTING_TRIPS
+        [
+          STATUS.PROCESSING_TRIPS,
+          STATUS.CALCULATING,
+          STATUS.COUNTING_TRIPS,
+        ].includes(stage)
       ) {
         const processed = metrics.processed_trips || 0;
         const total = metrics.total_trips_to_process || 0;
@@ -1904,6 +1878,7 @@ const STATUS = {
           STATUS.COMPLETED,
         ].includes(stage)
       ) {
+        // Show final summary stats
         addStat("Total Segments", metrics.total_segments, "", "fas fa-road");
         addStat(
           "Segments Covered",
@@ -1933,15 +1908,20 @@ const STATUS = {
           "text-success",
         );
       } else {
+        // Default message if stage doesn't match known metric groups
         statsHtml += '<div class="text-muted small">Processing...</div>';
       }
 
-      statsHtml += "</div>";
+      statsHtml += "</div>"; // Close container
       return statsHtml;
     }
 
     // --- Dashboard Display ---
 
+    /**
+     * Fetches detailed data for a location and displays the dashboard view.
+     * @param {string} locationId - The ID of the location to display.
+     */
     async displayCoverageDashboard(locationId) {
       const dashboardContainer = document.getElementById("coverage-dashboard");
       const dashboardLocationName = document.getElementById(
@@ -1951,11 +1931,12 @@ const STATUS = {
       const chartContainer = document.getElementById("street-type-chart");
       const statsContainer = document.querySelector(
         ".dashboard-stats-card .stats-container",
-      ); // Target stats container
+      );
       const streetTypeCoverageEl = document.getElementById(
         "street-type-coverage",
       );
 
+      // Ensure all required dashboard elements exist
       if (
         !dashboardContainer ||
         !dashboardLocationName ||
@@ -1965,30 +1946,35 @@ const STATUS = {
         !streetTypeCoverageEl
       ) {
         console.error("Dashboard elements not found in the DOM.");
+        this.notificationManager.show(
+          "UI Error: Dashboard components missing.",
+          "danger",
+        );
         return;
       }
 
       // --- Show Loading State ---
-      dashboardContainer.style.display = "block";
+      dashboardContainer.style.display = "block"; // Make dashboard visible
       dashboardLocationName.innerHTML =
         '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Loading...';
-      mapContainer.innerHTML = this.constructor.createLoadingIndicator(
+      mapContainer.innerHTML = CoverageManager.createLoadingIndicator(
         "Loading map data...",
       );
-      chartContainer.innerHTML = this.constructor.createLoadingIndicator(
+      chartContainer.innerHTML = CoverageManager.createLoadingIndicator(
         "Loading chart data...",
       );
-      statsContainer.innerHTML = this.constructor.createLoadingIndicator(
+      statsContainer.innerHTML = CoverageManager.createLoadingIndicator(
         "Loading statistics...",
       );
-      streetTypeCoverageEl.innerHTML = this.constructor.createLoadingIndicator(
+      streetTypeCoverageEl.innerHTML = CoverageManager.createLoadingIndicator(
         "Loading breakdown...",
       );
-      // Scroll to dashboard smoothly after setting loading states
+
+      // Scroll to the dashboard smoothly
       dashboardContainer.scrollIntoView({ behavior: "smooth", block: "start" });
 
       try {
-        // Fetch detailed data using the location ID
+        // Fetch detailed data for the selected location
         const response = await fetch(`/api/coverage_areas/${locationId}`);
         if (!response.ok) {
           let errorDetail = `HTTP ${response.status}`;
@@ -1997,25 +1983,25 @@ const STATUS = {
           } catch (e) {}
           throw new Error(`Failed to load coverage data (${errorDetail})`);
         }
-        const data = await response.json();
 
+        const data = await response.json();
         if (!data.success || !data.coverage) {
           throw new Error(
             data.error || "Failed to load coverage data from API",
           );
         }
 
-        this.selectedLocation = data.coverage; // Store full data
+        this.selectedLocation = data.coverage; // Store the full coverage data
         const coverage = data.coverage;
 
-        // --- Populate UI ---
+        // --- Populate UI with fetched data ---
         const locationName = coverage.location_name || "Coverage Details";
-        dashboardLocationName.textContent = locationName; // Update title (no badges here yet)
+        dashboardLocationName.textContent = locationName; // Update title
 
-        // Update stats (pass the whole coverage object)
+        // Update the main statistics card
         this.updateDashboardStats(coverage);
 
-        // Handle map and chart data availability
+        // Determine if map/chart data is available and valid
         const hasStreetData = coverage.streets_geojson?.features?.length > 0;
         const needsReprocessing = coverage.needs_reprocessing || false;
         const hasError = coverage.has_error || false;
@@ -2033,13 +2019,13 @@ const STATUS = {
           STATUS.COUNTING_TRIPS,
         ].includes(status);
 
+        // Handle cases where map/chart cannot be displayed
         if (
           hasError ||
           needsReprocessing ||
           isCurrentlyProcessing ||
           !hasStreetData
         ) {
-          // Show status message instead of map/chart
           let statusMessageHtml;
           let chartMessageHtml =
             '<div class="alert alert-secondary small p-2">Chart requires map data.</div>';
@@ -2047,7 +2033,7 @@ const STATUS = {
           let notificationMessage = `Map data unavailable for ${locationName}.`;
 
           if (hasError) {
-            statusMessageHtml = this.constructor.createAlertMessage(
+            statusMessageHtml = CoverageManager.createAlertMessage(
               "Error in Last Calculation",
               coverage.error_message || "An unexpected error occurred.",
               "danger",
@@ -2056,18 +2042,19 @@ const STATUS = {
             notificationType = "danger";
             notificationMessage = `Error loading map for ${locationName}.`;
           } else if (isCurrentlyProcessing) {
-            statusMessageHtml = this.constructor.createAlertMessage(
+            statusMessageHtml = CoverageManager.createAlertMessage(
               "Processing in Progress",
-              `Coverage data for ${locationName} is currently being processed (Status: ${this.constructor.formatStageName(status)}). The map will be available once complete.`,
+              `Coverage data for ${locationName} is currently being processed (Status: ${CoverageManager.formatStageName(status)}). The map will be available once complete.`,
               "info",
             );
             chartMessageHtml =
               '<div class="alert alert-info small p-2">Chart data will be available after processing.</div>';
             notificationMessage = `Processing map data for ${locationName}...`;
-            // Auto-refresh dashboard if processing
-            setTimeout(() => this.displayCoverageDashboard(locationId), 15000); // Refresh after 15 seconds
+            // Schedule a refresh if processing
+            setTimeout(() => this.displayCoverageDashboard(locationId), 15000);
           } else if (status === STATUS.COMPLETED && !hasStreetData) {
-            statusMessageHtml = this.constructor.createAlertMessage(
+            // Handle case where stats are done but GeoJSON generation might be pending or failed
+            statusMessageHtml = CoverageManager.createAlertMessage(
               "Finalizing Map Data",
               "Coverage statistics calculated. Generating detailed map data...",
               "info",
@@ -2075,11 +2062,10 @@ const STATUS = {
             chartMessageHtml =
               '<div class="alert alert-info small p-2">Generating chart data...</div>';
             notificationMessage = `Finalizing map data for ${locationName}.`;
-            // Auto-refresh
-            setTimeout(() => this.displayCoverageDashboard(locationId), 10000); // Refresh after 10 seconds
+            setTimeout(() => this.displayCoverageDashboard(locationId), 10000); // Refresh sooner
           } else {
             // Needs reprocessing or other non-error state without data
-            statusMessageHtml = this.constructor.createAlertMessage(
+            statusMessageHtml = CoverageManager.createAlertMessage(
               "Map Data Not Available",
               "Please update the coverage data to generate the map.",
               "warning",
@@ -2089,44 +2075,47 @@ const STATUS = {
             notificationMessage = `Map data needs to be generated for ${locationName}.`;
           }
 
+          // Display status messages instead of map/chart
           mapContainer.innerHTML = statusMessageHtml;
-          chartContainer.innerHTML = chartMessageHtml; // Clear chart area or show message
-          window.notificationManager.show(
-            notificationMessage,
-            notificationType,
-          );
+          chartContainer.innerHTML = chartMessageHtml;
+          this.notificationManager.show(notificationMessage, notificationType);
         } else {
-          // --- Success Path: Has Street Data ---
-          window.notificationManager.show(
+          // --- Success Path: Display Map and Chart ---
+          this.notificationManager.show(
             `Loaded coverage map for ${locationName}`,
             "success",
           );
 
-          // Initialize map and chart
-          this.initializeCoverageMap(coverage); // Handles clearing/creating map
-          this.createStreetTypeChart(coverage.street_types); // Handles clearing/creating chart
-          this.updateStreetTypeCoverage(coverage.street_types); // Update breakdown list
+          // Initialize map and chart with the valid data
+          this.initializeCoverageMap(coverage); // Creates/replaces map instance
+          this.createStreetTypeChart(coverage.street_types); // Creates/replaces chart instance
+          this.updateStreetTypeCoverage(coverage.street_types); // Updates the list breakdown
 
-          // Ensure map fits bounds after initialization
+          // Fit map bounds after initialization
           this.fitMapToBounds();
         }
 
-        // Re-initialize tooltips after dashboard potentially updated
+        // Re-initialize tooltips for any new buttons added
         this.initTooltips();
       } catch (error) {
+        // Handle errors during dashboard data fetching/display
         console.error("Error displaying coverage dashboard:", error);
         dashboardLocationName.textContent = "Error Loading Data";
         mapContainer.innerHTML = `<div class="alert alert-danger p-4"><strong>Error:</strong> ${error.message}</div>`;
-        chartContainer.innerHTML = ""; // Clear chart area
+        chartContainer.innerHTML = ""; // Clear chart
         statsContainer.innerHTML = `<div class="text-danger p-2">Failed to load stats.</div>`;
         streetTypeCoverageEl.innerHTML = `<div class="text-danger p-2">Failed to load breakdown.</div>`;
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Error loading dashboard: ${error.message}`,
           "danger",
         );
       }
     }
 
+    /**
+     * Updates the statistics card in the dashboard.
+     * @param {object} coverage - The coverage data object.
+     */
     updateDashboardStats(coverage) {
       if (!coverage) return;
       const statsContainer = document.querySelector(
@@ -2134,11 +2123,9 @@ const STATUS = {
       );
       if (!statsContainer) return;
 
-      // API provides lengths in meters
+      // Extract and format data
       const totalLengthM = coverage.total_length || 0;
       const drivenLengthM = coverage.driven_length || 0;
-      // Assume driveable_length_m might be in street_types or calculated implicitly
-      // Let's use the main driven/total for the primary stats display
       const coveragePercentage =
         coverage.coverage_percentage?.toFixed(1) || "0.0";
       const totalSegments = coverage.total_segments || 0;
@@ -2146,6 +2133,7 @@ const STATUS = {
         ? new Date(coverage.last_updated).toLocaleString()
         : "Never";
 
+      // Determine progress bar color
       let barColor = "bg-success";
       if (
         coverage.status === STATUS.ERROR ||
@@ -2155,46 +2143,50 @@ const STATUS = {
       else if (parseFloat(coveragePercentage) < 25) barColor = "bg-danger";
       else if (parseFloat(coveragePercentage) < 75) barColor = "bg-warning";
 
+      // Update HTML
       statsContainer.innerHTML = `
-            <div class="progress mb-3" style="height: 25px">
-                <div id="coverage-percentage-bar"
-                     class="progress-bar ${barColor}"
-                     role="progressbar"
-                     style="width: ${coveragePercentage}%"
-                     aria-valuenow="${coveragePercentage}"
-                     aria-valuemin="0"
-                     aria-valuemax="100">
-                    <span id="dashboard-coverage-percentage-text">${coveragePercentage}%</span>
-                </div>
-            </div>
+        <div class="progress mb-3" style="height: 25px">
+          <div id="coverage-percentage-bar"
+               class="progress-bar ${barColor}"
+               role="progressbar"
+               style="width: ${coveragePercentage}%"
+               aria-valuenow="${coveragePercentage}"
+               aria-valuemin="0"
+               aria-valuemax="100">
+            <span id="dashboard-coverage-percentage-text">${coveragePercentage}%</span>
+          </div>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <small>Total Segments:</small>
+          <small id="dashboard-total-segments">${totalSegments.toLocaleString()}</small>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <small>Total Length:</small>
+          <small id="dashboard-total-length">${this.distanceInUserUnits(totalLengthM)}</small>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <small>Driven Length:</small>
+          <small id="dashboard-driven-length">${this.distanceInUserUnits(drivenLengthM)}</small>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <small>Last Updated:</small>
+          <small id="dashboard-last-updated">${lastUpdated}</small>
+        </div>
+      `;
 
-            <div class="d-flex justify-content-between mb-2">
-                <small>Total Segments:</small>
-                <small id="dashboard-total-segments">${totalSegments.toLocaleString()}</small>
-            </div>
-            <div class="d-flex justify-content-between mb-2">
-                <small>Total Length:</small>
-                <small id="dashboard-total-length">${this.distanceInUserUnits(totalLengthM)}</small>
-            </div>
-            <div class="d-flex justify-content-between mb-2">
-                <small>Driven Length:</small>
-                <small id="dashboard-driven-length">${this.distanceInUserUnits(drivenLengthM)}</small>
-            </div>
-            <div class="d-flex justify-content-between mb-2">
-                <small>Last Updated:</small>
-                <small id="dashboard-last-updated">${lastUpdated}</small>
-            </div>
-        `;
-
-      // Update the separate street type coverage breakdown list
+      // Update the separate street type coverage list
       this.updateStreetTypeCoverage(coverage.street_types);
 
-      // Update map summary control if map exists
+      // Update the map summary control if the map exists
       if (this.coverageMap) {
-        this.addCoverageSummary(coverage);
+        this.addCoverageSummary(coverage); // Re-adds/updates the control
       }
     }
 
+    /**
+     * Updates the list showing coverage breakdown by street type.
+     * @param {Array<object>} streetTypes - Array of street type statistics.
+     */
     updateStreetTypeCoverage(streetTypes) {
       const streetTypeCoverageEl = document.getElementById(
         "street-type-coverage",
@@ -2207,17 +2199,15 @@ const STATUS = {
         return;
       }
 
-      // Sort by total length (assuming total_length_m exists in streetTypes)
+      // Sort by total length descending and take top 6
       const sortedTypes = [...streetTypes].sort(
         (a, b) => (b.total_length_m || 0) - (a.total_length_m || 0),
       );
-      const topTypes = sortedTypes.slice(0, 6); // Show top 6
+      const topTypes = sortedTypes.slice(0, 6);
 
       let html = "";
       topTypes.forEach((type) => {
         const coveragePct = type.coverage_percentage?.toFixed(1) || "0.0";
-        // Use metric fields and unit conversion
-        // Assume covered_length_m and driveable_length_m exist in streetTypes
         const coveredDist = this.distanceInUserUnits(
           type.covered_length_m || 0,
         );
@@ -2225,29 +2215,31 @@ const STATUS = {
           type.driveable_length_m || 0,
         );
 
+        // Determine bar color based on coverage percentage
         let barColor = "bg-success";
         if (type.coverage_percentage < 25) barColor = "bg-danger";
         else if (type.coverage_percentage < 75) barColor = "bg-warning";
 
         html += `
-                <div class="street-type-item mb-2">
-                    <div class="d-flex justify-content-between mb-1">
-                        <small><strong>${this.constructor.formatStreetType(type.type)}</strong></small>
-                        <small>${coveragePct}% (${coveredDist} / ${driveableDist})</small>
-                    </div>
-                    <div class="progress" style="height: 8px;" title="${this.constructor.formatStreetType(type.type)}: ${coveragePct}% Covered">
-                        <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePct}%"
-                             aria-valuenow="${coveragePct}" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                </div>
-            `;
+          <div class="street-type-item mb-2">
+            <div class="d-flex justify-content-between mb-1">
+              <small><strong>${CoverageManager.formatStreetType(type.type)}</strong></small>
+              <small>${coveragePct}% (${coveredDist} / ${driveableDist})</small>
+            </div>
+            <div class="progress" style="height: 8px;" title="${CoverageManager.formatStreetType(type.type)}: ${coveragePct}% Covered">
+              <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePct}%"
+                   aria-valuenow="${coveragePct}" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+          </div>
+        `;
       });
-
       streetTypeCoverageEl.innerHTML = html;
     }
 
+    /**
+     * Clears the dashboard UI elements when hiding or deleting data.
+     */
     clearDashboardUI() {
-      // Clear stats, chart, map, etc. when dashboard is hidden or data removed
       document.getElementById("dashboard-location-name").textContent =
         "Select a location";
       document.querySelector(
@@ -2255,29 +2247,50 @@ const STATUS = {
       ).innerHTML = "";
       document.getElementById("street-type-chart").innerHTML = "";
       document.getElementById("street-type-coverage").innerHTML = "";
+
+      // Clear map container and instance
       const mapContainer = document.getElementById("coverage-map");
-      if (mapContainer) mapContainer.innerHTML = ""; // Clear map container
+      if (mapContainer) mapContainer.innerHTML = "";
       if (this.coverageMap) {
         this.coverageMap.remove();
         this.coverageMap = null;
       }
+
+      // Reset related state variables
       this.selectedLocation = null;
       this.streetsGeoJson = null;
       this.streetsGeoJsonLayer = null;
       this.highlightedLayer = null;
       this.hoverHighlightLayer = null;
+      if (this.streetTypeChartInstance) {
+        this.streetTypeChartInstance.destroy();
+        this.streetTypeChartInstance = null;
+      }
     }
 
+    /**
+     * Static helper to create a loading indicator HTML string.
+     * @param {string} [message="Loading..."] - The message to display.
+     * @returns {string} HTML string for the loading indicator.
+     */
     static createLoadingIndicator(message = "Loading...") {
       return `
-            <div class="d-flex flex-column align-items-center justify-content-center p-4 text-center text-muted">
-              <div class="spinner-border spinner-border-sm text-secondary mb-2" role="status">
-                <span class="visually-hidden">Loading...</span>
-              </div>
-              <small>${message}</small>
-            </div>`;
+        <div class="d-flex flex-column align-items-center justify-content-center p-4 text-center text-muted">
+          <div class="spinner-border spinner-border-sm text-secondary mb-2" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <small>${message}</small>
+        </div>`;
     }
 
+    /**
+     * Static helper to create an alert message HTML string, optionally with an update button.
+     * @param {string} title - The alert title.
+     * @param {string} message - The alert message body.
+     * @param {string} [type="info"] - Alert type ('info', 'warning', 'danger', 'success').
+     * @param {string|null} [locationId=null] - If provided, adds an "Update Now" button targeting this ID.
+     * @returns {string} HTML string for the alert message.
+     */
     static createAlertMessage(
       title,
       message,
@@ -2292,44 +2305,47 @@ const STATUS = {
             : "fa-info-circle";
       const buttonHtml = locationId
         ? `
-            <hr>
-            <p class="mb-1 small">Try running an update:</p>
-            <button class="update-missing-data-btn btn btn-sm btn-primary" data-location-id="${locationId}">
-              <i class="fas fa-sync-alt me-1"></i> Update Coverage Now
-            </button>`
+        <hr>
+        <p class="mb-1 small">Try running an update:</p>
+        <button class="update-missing-data-btn btn btn-sm btn-primary" data-location-id="${locationId}">
+          <i class="fas fa-sync-alt me-1"></i> Update Coverage Now
+        </button>`
         : "";
 
       return `
-            <div class="alert alert-${type} m-3">
-              <h5 class="alert-heading h6"><i class="fas ${iconClass} me-2"></i>${title}</h5>
-              <p class="small mb-0">${message}</p>
-              ${buttonHtml}
-            </div>`;
+        <div class="alert alert-${type} m-3">
+          <h5 class="alert-heading h6"><i class="fas ${iconClass} me-2"></i>${title}</h5>
+          <p class="small mb-0">${message}</p>
+          ${buttonHtml}
+        </div>`;
     }
 
     // --- Map Interaction and Display ---
 
+    /**
+     * Initializes or re-initializes the coverage map in the dashboard.
+     * @param {object} coverage - The coverage data object containing streets_geojson.
+     */
     initializeCoverageMap(coverage) {
       const mapContainer = document.getElementById("coverage-map");
       if (!mapContainer) return;
 
-      // Clear previous map instance if exists
+      // Clear previous map instance if it exists
       if (this.coverageMap) {
         this.coverageMap.remove();
         this.coverageMap = null;
       }
+
       // Ensure container is empty before initializing
       mapContainer.innerHTML = "";
 
+      // Create new map instance
       this.coverageMap = L.map("coverage-map", {
-        attributionControl: false, // Will add manually later
+        attributionControl: false, // Add manually later
         zoomControl: true,
-        // Prefer canvas for performance with many lines, but SVG needed for some interactions/styling
-        // Let Leaflet decide for now, or choose based on testing:
-        // preferCanvas: true
       });
 
-      // Add dark base layer
+      // Add base tile layer
       L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         {
@@ -2337,45 +2353,51 @@ const STATUS = {
             '© <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
           subdomains: "abcd",
           maxZoom: 20,
-          minZoom: 5,
+          minZoom: 5, // Set a reasonable min zoom
         },
       ).addTo(this.coverageMap);
 
       // Add custom attribution control
       L.control.attribution({ prefix: false }).addTo(this.coverageMap);
 
-      // Add streets layer
-      this.addStreetsToMap(coverage.streets_geojson); // This also sets this.mapBounds
-
-      // Add hover effects (now implemented)
-      this.addMapHoverEffects();
+      // Add streets layer (if data exists)
+      if (coverage.streets_geojson) {
+        this.addStreetsToMap(coverage.streets_geojson); // This also sets this.mapBounds
+      } else {
+        console.warn("No streets_geojson data found in coverage object.");
+        this.mapBounds = null; // Reset bounds if no streets
+      }
 
       // Add summary control
       this.addCoverageSummary(coverage);
-
-      // Re-apply filter on zoom/move end to potentially optimize rendering? (Maybe not needed with style approach)
-      // this.coverageMap.off("moveend").on("moveend", () => {
-      //    this.setMapFilter(this.currentFilter || "all", false); // Pass false to avoid redundant button updates
-      // });
 
       // Add listener to clear highlight when map background is clicked
       this.coverageMap.on("click", () => {
         this.clearHighlight();
         if (this.mapInfoPanel) this.mapInfoPanel.style.display = "none";
       });
+
+      // Invalidate size after a short delay to ensure proper rendering
+      setTimeout(() => this.coverageMap?.invalidateSize(), 100);
     }
 
+    /**
+     * Determines the style for a street segment feature.
+     * @param {object} feature - GeoJSON feature object.
+     * @param {boolean} [isHover=false] - Whether the style is for hover state.
+     * @param {boolean} [isHighlight=false] - Whether the style is for click highlight state.
+     * @returns {object} Leaflet path style options.
+     */
     styleStreet(feature, isHover = false, isHighlight = false) {
       const props = feature.properties;
       const isDriven = props.driven;
       const isUndriveable = props.undriveable;
-      // Use 'highway' or 'inferred_highway_type' or default
       const streetType =
         props.highway || props.inferred_highway_type || "unknown";
+
+      // Base weight and adjustments for visual hierarchy
       const baseWeight = 3;
       let weight = baseWeight;
-
-      // Adjust weight based on type for visual hierarchy
       if (["motorway", "trunk", "primary"].includes(streetType))
         weight = baseWeight + 2;
       else if (streetType === "secondary") weight = baseWeight + 1.5;
@@ -2388,29 +2410,30 @@ const STATUS = {
         weight = baseWeight - 0.5;
       else weight = baseWeight - 1; // Footway, cycleway, etc.
 
+      // Base color and opacity
       let color;
-      let opacity = 0.75; // Base opacity
+      let opacity = 0.75;
       let dashArray = null;
 
       if (isUndriveable) {
-        color = "#607d8b"; // Muted blue-gray for undriveable
+        color = "#607d8b"; // Muted blue-gray
         opacity = 0.6;
         dashArray = "4, 4";
       } else if (isDriven) {
-        color = "#4caf50"; // Green for driven
+        color = "#4caf50"; // Green
       } else {
-        color = "#ff5252"; // Red for undriven
+        color = "#ff5252"; // Red
       }
 
-      // Apply hover/highlight styles
+      // Apply hover/highlight overrides
       if (isHighlight) {
         weight += 2;
         opacity = 1;
-        color = "#ffff00"; // Yellow highlight on click
+        color = "#ffff00"; // Yellow highlight
       } else if (isHover) {
         weight += 1.5;
         opacity = 0.95;
-        // Keep original color on hover, just make thicker/more opaque
+        // Keep original color on hover, just thicker/more opaque
       }
 
       return {
@@ -2418,10 +2441,13 @@ const STATUS = {
         weight: weight,
         opacity: opacity,
         dashArray: dashArray,
-        // className: className, // Less useful with direct styling
       };
     }
 
+    /**
+     * Adds the street GeoJSON data to the map as a layer.
+     * @param {object} geojson - The GeoJSON FeatureCollection for streets.
+     */
     addStreetsToMap(geojson) {
       if (!this.coverageMap) return;
 
@@ -2439,9 +2465,11 @@ const STATUS = {
       if (!geojson || !geojson.features || geojson.features.length === 0) {
         console.warn("No street features found in GeoJSON data.");
         this.mapBounds = this.coverageMap.getBounds(); // Use current map view if no features
+        this.streetsGeoJsonLayer = null; // Ensure layer reference is cleared
         return;
       }
 
+      // Create the main GeoJSON layer
       this.streetsGeoJsonLayer = L.geoJSON(geojson, {
         style: (feature) => this.styleStreet(feature), // Use base style initially
         onEachFeature: (feature, layer) => {
@@ -2450,7 +2478,7 @@ const STATUS = {
           // Store feature properties for easy access in handlers
           layer.featureProperties = feature.properties;
 
-          // --- Click Handler (Highlighting & Popup) ---
+          // --- Click Handler (Highlighting & Popup/Panel) ---
           layer.on("click", (e) => {
             L.DomEvent.stopPropagation(e); // Prevent map click event
             this.clearHighlight(); // Clear previous click highlight
@@ -2465,7 +2493,7 @@ const STATUS = {
             if (this.mapInfoPanel) this.mapInfoPanel.style.display = "block";
 
             // Optionally open popup on click as well (can be redundant with panel)
-            // layer.openPopup();
+            layer.openPopup();
           });
 
           // --- Hover Handlers ---
@@ -2476,95 +2504,157 @@ const STATUS = {
               this.hoverHighlightLayer = layer;
               layer.setStyle(this.styleStreet(feature, true, false)); // Apply hover style
               layer.bringToFront();
-              // Optionally update info panel on hover too, or just highlight
-              // this.updateMapInfoPanel(feature.properties, true); // Pass 'isHover=true'
+              // Optionally update info panel on hover too
+              // this.updateMapInfoPanel(feature.properties, true);
               // if (this.mapInfoPanel) this.mapInfoPanel.style.display = "block";
             }
           });
           layer.on("mouseout", (e) => {
             if (layer === this.hoverHighlightLayer) {
               this.clearHoverHighlight();
+              // Hide panel if it was shown ONLY on hover and not click-highlighted
               // if (this.mapInfoPanel && layer !== this.highlightedLayer) {
-              //     this.mapInfoPanel.style.display = 'none'; // Hide panel if it was shown on hover
+              //   this.mapInfoPanel.style.display = 'none';
               // }
             }
           });
 
           // --- Bind Popup (for manual marking actions) ---
-          layer.bindPopup(() => this.createStreetPopupContent(layer), {
-            closeButton: true, // Add close button
-            minWidth: 240,
-            className: "coverage-popup", // Custom class for styling
-          });
-        },
-      }).addTo(this.streetLayers);
+          // Define handlers HERE to ensure correct `this` binding and allow removal
+          const handleMarkDriven = () =>
+            this.markStreetSegment(layer, "driven");
+          const handleMarkUndriven = () =>
+            this.markStreetSegment(layer, "undriven");
+          const handleMarkUndriveable = () =>
+            this.markStreetSegment(layer, "undriveable");
+          const handleMarkDriveable = () =>
+            this.markStreetSegment(layer, "driveable");
 
-      // Store bounds and the layer itself
+          // Store handlers on the layer object for removal later
+          layer._popupHandlers = {
+            handleMarkDriven,
+            handleMarkUndriven,
+            handleMarkUndriveable,
+            handleMarkDriveable,
+          };
+
+          layer.bindPopup(() => this.createStreetPopupContent(layer), {
+            closeButton: true,
+            minWidth: 240,
+            className: "coverage-popup",
+          });
+
+          // --- Add Popup Open/Close Listeners for Button Handlers ---
+          layer.on("popupopen", (e) => {
+            const popupEl = e.popup.getElement();
+            if (!popupEl) return;
+            // Attach listeners using the stored handlers
+            popupEl
+              .querySelector(".mark-driven-btn")
+              ?.addEventListener(
+                "click",
+                layer._popupHandlers.handleMarkDriven,
+              );
+            popupEl
+              .querySelector(".mark-undriven-btn")
+              ?.addEventListener(
+                "click",
+                layer._popupHandlers.handleMarkUndriven,
+              );
+            popupEl
+              .querySelector(".mark-undriveable-btn")
+              ?.addEventListener(
+                "click",
+                layer._popupHandlers.handleMarkUndriveable,
+              );
+            popupEl
+              .querySelector(".mark-driveable-btn")
+              ?.addEventListener(
+                "click",
+                layer._popupHandlers.handleMarkDriveable,
+              );
+          });
+
+          layer.on("popupclose", (e) => {
+            const popupEl = e.popup.getElement();
+            if (!popupEl || !layer._popupHandlers) return;
+            // Remove listeners using the stored handlers
+            popupEl
+              .querySelector(".mark-driven-btn")
+              ?.removeEventListener(
+                "click",
+                layer._popupHandlers.handleMarkDriven,
+              );
+            popupEl
+              .querySelector(".mark-undriven-btn")
+              ?.removeEventListener(
+                "click",
+                layer._popupHandlers.handleMarkUndriven,
+              );
+            popupEl
+              .querySelector(".mark-undriveable-btn")
+              ?.removeEventListener(
+                "click",
+                layer._popupHandlers.handleMarkUndriveable,
+              );
+            popupEl
+              .querySelector(".mark-driveable-btn")
+              ?.removeEventListener(
+                "click",
+                layer._popupHandlers.handleMarkDriveable,
+              );
+          });
+        }, // end onEachFeature
+      }); // end L.geoJSON
+
+      // Add the main layer to the map *indirectly* through the layer group used for filtering
+      this.streetLayers.addLayer(this.streetsGeoJsonLayer);
+
+      // Store bounds for fitting view
       this.mapBounds = this.streetsGeoJsonLayer.getBounds();
     }
 
+    /**
+     * Creates the HTML content for a street segment's popup.
+     * Note: Event listeners are attached in 'popupopen' handler, not here.
+     * @param {L.Layer} layer - The Leaflet layer representing the street segment.
+     * @returns {HTMLElement} The DOM element for the popup content.
+     */
     createStreetPopupContent(layer) {
       const props = layer.featureProperties;
-      // Use 'name' if available, fallback to 'street_name', then default
       const streetName = props.name || props.street_name || "Unnamed Street";
       const streetType =
         props.highway || props.inferred_highway_type || "unknown";
-      // Assume segment_length_m exists in properties
       const lengthMiles = this.distanceInUserUnits(props.segment_length_m || 0);
       const status = props.driven ? "Driven" : "Not Driven";
       const segmentId = props.segment_id || "N/A";
 
       const popupContent = document.createElement("div");
-      popupContent.className = "street-popup-content"; // Use specific class
+      popupContent.className = "street-popup-content";
       popupContent.innerHTML = `
-            <h6>${streetName}</h6>
-            <hr>
-            <small>
-                <strong>Type:</strong> ${this.constructor.formatStreetType(streetType)}<br>
-                <strong>Length:</strong> ${lengthMiles}<br>
-                <strong>Status:</strong> <span class="${props.driven ? "text-success" : "text-danger"}">${status}</span><br>
-                ${props.undriveable ? '<strong>Marked as:</strong> <span class="text-warning">Undriveable</span><br>' : ""}
-                <strong>ID:</strong> ${segmentId}
-            </small>
-            <div class="street-actions mt-2 d-flex flex-wrap gap-2">
-                ${!props.driven ? `<button class="btn btn-sm btn-outline-success mark-driven-btn">Mark Driven</button>` : ""}
-                ${props.driven ? `<button class="btn btn-sm btn-outline-danger mark-undriven-btn">Mark Undriven</button>` : ""}
-                ${!props.undriveable ? `<button class="btn btn-sm btn-outline-warning mark-undriveable-btn">Mark Undriveable</button>` : ""}
-                ${props.undriveable ? `<button class="btn btn-sm btn-outline-info mark-driveable-btn">Mark Driveable</button>` : ""}
-            </div>
-        `;
-
-      // Add event listeners to the buttons within this specific popup instance
-      const self = this; // Reference to CoverageManager instance
-      popupContent
-        .querySelector(".mark-driven-btn")
-        ?.addEventListener("click", function () {
-          self.markStreetSegment(layer, "driven");
-        });
-      popupContent
-        .querySelector(".mark-undriven-btn")
-        ?.addEventListener("click", function () {
-          self.markStreetSegment(layer, "undriven");
-        });
-      popupContent
-        .querySelector(".mark-undriveable-btn")
-        ?.addEventListener("click", function () {
-          self.markStreetSegment(layer, "undriveable");
-        });
-      popupContent
-        .querySelector(".mark-driveable-btn")
-        ?.addEventListener("click", function () {
-          self.markStreetSegment(layer, "driveable");
-        });
-
+        <h6>${streetName}</h6>
+        <hr>
+        <small>
+          <strong>Type:</strong> ${CoverageManager.formatStreetType(streetType)}<br>
+          <strong>Length:</strong> ${lengthMiles}<br>
+          <strong>Status:</strong> <span class="${props.driven ? "text-success" : "text-danger"}">${status}</span><br>
+          ${props.undriveable ? '<strong>Marked as:</strong> <span class="text-warning">Undriveable</span><br>' : ""}
+          <strong>ID:</strong> ${segmentId}
+        </small>
+        <div class="street-actions mt-2 d-flex flex-wrap gap-2">
+          ${!props.driven ? `<button class="btn btn-sm btn-outline-success mark-driven-btn">Mark Driven</button>` : ""}
+          ${props.driven ? `<button class="btn btn-sm btn-outline-danger mark-undriven-btn">Mark Undriven</button>` : ""}
+          ${!props.undriveable ? `<button class="btn btn-sm btn-outline-warning mark-undriveable-btn">Mark Undriveable</button>` : ""}
+          ${props.undriveable ? `<button class="btn btn-sm btn-outline-info mark-driveable-btn">Mark Driveable</button>` : ""}
+        </div>
+      `;
+      // IMPORTANT: Event listeners are added in the 'popupopen' handler in addStreetsToMap
       return popupContent;
     }
 
-    addMapHoverEffects() {
-      // Hover effects are now added directly in onEachFeature using mouseover/mouseout listeners
-      console.log("Map hover effects initialized via onEachFeature.");
-    }
-
+    /**
+     * Resets the style of the currently click-highlighted layer.
+     */
     clearHighlight() {
       if (this.highlightedLayer) {
         try {
@@ -2575,17 +2665,24 @@ const STATUS = {
             "Could not reset style on previously highlighted layer:",
             styleError,
           );
-          // Fallback: try setting a default style
-          this.highlightedLayer.setStyle({
-            weight: 3,
-            opacity: 0.7,
-            color: "#ff5252",
-          }); // Example fallback
+          // Attempt a default fallback style
+          try {
+            this.highlightedLayer.setStyle({
+              weight: 3,
+              opacity: 0.7,
+              color: "#ff5252",
+            }); // Example fallback
+          } catch (fallbackError) {
+            console.warn("Fallback style reset failed:", fallbackError);
+          }
         }
-        this.highlightedLayer = null;
+        this.highlightedLayer = null; // Clear the reference
       }
     }
 
+    /**
+     * Resets the style of the currently hover-highlighted layer.
+     */
     clearHoverHighlight() {
       if (this.hoverHighlightLayer) {
         try {
@@ -2600,20 +2697,39 @@ const STATUS = {
             "Could not reset style on previously hovered layer:",
             styleError,
           );
+          // Attempt a default fallback style
+          try {
+            this.hoverHighlightLayer.setStyle({
+              weight: 3,
+              opacity: 0.7,
+              color: "#ff5252",
+            }); // Example fallback
+          } catch (fallbackError) {
+            console.warn("Fallback style reset failed:", fallbackError);
+          }
         }
-        this.hoverHighlightLayer = null;
+        this.hoverHighlightLayer = null; // Clear the reference
       }
     }
 
+    /**
+     * Creates the DOM element for the map info panel (initially hidden).
+     */
     createMapInfoPanel() {
-      // Create the panel div but keep it hidden initially
+      // Ensure it doesn't already exist
+      if (this.mapInfoPanel) return;
+
       this.mapInfoPanel = document.createElement("div");
       this.mapInfoPanel.className = "map-info-panel";
-      // Append it to the map container's parent or body to ensure correct positioning context
-      // Or append directly to map container if position: relative is set on it
+      // Append to the map container (or another suitable parent)
       document.getElementById("coverage-map")?.appendChild(this.mapInfoPanel);
     }
 
+    /**
+     * Updates the content of the map info panel.
+     * @param {object} props - Feature properties.
+     * @param {boolean} [isHover=false] - Whether this update is triggered by hover.
+     */
     updateMapInfoPanel(props, isHover = false) {
       if (!this.mapInfoPanel) return;
 
@@ -2625,69 +2741,72 @@ const STATUS = {
       const segmentId = props.segment_id || "N/A";
 
       this.mapInfoPanel.innerHTML = `
-            <strong class="d-block mb-1">${streetName}</strong>
-            ${isHover ? "" : '<hr class="panel-divider">'} <div class="d-flex justify-content-between small">
-                <span>Type:</span>
-                <span class="text-info">${this.constructor.formatStreetType(streetType)}</span>
-            </div>
-            <div class="d-flex justify-content-between small">
-                <span>Length:</span>
-                <span class="text-info">${lengthMiles}</span>
-            </div>
-            <div class="d-flex justify-content-between small">
-                <span>Status:</span>
-                <span class="${props.driven ? "text-success" : "text-danger"}">
-                    <i class="fas fa-${props.driven ? "check-circle" : "times-circle"} me-1"></i>${status}
-                </span>
-            </div>
-            ${
-              props.undriveable
-                ? `
-            <div class="d-flex justify-content-between small">
-                <span>Marked:</span>
-                <span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Undriveable</span>
-            </div>`
-                : ""
-            }
-             ${
-               isHover
-                 ? ""
-                 : `
-             <div class="d-flex justify-content-between small mt-1">
-                 <span>ID:</span>
-                 <span class="text-muted">${segmentId}</span>
-             </div>
-             <div class="mt-2 small text-center text-muted">Click segment to mark status</div>
-             `
-             }
-        `;
-      // Position panel near mouse/feature? More complex. For now, fixed top-left.
+        <strong class="d-block mb-1">${streetName}</strong>
+        ${isHover ? "" : '<hr class="panel-divider">'} <div class="d-flex justify-content-between small">
+          <span>Type:</span>
+          <span class="text-info">${CoverageManager.formatStreetType(streetType)}</span>
+        </div>
+        <div class="d-flex justify-content-between small">
+          <span>Length:</span>
+          <span class="text-info">${lengthMiles}</span>
+        </div>
+        <div class="d-flex justify-content-between small">
+          <span>Status:</span>
+          <span class="${props.driven ? "text-success" : "text-danger"}">
+            <i class="fas fa-${props.driven ? "check-circle" : "times-circle"} me-1"></i>${status}
+          </span>
+        </div>
+        ${
+          props.undriveable
+            ? `
+          <div class="d-flex justify-content-between small">
+            <span>Marked:</span>
+            <span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Undriveable</span>
+          </div>`
+            : ""
+        }
+        ${
+          isHover
+            ? ""
+            : `
+          <div class="d-flex justify-content-between small mt-1">
+            <span>ID:</span>
+            <span class="text-muted">${segmentId}</span>
+          </div>
+          <div class="mt-2 small text-center text-muted">Click segment to mark status</div>
+        `
+        }
+      `;
     }
 
+    /**
+     * Adds or updates the coverage summary control on the map.
+     * @param {object} coverage - The coverage data object.
+     */
     addCoverageSummary(coverage) {
       if (!this.coverageMap) return;
 
-      // Remove existing summary control if present
+      // Remove existing control first to prevent duplicates
       if (this.coverageSummaryControl) {
         this.coverageMap.removeControl(this.coverageSummaryControl);
         this.coverageSummaryControl = null;
       }
 
-      // Use L.Control for better integration
+      // Define the custom Leaflet control
       const CoverageSummaryControl = L.Control.extend({
-        options: { position: "topright" }, // Position top-right
+        options: { position: "topright" }, // Position control
         onAdd: () => {
           const container = L.DomUtil.create(
             "div",
             "coverage-summary-control leaflet-bar",
           );
-          // Prevent map clicks when interacting with the control
+          // Disable map interactions on the control
           L.DomEvent.disableClickPropagation(container);
           L.DomEvent.disableScrollPropagation(container);
 
+          // Extract and format data
           const coveragePercentage =
             coverage.coverage_percentage?.toFixed(1) || "0.0";
-          // Use instance method for conversion
           const totalMiles = this.distanceInUserUnits(
             coverage.total_length || 0,
           );
@@ -2695,6 +2814,7 @@ const STATUS = {
             coverage.driven_length || 0,
           );
 
+          // Determine bar color
           let barColor = "bg-success";
           if (
             coverage.status === STATUS.ERROR ||
@@ -2704,19 +2824,20 @@ const STATUS = {
           else if (parseFloat(coveragePercentage) < 25) barColor = "bg-danger";
           else if (parseFloat(coveragePercentage) < 75) barColor = "bg-warning";
 
+          // Populate control HTML
           container.innerHTML = `
-                    <div class="summary-content">
-                        <div class="summary-title">Coverage Summary</div>
-                        <div class="summary-percentage">${coveragePercentage}%</div>
-                        <div class="summary-progress">
-                            <div class="progress" style="height: 6px;" title="${coveragePercentage}% Covered">
-                                <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePercentage}%"></div>
-                            </div>
-                        </div>
-                        <div class="summary-details">
-                            <div>${drivenMiles} / ${totalMiles}</div>
-                        </div>
-                    </div>`;
+            <div class="summary-content">
+              <div class="summary-title">Coverage Summary</div>
+              <div class="summary-percentage">${coveragePercentage}%</div>
+              <div class="summary-progress">
+                <div class="progress" style="height: 6px;" title="${coveragePercentage}% Covered">
+                  <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePercentage}%"></div>
+                </div>
+              </div>
+              <div class="summary-details">
+                <div>${drivenMiles} / ${totalMiles}</div>
+              </div>
+            </div>`;
           return container;
         },
         onRemove: () => {
@@ -2724,25 +2845,32 @@ const STATUS = {
         },
       });
 
+      // Create and add the control to the map
       this.coverageSummaryControl = new CoverageSummaryControl();
       this.coverageSummaryControl.addTo(this.coverageMap);
     }
 
+    /**
+     * Handles marking a street segment status (driven, undriven, etc.) via API call.
+     * @param {L.Layer} layer - The Leaflet layer of the segment.
+     * @param {string} action - The action to perform ('driven', 'undriven', 'undriveable', 'driveable').
+     */
     async markStreetSegment(layer, action) {
       const props = layer.featureProperties;
       if (!props || !props.segment_id) {
-        window.notificationManager.show("Missing segment ID.", "danger");
+        this.notificationManager.show("Missing segment ID.", "danger");
         return;
       }
       if (!this.selectedLocation || !this.selectedLocation._id) {
-        window.notificationManager.show("Missing location context.", "danger");
+        this.notificationManager.show("Missing location context.", "danger");
         return;
       }
 
       const locationId = this.selectedLocation._id;
       const segmentId = props.segment_id;
-      let apiEndpoint, statusText, optimisticDriven, optimisticUndriveable;
 
+      // Determine API endpoint and optimistic state changes
+      let apiEndpoint, statusText, optimisticDriven, optimisticUndriveable;
       switch (action) {
         case "driven":
           apiEndpoint = "/api/street_segments/mark_driven";
@@ -2753,28 +2881,28 @@ const STATUS = {
         case "undriven":
           apiEndpoint = "/api/street_segments/mark_undriven";
           statusText = "undriven";
-          optimisticDriven = false; // Keep undriveable status as is unless explicitly changed
+          optimisticDriven = false;
           optimisticUndriveable = props.undriveable;
-          break;
+          break; // Keep undriveable status if marking undriven
         case "undriveable":
           apiEndpoint = "/api/street_segments/mark_undriveable";
           statusText = "undriveable";
-          optimisticDriven = props.driven; // Keep driven status
+          optimisticDriven = props.driven;
           optimisticUndriveable = true;
-          break;
+          break; // Keep driven status if marking undriveable
         case "driveable":
           apiEndpoint = "/api/street_segments/mark_driveable";
           statusText = "driveable";
-          optimisticDriven = props.driven; // Keep driven status
+          optimisticDriven = props.driven;
           optimisticUndriveable = false;
-          break;
+          break; // Keep driven status
         default:
-          window.notificationManager.show("Invalid action specified", "danger");
+          this.notificationManager.show("Invalid action specified", "danger");
           return;
       }
 
       const streetName = props.name || props.street_name || "Unnamed Street";
-      const originalStyle = layer.originalStyle; // Store before optimistic update
+      const originalStyle = layer.originalStyle; // Store original style before optimistic update
 
       // --- Optimistic UI Update ---
       layer.featureProperties.driven = optimisticDriven;
@@ -2783,21 +2911,22 @@ const STATUS = {
         properties: layer.featureProperties,
       });
       layer.setStyle(newStyle);
-      layer.originalStyle = { ...newStyle }; // Update original style to reflect change
+      // Update the stored original style to reflect the new base state IF successful
+      // We'll do this after the API call succeeds.
 
-      // Update info panel if this layer is highlighted
+      // Update info panel if this segment is currently highlighted
       if (this.highlightedLayer === layer && this.mapInfoPanel) {
         this.updateMapInfoPanel(layer.featureProperties);
       }
-      // Close popup
-      this.coverageMap?.closePopup();
+      this.coverageMap?.closePopup(); // Close popup after action
 
       try {
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Marking ${streetName} as ${statusText}...`,
           "info",
         );
 
+        // --- API Call ---
         const response = await fetch(apiEndpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2814,38 +2943,45 @@ const STATUS = {
               `Failed to mark segment (HTTP ${response.status})`,
           );
         }
+
         const data = await response.json();
         if (!data.success) {
           throw new Error(data.error || "API returned failure");
         }
 
-        window.notificationManager.show(
+        // --- Success ---
+        this.notificationManager.show(
           `Marked ${streetName} as ${statusText}.`,
           "success",
         );
-
-        // Refresh the coverage statistics from the backend
+        // Update the layer's stored original style to the new state
+        layer.originalStyle = { ...newStyle };
+        // Refresh overall coverage stats after successful update
         await this.refreshCoverageStats();
       } catch (error) {
+        // --- Revert Optimistic Update on Error ---
         console.error(`Error marking segment as ${statusText}:`, error);
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Failed to mark segment: ${error.message}`,
           "danger",
         );
 
-        // --- Revert Optimistic Update on Error ---
-        layer.featureProperties.driven = props.driven; // Revert props
+        // Revert properties and style
+        layer.featureProperties.driven = props.driven; // Revert to original props state
         layer.featureProperties.undriveable = props.undriveable;
-        layer.setStyle(originalStyle); // Revert style
-        layer.originalStyle = { ...originalStyle }; // Revert stored original style
+        layer.setStyle(originalStyle); // Re-apply original style
 
-        // Update info panel if this layer is highlighted
+        // Revert info panel if needed
         if (this.highlightedLayer === layer && this.mapInfoPanel) {
           this.updateMapInfoPanel(layer.featureProperties);
         }
       }
     }
 
+    /**
+     * Refreshes the coverage statistics for the currently selected location.
+     * @returns {Promise<object|undefined>} The updated coverage data or undefined on error.
+     */
     async refreshCoverageStats() {
       if (!this.selectedLocation || !this.selectedLocation._id) return;
 
@@ -2863,63 +2999,69 @@ const STATUS = {
               `Failed to refresh stats (HTTP ${response.status})`,
           );
         }
+
         const data = await response.json();
         if (!data.success || !data.coverage) {
           throw new Error(data.error || "API returned failure on stat refresh");
         }
 
-        // Update the main selectedLocation data
+        // Update the stored selected location data with refreshed stats
         this.selectedLocation = { ...this.selectedLocation, ...data.coverage };
 
-        // Update the dashboard stats display
+        // Update relevant UI components
         this.updateDashboardStats(this.selectedLocation);
-        // Update the map summary control
-        this.addCoverageSummary(this.selectedLocation);
-        // Update the chart? Might require re-fetching street_types if they changed
+        // Map summary control is updated within updateDashboardStats
+        // Chart and breakdown list might need updating if street_types data changed
         this.createStreetTypeChart(this.selectedLocation.street_types);
-        // Update the street type list
         this.updateStreetTypeCoverage(this.selectedLocation.street_types);
 
-        window.notificationManager.show(
-          "Coverage statistics refreshed.",
-          "info",
-        );
-        return data;
+        this.notificationManager.show("Coverage statistics refreshed.", "info");
+        return data.coverage; // Return updated data
       } catch (error) {
         console.error("Error refreshing coverage stats:", error);
-        window.notificationManager.show(
+        this.notificationManager.show(
           `Failed to refresh stats: ${error.message}`,
           "warning",
         );
-        // Don't re-throw, allow UI to continue
+        return undefined;
       }
     }
 
+    /**
+     * Fits the map view to the bounds of the loaded street data.
+     */
     fitMapToBounds() {
       if (this.coverageMap && this.mapBounds && this.mapBounds.isValid()) {
-        this.coverageMap.fitBounds(this.mapBounds, { padding: [40, 40] }); // Slightly more padding
+        this.coverageMap.fitBounds(this.mapBounds, { padding: [40, 40] }); // Add some padding
       } else if (this.coverageMap) {
-        // Fallback if bounds are invalid or not set yet
-        this.coverageMap.setView([31.55, -97.15], 11); // Default view (Waco, TX)
+        // Fallback if bounds are invalid or not set
+        this.coverageMap.setView([31.55, -97.15], 11); // Example fallback view
         console.warn("Map bounds invalid or not set, using default view.");
       }
     }
 
+    /**
+     * Creates or updates the street type breakdown chart using Chart.js.
+     * @param {Array<object>} streetTypes - Array of street type statistics.
+     */
     createStreetTypeChart(streetTypes) {
       const chartContainer = document.getElementById("street-type-chart");
       if (!chartContainer) return;
 
-      // Clear previous chart instance
+      // Destroy existing chart instance if it exists
       if (this.streetTypeChartInstance) {
         this.streetTypeChartInstance.destroy();
         this.streetTypeChartInstance = null;
       }
 
+      // Check if data is available
       if (!streetTypes || !streetTypes.length) {
         chartContainer.innerHTML =
           '<div class="alert alert-secondary small p-2">No street type data for chart.</div>';
         return;
       }
+
+      // Check if Chart.js library is loaded
       if (typeof Chart === "undefined") {
         console.error("Chart.js is not loaded");
         chartContainer.innerHTML =
@@ -2927,19 +3069,18 @@ const STATUS = {
         return;
       }
 
-      // Prepare data (top 7 types based on driveable length)
-      // Assume driveable_length_m exists in streetTypes
+      // Prepare data for the chart
       const sortedTypes = [...streetTypes].sort(
-        (a, b) => (b.driveable_length_m || 0) - (a.driveable_length_m || 0),
+        (a, b) => (b.driveable_length_m || 0) - (a.driveable_length_m || 0), // Sort by driveable length
       );
-      const topTypes = sortedTypes.slice(0, 7);
-      const labels = topTypes.map((t) =>
-        this.constructor.formatStreetType(t.type),
-      );
+      const topTypes = sortedTypes.slice(0, 7); // Show top 7 types
 
-      // Use distanceInUserUnits and parse the numeric part
-      const parseDist = (distStr) => parseFloat(distStr.split(" ")[0]) || 0;
-      // Assume covered_length_m and driveable_length_m exist
+      const labels = topTypes.map((t) =>
+        CoverageManager.formatStreetType(t.type),
+      );
+      const parseDist = (distStr) => parseFloat(distStr.split(" ")[0]) || 0; // Helper to parse "X mi" string
+
+      // Extract driven and calculate not-driven lengths
       const drivenLengths = topTypes.map((t) =>
         parseDist(this.distanceInUserUnits(t.covered_length_m || 0)),
       );
@@ -2949,15 +3090,18 @@ const STATUS = {
       const notDrivenLengths = driveableLengths.map((total, i) =>
         parseFloat(Math.max(0, total - drivenLengths[i]).toFixed(2)),
       );
-      const lengthUnit = "mi"; // Always miles
 
-      // Ensure container has a canvas
+      const lengthUnit = "mi"; // Define the unit used
+
+      // Create canvas for the chart
       chartContainer.innerHTML = "<canvas></canvas>";
       const ctx = chartContainer.querySelector("canvas").getContext("2d");
 
+      // Define colors
       const drivenColor = "rgba(76, 175, 80, 0.8)"; // Green
       const notDrivenColor = "rgba(255, 82, 82, 0.7)"; // Red
 
+      // Create the Chart.js instance
       this.streetTypeChartInstance = new Chart(ctx, {
         type: "bar",
         data: {
@@ -2981,6 +3125,7 @@ const STATUS = {
           indexAxis: "y", // Horizontal bars
           scales: {
             x: {
+              // Now the value axis
               stacked: true,
               ticks: { color: "#ccc", font: { size: 10 } },
               grid: { color: "rgba(255, 255, 255, 0.1)" },
@@ -2992,9 +3137,10 @@ const STATUS = {
               },
             },
             y: {
+              // Now the category axis
               stacked: true,
               ticks: { color: "#eee", font: { size: 11 } },
-              grid: { display: false }, // Hide Y grid lines for clarity
+              grid: { display: false }, // Hide vertical grid lines
             },
           },
           plugins: {
@@ -3005,13 +3151,13 @@ const STATUS = {
                 label: (context) => {
                   const label = context.dataset.label || "";
                   const value = context.raw || 0;
-                  // Find total driveable length for this bar (type)
-                  const total = driveableLengths[context.dataIndex];
+                  const total = driveableLengths[context.dataIndex]; // Get total for percentage
                   const percentage =
                     total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                   return `${label}: ${value.toFixed(2)} ${lengthUnit} (${percentage}%)`;
                 },
                 footer: (tooltipItems) => {
+                  // Add total driveable length to footer
                   const total = driveableLengths[tooltipItems[0].dataIndex];
                   return `Total Driveable: ${total.toFixed(2)} ${lengthUnit}`;
                 },
@@ -3026,83 +3172,91 @@ const STATUS = {
                 font: { size: 11 },
               },
             },
-            title: {
-              // Use Chart.js title plugin
-              display: false, // Title is in the card header now
-              // text: "Driveable Coverage by Street Type (Top 7)",
-              // color: "#eee", padding: { top: 5, bottom: 10 },
-            },
+            title: { display: false }, // No main chart title needed
           },
         },
       });
     }
 
+    /**
+     * Exports the current coverage map view as a PNG image.
+     * Requires the leaflet-image library to be loaded.
+     */
     exportCoverageMap() {
+      // Check if map and export library exist
       if (!this.coverageMap || typeof leafletImage === "undefined") {
-        window.notificationManager.show(
+        this.notificationManager.show(
           "Map export library (leaflet-image) not available.",
           "warning",
         );
         return;
       }
       if (!this.selectedLocation || !this.selectedLocation.location_name) {
-        window.notificationManager.show(
+        this.notificationManager.show(
           "Cannot export map: No location selected.",
           "warning",
         );
         return;
       }
 
+      // Generate filename
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const locationName = this.selectedLocation.location_name
         .replace(/[^a-z0-9]/gi, "_")
         .toLowerCase();
       const filename = `coverage_map_${locationName}_${timestamp}.png`;
 
-      window.notificationManager.show("Generating map image...", "info");
+      this.notificationManager.show("Generating map image...", "info");
 
-      // Ensure layers are visible based on the current filter before exporting
-      this.setMapFilter(this.currentFilter || "all", false); // false to prevent button state flicker
+      // Ensure the correct filter is applied before exporting
+      this.setMapFilter(this.currentFilter || "all", false); // false to avoid button updates
+      this.coverageMap.invalidateSize(); // Ensure map size is correct
 
-      // Force redraw and wait slightly longer
-      this.coverageMap.invalidateSize();
+      // Use leafletImage after a short delay to allow rendering updates
       setTimeout(() => {
         leafletImage(
           this.coverageMap,
           (err, canvas) => {
             if (err) {
               console.error("Error generating map image:", err);
-              window.notificationManager.show(
+              this.notificationManager.show(
                 `Failed to generate map image: ${err.message || err}`,
                 "danger",
               );
               return;
             }
+            // Trigger download
             try {
               const link = document.createElement("a");
               link.download = filename;
               link.href = canvas.toDataURL("image/png");
-              document.body.appendChild(link); // Required for Firefox
+              document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
-              window.notificationManager.show(
+              this.notificationManager.show(
                 "Map image download started.",
                 "success",
               );
             } catch (downloadError) {
               console.error("Error triggering download:", downloadError);
-              window.notificationManager.show(
+              this.notificationManager.show(
                 "Failed to trigger map download.",
                 "danger",
               );
             }
           },
-          { preferCanvas: true }, // Use canvas renderer for export consistency
+          { preferCanvas: true }, // Use canvas renderer for potentially better results
         );
-      }, 1000); // Wait 1 second
+      }, 1000); // Delay to allow map to potentially redraw
     }
 
+    /**
+     * Applies a filter to the displayed street segments on the map.
+     * @param {string} filterType - The filter type ('all', 'driven', 'undriven').
+     * @param {boolean} [updateButtons=true] - Whether to update the filter button UI states.
+     */
     setMapFilter(filterType, updateButtons = true) {
+      // Ensure necessary components are initialized
       if (
         !this.coverageMap ||
         !this.streetsGeoJsonLayer ||
@@ -3115,56 +3269,77 @@ const STATUS = {
       }
 
       this.currentFilter = filterType;
-
       console.log(`Applying filter: ${filterType}`);
-
       let visibleCount = 0;
+
+      // Iterate through each layer within the main GeoJSON layer
       this.streetsGeoJsonLayer.eachLayer((layer) => {
         const props = layer.featureProperties;
         let isVisible = false;
 
+        // Determine visibility based on filter type and properties
         if (filterType === "driven") {
           isVisible = props.driven === true && !props.undriveable;
         } else if (filterType === "undriven") {
           isVisible = props.driven === false && !props.undriveable;
         } else {
-          // 'all' includes driven, undriven, and undriveable
+          // 'all' or unknown filter shows everything
           isVisible = true;
         }
 
-        // Apply style based on visibility
+        // Manage layer visibility and style resets
         if (isVisible) {
-          // Ensure the correct base style is applied (not hover/highlight)
-          if (layer === this.highlightedLayer) {
-            // Re-apply highlight style if it should be visible
-            layer.setStyle(this.styleStreet(layer.feature, false, true));
-          } else {
-            // Apply original style
-            layer.setStyle(layer.originalStyle);
-          }
-          // Ensure layer is added to the visible group (might be redundant if always in group)
+          // If becoming visible, add it to the display group if not already there
           if (!this.streetLayers.hasLayer(layer)) {
+            // Reset style to original before adding back
+            try {
+              layer.setStyle(layer.originalStyle);
+            } catch (e) {
+              console.warn("Style reset failed on add");
+            }
             this.streetLayers.addLayer(layer);
+          }
+          // If this is the currently click-highlighted layer, ensure its highlight style is applied
+          if (layer === this.highlightedLayer) {
+            layer.setStyle(this.styleStreet(layer.feature, false, true));
+            layer.bringToFront(); // Ensure highlighted is on top
           }
           visibleCount++;
         } else {
-          // Hide the layer effectively by removing from the map group
+          // Layer should be hidden
+          // If hiding the currently highlighted layer, clear the highlight state first
+          if (layer === this.highlightedLayer) {
+            this.clearHighlight(); // Resets style and clears reference
+          }
+          // If hiding the currently hover-highlighted layer
+          if (layer === this.hoverHighlightLayer) {
+            this.clearHoverHighlight(); // Resets style and clears reference
+          }
+
+          // Remove the layer from the display group if it's currently there
           if (this.streetLayers.hasLayer(layer)) {
+            // Reset style to original *before* removing, just in case
+            try {
+              layer.setStyle(layer.originalStyle);
+            } catch (e) {
+              console.warn("Style reset failed on removal");
+            }
             this.streetLayers.removeLayer(layer);
           }
-          // Or set style to transparent (less performant if many layers)
-          // layer.setStyle({ opacity: 0, fillOpacity: 0, interactive: false });
         }
       });
 
       console.log(`Filter applied. Visible segments: ${visibleCount}`);
 
-      // Update button states if requested
+      // Update the UI state of the filter buttons if requested
       if (updateButtons) {
         this.updateFilterButtonStates();
       }
     }
 
+    /**
+     * Updates the visual state (active class, colors) of the map filter buttons.
+     */
     updateFilterButtonStates() {
       const filterButtons = {
         all: document.querySelector('.map-controls button[data-filter="all"]'),
@@ -3180,7 +3355,7 @@ const STATUS = {
         const btn = filterButtons[key];
         if (!btn) return;
 
-        // Reset styles
+        // Reset classes
         btn.classList.remove(
           "active",
           "btn-primary",
@@ -3188,21 +3363,24 @@ const STATUS = {
           "btn-danger",
           "btn-outline-secondary",
         );
-        btn.classList.add("btn-outline-secondary"); // Default outline
+        // Default style
+        btn.classList.add("btn-outline-secondary");
 
-        // Apply active style
+        // Apply active style if this button matches the current filter
         if (key === this.currentFilter) {
           btn.classList.add("active");
           btn.classList.remove("btn-outline-secondary");
+          // Apply specific color based on filter type
           if (key === "driven") btn.classList.add("btn-success");
           else if (key === "undriven") btn.classList.add("btn-danger");
-          else btn.classList.add("btn-primary"); // 'all' is primary
+          else btn.classList.add("btn-primary"); // 'all' uses primary
         }
       });
     }
 
-    // --- Static Helpers ---
+    // --- Static Helper Methods ---
 
+    /** Static helper to get an icon class based on task stage. */
     static getStageIcon(stage) {
       const icons = {
         [STATUS.INITIALIZING]: '<i class="fas fa-cog fa-spin"></i>',
@@ -3221,9 +3399,10 @@ const STATUS = {
         [STATUS.WARNING]: '<i class="fas fa-exclamation-triangle"></i>',
         [STATUS.CANCELED]: '<i class="fas fa-ban"></i>',
       };
-      return icons[stage] || '<i class="fas fa-question-circle"></i>';
+      return icons[stage] || '<i class="fas fa-question-circle"></i>'; // Default icon
     }
 
+    /** Static helper to get a text color class based on task stage. */
     static getStageTextClass(stage) {
       const classes = {
         [STATUS.COMPLETE]: "text-success",
@@ -3232,9 +3411,10 @@ const STATUS = {
         [STATUS.WARNING]: "text-warning",
         [STATUS.CANCELED]: "text-warning",
       };
-      return classes[stage] || "text-info"; // Default to info
+      return classes[stage] || "text-info"; // Default color
     }
 
+    /** Static helper to format a stage key into a human-readable name. */
     static formatStageName(stage) {
       const stageNames = {
         [STATUS.INITIALIZING]: "Initializing",
@@ -3253,22 +3433,24 @@ const STATUS = {
         [STATUS.WARNING]: "Warning",
         [STATUS.CANCELED]: "Canceled",
       };
+      // Fallback for unknown stages
       return (
         stageNames[stage] ||
         stage.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
       );
     }
 
+    /** Static helper to format a street type key into a human-readable name. */
     static formatStreetType(type) {
       if (!type) return "Unknown";
-      // Capitalize first letter, replace underscores
+      // Replace underscores with spaces and capitalize words
       return type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
     }
-  } // End of CoverageManager class
+  } // End CoverageManager Class
 
-  // Initialize on DOM load
+  // --- Initialization ---
   document.addEventListener("DOMContentLoaded", () => {
-    // Ensure Leaflet and Chart.js are loaded before initializing
+    // Check for required libraries (Leaflet, Chart.js)
     if (typeof L === "undefined" || typeof Chart === "undefined") {
       console.error(
         "Leaflet or Chart.js not loaded. Coverage Manager initialization aborted.",
@@ -3281,10 +3463,12 @@ const STATUS = {
           "Error: Required libraries (Leaflet, Chart.js) failed to load. Map and chart functionality will be unavailable.";
         errorContainer.prepend(errorDiv);
       }
-      return;
+      return; // Stop initialization
     }
-    // Make instance globally accessible if needed, or manage scope differently
+
+    // Instantiate the manager and make it globally accessible (if needed)
+    // This now runs *after* DOM is loaded.
     window.coverageManager = new CoverageManager();
     console.log("Coverage Manager initialized.");
   });
-})(); // IIFE
+})(); // End IIFE

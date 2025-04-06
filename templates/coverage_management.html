@@ -577,10 +577,14 @@ block head_content %}
             <div class="stage-info mb-2 text-info"></div>
             <div class="stats-info"></div>
             <div
-              class="time-info text-muted mt-2 d-flex justify-content-between"
+              class="time-info text-muted mt-2 d-flex justify-content-between align-items-center"
             >
               <span class="elapsed-time">Elapsed: 0s</span>
-              <span class="estimated-time">Est. remaining: calculating...</span>
+              <span class="activity-indicator">
+                <i class="fas fa-hourglass-half text-secondary me-1"></i>Idle
+              </span>
+              <span class="last-update-time small"></span>
+              <span class="estimated-time"></span>
             </div>
           </div>
         </div>
