@@ -595,10 +595,10 @@
     if (mostVisitedEl && data.most_visited) {
       try {
         const { _id, count, isCustomPlace } = data.most_visited;
-        
+
         // Extract place name from _id which might be in different formats
         let placeName = "Unknown";
-        
+
         if (typeof _id === "string") {
           // Try to parse the string as JSON in case it's a stringified object
           try {
@@ -614,11 +614,16 @@
           }
         } else if (typeof _id === "object" && _id !== null) {
           // Handle object format - look for common location properties
-          placeName = _id.formatted_address || _id.name || _id.place_name || 
-                      _id.placeName || _id.location || _id.address || 
-                      (typeof _id.toString === 'function' ? _id.toString() : 'Unknown');
+          placeName =
+            _id.formatted_address ||
+            _id.name ||
+            _id.place_name ||
+            _id.placeName ||
+            _id.location ||
+            _id.address ||
+            (typeof _id.toString === "function" ? _id.toString() : "Unknown");
         }
-        
+
         mostVisitedEl.innerHTML = `${placeName} ${
           isCustomPlace ? '<span class="badge bg-primary">Custom</span>' : ""
         } (${count} visits)`;
