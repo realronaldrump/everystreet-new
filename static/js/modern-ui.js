@@ -72,9 +72,9 @@
       handleResize();
 
       // Initialize map-dependent features AFTER map initialization
-      document.addEventListener('mapInitialized', () => {
-          console.log('Map initialization detected by modern-ui.js');
-          enhanceMapInteraction();
+      document.addEventListener("mapInitialized", () => {
+        console.log("Map initialization detected by modern-ui.js");
+        enhanceMapInteraction();
       });
     } catch (error) {
       console.error("Error initializing Modern UI:", error);
@@ -796,94 +796,96 @@
   // Add enhance map interaction function
   function enhanceMapInteraction() {
     // Only run on pages with a map
-    if (!document.getElementById('map')) return;
-    
+    if (!document.getElementById("map")) return;
+
     // Map should be initialized by the time this is called
     applyMapEnhancements();
   }
-  
+
   function applyMapEnhancements() {
     try {
       const map = window.map;
       if (!map || !map.options) {
-        console.warn('Map object or options not available for enhancements.');
-        return; 
-      } 
-      
+        console.warn("Map object or options not available for enhancements.");
+        return;
+      }
+
       // Add smooth zoom feature
       if (map.options) map.options.zoomSnap = 0.5;
-      
+
       // Enhance zoom controls with tooltips if Bootstrap is available
-      const zoomControls = document.querySelectorAll('.leaflet-control-zoom a');
+      const zoomControls = document.querySelectorAll(".leaflet-control-zoom a");
       if (window.bootstrap && window.bootstrap.Tooltip) {
-        zoomControls.forEach(control => {
-          if (control.classList.contains('leaflet-control-zoom-in')) {
+        zoomControls.forEach((control) => {
+          if (control.classList.contains("leaflet-control-zoom-in")) {
             new bootstrap.Tooltip(control, {
-              title: 'Zoom In',
-              placement: 'left',
-              delay: { show: 500, hide: 100 }
+              title: "Zoom In",
+              placement: "left",
+              delay: { show: 500, hide: 100 },
             });
-          } else if (control.classList.contains('leaflet-control-zoom-out')) {
+          } else if (control.classList.contains("leaflet-control-zoom-out")) {
             new bootstrap.Tooltip(control, {
-              title: 'Zoom Out',
-              placement: 'left',
-              delay: { show: 500, hide: 100 }
+              title: "Zoom Out",
+              placement: "left",
+              delay: { show: 500, hide: 100 },
             });
           }
         });
       }
-      
+
       // Add pulse animation to connection status indicator when connected
       const updateConnectionIndicator = () => {
-        const statusIndicator = document.querySelector('.status-indicator');
-        const statusText = document.querySelector('.status-text');
-        
+        const statusIndicator = document.querySelector(".status-indicator");
+        const statusText = document.querySelector(".status-text");
+
         if (statusIndicator && statusText) {
-          if (statusText.textContent.toLowerCase().includes('connected')) {
-            statusIndicator.classList.add('connected');
-            statusIndicator.classList.remove('disconnected');
-          } else if (statusText.textContent.toLowerCase().includes('disconnected')) {
-            statusIndicator.classList.add('disconnected');
-            statusIndicator.classList.remove('connected');
+          if (statusText.textContent.toLowerCase().includes("connected")) {
+            statusIndicator.classList.add("connected");
+            statusIndicator.classList.remove("disconnected");
+          } else if (
+            statusText.textContent.toLowerCase().includes("disconnected")
+          ) {
+            statusIndicator.classList.add("disconnected");
+            statusIndicator.classList.remove("connected");
           }
         }
       };
-      
+
       // Check connection status periodically
       updateConnectionIndicator();
       setInterval(updateConnectionIndicator, 3000);
-      
+
       // Add fading transition for map controls panel
-      const controlsToggle = document.getElementById('controls-toggle');
-      const mapControls = document.getElementById('map-controls');
-      
+      const controlsToggle = document.getElementById("controls-toggle");
+      const mapControls = document.getElementById("map-controls");
+
       if (controlsToggle && mapControls) {
-        controlsToggle.addEventListener('click', () => {
+        controlsToggle.addEventListener("click", () => {
           requestAnimationFrame(() => {
-            if (mapControls.classList.contains('minimized')) {
-              mapControls.style.opacity = '0.8';
+            if (mapControls.classList.contains("minimized")) {
+              mapControls.style.opacity = "0.8";
             } else {
-              mapControls.style.opacity = '1';
+              mapControls.style.opacity = "1";
             }
           });
         });
-        
+
         // Show controls fully when hovering
-        mapControls.addEventListener('mouseenter', () => {
-          mapControls.style.opacity = '1';
+        mapControls.addEventListener("mouseenter", () => {
+          mapControls.style.opacity = "1";
         });
-        
+
         // Reduce opacity slightly when not hovering (if minimized)
-        mapControls.addEventListener('mouseleave', () => {
-          if (mapControls.classList.contains('minimized')) {
-            mapControls.style.opacity = '0.8';
+        mapControls.addEventListener("mouseleave", () => {
+          if (mapControls.classList.contains("minimized")) {
+            mapControls.style.opacity = "0.8";
           }
         });
       }
-      
-      console.log('Map enhancements applied successfully');
+
+      console.log("Map enhancements applied successfully");
     } catch (error) {
-      console.warn('Error applying map enhancements:', error);
+      console.warn("Error applying map enhancements:", error);
     }
   }
 
