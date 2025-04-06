@@ -1777,19 +1777,26 @@
             const savedVisibility = localStorage.getItem(
               `layer_visible_${layerName}`,
             );
-            if (savedVisibility === "true") {
-              AppState.mapLayers[layerName].visible = true;
+            
+            // Only update visibility if a saved state EXISTS in localStorage
+            if (savedVisibility !== null) { 
+              const isVisible = savedVisibility === "true";
+              AppState.mapLayers[layerName].visible = isVisible;
               // Update the checkbox state in the UI
               const toggle = document.getElementById(`${layerName}-toggle`);
-              if (toggle) toggle.checked = true;
-
-              // Special handling for undrivenStreets - fetch ONLY if a location is selected
-              // The selection logic is handled within populateLocationDropdown now
-              // No need for setTimeout here anymore, selection triggers fetch
+              if (toggle) toggle.checked = isVisible;
             } else {
-              AppState.mapLayers[layerName].visible = false;
+              // No saved state, ensure checkbox matches the LAYER_DEFAULT
               const toggle = document.getElementById(`${layerName}-toggle`);
-              if (toggle) toggle.checked = false;
+              if (toggle) toggle.checked = AppState.mapLayers[layerName].visible;
+            }
+
+            // Special handling for undrivenStreets - fetch ONLY if visible AND a location is selected
+            // The selection logic and fetch trigger are handled within populateLocationDropdown
+            // This check ensures we don't fetch if the layer was saved as hidden or default hidden
+            if (layerName === 'undrivenStreets' && !AppState.mapLayers[layerName].visible) {
+                // Explicitly clear the layer data if it's not visible
+                AppState.mapLayers[layerName].layer = { type: "FeatureCollection", features: [] };
             }
           });
           updateLayerOrderUI(); // Update UI after restoring visibility
