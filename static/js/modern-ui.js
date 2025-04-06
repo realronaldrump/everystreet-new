@@ -55,17 +55,6 @@
     try {
       cacheElements();
 
-      // Check for map
-      const shouldHaveMap = document.querySelector("#map") !== null;
-      if (
-        shouldHaveMap &&
-        (!window.map || typeof window.map.eachLayer !== "function")
-      ) {
-        console.warn(
-          "Map not properly initialized. Some features may not work correctly.",
-        );
-      }
-
       initThemeToggle();
       initMobileDrawer();
       initFilterPanel();
@@ -81,6 +70,12 @@
           debounce(handleResize, 250),
       );
       handleResize();
+
+      // Initialize map-dependent features AFTER map initialization
+      document.addEventListener('mapInitialized', () => {
+          console.log('Map initialization detected by modern-ui.js');
+          enhanceMapInteraction();
+      });
     } catch (error) {
       console.error("Error initializing Modern UI:", error);
       window.notificationManager?.show(
@@ -785,55 +780,111 @@
 
   // Legacy Code Bridge
   function setupLegacyCodeBridge() {
-    // Expose key methods for legacy code
+    // Bridge to make modern components work with legacy code
     window.modernUI = {
-      showNotification: (message, type) =>
-        window.notificationManager?.show(message, type),
-      showLoading,
-      updateProgress,
-      hideLoading,
-      updateFilterIndicator,
-      applyTheme,
-      initDatePickers,
+      showLoading: showLoading,
+      hideLoading: hideLoading,
+      updateProgress: updateProgress,
+      setDateRange: setDateRange,
+      applyTheme: applyTheme,
     };
 
-    // Backward compatibility for loadingManager
-    if (!window.loadingManager) {
-      window.loadingManager = createCompatibilityLoadingManager();
-    }
-
-    // Set up theme change event listener
-    document.addEventListener("themeChanged", (e) => {
-      if (e.detail?.theme) applyTheme(e.detail.theme);
-    });
+    // Enhanced map interaction
+    window.addEventListener("load", enhanceMapInteraction);
   }
 
-  // Create compatibility layer for legacy loadingManager
-  function createCompatibilityLoadingManager() {
-    return {
-      showLoading,
-      updateProgress,
-      hideLoading,
-      operations: new Map(),
-      startOperation: (operationName) => {
-        showLoading(`Starting ${operationName}...`);
-        return operationName;
-      },
-      addSubOperation: () => {},
-      updateSubOperation: (
-        _parentOperation,
-        _subOperationName,
-        progress,
-        message,
-      ) => {
-        if (message) updateProgress(progress, message);
-      },
-      finish: () => hideLoading(),
-      error: (message) => {
-        hideLoading();
-        window.notificationManager?.show(message, "danger");
-      },
-    };
+  // Add enhance map interaction function
+  function enhanceMapInteraction() {
+    // Only run on pages with a map
+    if (!document.getElementById('map')) return;
+    
+    // Map should be initialized by the time this is called
+    applyMapEnhancements();
+  }
+  
+  function applyMapEnhancements() {
+    try {
+      const map = window.map;
+      if (!map || !map.options) {
+        console.warn('Map object or options not available for enhancements.');
+        return; 
+      } 
+      
+      // Add smooth zoom feature
+      if (map.options) map.options.zoomSnap = 0.5;
+      
+      // Enhance zoom controls with tooltips if Bootstrap is available
+      const zoomControls = document.querySelectorAll('.leaflet-control-zoom a');
+      if (window.bootstrap && window.bootstrap.Tooltip) {
+        zoomControls.forEach(control => {
+          if (control.classList.contains('leaflet-control-zoom-in')) {
+            new bootstrap.Tooltip(control, {
+              title: 'Zoom In',
+              placement: 'left',
+              delay: { show: 500, hide: 100 }
+            });
+          } else if (control.classList.contains('leaflet-control-zoom-out')) {
+            new bootstrap.Tooltip(control, {
+              title: 'Zoom Out',
+              placement: 'left',
+              delay: { show: 500, hide: 100 }
+            });
+          }
+        });
+      }
+      
+      // Add pulse animation to connection status indicator when connected
+      const updateConnectionIndicator = () => {
+        const statusIndicator = document.querySelector('.status-indicator');
+        const statusText = document.querySelector('.status-text');
+        
+        if (statusIndicator && statusText) {
+          if (statusText.textContent.toLowerCase().includes('connected')) {
+            statusIndicator.classList.add('connected');
+            statusIndicator.classList.remove('disconnected');
+          } else if (statusText.textContent.toLowerCase().includes('disconnected')) {
+            statusIndicator.classList.add('disconnected');
+            statusIndicator.classList.remove('connected');
+          }
+        }
+      };
+      
+      // Check connection status periodically
+      updateConnectionIndicator();
+      setInterval(updateConnectionIndicator, 3000);
+      
+      // Add fading transition for map controls panel
+      const controlsToggle = document.getElementById('controls-toggle');
+      const mapControls = document.getElementById('map-controls');
+      
+      if (controlsToggle && mapControls) {
+        controlsToggle.addEventListener('click', () => {
+          requestAnimationFrame(() => {
+            if (mapControls.classList.contains('minimized')) {
+              mapControls.style.opacity = '0.8';
+            } else {
+              mapControls.style.opacity = '1';
+            }
+          });
+        });
+        
+        // Show controls fully when hovering
+        mapControls.addEventListener('mouseenter', () => {
+          mapControls.style.opacity = '1';
+        });
+        
+        // Reduce opacity slightly when not hovering (if minimized)
+        mapControls.addEventListener('mouseleave', () => {
+          if (mapControls.classList.contains('minimized')) {
+            mapControls.style.opacity = '0.8';
+          }
+        });
+      }
+      
+      console.log('Map enhancements applied successfully');
+    } catch (error) {
+      console.warn('Error applying map enhancements:', error);
+    }
   }
 
   // Initialize on DOM content loaded

@@ -128,14 +128,14 @@
   padding: 0;
 }
 
-html,
-body {
-  height: 100%;
-  width: 100%;
-  font-size: 16px;
+html {
+  height: 100%; /* Ensure html takes full height */
 }
 
 body {
+  min-height: 100%; /* Use min-height instead of height */
+  display: flex; /* Use flexbox for layout */
+  flex-direction: column; /* Stack children vertically */
   background-color: var(--surface-0);
   color: var(--text-primary);
   font-family: var(--font-family);
@@ -145,7 +145,7 @@ body {
   transition:
     background-color 0.3s ease,
     color 0.3s ease;
-  overflow-x: hidden;
+  overflow-x: hidden; /* Keep horizontal overflow hidden */
 }
 
 /* === Light Mode Styles === */
@@ -595,9 +595,12 @@ body.light-mode .sidebar-header {
 
 /* Ensure consistent layout with/without sidebar */
 .main-content {
-  padding-top: calc(var(--header-height) + var(--space-4));
-  margin-left: 0;
-  transition: margin-left var(--transition-normal);
+  flex-grow: 1; /* Allow main content to fill remaining space */
+  padding-top: var(--header-height); /* Add padding to offset fixed header */
+  display: flex; /* Use flex for children (like map wrapper) */
+  flex-direction: column; /* Stack children vertically */
+  position: relative; /* Ensure relative positioning for absolute children */
+  overflow: hidden; /* Prevent potential overflow issues */
 }
 
 .sidebar-active .main-content {
@@ -622,21 +625,21 @@ body.light-mode .sidebar-header {
 .layout-wrapper {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  position: relative;
+  min-height: 100vh; /* Ensure wrapper takes full viewport height */
+  position: relative; /* Needed for absolute positioning of header/panels */
 }
 
 /* Header */
 .app-header {
-  background-color: var(--surface-1);
-  height: var(--header-height);
-  position: fixed;
+  position: fixed; /* Make header fixed */
   top: 0;
   left: 0;
   right: 0;
-  z-index: var(--z-fixed);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  transition: all var(--transition-normal);
+  height: var(--header-height);
+  background-color: var(--surface-1);
+  box-shadow: var(--shadow-sm);
+  z-index: var(--z-fixed); /* Ensure header is above other content */
+  transition: background-color var(--transition-normal);
 }
 
 .app-header.scrolled {
@@ -1015,13 +1018,12 @@ body.light-mode .app-header.scrolled {
 
 /* Main Content */
 .main-content {
-  padding: calc(var(--header-height) + var(--space-4)) var(--space-4)
-    var(--space-4);
-  flex: 1;
-  width: 100%;
-  max-width: var(--content-max-width);
-  margin: 0 auto;
-  transition: all var(--transition-normal);
+  flex-grow: 1; /* Allow main content to fill remaining space */
+  padding-top: var(--header-height); /* Add padding to offset fixed header */
+  display: flex; /* Use flex for children (like map wrapper) */
+  flex-direction: column; /* Stack children vertically */
+  position: relative; /* Ensure relative positioning for absolute children */
+  overflow: hidden; /* Prevent potential overflow issues */
 }
 
 /* Content Overlay */

@@ -14,6 +14,14 @@
       tileLayerUrls: {
         dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        streets: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      },
+      tileLayerAttribution: {
+        dark: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        light: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        satellite: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+        streets: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       },
       maxZoom: 19,
       recentTripThreshold: 6 * 60 * 60 * 1000, // 6 hours in ms
@@ -37,25 +45,20 @@
     trips: {
       order: 1,
       color: "#BB86FC",
-      opacity: 0.4,
+      opacity: 0.6,
       visible: true,
       highlightColor: "#FFD700",
       name: "Trips",
+      weight: 3,
     },
     matchedTrips: {
       order: 3,
       color: "#CF6679",
-      opacity: 0.4,
+      opacity: 0.6,
       visible: false,
       highlightColor: "#40E0D0",
       name: "Matched Trips",
-    },
-    customPlaces: {
-      order: 7,
-      color: "#FF9800",
-      opacity: 0.5,
-      visible: false,
-      name: "Custom Places",
+      weight: 3,
     },
     undrivenStreets: {
       order: 2,
@@ -63,6 +66,7 @@
       opacity: 0.8,
       visible: false,
       name: "Undriven Streets",
+      weight: 2,
     },
   };
 
@@ -81,6 +85,7 @@
       timers: {},
     },
     dom: {},
+    baseLayer: null,
   };
 
   // DOM Cache and Utilities
@@ -197,36 +202,31 @@
           transactionId.replace("MATCHED-", "") === AppState.selectedTripId));
 
     let color = layerInfo.color;
-    let weight = 2;
+    let weight = layerInfo.weight || 3;
     let opacity = layerInfo.opacity;
-    let className = "";
 
+    // Apply enhanced styling for selected and recent trips
     if (isSelected) {
-      color = layerInfo.highlightColor;
+      color = layerInfo.highlightColor || "#FFD700"; // Gold for selected
       weight = 5;
-      opacity = 0.9;
-      className = "highlighted-trip";
+      opacity = 1;
     } else if (isMatchedPair) {
-      color =
-        layerInfo === AppState.mapLayers.matchedTrips
-          ? AppState.mapLayers.matchedTrips.highlightColor
-          : AppState.mapLayers.trips.highlightColor;
-      weight = 5;
-      opacity = 0.9;
-      className = "highlighted-matched-trip";
-    } else if (isRecent) {
-      color = "#FF5722";
+      color = "#03DAC6"; // Teal for matched pairs
       weight = 4;
       opacity = 0.8;
-      className = "recent-trip";
+    } else if (isRecent) {
+      color = layerInfo.highlightColor || "#FF4081"; // Pink for recent
+      weight = 4;
+      opacity = 0.9;
     }
 
     return {
       color,
       weight,
       opacity,
-      className,
-      zIndexOffset: isSelected || isMatchedPair ? 1000 : 0,
+      lineCap: "round",
+      lineJoin: "round",
+      className: isRecent ? "recent-trip" : "",
     };
   };
 
@@ -263,93 +263,199 @@
 
   async function initializeMap() {
     try {
-      const mapContainer = document.getElementById("map");
-      if (!mapContainer) return;
+      if (AppState.map) return true;
 
-      mapContainer.style.height = "500px";
-      mapContainer.style.position = "relative";
+      const mapElement = getElement("map");
+      if (!mapElement) {
+        showNotification(CONFIG.ERROR_MESSAGES.mapInitFailed, "danger");
+        return false;
+      }
 
-      const theme = document.body.classList.contains("light-mode")
-        ? "light"
-        : "dark";
-      const tileUrl = CONFIG.MAP.tileLayerUrls[theme];
-
+      // Create map with enhanced options
       AppState.map = L.map("map", {
         center: CONFIG.MAP.defaultCenter,
         zoom: CONFIG.MAP.defaultZoom,
-        zoomControl: true,
-        attributionControl: false,
-        maxBounds: [
-          [-90, -180],
-          [90, 180],
-        ],
+        zoomControl: false, // We'll add custom controls
+        attributionControl: false, // Remove default attribution
+        minZoom: 2,
+        maxZoom: CONFIG.MAP.maxZoom,
+        zoomSnap: 0.5,
+        zoomDelta: 0.5,
+        wheelPxPerZoomLevel: 120,
+        fadeAnimation: true,
+        markerZoomAnimation: true,
+        inertia: true,
+        worldCopyJump: true,
       });
 
+      // Expose map globally AFTER initialization
       window.map = AppState.map;
 
-      L.tileLayer(tileUrl, {
+      // Initialize the currentTheme variable
+      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      
+      // Add the tile layer based on the theme
+      const tileUrl = CONFIG.MAP.tileLayerUrls[theme] || CONFIG.MAP.tileLayerUrls.dark;
+      const attribution = CONFIG.MAP.tileLayerAttribution[theme] || CONFIG.MAP.tileLayerAttribution.dark;
+      
+      AppState.baseLayer = L.tileLayer(tileUrl, {
+        attribution,
         maxZoom: CONFIG.MAP.maxZoom,
-        attribution: "",
+        crossOrigin: true
       }).addTo(AppState.map);
 
+      // Add custom zoom controls in a better position
+      L.control.zoom({
+        position: 'topright'
+      }).addTo(AppState.map);
+
+      // Add scale control
+      L.control.scale({
+        imperial: true,
+        metric: true,
+        position: 'bottomright'
+      }).addTo(AppState.map);
+
+      // Add layer group for vector data
       AppState.layerGroup = L.layerGroup().addTo(AppState.map);
 
-      // Initialize layer containers
-      Object.keys(AppState.mapLayers).forEach((layerName) => {
-        AppState.mapLayers[layerName].layer =
-          layerName === "customPlaces"
-            ? L.layerGroup()
-            : { type: "FeatureCollection", features: [] };
-      });
-
-      // Map click event
-      AppState.map.on("click", (e) => {
-        if (AppState.selectedTripId && !e.originalEvent._stopped) {
-          AppState.selectedTripId = null;
-          refreshTripStyles();
-        }
-      });
-
-      // Theme change event
-      document.addEventListener("themeChanged", (e) => {
-        updateMapTheme(e.detail?.theme || "dark");
-      });
-
-      initializeLiveTracker();
-
-      try {
-        await centerMapOnLastPosition();
-      } catch (error) {
-        console.error("Error fetching last trip point:", error);
-        AppState.map.setView(CONFIG.MAP.defaultCenter, CONFIG.MAP.defaultZoom);
-      } finally {
-        AppState.mapInitialized = true;
-        setTimeout(() => AppState.map.invalidateSize(), 100);
-        document.dispatchEvent(new CustomEvent("mapInitialized"));
+      // Add basemap selector
+      const basemaps = {
+        "Dark": L.tileLayer(CONFIG.MAP.tileLayerUrls.dark, {
+          attribution: CONFIG.MAP.tileLayerAttribution.dark,
+          maxZoom: CONFIG.MAP.maxZoom
+        }),
+        "Light": L.tileLayer(CONFIG.MAP.tileLayerUrls.light, {
+          attribution: CONFIG.MAP.tileLayerAttribution.light,
+          maxZoom: CONFIG.MAP.maxZoom
+        }),
+        "Satellite": L.tileLayer(CONFIG.MAP.tileLayerUrls.satellite, {
+          attribution: CONFIG.MAP.tileLayerAttribution.satellite,
+          maxZoom: CONFIG.MAP.maxZoom
+        }),
+        "Streets": L.tileLayer(CONFIG.MAP.tileLayerUrls.streets, {
+          attribution: CONFIG.MAP.tileLayerAttribution.streets,
+          maxZoom: CONFIG.MAP.maxZoom
+        })
+      };
+      
+      // Use the current theme as the default basemap
+      const defaultBasemap = theme === "light" ? "Light" : "Dark";
+      if (basemaps[defaultBasemap]) { // Check if exists
+          basemaps[defaultBasemap].addTo(AppState.map);
+      } else {
+          basemaps["Dark"].addTo(AppState.map); // Fallback to Dark
       }
+      
+      L.control.layers(basemaps, null, {
+        position: 'topright',
+        collapsed: true
+      }).addTo(AppState.map);
+
+      // Map events for better user experience
+      AppState.map.on("zoomend", () => {
+        updateUrlWithMapState();
+        adjustLayerStylesForZoom();
+      });
+
+      AppState.map.on("moveend", () => {
+        updateUrlWithMapState();
+      });
+
+      // Dispatch mapInitialized event after map setup is complete
+      document.dispatchEvent(new CustomEvent('mapInitialized'));
+
+      // Set map initialized flag
+      AppState.mapInitialized = true;
+      return true;
     } catch (error) {
-      handleError(error, "Map Initialization");
+      handleError(error, "Map initialization");
+      showNotification(
+        `${CONFIG.ERROR_MESSAGES.mapInitFailed}: ${error.message}`,
+        "danger"
+      );
+      return false;
     }
   }
 
-  function updateMapTheme(theme) {
-    if (!AppState.map) return;
+  // Update URL with current map state to allow sharing
+  function updateUrlWithMapState() {
+    if (!AppState.map || !window.history) return;
+    
+    const center = AppState.map.getCenter();
+    const zoom = AppState.map.getZoom();
+    const lat = center.lat.toFixed(5);
+    const lng = center.lng.toFixed(5);
+    
+    const url = new URL(window.location.href);
+    url.searchParams.set('zoom', zoom);
+    url.searchParams.set('lat', lat);
+    url.searchParams.set('lng', lng);
+    
+    window.history.replaceState({}, '', url.toString());
+  }
 
-    AppState.map.eachLayer((layer) => {
-      if (layer instanceof L.TileLayer) {
-        AppState.map.removeLayer(layer);
+  // Adjust layer weights based on zoom level
+  function adjustLayerStylesForZoom() {
+    if (!AppState.map || !AppState.layerGroup) return;
+    
+    const zoom = AppState.map.getZoom();
+    
+    // Iterate through all layers and adjust their styling
+    AppState.layerGroup.eachLayer(layer => {
+      if (layer.feature && layer.feature.properties) {
+        // Get the appropriate layerInfo
+        let layerName = 'trips';
+        if (layer.feature.properties.transactionId && 
+            layer.feature.properties.transactionId.startsWith('MATCHED-')) {
+          layerName = 'matchedTrips';
+        } else if (layer.feature.properties.type === 'undriven') {
+          layerName = 'undrivenStreets';
+        }
+        
+        const layerInfo = AppState.mapLayers[layerName];
+        
+        // Apply style based on zoom level
+        if (zoom > 14) {
+          // Higher zoom - make lines more prominent
+          let weight = (layerInfo.weight || 2) * 1.5;
+          layer.setStyle({ weight });
+        } else {
+          // Lower zoom - use default weight
+          layer.setStyle({ weight: layerInfo.weight || 2 });
+        }
       }
     });
+  }
 
-    const tileUrl =
-      CONFIG.MAP.tileLayerUrls[theme] || CONFIG.MAP.tileLayerUrls.dark;
-    L.tileLayer(tileUrl, {
+  // Update map theme based on the application theme
+  function updateMapTheme(theme) {
+    if (!AppState.map || !AppState.baseLayer) return;
+
+    const isDark = theme === "dark";
+    const tileUrl = isDark
+      ? CONFIG.MAP.tileLayerUrls.dark
+      : CONFIG.MAP.tileLayerUrls.light;
+    const attribution = isDark
+      ? CONFIG.MAP.tileLayerAttribution.dark
+      : CONFIG.MAP.tileLayerAttribution.light;
+
+    // Remove the current base layer
+    AppState.map.removeLayer(AppState.baseLayer);
+
+    // Create and add the new base layer
+    AppState.baseLayer = L.tileLayer(tileUrl, {
+      attribution,
       maxZoom: CONFIG.MAP.maxZoom,
-      attribution: "",
     }).addTo(AppState.map);
 
+    // Make sure the base layer is at the bottom
+    if (AppState.baseLayer && AppState.layerGroup) {
+      AppState.baseLayer.bringToBack();
+    }
+
+    // Refresh trip styles to match the new theme
     refreshTripStyles();
-    AppState.map.invalidateSize();
   }
 
   function initializeLiveTracker() {
