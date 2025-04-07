@@ -435,7 +435,8 @@ class DrivingNavigation {
           if (!this.lastKnownLocation) {
             const reason = "no-location";
             if (this.findBtn) this.findBtn.dataset.disabledReason = reason;
-            if (this.calcCoverageBtn) this.calcCoverageBtn.dataset.disabledReason = reason;
+            if (this.calcCoverageBtn)
+              this.calcCoverageBtn.dataset.disabledReason = reason;
           }
 
           try {
@@ -685,14 +686,11 @@ class DrivingNavigation {
         requestPayload,
       );
 
-      const response = await fetch(
-        "/api/driving-navigation/coverage-route",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestPayload),
-        },
-      );
+      const response = await fetch("/api/driving-navigation/coverage-route", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestPayload),
+      });
 
       const data = await response.json();
 
@@ -702,8 +700,7 @@ class DrivingNavigation {
 
       if (data.status === "completed") {
         this.setStatus(data.message);
-        if (notificationManager)
-          notificationManager.show(data.message, "info");
+        if (notificationManager) notificationManager.show(data.message, "info");
       } else if (data.status === "success" && data.route_geometry) {
         // Route is a GeometryCollection
         const fullRouteLayer = L.layerGroup().addTo(this.routeLayer);
@@ -746,9 +743,12 @@ class DrivingNavigation {
           });
         } else {
           // Fallback if geometry is not a collection (shouldn't happen)
-          console.warn("Received unexpected geometry type for coverage route:", data.route_geometry.type);
+          console.warn(
+            "Received unexpected geometry type for coverage route:",
+            data.route_geometry.type,
+          );
           const layer = L.geoJSON(data.route_geometry, {
-              style: connectingRouteStyle // Default to route style
+            style: connectingRouteStyle, // Default to route style
           });
           fullRouteLayer.addLayer(layer);
           routeBounds.extend(layer.getBounds());
@@ -760,15 +760,15 @@ class DrivingNavigation {
         }
 
         // Display total route info
-        const durationMinutes = Math.round(
-          data.total_duration_seconds / 60,
-        );
+        const durationMinutes = Math.round(data.total_duration_seconds / 60);
         const distanceMiles = (
           data.total_distance_meters * 0.000621371
         ).toFixed(1);
         const segmentCount = data.message.match(/\d+/)?.[0] || "?"; // Extract count from message
 
-        this.setStatus(`Full coverage route calculated (${segmentCount} segments).`);
+        this.setStatus(
+          `Full coverage route calculated (${segmentCount} segments).`,
+        );
         this.routeInfo.innerHTML = `
           <div class="route-info-detail">
             <div><strong>Total Est:</strong></div>
@@ -781,11 +781,11 @@ class DrivingNavigation {
 
         // Ensure live elements stay on top of the new route
         this.bringLiveElementsToFront();
-
       } else {
         // Handle unexpected success response format
         throw new Error(
-          data.message || "Received unexpected success response from coverage route.",
+          data.message ||
+            "Received unexpected success response from coverage route.",
         );
       }
     } catch (error) {
@@ -803,7 +803,7 @@ class DrivingNavigation {
       // Re-enable find button only if location is available
       this.findBtn.disabled = !this.lastKnownLocation;
       if (!this.lastKnownLocation && this.findBtn) {
-          this.findBtn.dataset.disabledReason = "no-location";
+        this.findBtn.dataset.disabledReason = "no-location";
       }
       this.isFetchingCoverageRoute = false;
     }
