@@ -1162,10 +1162,12 @@ const STATUS = window.STATUS || {
           try {
             data = await response.json();
             // Basic validation of the response structure
-            if (!data || typeof data !== 'object' || !data.stage) {
+            if (!data || typeof data !== "object" || !data.stage) {
               // If the response was OK but data is invalid, it's a server issue.
               if (response.ok) {
-                  console.warn(`Task ${taskId}: Received incomplete/invalid data structure despite HTTP OK status.`);
+                console.warn(
+                  `Task ${taskId}: Received incomplete/invalid data structure despite HTTP OK status.`,
+                );
               }
               // Consistently throw an error if data format is invalid.
               throw new Error("Invalid data format received from server.");
@@ -2538,7 +2540,10 @@ const STATUS = window.STATUS || {
 
           // --- Add Popup Open/Close Listeners for Button Handlers ---
           layer.on("popupopen", (e) => {
-            console.log("Popup opened for segment:", feature.properties.segment_id);
+            console.log(
+              "Popup opened for segment:",
+              feature.properties.segment_id,
+            );
             const popupEl = e.popup.getElement();
             if (!popupEl) {
               console.error("Popup element not found on open:", e);
@@ -2549,7 +2554,9 @@ const STATUS = window.STATUS || {
             queueMicrotask(() => {
               const drivenBtn = popupEl.querySelector(".mark-driven-btn");
               const undrivenBtn = popupEl.querySelector(".mark-undriven-btn");
-              const undriveableBtn = popupEl.querySelector(".mark-undriveable-btn");
+              const undriveableBtn = popupEl.querySelector(
+                ".mark-undriveable-btn",
+              );
               const driveableBtn = popupEl.querySelector(".mark-driveable-btn");
 
               console.log("Attaching listeners. Buttons found:", {
@@ -2582,30 +2589,35 @@ const STATUS = window.STATUS || {
             const popupEl = e.popup.getElement();
             if (!popupEl || !layer._popupHandlers) return;
 
-            console.log("Popup closed, removing listeners for segment:", feature.properties.segment_id);
+            console.log(
+              "Popup closed, removing listeners for segment:",
+              feature.properties.segment_id,
+            );
             // Remove listeners using the stored handlers
             // Query buttons again for robustness in removal
             const drivenBtn = popupEl.querySelector(".mark-driven-btn");
             const undrivenBtn = popupEl.querySelector(".mark-undriven-btn");
-            const undriveableBtn = popupEl.querySelector(".mark-undriveable-btn");
+            const undriveableBtn = popupEl.querySelector(
+              ".mark-undriveable-btn",
+            );
             const driveableBtn = popupEl.querySelector(".mark-driveable-btn");
 
             drivenBtn?.removeEventListener(
-                "click",
-                layer._popupHandlers.handleMarkDriven,
-              );
+              "click",
+              layer._popupHandlers.handleMarkDriven,
+            );
             undrivenBtn?.removeEventListener(
-                "click",
-                layer._popupHandlers.handleMarkUndriven,
-              );
+              "click",
+              layer._popupHandlers.handleMarkUndriven,
+            );
             undriveableBtn?.removeEventListener(
-                "click",
-                layer._popupHandlers.handleMarkUndriveable,
-              );
+              "click",
+              layer._popupHandlers.handleMarkUndriveable,
+            );
             driveableBtn?.removeEventListener(
-                "click",
-                layer._popupHandlers.handleMarkDriveable,
-              );
+              "click",
+              layer._popupHandlers.handleMarkDriveable,
+            );
           });
         }, // end onEachFeature
       }); // end L.geoJSON
