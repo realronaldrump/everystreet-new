@@ -1178,10 +1178,12 @@ const STATUS = window.STATUS || {
           try {
             data = await response.json();
             // Basic validation of the response structure
-            if (!data || typeof data !== 'object' || !data.stage) {
+            if (!data || typeof data !== "object" || !data.stage) {
               // If the response was OK but data is invalid, it's a server issue.
               if (response.ok) {
-                  console.warn(`Task ${taskId}: Received incomplete/invalid data structure despite HTTP OK status.`);
+                console.warn(
+                  `Task ${taskId}: Received incomplete/invalid data structure despite HTTP OK status.`,
+                );
               }
               // Consistently throw an error if data format is invalid.
               throw new Error("Invalid data format received from server.");
@@ -2573,7 +2575,10 @@ const STATUS = window.STATUS || {
 
           // --- Add Popup Open/Close Listeners for Button Handlers ---
           layer.on("popupopen", (e) => {
-            console.log("Popup opened for segment:", feature.properties.segment_id);
+            console.log(
+              "Popup opened for segment:",
+              feature.properties.segment_id,
+            );
             const popupEl = e.popup.getElement();
             if (!popupEl) {
               console.error("Popup element not found on open:", e);
@@ -2584,7 +2589,9 @@ const STATUS = window.STATUS || {
             queueMicrotask(() => {
               const drivenBtn = popupEl.querySelector(".mark-driven-btn");
               const undrivenBtn = popupEl.querySelector(".mark-undriven-btn");
-              const undriveableBtn = popupEl.querySelector(".mark-undriveable-btn");
+              const undriveableBtn = popupEl.querySelector(
+                ".mark-undriveable-btn",
+              );
               const driveableBtn = popupEl.querySelector(".mark-driveable-btn");
 
               console.log("Attaching listeners. Buttons found:", {
@@ -2617,30 +2624,35 @@ const STATUS = window.STATUS || {
             const popupEl = e.popup.getElement();
             if (!popupEl || !layer._popupHandlers) return;
 
-            console.log("Popup closed, removing listeners for segment:", feature.properties.segment_id);
+            console.log(
+              "Popup closed, removing listeners for segment:",
+              feature.properties.segment_id,
+            );
             // Remove listeners using the stored handlers
             // Query buttons again for robustness in removal
             const drivenBtn = popupEl.querySelector(".mark-driven-btn");
             const undrivenBtn = popupEl.querySelector(".mark-undriven-btn");
-            const undriveableBtn = popupEl.querySelector(".mark-undriveable-btn");
+            const undriveableBtn = popupEl.querySelector(
+              ".mark-undriveable-btn",
+            );
             const driveableBtn = popupEl.querySelector(".mark-driveable-btn");
 
             drivenBtn?.removeEventListener(
-                "click",
-                layer._popupHandlers.handleMarkDriven,
-              );
+              "click",
+              layer._popupHandlers.handleMarkDriven,
+            );
             undrivenBtn?.removeEventListener(
-                "click",
-                layer._popupHandlers.handleMarkUndriven,
-              );
+              "click",
+              layer._popupHandlers.handleMarkUndriven,
+            );
             undriveableBtn?.removeEventListener(
-                "click",
-                layer._popupHandlers.handleMarkUndriveable,
-              );
+              "click",
+              layer._popupHandlers.handleMarkUndriveable,
+            );
             driveableBtn?.removeEventListener(
-                "click",
-                layer._popupHandlers.handleMarkDriveable,
-              );
+              "click",
+              layer._popupHandlers.handleMarkDriveable,
+            );
           });
         }, // end onEachFeature
         pane: "streetPane", // Assign street features to the street pane
@@ -3508,7 +3520,10 @@ const STATUS = window.STATUS || {
     clearTripOverlay() {
       if (this.tripsLayerGroup) {
         this.tripsLayerGroup.clearLayers();
-        if (this.coverageMap && this.coverageMap.hasLayer(this.tripsLayerGroup)) {
+        if (
+          this.coverageMap &&
+          this.coverageMap.hasLayer(this.tripsLayerGroup)
+        ) {
           // Optionally remove the layer group itself, or just clear it
           // this.coverageMap.removeLayer(this.tripsLayerGroup);
         }
@@ -3532,10 +3547,14 @@ const STATUS = window.STATUS || {
 
       // Check for excessively large bounds (optional, prevents huge requests)
       const boundsArea = Math.abs(ne.lng - sw.lng) * Math.abs(ne.lat - sw.lat);
-      if (boundsArea > 10) { // Example threshold (degrees squared)
+      if (boundsArea > 10) {
+        // Example threshold (degrees squared)
         console.warn("Map bounds too large, skipping trip overlay update.");
         this.clearTripOverlay(); // Clear potentially stale data
-        this.notificationManager.show("Zoom in further to view trip overlays.", "info");
+        this.notificationManager.show(
+          "Zoom in further to view trip overlays.",
+          "info",
+        );
         return;
       }
 
@@ -3549,12 +3568,12 @@ const STATUS = window.STATUS || {
       console.log("Fetching trips for bounds:", params.toString());
 
       try {
-        const response = await fetch(`/api/trips_in_bounds?${params.toString()}`);
+        const response = await fetch(
+          `/api/trips_in_bounds?${params.toString()}`,
+        );
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(
-            errorData.detail || `HTTP Error ${response.status}`,
-          );
+          throw new Error(errorData.detail || `HTTP Error ${response.status}`);
         }
 
         const data = await response.json();
