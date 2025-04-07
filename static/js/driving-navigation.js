@@ -643,9 +643,6 @@ class DrivingNavigation {
     if (this.liveTracker?.polyline) {
       this.liveTracker.polyline.bringToFront();
     }
-    if (this.liveTracker?.marker) {
-      this.liveTracker.marker.bringToFront();
-    }
     if (this.routeLayer) {
       this.routeLayer.bringToFront();
     }
