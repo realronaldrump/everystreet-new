@@ -223,8 +223,6 @@ class DrivingNavigation {
       this.liveTripPathLayer.setLatLngs([]);
     }
 
-    this.setStatus("Live location unavailable. Will use last trip end if routing.", false);
-
     // Disable find button if it depends on location
     if (this.findBtn && !this.findBtn.disabled) {
       this.findBtn.disabled = true;
