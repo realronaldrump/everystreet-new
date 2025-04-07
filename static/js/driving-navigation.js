@@ -6,6 +6,9 @@ class DrivingNavigation {
     this.map = null;
     this.areaSelect = document.getElementById("area-select");
     this.findBtn = document.getElementById("find-next-street-btn");
+    this.calcCoverageBtn = document.getElementById(
+      "calculate-coverage-route-btn",
+    );
     this.statusMsg = document.getElementById("status-message");
     this.targetInfo = document.getElementById("target-info");
     this.routeInfo = document.getElementById("route-info");
@@ -21,6 +24,7 @@ class DrivingNavigation {
     this.liveTracker = null; // Instance of LiveTripTracker
     this.lastKnownLocation = null; // Store {lat, lon}
     this.isFetchingRoute = false; // Prevent concurrent requests
+    this.isFetchingCoverageRoute = false; // Prevent concurrent coverage requests
 
     this.initialize();
   }
@@ -225,6 +229,15 @@ class DrivingNavigation {
       this.findBtn.disabled = true;
       this.findBtn.dataset.disabledReason = "no-location";
     }
+    // Also handle the coverage button
+    if (
+      this.calcCoverageBtn &&
+      this.calcCoverageBtn.disabled &&
+      this.calcCoverageBtn.dataset.disabledReason === "no-location"
+    ) {
+      this.calcCoverageBtn.disabled = false;
+      delete this.calcCoverageBtn.dataset.disabledReason;
+    }
   }
 
   setupEventListeners() {
@@ -233,6 +246,12 @@ class DrivingNavigation {
     }
     if (this.findBtn) {
       this.findBtn.addEventListener("click", () => this.findAndDisplayRoute());
+    }
+    // Add listener for the new coverage route button
+    if (this.calcCoverageBtn) {
+      this.calcCoverageBtn.addEventListener("click", () =>
+        this.calculateAndDisplayCoverageRoute(),
+      );
     }
     if (this.autoFollowToggle) {
       this.autoFollowToggle.addEventListener("change", (e) => {
@@ -321,6 +340,7 @@ class DrivingNavigation {
     if (!selectedValue) {
       this.selectedLocation = null;
       this.findBtn.disabled = true;
+      this.calcCoverageBtn.disabled = true; // Disable coverage button too
       this.undrivenStreetsLayer.clearLayers();
       this.routeLayer.clearLayers();
       this.clearTargetStreetHighlight();
@@ -334,6 +354,7 @@ class DrivingNavigation {
         `Area selected: ${this.selectedLocation.display_name}. Loading streets...`,
       );
       this.findBtn.disabled = false; // Enable button once area is selected
+      this.calcCoverageBtn.disabled = false; // Enable coverage button too
 
       // Clear previous layers
       this.undrivenStreetsLayer.clearLayers();
@@ -348,6 +369,7 @@ class DrivingNavigation {
       console.error("Error parsing selected location:", error);
       this.selectedLocation = null;
       this.findBtn.disabled = true;
+      this.calcCoverageBtn.disabled = true; // Disable coverage button too
       this.setStatus("Invalid area selected.", true);
     }
   }
@@ -407,6 +429,15 @@ class DrivingNavigation {
         );
         // Optionally zoom to the general area if no streets are found
         if (this.selectedLocation.boundingbox) {
+          // Enable buttons even if no streets are found, as long as area is valid
+          this.findBtn.disabled = !this.lastKnownLocation;
+          this.calcCoverageBtn.disabled = !this.lastKnownLocation;
+          if (!this.lastKnownLocation) {
+            const reason = "no-location";
+            if (this.findBtn) this.findBtn.dataset.disabledReason = reason;
+            if (this.calcCoverageBtn) this.calcCoverageBtn.dataset.disabledReason = reason;
+          }
+
           try {
             const bbox = this.selectedLocation.boundingbox.map(parseFloat);
             // Leaflet bounds format: [[south, west], [north, east]]
@@ -438,7 +469,7 @@ class DrivingNavigation {
       // Optionally try to fetch location again or wait for next update
       return;
     }
-    if (this.isFetchingRoute) {
+    if (this.isFetchingRoute || this.isFetchingCoverageRoute) {
       console.log("Route fetch already in progress.");
       return;
     }
@@ -615,6 +646,167 @@ class DrivingNavigation {
     this.statusMsg.textContent = message;
     this.statusMsg.classList.toggle("text-danger", isError);
     this.statusMsg.classList.toggle("text-info", !isError);
+  }
+
+  // --- New function for calculating and displaying the full coverage route ---
+  async calculateAndDisplayCoverageRoute() {
+    if (!this.selectedLocation) {
+      this.setStatus("Please select an area first.", true);
+      return;
+    }
+    if (!this.lastKnownLocation) {
+      this.setStatus("Waiting for current location...", true);
+      return;
+    }
+    if (this.isFetchingRoute || this.isFetchingCoverageRoute) {
+      console.log("Another route fetch is already in progress.");
+      return;
+    }
+
+    this.isFetchingCoverageRoute = true;
+    this.calcCoverageBtn.disabled = true;
+    this.calcCoverageBtn.innerHTML =
+      '<i class="fas fa-spinner fa-spin me-2"></i>Calculating Coverage...';
+    this.findBtn.disabled = true; // Disable other button during calculation
+    this.setStatus("Calculating full coverage route...");
+    this.routeLayer.clearLayers(); // Clear previous route (single or coverage)
+    this.clearTargetStreetHighlight(); // Clear previous target highlight
+    this.targetInfo.innerHTML = ""; // Clear target info
+    this.routeInfo.innerHTML = ""; // Clear route info
+
+    try {
+      const requestPayload = {
+        location: this.selectedLocation,
+        current_position: this.lastKnownLocation,
+      };
+
+      console.log(
+        "Sending coverage route request with payload:",
+        requestPayload,
+      );
+
+      const response = await fetch(
+        "/api/driving-navigation/coverage-route",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestPayload),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || `HTTP error ${response.status}`);
+      }
+
+      if (data.status === "completed") {
+        this.setStatus(data.message);
+        if (notificationManager)
+          notificationManager.show(data.message, "info");
+      } else if (data.status === "success" && data.route_geometry) {
+        // Route is a GeometryCollection
+        const fullRouteLayer = L.layerGroup().addTo(this.routeLayer);
+        let routeBounds = L.latLngBounds(); // To fit map later
+
+        // Style for connecting route segments (calculated by Mapbox)
+        const connectingRouteStyle = {
+          color: "#76ff03", // Bright Green (same as single route)
+          weight: 5,
+          opacity: 0.8,
+          className: "calculated-route", // Can reuse class
+        };
+
+        // Style for the actual undriven street segments included in the route
+        const streetSegmentStyle = {
+          color: "#007bff", // Primary Blue
+          weight: 6,
+          opacity: 0.9,
+          // dashArray: "5, 5", // Optional: Dashed to distinguish
+          className: "coverage-street-segment",
+        };
+
+        // The response geometry is a GeometryCollection
+        if (data.route_geometry.type === "GeometryCollection") {
+          data.route_geometry.geometries.forEach((geom, index) => {
+            let style = {};
+            // Alternate styles: Even indices are connecting routes, odd are street segments
+            // (Assumes backend sends [route0, segment0, route1, segment1, ...])
+            if (index % 2 === 0) {
+              style = connectingRouteStyle;
+            } else {
+              style = streetSegmentStyle;
+            }
+
+            const layer = L.geoJSON(geom, {
+              style: style,
+            });
+            fullRouteLayer.addLayer(layer);
+            routeBounds.extend(layer.getBounds());
+          });
+        } else {
+          // Fallback if geometry is not a collection (shouldn't happen)
+          console.warn("Received unexpected geometry type for coverage route:", data.route_geometry.type);
+          const layer = L.geoJSON(data.route_geometry, {
+              style: connectingRouteStyle // Default to route style
+          });
+          fullRouteLayer.addLayer(layer);
+          routeBounds.extend(layer.getBounds());
+        }
+
+        // Fit map to the bounds of the entire route
+        if (routeBounds.isValid()) {
+          this.map.fitBounds(routeBounds, { padding: [50, 50] });
+        }
+
+        // Display total route info
+        const durationMinutes = Math.round(
+          data.total_duration_seconds / 60,
+        );
+        const distanceMiles = (
+          data.total_distance_meters * 0.000621371
+        ).toFixed(1);
+        const segmentCount = data.message.match(/\d+/)?.[0] || "?"; // Extract count from message
+
+        this.setStatus(`Full coverage route calculated (${segmentCount} segments).`);
+        this.routeInfo.innerHTML = `
+          <div class="route-info-detail">
+            <div><strong>Total Est:</strong></div>
+            <div><i class="fas fa-clock"></i> ${durationMinutes} min</div>
+            <div><i class="fas fa-road"></i> ${distanceMiles} mi</div>
+            <div class="text-muted small">(Using ${data.location_source} position)</div>
+          </div>
+        `;
+        this.targetInfo.innerHTML = ""; // Clear specific target info
+
+        // Ensure live elements stay on top of the new route
+        this.bringLiveElementsToFront();
+
+      } else {
+        // Handle unexpected success response format
+        throw new Error(
+          data.message || "Received unexpected success response from coverage route.",
+        );
+      }
+    } catch (error) {
+      console.error("Error calculating/displaying coverage route:", error);
+      this.setStatus(`Error: ${error.message}`, true);
+      if (notificationManager)
+        notificationManager.show(
+          `Coverage Routing Error: ${error.message}`,
+          "danger",
+        );
+    } finally {
+      this.calcCoverageBtn.disabled = false;
+      this.calcCoverageBtn.innerHTML =
+        '<i class="fas fa-road me-2"></i>Calculate Full Coverage Route';
+      // Re-enable find button only if location is available
+      this.findBtn.disabled = !this.lastKnownLocation;
+      if (!this.lastKnownLocation && this.findBtn) {
+          this.findBtn.dataset.disabledReason = "no-location";
+      }
+      this.isFetchingCoverageRoute = false;
+    }
   }
 }
 

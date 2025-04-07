@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from math import ceil
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 import aiohttp
 import bson
@@ -3706,6 +3706,100 @@ async def get_coverage_area_details(location_id: str):
         )
 
 
+# Helper function for Mapbox Directions API call
+async def _get_mapbox_route(
+    start_lon: float,
+    start_lat: float,
+    end_lon: float,
+    end_lat: float,
+) -> Dict[str, Any]:
+    """Calls Mapbox Directions API and returns route details."""
+    mapbox_token = MAPBOX_ACCESS_TOKEN
+    if not mapbox_token:
+        logger.error("Mapbox API token not configured.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Mapbox API token not configured.",
+        )
+
+    coords_str = f"{start_lon},{start_lat};{end_lon},{end_lat}"
+    directions_url = (
+        f"https://api.mapbox.com/directions/v5/mapbox/driving/{coords_str}"
+    )
+    params = {
+        "access_token": mapbox_token,
+        "geometries": "geojson",
+        "overview": "full",
+        "steps": "false",
+    }
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(directions_url, params=params) as response:
+                # Log request details for debugging
+                logger.debug(
+                    f"Mapbox Request: {response.method} {response.url} Status: {response.status}"
+                )
+                response.raise_for_status()  # Raises ClientResponseError for 4xx/5xx
+                route_data = await response.json()
+
+                if (
+                    not route_data.get("routes")
+                    or len(route_data["routes"]) == 0
+                ):
+                    logger.warning(
+                        f"Mapbox API returned no routes for {start_lon},{start_lat} -> {end_lon},{end_lat}"
+                    )
+                    # Consider if this should be a different status code or handled differently
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="No route found by Mapbox Directions API.",
+                    )
+
+                route = route_data["routes"][0]
+                geometry = route["geometry"]
+                duration = route.get("duration", 0)
+                distance = route.get("distance", 0)
+
+                logger.debug(
+                    f"Mapbox Route Received: Duration={duration:.1f}s, Distance={distance:.1f}m"
+                )
+                return {
+                    "geometry": geometry,
+                    "duration": duration,
+                    "distance": distance,
+                }
+
+    except aiohttp.ClientResponseError as http_err:
+        error_detail = f"Mapbox API Error: Status={http_err.status}, Message='{http_err.message}' for URL {http_err.request_info.url}"
+        try:
+            # Attempt to get more details from the response body
+            error_body = await http_err.response.text()
+            error_detail += f" | Body: {error_body[:500]}"  # Limit body length
+        except Exception:
+            pass
+        logger.error(error_detail)
+        # Re-raise as a standard HTTPException for consistent error handling
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,  # Indicate issue with upstream service
+            detail=f"Error fetching route from Mapbox: {http_err.message} (Status: {http_err.status})",
+        )
+    except asyncio.TimeoutError:
+        logger.error(f"Mapbox API request timed out for {coords_str}")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Mapbox API request timed out."
+        )
+    except Exception as e:
+        logger.error(
+            f"Unexpected error getting route from Mapbox for {coords_str}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error calculating route: {e}",
+        )
+
 @app.post("/api/driving-navigation/next-route")
 async def get_next_driving_route(request: Request):
     """
@@ -4002,83 +4096,376 @@ async def get_next_driving_route(request: Request):
         min_distance,
     )
 
-    mapbox_token = MAPBOX_ACCESS_TOKEN
-    if not mapbox_token:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Mapbox API token not configured.",
-        )
-
-    coords_str = (
-        f"{current_lon},{current_lat};{target_coords[0]},{target_coords[1]}"
-    )
-    directions_url = (
-        f"https://api.mapbox.com/directions/v5/mapbox/driving/{coords_str}"
-    )
-    params = {
-        "access_token": mapbox_token,
-        "geometries": "geojson",
-        "overview": "full",
-        "steps": "false",
-    }
-
+    # Use the helper function to get the route
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(directions_url, params=params) as response:
-                response.raise_for_status()
-                route_data = await response.json()
-
-                if (
-                    not route_data.get("routes")
-                    or len(route_data["routes"]) == 0
-                ):
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="No route found by Mapbox Directions API.",
-                    )
-
-                route_geometry = route_data["routes"][0]["geometry"]
-                route_duration = route_data["routes"][0].get("duration", 0)
-                route_distance = route_data["routes"][0].get("distance", 0)
-
-                logger.info(
-                    "Route found: Duration=%.1fs, Distance=%.1fm",
-                    route_duration,
-                    route_distance,
-                )
-
-                return JSONResponse(
-                    content={
-                        "status": "success",
-                        "message": "Route to nearest undriven street calculated.",
-                        "route_geometry": route_geometry,
-                        "target_street": nearest_street["properties"],
-                        "route_duration_seconds": route_duration,
-                        "route_distance_meters": route_distance,
-                        "location_source": location_source,
-                    }
-                )
-
-    except aiohttp.ClientResponseError as http_err:
-        error_detail = "Mapbox API error: %s - %s" % (
-            http_err.status,
-            http_err.message,
+        route_info = await _get_mapbox_route(
+            current_lon,
+            current_lat,
+            target_coords[0], # lon
+            target_coords[1]  # lat
         )
-        try:
-            error_body = await http_err.response.text()
-            error_detail += " | Body: %s" % error_body[:200]
-        except Exception:
-            pass
-        logger.error(error_detail, exc_info=False)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=error_detail
+        logger.info(
+            "Route found via helper: Duration=%.1fs, Distance=%.1fm",
+            route_info["duration"],
+            route_info["distance"],
         )
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": "Route to nearest undriven street calculated.",
+                "route_geometry": route_info["geometry"],
+                "target_street": nearest_street["properties"],
+                "route_duration_seconds": route_info["duration"],
+                "route_distance_meters": route_info["distance"],
+                "location_source": location_source,
+            }
+        )
+    except HTTPException as e:
+        # Propagate HTTP exceptions from the helper
+        logger.error(f"HTTP Exception from Mapbox helper: {e.detail}")
+        raise e
     except Exception as e:
-        logger.error("Error getting route from Mapbox: %s", e, exc_info=True)
+        # Catch any other unexpected errors during the call
+        logger.error(f"Unexpected error calling Mapbox helper: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error calculating route: {e}",
+            detail=f"Failed to calculate route via helper function: {e}",
         )
+
+
+@app.post("/api/driving-navigation/coverage-route")
+async def get_coverage_driving_route(request: Request):
+    """
+    Calculates an efficient route to cover all undriven street segments
+    in the specified area, starting from the user's current position.
+
+    Accepts a JSON payload with:
+    - location: The target area location model
+    - current_position: Optional current position {lat, lon} (falls back to live tracking if not provided)
+
+    Returns a GeoJSON LineString or MultiLineString representing the full route,
+    along with total duration and distance.
+    """
+    try:
+        data = await request.json()
+        if "location" not in data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Target location data is required",
+            )
+
+        location = LocationModel(**data["location"])
+        location_name = location.display_name
+
+        if not location_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Location display name is required.",
+            )
+
+        current_position = data.get("current_position")
+
+    except (ValueError, TypeError) as e:
+        logger.error("Error parsing coverage route request data: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid request format: {str(e)}",
+        )
+
+    # 1. Determine current position (similar to get_next_driving_route)
+    try:
+        if (
+            current_position
+            and isinstance(current_position, dict)
+            and "lat" in current_position
+            and "lon" in current_position
+        ):
+            current_lat = float(current_position["lat"])
+            current_lon = float(current_position["lon"])
+            location_source = "client-provided"
+            logger.info(
+                "Coverage Route: Using client-provided location: Lat=%s, Lon=%s",
+                current_lat,
+                current_lon,
+            )
+        else:
+            logger.info(
+                "Coverage Route: No position provided, falling back to live tracking"
+            )
+            active_trip_data = await get_active_trip()
+            if (
+                not active_trip_data
+                or not active_trip_data.get("coordinates")
+                or len(active_trip_data["coordinates"]) == 0
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Current position not provided and live location not available for coverage route.",
+                )
+            latest_coord_point = active_trip_data["coordinates"][-1]
+            current_lat = latest_coord_point["lat"]
+            current_lon = latest_coord_point["lon"]
+            location_source = "live-tracking"
+            logger.info(
+                "Coverage Route: Using live tracking location: Lat=%s, Lon=%s",
+                current_lat,
+                current_lon,
+            )
+
+        start_point = (current_lon, current_lat)  # lon, lat
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Coverage Route: Error getting position: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Could not determine current position: {e}",
+        )
+
+    # 2. Fetch all undriven streets for the area
+    try:
+        undriven_streets_cursor = streets_collection.find(
+            {
+                "properties.location": location_name,
+                "properties.driven": False,
+                "properties.undriveable": {"$ne": True},
+                "geometry.coordinates": {
+                    "$exists": True,
+                    "$not": {"$size": 0},
+                },
+            },
+            {
+                "geometry": 1,  # Need full geometry
+                "properties.segment_id": 1,
+                "properties.street_name": 1,
+                "_id": 0,
+            },
+        )
+        undriven_streets_list = await undriven_streets_cursor.to_list(length=None)
+
+        if not undriven_streets_list:
+            return JSONResponse(
+                content={
+                    "status": "completed",
+                    "message": f"No undriven streets found in {location_name} to generate coverage route.",
+                    "route_geometry": None,
+                    "total_duration_seconds": 0,
+                    "total_distance_meters": 0,
+                }
+            )
+        logger.info(
+            "Coverage Route: Found %d undriven segments in %s.",
+            len(undriven_streets_list),
+            location_name,
+        )
+
+        # Validate segments and extract start/end points
+        valid_segments = []
+        for street in undriven_streets_list:
+            try:
+                geom = street.get("geometry")
+                props = street.get("properties", {})
+                segment_id = props.get("segment_id", "UNKNOWN")
+                if (
+                    geom
+                    and geom.get("type") == "LineString"
+                    and len(geom.get("coordinates", [])) >= 2
+                ):
+                    coords = geom["coordinates"]
+                    # Ensure coordinates are valid numbers
+                    start_node = (
+                        float(coords[0][0]),
+                        float(coords[0][1]),
+                    )  # lon, lat
+                    end_node = (
+                        float(coords[-1][0]),
+                        float(coords[-1][1]),
+                    )  # lon, lat
+                    valid_segments.append(
+                        {
+                            "id": segment_id,
+                            "name": props.get("street_name"),
+                            "geometry": geom,
+                            "start_node": start_node,
+                            "end_node": end_node,
+                        }
+                    )
+                else:
+                    logger.warning(
+                        f"Coverage Route: Skipping invalid segment {segment_id} (type: {geom.get('type')}, len: {len(geom.get('coordinates', []))})"
+                    )
+            except (TypeError, ValueError, IndexError) as e:
+                segment_id = street.get("properties", {}).get("segment_id", "UNKNOWN")
+                logger.warning(
+                    f"Coverage Route: Error processing segment {segment_id} data: {e}"
+                )
+                continue
+
+        if not valid_segments:
+            logger.warning(
+                f"Coverage Route: No valid undriven segments found in {location_name} after filtering."
+            )
+            return JSONResponse(
+                content={
+                    "status": "error",
+                    "message": f"No valid undriven streets could be processed in {location_name}.",
+                    "route_geometry": None,
+                }
+            )
+
+        logger.info(
+            f"Coverage Route: Processing {len(valid_segments)} valid segments."
+        )
+
+    except Exception as e:
+        logger.error(
+            "Coverage Route: Error fetching/processing undriven streets for %s: %s",
+            location_name,
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error preparing segments for coverage route: {e}",
+        )
+
+    # 3. Implement Sequencing Algorithm (Iterative Nearest Neighbor)
+    ordered_segments = []
+    remaining_segments = valid_segments[:]  # Create a copy to modify
+    current_loc = start_point  # Start at the user's current position (lon, lat)
+
+    while remaining_segments:
+        nearest_segment = None
+        min_dist = float("inf")
+        nearest_index = -1
+
+        for i, segment in enumerate(remaining_segments):
+            segment_start_node = segment["start_node"]  # lon, lat
+            # Calculate distance from current location to the start of this segment
+            distance = haversine(
+                current_loc[1],  # lat1
+                current_loc[0],  # lon1
+                segment_start_node[1],  # lat2
+                segment_start_node[0],  # lon2
+                unit="meters",
+            )
+
+            if distance < min_dist:
+                min_dist = distance
+                nearest_segment = segment
+                nearest_index = i
+
+        if nearest_segment is not None:
+            # Add the nearest segment to the ordered list
+            ordered_segments.append(nearest_segment)
+            # Update the current location to the *end* of the segment we just added
+            current_loc = nearest_segment["end_node"]
+            # Remove the chosen segment from the remaining list
+            del remaining_segments[nearest_index]
+        else:
+            # Should not happen if remaining_segments is not empty, but handle defensively
+            logger.error(
+                f"Coverage Route: Could not find nearest segment for {location_name} with {len(remaining_segments)} segments remaining."
+            )
+            break  # Exit loop to prevent infinite loop
+
+    logger.info(
+        f"Coverage Route: Sequenced {len(ordered_segments)} segments for {location_name} using INN."
+    )
+
+    # Check if we sequenced all valid segments
+    if len(ordered_segments) != len(valid_segments):
+        logger.warning(
+            f"Coverage Route: Mismatch in segment count. Initial: {len(valid_segments)}, Sequenced: {len(ordered_segments)}"
+        )
+        # Decide how to handle this - maybe raise an error or return partial result?
+        # For now, proceed with the sequenced segments.
+
+    # 4. Generate Full Route using Mapbox
+    all_route_parts = []  # List to hold all GeoJSON geometries (routes + segments)
+    total_duration_seconds = 0.0
+    total_distance_meters = 0.0
+    combined_route_geojson = None # Initialize
+
+    if not ordered_segments:
+        # If after sequencing (or filtering) there are no segments, return empty route
+        logger.info(f"Coverage Route: No segments to route for {location_name}.")
+        # Keep combined_route_geojson as None
+    else:
+        try:
+            # Route from start position to the start of the first segment
+            first_segment = ordered_segments[0]
+            route_to_first = await _get_mapbox_route(
+                start_point[0],                 # current lon
+                start_point[1],                 # current lat
+                first_segment["start_node"][0], # segment start lon
+                first_segment["start_node"][1]  # segment start lat
+            )
+            all_route_parts.append(route_to_first["geometry"])
+            total_duration_seconds += route_to_first["duration"]
+            total_distance_meters += route_to_first["distance"]
+            logger.debug(f"Coverage Route: Added initial route part (duration: {route_to_first['duration']:.1f}s, distance: {route_to_first['distance']:.1f}m)")
+
+            # Add the first segment geometry
+            all_route_parts.append(first_segment["geometry"])
+
+            # Loop through remaining segments to route between them
+            for i in range(len(ordered_segments) - 1):
+                current_segment = ordered_segments[i]
+                next_segment = ordered_segments[i+1]
+
+                # Route from the end of the current segment to the start of the next
+                route_between = await _get_mapbox_route(
+                    current_segment["end_node"][0],  # current end lon
+                    current_segment["end_node"][1],  # current end lat
+                    next_segment["start_node"][0], # next start lon
+                    next_segment["start_node"][1]  # next start lat
+                )
+                all_route_parts.append(route_between["geometry"])
+                total_duration_seconds += route_between["duration"]
+                total_distance_meters += route_between["distance"]
+                logger.debug(f"Coverage Route: Added connecting route part {i+1} (duration: {route_between['duration']:.1f}s, distance: {route_between['distance']:.1f}m)")
+
+                # Add the next segment's geometry
+                all_route_parts.append(next_segment["geometry"])
+
+            # Combine all geometries into a GeometryCollection if there are parts
+            if all_route_parts:
+                combined_route_geojson = {
+                    "type": "GeometryCollection",
+                    "geometries": all_route_parts
+                }
+
+        except HTTPException as e:
+            # Handle errors during routing (e.g., Mapbox API error, no route found)
+            logger.error(f"Coverage Route: HTTP Exception during route generation: {e.detail}")
+            # Re-raise the exception to be caught by the main handler
+            raise e
+        except Exception as e:
+            # Catch any other unexpected errors during route generation
+            logger.error(f"Coverage Route: Unexpected error during route generation: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to generate full coverage route: {e}",
+            )
+
+    # 5. Return the Result
+    logger.info(
+        f"Coverage Route: Generated route for {location_name} covering {len(ordered_segments)} segments. "
+        f"Total Duration: {total_duration_seconds:.1f}s, Total Distance: {total_distance_meters:.1f}m"
+    )
+    return JSONResponse(
+        content={
+            "status": "success",
+            "message": f"Full coverage route generated for {len(ordered_segments)} segments.",
+            "route_geometry": combined_route_geojson,
+            "total_duration_seconds": total_duration_seconds,
+            "total_distance_meters": total_distance_meters,
+            "location_source": location_source,
+        }
+    )
 
 
 @app.get("/api/export/advanced")
