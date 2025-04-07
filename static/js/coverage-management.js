@@ -1162,10 +1162,12 @@ const STATUS = window.STATUS || {
           try {
             data = await response.json();
             // Basic validation of the response structure
-            if (!data || typeof data !== 'object' || !data.stage) {
+            if (!data || typeof data !== "object" || !data.stage) {
               // If the response was OK but data is invalid, it's a server issue.
               if (response.ok) {
-                  console.warn(`Task ${taskId}: Received incomplete/invalid data structure despite HTTP OK status.`);
+                console.warn(
+                  `Task ${taskId}: Received incomplete/invalid data structure despite HTTP OK status.`,
+                );
               }
               // Consistently throw an error if data format is invalid.
               throw new Error("Invalid data format received from server.");
