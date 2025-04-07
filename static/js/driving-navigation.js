@@ -223,21 +223,10 @@ class DrivingNavigation {
       this.liveTripPathLayer.setLatLngs([]);
     }
 
-    // Disable find button if it depends on location
-    if (this.findBtn && !this.findBtn.disabled) {
-      this.findBtn.disabled = true;
-      this.findBtn.dataset.disabledReason = "no-location";
-    }
-    // Also handle the coverage button
-    if (
-      this.calcCoverageBtn &&
-      this.calcCoverageBtn.disabled &&
-      this.calcCoverageBtn.dataset.disabledReason === "no-location" &&
-      this.selectedLocation
-    ) {
-      this.calcCoverageBtn.disabled = false;
-      delete this.calcCoverageBtn.dataset.disabledReason;
-    }
+    // NOTE: Button disabling logic has been intentionally removed here
+    // to allow offline/fallback mode to function correctly. Buttons
+    // are enabled when an area is selected and only disabled during
+    // active API calls.
   }
 
   setupEventListeners() {
