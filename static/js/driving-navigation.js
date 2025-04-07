@@ -202,7 +202,8 @@ class DrivingNavigation {
     if (
       this.findBtn &&
       this.findBtn.disabled &&
-      this.findBtn.dataset.disabledReason === "no-location"
+      this.findBtn.dataset.disabledReason === "no-location" &&
+      this.selectedLocation
     ) {
       this.findBtn.disabled = false;
       delete this.findBtn.dataset.disabledReason;
@@ -222,7 +223,7 @@ class DrivingNavigation {
       this.liveTripPathLayer.setLatLngs([]);
     }
 
-    this.setStatus("Live location unavailable.", true);
+    this.setStatus("Live location unavailable. Will use last trip end if routing.", false);
 
     // Disable find button if it depends on location
     if (this.findBtn && !this.findBtn.disabled) {
@@ -233,7 +234,8 @@ class DrivingNavigation {
     if (
       this.calcCoverageBtn &&
       this.calcCoverageBtn.disabled &&
-      this.calcCoverageBtn.dataset.disabledReason === "no-location"
+      this.calcCoverageBtn.dataset.disabledReason === "no-location" &&
+      this.selectedLocation
     ) {
       this.calcCoverageBtn.disabled = false;
       delete this.calcCoverageBtn.dataset.disabledReason;
@@ -430,8 +432,8 @@ class DrivingNavigation {
         // Optionally zoom to the general area if no streets are found
         if (this.selectedLocation.boundingbox) {
           // Enable buttons even if no streets are found, as long as area is valid
-          this.findBtn.disabled = !this.lastKnownLocation;
-          this.calcCoverageBtn.disabled = !this.lastKnownLocation;
+          this.findBtn.disabled = false;
+          this.calcCoverageBtn.disabled = false;
           if (!this.lastKnownLocation) {
             const reason = "no-location";
             if (this.findBtn) this.findBtn.dataset.disabledReason = reason;
@@ -464,11 +466,6 @@ class DrivingNavigation {
       this.setStatus("Please select an area first.", true);
       return;
     }
-    if (!this.lastKnownLocation) {
-      this.setStatus("Waiting for current location...", true);
-      // Optionally try to fetch location again or wait for next update
-      return;
-    }
     if (this.isFetchingRoute || this.isFetchingCoverageRoute) {
       console.log("Route fetch already in progress.");
       return;
@@ -485,10 +482,11 @@ class DrivingNavigation {
     this.routeInfo.innerHTML = ""; // Clear route info
 
     try {
-      // Create the request payload with both the current location and target area
+      // Create the request payload
       const requestPayload = {
         location: this.selectedLocation,
-        current_position: this.lastKnownLocation,
+        // Only include current_position if live location is available
+        ...(this.lastKnownLocation && { current_position: this.lastKnownLocation }),
       };
 
       console.log("Sending route request with payload:", requestPayload);
@@ -533,7 +531,7 @@ class DrivingNavigation {
 
         // Log location source for debugging
         const locationSource = data.location_source || "unknown";
-        console.log(`Route calculated using ${locationSource} location data`);
+        console.log(`Route calculated using '${locationSource}' location data`);
 
         // Update status with more detail
         this.setStatus(`Route calculated. Head towards ${streetName}.`);
@@ -548,7 +546,7 @@ class DrivingNavigation {
           <div class="route-info-detail">
             <div><i class="fas fa-clock"></i> ${durationMinutes} min</div>
             <div><i class="fas fa-road"></i> ${distanceMiles} mi</div>
-            <div class="text-muted small">(Using ${locationSource} position)</div>
+            <div class="text-muted small">(Using ${this.formatLocationSource(locationSource)} position)</div>
           </div>
         `;
 
@@ -654,10 +652,6 @@ class DrivingNavigation {
       this.setStatus("Please select an area first.", true);
       return;
     }
-    if (!this.lastKnownLocation) {
-      this.setStatus("Waiting for current location...", true);
-      return;
-    }
     if (this.isFetchingRoute || this.isFetchingCoverageRoute) {
       console.log("Another route fetch is already in progress.");
       return;
@@ -677,7 +671,8 @@ class DrivingNavigation {
     try {
       const requestPayload = {
         location: this.selectedLocation,
-        current_position: this.lastKnownLocation,
+        // Only include current_position if live location is available
+        ...(this.lastKnownLocation && { current_position: this.lastKnownLocation }),
       };
 
       console.log(
@@ -769,12 +764,13 @@ class DrivingNavigation {
         const segmentCount = data.message.match(/\d+/)?.[0] || "?"; // Extract count from message
 
         this.setStatus(`Full coverage route calculated (${segmentCount} segments).`);
+        const locationSource = data.location_source || "unknown";
         this.routeInfo.innerHTML = `
           <div class="route-info-detail">
             <div><strong>Total Est:</strong></div>
             <div><i class="fas fa-clock"></i> ${durationMinutes} min</div>
             <div><i class="fas fa-road"></i> ${distanceMiles} mi</div>
-            <div class="text-muted small">(Using ${data.location_source} position)</div>
+            <div class="text-muted small">(Using ${this.formatLocationSource(locationSource)} position)</div>
           </div>
         `;
         this.targetInfo.innerHTML = ""; // Clear specific target info
@@ -801,12 +797,19 @@ class DrivingNavigation {
       this.calcCoverageBtn.innerHTML =
         '<i class="fas fa-road me-2"></i>Calculate Full Coverage Route';
       // Re-enable find button only if location is available
-      this.findBtn.disabled = !this.lastKnownLocation;
-      if (!this.lastKnownLocation && this.findBtn) {
-          this.findBtn.dataset.disabledReason = "no-location";
-      }
+      this.findBtn.disabled = false;
       this.isFetchingCoverageRoute = false;
     }
+  }
+
+  // Helper to format location source for display
+  formatLocationSource(source) {
+      switch(source) {
+          case "client-provided": return "current live";
+          case "live-tracking": return "current live";
+          case "last-trip-end": return "last trip end";
+          default: return source;
+      }
   }
 }
 

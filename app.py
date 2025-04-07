@@ -3860,25 +3860,66 @@ async def get_next_driving_route(request: Request):
             active_trip_data = await get_active_trip()
 
             if (
-                not active_trip_data
-                or not active_trip_data.get("coordinates")
-                or len(active_trip_data["coordinates"]) == 0
+                active_trip_data
+                and active_trip_data.get("coordinates")
+                and len(active_trip_data["coordinates"]) > 0
             ):
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Current position not provided and live location not available.",
+                latest_coord_point = active_trip_data["coordinates"][-1]
+                current_lat = latest_coord_point["lat"]
+                current_lon = latest_coord_point["lon"]
+                location_source = "live-tracking"
+                logger.info(
+                    "Using live tracking location: Lat=%s, Lon=%s",
+                    current_lat,
+                    current_lon,
+                )
+            else:
+                # --- Fallback to last known trip end position ---
+                logger.info(
+                    "Live tracking unavailable, falling back to last trip end location"
+                )
+                last_trip = await find_one_with_retry(
+                    trips_collection, {}, sort=[("endTime", -1)]
                 )
 
-            latest_coord_point = active_trip_data["coordinates"][-1]
-            current_lat = latest_coord_point["lat"]
-            current_lon = latest_coord_point["lon"]
-            location_source = "live-tracking"
+                if not last_trip:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Current position not provided, live location unavailable, and no previous trips found.",
+                    )
 
-            logger.info(
-                "Using live tracking location: Lat=%s, Lon=%s",
-                current_lat,
-                current_lon,
-            )
+                try:
+                    # Try geometry first, then gps string
+                    geom = last_trip.get("geometry") or geojson_module.loads(
+                        last_trip.get("gps", "{}")
+                    )
+                    if (
+                        geom
+                        and geom.get("type") == "LineString"
+                        and len(geom.get("coordinates", [])) > 0
+                    ):
+                        last_coord = geom["coordinates"][-1]
+                        current_lon = float(last_coord[0])
+                        current_lat = float(last_coord[1])
+                        location_source = "last-trip-end"
+                        logger.info(
+                            "Using last trip end location: Lat=%s, Lon=%s (Trip ID: %s)",
+                            current_lat,
+                            current_lon,
+                            last_trip.get("transactionId", "N/A"),
+                        )
+                    else:
+                        raise ValueError("Invalid or empty geometry in last trip")
+                except (json.JSONDecodeError, ValueError, TypeError, IndexError) as e:
+                    logger.error(
+                        "Failed to extract end location from last trip %s: %s",
+                        last_trip.get("transactionId", "N/A"),
+                        e,
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Failed to determine starting location from last trip.",
+                    )
 
     except HTTPException:
         raise
@@ -4195,23 +4236,68 @@ async def get_coverage_driving_route(request: Request):
             )
             active_trip_data = await get_active_trip()
             if (
-                not active_trip_data
-                or not active_trip_data.get("coordinates")
-                or len(active_trip_data["coordinates"]) == 0
+                active_trip_data
+                and active_trip_data.get("coordinates")
+                and len(active_trip_data["coordinates"]) > 0
             ):
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Current position not provided and live location not available for coverage route.",
+                latest_coord_point = active_trip_data["coordinates"][-1]
+                current_lat = latest_coord_point["lat"]
+                current_lon = latest_coord_point["lon"]
+                location_source = "live-tracking"
+                logger.info(
+                    "Coverage Route: Using live tracking location: Lat=%s, Lon=%s",
+                    current_lat,
+                    current_lon,
                 )
-            latest_coord_point = active_trip_data["coordinates"][-1]
-            current_lat = latest_coord_point["lat"]
-            current_lon = latest_coord_point["lon"]
-            location_source = "live-tracking"
-            logger.info(
-                "Coverage Route: Using live tracking location: Lat=%s, Lon=%s",
-                current_lat,
-                current_lon,
-            )
+            else:
+                # --- Fallback to last known trip end position ---
+                logger.info(
+                    "Coverage Route: Live tracking unavailable, falling back to last trip end location"
+                )
+                last_trip = await find_one_with_retry(
+                    trips_collection, {}, sort=[("endTime", -1)]
+                )
+
+                if not last_trip:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Coverage Route: Current position not provided, live location unavailable, and no previous trips found.",
+                    )
+
+                try:
+                    # Try geometry first, then gps string
+                    geom = last_trip.get("geometry") or geojson_module.loads(
+                        last_trip.get("gps", "{}")
+                    )
+                    if (
+                        geom
+                        and geom.get("type") == "LineString"
+                        and len(geom.get("coordinates", [])) > 0
+                    ):
+                        last_coord = geom["coordinates"][-1]
+                        current_lon = float(last_coord[0])
+                        current_lat = float(last_coord[1])
+                        location_source = "last-trip-end"
+                        logger.info(
+                            "Coverage Route: Using last trip end location: Lat=%s, Lon=%s (Trip ID: %s)",
+                            current_lat,
+                            current_lon,
+                            last_trip.get("transactionId", "N/A"),
+                        )
+                    else:
+                        raise ValueError(
+                            "Coverage Route: Invalid or empty geometry in last trip"
+                        )
+                except (json.JSONDecodeError, ValueError, TypeError, IndexError) as e:
+                    logger.error(
+                        "Coverage Route: Failed to extract end location from last trip %s: %s",
+                        last_trip.get("transactionId", "N/A"),
+                        e,
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Coverage Route: Failed to determine starting location from last trip.",
+                    )
 
         start_point = (current_lon, current_lat)  # lon, lat
 
