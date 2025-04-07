@@ -110,7 +110,9 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
             data,
         )
         return
-    if not vin: # IMEI might be null based on some contexts, VIN is more critical here
+    if (
+        not vin
+    ):  # IMEI might be null based on some contexts, VIN is more critical here
         logger.warning(
             "Missing vin in tripStart event for %s.", transaction_id
         )
@@ -121,13 +123,19 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
     start_odometer = start_data.get("odometer")
 
     if start_time_zone is None:
-        logger.error("API Error? Missing required 'timeZone' in tripStart payload for %s", transaction_id)
+        logger.error(
+            "API Error? Missing required 'timeZone' in tripStart payload for %s",
+            transaction_id,
+        )
         # Handle based on requirements - e.g., default or raise internal error
-        start_time_zone = "UTC" # Example fallback, adjust if needed
+        start_time_zone = "UTC"  # Example fallback, adjust if needed
     if start_odometer is None:
-         logger.error("API Error? Missing required 'odometer' in tripStart payload for %s", transaction_id)
-         # Handle based on requirements - e.g., default or raise internal error
-         start_odometer = None # Allow null in DB if schema permits
+        logger.error(
+            "API Error? Missing required 'odometer' in tripStart payload for %s",
+            transaction_id,
+        )
+        # Handle based on requirements - e.g., default or raise internal error
+        start_odometer = None  # Allow null in DB if schema permits
 
     start_time = _parse_iso_datetime(start_timestamp_str)
 
@@ -151,8 +159,8 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
         "imei": imei,
         "status": "active",
         "startTime": start_time,
-        "startTimeZone": start_time_zone, # Use extracted value
-        "startOdometer": start_odometer, # Use extracted value
+        "startTimeZone": start_time_zone,  # Use extracted value
+        "startOdometer": start_odometer,  # Use extracted value
         "coordinates": [],
         "lastUpdate": start_time,
         "distance": 0.0,
@@ -165,7 +173,7 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
         "totalIdlingTime": 0,
         "hardBrakingCounts": 0,
         "hardAccelerationCounts": 0,
-        "fuelConsumed": None, # Fuel consumed comes at end
+        "fuelConsumed": None,  # Fuel consumed comes at end
         "endTime": None,
         "endTimeZone": None,
         "endOdometer": None,
@@ -720,14 +728,23 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     fuel_consumed_raw = end_data.get("fuelConsumed")
 
     if end_time_zone is None:
-        logger.error("API Error? Missing required 'timeZone' in tripEnd payload for %s", transaction_id)
-        end_time_zone = "UTC" # Example fallback
+        logger.error(
+            "API Error? Missing required 'timeZone' in tripEnd payload for %s",
+            transaction_id,
+        )
+        end_time_zone = "UTC"  # Example fallback
     if end_odometer is None:
-        logger.error("API Error? Missing required 'odometer' in tripEnd payload for %s", transaction_id)
-        end_odometer = None # Allow null in DB if schema permits
+        logger.error(
+            "API Error? Missing required 'odometer' in tripEnd payload for %s",
+            transaction_id,
+        )
+        end_odometer = None  # Allow null in DB if schema permits
     if fuel_consumed_raw is None:
-        logger.error("API Error? Missing required 'fuelConsumed' in tripEnd payload for %s", transaction_id)
-        fuel_consumed = None # Allow null in DB if schema permits
+        logger.error(
+            "API Error? Missing required 'fuelConsumed' in tripEnd payload for %s",
+            transaction_id,
+        )
+        fuel_consumed = None  # Allow null in DB if schema permits
     else:
         try:
             fuel_consumed = float(fuel_consumed_raw)
@@ -737,7 +754,7 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
                 fuel_consumed_raw,
                 transaction_id,
             )
-            fuel_consumed = None # Store null if conversion fails
+            fuel_consumed = None  # Store null if conversion fails
 
     end_time = _parse_iso_datetime(end_timestamp_str)
 
@@ -789,9 +806,11 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
         del trip_to_archive["_id"]
 
     trip_to_archive["endTime"] = end_time
-    trip_to_archive["endTimeZone"] = end_time_zone # Use extracted value
-    trip_to_archive["endOdometer"] = end_odometer # Use extracted value
-    trip_to_archive["fuelConsumed"] = fuel_consumed # Use extracted/converted value
+    trip_to_archive["endTimeZone"] = end_time_zone  # Use extracted value
+    trip_to_archive["endOdometer"] = end_odometer  # Use extracted value
+    trip_to_archive["fuelConsumed"] = (
+        fuel_consumed  # Use extracted/converted value
+    )
     trip_to_archive["status"] = "completed"
     trip_to_archive["closed_reason"] = "normal"
     trip_to_archive["lastUpdate"] = end_time

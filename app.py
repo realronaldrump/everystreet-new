@@ -128,9 +128,7 @@ app = FastAPI(title="Street Coverage Tracker")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-origins = [
-    "*"
-]
+origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -3849,7 +3847,9 @@ async def get_next_driving_route(request: Request):
     processing_errors = []
 
     for i, street in enumerate(undriven_streets):
-        segment_id = street.get("properties", {}).get("segment_id", f"UNKNOWN_{i}")
+        segment_id = street.get("properties", {}).get(
+            "segment_id", f"UNKNOWN_{i}"
+        )
         reason = None
         try:
             geometry = street.get("geometry")
@@ -3869,7 +3869,7 @@ async def get_next_driving_route(request: Request):
             if not segment_coords or len(segment_coords) < 2:
                 reason = "Missing or insufficient coordinates"
                 if segment_coords is not None:
-                     reason += f" (length: {len(segment_coords)})"
+                    reason += f" (length: {len(segment_coords)})"
                 logger.debug("Skipping segment %s: %s", segment_id, reason)
                 skipped_count += 1
                 continue
@@ -3906,18 +3906,27 @@ async def get_next_driving_route(request: Request):
                     segment_lon,
                     segment_lat,
                 ]
-                logger.debug("Segment %s is new nearest (Dist: %.2f m)", segment_id, distance)
-
+                logger.debug(
+                    "Segment %s is new nearest (Dist: %.2f m)",
+                    segment_id,
+                    distance,
+                )
 
         except (TypeError, ValueError) as coord_err:
-             reason = f"Coordinate conversion/validation error: {coord_err}"
-             logger.warning("Error processing segment %s: %s", segment_id, reason)
-             skipped_count += 1
-             processing_errors.append(f"Segment {segment_id}: {reason}")
-             continue
+            reason = f"Coordinate conversion/validation error: {coord_err}"
+            logger.warning(
+                "Error processing segment %s: %s", segment_id, reason
+            )
+            skipped_count += 1
+            processing_errors.append(f"Segment {segment_id}: {reason}")
+            continue
         except Exception as dist_err:
-            reason = f"Unexpected error during distance calculation: {dist_err}"
-            logger.warning("Error processing segment %s: %s", segment_id, reason)
+            reason = (
+                f"Unexpected error during distance calculation: {dist_err}"
+            )
+            logger.warning(
+                "Error processing segment %s: %s", segment_id, reason
+            )
             skipped_count += 1
             processing_errors.append(f"Segment {segment_id}: {reason}")
             continue
@@ -3926,7 +3935,7 @@ async def get_next_driving_route(request: Request):
         logger.info(
             "Skipped %d / %d undriven segments due to data issues during nearest search.",
             skipped_count,
-            len(undriven_streets)
+            len(undriven_streets),
         )
 
     if not nearest_street:
@@ -3941,17 +3950,20 @@ async def get_next_driving_route(request: Request):
                 error_msg += f" All {skipped_count} were skipped due to processing errors."
                 detail_msg = f"Found {num_candidates} undriven segments, but none could be processed due to data issues."
                 if processing_errors:
-                     detail_msg += f" Example errors: {'; '.join(processing_errors[:3])}"
+                    detail_msg += (
+                        f" Example errors: {'; '.join(processing_errors[:3])}"
+                    )
                 status_code = status.HTTP_404_NOT_FOUND
             else:
-                error_msg += f" {skipped_count} were skipped. Unexpected state."
+                error_msg += (
+                    f" {skipped_count} were skipped. Unexpected state."
+                )
                 detail_msg = "Internal error: Failed processing candidates."
-
 
         logger.warning(error_msg)
 
         if status_code == status.HTTP_404_NOT_FOUND:
-             return JSONResponse(
+            return JSONResponse(
                 status_code=status_code,
                 content={
                     "status": "error",
@@ -3966,9 +3978,10 @@ async def get_next_driving_route(request: Request):
                 detail=detail_msg,
             )
 
-
     if "start_coords" not in nearest_street.get("properties", {}):
-        segment_id = nearest_street.get("properties", {}).get("segment_id", "UNKNOWN")
+        segment_id = nearest_street.get("properties", {}).get(
+            "segment_id", "UNKNOWN"
+        )
         logger.error(
             "Internal logic error: Nearest street %s is missing calculated start_coords.",
             segment_id,
