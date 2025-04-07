@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 import aiohttp
 from dateutil import parser as date_parser
 
-from trip_processor import TripProcessor
+from trip_processor import TripProcessor, TripState
 
 from utils import get_session
 
@@ -107,8 +107,23 @@ async def fetch_trips_for_device(
 
 
 async def store_trip(trip: dict) -> bool:
-    """Store a single trip in MongoDB using the unified TripProcessor."""
+    """Store a single trip from historical fetch in MongoDB using the unified TripProcessor.
+    Filters out trips missing essential fields like endTime before processing.
+
+    Args:
+         trip (dict): The raw trip data fetched from the Bouncie API.
+
+    Returns:
+         bool: True if the trip was successfully processed and stored, False otherwise (including skipped trips).
+    """
     transaction_id = trip.get("transactionId", "?")
+
+    if not trip.get("endTime"):
+        logger.warning(
+            "Skipping storing historical trip %s because 'endTime' is missing from fetched data.",
+            transaction_id,
+        )
+        return False
 
     try:
         processor = TripProcessor(
@@ -116,20 +131,41 @@ async def store_trip(trip: dict) -> bool:
         )
 
         processor.set_trip_data(trip)
+
         await processor.process(do_map_match=False)
 
+        if processor.state == TripState.FAILED:
+            status_info = processor.get_processing_status()
+            logger.error(
+                "TripProcessor failed for historical trip %s. State: %s, Errors: %s",
+                transaction_id,
+                processor.state.value,
+                status_info.get("errors"),
+            )
+            return False
+
         saved_id = await processor.save()
+
         if not saved_id:
-            logger.error("Trip %s could not be saved", transaction_id)
+            logger.error(
+                "Historical trip %s processed successfully but could not be saved to 'trips' collection.",
+                transaction_id,
+            )
             return False
 
         logger.info(
-            "Stored trip %s successfully with ID %s", transaction_id, saved_id
+            "Stored historical trip %s successfully in 'trips' collection with ID %s",
+            transaction_id,
+            saved_id,
         )
         return True
 
     except Exception as e:
-        logger.error("Error storing trip %s: %s", transaction_id, e)
+        logger.exception(
+            "Unexpected error storing historical trip %s: %s",
+            transaction_id,
+            e,
+        )
         return False
 
 

@@ -16,7 +16,7 @@ Key features:
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from db import SerializationHelper, run_transaction
 from timestamp_utils import (
@@ -46,6 +46,8 @@ def initialize_db(db_live_trips, db_archived_live_trips):
 def _parse_iso_datetime(timestamp_str: Optional[str]) -> Optional[datetime]:
     """Safely parse an ISO 8601 timestamp string into a timezone-aware datetime object (UTC).
 
+    Handles strings ending in 'Z' or with timezone offsets.
+
     Args:
         timestamp_str: The ISO 8601 formatted string.
 
@@ -57,15 +59,26 @@ def _parse_iso_datetime(timestamp_str: Optional[str]) -> Optional[datetime]:
     try:
         if timestamp_str.endswith("Z"):
             timestamp_str = timestamp_str[:-1] + "+00:00"
+
         dt = datetime.fromisoformat(timestamp_str)
+
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        return dt
     except (ValueError, TypeError) as e:
         logger.error(
             "Error parsing timestamp string '%s': %s", timestamp_str, e
         )
         return None
+
+
+def _parse_mongo_date_dict(date_dict: Dict[str, str]) -> Optional[datetime]:
+    """Parses a MongoDB extended JSON date dict like {'$date': 'ISO_STRING'}"""
+    if isinstance(date_dict, dict) and "$date" in date_dict:
+        return _parse_iso_datetime(date_dict["$date"])
+    return None
 
 
 async def serialize_live_trip(
@@ -95,7 +108,8 @@ async def serialize_live_trip(
     serialized.setdefault("avgSpeed", 0.0)
     serialized.setdefault("duration", 0)
     serialized.setdefault("status", "unknown")
-    coordinates = serialized.get("coordinates", [])
+    coordinates = serialized.get("coordinates", []) or []
+    serialized["coordinates"] = coordinates
     serialized.setdefault("pointsRecorded", len(coordinates))
 
     serialized.setdefault("startOdometer", trip_data.get("startOdometer"))
@@ -131,9 +145,31 @@ async def serialize_live_trip(
 
     start_time_value = serialized.get("startTime")
     startTimeFormatted = "Awaiting Start..."
+    start_time_obj = None
 
     if isinstance(start_time_value, datetime):
         start_time_obj = start_time_value
+    elif isinstance(start_time_value, dict) and "$date" in start_time_value:
+        logger.warning(
+            "Attempting to parse startTime from MongoDB dict format for trip %s: %s.",
+            transaction_id,
+            start_time_value,
+        )
+        start_time_obj = _parse_mongo_date_dict(start_time_value)
+        if start_time_obj is None:
+            logger.error(
+                "Failed to parse startTime from dict format for trip %s.",
+                transaction_id,
+            )
+    elif start_time_value is not None:
+        logger.warning(
+            "Unexpected type for startTime during serialization for trip %s: %s. Expected datetime or {'$date':...}, got %s.",
+            transaction_id,
+            start_time_value,
+            type(start_time_value).__name__,
+        )
+
+    if start_time_obj:
         if start_time_obj.tzinfo is None:
             start_time_obj = start_time_obj.replace(tzinfo=timezone.utc)
         start_time_obj = start_time_obj.astimezone(timezone.utc)
@@ -149,39 +185,56 @@ async def serialize_live_trip(
                 e,
             )
             startTimeFormatted = "Error Formatting"
-    elif start_time_value is not None:
-        logger.warning(
-            "Unexpected type for startTime during serialization for trip %s: %s. Expected datetime, got %s.",
-            transaction_id,
-            start_time_value,
-            type(start_time_value).__name__,
-        )
+    elif start_time_value is not None and start_time_obj is None:
         startTimeFormatted = "Invalid Data"
 
     serialized["startTimeFormatted"] = startTimeFormatted
 
     if (
         coordinates
-        and serialized.get("distance") == 0
+        and serialized.get("distance") == 0.0
         and len(coordinates) >= 2
     ):
         logger.info(
-            "Recalculating distance for trip %s as it was 0 despite having coordinates.",
+            "Recalculating distance/speed for trip %s as distance was 0 despite having %d coordinates.",
             transaction_id,
+            len(coordinates),
         )
         total_distance = 0.0
         max_calculated_speed = 0.0
         valid_speeds = []
+        recalculated_duration_seconds = 0
+
+        first_coord_ts = coordinates[0].get("timestamp")
+        last_coord_ts = coordinates[-1].get("timestamp")
+
+        if isinstance(first_coord_ts, datetime) and isinstance(
+            last_coord_ts, datetime
+        ):
+            recalculated_duration_seconds = (
+                last_coord_ts - first_coord_ts
+            ).total_seconds()
+        else:
+            logger.warning(
+                "Cannot accurately recalculate duration/avg speed due to missing/invalid timestamps in coordinates for trip %s",
+                transaction_id,
+            )
 
         for i in range(1, len(coordinates)):
             prev = coordinates[i - 1]
             curr = coordinates[i]
 
             if not all(
-                k in prev for k in ("lon", "lat", "timestamp")
-            ) or not all(k in curr for k in ("lon", "lat", "timestamp")):
+                k in prev and prev[k] is not None
+                for k in ("lon", "lat", "timestamp")
+            ) or not all(
+                k in curr and curr[k] is not None
+                for k in ("lon", "lat", "timestamp")
+            ):
                 logger.warning(
-                    "Skipping coordinate pair due to missing data in recalculation for trip %s",
+                    "Skipping coordinate pair [%d-%d] due to missing/null data in recalculation for trip %s",
+                    i - 1,
+                    i,
                     transaction_id,
                 )
                 continue
@@ -192,39 +245,102 @@ async def serialize_live_trip(
                 curr_ts, datetime
             ):
                 logger.warning(
-                    "Skipping coordinate pair due to invalid timestamp types in recalculation for trip %s",
+                    "Skipping coordinate pair [%d-%d] due to invalid timestamp types (%s, %s) in recalculation for trip %s",
+                    i - 1,
+                    i,
+                    type(prev_ts).__name__,
+                    type(curr_ts).__name__,
                     transaction_id,
                 )
                 continue
 
-            segment_distance = haversine(
-                prev["lon"],
-                prev["lat"],
-                curr["lon"],
-                curr["lat"],
-                unit="miles",
-            )
-            total_distance += segment_distance
-
-            time_diff_seconds = (curr_ts - prev_ts).total_seconds()
-            if time_diff_seconds > 0:
-                segment_speed_mph = (
-                    segment_distance / time_diff_seconds
-                ) * 3600
-                valid_speeds.append(segment_speed_mph)
-                max_calculated_speed = max(
-                    max_calculated_speed, segment_speed_mph
+            if not all(
+                isinstance(prev[k], (int, float)) for k in ("lon", "lat")
+            ) or not all(
+                isinstance(curr[k], (int, float)) for k in ("lon", "lat")
+            ):
+                logger.warning(
+                    "Skipping coordinate pair [%d-%d] due to invalid lat/lon types in recalculation for trip %s",
+                    i - 1,
+                    i,
+                    transaction_id,
                 )
+                continue
+
+            try:
+                segment_distance = haversine(
+                    prev["lon"],
+                    prev["lat"],
+                    curr["lon"],
+                    curr["lat"],
+                    unit="miles",
+                )
+                total_distance += segment_distance
+
+                time_diff_seconds = (curr_ts - prev_ts).total_seconds()
+                if time_diff_seconds > 1:
+                    segment_speed_mph = (
+                        segment_distance / time_diff_seconds
+                    ) * 3600
+                    if 0 <= segment_speed_mph < 200:
+                        valid_speeds.append(segment_speed_mph)
+                        max_calculated_speed = max(
+                            max_calculated_speed, segment_speed_mph
+                        )
+                    else:
+                        logger.warning(
+                            "Ignoring unrealistic segment speed %.1f mph for trip %s",
+                            segment_speed_mph,
+                            transaction_id,
+                        )
+                elif time_diff_seconds < 0:
+                    logger.warning(
+                        "Negative time difference detected between points for trip %s",
+                        transaction_id,
+                    )
+
+            except (TypeError, ValueError) as calc_err:
+                logger.error(
+                    "Error during coordinate calculation for trip %s: %s. Prev: %s, Curr: %s",
+                    transaction_id,
+                    calc_err,
+                    prev,
+                    curr,
+                )
+                continue
 
         serialized["distance"] = total_distance
-        if max_calculated_speed > serialized["maxSpeed"]:
+        if max_calculated_speed > serialized.get("maxSpeed", 0.0):
             serialized["maxSpeed"] = max_calculated_speed
+            logger.info(
+                "Updated maxSpeed to calculated %.1f mph for trip %s",
+                max_calculated_speed,
+                transaction_id,
+            )
 
-        if duration_seconds > 0:
-            duration_hours = duration_seconds / 3600
-            serialized["avgSpeed"] = total_distance / duration_hours
+        effective_duration_seconds = (
+            recalculated_duration_seconds
+            if recalculated_duration_seconds > 0
+            else duration_seconds
+        )
+
+        if effective_duration_seconds > 0:
+            duration_hours = effective_duration_seconds / 3600
+            calculated_avg_speed = total_distance / duration_hours
+            serialized["avgSpeed"] = calculated_avg_speed
+            logger.info(
+                "Updated avgSpeed to calculated %.1f mph for trip %s",
+                calculated_avg_speed,
+                transaction_id,
+            )
         elif valid_speeds:
-            serialized["avgSpeed"] = sum(valid_speeds) / len(valid_speeds)
+            calculated_avg_speed = sum(valid_speeds) / len(valid_speeds)
+            serialized["avgSpeed"] = calculated_avg_speed
+            logger.info(
+                "Updated avgSpeed to fallback calculated %.1f mph for trip %s",
+                calculated_avg_speed,
+                transaction_id,
+            )
 
     serialized.setdefault("sequence", int(time.time() * 1000))
 
@@ -313,10 +429,16 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
     }
 
     async def delete_existing_op(session=None):
-        await live_trips_collection.delete_many(
+        result = await live_trips_collection.delete_many(
             {"transactionId": transaction_id, "status": "active"},
             session=session,
         )
+        if result.deleted_count > 0:
+            logger.warning(
+                "Deleted %d pre-existing active trip(s) with the same transactionId: %s before inserting new start.",
+                result.deleted_count,
+                transaction_id,
+            )
 
     async def insert_new_op(session=None):
         await live_trips_collection.insert_one(new_trip, session=session)
@@ -331,7 +453,7 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
         )
     else:
         logger.error(
-            "Failed to start trip: %s (database transaction failed)",
+            "Failed to start trip: %s (database transaction failed - check run_transaction logs)",
             transaction_id,
         )
 
@@ -371,7 +493,7 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
     )
 
     if not trip_doc:
-        if archived_live_trips_collection:
+        if archived_live_trips_collection is not None:
             archived_trip = await archived_live_trips_collection.find_one(
                 {"transactionId": transaction_id}
             )
@@ -381,7 +503,6 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
                     transaction_id,
                 )
                 return
-
         logger.warning(
             "Received tripData for unknown or inactive trip: %s. Ignoring data as no active trip found.",
             transaction_id,
@@ -395,9 +516,11 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
     )
 
     try:
-        new_coords = sort_and_filter_trip_coordinates(trip_data_points)
+        new_coords: List[Dict[str, Any]] = sort_and_filter_trip_coordinates(
+            trip_data_points
+        )
     except Exception as e:
-        logger.error(
+        logger.exception(
             "Error processing coordinates from tripData for %s: %s",
             transaction_id,
             e,
@@ -411,12 +534,27 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
         )
         return
 
-    existing_coords = trip_doc.get("coordinates", [])
-    all_coords = existing_coords + new_coords
+    existing_coords: List[Dict[str, Any]] = (
+        trip_doc.get("coordinates", []) or []
+    )
 
-    unique_coords_map = {c["timestamp"].isoformat(): c for c in all_coords}
+    all_coords_map: Dict[str, Dict[str, Any]] = {
+        c["timestamp"].isoformat(): c
+        for c in existing_coords
+        if isinstance(c.get("timestamp"), datetime)
+    }
+    for c in new_coords:
+        if isinstance(c.get("timestamp"), datetime):
+            all_coords_map[c["timestamp"].isoformat()] = c
+        else:
+            logger.warning(
+                "Skipping new coordinate due to invalid timestamp: %s for trip %s",
+                c,
+                transaction_id,
+            )
+
     sorted_unique_coords = sorted(
-        unique_coords_map.values(), key=lambda c: c["timestamp"]
+        all_coords_map.values(), key=lambda c: c["timestamp"]
     )
 
     if not sorted_unique_coords:
@@ -428,73 +566,141 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
 
     start_time = trip_doc.get("startTime")
     if not isinstance(start_time, datetime):
-        logger.error(
-            "Invalid or missing startTime in existing trip document for %s. Cannot calculate duration/avgSpeed accurately.",
+        start_time = (
+            _parse_mongo_date_dict(start_time)
+            if isinstance(start_time, dict)
+            else None
+        )
+        if not isinstance(start_time, datetime):
+            logger.error(
+                "Invalid or missing startTime (%s) in existing trip document for %s. Cannot calculate duration/avgSpeed accurately. Using first coordinate time as fallback.",
+                type(trip_doc.get("startTime")).__name__,
+                transaction_id,
+            )
+            start_time = (
+                sorted_unique_coords[0].get("timestamp")
+                if sorted_unique_coords
+                else None
+            )
+
+    last_point_time = sorted_unique_coords[-1].get("timestamp")
+    duration_seconds = 0
+    if isinstance(start_time, datetime) and isinstance(
+        last_point_time, datetime
+    ):
+        duration_seconds = (last_point_time - start_time).total_seconds()
+        if duration_seconds < 0:
+            logger.warning(
+                "Calculated negative duration (%.1fs) for trip %s. Start: %s, Last Point: %s. Resetting duration to 0.",
+                duration_seconds,
+                transaction_id,
+                start_time,
+                last_point_time,
+            )
+            duration_seconds = 0
+    else:
+        logger.warning(
+            "Cannot calculate duration for trip %s due to missing/invalid start or last point time.",
             transaction_id,
         )
-        start_time = sorted_unique_coords[0]["timestamp"]
-
-    last_point_time = sorted_unique_coords[-1]["timestamp"]
-    duration_seconds = (
-        (last_point_time - start_time).total_seconds() if start_time else 0
-    )
 
     max_segment_speed = 0.0
     current_speed = 0.0
+    full_trip_distance = 0.0
+    valid_speeds_for_avg = []
 
     if len(sorted_unique_coords) >= 2:
         for i in range(1, len(sorted_unique_coords)):
             prev = sorted_unique_coords[i - 1]
             curr = sorted_unique_coords[i]
 
-            if not all(
-                k in prev for k in ("lon", "lat", "timestamp")
-            ) or not all(k in curr for k in ("lon", "lat", "timestamp")):
+            if (
+                not all(
+                    k in prev and prev[k] is not None
+                    for k in ("lon", "lat", "timestamp")
+                )
+                or not all(
+                    k in curr and curr[k] is not None
+                    for k in ("lon", "lat", "timestamp")
+                )
+                or not isinstance(prev.get("timestamp"), datetime)
+                or not isinstance(curr.get("timestamp"), datetime)
+                or not all(
+                    isinstance(prev[k], (int, float)) for k in ("lon", "lat")
+                )
+                or not all(
+                    isinstance(curr[k], (int, float)) for k in ("lon", "lat")
+                )
+            ):
+                logger.warning(
+                    "Skipping recalculation for segment %d-%d in trip %s due to data issue.",
+                    i - 1,
+                    i,
+                    transaction_id,
+                )
                 continue
 
-            segment_distance = haversine(
-                prev["lon"],
-                prev["lat"],
-                curr["lon"],
-                curr["lat"],
-                unit="miles",
-            )
+            try:
+                segment_distance = haversine(
+                    prev["lon"],
+                    prev["lat"],
+                    curr["lon"],
+                    curr["lat"],
+                    unit="miles",
+                )
+                if segment_distance > 0:
+                    full_trip_distance += segment_distance
 
-            time_diff_seconds = (
-                curr["timestamp"] - prev["timestamp"]
-            ).total_seconds()
-            if time_diff_seconds > 0:
-                segment_speed_mph = (
-                    segment_distance / time_diff_seconds
-                ) * 3600
-                max_segment_speed = max(max_segment_speed, segment_speed_mph)
-                if i == len(sorted_unique_coords) - 1:
-                    current_speed = segment_speed_mph
+                time_diff_seconds = (
+                    curr["timestamp"] - prev["timestamp"]
+                ).total_seconds()
+
+                if time_diff_seconds > 1:
+                    segment_speed_mph = (
+                        segment_distance / time_diff_seconds
+                    ) * 3600
+                    if 0 <= segment_speed_mph < 200:
+                        max_segment_speed = max(
+                            max_segment_speed, segment_speed_mph
+                        )
+                        valid_speeds_for_avg.append(segment_speed_mph)
+                        if i == len(sorted_unique_coords) - 1:
+                            current_speed = segment_speed_mph
+                    else:
+                        logger.warning(
+                            "Ignoring unrealistic segment speed %.1f mph during recalculation for trip %s",
+                            segment_speed_mph,
+                            transaction_id,
+                        )
+                elif time_diff_seconds < 0:
+                    logger.warning(
+                        "Negative time difference detected between points during recalculation for trip %s",
+                        transaction_id,
+                    )
+
+            except (TypeError, ValueError) as calc_err:
+                logger.error(
+                    "Error during segment calculation for trip %s: %s. Prev: %s, Curr: %s",
+                    transaction_id,
+                    calc_err,
+                    prev,
+                    curr,
+                )
+                continue
 
     max_speed = max(trip_doc.get("maxSpeed", 0.0), max_segment_speed)
-
-    full_trip_distance = 0.0
-    if len(sorted_unique_coords) >= 2:
-        for i in range(1, len(sorted_unique_coords)):
-            prev = sorted_unique_coords[i - 1]
-            curr = sorted_unique_coords[i]
-            if not all(k in prev for k in ("lon", "lat")) or not all(
-                k in curr for k in ("lon", "lat")
-            ):
-                continue
-            full_trip_distance += haversine(
-                prev["lon"],
-                prev["lat"],
-                curr["lon"],
-                curr["lat"],
-                unit="miles",
-            )
 
     avg_speed = 0.0
     if duration_seconds > 0:
         duration_hours = duration_seconds / 3600
-        avg_speed = (
-            full_trip_distance / duration_hours if duration_hours > 0 else 0.0
+        avg_speed = full_trip_distance / duration_hours
+    elif valid_speeds_for_avg:
+        avg_speed = sum(valid_speeds_for_avg) / len(valid_speeds_for_avg)
+        logger.info(
+            "Calculated fallback average speed %.1f mph for trip %s based on %d segments.",
+            avg_speed,
+            transaction_id,
+            len(valid_speeds_for_avg),
         )
 
     sequence = max(trip_doc.get("sequence", 0) + 1, int(time.time() * 1000))
@@ -504,7 +710,7 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
         {
             "$set": {
                 "coordinates": sorted_unique_coords,
-                "lastUpdate": last_point_time,
+                "lastUpdate": last_point_time or datetime.now(timezone.utc),
                 "distance": full_trip_distance,
                 "currentSpeed": current_speed,
                 "maxSpeed": max_speed,
@@ -526,20 +732,33 @@ async def process_trip_data(data: Dict[str, Any]) -> None:
         )
     elif update_result.matched_count == 0:
         logger.error(
-            "Failed to find trip %s for update after processing data.",
+            "Failed to find trip %s (using _id %s) for update after processing data. It might have been deleted/archived concurrently.",
             transaction_id,
+            trip_doc.get("_id"),
         )
     else:
         logger.info(
-            "Trip data for %s processed, but no fields were modified in DB (data might be duplicate or unchanged).",
+            "Trip data for %s processed, but no fields were modified in DB (data might be duplicate or calculation resulted in same values). Sequence updated to %d.",
             transaction_id,
+            sequence,
+        )
+        await live_trips_collection.update_one(
+            {"_id": trip_doc["_id"]},
+            {
+                "$set": {
+                    "sequence": sequence,
+                    "lastUpdate": last_point_time
+                    or datetime.now(timezone.utc),
+                }
+            },
         )
 
 
 async def process_trip_metrics(data: Dict[str, Any]) -> None:
     """Process a tripMetrics event from the Bouncie webhook.
 
-    Updates an active trip with summary metrics provided by Bouncie.
+    Updates an active trip with summary metrics provided by Bouncie. Prefers
+    Bouncie's summary metrics over self-calculated ones if available, except maxSpeed.
 
     Args:
         data: The webhook payload conforming to Bouncie API spec.
@@ -571,6 +790,16 @@ async def process_trip_metrics(data: Dict[str, Any]) -> None:
     )
 
     if not trip_doc:
+        if archived_live_trips_collection is not None:
+            archived_trip = await archived_live_trips_collection.find_one(
+                {"transactionId": transaction_id}
+            )
+            if archived_trip:
+                logger.warning(
+                    "Received tripMetrics for already completed/archived trip: %s. Ignoring.",
+                    transaction_id,
+                )
+                return
         logger.warning(
             "Received tripMetrics for unknown or inactive trip: %s. Ignoring metrics.",
             transaction_id,
@@ -584,36 +813,95 @@ async def process_trip_metrics(data: Dict[str, Any]) -> None:
     update_fields = {}
     metrics_timestamp_str = metrics_data.get("timestamp")
     metrics_timestamp = _parse_iso_datetime(metrics_timestamp_str)
+    update_fields["lastUpdate"] = metrics_timestamp or trip_doc.get(
+        "lastUpdate"
+    )
 
     if "tripTime" in metrics_data:
-        update_fields["duration"] = metrics_data["tripTime"]
+        try:
+            update_fields["duration"] = float(metrics_data["tripTime"])
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid tripTime value in metrics for %s: %s",
+                transaction_id,
+                metrics_data["tripTime"],
+            )
     if "tripDistance" in metrics_data:
-        update_fields["distance"] = metrics_data["tripDistance"]
+        try:
+            update_fields["distance"] = float(metrics_data["tripDistance"])
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid tripDistance value in metrics for %s: %s",
+                transaction_id,
+                metrics_data["tripDistance"],
+            )
     if "totalIdlingTime" in metrics_data:
-        update_fields["totalIdlingTime"] = metrics_data["totalIdlingTime"]
+        try:
+            update_fields["totalIdlingTime"] = int(
+                metrics_data["totalIdlingTime"]
+            )
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid totalIdlingTime value in metrics for %s: %s",
+                transaction_id,
+                metrics_data["totalIdlingTime"],
+            )
     if "maxSpeed" in metrics_data:
-        update_fields["maxSpeed"] = max(
-            trip_doc.get("maxSpeed", 0.0), metrics_data["maxSpeed"]
-        )
+        try:
+            update_fields["maxSpeed"] = max(
+                trip_doc.get("maxSpeed", 0.0), float(metrics_data["maxSpeed"])
+            )
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid maxSpeed value in metrics for %s: %s",
+                transaction_id,
+                metrics_data["maxSpeed"],
+            )
     if "averageDriveSpeed" in metrics_data:
-        update_fields["avgSpeed"] = metrics_data["averageDriveSpeed"]
+        try:
+            update_fields["avgSpeed"] = float(
+                metrics_data["averageDriveSpeed"]
+            )
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid averageDriveSpeed value in metrics for %s: %s",
+                transaction_id,
+                metrics_data["averageDriveSpeed"],
+            )
     if "hardBrakingCounts" in metrics_data:
-        update_fields["hardBrakingCounts"] = metrics_data["hardBrakingCounts"]
+        try:
+            update_fields["hardBrakingCounts"] = int(
+                metrics_data["hardBrakingCounts"]
+            )
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid hardBrakingCounts value in metrics for %s: %s",
+                transaction_id,
+                metrics_data["hardBrakingCounts"],
+            )
     if "hardAccelerationCounts" in metrics_data:
-        update_fields["hardAccelerationCounts"] = metrics_data[
-            "hardAccelerationCounts"
-        ]
+        try:
+            update_fields["hardAccelerationCounts"] = int(
+                metrics_data["hardAccelerationCounts"]
+            )
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid hardAccelerationCounts value in metrics for %s: %s",
+                transaction_id,
+                metrics_data["hardAccelerationCounts"],
+            )
 
-    if not update_fields:
+    if (
+        not update_fields
+        or len(update_fields) == 1
+        and "lastUpdate" in update_fields
+    ):
         logger.warning(
             "No valid metrics found to update in tripMetrics payload for %s.",
             transaction_id,
         )
         return
 
-    update_fields["lastUpdate"] = metrics_timestamp or trip_doc.get(
-        "lastUpdate"
-    )
     update_fields["sequence"] = max(
         trip_doc.get("sequence", 0) + 1, int(time.time() * 1000)
     )
@@ -630,12 +918,24 @@ async def process_trip_metrics(data: Dict[str, Any]) -> None:
         )
     elif update_result.matched_count == 0:
         logger.error(
-            "Failed to find trip %s for metrics update.", transaction_id
+            "Failed to find trip %s (using _id %s) for metrics update. Possible race condition.",
+            transaction_id,
+            trip_doc.get("_id"),
         )
     else:
         logger.info(
-            "Trip metrics for %s processed, but no fields were modified in DB.",
+            "Trip metrics for %s processed, but no fields were modified in DB (metrics may match calculated values). Sequence updated to %d.",
             transaction_id,
+            update_fields["sequence"],
+        )
+        await live_trips_collection.update_one(
+            {"_id": trip_doc["_id"]},
+            {
+                "$set": {
+                    "sequence": update_fields["sequence"],
+                    "lastUpdate": update_fields["lastUpdate"],
+                }
+            },
         )
 
 
@@ -672,7 +972,17 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     end_timestamp_str = end_data.get("timestamp")
     end_time_zone = end_data.get("timeZone")
     end_odometer = end_data.get("odometer")
-    fuel_consumed = end_data.get("fuelConsumed")
+    fuel_consumed_raw = end_data.get("fuelConsumed")
+    fuel_consumed = None
+    if fuel_consumed_raw is not None:
+        try:
+            fuel_consumed = float(fuel_consumed_raw)
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid fuelConsumed value in tripEnd for %s: %s",
+                transaction_id,
+                fuel_consumed_raw,
+            )
 
     end_time = _parse_iso_datetime(end_timestamp_str)
 
@@ -712,6 +1022,12 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     )
     trip_id = trip["_id"]
     start_time = trip.get("startTime")
+    if not isinstance(start_time, datetime):
+        start_time = (
+            _parse_mongo_date_dict(start_time)
+            if isinstance(start_time, dict)
+            else None
+        )
 
     trip_to_archive = trip.copy()
     if "_id" in trip_to_archive:
@@ -727,14 +1043,41 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
 
     if isinstance(start_time, datetime) and isinstance(end_time, datetime):
         final_duration_seconds = (end_time - start_time).total_seconds()
-        trip_to_archive["duration"] = final_duration_seconds
+        if final_duration_seconds < 0:
+            logger.warning(
+                "Calculated negative final duration (%.1fs) for ended trip %s. Start: %s, End: %s. Storing 0.",
+                final_duration_seconds,
+                transaction_id,
+                start_time,
+                end_time,
+            )
+            trip_to_archive["duration"] = 0
+        else:
+            trip_to_archive["duration"] = final_duration_seconds
     else:
         logger.warning(
-            "Could not calculate final duration for trip %s due to invalid start/end times.",
+            "Could not calculate final duration for trip %s due to invalid start (%s) / end (%s) times. Using stored duration: %.1fs",
             transaction_id,
+            type(start_time).__name__,
+            type(end_time).__name__,
+            trip.get("duration", 0),
         )
-        trip_to_archive.setdefault("duration", 0)
+        trip_to_archive.setdefault("duration", trip.get("duration", 0))
 
+    trip_to_archive.setdefault("distance", trip.get("distance", 0.0))
+    trip_to_archive.setdefault("avgSpeed", trip.get("avgSpeed", 0.0))
+    trip_to_archive.setdefault("maxSpeed", trip.get("maxSpeed", 0.0))
+    trip_to_archive.setdefault(
+        "totalIdlingTime", trip.get("totalIdlingTime", 0)
+    )
+    trip_to_archive.setdefault(
+        "hardBrakingCounts", trip.get("hardBrakingCounts", 0)
+    )
+    trip_to_archive.setdefault(
+        "hardAccelerationCounts", trip.get("hardAccelerationCounts", 0)
+    )
+    trip_to_archive.setdefault("coordinates", trip.get("coordinates", []))
+    trip_to_archive.setdefault("pointsRecorded", trip.get("pointsRecorded", 0))
     trip_to_archive["sequence"] = max(
         trip.get("sequence", 0) + 1, int(time.time() * 1000)
     )
@@ -766,10 +1109,14 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     success = await run_transaction([archive_operation, delete_operation])
 
     if success:
-        logger.info("Trip %s successfully ended and archived", transaction_id)
+        logger.info(
+            "Trip %s successfully ended and archived (seq=%d)",
+            transaction_id,
+            trip_to_archive["sequence"],
+        )
     else:
         logger.error(
-            "Transaction failed when ending and archiving trip %s",
+            "Transaction failed when ending and archiving trip %s - check run_transaction logs",
             transaction_id,
         )
 
@@ -785,12 +1132,21 @@ async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
     Returns:
         Dict: Response to send back to Bouncie (always success to acknowledge receipt)
     """
+    if live_trips_collection is None or archived_live_trips_collection is None:
+        logger.critical(
+            "Live/Archived trip collections not initialized. Cannot handle webhook."
+        )
+        return {
+            "status": "success",
+            "message": "Event acknowledged but internal server not ready.",
+        }
+
     event_type = data.get("eventType")
     transaction_id = data.get("transactionId")
 
     logger.debug(
         "Received webhook event: %s (Transaction ID: %s)",
-        event_type,
+        event_type or "UnknownType",
         transaction_id or "N/A",
     )
 
@@ -799,7 +1155,7 @@ async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
             logger.error("Missing eventType in webhook data: %s", data)
             return {
                 "status": "success",
-                "message": "Event processed (missing eventType)",
+                "message": "Event processed (warning: missing eventType)",
             }
 
         if (
@@ -811,7 +1167,7 @@ async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
             )
             return {
                 "status": "success",
-                "message": f"Event processed (missing transactionId for {event_type})",
+                "message": f"Event processed (warning: missing transactionId for {event_type})",
             }
 
         if event_type == "tripStart":
@@ -823,20 +1179,24 @@ async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
         elif event_type == "tripEnd":
             await process_trip_end(data)
         else:
-            logger.info("Received unhandled event type: %s", event_type)
+            logger.info(
+                "Received unhandled event type: %s. Payload: %s",
+                event_type,
+                data,
+            )
 
         return {"status": "success", "message": "Event processed"}
 
     except Exception as e:
         logger.exception(
-            "Error processing webhook event %s (Transaction ID: %s): %s",
-            event_type,
+            "Unhandled error processing webhook event %s (Transaction ID: %s): %s",
+            event_type or "UnknownType",
             transaction_id or "N/A",
             str(e),
         )
         return {
             "status": "success",
-            "message": "Event processed with internal errors",
+            "message": "Event acknowledged but processed with internal errors.",
         }
 
 
@@ -858,19 +1218,32 @@ async def get_active_trip(
         )
         return None
 
-    query = {"status": "active"}
+    query: Dict[str, Any] = {"status": "active"}
 
+    valid_since_sequence = None
     if since_sequence is not None:
         try:
-            since_sequence = int(since_sequence)
-            query["sequence"] = {"$gt": since_sequence}
+            valid_since_sequence = int(since_sequence)
+            if valid_since_sequence < 0:
+                logger.warning(
+                    "Received negative since_sequence value %d, using 0.",
+                    valid_since_sequence,
+                )
+                valid_since_sequence = 0
         except (ValueError, TypeError):
             logger.warning(
-                "Invalid since_sequence value '%s' received, ignoring.",
+                "Invalid since_sequence value '%s' received, ignoring sequence filter.",
                 since_sequence,
             )
-            if "sequence" in query:
-                del query["sequence"]
+            valid_since_sequence = None
+
+    if valid_since_sequence is not None:
+        query["sequence"] = {"$gt": valid_since_sequence}
+        logger.debug(
+            "Querying for active trip with sequence > %d", valid_since_sequence
+        )
+    else:
+        logger.debug("Querying for any active trip (no sequence filter).")
 
     active_trip_doc = await live_trips_collection.find_one(
         query,
@@ -878,49 +1251,57 @@ async def get_active_trip(
     )
 
     if active_trip_doc:
+        trip_seq = active_trip_doc.get("sequence", "N/A")
         logger.debug(
             "Found active trip matching query %s: %s with sequence %s",
             query,
             active_trip_doc.get("transactionId"),
-            active_trip_doc.get("sequence"),
+            trip_seq,
         )
         serialized_trip = await serialize_live_trip(active_trip_doc)
-        return serialized_trip
+        if serialized_trip:
+            serialized_trip["sequence"] = trip_seq
+            return serialized_trip
+        else:
+            logger.error(
+                "Failed to serialize active trip document: %s",
+                active_trip_doc.get("transactionId"),
+            )
+            return None
     else:
         logger.debug("No active trip found matching query: %s", query)
 
-        if since_sequence is not None:
+        if valid_since_sequence is not None:
             any_active_trip = await live_trips_collection.find_one(
                 {"status": "active"}, sort=[("sequence", -1)]
             )
             if any_active_trip:
                 logger.debug(
-                    "An active trip exists (seq %s), but it's not newer than the requested sequence %s.",
+                    "An active trip exists (seq %s), but it's not newer than the requested sequence %d.",
                     any_active_trip.get("sequence"),
-                    since_sequence,
+                    valid_since_sequence,
                 )
         return None
 
 
-async def cleanup_stale_trips(
+async def cleanup_stale_trips_logic(
+    live_collection,
+    archive_collection,
     stale_minutes: int = 15,
     max_archive_age_days: int = 30,
 ) -> Dict[str, int]:
     """Archives active trips that haven't been updated recently ('stale') and
-    removes very old archived trips.
+    removes very old archived trips. Uses passed collection objects.
 
     Args:
+        live_collection: The MongoDB collection for active live trips.
+        archive_collection: The MongoDB collection for archived live trips.
         stale_minutes: Minutes of inactivity (based on lastUpdate) to mark a trip stale.
         max_archive_age_days: Maximum age in days to keep archived trips.
 
     Returns:
         Dict: Counts of stale trips archived and old archives removed.
     """
-    if live_trips_collection is None or archived_live_trips_collection is None:
-        logger.error(
-            "Live or archived trip collections not initialized. Cannot run cleanup."
-        )
-        return {"stale_trips_archived": 0, "old_archives_removed": 0}
 
     now = datetime.now(timezone.utc)
     stale_threshold = now - timedelta(minutes=stale_minutes)
@@ -929,22 +1310,34 @@ async def cleanup_stale_trips(
     old_removed_count = 0
 
     logger.info(
-        "Running cleanup task: Stale threshold=%s, Archive threshold=%s",
-        stale_threshold,
-        archive_threshold,
+        "Running cleanup task logic: Stale threshold (lastUpdate < %s), Archive threshold (endTime < %s)",
+        stale_threshold.isoformat(),
+        archive_threshold.isoformat(),
     )
 
     try:
-        stale_trips_cursor = live_trips_collection.find(
-            {"lastUpdate": {"$lt": stale_threshold}, "status": "active"}
+        stale_trips_cursor = live_collection.find(
+            {"status": "active", "lastUpdate": {"$lt": stale_threshold}}
         )
+
         async for trip in stale_trips_cursor:
             trip_id = trip.get("_id")
-            transaction_id = trip.get("transactionId", "unknown")
+            transaction_id = trip.get("transactionId", "unknown_stale")
+            last_update_time = trip.get("lastUpdate")
+
+            if not trip_id:
+                logger.error(
+                    "Found stale trip candidate with missing _id: %s", trip
+                )
+                continue
+
             logger.warning(
-                "Found potentially stale trip: %s (lastUpdate: %s)",
+                "Found potentially stale trip: %s (_id: %s, lastUpdate: %s)",
                 transaction_id,
-                trip.get("lastUpdate"),
+                trip_id,
+                last_update_time.isoformat()
+                if isinstance(last_update_time, datetime)
+                else last_update_time,
             )
 
             trip_to_archive = trip.copy()
@@ -952,31 +1345,32 @@ async def cleanup_stale_trips(
                 del trip_to_archive["_id"]
 
             trip_to_archive["status"] = "completed"
-            trip_to_archive["endTime"] = trip.get("lastUpdate")
+            trip_to_archive["endTime"] = last_update_time
             trip_to_archive["closed_reason"] = "stale"
-            trip_to_archive["lastUpdate"] = trip.get("lastUpdate")
+            trip_to_archive["lastUpdate"] = last_update_time
 
             start_time = trip.get("startTime")
             if isinstance(start_time, datetime) and isinstance(
-                trip_to_archive["endTime"], datetime
+                last_update_time, datetime
             ):
-                trip_to_archive["duration"] = (
-                    trip_to_archive["endTime"] - start_time
-                ).total_seconds()
+                duration = (last_update_time - start_time).total_seconds()
+                trip_to_archive["duration"] = max(0, duration)
             else:
-                trip_to_archive.setdefault("duration", 0)
+                trip_to_archive.setdefault("duration", trip.get("duration", 0))
+
+            trip_to_archive.setdefault("distance", trip.get("distance", 0.0))
 
             trip_to_archive["sequence"] = max(
                 trip.get("sequence", 0) + 1, int(time.time() * 1000)
             )
 
             async def archive_stale_op(session=None):
-                await archived_live_trips_collection.insert_one(
+                await archive_collection.insert_one(
                     trip_to_archive, session=session
                 )
 
             async def delete_stale_op(session=None):
-                await live_trips_collection.delete_one(
+                await live_collection.delete_one(
                     {"_id": trip_id}, session=session
                 )
 
@@ -986,18 +1380,23 @@ async def cleanup_stale_trips(
 
             if success:
                 stale_archived_count += 1
-                logger.info("Archived stale trip: %s", transaction_id)
+                logger.info(
+                    "Archived stale trip: %s (seq=%d)",
+                    transaction_id,
+                    trip_to_archive["sequence"],
+                )
             else:
                 logger.error(
-                    "Failed to archive stale trip via transaction: %s",
+                    "Failed to archive stale trip via transaction: %s (_id: %s)",
                     transaction_id,
+                    trip_id,
                 )
 
     except Exception as e:
-        logger.exception("Error during stale trip archiving: %s", str(e))
+        logger.exception("Error during stale trip archiving phase: %s", str(e))
 
     try:
-        delete_result = await archived_live_trips_collection.delete_many(
+        delete_result = await archive_collection.delete_many(
             {"endTime": {"$lt": archive_threshold}}
         )
         old_removed_count = delete_result.deleted_count
@@ -1005,13 +1404,13 @@ async def cleanup_stale_trips(
             logger.info(
                 "Deleted %d old archived trips (ended before %s)",
                 old_removed_count,
-                archive_threshold.strftime("%Y-%m-%d"),
+                archive_threshold.strftime("%Y-%m-%d %H:%M:%S %Z"),
             )
     except Exception as e:
-        logger.exception("Error during old archive cleanup: %s", str(e))
+        logger.exception("Error during old archive cleanup phase: %s", str(e))
 
     logger.info(
-        "Cleanup finished: %d stale trips archived, %d old archives removed.",
+        "Cleanup logic finished: %d stale trips archived, %d old archives removed.",
         stale_archived_count,
         old_removed_count,
     )
@@ -1021,16 +1420,20 @@ async def cleanup_stale_trips(
     }
 
 
-async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
+async def get_trip_updates(
+    last_sequence: Union[int, str, None] = 0,
+) -> Dict[str, Any]:
     """API endpoint logic to get updates about the currently active trip.
 
     Checks for an active trip with a sequence number greater than `last_sequence`.
 
     Args:
         last_sequence: The last sequence number the client has seen. Defaults to 0.
+                       Can be int, string representation of int, or None.
 
     Returns:
-        Dict: Contains status, has_update flag, and trip data if an update is available.
+        Dict: Contains status, has_update flag, and trip data if an update is available,
+              or current_sequence if no update but an active trip exists.
     """
     if live_trips_collection is None:
         logger.error(
@@ -1039,35 +1442,42 @@ async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
         return {
             "status": "error",
             "has_update": False,
-            "message": "Database connection not ready.",
+            "message": "Server error: Database connection not ready.",
         }
 
-    try:
+    client_sequence: int = 0
+    if last_sequence is not None:
         try:
-            last_sequence = (
-                int(last_sequence) if last_sequence is not None else 0
-            )
+            parsed_sequence = int(last_sequence)
+            if parsed_sequence >= 0:
+                client_sequence = parsed_sequence
+            else:
+                logger.warning(
+                    "Received negative last_sequence '%s' in API request. Defaulting to 0.",
+                    last_sequence,
+                )
         except (ValueError, TypeError):
             logger.warning(
                 "Invalid last_sequence '%s' received in API request. Defaulting to 0.",
                 last_sequence,
             )
-            last_sequence = 0
 
-        logger.debug(
-            "API request for trip updates since sequence: %d", last_sequence
-        )
+    logger.debug(
+        "API request for trip updates since sequence: %d", client_sequence
+    )
 
+    try:
         active_trip_update = await get_active_trip(
-            since_sequence=last_sequence
+            since_sequence=client_sequence
         )
 
         if active_trip_update:
+            current_server_seq = active_trip_update.get("sequence", 0)
             logger.info(
                 "Providing trip update for %s (sequence %d > client %d)",
                 active_trip_update.get("transactionId", "unknown"),
-                active_trip_update.get("sequence", 0),
-                last_sequence,
+                current_server_seq,
+                client_sequence,
             )
             return {
                 "status": "success",
@@ -1076,20 +1486,23 @@ async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
             }
         else:
             any_active_trip_doc = await live_trips_collection.find_one(
-                {"status": "active"}
+                {"status": "active"},
+                projection={"sequence": 1},
+                sort=[("sequence", -1)],
             )
+
             if any_active_trip_doc:
-                current_seq = any_active_trip_doc.get("sequence", "N/A")
+                current_server_seq = any_active_trip_doc.get("sequence", "N/A")
                 logger.info(
                     "No *new* updates since sequence %d. Current active trip sequence: %s.",
-                    last_sequence,
-                    current_seq,
+                    client_sequence,
+                    current_server_seq,
                 )
                 return {
                     "status": "success",
                     "has_update": False,
                     "message": "No new updates available.",
-                    "current_sequence": current_seq,
+                    "current_sequence": current_server_seq,
                 }
             else:
                 logger.info("No active trips found in the database.")
@@ -1097,6 +1510,7 @@ async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
                     "status": "success",
                     "has_update": False,
                     "message": "No active trips currently.",
+                    "current_sequence": 0,
                 }
 
     except Exception as e:
@@ -1104,5 +1518,5 @@ async def get_trip_updates(last_sequence: int = 0) -> Dict[str, Any]:
         return {
             "status": "error",
             "has_update": False,
-            "message": f"An internal error occurred: {str(e)}",
+            "message": "An internal server error occurred while checking for updates.",
         }

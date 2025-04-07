@@ -9,28 +9,29 @@ using the centralized db_manager. Tasks are now triggered dynamically by the run
 import asyncio
 import os
 import uuid
-from bouncie_trip_fetcher import (
-    CLIENT_ID,
-    AUTH_CODE,
-    AUTHORIZED_DEVICES,
-    CLIENT_SECRET,
-    REDIRECT_URI,
-)
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, Optional, TypeVar
-from db import count_documents_with_retry
+
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from pymongo import UpdateOne
-from pymongo.errors import BulkWriteError
+from pymongo.errors import BulkWriteError, ConnectionFailure
 
-from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
+from bouncie_trip_fetcher import (
+    AUTH_CODE,
+    AUTHORIZED_DEVICES,
+    CLIENT_ID,
+    CLIENT_SECRET,
+    REDIRECT_URI,
+    fetch_bouncie_trips_in_range,
+)
 from celery_app import app as celery_app
-
 from db import (
     SerializationHelper,
+    count_documents_with_retry,
     coverage_metadata_collection,
+    db_manager,
     find_one_with_retry,
     find_with_retry,
     matched_trips_collection,
@@ -40,11 +41,13 @@ from db import (
     trips_collection,
     update_one_with_retry,
 )
-from live_tracking import cleanup_stale_trips as cleanup_stale_trips_logic
+from live_tracking import cleanup_stale_trips_logic
 from street_coverage_calculation import compute_incremental_coverage
 from trip_processor import TripProcessor, TripState
 from utils import (
     run_async_from_sync,
+)
+from utils import (
     validate_trip_data as validate_trip_data_logic,
 )
 
@@ -810,28 +813,59 @@ def update_coverage_for_new_trips(self):
 
 
 async def cleanup_stale_trips_async(self) -> Dict[str, Any]:
-    """Async logic for cleaning up stale live tracking trips."""
+    """Async logic for cleaning up stale live tracking trips.
+    Fetches collections explicitly before calling the logic function.
+    """
     task_name = "cleanup_stale_trips"
     status_manager = TaskStatusManager.get_instance()
     start_time = datetime.now(timezone.utc)
-    celery_task_id = self.request.id
+    celery_task_id = (
+        self.request.id if hasattr(self, "request") else "manual_or_unknown"
+    )
     result_data = {}
+    manual_run = (
+        getattr(self.request, "manual_run", False)
+        if hasattr(self, "request")
+        else False
+    )
+
     try:
+        _ = db_manager.client
+        logger.debug("Database client accessed for cleanup task.")
+
+        live_collection = db_manager.get_collection("live_trips")
+        archive_collection = db_manager.get_collection("archived_live_trips")
+
+        if live_collection is None or archive_collection is None:
+            logger.critical(
+                "DB collections ('live_trips' or 'archived_live_trips') could not be obtained in cleanup task!"
+            )
+            raise ConnectionFailure(
+                "Could not get required collections for cleanup task."
+            )
+        logger.debug(
+            "Successfully obtained live_trips and archived_live_trips collections."
+        )
+
         await status_manager.update_status(task_name, TaskStatus.RUNNING.value)
         await update_task_history_entry(
             celery_task_id=celery_task_id,
             task_name=task_name,
             status=TaskStatus.RUNNING.value,
-            manual_run=self.request.get("manual_run", False),
+            manual_run=manual_run,
             start_time=start_time,
         )
         logger.info(f"Task {task_name} ({celery_task_id}) started.")
 
-        cleanup_result = await cleanup_stale_trips_logic()
+        cleanup_result = await cleanup_stale_trips_logic(
+            live_collection=live_collection,
+            archive_collection=archive_collection,
+        )
+
         stale_archived_count = cleanup_result.get("stale_trips_archived", 0)
         old_removed_count = cleanup_result.get("old_archives_removed", 0)
         logger.info(
-            f"Cleaned up {stale_archived_count} stale live trips and removed {old_removed_count} old archived trips."
+            f"Cleanup logic completed: Archived {stale_archived_count} stale live trips, removed {old_removed_count} old archives."
         )
 
         result_data = {
@@ -839,6 +873,7 @@ async def cleanup_stale_trips_async(self) -> Dict[str, Any]:
             "message": f"Cleaned up {stale_archived_count} stale trips, removed {old_removed_count} old archives.",
             "details": cleanup_result,
         }
+
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
         await status_manager.update_status(
@@ -853,14 +888,35 @@ async def cleanup_stale_trips_async(self) -> Dict[str, Any]:
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed in {runtime:.0f}ms."
+            f"Task {task_name} ({celery_task_id}) completed successfully in {runtime:.0f}ms."
         )
         return result_data
+
+    except ConnectionFailure as db_conn_err:
+        end_time = datetime.now(timezone.utc)
+        runtime = (end_time - start_time).total_seconds() * 1000
+        error_msg = f"DB Connection error in {task_name}: {db_conn_err}"
+        logger.critical(error_msg, exc_info=True)
+        await status_manager.update_status(
+            task_name, TaskStatus.FAILED.value, error=str(db_conn_err)
+        )
+        await update_task_history_entry(
+            celery_task_id=celery_task_id,
+            task_name=task_name,
+            status=TaskStatus.FAILED.value,
+            error=str(db_conn_err),
+            end_time=end_time,
+            runtime_ms=runtime,
+        )
+        if hasattr(self, "retry"):
+            raise self.retry(exc=db_conn_err, countdown=60)
+        else:
+            raise db_conn_err
 
     except Exception as e:
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
-        error_msg = f"Error in {task_name}: {e}"
+        error_msg = f"Unexpected error in {task_name}: {e}"
         logger.exception(
             f"Task {task_name} ({celery_task_id}) failed: {error_msg}"
         )
@@ -875,9 +931,13 @@ async def cleanup_stale_trips_async(self) -> Dict[str, Any]:
             end_time=end_time,
             runtime_ms=runtime,
         )
-        try:
-            raise self.retry(exc=e, countdown=60)
-        except Exception:
+        if hasattr(self, "retry"):
+            try:
+                raise self.retry(exc=e, countdown=60)
+            except Exception as retry_exc:
+                logger.error("Celery retry mechanism failed: %s", retry_exc)
+                raise e
+        else:
             raise e
 
 

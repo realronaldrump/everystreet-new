@@ -490,6 +490,61 @@ task_history_collection = _get_collection("task_history")
 progress_collection = _get_collection("progress_status")
 
 
+def post_process_deserialize(obj):
+    """Recursively convert Mongo Extended JSON types ($date, $oid) to Python types."""
+    if isinstance(obj, dict):
+        if "$oid" in obj and len(obj) == 1:
+            try:
+                return ObjectId(obj["$oid"])
+            except Exception as oid_err:
+                logger.warning(
+                    "Could not convert $oid value '%s' to ObjectId: %s",
+                    obj["$oid"],
+                    oid_err,
+                )
+                return obj
+        elif "$date" in obj and len(obj) == 1:
+            try:
+                date_val = obj["$date"]
+                if isinstance(date_val, dict) and "$numberLong" in date_val:
+                    ms_epoch = int(date_val["$numberLong"])
+                    return datetime.fromtimestamp(
+                        ms_epoch / 1000.0, tz=timezone.utc
+                    )
+                elif isinstance(date_val, str):
+                    dt = datetime.fromisoformat(
+                        date_val.replace("Z", "+00:00")
+                    )
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    return dt.astimezone(timezone.utc)
+                elif isinstance(date_val, (int, float)):
+                    if abs(date_val) > 2e9:
+                        return datetime.fromtimestamp(
+                            date_val / 1000.0, tz=timezone.utc
+                        )
+                    else:
+                        return datetime.fromtimestamp(
+                            date_val, tz=timezone.utc
+                        )
+                else:
+                    logger.warning(
+                        "Unexpected value type within $date dict: %s - Value: %s",
+                        type(date_val),
+                        date_val,
+                    )
+                    return obj
+            except (ValueError, TypeError, KeyError) as dt_err:
+                logger.error("Error parsing $date object %s: %s", obj, dt_err)
+                return obj
+        else:
+            return {k: post_process_deserialize(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [post_process_deserialize(item) for item in obj]
+    else:
+        return obj
+
+
 class SerializationHelper:
     """Helper class for serializing MongoDB documents to JSON."""
 
@@ -511,22 +566,25 @@ class SerializationHelper:
 
     @staticmethod
     def serialize_document(doc: Dict[str, Any]) -> Dict[str, Any]:
-        """Convert MongoDB document to a JSON serializable dictionary using
-        bson.json_util.
+        """Convert MongoDB document to a dictionary suitable for internal use,
+        ensuring BSON types like dates and ObjectIds are converted to standard Python types.
 
         Args:
-            doc: MongoDB document
+            doc: MongoDB document (dictionary)
 
         Returns:
-            JSON serializable dictionary
+            Dictionary with standard Python types (datetime, str for ObjectId).
         """
         if not doc:
             return {}
         try:
-            return json.loads(json_util.dumps(doc))
+            serialized_string = json_util.dumps(doc)
+            loaded_data = json.loads(serialized_string)
+            return post_process_deserialize(loaded_data)
+
         except (TypeError, ValueError) as e:
             logger.error(
-                "Error serializing document: %s. Document snippet: %s",
+                "Error serializing/processing document: %s. Document snippet: %s",
                 e,
                 str(doc)[:200],
             )
@@ -543,13 +601,17 @@ class SerializationHelper:
                         f"<Complex Type: {type(value).__name__}>"
                     )
                 else:
-                    fallback_result[key] = value
+                    try:
+                        json.dumps(value)
+                        fallback_result[key] = value
+                    except TypeError:
+                        fallback_result[key] = str(value)
             return fallback_result
 
     @staticmethod
     def serialize_trip(trip: Dict[str, Any]) -> Dict[str, Any]:
         """Convert trip document to JSON serializable dictionary. Handles
-        special fields specific to trip documents.
+        special fields specific to trip documents. (Relies on serialize_document)
 
         Args:
             trip: Trip document

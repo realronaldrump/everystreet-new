@@ -76,7 +76,9 @@ from live_tracking import (
     get_active_trip,
     get_trip_updates,
     handle_bouncie_webhook,
-    initialize_db,
+)
+from live_tracking import (
+    initialize_db as initialize_live_tracking_db,
 )
 from models import (
     BackgroundTasksConfigModel,
@@ -146,8 +148,6 @@ task_config_collection = db_manager.db["task_config"]
 task_history_collection = db_manager.db["task_history"]
 progress_collection = db_manager.db["progress_status"]
 osm_data_collection = db_manager.db["osm_data"]
-
-initialize_db(live_trips_collection, archived_live_trips_collection)
 
 init_collections(places_collection, trips_collection)
 
@@ -4155,22 +4155,34 @@ async def startup_event():
     """Initialize database indexes and components on application startup."""
     try:
         await init_database()
-        logger.debug("Database initialized successfully.")
+        logger.info("Core database initialized successfully (indexes, etc.).")
+
+        initialize_live_tracking_db(
+            live_trips_collection, archived_live_trips_collection
+        )
+        logger.info("Live tracking DB collections initialized.")
+
+        init_collections(places_collection, trips_collection)
+        logger.info("Visits collections initialized.")
 
         TripProcessor(mapbox_token=MAPBOX_ACCESS_TOKEN)
-        logger.debug("TripProcessor initialized.")
+        logger.info("TripProcessor initialized.")
 
         used_mb, limit_mb = await db_manager.check_quota()
         if not db_manager.quota_exceeded:
-            logger.info("Application startup completed successfully")
+            logger.info("Application startup completed successfully.")
         else:
             logger.warning(
                 "Application started in limited mode due to exceeded storage quota (%.2f MB / %d MB)",
-                used_mb,
-                limit_mb,
+                used_mb if used_mb is not None else -1,
+                limit_mb if limit_mb is not None else -1,
             )
     except Exception as e:
-        logger.exception("Failed to initialize database indexes: %s", str(e))
+        logger.critical(
+            "CRITICAL: Failed to initialize application during startup: %s",
+            str(e),
+            exc_info=True,
+        )
         raise
 
 
