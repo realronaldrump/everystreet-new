@@ -4408,6 +4408,9 @@ async def get_coverage_driving_route(request: Request):
             total_distance_meters += route_to_first["distance"]
             logger.debug(f"Coverage Route: Added initial route part (duration: {route_to_first['duration']:.1f}s, distance: {route_to_first['distance']:.1f}m)")
 
+            # --- Add delay to avoid rate limiting ---
+            await asyncio.sleep(1.1) # Sleep for 1.1 seconds
+
             # Add the first segment geometry
             all_route_parts.append(first_segment["geometry"])
 
@@ -4427,6 +4430,9 @@ async def get_coverage_driving_route(request: Request):
                 total_duration_seconds += route_between["duration"]
                 total_distance_meters += route_between["distance"]
                 logger.debug(f"Coverage Route: Added connecting route part {i+1} (duration: {route_between['duration']:.1f}s, distance: {route_between['distance']:.1f}m)")
+
+                # --- Add delay to avoid rate limiting ---
+                await asyncio.sleep(1.1) # Sleep for 1.1 seconds
 
                 # Add the next segment's geometry
                 all_route_parts.append(next_segment["geometry"])
