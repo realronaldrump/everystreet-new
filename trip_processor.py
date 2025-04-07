@@ -685,73 +685,159 @@ class TripProcessor:
         """Perform map matching for the trip.
 
         Returns:
-            True if map matching succeeded, False otherwise
+            True if map matching succeeded or was appropriately handled, False otherwise
         """
         try:
             transaction_id = self.trip_data.get("transactionId", "unknown")
 
-            if self.state == TripState.NEW:
-                await self.process(do_map_match=False)
-                if self.state != TripState.GEOCODED:
+            # Ensure the trip is in the correct state before proceeding
+            if self.state not in [TripState.GEOCODED, TripState.PROCESSED, TripState.VALIDATED]:
+                # If not geocoded yet, attempt to process up to that point first
+                if self.state in [TripState.NEW, TripState.VALIDATED, TripState.PROCESSED]:
+                    logger.info(f"Trip {transaction_id} not geocoded, attempting pre-processing before map matching.")
+                    await self.geocode() # Try geocoding first
+                    if self.state != TripState.GEOCODED:
+                         logger.warning(
+                            "Cannot map match trip %s: Failed pre-requisite geocoding step (Current state: %s)",
+                            transaction_id,
+                            self.state.value
+                         )
+                         # Optionally set state to FAILED here if map matching is essential
+                         # self._set_state(TripState.FAILED, "Pre-requisite geocoding failed")
+                         return False # Indicate map matching wasn't performed successfully
+                else:
+                    # If in another state (e.g., FAILED), log and exit
                     logger.warning(
-                        "Cannot map match trip that hasn't been geocoded: %s",
+                        "Cannot map match trip %s in current state: %s",
                         transaction_id,
+                        self.state.value
                     )
                     return False
-            elif self.state != TripState.GEOCODED:
-                logger.warning(
-                    "Cannot map match trip that hasn't been geocoded: %s",
-                    transaction_id,
-                )
-                return False
+
 
             logger.debug("Starting map matching for trip %s", transaction_id)
 
             if not config.mapbox_access_token:
                 logger.warning(
-                    "No Mapbox token provided, skipping map matching"
+                    "No Mapbox token provided, skipping map matching for trip %s", transaction_id
                 )
-                return False
+                # Don't fail the whole process, just skip map matching step
+                # Keep the current state (likely GEOCODED)
+                return True # Indicate the step was handled (by skipping)
 
-            gps_data = self.processed_data["gps"]
+            gps_data = self.processed_data.get("gps") # Use processed_data
             if isinstance(gps_data, str):
-                gps_data = json.loads(gps_data)
+                try:
+                    gps_data = json.loads(gps_data)
+                except json.JSONDecodeError:
+                     self._set_state(TripState.FAILED, "Invalid JSON in GPS data field during map match")
+                     return False
+
 
             coords = gps_data.get("coordinates", [])
             if len(coords) < 2:
-                self._set_state(
-                    TripState.FAILED,
-                    "Insufficient coordinates for map matching",
+                logger.warning(
+                    "Trip %s: Insufficient coordinates (%d) for map matching. Skipping.",
+                    transaction_id, len(coords)
                 )
-                return False
+                # Don't fail, just skip matching
+                return True # Step handled by skipping
 
-            match_result = await self._map_match_coordinates(coords)
-            if match_result.get("code") != "Ok":
-                error_msg = match_result.get(
-                    "message", "Unknown map matching error"
+            # --- Perform Map Matching ---
+            match_result_api = await self._map_match_coordinates(coords)
+
+            # --- Process Map Matching Result ---
+            if match_result_api.get("code") != "Ok":
+                error_msg = match_result_api.get(
+                    "message", "Unknown map matching error from API"
                 )
-                self._set_state(
-                    TripState.FAILED, f"Map matching failed: {error_msg}"
+                logger.error(
+                    "Map matching API failed for trip %s: %s", transaction_id, error_msg
                 )
-                return False
+                # Decide if this is fatal or if we continue without matched data
+                # For now, let's not fail the whole trip, just log the error
+                # and don't set matchedGps. The state remains GEOCODED.
+                self.errors["map_match"] = f"Map matching API failed: {error_msg}"
+                return True # Step handled, although matching failed
 
-            self.processed_data["matchedGps"] = match_result["matchings"][0][
-                "geometry"
-            ]
-            self.processed_data["matched_at"] = datetime.now(timezone.utc)
 
-            self._set_state(TripState.MAP_MATCHED)
-            logger.debug("Map matched trip %s", transaction_id)
-            return True
+            # --- START: VALIDATION OF RETURNED GEOMETRY ---
+            validated_matched_gps = None # Initialize
+            if match_result_api.get("matchings") and match_result_api["matchings"][0].get("geometry"):
+                matched_geometry = match_result_api["matchings"][0]["geometry"]
+                geom_type = matched_geometry.get("type")
+                geom_coords = matched_geometry.get("coordinates")
+
+                if geom_type == "LineString":
+                    if not isinstance(geom_coords, list) or len(geom_coords) < 2:
+                        logger.warning(
+                            "Map match for trip %s returned LineString with < 2 points. Discarding matchedGps.",
+                            transaction_id
+                        )
+                        # validated_matched_gps remains None
+                    else:
+                        # Check if start and end points are identical
+                        start_point = tuple(geom_coords[0])
+
+                        # Check if *all* points are identical (more robust)
+                        all_identical = all(tuple(p) == start_point for p in geom_coords[1:])
+
+                        if all_identical:
+                            logger.warning(
+                                "Map match for trip %s resulted in LineString with identical points. Converting to Point.",
+                                transaction_id
+                            )
+                            validated_matched_gps = {
+                                "type": "Point",
+                                "coordinates": geom_coords[0] # Use the single unique coordinate
+                            }
+                        elif len(geom_coords) >= 2: # It's a valid LineString according to spec (>=2 distinct points or >2 points total)
+                           validated_matched_gps = matched_geometry
+                        else:
+                            # This case should theoretically not be reached if all_identical is false and len >= 2
+                            logger.warning(
+                                "Map match for trip %s returned ambiguous LineString. Discarding. Coords: %s",
+                                transaction_id, geom_coords[:5] # Log first few points
+                            )
+                            # validated_matched_gps remains None
+
+                elif geom_type == "Point":
+                    # If Mapbox returns a Point, accept it as valid
+                    if isinstance(geom_coords, list) and len(geom_coords) == 2:
+                         validated_matched_gps = matched_geometry
+                    else:
+                         logger.warning(
+                              "Map match for trip %s returned Point with invalid coordinates format. Discarding. Coords: %s",
+                              transaction_id, geom_coords
+                         )
+                else:
+                    logger.warning(
+                        "Map match for trip %s returned unexpected geometry type: %s. Discarding.",
+                        transaction_id, geom_type
+                    )
+            else:
+                 logger.warning("Map match result for trip %s missing 'matchings' or 'geometry'.", transaction_id)
+            # --- END: VALIDATION OF RETURNED GEOMETRY ---
+
+            if validated_matched_gps:
+                self.processed_data["matchedGps"] = validated_matched_gps
+                self.processed_data["matched_at"] = datetime.now(timezone.utc)
+                self._set_state(TripState.MAP_MATCHED)
+                logger.debug("Map matched trip %s successfully (Type: %s)", transaction_id, validated_matched_gps["type"])
+            else:
+                 logger.info("No valid matchedGps data to save for trip %s.", transaction_id)
+                 # State remains GEOCODED if matching failed validation
+
+            return True # Step handled successfully (either matched or skipped/failed validation gracefully)
 
         except Exception as e:
-            error_message = f"Map matching error: {str(e)}"
+            error_message = f"Unexpected map matching error: {str(e)}"
             logger.exception(
                 "Error map matching trip %s",
                 self.trip_data.get("transactionId", "unknown"),
             )
             self._set_state(TripState.FAILED, error_message)
-            return False
+            return False # Indicate failure
 
     def _initialize_projections(self, coords: List[List[float]]) -> None:
         """Initialize projections for map matching.

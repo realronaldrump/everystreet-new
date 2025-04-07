@@ -85,6 +85,7 @@ const STATUS = window.STATUS || {
       this.map = null; // Main map instance (Leaflet)
       this.coverageMap = null; // Specific map instance for the dashboard view
       this.streetLayers = null; // LayerGroup holding individual street segments
+      this.tripsLayerGroup = null; // LayerGroup for trip overlays
       this.streetsGeoJson = null; // Raw GeoJSON data for all streets in the selected area
       this.streetsGeoJsonLayer = null; // The L.geoJSON layer created from streetsGeoJson
       this.mapBounds = null; // Bounds of the displayed streets
@@ -101,6 +102,8 @@ const STATUS = window.STATUS || {
       this.validatedLocation = null; // Location data validated via API before adding
       this.currentFilter = "all"; // Current map filter ('all', 'driven', 'undriven')
       this.lastActivityTime = null; // Timestamp of the last SSE message or poll update
+      this.showTripsActive = false; // State for trip overlay toggle
+      this.loadTripsDebounceTimer = null; // Timer for debouncing trip loads
 
       // UI Elements & Controls
       this.tooltips = []; // Array to hold Bootstrap tooltip instances
@@ -401,6 +404,19 @@ const STATUS = window.STATUS || {
         const exportButton = e.target.closest("#export-coverage-map");
         if (exportButton) {
           this.exportCoverageMap();
+        }
+
+        // Trip Overlay Toggle Switch
+        const tripToggle = e.target.closest("#toggle-trip-overlay");
+        if (tripToggle) {
+          this.showTripsActive = tripToggle.checked;
+          console.log("Trip overlay toggle changed:", this.showTripsActive);
+          if (this.showTripsActive) {
+            this.ensureTripsLayerGroup(); // Make sure layer group exists and is on map
+            this.loadTripsForView(); // Load trips for current view
+          } else {
+            this.clearTripOverlay(); // Clear and remove layer
+          }
         }
       });
     }
@@ -1162,12 +1178,10 @@ const STATUS = window.STATUS || {
           try {
             data = await response.json();
             // Basic validation of the response structure
-            if (!data || typeof data !== "object" || !data.stage) {
+            if (!data || typeof data !== 'object' || !data.stage) {
               // If the response was OK but data is invalid, it's a server issue.
               if (response.ok) {
-                console.warn(
-                  `Task ${taskId}: Received incomplete/invalid data structure despite HTTP OK status.`,
-                );
+                  console.warn(`Task ${taskId}: Received incomplete/invalid data structure despite HTTP OK status.`);
               }
               // Consistently throw an error if data format is invalid.
               throw new Error("Invalid data format received from server.");
@@ -2339,6 +2353,13 @@ const STATUS = window.STATUS || {
         zoomControl: true,
       });
 
+      // --- Setup Panes for Layer Ordering ---
+      // Ensure panes exist in the correct order (trips on top)
+      this.coverageMap.createPane("streetPane");
+      this.coverageMap.getPane("streetPane").style.zIndex = 450; // Below overlays, above tiles
+      this.coverageMap.createPane("tripsPane");
+      this.coverageMap.getPane("tripsPane").style.zIndex = 460; // Above streets, below highlights/popups
+
       // Add base tile layer
       L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
@@ -2373,6 +2394,18 @@ const STATUS = window.STATUS || {
 
       // Invalidate size after a short delay to ensure proper rendering
       setTimeout(() => this.coverageMap?.invalidateSize(), 100);
+
+      // Add listeners for dynamic trip loading
+      this.coverageMap.on("moveend zoomend", () => {
+        if (this.showTripsActive) {
+          // Debounce the loading
+          clearTimeout(this.loadTripsDebounceTimer);
+          this.loadTripsDebounceTimer = setTimeout(() => {
+            console.log("Map move/zoom ended, reloading trips for view.");
+            this.loadTripsForView();
+          }, 500); // Delay in ms (adjust as needed)
+        }
+      });
     }
 
     /**
@@ -2540,10 +2573,7 @@ const STATUS = window.STATUS || {
 
           // --- Add Popup Open/Close Listeners for Button Handlers ---
           layer.on("popupopen", (e) => {
-            console.log(
-              "Popup opened for segment:",
-              feature.properties.segment_id,
-            );
+            console.log("Popup opened for segment:", feature.properties.segment_id);
             const popupEl = e.popup.getElement();
             if (!popupEl) {
               console.error("Popup element not found on open:", e);
@@ -2554,9 +2584,7 @@ const STATUS = window.STATUS || {
             queueMicrotask(() => {
               const drivenBtn = popupEl.querySelector(".mark-driven-btn");
               const undrivenBtn = popupEl.querySelector(".mark-undriven-btn");
-              const undriveableBtn = popupEl.querySelector(
-                ".mark-undriveable-btn",
-              );
+              const undriveableBtn = popupEl.querySelector(".mark-undriveable-btn");
               const driveableBtn = popupEl.querySelector(".mark-driveable-btn");
 
               console.log("Attaching listeners. Buttons found:", {
@@ -2589,37 +2617,33 @@ const STATUS = window.STATUS || {
             const popupEl = e.popup.getElement();
             if (!popupEl || !layer._popupHandlers) return;
 
-            console.log(
-              "Popup closed, removing listeners for segment:",
-              feature.properties.segment_id,
-            );
+            console.log("Popup closed, removing listeners for segment:", feature.properties.segment_id);
             // Remove listeners using the stored handlers
             // Query buttons again for robustness in removal
             const drivenBtn = popupEl.querySelector(".mark-driven-btn");
             const undrivenBtn = popupEl.querySelector(".mark-undriven-btn");
-            const undriveableBtn = popupEl.querySelector(
-              ".mark-undriveable-btn",
-            );
+            const undriveableBtn = popupEl.querySelector(".mark-undriveable-btn");
             const driveableBtn = popupEl.querySelector(".mark-driveable-btn");
 
             drivenBtn?.removeEventListener(
-              "click",
-              layer._popupHandlers.handleMarkDriven,
-            );
+                "click",
+                layer._popupHandlers.handleMarkDriven,
+              );
             undrivenBtn?.removeEventListener(
-              "click",
-              layer._popupHandlers.handleMarkUndriven,
-            );
+                "click",
+                layer._popupHandlers.handleMarkUndriven,
+              );
             undriveableBtn?.removeEventListener(
-              "click",
-              layer._popupHandlers.handleMarkUndriveable,
-            );
+                "click",
+                layer._popupHandlers.handleMarkUndriveable,
+              );
             driveableBtn?.removeEventListener(
-              "click",
-              layer._popupHandlers.handleMarkDriveable,
-            );
+                "click",
+                layer._popupHandlers.handleMarkDriveable,
+              );
           });
         }, // end onEachFeature
+        pane: "streetPane", // Assign street features to the street pane
       }); // end L.geoJSON
 
       // Add the main layer to the map *indirectly* through the layer group used for filtering
@@ -3460,6 +3484,111 @@ const STATUS = window.STATUS || {
       if (!type) return "Unknown";
       // Replace underscores with spaces and capitalize words
       return type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    }
+
+    /**
+     * Ensures the trips LayerGroup exists and is added to the map.
+     */
+    ensureTripsLayerGroup() {
+      if (!this.coverageMap) return;
+      if (!this.tripsLayerGroup) {
+        this.tripsLayerGroup = L.layerGroup([], {
+          pane: "tripsPane", // Assign to the trips pane
+        });
+      }
+      if (!this.coverageMap.hasLayer(this.tripsLayerGroup)) {
+        this.tripsLayerGroup.addTo(this.coverageMap);
+        console.log("Trips layer group added to map.");
+      }
+    }
+
+    /**
+     * Clears the trip overlay layer from the map.
+     */
+    clearTripOverlay() {
+      if (this.tripsLayerGroup) {
+        this.tripsLayerGroup.clearLayers();
+        if (this.coverageMap && this.coverageMap.hasLayer(this.tripsLayerGroup)) {
+          // Optionally remove the layer group itself, or just clear it
+          // this.coverageMap.removeLayer(this.tripsLayerGroup);
+        }
+        console.log("Trip overlay cleared.");
+      }
+    }
+
+    /**
+     * Fetches and displays trip segments for the current map view bounds.
+     */
+    async loadTripsForView() {
+      if (!this.coverageMap || !this.showTripsActive) {
+        return; // Don't load if map doesn't exist or toggle is off
+      }
+
+      this.ensureTripsLayerGroup(); // Make sure layer group is ready
+
+      const bounds = this.coverageMap.getBounds();
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+
+      // Check for excessively large bounds (optional, prevents huge requests)
+      const boundsArea = Math.abs(ne.lng - sw.lng) * Math.abs(ne.lat - sw.lat);
+      if (boundsArea > 10) { // Example threshold (degrees squared)
+        console.warn("Map bounds too large, skipping trip overlay update.");
+        this.clearTripOverlay(); // Clear potentially stale data
+        this.notificationManager.show("Zoom in further to view trip overlays.", "info");
+        return;
+      }
+
+      const params = new URLSearchParams({
+        min_lat: sw.lat.toFixed(6),
+        min_lon: sw.lng.toFixed(6),
+        max_lat: ne.lat.toFixed(6),
+        max_lon: ne.lng.toFixed(6),
+      });
+
+      console.log("Fetching trips for bounds:", params.toString());
+
+      try {
+        const response = await fetch(`/api/trips_in_bounds?${params.toString()}`);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.detail || `HTTP Error ${response.status}`,
+          );
+        }
+
+        const data = await response.json();
+        if (!data || !Array.isArray(data.trips)) {
+          throw new Error("Invalid trip data received from server.");
+        }
+
+        console.log(`Received ${data.trips.length} trip segments.`);
+        this.tripsLayerGroup.clearLayers(); // Clear previous trips in view
+
+        if (data.trips.length > 0) {
+          data.trips.forEach((coords) => {
+            // Convert [lon, lat] to [lat, lon]
+            const latLngs = coords.map(([lon, lat]) => [lat, lon]);
+            L.polyline(latLngs, {
+              color: "#3388ff", // Blue color for trips
+              weight: 2,
+              opacity: 0.7,
+              interactive: false, // Trips usually don't need interaction here
+              pane: "tripsPane", // Explicitly assign to pane
+            }).addTo(this.tripsLayerGroup);
+          });
+        } else {
+          console.log("No trips found in the current map view.");
+          // Optionally show a message if desired
+        }
+      } catch (error) {
+        console.error("Error loading trips for view:", error);
+        this.notificationManager.show(
+          `Failed to load trip overlay: ${error.message}`,
+          "danger",
+        );
+        this.clearTripOverlay(); // Clear on error
+      }
     }
   } // End CoverageManager Class
 

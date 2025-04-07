@@ -39,6 +39,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from gridfs.errors import NoFile
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+from pymongo import IndexModel, GEOSPHERE
+from pymongo.errors import OperationFailure
 
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from coverage_tasks import (
@@ -4236,6 +4238,44 @@ async def startup_event():
                 used_mb if used_mb is not None else -1,
                 limit_mb if limit_mb is not None else -1,
             )
+
+        # Ensure 2dsphere index exists on matchedGps for spatial queries
+        index_name = "matchedGps_2dsphere"
+        try:
+            indexes = await matched_trips_collection.index_information()
+            if index_name not in indexes:
+                logger.info(
+                    "Creating 2dsphere index on matched_trips_collection.matchedGps..."
+                )
+                await matched_trips_collection.create_indexes(
+                    [IndexModel([("matchedGps", GEOSPHERE)], name=index_name)]
+                )
+                logger.info("Index created successfully.")
+            else:
+                logger.debug("2dsphere index on matchedGps already exists.")
+        except OperationFailure as e:
+            logger.warning("OperationFailure during matched_trips index creation: %s", e)
+            # Specifically handle the case where bad data prevents index creation
+            if "GeoJSON LineString must have at least 2 vertices" in str(e) or "Can't extract geo keys" in str(e):
+                 logger.warning(
+                     "Index creation on matchedGps skipped due to invalid GeoJSON data in some documents. "
+                     "Application will start, but geospatial queries on matched_trips may be slow or fail. "
+                     "Consider cleaning up invalid matchedGps data (e.g., LineStrings with identical start/end points)."
+                 )
+            else:
+                 # Re-raise other OperationFailures as they might be critical
+                 logger.error("Unhandled OperationFailure during index creation, re-raising.")
+                 raise
+        except Exception as e:
+             # Catch other potential errors during index creation and log critically
+             logger.critical(
+                 "CRITICAL: Unexpected error during matched_trips index creation: %s",
+                 str(e),
+                 exc_info=True,
+             )
+             raise # Re-raise to potentially halt startup if critical
+
+
     except Exception as e:
         logger.critical(
             "CRITICAL: Failed to initialize application during startup: %s",
@@ -4271,6 +4311,72 @@ async def internal_error_handler(request: Request, exc):
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"error": "Internal server error"},
     )
+
+
+@app.get("/api/trips_in_bounds")
+async def get_trips_in_bounds(
+    min_lat: float = Query(..., description="Minimum latitude of the bounding box"),
+    min_lon: float = Query(..., description="Minimum longitude of the bounding box"),
+    max_lat: float = Query(..., description="Maximum latitude of the bounding box"),
+    max_lon: float = Query(..., description="Maximum longitude of the bounding box"),
+):
+    """Get trip coordinates (from matched_trips) within a given bounding box.
+
+    Uses a spatial query for efficiency.
+    """
+    try:
+        # Basic validation for bounds
+        if not (
+            -90 <= min_lat <= 90
+            and -90 <= max_lat <= 90
+            and -180 <= min_lon <= 180
+            and -180 <= max_lon <= 180
+            and min_lat <= max_lat
+            and min_lon <= max_lon
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid bounding box coordinates.",
+            )
+
+        # Define the bounding box for the spatial query
+        # MongoDB expects [longitude, latitude]
+        bounding_box = [
+            [min_lon, min_lat],
+            [max_lon, min_lat],
+            [max_lon, max_lat],
+            [min_lon, max_lat],
+            [min_lon, min_lat],  # Close the polygon
+        ]
+
+        query = {
+            "matchedGps": {
+                "$geoIntersects": {  # Use geoIntersects for LineString
+                    "$geometry": {"type": "Polygon", "coordinates": [bounding_box]}
+                }
+            }
+        }
+
+        # Projection to only get necessary fields (geometry and maybe ID)
+        projection = {"_id": 0, "matchedGps.coordinates": 1, "transactionId": 1}
+
+        # Query the matched_trips collection
+        cursor = matched_trips_collection.find(query, projection)
+
+        trip_coordinates = []
+        async for trip in cursor:
+            if trip.get("matchedGps") and trip["matchedGps"].get("coordinates"):
+                trip_coordinates.append(trip["matchedGps"]["coordinates"])
+
+        logger.info("Found %d trip segments within bounds", len(trip_coordinates))
+        return JSONResponse(content={"trips": trip_coordinates})
+
+    except Exception as e:
+        logger.exception("Error in get_trips_in_bounds: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve trips within bounds",
+        )
 
 
 if __name__ == "__main__":
