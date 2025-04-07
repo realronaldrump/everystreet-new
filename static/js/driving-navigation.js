@@ -565,24 +565,54 @@ class DrivingNavigation {
         // Ensure live elements stay on top of the new route
         this.bringLiveElementsToFront();
 
-        // Fit map to route start and target start
-        const routeStart = [
-          this.lastKnownLocation.lat,
-          this.lastKnownLocation.lon,
-        ];
-        const targetStart = [
-          data.target_street.start_coords[1],
-          data.target_street.start_coords[0],
-        ]; // Lat, Lon
-        const bounds = L.latLngBounds([routeStart, targetStart]);
+        // Fit map to the calculated route or start/target
+        try {
+          let boundsToFit;
+          if (this.lastKnownLocation) {
+            // If live location is known, create bounds from start to target
+            const routeStart = [
+              this.lastKnownLocation.lat,
+              this.lastKnownLocation.lon,
+            ];
+            const targetStart = [
+              data.target_street.start_coords[1], // Lat
+              data.target_street.start_coords[0], // Lon
+            ];
+            boundsToFit = L.latLngBounds([routeStart, targetStart]);
 
-        // Check if live location marker is within the calculated bounds
-        if (this.liveTracker?.marker && this.liveTracker.marker.getLatLng()) {
-          bounds.extend(this.liveTracker.marker.getLatLng());
-        }
+            // Extend bounds to include the live marker if it exists and has a location
+            if (
+              this.liveTracker?.marker &&
+              this.liveTracker.marker.getLatLng()
+            ) {
+              boundsToFit.extend(this.liveTracker.marker.getLatLng());
+            }
+          } else if (routeLayer && typeof routeLayer.getBounds === "function") {
+            // If no live location, fit to the bounds of the returned route geometry
+            boundsToFit = routeLayer.getBounds();
+          }
 
-        if (bounds.isValid()) {
-          this.map.fitBounds(bounds, { padding: [70, 70] }); // Add more padding
+          // Fit the map if we have valid bounds
+          if (boundsToFit && boundsToFit.isValid()) {
+            this.map.fitBounds(boundsToFit, { padding: [70, 70] }); // Add padding
+          } else {
+            console.warn("Could not determine valid bounds to fit the map.");
+            // Optional fallback: zoom to target street start if bounds fail
+            if (data.target_street && data.target_street.start_coords) {
+              this.map.setView(
+                [
+                  data.target_street.start_coords[1],
+                  data.target_street.start_coords[0],
+                ],
+                16,
+              );
+            }
+          }
+        } catch (boundsError) {
+          console.error(
+            "Error calculating or fitting map bounds:",
+            boundsError,
+          );
         }
       } else {
         // Handle unexpected success response format
