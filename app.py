@@ -128,25 +128,17 @@ app = FastAPI(title="Street Coverage Tracker")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# CORS Configuration (Add this section)
 origins = [
-    # Allow all origins for local development ease.
-    # For production, restrict this to specific origins.
     "*"
-    # Example for specific origins if you serve the simulator:
-    # "http://localhost",
-    # "http://localhost:8000", # Or whatever port you might serve it on
-    # "null", # Important for allowing requests from file:// origin
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True, # Allow cookies if needed in the future
-    allow_methods=["*"],    # Allow all methods (GET, POST, OPTIONS, etc.)
-    allow_headers=["*"],    # Allow all headers (Content-Type, Authorization, etc.)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-# End of CORS Configuration section
 
 app.include_router(visits_router)
 
@@ -2860,7 +2852,7 @@ async def bouncie_webhook(request: Request):
 
 @app.get(
     "/api/active_trip",
-    response_model=ActiveTripResponseUnion,  # Use the Union model
+    response_model=ActiveTripResponseUnion,
     summary="Get Currently Active Trip",
     description="Retrieves the latest active trip, optionally filtering if it's newer than a given sequence number.",
 )
@@ -2868,41 +2860,31 @@ async def active_trip_endpoint():
     """Get the currently active trip, if any."""
     try:
         logger.info("Fetching active trip data")
-        # get_active_trip now returns the raw dict or None
         active_trip_doc = await get_active_trip()
 
         if not active_trip_doc:
             logger.info("No active trip found (or not newer than sequence)")
-            # Return an object matching the NoActiveTripResponse schema
             return NoActiveTripResponse(server_time=datetime.now(timezone.utc))
 
         logger.info(
             "Returning active trip: %s",
             active_trip_doc.get("transactionId", "unknown"),
         )
-        # Return an object matching the ActiveTripSuccessResponse schema
-        # Pydantic will automatically validate active_trip_doc against TripDataModel
-        # and FastAPI will handle the final JSON serialization (incl. ObjectId -> str)
         return ActiveTripSuccessResponse(
             trip=active_trip_doc, server_time=datetime.now(timezone.utc)
         )
 
-    # Catch specific expected exceptions from get_active_trip if any,
-    # otherwise catch general exceptions that occur *during* its execution.
     except Exception as e:
-        # Log the internal error with traceback
         error_id = str(uuid.uuid4())
         logger.exception(
             "Internal error fetching active trip [%s]: %s", error_id, str(e)
         )
-        # Raise an HTTPException - FastAPI handles this gracefully
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={  # You can pass a dict or just a string
+            detail={
                 "message": "An internal error occurred while retrieving the active trip.",
                 "error_id": error_id,
             },
-            # Alternatively: detail=f"Internal error [{error_id}]"
         )
 
 
@@ -3829,7 +3811,7 @@ async def get_next_driving_route(request: Request):
                 "properties.segment_id": 1,
                 "properties.street_name": 1,
                 "_id": 0,
-                "geometry.type": 1, # Explicitly fetch type for check
+                "geometry.type": 1,
             },
         )
         undriven_streets = await undriven_streets_cursor.to_list(length=None)
@@ -3864,11 +3846,11 @@ async def get_next_driving_route(request: Request):
     nearest_street = None
     min_distance = float("inf")
     skipped_count = 0
-    processing_errors = [] # Store all processing errors
+    processing_errors = []
 
     for i, street in enumerate(undriven_streets):
-        segment_id = street.get("properties", {}).get("segment_id", f"UNKNOWN_{i}") # Use index if ID missing
-        reason = None # Reason for skipping
+        segment_id = street.get("properties", {}).get("segment_id", f"UNKNOWN_{i}")
+        reason = None
         try:
             geometry = street.get("geometry")
             if not geometry:
@@ -3904,7 +3886,6 @@ async def get_next_driving_route(request: Request):
                 skipped_count += 1
                 continue
 
-            # Ensure coords are valid floats before haversine
             segment_lon = float(start_node[0])
             segment_lat = float(start_node[1])
 
@@ -3919,7 +3900,6 @@ async def get_next_driving_route(request: Request):
             if distance < min_distance:
                 min_distance = distance
                 nearest_street = street
-                # Ensure properties dict exists before adding start_coords
                 if "properties" not in nearest_street:
                     nearest_street["properties"] = {}
                 nearest_street["properties"]["start_coords"] = [
@@ -3950,11 +3930,10 @@ async def get_next_driving_route(request: Request):
         )
 
     if not nearest_street:
-        # Refined error handling when no nearest street is found
         num_candidates = len(undriven_streets)
         error_msg = f"Could not determine nearest street for {location_name}."
         detail_msg = "Failed to determine the nearest undriven street."
-        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR # Default to 500
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
 
         if num_candidates > 0:
             error_msg += f" Found {num_candidates} candidate(s)."
@@ -3962,24 +3941,21 @@ async def get_next_driving_route(request: Request):
                 error_msg += f" All {skipped_count} were skipped due to processing errors."
                 detail_msg = f"Found {num_candidates} undriven segments, but none could be processed due to data issues."
                 if processing_errors:
-                     detail_msg += f" Example errors: {'; '.join(processing_errors[:3])}" # Show first few errors
-                # Consider 404 or 400 if data quality is the issue for the *area*
+                     detail_msg += f" Example errors: {'; '.join(processing_errors[:3])}"
                 status_code = status.HTTP_404_NOT_FOUND
             else:
-                # This case (candidates > 0, skipped < candidates, nearest_street is None) shouldn't happen with current logic, but log if it does
                 error_msg += f" {skipped_count} were skipped. Unexpected state."
                 detail_msg = "Internal error: Failed processing candidates."
 
 
-        logger.warning(error_msg) # Log the consolidated warning message
+        logger.warning(error_msg)
 
-        # Raise/return based on the determined status code and detail
         if status_code == status.HTTP_404_NOT_FOUND:
              return JSONResponse(
                 status_code=status_code,
                 content={
                     "status": "error",
-                    "message": detail_msg, # Use the more detailed message for the client
+                    "message": detail_msg,
                     "route_geometry": None,
                     "target_street": None,
                 },
@@ -3991,7 +3967,6 @@ async def get_next_driving_route(request: Request):
             )
 
 
-    # This check might be redundant now if nearest_street implies start_coords were set, but keep for safety
     if "start_coords" not in nearest_street.get("properties", {}):
         segment_id = nearest_street.get("properties", {}).get("segment_id", "UNKNOWN")
         logger.error(
@@ -4004,7 +3979,7 @@ async def get_next_driving_route(request: Request):
         )
 
     target_coords = nearest_street["properties"]["start_coords"]
-    segment_id = nearest_street["properties"]["segment_id"] # Get ID for logging
+    segment_id = nearest_street["properties"]["segment_id"]
     logger.info(
         "Nearest undriven segment found: ID=%s at %s, Initial Distance: %.2fm. Calculating route...",
         segment_id,
