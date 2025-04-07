@@ -145,6 +145,4 @@ class NoActiveTripResponse(BaseModel):
     server_time: datetime
 
 
-ActiveTripResponseUnion = Union[
-    ActiveTripSuccessResponse, NoActiveTripResponse
-]
+ActiveTripResponseUnion = Union[ActiveTripSuccessResponse, NoActiveTripResponse]
