@@ -126,7 +126,6 @@ class TripProcessor:
 
         self.utm_proj = None
         self.project_to_utm = None
-        self.project_to_wgs84 = None
 
     def _set_state(
         self, new_state: TripState, error: Optional[str] = None
@@ -773,9 +772,6 @@ class TripProcessor:
         )
         self.project_to_utm = pyproj.Transformer.from_crs(
             pyproj.CRS("EPSG:4326"), self.utm_proj, always_xy=True
-        ).transform
-        self.project_to_wgs84 = pyproj.Transformer.from_crs(
-            self.utm_proj, pyproj.CRS("EPSG:4326"), always_xy=True
         ).transform
 
     async def _map_match_coordinates(

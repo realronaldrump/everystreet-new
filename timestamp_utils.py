@@ -7,7 +7,7 @@ objects and for sorting/filtering coordinate data from Bouncie trip events.
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Tuple, List, Dict
+from typing import Optional, List, Dict
 from dateutil import parser
 
 logger = logging.getLogger(__name__)
@@ -28,30 +28,6 @@ def parse_bouncie_timestamp(ts: str) -> Optional[datetime]:
     except Exception as e:
         logger.warning("Failed to parse timestamp '%s': %s", ts, e)
         return None
-
-
-def get_trip_timestamps(
-    event_data: dict,
-) -> Tuple[Optional[datetime], Optional[datetime]]:
-    """Extract startTime and endTime from Bouncie webhook event data."""
-    start_time = None
-    end_time = None
-
-    if "start" in event_data and event_data["start"].get("timestamp"):
-        start_time = parse_bouncie_timestamp(event_data["start"]["timestamp"])
-        if start_time is None:
-            logger.warning(
-                "Invalid or missing startTime in event: %s", event_data
-            )
-
-    if "end" in event_data and event_data["end"].get("timestamp"):
-        end_time = parse_bouncie_timestamp(event_data["end"]["timestamp"])
-        if end_time is None:
-            logger.warning(
-                "Invalid or missing endTime in event: %s", event_data
-            )
-
-    return start_time, end_time
 
 
 def sort_and_filter_trip_coordinates(trip_data: List[dict]) -> List[Dict]:

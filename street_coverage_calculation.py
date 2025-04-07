@@ -207,7 +207,6 @@ class CoverageCalculator:
 
         self.utm_proj: Optional[pyproj.CRS] = None
         self.project_to_utm = None
-        self.project_to_wgs84 = None
 
         self.match_buffer: float = DEFAULT_MATCH_BUFFER_METERS
         self.min_match_length: float = DEFAULT_MIN_MATCH_LENGTH_METERS
@@ -278,9 +277,6 @@ class CoverageCalculator:
             self.utm_proj = pyproj.CRS(f"EPSG:{epsg_code}")
             self.project_to_utm = pyproj.Transformer.from_crs(
                 WGS84, self.utm_proj, always_xy=True
-            ).transform
-            self.project_to_wgs84 = pyproj.Transformer.from_crs(
-                self.utm_proj, WGS84, always_xy=True
             ).transform
             logger.info(
                 "Task %s: Initialized UTM projection for %s: EPSG:%d (Zone %d%s)",

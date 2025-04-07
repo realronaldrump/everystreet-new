@@ -244,18 +244,6 @@ async def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
         return None
 
 
-@app.middleware("http")
-async def add_header(request: Request, call_next):
-    """Add cache control headers to all responses."""
-    response = await call_next(request)
-    response.headers["Cache-Control"] = (
-        "no-store, no-cache, must-revalidate, max-age=0"
-    )
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
-
-
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """Render main index page."""
