@@ -25,6 +25,7 @@ class DrivingNavigation {
     this.lastKnownLocation = null; // Store {lat, lon}
     this.isFetchingRoute = false; // Prevent concurrent requests
     this.isFetchingCoverageRoute = false; // Prevent concurrent coverage requests
+    this.clearTripTimeout = null; // Timeout handle for debouncing clear actions
 
     this.initialize();
   }
@@ -125,7 +126,15 @@ class DrivingNavigation {
   }
 
   handleLiveTripUpdate(trip) {
+    // --- Cancel any pending clear action --- START
+    if (this.clearTripTimeout) {
+        clearTimeout(this.clearTripTimeout);
+        this.clearTripTimeout = null;
+    }
+    // --- Cancel any pending clear action --- END
+
     if (!trip || !trip.coordinates || trip.coordinates.length === 0) {
+      // If update has no data, treat it like a clear, but use the debounced version
       this.handleLiveTripClear();
       return;
     }
@@ -211,17 +220,36 @@ class DrivingNavigation {
   }
 
   handleLiveTripClear() {
-    this.lastKnownLocation = null;
-
-    // Hide marker
-    if (this.liveLocationMarker) {
-      this.liveLocationMarker.setOpacity(0);
+    // If a clear is already pending, do nothing
+    if (this.clearTripTimeout) {
+        return;
     }
 
-    // Clear path
-    if (this.liveTripPathLayer) {
-      this.liveTripPathLayer.setLatLngs([]);
-    }
+    // Set a timeout to actually clear things if no update arrives soon
+    // Adjust timeout duration based on expected poll interval (e.g., poll interval + buffer)
+    const CLEAR_DELAY_MS = 7000; // e.g., 7 seconds (if poll is ~5s)
+
+    this.clearTripTimeout = setTimeout(() => {
+        console.log("Executing debounced live trip clear.");
+        this.lastKnownLocation = null;
+
+        // Hide marker
+        if (this.liveLocationMarker) {
+            this.liveLocationMarker.setOpacity(0);
+        }
+
+        // Clear path
+        if (this.liveTripPathLayer) {
+            this.liveTripPathLayer.setLatLngs([]);
+        }
+
+        // Reset timeout handle
+        this.clearTripTimeout = null;
+
+        // Optionally update status here if needed after confirmed inactivity
+        // this.setStatus("Live location appears inactive.");
+
+    }, CLEAR_DELAY_MS);
 
     // NOTE: Button disabling logic has been intentionally removed here
     // to allow offline/fallback mode to function correctly. Buttons
