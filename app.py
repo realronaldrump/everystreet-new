@@ -3853,6 +3853,7 @@ async def get_next_driving_route(request: Request):
     nearest_street = None
     min_distance = float("inf")
     skipped_count = 0
+    last_processing_error = None # Added to store the last error
 
     for street in undriven_streets:
         segment_id = street.get("properties", {}).get("segment_id", "UNKNOWN")
@@ -3905,6 +3906,7 @@ async def get_next_driving_route(request: Request):
                 "Error processing segment %s: %s", segment_id, dist_err
             )
             skipped_count += 1
+            last_processing_error = dist_err # Store the last error
             continue
 
     if skipped_count > 0:
@@ -3914,10 +3916,15 @@ async def get_next_driving_route(request: Request):
         )
 
     if not nearest_street:
+        error_msg_suffix = ""
+        if last_processing_error:
+            error_msg_suffix = f". Last error: {last_processing_error}" # Add error details
+
         logger.warning(
-            "Could not determine nearest street for %s despite finding %d candidates.",
+            "Could not determine nearest street for %s despite finding %d candidates%s", # Added %s for error
             location_name,
             len(undriven_streets),
+            error_msg_suffix, # Pass the error suffix
         )
         if len(undriven_streets) > 0 and skipped_count == len(
             undriven_streets
