@@ -1203,14 +1203,13 @@ async def handle_bouncie_webhook(data: Dict[str, Any]) -> Dict[str, str]:
 async def get_active_trip(
     since_sequence: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Get the currently active trip, optionally filtered by sequence number.
+    """Get the currently active trip document from DB.
 
     Args:
         since_sequence: If provided, only return trip if its sequence number is greater.
 
     Returns:
-        Dict: The active trip data, serialized for JSON response, or None if no
-              active trip found or no update since the given sequence.
+        Dict: The raw active trip document from MongoDB, or None.
     """
     if live_trips_collection is None:
         logger.error(
@@ -1219,29 +1218,17 @@ async def get_active_trip(
         return None
 
     query: Dict[str, Any] = {"status": "active"}
-
     valid_since_sequence = None
     if since_sequence is not None:
         try:
             valid_since_sequence = int(since_sequence)
-            if valid_since_sequence < 0:
-                logger.warning(
-                    "Received negative since_sequence value %d, using 0.",
-                    valid_since_sequence,
-                )
-                valid_since_sequence = 0
         except (ValueError, TypeError):
-            logger.warning(
-                "Invalid since_sequence value '%s' received, ignoring sequence filter.",
-                since_sequence,
-            )
+            logger.warning(...)
             valid_since_sequence = None
 
     if valid_since_sequence is not None:
         query["sequence"] = {"$gt": valid_since_sequence}
-        logger.debug(
-            "Querying for active trip with sequence > %d", valid_since_sequence
-        )
+        logger.debug(...)
     else:
         logger.debug("Querying for any active trip (no sequence filter).")
 
@@ -1252,35 +1239,21 @@ async def get_active_trip(
 
     if active_trip_doc:
         trip_seq = active_trip_doc.get("sequence", "N/A")
+        # Convert ObjectId to string for JSON serialization
+        if "_id" in active_trip_doc:
+            active_trip_doc["_id"] = str(active_trip_doc["_id"])
+
         logger.debug(
             "Found active trip matching query %s: %s with sequence %s",
             query,
             active_trip_doc.get("transactionId"),
             trip_seq,
         )
-        serialized_trip = await serialize_live_trip(active_trip_doc)
-        if serialized_trip:
-            serialized_trip["sequence"] = trip_seq
-            return serialized_trip
-        else:
-            logger.error(
-                "Failed to serialize active trip document: %s",
-                active_trip_doc.get("transactionId"),
-            )
-            return None
+        return active_trip_doc
     else:
         logger.debug("No active trip found matching query: %s", query)
-
         if valid_since_sequence is not None:
-            any_active_trip = await live_trips_collection.find_one(
-                {"status": "active"}, sort=[("sequence", -1)]
-            )
-            if any_active_trip:
-                logger.debug(
-                    "An active trip exists (seq %s), but it's not newer than the requested sequence %d.",
-                    any_active_trip.get("sequence"),
-                    valid_since_sequence,
-                )
+            pass
         return None
 
 

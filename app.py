@@ -89,6 +89,9 @@ from models import (
     TaskRunModel,
     TripUpdateModel,
     ValidateLocationModel,
+    ActiveTripResponseUnion,
+    NoActiveTripResponse,
+    ActiveTripSuccessResponse,
 )
 from osm_utils import generate_geojson_osm
 from tasks import (
@@ -2845,44 +2848,52 @@ async def bouncie_webhook(request: Request):
     return await handle_bouncie_webhook(data)
 
 
-@app.get("/api/active_trip")
+@app.get(
+    "/api/active_trip",
+    response_model=ActiveTripResponseUnion,  # Use the Union model
+    summary="Get Currently Active Trip",
+    description="Retrieves the latest active trip, optionally filtering if it's newer than a given sequence number.",
+)
 async def active_trip_endpoint():
     """Get the currently active trip, if any."""
     try:
         logger.info("Fetching active trip data")
-        active_trip = await get_active_trip()
+        # get_active_trip now returns the raw dict or None
+        active_trip_doc = await get_active_trip()
 
-        if not active_trip:
-            logger.info("No active trip found")
-            return {
-                "status": "success",
-                "has_active_trip": False,
-                "message": "No active trip",
-                "server_time": datetime.now(timezone.utc).isoformat(),
-            }
+        if not active_trip_doc:
+            logger.info("No active trip found (or not newer than sequence)")
+            # Return an object matching the NoActiveTripResponse schema
+            return NoActiveTripResponse(server_time=datetime.now(timezone.utc))
 
         logger.info(
             "Returning active trip: %s",
-            active_trip.get("transactionId", "unknown"),
+            active_trip_doc.get("transactionId", "unknown"),
         )
-        return {
-            "status": "success",
-            "has_active_trip": True,
-            "trip": active_trip,
-            "server_time": datetime.now(timezone.utc).isoformat(),
-        }
+        # Return an object matching the ActiveTripSuccessResponse schema
+        # Pydantic will automatically validate active_trip_doc against TripDataModel
+        # and FastAPI will handle the final JSON serialization (incl. ObjectId -> str)
+        return ActiveTripSuccessResponse(
+            trip=active_trip_doc, server_time=datetime.now(timezone.utc)
+        )
+
+    # Catch specific expected exceptions from get_active_trip if any,
+    # otherwise catch general exceptions that occur *during* its execution.
     except Exception as e:
+        # Log the internal error with traceback
         error_id = str(uuid.uuid4())
         logger.exception(
-            "Error in get_active_trip endpoint [%s]: %s", error_id, str(e)
+            "Internal error fetching active trip [%s]: %s", error_id, str(e)
         )
-        return {
-            "status": "error",
-            "has_active_trip": False,
-            "message": f"Error retrieving active trip: {str(e)}",
-            "error_id": error_id,
-            "server_time": datetime.now(timezone.utc).isoformat(),
-        }
+        # Raise an HTTPException - FastAPI handles this gracefully
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={  # You can pass a dict or just a string
+                "message": "An internal error occurred while retrieving the active trip.",
+                "error_id": error_id,
+            },
+            # Alternatively: detail=f"Internal error [{error_id}]"
+        )
 
 
 @app.get("/api/trip_updates")
