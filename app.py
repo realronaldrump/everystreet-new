@@ -10,12 +10,10 @@ import json
 import logging
 import os
 import uuid
-from fastapi.middleware.cors import CORSMiddleware
-
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from math import ceil
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 import bson
@@ -34,12 +32,13 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from gridfs.errors import NoFile
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
-from pymongo import IndexModel, GEOSPHERE
+from pymongo import GEOSPHERE, IndexModel
 from pymongo.errors import OperationFailure
 
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
@@ -85,17 +84,17 @@ from live_tracking import (
     initialize_db as initialize_live_tracking_db,
 )
 from models import (
+    ActiveTripResponseUnion,
+    ActiveTripSuccessResponse,
     BackgroundTasksConfigModel,
     BulkProcessModel,
     CollectionModel,
     DateRangeModel,
     LocationModel,
+    NoActiveTripResponse,
     TaskRunModel,
     TripUpdateModel,
     ValidateLocationModel,
-    ActiveTripResponseUnion,
-    NoActiveTripResponse,
-    ActiveTripSuccessResponse,
 )
 from osm_utils import generate_geojson_osm
 from tasks import (
@@ -3706,7 +3705,6 @@ async def get_coverage_area_details(location_id: str):
         )
 
 
-# Helper function for Mapbox Directions API call
 async def _get_mapbox_route(
     start_lon: float,
     start_lat: float,
@@ -3736,11 +3734,10 @@ async def _get_mapbox_route(
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(directions_url, params=params) as response:
-                # Log request details for debugging
                 logger.debug(
                     f"Mapbox Request: {response.method} {response.url} Status: {response.status}"
                 )
-                response.raise_for_status()  # Raises ClientResponseError for 4xx/5xx
+                response.raise_for_status()
                 route_data = await response.json()
 
                 if (
@@ -3750,7 +3747,6 @@ async def _get_mapbox_route(
                     logger.warning(
                         f"Mapbox API returned no routes for {start_lon},{start_lat} -> {end_lon},{end_lat}"
                     )
-                    # Consider if this should be a different status code or handled differently
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail="No route found by Mapbox Directions API.",
@@ -3773,22 +3769,20 @@ async def _get_mapbox_route(
     except aiohttp.ClientResponseError as http_err:
         error_detail = f"Mapbox API Error: Status={http_err.status}, Message='{http_err.message}' for URL {http_err.request_info.url}"
         try:
-            # Attempt to get more details from the response body
             error_body = await http_err.response.text()
-            error_detail += f" | Body: {error_body[:500]}"  # Limit body length
+            error_detail += f" | Body: {error_body[:500]}"
         except Exception:
             pass
         logger.error(error_detail)
-        # Re-raise as a standard HTTPException for consistent error handling
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,  # Indicate issue with upstream service
+            status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Error fetching route from Mapbox: {http_err.message} (Status: {http_err.status})",
         )
     except asyncio.TimeoutError:
         logger.error(f"Mapbox API request timed out for {coords_str}")
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Mapbox API request timed out."
+            detail="Mapbox API request timed out.",
         )
     except Exception as e:
         logger.error(
@@ -3799,6 +3793,7 @@ async def _get_mapbox_route(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unexpected error calculating route: {e}",
         )
+
 
 @app.post("/api/driving-navigation/next-route")
 async def get_next_driving_route(request: Request):
@@ -3874,7 +3869,6 @@ async def get_next_driving_route(request: Request):
                     current_lon,
                 )
             else:
-                # --- Fallback to last known trip end position ---
                 logger.info(
                     "Live tracking unavailable, falling back to last trip end location"
                 )
@@ -3889,7 +3883,6 @@ async def get_next_driving_route(request: Request):
                     )
 
                 try:
-                    # Try geometry first, then gps string
                     geom = last_trip.get("geometry") or geojson_module.loads(
                         last_trip.get("gps", "{}")
                     )
@@ -3909,8 +3902,15 @@ async def get_next_driving_route(request: Request):
                             last_trip.get("transactionId", "N/A"),
                         )
                     else:
-                        raise ValueError("Invalid or empty geometry in last trip")
-                except (json.JSONDecodeError, ValueError, TypeError, IndexError) as e:
+                        raise ValueError(
+                            "Invalid or empty geometry in last trip"
+                        )
+                except (
+                    json.JSONDecodeError,
+                    ValueError,
+                    TypeError,
+                    IndexError,
+                ) as e:
                     logger.error(
                         "Failed to extract end location from last trip %s: %s",
                         last_trip.get("transactionId", "N/A"),
@@ -4137,13 +4137,12 @@ async def get_next_driving_route(request: Request):
         min_distance,
     )
 
-    # Use the helper function to get the route
     try:
         route_info = await _get_mapbox_route(
             current_lon,
             current_lat,
-            target_coords[0], # lon
-            target_coords[1]  # lat
+            target_coords[0],
+            target_coords[1],
         )
         logger.info(
             "Route found via helper: Duration=%.1fs, Distance=%.1fm",
@@ -4163,12 +4162,12 @@ async def get_next_driving_route(request: Request):
             }
         )
     except HTTPException as e:
-        # Propagate HTTP exceptions from the helper
         logger.error(f"HTTP Exception from Mapbox helper: {e.detail}")
         raise e
     except Exception as e:
-        # Catch any other unexpected errors during the call
-        logger.error(f"Unexpected error calling Mapbox helper: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error calling Mapbox helper: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to calculate route via helper function: {e}",
@@ -4214,7 +4213,6 @@ async def get_coverage_driving_route(request: Request):
             detail=f"Invalid request format: {str(e)}",
         )
 
-    # 1. Determine current position (similar to get_next_driving_route)
     try:
         if (
             current_position
@@ -4250,7 +4248,6 @@ async def get_coverage_driving_route(request: Request):
                     current_lon,
                 )
             else:
-                # --- Fallback to last known trip end position ---
                 logger.info(
                     "Coverage Route: Live tracking unavailable, falling back to last trip end location"
                 )
@@ -4265,7 +4262,6 @@ async def get_coverage_driving_route(request: Request):
                     )
 
                 try:
-                    # Try geometry first, then gps string
                     geom = last_trip.get("geometry") or geojson_module.loads(
                         last_trip.get("gps", "{}")
                     )
@@ -4288,7 +4284,12 @@ async def get_coverage_driving_route(request: Request):
                         raise ValueError(
                             "Coverage Route: Invalid or empty geometry in last trip"
                         )
-                except (json.JSONDecodeError, ValueError, TypeError, IndexError) as e:
+                except (
+                    json.JSONDecodeError,
+                    ValueError,
+                    TypeError,
+                    IndexError,
+                ) as e:
                     logger.error(
                         "Coverage Route: Failed to extract end location from last trip %s: %s",
                         last_trip.get("transactionId", "N/A"),
@@ -4299,18 +4300,19 @@ async def get_coverage_driving_route(request: Request):
                         detail="Coverage Route: Failed to determine starting location from last trip.",
                     )
 
-        start_point = (current_lon, current_lat)  # lon, lat
+        start_point = (current_lon, current_lat)
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Coverage Route: Error getting position: %s", e, exc_info=True)
+        logger.error(
+            "Coverage Route: Error getting position: %s", e, exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Could not determine current position: {e}",
         )
 
-    # 2. Fetch all undriven streets for the area
     try:
         undriven_streets_cursor = streets_collection.find(
             {
@@ -4323,13 +4325,15 @@ async def get_coverage_driving_route(request: Request):
                 },
             },
             {
-                "geometry": 1,  # Need full geometry
+                "geometry": 1,
                 "properties.segment_id": 1,
                 "properties.street_name": 1,
                 "_id": 0,
             },
         )
-        undriven_streets_list = await undriven_streets_cursor.to_list(length=None)
+        undriven_streets_list = await undriven_streets_cursor.to_list(
+            length=None
+        )
 
         if not undriven_streets_list:
             return JSONResponse(
@@ -4347,7 +4351,6 @@ async def get_coverage_driving_route(request: Request):
             location_name,
         )
 
-        # Validate segments and extract start/end points
         valid_segments = []
         for street in undriven_streets_list:
             try:
@@ -4360,15 +4363,14 @@ async def get_coverage_driving_route(request: Request):
                     and len(geom.get("coordinates", [])) >= 2
                 ):
                     coords = geom["coordinates"]
-                    # Ensure coordinates are valid numbers
                     start_node = (
                         float(coords[0][0]),
                         float(coords[0][1]),
-                    )  # lon, lat
+                    )
                     end_node = (
                         float(coords[-1][0]),
                         float(coords[-1][1]),
-                    )  # lon, lat
+                    )
                     valid_segments.append(
                         {
                             "id": segment_id,
@@ -4383,7 +4385,9 @@ async def get_coverage_driving_route(request: Request):
                         f"Coverage Route: Skipping invalid segment {segment_id} (type: {geom.get('type')}, len: {len(geom.get('coordinates', []))})"
                     )
             except (TypeError, ValueError, IndexError) as e:
-                segment_id = street.get("properties", {}).get("segment_id", "UNKNOWN")
+                segment_id = street.get("properties", {}).get(
+                    "segment_id", "UNKNOWN"
+                )
                 logger.warning(
                     f"Coverage Route: Error processing segment {segment_id} data: {e}"
                 )
@@ -4417,10 +4421,9 @@ async def get_coverage_driving_route(request: Request):
             detail=f"Error preparing segments for coverage route: {e}",
         )
 
-    # 3. Implement Sequencing Algorithm (Iterative Nearest Neighbor)
     ordered_segments = []
-    remaining_segments = valid_segments[:]  # Create a copy to modify
-    current_loc = start_point  # Start at the user's current position (lon, lat)
+    remaining_segments = valid_segments[:]
+    current_loc = start_point
 
     while remaining_segments:
         nearest_segment = None
@@ -4428,13 +4431,12 @@ async def get_coverage_driving_route(request: Request):
         nearest_index = -1
 
         for i, segment in enumerate(remaining_segments):
-            segment_start_node = segment["start_node"]  # lon, lat
-            # Calculate distance from current location to the start of this segment
+            segment_start_node = segment["start_node"]
             distance = haversine(
-                current_loc[1],  # lat1
-                current_loc[0],  # lon1
-                segment_start_node[1],  # lat2
-                segment_start_node[0],  # lon2
+                current_loc[1],
+                current_loc[0],
+                segment_start_node[1],
+                segment_start_node[0],
                 unit="meters",
             )
 
@@ -4444,106 +4446,95 @@ async def get_coverage_driving_route(request: Request):
                 nearest_index = i
 
         if nearest_segment is not None:
-            # Add the nearest segment to the ordered list
             ordered_segments.append(nearest_segment)
-            # Update the current location to the *end* of the segment we just added
             current_loc = nearest_segment["end_node"]
-            # Remove the chosen segment from the remaining list
             del remaining_segments[nearest_index]
         else:
-            # Should not happen if remaining_segments is not empty, but handle defensively
             logger.error(
                 f"Coverage Route: Could not find nearest segment for {location_name} with {len(remaining_segments)} segments remaining."
             )
-            break  # Exit loop to prevent infinite loop
+            break
 
     logger.info(
         f"Coverage Route: Sequenced {len(ordered_segments)} segments for {location_name} using INN."
     )
 
-    # Check if we sequenced all valid segments
     if len(ordered_segments) != len(valid_segments):
         logger.warning(
             f"Coverage Route: Mismatch in segment count. Initial: {len(valid_segments)}, Sequenced: {len(ordered_segments)}"
         )
-        # Decide how to handle this - maybe raise an error or return partial result?
-        # For now, proceed with the sequenced segments.
 
-    # 4. Generate Full Route using Mapbox
-    all_route_parts = []  # List to hold all GeoJSON geometries (routes + segments)
+    all_route_parts = []
     total_duration_seconds = 0.0
     total_distance_meters = 0.0
-    combined_route_geojson = None # Initialize
+    combined_route_geojson = None
 
     if not ordered_segments:
-        # If after sequencing (or filtering) there are no segments, return empty route
-        logger.info(f"Coverage Route: No segments to route for {location_name}.")
-        # Keep combined_route_geojson as None
+        logger.info(
+            f"Coverage Route: No segments to route for {location_name}."
+        )
     else:
         try:
-            # Route from start position to the start of the first segment
             first_segment = ordered_segments[0]
             route_to_first = await _get_mapbox_route(
-                start_point[0],                 # current lon
-                start_point[1],                 # current lat
-                first_segment["start_node"][0], # segment start lon
-                first_segment["start_node"][1]  # segment start lat
+                start_point[0],
+                start_point[1],
+                first_segment["start_node"][0],
+                first_segment["start_node"][1],
             )
             all_route_parts.append(route_to_first["geometry"])
             total_duration_seconds += route_to_first["duration"]
             total_distance_meters += route_to_first["distance"]
-            logger.debug(f"Coverage Route: Added initial route part (duration: {route_to_first['duration']:.1f}s, distance: {route_to_first['distance']:.1f}m)")
+            logger.debug(
+                f"Coverage Route: Added initial route part (duration: {route_to_first['duration']:.1f}s, distance: {route_to_first['distance']:.1f}m)"
+            )
 
-            # --- Add delay to avoid rate limiting ---
-            await asyncio.sleep(1.1) # Sleep for 1.1 seconds
+            await asyncio.sleep(1.1)
 
-            # Add the first segment geometry
             all_route_parts.append(first_segment["geometry"])
 
-            # Loop through remaining segments to route between them
             for i in range(len(ordered_segments) - 1):
                 current_segment = ordered_segments[i]
-                next_segment = ordered_segments[i+1]
+                next_segment = ordered_segments[i + 1]
 
-                # Route from the end of the current segment to the start of the next
                 route_between = await _get_mapbox_route(
-                    current_segment["end_node"][0],  # current end lon
-                    current_segment["end_node"][1],  # current end lat
-                    next_segment["start_node"][0], # next start lon
-                    next_segment["start_node"][1]  # next start lat
+                    current_segment["end_node"][0],
+                    current_segment["end_node"][1],
+                    next_segment["start_node"][0],
+                    next_segment["start_node"][1],
                 )
                 all_route_parts.append(route_between["geometry"])
                 total_duration_seconds += route_between["duration"]
                 total_distance_meters += route_between["distance"]
-                logger.debug(f"Coverage Route: Added connecting route part {i+1} (duration: {route_between['duration']:.1f}s, distance: {route_between['distance']:.1f}m)")
+                logger.debug(
+                    f"Coverage Route: Added connecting route part {i + 1} (duration: {route_between['duration']:.1f}s, distance: {route_between['distance']:.1f}m)"
+                )
 
-                # --- Add delay to avoid rate limiting ---
-                await asyncio.sleep(1.1) # Sleep for 1.1 seconds
+                await asyncio.sleep(1.1)
 
-                # Add the next segment's geometry
                 all_route_parts.append(next_segment["geometry"])
 
-            # Combine all geometries into a GeometryCollection if there are parts
             if all_route_parts:
                 combined_route_geojson = {
                     "type": "GeometryCollection",
-                    "geometries": all_route_parts
+                    "geometries": all_route_parts,
                 }
 
         except HTTPException as e:
-            # Handle errors during routing (e.g., Mapbox API error, no route found)
-            logger.error(f"Coverage Route: HTTP Exception during route generation: {e.detail}")
-            # Re-raise the exception to be caught by the main handler
+            logger.error(
+                f"Coverage Route: HTTP Exception during route generation: {e.detail}"
+            )
             raise e
         except Exception as e:
-            # Catch any other unexpected errors during route generation
-            logger.error(f"Coverage Route: Unexpected error during route generation: {e}", exc_info=True)
+            logger.error(
+                f"Coverage Route: Unexpected error during route generation: {e}",
+                exc_info=True,
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to generate full coverage route: {e}",
             )
 
-    # 5. Return the Result
     logger.info(
         f"Coverage Route: Generated route for {location_name} covering {len(ordered_segments)} segments. "
         f"Total Duration: {total_duration_seconds:.1f}s, Total Distance: {total_distance_meters:.1f}m"
@@ -4718,7 +4709,6 @@ async def startup_event():
                 limit_mb if limit_mb is not None else -1,
             )
 
-        # Ensure 2dsphere index exists on matchedGps for spatial queries
         index_name = "matchedGps_2dsphere"
         try:
             indexes = await matched_trips_collection.index_information()
@@ -4733,27 +4723,29 @@ async def startup_event():
             else:
                 logger.debug("2dsphere index on matchedGps already exists.")
         except OperationFailure as e:
-            logger.warning("OperationFailure during matched_trips index creation: %s", e)
-            # Specifically handle the case where bad data prevents index creation
-            if "GeoJSON LineString must have at least 2 vertices" in str(e) or "Can't extract geo keys" in str(e):
-                 logger.warning(
-                     "Index creation on matchedGps skipped due to invalid GeoJSON data in some documents. "
-                     "Application will start, but geospatial queries on matched_trips may be slow or fail. "
-                     "Consider cleaning up invalid matchedGps data (e.g., LineStrings with identical start/end points)."
-                 )
+            logger.warning(
+                "OperationFailure during matched_trips index creation: %s", e
+            )
+            if "GeoJSON LineString must have at least 2 vertices" in str(
+                e
+            ) or "Can't extract geo keys" in str(e):
+                logger.warning(
+                    "Index creation on matchedGps skipped due to invalid GeoJSON data in some documents. "
+                    "Application will start, but geospatial queries on matched_trips may be slow or fail. "
+                    "Consider cleaning up invalid matchedGps data (e.g., LineStrings with identical start/end points)."
+                )
             else:
-                 # Re-raise other OperationFailures as they might be critical
-                 logger.error("Unhandled OperationFailure during index creation, re-raising.")
-                 raise
+                logger.error(
+                    "Unhandled OperationFailure during index creation, re-raising."
+                )
+                raise
         except Exception as e:
-             # Catch other potential errors during index creation and log critically
-             logger.critical(
-                 "CRITICAL: Unexpected error during matched_trips index creation: %s",
-                 str(e),
-                 exc_info=True,
-             )
-             raise # Re-raise to potentially halt startup if critical
-
+            logger.critical(
+                "CRITICAL: Unexpected error during matched_trips index creation: %s",
+                str(e),
+                exc_info=True,
+            )
+            raise
 
     except Exception as e:
         logger.critical(
@@ -4794,17 +4786,24 @@ async def internal_error_handler(request: Request, exc):
 
 @app.get("/api/trips_in_bounds")
 async def get_trips_in_bounds(
-    min_lat: float = Query(..., description="Minimum latitude of the bounding box"),
-    min_lon: float = Query(..., description="Minimum longitude of the bounding box"),
-    max_lat: float = Query(..., description="Maximum latitude of the bounding box"),
-    max_lon: float = Query(..., description="Maximum longitude of the bounding box"),
+    min_lat: float = Query(
+        ..., description="Minimum latitude of the bounding box"
+    ),
+    min_lon: float = Query(
+        ..., description="Minimum longitude of the bounding box"
+    ),
+    max_lat: float = Query(
+        ..., description="Maximum latitude of the bounding box"
+    ),
+    max_lon: float = Query(
+        ..., description="Maximum longitude of the bounding box"
+    ),
 ):
     """Get trip coordinates (from matched_trips) within a given bounding box.
 
     Uses a spatial query for efficiency.
     """
     try:
-        # Basic validation for bounds
         if not (
             -90 <= min_lat <= 90
             and -90 <= max_lat <= 90
@@ -4818,36 +4817,43 @@ async def get_trips_in_bounds(
                 detail="Invalid bounding box coordinates.",
             )
 
-        # Define the bounding box for the spatial query
-        # MongoDB expects [longitude, latitude]
         bounding_box = [
             [min_lon, min_lat],
             [max_lon, min_lat],
             [max_lon, max_lat],
             [min_lon, max_lat],
-            [min_lon, min_lat],  # Close the polygon
+            [min_lon, min_lat],
         ]
 
         query = {
             "matchedGps": {
-                "$geoIntersects": {  # Use geoIntersects for LineString
-                    "$geometry": {"type": "Polygon", "coordinates": [bounding_box]}
+                "$geoIntersects": {
+                    "$geometry": {
+                        "type": "Polygon",
+                        "coordinates": [bounding_box],
+                    }
                 }
             }
         }
 
-        # Projection to only get necessary fields (geometry and maybe ID)
-        projection = {"_id": 0, "matchedGps.coordinates": 1, "transactionId": 1}
+        projection = {
+            "_id": 0,
+            "matchedGps.coordinates": 1,
+            "transactionId": 1,
+        }
 
-        # Query the matched_trips collection
         cursor = matched_trips_collection.find(query, projection)
 
         trip_coordinates = []
         async for trip in cursor:
-            if trip.get("matchedGps") and trip["matchedGps"].get("coordinates"):
+            if trip.get("matchedGps") and trip["matchedGps"].get(
+                "coordinates"
+            ):
                 trip_coordinates.append(trip["matchedGps"]["coordinates"])
 
-        logger.info("Found %d trip segments within bounds", len(trip_coordinates))
+        logger.info(
+            "Found %d trip segments within bounds", len(trip_coordinates)
+        )
         return JSONResponse(content={"trips": trip_coordinates})
 
     except Exception as e:

@@ -18,7 +18,6 @@ class DrivingNavigation {
     this.selectedLocation = null;
     this.undrivenStreetsLayer = L.layerGroup();
     this.routeLayer = L.layerGroup();
-    this.liveLocationMarker = null;
     this.targetStreetLayer = null; // To highlight the target segment
 
     this.liveTracker = null; // Instance of LiveTripTracker
@@ -64,14 +63,7 @@ class DrivingNavigation {
       this.routeLayer.addTo(this.map);
 
       // Initialize live location marker (invisible initially)
-      this.liveLocationMarker = L.marker([0, 0], {
-        icon: L.divIcon({
-          className: "live-location-marker",
-          iconSize: [16, 16],
-        }),
-        opacity: 0, // Start hidden
-        zIndexOffset: 1000, // Ensure it's on top
-      }).addTo(this.map);
+      // this.liveLocationMarker = null;
 
       this.setStatus("Map initialized. Select an area.");
 
@@ -101,14 +93,6 @@ class DrivingNavigation {
       return;
     }
 
-    // Create our trip path layer for showing the full path
-    this.liveTripPathLayer = L.polyline([], {
-      color: "#00FF00", // Green path to show it's live
-      weight: 3,
-      opacity: 0.8,
-      zIndex: 1000, // High z-index to keep on top
-    }).addTo(this.map);
-
     // Use a custom handler for trip updates instead of the default map updates
     this.liveTracker = new LiveTripTracker(this.map); // Pass map, though we override updates
 
@@ -128,8 +112,8 @@ class DrivingNavigation {
   handleLiveTripUpdate(trip) {
     // --- Cancel any pending clear action --- START
     if (this.clearTripTimeout) {
-        clearTimeout(this.clearTripTimeout);
-        this.clearTripTimeout = null;
+      clearTimeout(this.clearTripTimeout);
+      this.clearTripTimeout = null;
     }
     // --- Cancel any pending clear action --- END
 
@@ -154,19 +138,24 @@ class DrivingNavigation {
     this.lastKnownLocation = { lat: latestCoord.lat, lon: latestCoord.lon };
 
     // Update trip path polyline
-    if (this.liveTripPathLayer) {
-      this.liveTripPathLayer.setLatLngs(latLngs);
-      this.liveTripPathLayer.bringToFront();
+    if (this.liveTracker?.polyline) {
+      this.liveTracker.polyline.setLatLngs(latLngs);
+      this.liveTracker.polyline.bringToFront();
     }
 
     // Update location marker
-    if (this.liveLocationMarker) {
-      this.liveLocationMarker.setLatLng(latLng);
+    if (this.liveTracker?.marker) {
+      // Ensure marker is added to the map if it wasn't
+      if (!this.map.hasLayer(this.liveTracker.marker)) {
+        this.liveTracker.marker.addTo(this.map);
+      }
+
+      this.liveTracker.marker.setLatLng(latLng);
 
       // Update marker icon based on speed (if available)
       if (trip.currentSpeed !== undefined) {
         const speed = trip.currentSpeed;
-        let markerClass = "live-location-marker";
+        let markerClass = "live-location-marker"; // Keep custom class names
 
         if (speed === 0) {
           markerClass += " vehicle-stopped";
@@ -178,18 +167,20 @@ class DrivingNavigation {
           markerClass += " vehicle-fast";
         }
 
-        this.liveLocationMarker.setIcon(
+        // Update the icon directly on the liveTracker's marker
+        this.liveTracker.marker.setIcon(
           L.divIcon({
             className: markerClass,
             iconSize: [16, 16],
             html: `<div class="vehicle-marker-inner" data-speed="${Math.round(speed)}"></div>`,
+            iconAnchor: [8, 8], // Center anchor for divIcon
           }),
         );
       }
 
       // Handle visibility and map positioning
-      if (this.liveLocationMarker.options.opacity === 0) {
-        this.liveLocationMarker.setOpacity(1); // Make visible
+      if (this.liveTracker.marker.options.opacity === 0) {
+        this.liveTracker.marker.setOpacity(1); // Make visible
         if (this.map && this.getAutoFollowState()) {
           this.map.setView(latLng, 16); // Zoom in on first location update if auto-follow is on
         }
@@ -222,7 +213,7 @@ class DrivingNavigation {
   handleLiveTripClear() {
     // If a clear is already pending, do nothing
     if (this.clearTripTimeout) {
-        return;
+      return;
     }
 
     // Set a timeout to actually clear things if no update arrives soon
@@ -230,25 +221,28 @@ class DrivingNavigation {
     const CLEAR_DELAY_MS = 7000; // e.g., 7 seconds (if poll is ~5s)
 
     this.clearTripTimeout = setTimeout(() => {
-        console.log("Executing debounced live trip clear.");
-        this.lastKnownLocation = null;
+      console.log("Executing debounced live trip clear.");
+      this.lastKnownLocation = null;
 
-        // Hide marker
-        if (this.liveLocationMarker) {
-            this.liveLocationMarker.setOpacity(0);
-        }
+      // Hide marker using liveTracker's marker
+      if (this.liveTracker?.marker) {
+        this.liveTracker.marker.setOpacity(0);
+        // Optionally remove from map if opacity 0 isn't enough
+        // if (this.map.hasLayer(this.liveTracker.marker)) {
+        //     this.map.removeLayer(this.liveTracker.marker);
+        // }
+      }
 
-        // Clear path
-        if (this.liveTripPathLayer) {
-            this.liveTripPathLayer.setLatLngs([]);
-        }
+      // Clear path using liveTracker's polyline
+      if (this.liveTracker?.polyline) {
+        this.liveTracker.polyline.setLatLngs([]);
+      }
 
-        // Reset timeout handle
-        this.clearTripTimeout = null;
+      // Reset timeout handle
+      this.clearTripTimeout = null;
 
-        // Optionally update status here if needed after confirmed inactivity
-        // this.setStatus("Live location appears inactive.");
-
+      // Optionally update status here if needed after confirmed inactivity
+      // this.setStatus("Live location appears inactive.");
     }, CLEAR_DELAY_MS);
 
     // NOTE: Button disabling logic has been intentionally removed here
@@ -452,7 +446,8 @@ class DrivingNavigation {
           if (!this.lastKnownLocation) {
             const reason = "no-location";
             if (this.findBtn) this.findBtn.dataset.disabledReason = reason;
-            if (this.calcCoverageBtn) this.calcCoverageBtn.dataset.disabledReason = reason;
+            if (this.calcCoverageBtn)
+              this.calcCoverageBtn.dataset.disabledReason = reason;
           }
 
           try {
@@ -501,7 +496,9 @@ class DrivingNavigation {
       const requestPayload = {
         location: this.selectedLocation,
         // Only include current_position if live location is available
-        ...(this.lastKnownLocation && { current_position: this.lastKnownLocation }),
+        ...(this.lastKnownLocation && {
+          current_position: this.lastKnownLocation,
+        }),
       };
 
       console.log("Sending route request with payload:", requestPayload);
@@ -580,8 +577,8 @@ class DrivingNavigation {
         const bounds = L.latLngBounds([routeStart, targetStart]);
 
         // Check if live location marker is within the calculated bounds
-        if (this.liveLocationMarker && this.liveLocationMarker.getLatLng()) {
-          bounds.extend(this.liveLocationMarker.getLatLng());
+        if (this.liveTracker?.marker && this.liveTracker.marker.getLatLng()) {
+          bounds.extend(this.liveTracker.marker.getLatLng());
         }
 
         if (bounds.isValid()) {
@@ -643,14 +640,14 @@ class DrivingNavigation {
    * Call this method after any map updates that might affect layer order
    */
   bringLiveElementsToFront() {
-    if (this.liveTripPathLayer) {
-      this.liveTripPathLayer.bringToFront();
+    if (this.liveTracker?.polyline) {
+      this.liveTracker.polyline.bringToFront();
     }
-    if (
-      this.liveLocationMarker &&
-      this.liveLocationMarker.options.opacity > 0
-    ) {
-      // REMOVED: this.liveLocationMarker.bringToFront(); // L.Marker does not have this method; rely on zIndexOffset.
+    if (this.liveTracker?.marker) {
+      this.liveTracker.marker.bringToFront();
+    }
+    if (this.routeLayer) {
+      this.routeLayer.bringToFront();
     }
   }
 
@@ -687,7 +684,9 @@ class DrivingNavigation {
       const requestPayload = {
         location: this.selectedLocation,
         // Only include current_position if live location is available
-        ...(this.lastKnownLocation && { current_position: this.lastKnownLocation }),
+        ...(this.lastKnownLocation && {
+          current_position: this.lastKnownLocation,
+        }),
       };
 
       console.log(
@@ -695,14 +694,11 @@ class DrivingNavigation {
         requestPayload,
       );
 
-      const response = await fetch(
-        "/api/driving-navigation/coverage-route",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestPayload),
-        },
-      );
+      const response = await fetch("/api/driving-navigation/coverage-route", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestPayload),
+      });
 
       const data = await response.json();
 
@@ -712,8 +708,7 @@ class DrivingNavigation {
 
       if (data.status === "completed") {
         this.setStatus(data.message);
-        if (notificationManager)
-          notificationManager.show(data.message, "info");
+        if (notificationManager) notificationManager.show(data.message, "info");
       } else if (data.status === "success" && data.route_geometry) {
         // Route is a GeometryCollection
         const fullRouteLayer = L.layerGroup().addTo(this.routeLayer);
@@ -756,9 +751,12 @@ class DrivingNavigation {
           });
         } else {
           // Fallback if geometry is not a collection (shouldn't happen)
-          console.warn("Received unexpected geometry type for coverage route:", data.route_geometry.type);
+          console.warn(
+            "Received unexpected geometry type for coverage route:",
+            data.route_geometry.type,
+          );
           const layer = L.geoJSON(data.route_geometry, {
-              style: connectingRouteStyle // Default to route style
+            style: connectingRouteStyle, // Default to route style
           });
           fullRouteLayer.addLayer(layer);
           routeBounds.extend(layer.getBounds());
@@ -770,15 +768,15 @@ class DrivingNavigation {
         }
 
         // Display total route info
-        const durationMinutes = Math.round(
-          data.total_duration_seconds / 60,
-        );
+        const durationMinutes = Math.round(data.total_duration_seconds / 60);
         const distanceMiles = (
           data.total_distance_meters * 0.000621371
         ).toFixed(1);
         const segmentCount = data.message.match(/\d+/)?.[0] || "?"; // Extract count from message
 
-        this.setStatus(`Full coverage route calculated (${segmentCount} segments).`);
+        this.setStatus(
+          `Full coverage route calculated (${segmentCount} segments).`,
+        );
         const locationSource = data.location_source || "unknown";
         this.routeInfo.innerHTML = `
           <div class="route-info-detail">
@@ -792,11 +790,11 @@ class DrivingNavigation {
 
         // Ensure live elements stay on top of the new route
         this.bringLiveElementsToFront();
-
       } else {
         // Handle unexpected success response format
         throw new Error(
-          data.message || "Received unexpected success response from coverage route.",
+          data.message ||
+            "Received unexpected success response from coverage route.",
         );
       }
     } catch (error) {
@@ -819,12 +817,16 @@ class DrivingNavigation {
 
   // Helper to format location source for display
   formatLocationSource(source) {
-      switch(source) {
-          case "client-provided": return "current live";
-          case "live-tracking": return "current live";
-          case "last-trip-end": return "last trip end";
-          default: return source;
-      }
+    switch (source) {
+      case "client-provided":
+        return "current live";
+      case "live-tracking":
+        return "current live";
+      case "last-trip-end":
+        return "last trip end";
+      default:
+        return source;
+    }
   }
 }
 
