@@ -3797,6 +3797,7 @@ async def get_next_driving_route(request: Request):
             {
                 "properties.location": location_name,
                 "properties.driven": False,
+                "properties.undriveable": {"$ne": True},
                 "geometry.coordinates": {
                     "$exists": True,
                     "$not": {"$size": 0},
