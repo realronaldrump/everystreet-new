@@ -599,7 +599,7 @@ class LiveTripTracker {
         : 0;
 
     // Format start time for display using DateUtils
-    let startTimeFormatted = "UNKNOWN";
+    let startTimeFormatted = "N/A";
 
     if (trip.startTimeFormatted) {
       startTimeFormatted = trip.startTimeFormatted;
@@ -611,7 +611,16 @@ class LiveTripTracker {
         }
 
         if (!isNaN(startTime.getTime())) {
-          startTimeFormatted = DateUtils.formatForDisplay(startTime);
+          // Display both date and time using locale settings
+          startTimeFormatted = startTime.toLocaleString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "numeric",
+            second: "numeric",
+            hour12: true,
+          });
         }
       } catch (err) {
         console.error("Error formatting start time:", err);
