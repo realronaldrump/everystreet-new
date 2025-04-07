@@ -30,6 +30,7 @@ class LiveTripTracker {
         iconSize: [12, 12],
         iconAnchor: [6, 6],
       }),
+      zIndexOffset: 1000,
     });
 
     // Polling state
