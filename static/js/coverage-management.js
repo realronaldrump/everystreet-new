@@ -2538,60 +2538,71 @@ const STATUS = window.STATUS || {
 
           // --- Add Popup Open/Close Listeners for Button Handlers ---
           layer.on("popupopen", (e) => {
+            console.log("Popup opened for segment:", feature.properties.segment_id);
             const popupEl = e.popup.getElement();
-            if (!popupEl) return;
-            // Attach listeners using the stored handlers
-            popupEl
-              .querySelector(".mark-driven-btn")
-              ?.addEventListener(
+            if (!popupEl) {
+              console.error("Popup element not found on open:", e);
+              return;
+            }
+
+            // Use a microtask delay to ensure DOM is ready
+            queueMicrotask(() => {
+              const drivenBtn = popupEl.querySelector(".mark-driven-btn");
+              const undrivenBtn = popupEl.querySelector(".mark-undriven-btn");
+              const undriveableBtn = popupEl.querySelector(".mark-undriveable-btn");
+              const driveableBtn = popupEl.querySelector(".mark-driveable-btn");
+
+              console.log("Attaching listeners. Buttons found:", {
+                driven: !!drivenBtn,
+                undriven: !!undrivenBtn,
+                undriveable: !!undriveableBtn,
+                driveable: !!driveableBtn,
+              });
+
+              drivenBtn?.addEventListener(
                 "click",
                 layer._popupHandlers.handleMarkDriven,
               );
-            popupEl
-              .querySelector(".mark-undriven-btn")
-              ?.addEventListener(
+              undrivenBtn?.addEventListener(
                 "click",
                 layer._popupHandlers.handleMarkUndriven,
               );
-            popupEl
-              .querySelector(".mark-undriveable-btn")
-              ?.addEventListener(
+              undriveableBtn?.addEventListener(
                 "click",
                 layer._popupHandlers.handleMarkUndriveable,
               );
-            popupEl
-              .querySelector(".mark-driveable-btn")
-              ?.addEventListener(
+              driveableBtn?.addEventListener(
                 "click",
                 layer._popupHandlers.handleMarkDriveable,
               );
+            });
           });
 
           layer.on("popupclose", (e) => {
             const popupEl = e.popup.getElement();
             if (!popupEl || !layer._popupHandlers) return;
+
+            console.log("Popup closed, removing listeners for segment:", feature.properties.segment_id);
             // Remove listeners using the stored handlers
-            popupEl
-              .querySelector(".mark-driven-btn")
-              ?.removeEventListener(
+            // Query buttons again for robustness in removal
+            const drivenBtn = popupEl.querySelector(".mark-driven-btn");
+            const undrivenBtn = popupEl.querySelector(".mark-undriven-btn");
+            const undriveableBtn = popupEl.querySelector(".mark-undriveable-btn");
+            const driveableBtn = popupEl.querySelector(".mark-driveable-btn");
+
+            drivenBtn?.removeEventListener(
                 "click",
                 layer._popupHandlers.handleMarkDriven,
               );
-            popupEl
-              .querySelector(".mark-undriven-btn")
-              ?.removeEventListener(
+            undrivenBtn?.removeEventListener(
                 "click",
                 layer._popupHandlers.handleMarkUndriven,
               );
-            popupEl
-              .querySelector(".mark-undriveable-btn")
-              ?.removeEventListener(
+            undriveableBtn?.removeEventListener(
                 "click",
                 layer._popupHandlers.handleMarkUndriveable,
               );
-            popupEl
-              .querySelector(".mark-driveable-btn")
-              ?.removeEventListener(
+            driveableBtn?.removeEventListener(
                 "click",
                 layer._popupHandlers.handleMarkDriveable,
               );
