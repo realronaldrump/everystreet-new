@@ -184,9 +184,6 @@ class DrivingNavigation {
         // Smoothly pan if auto-follow is on
         this.map.panTo(latLng, { animate: true, duration: 0.5 });
       }
-
-      // Always bring marker to front
-      this.liveLocationMarker.bringToFront();
     }
 
     // Update status message with live data
@@ -578,7 +575,7 @@ class DrivingNavigation {
           dashArray: null, // Make it solid
           className: "target-street-segment", // Add class
         });
-        layer.bringToFront();
+        layer.bringToFront(); // Ensure the highlighted segment is on top
       }
     });
   }
@@ -609,7 +606,7 @@ class DrivingNavigation {
       this.liveLocationMarker &&
       this.liveLocationMarker.options.opacity > 0
     ) {
-      this.liveLocationMarker.bringToFront();
+      // REMOVED: this.liveLocationMarker.bringToFront(); // L.Marker does not have this method; rely on zIndexOffset.
     }
   }
 

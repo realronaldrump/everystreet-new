@@ -10,6 +10,8 @@ import json
 import logging
 import os
 import uuid
+from fastapi.middleware.cors import CORSMiddleware
+
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from math import ceil
@@ -125,6 +127,26 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Street Coverage Tracker")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+# CORS Configuration (Add this section)
+origins = [
+    # Allow all origins for local development ease.
+    # For production, restrict this to specific origins.
+    "*"
+    # Example for specific origins if you serve the simulator:
+    # "http://localhost",
+    # "http://localhost:8000", # Or whatever port you might serve it on
+    # "null", # Important for allowing requests from file:// origin
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True, # Allow cookies if needed in the future
+    allow_methods=["*"],    # Allow all methods (GET, POST, OPTIONS, etc.)
+    allow_headers=["*"],    # Allow all headers (Content-Type, Authorization, etc.)
+)
+# End of CORS Configuration section
 
 app.include_router(visits_router)
 
@@ -3807,6 +3829,7 @@ async def get_next_driving_route(request: Request):
                 "properties.segment_id": 1,
                 "properties.street_name": 1,
                 "_id": 0,
+                "geometry.type": 1, # Explicitly fetch type for check
             },
         )
         undriven_streets = await undriven_streets_cursor.to_list(length=None)
@@ -3821,7 +3844,7 @@ async def get_next_driving_route(request: Request):
                 }
             )
         logger.info(
-            "Found %d undriven segments in %s.",
+            "Found %d undriven segments in %s. Starting nearest search.",
             len(undriven_streets),
             location_name,
         )
@@ -3841,18 +3864,31 @@ async def get_next_driving_route(request: Request):
     nearest_street = None
     min_distance = float("inf")
     skipped_count = 0
-    last_processing_error = None  # Added to store the last error
+    processing_errors = [] # Store all processing errors
 
-    for street in undriven_streets:
-        segment_id = street.get("properties", {}).get("segment_id", "UNKNOWN")
+    for i, street in enumerate(undriven_streets):
+        segment_id = street.get("properties", {}).get("segment_id", f"UNKNOWN_{i}") # Use index if ID missing
+        reason = None # Reason for skipping
         try:
             geometry = street.get("geometry")
-            if not geometry or geometry.get("type") != "LineString":
+            if not geometry:
+                reason = "Missing geometry field"
+                logger.debug("Skipping segment %s: %s", segment_id, reason)
+                skipped_count += 1
+                continue
+
+            if geometry.get("type") != "LineString":
+                reason = f"Incorrect geometry type: {geometry.get('type')}"
+                logger.debug("Skipping segment %s: %s", segment_id, reason)
                 skipped_count += 1
                 continue
 
             segment_coords = geometry.get("coordinates")
             if not segment_coords or len(segment_coords) < 2:
+                reason = "Missing or insufficient coordinates"
+                if segment_coords is not None:
+                     reason += f" (length: {len(segment_coords)})"
+                logger.debug("Skipping segment %s: %s", segment_id, reason)
                 skipped_count += 1
                 continue
 
@@ -3863,15 +3899,14 @@ async def get_next_driving_route(request: Request):
                 and isinstance(start_node[0], (int, float))
                 and isinstance(start_node[1], (int, float))
             ):
-                logger.warning(
-                    "Skipping segment %s: Invalid start node format: %s",
-                    segment_id,
-                    start_node,
-                )
+                reason = f"Invalid start node format: {start_node}"
+                logger.debug("Skipping segment %s: %s", segment_id, reason)
                 skipped_count += 1
                 continue
 
-            segment_lon, segment_lat = start_node[0], start_node[1]
+            # Ensure coords are valid floats before haversine
+            segment_lon = float(start_node[0])
+            segment_lat = float(start_node[1])
 
             distance = haversine(
                 current_lon,
@@ -3884,68 +3919,95 @@ async def get_next_driving_route(request: Request):
             if distance < min_distance:
                 min_distance = distance
                 nearest_street = street
+                # Ensure properties dict exists before adding start_coords
+                if "properties" not in nearest_street:
+                    nearest_street["properties"] = {}
                 nearest_street["properties"]["start_coords"] = [
                     segment_lon,
                     segment_lat,
                 ]
+                logger.debug("Segment %s is new nearest (Dist: %.2f m)", segment_id, distance)
 
+
+        except (TypeError, ValueError) as coord_err:
+             reason = f"Coordinate conversion/validation error: {coord_err}"
+             logger.warning("Error processing segment %s: %s", segment_id, reason)
+             skipped_count += 1
+             processing_errors.append(f"Segment {segment_id}: {reason}")
+             continue
         except Exception as dist_err:
-            logger.warning(
-                "Error processing segment %s: %s", segment_id, dist_err
-            )
+            reason = f"Unexpected error during distance calculation: {dist_err}"
+            logger.warning("Error processing segment %s: %s", segment_id, reason)
             skipped_count += 1
-            last_processing_error = dist_err  # Store the last error
+            processing_errors.append(f"Segment {segment_id}: {reason}")
             continue
 
     if skipped_count > 0:
         logger.info(
-            "Skipped %d undriven segments due to data issues during nearest search.",
+            "Skipped %d / %d undriven segments due to data issues during nearest search.",
             skipped_count,
+            len(undriven_streets)
         )
 
     if not nearest_street:
-        error_msg_suffix = ""
-        if last_processing_error:
-            error_msg_suffix = (
-                f". Last error: {last_processing_error}"  # Add error details
-            )
+        # Refined error handling when no nearest street is found
+        num_candidates = len(undriven_streets)
+        error_msg = f"Could not determine nearest street for {location_name}."
+        detail_msg = "Failed to determine the nearest undriven street."
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR # Default to 500
 
-        logger.warning(
-            "Could not determine nearest street for %s despite finding %d candidates%s",  # Added %s for error
-            location_name,
-            len(undriven_streets),
-            error_msg_suffix,  # Pass the error suffix
-        )
-        if len(undriven_streets) > 0 and skipped_count == len(
-            undriven_streets
-        ):
-            return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND,
+        if num_candidates > 0:
+            error_msg += f" Found {num_candidates} candidate(s)."
+            if skipped_count == num_candidates:
+                error_msg += f" All {skipped_count} were skipped due to processing errors."
+                detail_msg = f"Found {num_candidates} undriven segments, but none could be processed due to data issues."
+                if processing_errors:
+                     detail_msg += f" Example errors: {'; '.join(processing_errors[:3])}" # Show first few errors
+                # Consider 404 or 400 if data quality is the issue for the *area*
+                status_code = status.HTTP_404_NOT_FOUND
+            else:
+                # This case (candidates > 0, skipped < candidates, nearest_street is None) shouldn't happen with current logic, but log if it does
+                error_msg += f" {skipped_count} were skipped. Unexpected state."
+                detail_msg = "Internal error: Failed processing candidates."
+
+
+        logger.warning(error_msg) # Log the consolidated warning message
+
+        # Raise/return based on the determined status code and detail
+        if status_code == status.HTTP_404_NOT_FOUND:
+             return JSONResponse(
+                status_code=status_code,
                 content={
                     "status": "error",
-                    "message": f"Found {len(undriven_streets)} undriven segments, but none could be processed.",
+                    "message": detail_msg, # Use the more detailed message for the client
                     "route_geometry": None,
                     "target_street": None,
                 },
             )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to determine the nearest undriven street.",
-        )
+        else:
+            raise HTTPException(
+                status_code=status_code,
+                detail=detail_msg,
+            )
 
-    if "start_coords" not in nearest_street["properties"]:
+
+    # This check might be redundant now if nearest_street implies start_coords were set, but keep for safety
+    if "start_coords" not in nearest_street.get("properties", {}):
+        segment_id = nearest_street.get("properties", {}).get("segment_id", "UNKNOWN")
         logger.error(
-            "Nearest street %s is missing calculated start_coords.",
-            nearest_street["properties"]["segment_id"],
+            "Internal logic error: Nearest street %s is missing calculated start_coords.",
+            segment_id,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal error: Failed to get coordinates for the nearest street.",
         )
+
     target_coords = nearest_street["properties"]["start_coords"]
+    segment_id = nearest_street["properties"]["segment_id"] # Get ID for logging
     logger.info(
-        "Nearest undriven segment: %s at %s, Distance: %.2fm",
-        nearest_street["properties"]["segment_id"],
+        "Nearest undriven segment found: ID=%s at %s, Initial Distance: %.2fm. Calculating route...",
+        segment_id,
         target_coords,
         min_distance,
     )
