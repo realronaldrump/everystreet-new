@@ -1,4 +1,3 @@
-/* global L, MAPBOX_ACCESS_TOKEN, LiveTripTracker, notificationManager */
 
 "use strict";
 
@@ -53,8 +52,7 @@ class DrivingNavigation {
       L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         {
-          attribution:
-            '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+          attribution: '',
           maxZoom: 19,
         },
       ).addTo(this.map);
