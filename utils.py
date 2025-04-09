@@ -3,7 +3,8 @@ import functools
 import json
 import logging
 import math
-from typing import Any, Coroutine, Dict, Optional, Tuple, TypeVar
+import statistics
+from typing import Any, Coroutine, Dict, List, Optional, Tuple, TypeVar
 
 import aiohttp
 from aiohttp import ClientConnectorError, ClientResponseError
@@ -312,3 +313,15 @@ def run_async_from_sync(coro: Coroutine[Any, Any, T]) -> T:
             "Exception occurred during run_until_complete", exc_info=True
         )
         raise
+
+
+def calculate_circular_average_hour(hours_list: List[float]) -> float:
+    """Calculates the circular average of a list of hours (0-23)."""
+    if not hours_list:
+        return 0.0
+    angles = [(h / 24.0) * 2 * math.pi for h in hours_list]
+    avg_sin = statistics.mean([math.sin(angle) for angle in angles])
+    avg_cos = statistics.mean([math.cos(angle) for angle in angles])
+    avg_angle = math.atan2(avg_sin, avg_cos)
+    avg_hour = (avg_angle / (2 * math.pi)) * 24.0
+    return (avg_hour + 24.0) % 24.0

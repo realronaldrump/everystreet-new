@@ -114,6 +114,7 @@ from utils import (
     cleanup_session,
     haversine,
     validate_location_osm,
+    calculate_circular_average_hour,
 )
 from visits import init_collections
 from visits import router as visits_router
@@ -1333,14 +1334,98 @@ async def get_driving_insights(request: Request):
 
 @app.get("/api/metrics")
 async def get_metrics(request: Request):
-    """Get trip metrics and statistics."""
+    """Get trip metrics and statistics using database aggregation."""
     try:
         query = await build_query_from_request(request)
+        target_timezone_str = "America/Chicago"
+        target_tz = pytz.timezone(target_timezone_str)
 
-        trips_data = await find_with_retry(trips_collection, query)
-        total_trips = len(trips_data)
+        pipeline = [
+            {"$match": query},
+            {
+                "$addFields": {
+                    "numericDistance": {
+                        "$ifNull": [{"$toDouble": "$distance"}, 0.0]
+                    },
+                    "numericMaxSpeed": {
+                        "$ifNull": [{"$toDouble": "$maxSpeed"}, 0.0]
+                    },
+                    "duration_seconds": {
+                        "$cond": {
+                            "if": {
+                                "$and": [
+                                    {"$ifNull": ["$startTime", None]},
+                                    {"$ifNull": ["$endTime", None]},
+                                    {"$lt": ["$startTime", "$endTime"]},
+                                ]
+                            },
+                            "then": {
+                                "$divide": [
+                                    {"$subtract": ["$endTime", "$startTime"]},
+                                    1000,
+                                ]
+                            },
+                            "else": 0.0,
+                        }
+                    },
+                    "startHourUTC": {
+                        "$hour": {"date": "$startTime", "timezone": "UTC"}
+                    },
+                }
+            },
+            {
+                "$group": {
+                    "_id": None,
+                    "total_trips": {"$sum": 1},
+                    "total_distance": {"$sum": "$numericDistance"},
+                    "max_speed": {"$max": "$numericMaxSpeed"},
+                    "total_duration_seconds": {"$sum": "$duration_seconds"},
+                    "start_hours_utc": {"$push": "$startHourUTC"},
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "total_trips": 1,
+                    "total_distance": {"$ifNull": ["$total_distance", 0.0]},
+                    "max_speed": {"$ifNull": ["$max_speed", 0.0]},
+                    "total_duration_seconds": {
+                        "$ifNull": ["$total_duration_seconds", 0.0]
+                    },
+                    "start_hours_utc": {"$ifNull": ["$start_hours_utc", []]},
+                    "avg_distance": {
+                        "$cond": {
+                            "if": {"$gt": ["$total_trips", 0]},
+                            "then": {
+                                "$divide": ["$total_distance", "$total_trips"]
+                            },
+                            "else": 0.0,
+                        }
+                    },
+                    "avg_speed": {
+                        "$cond": {
+                            "if": {"$gt": ["$total_duration_seconds", 0]},
+                            "then": {
+                                "$divide": [
+                                    "$total_distance",
+                                    {
+                                        "$divide": [
+                                            "$total_duration_seconds",
+                                            3600.0,
+                                        ]
+                                    },
+                                ]
+                            },
+                            "else": 0.0,
+                        }
+                    },
+                }
+            },
+        ]
 
-        if not total_trips:
+        results = await aggregate_with_retry(trips_collection, pipeline)
+
+        if not results:
             empty_data = {
                 "total_trips": 0,
                 "total_distance": "0.00",
@@ -1352,72 +1437,55 @@ async def get_metrics(request: Request):
             }
             return JSONResponse(content=empty_data)
 
-        total_distance = sum(t.get("distance", 0) for t in trips_data)
-        avg_distance_val = (
-            (total_distance / total_trips) if total_trips > 0 else 0.0
-        )
+        metrics = results[0]
+        total_trips = metrics.get("total_trips", 0)
 
-        start_times = []
-        for t in trips_data:
-            st = t.get("startTime")
-            if isinstance(st, str):
-                st = dateutil_parser.isoparse(st)
-            if st and st.tzinfo is None:
-                st = st.replace(tzinfo=timezone.utc)
-            local_st = (
-                st.astimezone(pytz.timezone("America/Chicago")) if st else None
+        start_hours_utc_list = metrics.get("start_hours_utc", [])
+        avg_start_time_str = "00:00 AM"
+        if start_hours_utc_list:
+            avg_hour_utc_float = calculate_circular_average_hour(
+                start_hours_utc_list
             )
-            if local_st:
-                start_times.append(local_st.hour + local_st.minute / 60.0)
 
-        avg_start_time_val = (
-            sum(start_times) / len(start_times) if start_times else 0
-        )
-        hour = int(avg_start_time_val)
-        minute = int((avg_start_time_val - hour) * 60)
-        am_pm = "AM" if hour < 12 else "PM"
-        if hour == 0:
-            hour = 12
-        elif hour > 12:
-            hour -= 12
+            base_date = datetime.now(timezone.utc).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            avg_utc_dt = base_date + timedelta(hours=avg_hour_utc_float)
 
-        driving_times = []
-        for t in trips_data:
-            s = t.get("startTime")
-            e = t.get("endTime")
-            if isinstance(s, str):
-                s = dateutil_parser.isoparse(s)
-            if isinstance(e, str):
-                e = dateutil_parser.isoparse(e)
-            if s and e and s < e:
-                driving_times.append((e - s).total_seconds() / 60.0)
+            avg_local_dt = avg_utc_dt.astimezone(target_tz)
 
-        avg_driving_minutes = (
-            sum(driving_times) / len(driving_times) if driving_times else 0
-        )
-        avg_driving_h = int(avg_driving_minutes // 60)
-        avg_driving_m = int(avg_driving_minutes % 60)
+            local_hour = avg_local_dt.hour
+            local_minute = avg_local_dt.minute
 
-        total_driving_hours = sum(driving_times) / 60.0 if driving_times else 0
-        avg_speed_val = (
-            total_distance / total_driving_hours if total_driving_hours else 0
-        )
+            am_pm = "AM" if local_hour < 12 else "PM"
+            display_hour = local_hour % 12
+            if display_hour == 0:
+                display_hour = 12
 
-        max_speed_val = max(
-            (t.get("maxSpeed", 0) for t in trips_data), default=0
-        )
+            avg_start_time_str = (
+                f"{display_hour:02d}:{local_minute:02d} {am_pm}"
+            )
 
-        return JSONResponse(
-            content={
-                "total_trips": total_trips,
-                "total_distance": f"{round(total_distance, 2)}",
-                "avg_distance": f"{round(avg_distance_val, 2)}",
-                "avg_start_time": f"{hour:02d}:{minute:02d} {am_pm}",
-                "avg_driving_time": f"{avg_driving_h:02d}:{avg_driving_m:02d}",
-                "avg_speed": f"{round(avg_speed_val, 2)}",
-                "max_speed": f"{round(max_speed_val, 2)}",
-            }
-        )
+        avg_driving_time_str = "00:00"
+        if total_trips > 0:
+            total_duration_seconds = metrics.get("total_duration_seconds", 0.0)
+            avg_duration_seconds = total_duration_seconds / total_trips
+            avg_driving_h = int(avg_duration_seconds // 3600)
+            avg_driving_m = int((avg_duration_seconds % 3600) // 60)
+            avg_driving_time_str = f"{avg_driving_h:02d}:{avg_driving_m:02d}"
+
+        response_content = {
+            "total_trips": total_trips,
+            "total_distance": f"{round(metrics.get('total_distance', 0.0), 2)}",
+            "avg_distance": f"{round(metrics.get('avg_distance', 0.0), 2)}",
+            "avg_start_time": avg_start_time_str,
+            "avg_driving_time": avg_driving_time_str,
+            "avg_speed": f"{round(metrics.get('avg_speed', 0.0), 2)}",
+            "max_speed": f"{round(metrics.get('max_speed', 0.0), 2)}",
+        }
+
+        return JSONResponse(content=response_content)
+
     except Exception as e:
         logger.exception("Error in get_metrics: %s", str(e))
         raise HTTPException(
