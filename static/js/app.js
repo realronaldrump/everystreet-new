@@ -1,3 +1,5 @@
+/* global L, Chart, DateUtils, bootstrap, $ */
+
 "use strict";
 
 (function () {
