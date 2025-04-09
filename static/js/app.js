@@ -1,12 +1,6 @@
-/* global L, flatpickr, notificationManager, bootstrap, $, DateUtils */
-
-/**
- * Main application module for Every Street mapping functionality
- */
 "use strict";
 
 (function () {
-  // Configuration
   const CONFIG = {
     MAP: {
       defaultCenter: [37.0902, -95.7129],
@@ -28,7 +22,7 @@
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       },
       maxZoom: 19,
-      recentTripThreshold: 6 * 60 * 60 * 1000, // 6 hours in ms
+      recentTripThreshold: 6 * 60 * 60 * 1000,
       debounceDelay: 100,
     },
     STORAGE_KEYS: {
@@ -44,7 +38,6 @@
     },
   };
 
-  // Default layer configurations
   const LAYER_DEFAULTS = {
     trips: {
       order: 1,
@@ -66,7 +59,7 @@
     },
     undrivenStreets: {
       order: 2,
-      color: "#00BFFF", // Bright blue for undriven streets
+      color: "#00BFFF",
       opacity: 0.8,
       visible: false,
       name: "Undriven Streets",
@@ -74,7 +67,6 @@
     },
   };
 
-  // Application State
   const AppState = {
     map: null,
     layerGroup: null,
@@ -92,7 +84,6 @@
     baseLayer: null,
   };
 
-  // DOM Cache and Utilities
   const getElement = (selector, useCache = true, context = document) => {
     if (useCache && AppState.dom[selector]) return AppState.dom[selector];
 
@@ -135,7 +126,6 @@
     return true;
   };
 
-  // Use utils.js storage functions
   const getStorageItem =
     window.utils?.getStorage ||
     ((key, defaultValue = null) => {
@@ -172,9 +162,7 @@
 
   const debouncedUpdateMap = debounce(updateMap, CONFIG.MAP.debounceDelay);
 
-  // Date & Filter Functions
   const getStartDate = () => {
-    // Primarily rely on localStorage, managed by modern-ui.js
     const storedDate = getStorageItem(CONFIG.STORAGE_KEYS.startDate);
     return storedDate
       ? DateUtils.formatDate(storedDate)
@@ -182,14 +170,12 @@
   };
 
   const getEndDate = () => {
-    // Primarily rely on localStorage, managed by modern-ui.js
     const storedDate = getStorageItem(CONFIG.STORAGE_KEYS.endDate);
     return storedDate
       ? DateUtils.formatDate(storedDate)
       : DateUtils.getCurrentDate();
   };
 
-  // Trip Styling Functions
   const getTripFeatureStyle = (feature, layerInfo) => {
     const { properties } = feature;
     const { transactionId, startTime } = properties;
@@ -209,18 +195,16 @@
     let weight = layerInfo.weight || 3;
     let opacity = layerInfo.opacity;
 
-    // Apply enhanced styling for selected and recent trips
     if (isSelected) {
-      color = layerInfo.highlightColor || "#FFD700"; // Gold for selected
+      color = layerInfo.highlightColor || "#FFD700";
       weight = 5;
       opacity = 1;
     } else if (isMatchedPair) {
-      color = "#03DAC6"; // Teal for matched pairs
+      color = "#03DAC6";
       weight = 4;
       opacity = 0.8;
     } else if (isRecent) {
-      // Explicitly set orange for recent, overriding layerInfo.highlightColor for this case
-      color = "#FFA500"; // Orange for recent
+      color = "#FFA500";
       weight = 4;
       opacity = 0.9;
     }
@@ -262,7 +246,6 @@
     });
   }
 
-  // Map Initialization & Controls
   const isMapReady = () =>
     AppState.map && AppState.mapInitialized && AppState.layerGroup;
 
@@ -276,12 +259,11 @@
         return false;
       }
 
-      // Create map with enhanced options
       AppState.map = L.map("map", {
         center: CONFIG.MAP.defaultCenter,
         zoom: CONFIG.MAP.defaultZoom,
-        zoomControl: false, // We'll add custom controls
-        attributionControl: false, // Remove default attribution
+        zoomControl: false,
+        attributionControl: false,
         minZoom: 2,
         maxZoom: CONFIG.MAP.maxZoom,
         zoomSnap: 0.5,
@@ -293,14 +275,11 @@
         worldCopyJump: true,
       });
 
-      // Expose map globally AFTER initialization
       window.map = AppState.map;
 
-      // Initialize the currentTheme variable
       const theme =
         document.documentElement.getAttribute("data-bs-theme") || "dark";
 
-      // Add the tile layer based on the theme
       const tileUrl =
         CONFIG.MAP.tileLayerUrls[theme] || CONFIG.MAP.tileLayerUrls.dark;
       const attribution =
@@ -313,17 +292,14 @@
         crossOrigin: true,
       }).addTo(AppState.map);
 
-      // Add custom zoom controls in a better position
       L.control
         .zoom({
           position: "topright",
         })
         .addTo(AppState.map);
 
-      // Add layer group for vector data
       AppState.layerGroup = L.layerGroup().addTo(AppState.map);
 
-      // Add basemap selector
       const basemaps = {
         Dark: L.tileLayer(CONFIG.MAP.tileLayerUrls.dark, {
           attribution: CONFIG.MAP.tileLayerAttribution.dark,
@@ -343,13 +319,11 @@
         }),
       };
 
-      // Use the current theme as the default basemap
       const defaultBasemap = theme === "light" ? "Light" : "Dark";
       if (basemaps[defaultBasemap]) {
-        // Check if exists
         basemaps[defaultBasemap].addTo(AppState.map);
       } else {
-        basemaps["Dark"].addTo(AppState.map); // Fallback to Dark
+        basemaps["Dark"].addTo(AppState.map);
       }
 
       L.control
@@ -359,7 +333,6 @@
         })
         .addTo(AppState.map);
 
-      // Map events for better user experience
       AppState.map.on("zoomend", () => {
         updateUrlWithMapState();
         adjustLayerStylesForZoom();
@@ -369,10 +342,8 @@
         updateUrlWithMapState();
       });
 
-      // Dispatch mapInitialized event after map setup is complete
       document.dispatchEvent(new CustomEvent("mapInitialized"));
 
-      // Set map initialized flag
       AppState.mapInitialized = true;
       return true;
     } catch (error) {
@@ -385,7 +356,6 @@
     }
   }
 
-  // Update URL with current map state to allow sharing
   function updateUrlWithMapState() {
     if (!AppState.map || !window.history) return;
 
@@ -402,16 +372,13 @@
     window.history.replaceState({}, "", url.toString());
   }
 
-  // Adjust layer weights based on zoom level
   function adjustLayerStylesForZoom() {
     if (!AppState.map || !AppState.layerGroup) return;
 
     const zoom = AppState.map.getZoom();
 
-    // Iterate through all layers and adjust their styling
     AppState.layerGroup.eachLayer((layer) => {
       if (layer.feature && layer.feature.properties) {
-        // Get the appropriate layerInfo
         let layerName = "trips";
         if (
           layer.feature.properties.transactionId &&
@@ -424,20 +391,16 @@
 
         const layerInfo = AppState.mapLayers[layerName];
 
-        // Apply style based on zoom level
         if (zoom > 14) {
-          // Higher zoom - make lines more prominent
           let weight = (layerInfo.weight || 2) * 1.5;
           layer.setStyle({ weight });
         } else {
-          // Lower zoom - use default weight
           layer.setStyle({ weight: layerInfo.weight || 2 });
         }
       }
     });
   }
 
-  // Update map theme based on the application theme
   function updateMapTheme(theme) {
     if (!AppState.map || !AppState.baseLayer) return;
 
@@ -449,21 +412,17 @@
       ? CONFIG.MAP.tileLayerAttribution.dark
       : CONFIG.MAP.tileLayerAttribution.light;
 
-    // Remove the current base layer
     AppState.map.removeLayer(AppState.baseLayer);
 
-    // Create and add the new base layer
     AppState.baseLayer = L.tileLayer(tileUrl, {
       attribution,
       maxZoom: CONFIG.MAP.maxZoom,
     }).addTo(AppState.map);
 
-    // Make sure the base layer is at the bottom
     if (AppState.baseLayer && AppState.layerGroup) {
       AppState.baseLayer.bringToBack();
     }
 
-    // Refresh trip styles to match the new theme
     refreshTripStyles();
   }
 
@@ -546,7 +505,6 @@
       layerToggles.appendChild(div);
     });
 
-    // Use event delegation
     layerToggles.addEventListener("change", (e) => {
       const target = e.target;
       if (target.matches('input[type="checkbox"]')) {
@@ -578,7 +536,6 @@
     if (name === "customPlaces" && window.customPlaces) {
       window.customPlaces.toggleVisibility(visible);
     } else if (name === "undrivenStreets" && visible) {
-      // When undriven streets layer is toggled on, fetch the data
       fetchUndrivenStreets();
     } else {
       debouncedUpdateMap();
@@ -680,7 +637,6 @@
     debouncedUpdateMap();
   }
 
-  // API Calls & Map Data
   async function withLoading(
     operationId,
     totalWeight = 100,
@@ -755,23 +711,19 @@
         lm.updateSubOperation(opId, "Fetching Data", 50);
         lm.updateSubOperation(opId, "Processing Data", 15);
 
-        // Ensure trips table is updated before map potentially fits bounds
         await updateTripsTable(geojson);
-        // Now update the map layer data
         await updateMapWithTrips(geojson);
 
-        // Fetch matched trips and update the map layer data
         try {
           await fetchMatchedTrips();
         } catch (err) {
           handleError(err, "Fetching Matched Trips");
         }
 
-        // Update map rendering after all layers are potentially updated
         await updateMap();
 
         lm.updateSubOperation(opId, "Processing Data", 30);
-        lm.updateSubOperation(opId, "Displaying Data", 20); // Adjusted timing
+        lm.updateSubOperation(opId, "Displaying Data", 20);
 
         document.dispatchEvent(
           new CustomEvent("tripsLoaded", {
@@ -787,8 +739,7 @@
 
     const formattedTrips = geojson.features.map((trip) => ({
       ...trip.properties,
-      gps: trip.geometry, // Keep geometry if needed elsewhere
-      // Use DateUtils for reliable formatting
+      gps: trip.geometry,
       startTimeFormatted: DateUtils.formatForDisplay(
         trip.properties.startTime,
         {
@@ -800,24 +751,20 @@
         dateStyle: "short",
         timeStyle: "short",
       }),
-      startTimeRaw: trip.properties.startTime, // Keep raw for sorting/filtering
-      endTimeRaw: trip.properties.endTime, // Keep raw for sorting/filtering
+      startTimeRaw: trip.properties.startTime,
+      endTimeRaw: trip.properties.endTime,
       destination: trip.properties.destination || "N/A",
       startLocation: trip.properties.startLocation || "N/A",
       distance: Number(trip.properties.distance).toFixed(2),
     }));
 
-    // Wrap in promise for async consistency
     return new Promise((resolve) => {
-      // Check if DataTable instance exists
       if ($.fn.DataTable.isDataTable("#tripsTable")) {
-        // Assuming table ID is tripsTable
         window.tripsTable.clear().rows.add(formattedTrips).draw();
       } else {
         console.warn("Trips DataTable not initialized yet.");
-        // Optionally initialize here if needed, or ensure initialization order
       }
-      setTimeout(resolve, 100); // Allow draw to complete
+      setTimeout(resolve, 100);
     });
   }
 
@@ -881,7 +828,6 @@
       let location;
       try {
         location = JSON.parse(locationSelect.value);
-        // --- Add Frontend Logging ---
         console.log(
           "[fetchUndrivenStreets] Parsed location object from dropdown:",
           JSON.stringify(location, null, 2),
@@ -895,7 +841,6 @@
             "Parsed location data is invalid or missing display_name.",
           );
         }
-        // --- End Frontend Logging ---
       } catch (parseError) {
         showNotification(
           `Invalid location data in dropdown: ${parseError.message}. Please select another location.`,
@@ -909,18 +854,16 @@
       localStorage.setItem(
         "selectedLocationForUndrivenStreets",
         location._id || location.display_name,
-      ); // Use display_name as fallback key if _id missing
+      );
 
       showNotification(
         `Loading undriven streets for ${location.display_name}...`,
         "info",
       );
-      // --- Add Frontend Logging ---
       console.log(
         `[fetchUndrivenStreets] Sending POST request to /api/undriven_streets with location:`,
         location,
       );
-      // --- End Frontend Logging ---
 
       const response = await fetch("/api/undriven_streets", {
         method: "POST",
@@ -928,56 +871,44 @@
         body: JSON.stringify(location),
       });
 
-      // --- Add Frontend Logging ---
       console.log(
         `[fetchUndrivenStreets] Received response status: ${response.status}`,
       );
-      // --- End Frontend Logging ---
 
       if (!response.ok) {
         let errorDetail = `HTTP error ${response.status}`;
         try {
           const errorData = await response.json();
           errorDetail = errorData.detail || errorDetail;
-        } catch (e) {
-          /* ignore */
-        }
+        } catch (e) {}
         throw new Error(errorDetail);
       }
 
       const geojson = await response.json();
-      // --- Add Frontend Logging ---
       console.log(
         "[fetchUndrivenStreets] Received GeoJSON data:",
         JSON.stringify(geojson, null, 2),
       );
-      // --- End Frontend Logging ---
 
       if (!geojson.features || geojson.features.length === 0) {
-        // --- Add Frontend Logging ---
         console.log(
           `[fetchUndrivenStreets] No features found in response for ${location.display_name}. Showing notification.`,
         );
-        // --- End Frontend Logging ---
         showNotification(
           `No undriven streets found in ${location.display_name}`,
           "info",
         );
       } else {
-        // --- Add Frontend Logging ---
         console.log(
           `[fetchUndrivenStreets] Found ${geojson.features.length} features for ${location.display_name}. Updating map.`,
         );
-        // --- End Frontend Logging ---
         showNotification(
           `Loaded ${geojson.features.length} undriven street segments`,
           "success",
         );
       }
 
-      // Update map layer data
       await updateMapWithUndrivenStreets(geojson);
-      // Explicitly update map rendering
       await updateMap();
       return geojson;
     } catch (error) {
@@ -987,7 +918,6 @@
         "danger",
       );
       AppState.mapLayers.undrivenStreets.visible = false;
-      // Update map layer data and rendering on error
       AppState.mapLayers.undrivenStreets.layer = {
         type: "FeatureCollection",
         features: [],
@@ -1015,10 +945,8 @@
       )
       .sort(([, a], [, b]) => a.order - b.order);
 
-    const tripLayers = new Map(); // Cache layers by ID for quick access
+    const tripLayers = new Map();
 
-    // Use Promise.all for potentially parallel layer processing if needed
-    // but keep it sequential for simplicity unless performance demands otherwise
     for (const [name, info] of visibleLayers) {
       if (name === "customPlaces" && info.layer instanceof L.LayerGroup) {
         info.layer.addTo(AppState.layerGroup);
@@ -1063,16 +991,14 @@
       }
     }
 
-    // Bring selected trip to front after all layers are added
     if (AppState.selectedTripId && tripLayers.has(AppState.selectedTripId)) {
       tripLayers.get(AppState.selectedTripId)?.bringToFront();
     }
 
     if (fitBounds) {
-      fitMapBounds(); // Ensure this is called after layers are added
+      fitMapBounds();
     }
 
-    // Invalidate map size after updates, especially if container changed
     AppState.map.invalidateSize();
 
     document.dispatchEvent(new CustomEvent("mapUpdated"));
@@ -1113,7 +1039,6 @@
     const props = feature.properties;
     const isMatched = layerName === "matchedTrips";
 
-    // Normalize trip data
     const tripData = {
       id: props.tripId || props.id || props.transactionId,
       startTime: props.startTime || null,
@@ -1138,7 +1063,6 @@
       totalIdleDurationFormatted: props.totalIdleDurationFormatted || null,
     };
 
-    // Format values for display
     const formatDate = (date) =>
       date
         ? DateUtils.formatForDisplay(date, {
@@ -1153,7 +1077,6 @@
         ? `${tripData.distance.toFixed(2)} mi`
         : "Unknown";
 
-    // Calculate duration
     let durationDisplay = "Unknown";
     if (tripData.startTime && tripData.endTime) {
       try {
@@ -1169,7 +1092,6 @@
       }
     }
 
-    // Format speed values
     const formatSpeed = (speed) => {
       if (speed === null || speed === undefined) return "Unknown";
       const speedValue = parseFloat(speed);
@@ -1181,7 +1103,6 @@
     const maxSpeed = formatSpeed(tripData.maxSpeed);
     const avgSpeed = formatSpeed(tripData.averageSpeed);
 
-    // Create popup content
     let html = `
       <div class="trip-popup">
         <h4>${isMatched ? "Matched Trip" : "Trip"}</h4>
@@ -1192,7 +1113,6 @@
           <tr><th>Distance:</th><td>${distance}</td></tr>
     `;
 
-    // Add location information if available
     if (tripData.startLocation) {
       const startLocationText =
         typeof tripData.startLocation === "object"
@@ -1209,18 +1129,15 @@
       html += `<tr><th>Destination:</th><td>${destinationText}</td></tr>`;
     }
 
-    // Add speed information
     html += `
       <tr><th>Max Speed:</th><td>${maxSpeed}</td></tr>
       <tr><th>Avg Speed:</th><td>${avgSpeed}</td></tr>
     `;
 
-    // Add idle time if available
     if (tripData.totalIdleDurationFormatted) {
       html += `<tr><th>Idle Time:</th><td>${tripData.totalIdleDurationFormatted}</td></tr>`;
     }
 
-    // Add driving behavior metrics if greater than 0
     if (tripData.hardBrakingCount > 0) {
       html += `<tr><th>Hard Braking:</th><td>${tripData.hardBrakingCount}</td></tr>`;
     }
@@ -1229,7 +1146,6 @@
       html += `<tr><th>Hard Accel:</th><td>${tripData.hardAccelerationCount}</td></tr>`;
     }
 
-    // Add action buttons
     html += `
         </table>
         <div class="trip-actions" data-trip-id="${tripData.id}">
@@ -1403,15 +1319,12 @@
           bounds.extend(layerBounds);
           validBounds = true;
         }
-      } catch (e) {
-        // ignore invalid bounds
-      }
+      } catch (e) {}
     });
 
     if (validBounds) AppState.map.fitBounds(bounds);
   }
 
-  // Map Matching & Metrics
   async function mapMatchTrips() {
     const startDate = DateUtils.formatDate(getStartDate());
     const endDate = DateUtils.formatDate(getEndDate());
@@ -1539,7 +1452,6 @@
     }
   }
 
-  // Function to fetch coverage areas for the location dropdown
   async function fetchCoverageAreas() {
     try {
       const response = await fetch("/api/coverage_areas");
@@ -1551,7 +1463,6 @@
       }
 
       const data = await response.json();
-      // The server returns the areas in the 'areas' property, not 'coverage_areas'
       return data.areas || [];
     } catch (error) {
       console.error("Error fetching coverage areas:", error);
@@ -1563,21 +1474,17 @@
     }
   }
 
-  // Function to populate the location dropdown
   async function populateLocationDropdown() {
     const dropdown = document.getElementById("undriven-streets-location");
     if (!dropdown) return;
 
-    // Clear existing options (except the first one)
     while (dropdown.options.length > 1) {
       dropdown.remove(1);
     }
 
-    // Fetch coverage areas
     const coverageAreas = await fetchCoverageAreas();
 
     if (coverageAreas.length === 0) {
-      // Add a disabled option indicating no areas available
       const option = document.createElement("option");
       option.textContent = "No coverage areas available";
       option.disabled = true;
@@ -1585,7 +1492,6 @@
       return;
     }
 
-    // Add each coverage area to the dropdown
     coverageAreas.forEach((area) => {
       const option = document.createElement("option");
       option.value = JSON.stringify(area.location);
@@ -1593,7 +1499,6 @@
       dropdown.appendChild(option);
     });
 
-    // Check if we have a previously selected location
     const savedLocationId = localStorage.getItem(
       "selectedLocationForUndrivenStreets",
     );
@@ -1607,7 +1512,6 @@
               optionLocation.display_name === savedLocationId)
           ) {
             dropdown.selectedIndex = i;
-            // If the undriven streets layer is set to be visible, fetch data now
             if (
               localStorage.getItem(`layer_visible_undrivenStreets`) === "true"
             ) {
@@ -1615,24 +1519,18 @@
             }
             break;
           }
-        } catch (e) {
-          // Skip invalid JSON
-        }
+        } catch (e) {}
       }
     }
   }
 
-  // Event Listeners & Date Presets
   function initializeEventListeners() {
-    // Get references to the toggle button and the content area
     const controlsToggle = getElement("controls-toggle");
-    const controlsContent = getElement("controls-content"); // Assumes this has id="controls-content" and class="collapse"
+    const controlsContent = getElement("controls-content");
 
-    // Ensure both elements exist before adding listeners
     if (controlsToggle && controlsContent) {
-      const icon = controlsToggle.querySelector("i"); // Get the icon element
+      const icon = controlsToggle.querySelector("i");
 
-      // Set initial icon state based on whether content starts shown
       if (icon) {
         if (controlsContent.classList.contains("show")) {
           icon.classList.remove("fa-chevron-down");
@@ -1643,30 +1541,19 @@
         }
       }
 
-      // Use Bootstrap events to sync the icon when collapse starts showing
       controlsContent.addEventListener("show.bs.collapse", function () {
         if (icon) {
           icon.classList.remove("fa-chevron-down");
           icon.classList.add("fa-chevron-up");
         }
-        // Optional: If you need a class on the parent container during/after transition, add it here.
-        // getElement("map-controls")?.classList.remove("minimized");
       });
 
-      // Use Bootstrap events to sync the icon when collapse starts hiding
       controlsContent.addEventListener("hide.bs.collapse", function () {
         if (icon) {
           icon.classList.remove("fa-chevron-up");
           icon.classList.add("fa-chevron-down");
         }
-        // Optional: If you need a class on the parent container during/after transition, add it here.
-        // getElement("map-controls")?.classList.add("minimized");
       });
-
-      // Note: The actual collapse/expand is handled by Bootstrap via
-      // data-bs-toggle="collapse" and data-bs-target="#controls-content"
-      // attributes in the HTML structure for the controlsToggle button.
-      // The original complex click listener logic is removed.
     }
 
     addSingleEventListener("map-match-trips", "click", mapMatchTrips);
@@ -1676,23 +1563,19 @@
       debouncedUpdateMap();
     });
 
-    // Add event listener for undriven streets location dropdown
     const locationDropdown = document.getElementById(
       "undriven-streets-location",
     );
     if (locationDropdown) {
       locationDropdown.addEventListener("change", function () {
-        // If the undriven streets layer is currently visible, refresh it with the new location
         if (AppState.mapLayers.undrivenStreets?.visible) {
           fetchUndrivenStreets();
         }
       });
     }
 
-    // ADD listener for filters applied event from modern-ui.js
     document.addEventListener("filtersApplied", (e) => {
       console.log("Filters applied event received in app.js:", e.detail);
-      // Fetch data based on the new filter dates provided by the event or localStorage
       fetchTrips();
       fetchMetrics();
     });
@@ -1789,55 +1672,44 @@
           if (!isMapReady()) {
             console.error("Failed to initialize map components");
             showNotification(CONFIG.ERROR_MESSAGES.mapInitFailed, "danger");
-            return Promise.reject("Map initialization failed"); // Reject promise on failure
+            return Promise.reject("Map initialization failed");
           }
 
           initializeLayerControls();
 
-          // Load coverage areas for the undriven streets dropdown *before* restoring state
-          return populateLocationDropdown(); // Return promise
+          return populateLocationDropdown();
         })
         .then(() => {
-          // Restore layer visibility from localStorage *after* dropdown is populated
           Object.keys(AppState.mapLayers).forEach((layerName) => {
             const savedVisibility = localStorage.getItem(
               `layer_visible_${layerName}`,
             );
 
-            // Only update visibility if a saved state EXISTS in localStorage
             if (savedVisibility !== null) {
               const isVisible = savedVisibility === "true";
               AppState.mapLayers[layerName].visible = isVisible;
-              // Update the checkbox state in the UI
               const toggle = document.getElementById(`${layerName}-toggle`);
               if (toggle) toggle.checked = isVisible;
             } else {
-              // No saved state, ensure checkbox matches the LAYER_DEFAULT
               const toggle = document.getElementById(`${layerName}-toggle`);
               if (toggle)
                 toggle.checked = AppState.mapLayers[layerName].visible;
             }
 
-            // Special handling for undrivenStreets - fetch ONLY if visible AND a location is selected
-            // The selection logic and fetch trigger are handled within populateLocationDropdown
-            // This check ensures we don't fetch if the layer was saved as hidden or default hidden
             if (
               layerName === "undrivenStreets" &&
               !AppState.mapLayers[layerName].visible
             ) {
-              // Explicitly clear the layer data if it's not visible
               AppState.mapLayers[layerName].layer = {
                 type: "FeatureCollection",
                 features: [],
               };
             }
           });
-          updateLayerOrderUI(); // Update UI after restoring visibility
+          updateLayerOrderUI();
 
-          // Initialize the live tracker now that the map exists
           initializeLiveTracker();
 
-          // Initial data fetch based on stored dates (modern-ui handles initial storage)
           return Promise.all([fetchTrips(), fetchMetrics()]);
         })
         .then((results) => {
@@ -1860,7 +1732,6 @@
     AppState.polling.active = false;
   });
 
-  // Export public API
   window.EveryStreet = window.EveryStreet || {};
   window.EveryStreet.App = {
     fetchTrips,

@@ -9,11 +9,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentCollection = null;
   let currentButton = null;
 
-  /**
-   * Displays a notification to the user
-   * @param {string} message - The message to display
-   * @param {'success'|'danger'|'info'|'warning'} type - The notification type
-   */
   function showNotification(message, type = "info") {
     if (window.notificationManager) {
       window.notificationManager.show(message, type);
@@ -22,12 +17,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /**
-   * Sets the loading state of a button
-   * @param {HTMLButtonElement} button - The button element
-   * @param {boolean} isLoading - Whether the button should be in a loading state
-   * @param {string} [action] - The action being performed (for button text)
-   */
   function setButtonLoading(button, isLoading, action) {
     if (!button) return;
 
@@ -46,14 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /**
-   * Performs a database action by making a request to the specified endpoint
-   * @param {string} endpoint - The API endpoint
-   * @param {object} [body={}] - The request body
-   * @returns {Promise<object>} The JSON response from the server
-   */
   async function performDatabaseAction(endpoint, body = {}) {
-    // Use GET method for storage-info endpoint
     const method = endpoint.includes("storage-info") ? "GET" : "POST";
 
     const options = {
@@ -63,7 +45,6 @@ document.addEventListener("DOMContentLoaded", () => {
       },
     };
 
-    // Only include body for POST requests
     if (method === "POST") {
       options.body = JSON.stringify(body);
     }
@@ -80,10 +61,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return response.json();
   }
 
-  /**
-   * Updates the storage information display
-   * @param {Object} data - The storage information data
-   */
   function updateStorageDisplay(data) {
     if (!data) return;
 
@@ -92,7 +69,6 @@ document.addEventListener("DOMContentLoaded", () => {
       progressBar.setAttribute("aria-valuenow", data.usage_percent);
       progressBar.textContent = `${data.usage_percent}%`;
 
-      // Update color based on usage
       progressBar.classList.remove("bg-danger", "bg-warning", "bg-success");
 
       if (data.usage_percent > 95) {
@@ -109,12 +85,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Refresh storage info button
   if (refreshStorageBtn) {
     refreshStorageBtn.addEventListener("click", async () => {
       try {
         setButtonLoading(refreshStorageBtn, true);
-        // Use absolute path for the endpoint
         const data = await performDatabaseAction("/api/database/storage-info");
         updateStorageDisplay(data);
         showNotification("Storage information updated successfully", "success");
@@ -127,7 +101,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Clear collection buttons (using event delegation)
   document.body.addEventListener("click", async (event) => {
     const clearButton = event.target.closest(".clear-collection");
 
@@ -147,9 +120,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  /**
-   * Handle confirmed database action
-   */
   async function handleConfirmedAction() {
     try {
       let endpoint = "";
@@ -169,7 +139,6 @@ document.addEventListener("DOMContentLoaded", () => {
         "success",
       );
 
-      // Reload the page after a short delay
       setTimeout(() => window.location.reload(), 1500);
     } catch (error) {
       showNotification(

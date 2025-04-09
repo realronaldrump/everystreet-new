@@ -1,4 +1,5 @@
 /* global L, MAPBOX_ACCESS_TOKEN, LiveTripTracker, notificationManager */
+
 "use strict";
 
 class DrivingNavigation {
@@ -18,37 +19,36 @@ class DrivingNavigation {
     this.selectedLocation = null;
     this.undrivenStreetsLayer = L.layerGroup();
     this.routeLayer = L.layerGroup();
-    this.targetStreetLayer = null; // To highlight the target segment
+    this.targetStreetLayer = null;
 
-    this.liveTracker = null; // Instance of LiveTripTracker
-    this.lastKnownLocation = null; // Store {lat, lon}
-    this.isFetchingRoute = false; // Prevent concurrent requests
-    this.isFetchingCoverageRoute = false; // Prevent concurrent coverage requests
-    this.clearTripTimeout = null; // Timeout handle for debouncing clear actions
+    this.liveTracker = null;
+    this.lastKnownLocation = null;
+    this.isFetchingRoute = false;
+    this.isFetchingCoverageRoute = false;
+    this.clearTripTimeout = null;
 
     this.initialize();
   }
 
   async initialize() {
     this.setupEventListeners();
-    this.initMap(); // initMap will now handle invalidateSize
+    this.initMap();
     await this.loadCoverageAreas();
     this.initLiveTracking();
-    this.loadAutoFollowState(); // Load saved auto-follow preference
+    this.loadAutoFollowState();
   }
 
   initMap() {
     try {
-      const mapContainer = document.getElementById("driving-map"); // Get container reference
+      const mapContainer = document.getElementById("driving-map");
       if (!mapContainer) {
         console.error("Map container #driving-map not found!");
         this.setStatus("Map container not found.", true);
-        return; // Stop if container doesn't exist
+        return;
       }
-      // Ensure container is not empty (remove spinner if present)
       mapContainer.innerHTML = "";
 
-      this.map = L.map("driving-map").setView([37.8, -96], 4); // Default view
+      this.map = L.map("driving-map").setView([37.8, -96], 4);
 
       L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
@@ -62,19 +62,14 @@ class DrivingNavigation {
       this.undrivenStreetsLayer.addTo(this.map);
       this.routeLayer.addTo(this.map);
 
-      // Initialize live location marker (invisible initially)
-      // this.liveLocationMarker = null;
-
       this.setStatus("Map initialized. Select an area.");
 
-      // --- FIX: Add invalidateSize after a short delay ---
       setTimeout(() => {
         if (this.map) {
-          // Check if map still exists
           console.log("Invalidating map size...");
           this.map.invalidateSize();
         }
-      }, 150); // 150ms delay should be sufficient
+      }, 150);
     } catch (error) {
       console.error("Error initializing map:", error);
       this.setStatus("Error initializing map.", true);
@@ -93,10 +88,8 @@ class DrivingNavigation {
       return;
     }
 
-    // Use a custom handler for trip updates instead of the default map updates
-    this.liveTracker = new LiveTripTracker(this.map); // Pass map, though we override updates
+    this.liveTracker = new LiveTripTracker(this.map);
 
-    // Override the default update behavior
     this.liveTracker.setActiveTrip = (trip) => {
       this.handleLiveTripUpdate(trip);
     };
@@ -104,58 +97,45 @@ class DrivingNavigation {
       this.handleLiveTripClear();
     };
 
-    // Start polling (the LiveTripTracker's initialize method does this)
-    // We don't need to call startPolling explicitly if initialize is called
     console.log("Live tracking initialized for navigation.");
   }
 
   handleLiveTripUpdate(trip) {
-    // --- Cancel any pending clear action --- START
     if (this.clearTripTimeout) {
       clearTimeout(this.clearTripTimeout);
       this.clearTripTimeout = null;
     }
-    // --- Cancel any pending clear action --- END
 
     if (!trip || !trip.coordinates || trip.coordinates.length === 0) {
-      // If update has no data, treat it like a clear, but use the debounced version
       this.handleLiveTripClear();
       return;
     }
 
-    // Sort coordinates by timestamp to ensure proper path drawing
     const sortedCoords = [...trip.coordinates];
     sortedCoords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    // Create array of LatLng points for the full path
     const latLngs = sortedCoords.map((coord) => [coord.lat, coord.lon]);
 
-    // Get the last point for marker positioning
     const latestCoord = sortedCoords[sortedCoords.length - 1];
     const latLng = [latestCoord.lat, latestCoord.lon];
 
-    // Store the last known location for route finding
     this.lastKnownLocation = { lat: latestCoord.lat, lon: latestCoord.lon };
 
-    // Update trip path polyline
     if (this.liveTracker?.polyline) {
       this.liveTracker.polyline.setLatLngs(latLngs);
       this.liveTracker.polyline.bringToFront();
     }
 
-    // Update location marker
     if (this.liveTracker?.marker) {
-      // Ensure marker is added to the map if it wasn't
       if (!this.map.hasLayer(this.liveTracker.marker)) {
         this.liveTracker.marker.addTo(this.map);
       }
 
       this.liveTracker.marker.setLatLng(latLng);
 
-      // Update marker icon based on speed (if available)
       if (trip.currentSpeed !== undefined) {
         const speed = trip.currentSpeed;
-        let markerClass = "live-location-marker"; // Keep custom class names
+        let markerClass = "live-location-marker";
 
         if (speed === 0) {
           markerClass += " vehicle-stopped";
@@ -167,30 +147,26 @@ class DrivingNavigation {
           markerClass += " vehicle-fast";
         }
 
-        // Update the icon directly on the liveTracker's marker
         this.liveTracker.marker.setIcon(
           L.divIcon({
             className: markerClass,
             iconSize: [16, 16],
             html: `<div class="vehicle-marker-inner" data-speed="${Math.round(speed)}"></div>`,
-            iconAnchor: [8, 8], // Center anchor for divIcon
+            iconAnchor: [8, 8],
           }),
         );
       }
 
-      // Handle visibility and map positioning
       if (this.liveTracker.marker.options.opacity === 0) {
-        this.liveTracker.marker.setOpacity(1); // Make visible
+        this.liveTracker.marker.setOpacity(1);
         if (this.map && this.getAutoFollowState()) {
-          this.map.setView(latLng, 16); // Zoom in on first location update if auto-follow is on
+          this.map.setView(latLng, 16);
         }
       } else if (this.map && this.getAutoFollowState()) {
-        // Smoothly pan if auto-follow is on
         this.map.panTo(latLng, { animate: true, duration: 0.5 });
       }
     }
 
-    // Update status message with live data
     if (trip.currentSpeed !== undefined) {
       const speedMph = Math.round(trip.currentSpeed);
       this.setStatus(`Live tracking active. Current speed: ${speedMph} mph`);
@@ -198,7 +174,6 @@ class DrivingNavigation {
       this.setStatus("Live tracking active.");
     }
 
-    // Re-enable find button if it was disabled due to missing location
     if (
       this.findBtn &&
       this.findBtn.disabled &&
@@ -211,44 +186,26 @@ class DrivingNavigation {
   }
 
   handleLiveTripClear() {
-    // If a clear is already pending, do nothing
     if (this.clearTripTimeout) {
       return;
     }
 
-    // Set a timeout to actually clear things if no update arrives soon
-    // Adjust timeout duration based on expected poll interval (e.g., poll interval + buffer)
-    const CLEAR_DELAY_MS = 7000; // e.g., 7 seconds (if poll is ~5s)
+    const CLEAR_DELAY_MS = 7000;
 
     this.clearTripTimeout = setTimeout(() => {
       console.log("Executing debounced live trip clear.");
       this.lastKnownLocation = null;
 
-      // Hide marker using liveTracker's marker
       if (this.liveTracker?.marker) {
         this.liveTracker.marker.setOpacity(0);
-        // Optionally remove from map if opacity 0 isn't enough
-        // if (this.map.hasLayer(this.liveTracker.marker)) {
-        //     this.map.removeLayer(this.liveTracker.marker);
-        // }
       }
 
-      // Clear path using liveTracker's polyline
       if (this.liveTracker?.polyline) {
         this.liveTracker.polyline.setLatLngs([]);
       }
 
-      // Reset timeout handle
       this.clearTripTimeout = null;
-
-      // Optionally update status here if needed after confirmed inactivity
-      // this.setStatus("Live location appears inactive.");
     }, CLEAR_DELAY_MS);
-
-    // NOTE: Button disabling logic has been intentionally removed here
-    // to allow offline/fallback mode to function correctly. Buttons
-    // are enabled when an area is selected and only disabled during
-    // active API calls.
   }
 
   setupEventListeners() {
@@ -258,7 +215,6 @@ class DrivingNavigation {
     if (this.findBtn) {
       this.findBtn.addEventListener("click", () => this.findAndDisplayRoute());
     }
-    // Add listener for the new coverage route button
     if (this.calcCoverageBtn) {
       this.calcCoverageBtn.addEventListener("click", () =>
         this.calculateAndDisplayCoverageRoute(),
@@ -276,22 +232,16 @@ class DrivingNavigation {
       });
     }
 
-    // Add map-related event listeners to ensure live elements stay on top
     if (this.map) {
-      // When any other layers are added, ensure live elements stay on top
       this.map.on("layeradd", () => {
-        // Use setTimeout to ensure this runs after the layer is fully added
         setTimeout(() => this.bringLiveElementsToFront(), 50);
       });
 
-      // When zoom ends, ensure live elements stay visible
       this.map.on("zoomend", () => this.bringLiveElementsToFront());
 
-      // When panning ends, ensure live elements stay visible
       this.map.on("moveend", () => this.bringLiveElementsToFront());
     }
 
-    // Listen for document-level events that might affect the map
     document.addEventListener("mapUpdated", () =>
       this.bringLiveElementsToFront(),
     );
@@ -333,12 +283,11 @@ class DrivingNavigation {
 
   populateAreaDropdown() {
     if (!this.areaSelect) return;
-    this.areaSelect.innerHTML = '<option value="">Select an area...</option>'; // Clear existing
+    this.areaSelect.innerHTML = '<option value="">Select an area...</option>';
 
     this.coverageAreas.forEach((area) => {
       if (area.location && area.location.display_name) {
         const option = document.createElement("option");
-        // Store the full location object as JSON string in the value
         option.value = JSON.stringify(area.location);
         option.textContent = area.location.display_name;
         this.areaSelect.appendChild(option);
@@ -351,7 +300,7 @@ class DrivingNavigation {
     if (!selectedValue) {
       this.selectedLocation = null;
       this.findBtn.disabled = true;
-      this.calcCoverageBtn.disabled = true; // Disable coverage button too
+      this.calcCoverageBtn.disabled = true;
       this.undrivenStreetsLayer.clearLayers();
       this.routeLayer.clearLayers();
       this.clearTargetStreetHighlight();
@@ -364,23 +313,21 @@ class DrivingNavigation {
       this.setStatus(
         `Area selected: ${this.selectedLocation.display_name}. Loading streets...`,
       );
-      this.findBtn.disabled = false; // Enable button once area is selected
-      this.calcCoverageBtn.disabled = false; // Enable coverage button too
+      this.findBtn.disabled = false;
+      this.calcCoverageBtn.disabled = false;
 
-      // Clear previous layers
       this.undrivenStreetsLayer.clearLayers();
       this.routeLayer.clearLayers();
       this.clearTargetStreetHighlight();
-      this.targetInfo.innerHTML = ""; // Clear target info
-      this.routeInfo.innerHTML = ""; // Clear route info
+      this.targetInfo.innerHTML = "";
+      this.routeInfo.innerHTML = "";
 
-      // Fetch and display undriven streets for the selected area
       await this.fetchAndDisplayUndrivenStreets();
     } catch (error) {
       console.error("Error parsing selected location:", error);
       this.selectedLocation = null;
       this.findBtn.disabled = true;
-      this.calcCoverageBtn.disabled = true; // Disable coverage button too
+      this.calcCoverageBtn.disabled = true;
       this.setStatus("Invalid area selected.", true);
     }
   }
@@ -391,7 +338,7 @@ class DrivingNavigation {
     this.setStatus(
       `Fetching undriven streets for ${this.selectedLocation.display_name}...`,
     );
-    this.undrivenStreetsLayer.clearLayers(); // Clear previous streets
+    this.undrivenStreetsLayer.clearLayers();
 
     try {
       const response = await fetch("/api/undriven_streets", {
@@ -408,27 +355,18 @@ class DrivingNavigation {
       const geojson = await response.json();
 
       if (geojson && geojson.features && geojson.features.length > 0) {
-        // --- Create the GeoJSON layer ---
         const geoJsonLayer = L.geoJSON(geojson, {
           style: {
-            color: "#00BFFF", // Deep Sky Blue
+            color: "#00BFFF",
             weight: 3,
             opacity: 0.6,
             dashArray: "4, 4",
-            className: "undriven-street-nav", // Add class for potential future use
+            className: "undriven-street-nav",
           },
-          // Optional: Add popups if needed
-          // onEachFeature: (feature, layer) => {
-          //     if (feature.properties && feature.properties.street_name) {
-          //         layer.bindPopup(feature.properties.street_name);
-          //     }
-          // }
         });
 
-        // --- Add it to the layer group ---
         this.undrivenStreetsLayer.addLayer(geoJsonLayer);
 
-        // --- Get bounds from the created GeoJSON layer ---
         const bounds = geoJsonLayer.getBounds();
         if (bounds.isValid()) {
           this.map.fitBounds(bounds, { padding: [50, 50] });
@@ -438,9 +376,7 @@ class DrivingNavigation {
         this.setStatus(
           `No undriven streets found in ${this.selectedLocation.display_name}.`,
         );
-        // Optionally zoom to the general area if no streets are found
         if (this.selectedLocation.boundingbox) {
-          // Enable buttons even if no streets are found, as long as area is valid
           this.findBtn.disabled = false;
           this.calcCoverageBtn.disabled = false;
           if (!this.lastKnownLocation) {
@@ -452,7 +388,6 @@ class DrivingNavigation {
 
           try {
             const bbox = this.selectedLocation.boundingbox.map(parseFloat);
-            // Leaflet bounds format: [[south, west], [north, east]]
             const bounds = L.latLngBounds([
               [bbox[0], bbox[2]],
               [bbox[1], bbox[3]],
@@ -486,16 +421,14 @@ class DrivingNavigation {
     this.findBtn.innerHTML =
       '<i class="fas fa-spinner fa-spin me-2"></i>Finding Route...';
     this.setStatus("Calculating route to nearest undriven street...");
-    this.routeLayer.clearLayers(); // Clear previous route
-    this.clearTargetStreetHighlight(); // Clear previous target highlight
-    this.targetInfo.innerHTML = ""; // Clear target info
-    this.routeInfo.innerHTML = ""; // Clear route info
+    this.routeLayer.clearLayers();
+    this.clearTargetStreetHighlight();
+    this.targetInfo.innerHTML = "";
+    this.routeInfo.innerHTML = "";
 
     try {
-      // Create the request payload
       const requestPayload = {
         location: this.selectedLocation,
-        // Only include current_position if live location is available
         ...(this.lastKnownLocation && {
           current_position: this.lastKnownLocation,
         }),
@@ -506,7 +439,7 @@ class DrivingNavigation {
       const response = await fetch("/api/driving-navigation/next-route", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestPayload), // Send both location and current position
+        body: JSON.stringify(requestPayload),
       });
 
       const data = await response.json();
@@ -524,31 +457,25 @@ class DrivingNavigation {
         data.route_geometry &&
         data.target_street
       ) {
-        // Display the route with better styling
         const routeLayer = L.geoJSON(data.route_geometry, {
           style: {
-            color: "#76ff03", // Bright Green
+            color: "#76ff03",
             weight: 5,
             opacity: 0.8,
             className: "calculated-route",
           },
         }).addTo(this.routeLayer);
 
-        // Highlight the target street segment
         this.highlightTargetStreet(data.target_street.segment_id);
 
-        // Display target info with more detail
         const streetName = data.target_street.street_name || "Unnamed Street";
         this.targetInfo.innerHTML = `<strong>Target:</strong> ${streetName} (ID: ${data.target_street.segment_id})`;
 
-        // Log location source for debugging
         const locationSource = data.location_source || "unknown";
         console.log(`Route calculated using '${locationSource}' location data`);
 
-        // Update status with more detail
         this.setStatus(`Route calculated. Head towards ${streetName}.`);
 
-        // Display route info with nicer formatting
         const durationMinutes = Math.round(data.route_duration_seconds / 60);
         const distanceMiles = (
           data.route_distance_meters * 0.000621371
@@ -562,25 +489,21 @@ class DrivingNavigation {
           </div>
         `;
 
-        // Ensure live elements stay on top of the new route
         this.bringLiveElementsToFront();
 
-        // Fit map to the calculated route or start/target
         try {
           let boundsToFit;
           if (this.lastKnownLocation) {
-            // If live location is known, create bounds from start to target
             const routeStart = [
               this.lastKnownLocation.lat,
               this.lastKnownLocation.lon,
             ];
             const targetStart = [
-              data.target_street.start_coords[1], // Lat
-              data.target_street.start_coords[0], // Lon
+              data.target_street.start_coords[1],
+              data.target_street.start_coords[0],
             ];
             boundsToFit = L.latLngBounds([routeStart, targetStart]);
 
-            // Extend bounds to include the live marker if it exists and has a location
             if (
               this.liveTracker?.marker &&
               this.liveTracker.marker.getLatLng()
@@ -588,16 +511,13 @@ class DrivingNavigation {
               boundsToFit.extend(this.liveTracker.marker.getLatLng());
             }
           } else if (routeLayer && typeof routeLayer.getBounds === "function") {
-            // If no live location, fit to the bounds of the returned route geometry
             boundsToFit = routeLayer.getBounds();
           }
 
-          // Fit the map if we have valid bounds
           if (boundsToFit && boundsToFit.isValid()) {
-            this.map.fitBounds(boundsToFit, { padding: [70, 70] }); // Add padding
+            this.map.fitBounds(boundsToFit, { padding: [70, 70] });
           } else {
             console.warn("Could not determine valid bounds to fit the map.");
-            // Optional fallback: zoom to target street start if bounds fail
             if (data.target_street && data.target_street.start_coords) {
               this.map.setView(
                 [
@@ -615,7 +535,6 @@ class DrivingNavigation {
           );
         }
       } else {
-        // Handle unexpected success response format
         throw new Error(
           data.message || "Received unexpected success response.",
         );
@@ -634,41 +553,36 @@ class DrivingNavigation {
   }
 
   highlightTargetStreet(segmentId) {
-    this.clearTargetStreetHighlight(); // Clear previous highlight first
+    this.clearTargetStreetHighlight();
 
     this.undrivenStreetsLayer.eachLayer((layer) => {
       if (layer.feature?.properties?.segment_id === segmentId) {
-        this.targetStreetLayer = layer; // Store reference
+        this.targetStreetLayer = layer;
         layer.setStyle({
-          color: "#ffab00", // Amber/Orange
+          color: "#ffab00",
           weight: 6,
           opacity: 1,
-          dashArray: null, // Make it solid
-          className: "target-street-segment", // Add class
+          dashArray: null,
+          className: "target-street-segment",
         });
-        layer.bringToFront(); // Ensure the highlighted segment is on top
+        layer.bringToFront();
       }
     });
   }
 
   clearTargetStreetHighlight() {
     if (this.targetStreetLayer) {
-      // Reset style to the default undriven style
       this.targetStreetLayer.setStyle({
         color: "#00BFFF",
         weight: 3,
         opacity: 0.6,
         dashArray: "4, 4",
-        className: "undriven-street-nav", // Reset class
+        className: "undriven-street-nav",
       });
       this.targetStreetLayer = null;
     }
   }
 
-  /**
-   * Brings the live trip path and marker to the front
-   * Call this method after any map updates that might affect layer order
-   */
   bringLiveElementsToFront() {
     if (this.liveTracker?.polyline) {
       this.liveTracker.polyline.bringToFront();
@@ -682,7 +596,6 @@ class DrivingNavigation {
     this.statusMsg.classList.toggle("text-info", !isError);
   }
 
-  // --- New function for calculating and displaying the full coverage route ---
   async calculateAndDisplayCoverageRoute() {
     if (!this.selectedLocation) {
       this.setStatus("Please select an area first.", true);
@@ -697,17 +610,16 @@ class DrivingNavigation {
     this.calcCoverageBtn.disabled = true;
     this.calcCoverageBtn.innerHTML =
       '<i class="fas fa-spinner fa-spin me-2"></i>Calculating Coverage...';
-    this.findBtn.disabled = true; // Disable other button during calculation
+    this.findBtn.disabled = true;
     this.setStatus("Calculating full coverage route...");
-    this.routeLayer.clearLayers(); // Clear previous route (single or coverage)
-    this.clearTargetStreetHighlight(); // Clear previous target highlight
-    this.targetInfo.innerHTML = ""; // Clear target info
-    this.routeInfo.innerHTML = ""; // Clear route info
+    this.routeLayer.clearLayers();
+    this.clearTargetStreetHighlight();
+    this.targetInfo.innerHTML = "";
+    this.routeInfo.innerHTML = "";
 
     try {
       const requestPayload = {
         location: this.selectedLocation,
-        // Only include current_position if live location is available
         ...(this.lastKnownLocation && {
           current_position: this.lastKnownLocation,
         }),
@@ -734,33 +646,26 @@ class DrivingNavigation {
         this.setStatus(data.message);
         if (notificationManager) notificationManager.show(data.message, "info");
       } else if (data.status === "success" && data.route_geometry) {
-        // Route is a GeometryCollection
         const fullRouteLayer = L.layerGroup().addTo(this.routeLayer);
-        let routeBounds = L.latLngBounds(); // To fit map later
+        let routeBounds = L.latLngBounds();
 
-        // Style for connecting route segments (calculated by Mapbox)
         const connectingRouteStyle = {
-          color: "#76ff03", // Bright Green (same as single route)
+          color: "#76ff03",
           weight: 5,
           opacity: 0.8,
-          className: "calculated-route", // Can reuse class
+          className: "calculated-route",
         };
 
-        // Style for the actual undriven street segments included in the route
         const streetSegmentStyle = {
-          color: "#007bff", // Primary Blue
+          color: "#007bff",
           weight: 6,
           opacity: 0.9,
-          // dashArray: "5, 5", // Optional: Dashed to distinguish
           className: "coverage-street-segment",
         };
 
-        // The response geometry is a GeometryCollection
         if (data.route_geometry.type === "GeometryCollection") {
           data.route_geometry.geometries.forEach((geom, index) => {
             let style = {};
-            // Alternate styles: Even indices are connecting routes, odd are street segments
-            // (Assumes backend sends [route0, segment0, route1, segment1, ...])
             if (index % 2 === 0) {
               style = connectingRouteStyle;
             } else {
@@ -774,29 +679,26 @@ class DrivingNavigation {
             routeBounds.extend(layer.getBounds());
           });
         } else {
-          // Fallback if geometry is not a collection (shouldn't happen)
           console.warn(
             "Received unexpected geometry type for coverage route:",
             data.route_geometry.type,
           );
           const layer = L.geoJSON(data.route_geometry, {
-            style: connectingRouteStyle, // Default to route style
+            style: connectingRouteStyle,
           });
           fullRouteLayer.addLayer(layer);
           routeBounds.extend(layer.getBounds());
         }
 
-        // Fit map to the bounds of the entire route
         if (routeBounds.isValid()) {
           this.map.fitBounds(routeBounds, { padding: [50, 50] });
         }
 
-        // Display total route info
         const durationMinutes = Math.round(data.total_duration_seconds / 60);
         const distanceMiles = (
           data.total_distance_meters * 0.000621371
         ).toFixed(1);
-        const segmentCount = data.message.match(/\d+/)?.[0] || "?"; // Extract count from message
+        const segmentCount = data.message.match(/\d+/)?.[0] || "?";
 
         this.setStatus(
           `Full coverage route calculated (${segmentCount} segments).`,
@@ -810,12 +712,10 @@ class DrivingNavigation {
             <div class="text-muted small">(Using ${this.formatLocationSource(locationSource)} position)</div>
           </div>
         `;
-        this.targetInfo.innerHTML = ""; // Clear specific target info
+        this.targetInfo.innerHTML = "";
 
-        // Ensure live elements stay on top of the new route
         this.bringLiveElementsToFront();
       } else {
-        // Handle unexpected success response format
         throw new Error(
           data.message ||
             "Received unexpected success response from coverage route.",
@@ -833,13 +733,11 @@ class DrivingNavigation {
       this.calcCoverageBtn.disabled = false;
       this.calcCoverageBtn.innerHTML =
         '<i class="fas fa-road me-2"></i>Calculate Full Coverage Route';
-      // Re-enable find button only if location is available
       this.findBtn.disabled = false;
       this.isFetchingCoverageRoute = false;
     }
   }
 
-  // Helper to format location source for display
   formatLocationSource(source) {
     switch (source) {
       case "client-provided":
@@ -854,9 +752,7 @@ class DrivingNavigation {
   }
 }
 
-// Initialize when the DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
-  // Check if Leaflet is loaded
   if (typeof L === "undefined") {
     console.error(
       "Leaflet library not found. Driving Navigation cannot initialize.",

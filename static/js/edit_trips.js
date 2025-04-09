@@ -7,9 +7,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentTrip = null;
   let editMode = false;
 
-  /**
-   * Initialize the trip editor
-   */
   async function init() {
     initializeMap();
     initializeControls();
@@ -17,9 +14,6 @@ document.addEventListener("DOMContentLoaded", () => {
     await loadTrips();
   }
 
-  /**
-   * Initialize the map for trip editing
-   */
   function initializeMap() {
     const mapContainer = document.getElementById("editMap");
     if (!mapContainer) return;
@@ -38,9 +32,6 @@ document.addEventListener("DOMContentLoaded", () => {
     editableLayers = L.featureGroup().addTo(editMap);
   }
 
-  /**
-   * Initialize Leaflet.Draw controls
-   */
   function initializeControls() {
     if (!editMap || typeof L.Control.Draw !== "function") {
       console.error(
@@ -67,29 +58,22 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  /**
-   * Initialize event listeners
-   */
   function initializeEventListeners() {
-    // Toggle edit mode
     const editModeToggle = document.getElementById("editModeToggle");
     if (editModeToggle) {
       editModeToggle.addEventListener("change", toggleEditMode);
     }
 
-    // Trip type selector
     const tripTypeSelect = document.getElementById("tripType");
     if (tripTypeSelect) {
       tripTypeSelect.addEventListener("change", loadTrips);
     }
 
-    // Save changes button
     const saveChangesBtn = document.getElementById("saveChanges");
     if (saveChangesBtn) {
       saveChangesBtn.addEventListener("click", saveTripChanges);
     }
 
-    // Date inputs
     const startInput = document.getElementById("start-date");
     const endInput = document.getElementById("end-date");
     if (startInput) {
@@ -99,7 +83,6 @@ document.addEventListener("DOMContentLoaded", () => {
       endInput.addEventListener("change", loadTrips);
     }
 
-    // Apply filters button (if present on edit_trips page)
     if (document.getElementById("editMap")) {
       const applyFiltersBtn = document.getElementById("apply-filters");
       if (applyFiltersBtn) {
@@ -107,7 +90,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Leaflet.Draw created event
     if (editMap) {
       editMap.on(L.Draw.Event.CREATED, (e) => {
         if (editMode && currentTrip) {
@@ -119,20 +101,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /**
-   * Get a fallback date (yesterday)
-   * @returns {string} Yesterday's date in YYYY-MM-DD format
-   */
   function getFallbackDate() {
     return DateUtils.getYesterday();
   }
 
-  /**
-   * Load trips from API
-   */
   async function loadTrips() {
     try {
-      // Get dates from inputs or localStorage or fallback
       const startDate =
         document.getElementById("start-date")?.value ||
         localStorage.getItem("startDate") ||
@@ -143,11 +117,9 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.getItem("endDate") ||
         getFallbackDate();
 
-      // Save the chosen dates to localStorage
       localStorage.setItem("startDate", startDate);
       localStorage.setItem("endDate", endDate);
 
-      // Get selected trip type
       const tripTypeSelect = document.getElementById("tripType");
       if (!tripTypeSelect) return;
 
@@ -179,10 +151,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /**
-   * Display trips on the map
-   * @param {Array} trips - Array of trip features
-   */
   function displayTripsOnMap(trips) {
     if (!tripsLayerGroup) return;
 
@@ -205,7 +173,6 @@ document.addEventListener("DOMContentLoaded", () => {
           return null;
         }
 
-        // Convert GeoJSON coordinates ([lon, lat]) to Leaflet ([lat, lon])
         const coordsLatLng = gps.coordinates.map(([lon, lat]) => [lat, lon]);
 
         const poly = L.polyline(coordsLatLng, {
@@ -226,11 +193,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /**
-   * Select a trip for editing
-   * @param {L.Polyline} layer - Leaflet polyline layer
-   * @param {Object} tripData - Trip data
-   */
   function selectTrip(layer, tripData) {
     if (currentTrip) {
       resetTripStyle(currentTrip.layer);
@@ -244,10 +206,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /**
-   * Reset trip style to default
-   * @param {L.Polyline} layer - Leaflet polyline layer
-   */
   function resetTripStyle(layer) {
     layer.setStyle({
       color: "#BB86FC",
@@ -256,10 +214,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  /**
-   * Toggle edit mode
-   * @param {Event} e - Change event
-   */
   function toggleEditMode(e) {
     editMode = e.target.checked;
 
@@ -275,10 +229,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /**
-   * Create editable markers for trip points
-   * @param {Array} coordinates - Trip coordinates
-   */
   function createEditableMarkers(coordinates) {
     editableLayers.clearLayers();
 
@@ -295,12 +245,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  /**
-   * Find the closest point index to insert a new point
-   * @param {L.LatLng} latLng - New point position
-   * @param {Array} coordinates - Existing coordinates
-   * @returns {number} Index where the new point should be inserted
-   */
   function findClosestPointIndex(latLng, coordinates) {
     let closestIndex = 0;
     let minDistance = Infinity;
@@ -319,28 +263,18 @@ document.addEventListener("DOMContentLoaded", () => {
     return closestIndex;
   }
 
-  /**
-   * Add a new point to the trip
-   * @param {L.LatLng} latLng - New point position
-   */
   function addPointToTrip(latLng) {
     if (!currentTrip) return;
 
     const coords = currentTrip.tripData.geometry.coordinates;
     const index = findClosestPointIndex(latLng, coords);
 
-    // Insert new point after the closest existing point
     coords.splice(index + 1, 0, [latLng.lng, latLng.lat]);
 
     updateTripPolyline();
     createEditableMarkers(coords);
   }
 
-  /**
-   * Update an existing point in the trip
-   * @param {number} index - Point index
-   * @param {L.LatLng} latLng - New point position
-   */
   function updatePointInTrip(index, latLng) {
     if (!currentTrip) return;
 
@@ -350,9 +284,6 @@ document.addEventListener("DOMContentLoaded", () => {
     createEditableMarkers(currentTrip.tripData.geometry.coordinates);
   }
 
-  /**
-   * Update the trip polyline with the current coordinates
-   */
   function updateTripPolyline() {
     if (!currentTrip) return;
 
@@ -362,9 +293,6 @@ document.addEventListener("DOMContentLoaded", () => {
     currentTrip.layer.setLatLngs(latLngs);
   }
 
-  /**
-   * Save trip changes to the server
-   */
   async function saveTripChanges() {
     if (!currentTrip) {
       window.notificationManager?.show("No trip selected to save.", "warning");
@@ -372,7 +300,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      // Get trip ID from properties or directly from tripData
       let tripId =
         currentTrip.tripData.properties?.transactionId ||
         currentTrip.tripData.transactionId;
@@ -420,6 +347,5 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Initialize the editor
   init();
 });

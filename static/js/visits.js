@@ -1,5 +1,6 @@
-"use strict";
 /* global L, Chart, DateUtils, bootstrap, $ */
+
+"use strict";
 (() => {
   class VisitsManager {
     constructor() {
@@ -20,7 +21,6 @@
       this.initialize();
     }
 
-    // Helper function to convert duration strings like '5d', '2h 30m', etc. to seconds for proper sorting
     convertDurationToSeconds(duration) {
       if (!duration || duration === "N/A" || duration === "Unknown") return 0;
 
@@ -39,7 +39,6 @@
     }
 
     setupDurationSorting() {
-      // Add a custom sorting method for duration columns
       if (window.$ && $.fn.dataTable) {
         $.fn.dataTable.ext.type.order["duration-pre"] = (data) => {
           return this.convertDurationToSeconds(data);
@@ -206,7 +205,7 @@
 
       this.visitsTable = $(el).DataTable({
         responsive: true,
-        order: [[3, "desc"]], // Sort by last visit descending
+        order: [[3, "desc"]],
         columns: [
           {
             data: "name",
@@ -317,7 +316,7 @@
 
       this.tripsTable = $(el).DataTable({
         responsive: true,
-        order: [[1, "desc"]], // Sort by arrival time descending
+        order: [[1, "desc"]],
         columns: [
           {
             data: "transactionId",
@@ -385,7 +384,6 @@
           "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
       });
 
-      // Add event listener for the view trip buttons
       $(el).on("click", ".view-trip-btn, .trip-id-link", (e) => {
         e.preventDefault();
         const tripId = $(e.currentTarget).data("trip-id");
@@ -394,7 +392,6 @@
     }
 
     setupEventListeners() {
-      // Drawing controls
       document
         .getElementById("start-drawing")
         ?.addEventListener("click", () => {
@@ -413,12 +410,10 @@
         .getElementById("back-to-places-btn")
         ?.addEventListener("click", () => this.toggleView());
 
-      // Manage Places button
       document
         .getElementById("manage-places")
         ?.addEventListener("click", () => this.showManagePlacesModal());
 
-      // Edit place form submission
       document
         .getElementById("edit-place-form")
         ?.addEventListener("submit", (e) => {
@@ -426,19 +421,16 @@
           this.saveEditedPlace();
         });
 
-      // Edit place boundary button
       document
         .getElementById("edit-place-boundary")
         ?.addEventListener("click", () => this.startEditingPlaceBoundary());
 
-      // Map drawing events
       this.map.on(L.Draw.Event.CREATED, (e) => {
         this.currentPolygon = e.layer;
         this.map.addLayer(this.currentPolygon);
         document.getElementById("save-place").disabled = false;
       });
 
-      // Table interactions using event delegation
       $("#visits-table, #non-custom-visits-table").on(
         "click",
         ".place-link",
@@ -449,7 +441,6 @@
         },
       );
 
-      // Toggle view button
       $("#visits-table-container").on("click", "#toggle-view-btn", () =>
         this.toggleView(),
       );
@@ -494,7 +485,6 @@
     async updateVisitsData() {
       const visitsData = [];
 
-      // Use Promise.all to fetch all statistics in parallel
       const placeEntries = Array.from(this.places.entries());
       const statsPromises = placeEntries.map(async ([id, place]) => {
         try {
@@ -523,7 +513,6 @@
       const results = await Promise.all(statsPromises);
       const validResults = results.filter((result) => result !== null);
 
-      // Update chart
       if (this.visitsChart) {
         this.visitsChart.data.labels = validResults.map((d) => d.name);
         this.visitsChart.data.datasets[0].data = validResults.map(
@@ -532,7 +521,6 @@
         this.visitsChart.update();
       }
 
-      // Update table
       if (this.visitsTable) {
         this.visitsTable.clear().rows.add(validResults).draw();
       }
@@ -601,7 +589,6 @@
 
         this.places.delete(placeId);
 
-        // Remove from map
         this.map.eachLayer((layer) => {
           if (layer.feature && layer.feature.properties.placeId === placeId) {
             this.map.removeLayer(layer);
@@ -635,17 +622,14 @@
       this.drawingEnabled = false;
     }
 
-    // Manage Places functionality
     showManagePlacesModal() {
       const modal = new bootstrap.Modal(
         document.getElementById("manage-places-modal"),
       );
 
-      // Clear and populate the table
       const tableBody = document.querySelector("#manage-places-table tbody");
       tableBody.innerHTML = "";
 
-      // Sort places by name
       const placesArray = Array.from(this.places.values());
       placesArray.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -669,7 +653,6 @@
         tableBody.appendChild(row);
       });
 
-      // Add event listeners for edit and delete buttons
       document.querySelectorAll(".edit-place-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {
           const placeId = e.currentTarget.getAttribute("data-place-id");
@@ -708,44 +691,35 @@
       const place = this.places.get(placeId);
       if (!place) return;
 
-      // Hide the edit modal
       const editModal = bootstrap.Modal.getInstance(
         document.getElementById("edit-place-modal"),
       );
       editModal.hide();
 
-      // Clear existing drawing
       this.resetDrawing();
 
-      // Create a new polygon from the place geometry
       const existingGeometry = place.geometry;
       if (
         existingGeometry?.coordinates &&
         existingGeometry.coordinates.length > 0
       ) {
         const coordinates = existingGeometry.coordinates[0];
-        // Convert from GeoJSON [longitude, latitude] to Leaflet [latitude, longitude]
         const latLngs = coordinates.map((coord) => [coord[1], coord[0]]);
 
-        // Create a polygon and add it to the map
         this.currentPolygon = L.polygon(latLngs, { color: "#BB86FC" });
         this.currentPolygon.addTo(this.map);
 
-        // Enable the save button
         document.getElementById("save-place").disabled = false;
       }
 
-      // Center map on the place
       if (this.currentPolygon) {
         this.map.fitBounds(this.currentPolygon.getBounds());
       }
 
-      // Add the drawing control to allow editing the polygon
       this.map.addControl(this.drawControl);
       this.drawingEnabled = true;
       document.getElementById("start-drawing").classList.add("active");
 
-      // Store reference to the place being edited
       this.placeBeingEdited = placeId;
 
       window.notificationManager?.show(
@@ -767,7 +741,6 @@
       }
 
       try {
-        // If we're editing boundary and have a new polygon, include the geometry
         let requestBody = { name: newName };
         if (this.currentPolygon && this.placeBeingEdited === placeId) {
           requestBody.geometry = this.currentPolygon.toGeoJSON().geometry;
@@ -783,30 +756,24 @@
 
         const updatedPlace = await response.json();
 
-        // Update the place in our local map
         this.places.set(placeId, updatedPlace);
 
-        // Update the place on the map
         this.customPlacesLayer.clearLayers();
         Array.from(this.places.values()).forEach((place) => {
           this.displayPlace(place);
         });
 
-        // Reset drawing if we edited the boundary
         if (this.currentPolygon) {
           this.resetDrawing();
         }
 
-        // Close the modal
         const modal = bootstrap.Modal.getInstance(
           document.getElementById("edit-place-modal"),
         );
         if (modal) modal.hide();
 
-        // Clear the place being edited
         this.placeBeingEdited = null;
 
-        // Update visits data
         this.updateVisitsData();
 
         window.notificationManager?.show(
@@ -819,46 +786,31 @@
       }
     }
 
-    /**
-     * Shows the selected trip on the map
-     * @param {string} tripId - The ID of the trip to view
-     */
     confirmViewTripOnMap(tripId) {
       if (!tripId) return;
 
-      // Directly fetch and show the trip without confirmation
       this.fetchAndShowTrip(tripId);
     }
 
-    /**
-     * Fetches trip data and displays it in a modal
-     * @param {string} tripId - The ID of the trip to view
-     */
     async fetchAndShowTrip(tripId) {
       try {
-        // Show loading indicator
         this.loadingManager.startOperation("Fetching Trip Data");
 
         console.log(`Fetching trip data for ID: ${tripId}`);
 
-        // Fetch the trip data from the API
         const response = await fetch(`/api/trips/${tripId}`);
 
         if (!response.ok) {
           throw new Error(`Failed to fetch trip: ${response.statusText}`);
         }
 
-        // Get the base trip data
         const tripResponse = await response.json();
         console.log("Trip response received:", tripResponse);
 
-        // In some APIs, the actual trip data might be nested under a 'trip' property
         const trip = tripResponse.trip || tripResponse;
 
-        // Process and extract geometry from various possible sources
         this.extractTripGeometry(trip);
 
-        // Initialize the trip map and display the data
         this.showTripOnMap(trip);
 
         this.loadingManager.finish();
@@ -872,18 +824,12 @@
       }
     }
 
-    /**
-     * Extracts and processes trip geometry from various possible sources
-     * @param {Object} trip - The trip data object
-     */
     extractTripGeometry(trip) {
-      // Try the default geometry field first
       if (trip.geometry?.coordinates && trip.geometry.coordinates.length > 0) {
         console.log("Using existing geometry data");
         return;
       }
 
-      // Check for matchedGps field
       if (
         trip.matchedGps?.coordinates &&
         trip.matchedGps.coordinates.length > 0
@@ -893,7 +839,6 @@
         return;
       }
 
-      // Try to parse gps JSON field if it exists
       if (typeof trip.gps === "string" && trip.gps) {
         try {
           console.log("Parsing gps field from JSON string");
@@ -908,7 +853,6 @@
         }
       }
 
-      // If we have start and end coordinates, create a simple line
       if (
         trip.startGeoPoint?.coordinates &&
         trip.destinationGeoPoint &&
@@ -928,16 +872,10 @@
       console.log("No valid geometry data found in trip");
     }
 
-    /**
-     * Displays a trip on the map in a modal
-     * @param {Object} trip - The trip data to display
-     */
     showTripOnMap(trip) {
-      // Clear previous trip info
       const tripInfoContainer = document.getElementById("trip-info");
       tripInfoContainer.innerHTML = "";
 
-      // Format trip info
       const startTime = trip.startTime
         ? new Date(trip.startTime).toLocaleString()
         : "Unknown";
@@ -945,13 +883,10 @@
         ? new Date(trip.endTime).toLocaleString()
         : "Unknown";
 
-      // Extract and format the distance (handle multiple possible formats)
       let formattedDistance = "Unknown";
       if (trip.distance) {
-        // Parse the distance value, which could be in various formats
         let distanceValue = trip.distance;
 
-        // If it's an object with a value property, use that
         if (
           typeof distanceValue === "object" &&
           distanceValue.value !== undefined
@@ -959,20 +894,16 @@
           distanceValue = distanceValue.value;
         }
 
-        // Convert string to number if needed
         if (typeof distanceValue === "string") {
           distanceValue = parseFloat(distanceValue);
         }
 
-        // Only format if we have a valid number
         if (!isNaN(distanceValue) && distanceValue > 0) {
-          // Distance is often in miles already
           formattedDistance = `${distanceValue.toFixed(2)} miles`;
         }
       }
       const transactionId = trip.transactionId || trip._id;
 
-      // Extract location information from nested objects
       const startLocation = trip.startLocation?.formatted_address
         ? trip.startLocation.formatted_address
         : trip.startPlace || "Unknown";
@@ -981,7 +912,6 @@
         ? trip.destination.formatted_address
         : trip.destinationPlace || "Unknown";
 
-      // Display trip information
       tripInfoContainer.innerHTML = `
         <div class="trip-details">
           <h6>Transaction ID: ${transactionId}</h6>
@@ -999,13 +929,11 @@
         </div>
       `;
 
-      // Show the modal first so DOM is fully available
       const modal = new bootstrap.Modal(
         document.getElementById("view-trip-modal"),
       );
       modal.show();
 
-      // Wait for modal to be fully shown before initializing map
       document.getElementById("view-trip-modal").addEventListener(
         "shown.bs.modal",
         () => {
@@ -1015,29 +943,20 @@
       );
     }
 
-    /**
-     * Initialize the trip map after the modal is shown
-     * @param {Object} trip - The trip data to display on the map
-     */
     initializeTripMap(trip) {
-      // Get map container and reset it to ensure clean initialization
       const tripMapElement = document.getElementById("trip-map");
 
-      // If there's a previous map in this container, remove it
       if (this.tripViewMap) {
         this.tripViewMap.remove();
         this.tripViewMap = null;
       }
 
-      // Reset the container by replacing it with a clone
       const parent = tripMapElement.parentNode;
       const newMapElement = tripMapElement.cloneNode(false);
       parent.replaceChild(newMapElement, tripMapElement);
 
-      // Initialize the map
       this.tripViewMap = L.map(newMapElement, { attributionControl: false });
 
-      // Add base map layer
       L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         {
@@ -1045,9 +964,7 @@
         },
       ).addTo(this.tripViewMap);
 
-      // Add trip path to map if geometry exists
       if (trip.geometry?.coordinates && trip.geometry.coordinates.length > 0) {
-        // Create a line from the trip coordinates
         const tripPath = L.geoJSON(trip.geometry, {
           style: {
             color: "#BB86FC",
@@ -1056,11 +973,9 @@
           },
         }).addTo(this.tripViewMap);
 
-        // Add start and end markers
         const coordinates = trip.geometry.coordinates;
 
         if (coordinates.length > 0) {
-          // Start marker (first coordinate)
           const startCoord = coordinates[0];
           L.marker([startCoord[1], startCoord[0]], {
             icon: L.divIcon({
@@ -1073,7 +988,6 @@
             .addTo(this.tripViewMap)
             .bindTooltip("Start");
 
-          // End marker (last coordinate)
           const endCoord = coordinates[coordinates.length - 1];
           L.marker([endCoord[1], endCoord[0]], {
             icon: L.divIcon({
@@ -1086,19 +1000,16 @@
             .addTo(this.tripViewMap)
             .bindTooltip("End");
 
-          // Fit map to the bounds of the trip path
           this.tripViewMap.fitBounds(tripPath.getBounds(), {
             padding: [20, 20],
           });
         }
       } else {
-        // If no geometry, show a message
         document.getElementById("trip-info").innerHTML +=
           `<div class="alert alert-warning">No route data available for this trip.</div>`;
-        this.tripViewMap.setView([37.0902, -95.7129], 4); // Default US center view
+        this.tripViewMap.setView([37.0902, -95.7129], 4);
       }
 
-      // Ensure map renders correctly
       this.tripViewMap.invalidateSize();
     }
 
@@ -1200,7 +1111,6 @@
           this.tripsTable.clear().rows.add(trips).draw();
         }
 
-        // Update place name if available
         const placeNameElement = document.getElementById("selected-place-name");
         if (placeNameElement && data.name) {
           placeNameElement.textContent = data.name;
@@ -1234,7 +1144,6 @@
     }
   }
 
-  // Initialize on DOM content loaded
   document.addEventListener("DOMContentLoaded", () => {
     window.visitsManager = new VisitsManager();
   });

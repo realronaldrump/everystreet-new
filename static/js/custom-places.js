@@ -1,13 +1,6 @@
 /* global L, notificationManager, bootstrap, confirmationDialog */
 
-/**
- * CustomPlacesManager - Manages creation and interaction with custom map places
- */
 class CustomPlacesManager {
-  /**
-   * Creates a new CustomPlacesManager instance
-   * @param {L.Map} map - Leaflet map instance
-   */
   constructor(map) {
     if (!map) {
       console.error("Map is required for CustomPlacesManager");
@@ -21,7 +14,6 @@ class CustomPlacesManager {
     this.drawingEnabled = false;
     this.customPlacesLayer = L.layerGroup();
 
-    // Register with global mapLayers if available
     if (window.mapLayers?.customPlaces) {
       window.mapLayers.customPlaces.layer = this.customPlacesLayer;
       if (window.mapLayers.customPlaces.visible) {
@@ -32,11 +24,7 @@ class CustomPlacesManager {
     this.init();
   }
 
-  /**
-   * Initialize the manager
-   */
   init() {
-    // Cache DOM elements
     this.elements = {
       startDrawingBtn: document.getElementById("start-drawing"),
       savePlaceBtn: document.getElementById("save-place"),
@@ -45,13 +33,11 @@ class CustomPlacesManager {
       placesList: document.getElementById("places-list"),
     };
 
-    // Initialize modal
     const modalElement = document.getElementById("manage-places-modal");
     this.managePlacesModal = modalElement
       ? new bootstrap.Modal(modalElement)
       : null;
 
-    // Initialize drawing controls if available
     if (L.Control?.Draw) {
       this.drawControl = new L.Control.Draw({
         draw: {
@@ -63,7 +49,6 @@ class CustomPlacesManager {
             },
             shapeOptions: { color: "#BB86FC" },
           },
-          // Disable other drawing tools
           circle: false,
           rectangle: false,
           circlemarker: false,
@@ -79,13 +64,9 @@ class CustomPlacesManager {
     this.loadPlaces();
   }
 
-  /**
-   * Set up event listeners
-   */
   setupEventListeners() {
     const { startDrawingBtn, savePlaceBtn, managePlacesBtn } = this.elements;
 
-    // Button event listeners
     if (startDrawingBtn) {
       startDrawingBtn.addEventListener("click", () => this.startDrawing());
     }
@@ -100,19 +81,13 @@ class CustomPlacesManager {
       );
     }
 
-    // Map drawing events
     if (this.map && L.Draw?.Event) {
       this.map.on(L.Draw.Event.CREATED, (e) => this.onPolygonCreated(e));
     }
 
-    // Make customPlaces accessible globally for event handlers
     window.customPlaces = this;
   }
 
-  /**
-   * Handle polygon creation event
-   * @param {L.DrawEvent} e - Drawing event
-   */
   onPolygonCreated(e) {
     this.currentPolygon = e.layer;
     this.map.addLayer(this.currentPolygon);
@@ -122,9 +97,6 @@ class CustomPlacesManager {
     }
   }
 
-  /**
-   * Start drawing mode
-   */
   startDrawing() {
     if (this.drawingEnabled || !this.drawControl) return;
 
@@ -140,9 +112,6 @@ class CustomPlacesManager {
     }
   }
 
-  /**
-   * Save the current polygon as a place
-   */
   async savePlace() {
     const { placeNameInput } = this.elements;
 
@@ -176,9 +145,7 @@ class CustomPlacesManager {
 
       const savedPlace = await response.json();
 
-      // Ensure coordinates are properly formatted
       if (savedPlace.geometry?.coordinates) {
-        // Make sure we have proper format for polygon coordinates
         if (!Array.isArray(savedPlace.geometry.coordinates[0])) {
           savedPlace.geometry.coordinates = [savedPlace.geometry.coordinates];
         }
@@ -200,10 +167,6 @@ class CustomPlacesManager {
     }
   }
 
-  /**
-   * Display a place on the map
-   * @param {Object} place - Place data
-   */
   displayPlace(place) {
     if (!place?.geometry?.coordinates?.length) return;
 
@@ -215,11 +178,9 @@ class CustomPlacesManager {
           fillOpacity: 0.2,
         },
         onEachFeature: (feature, layer) => {
-          // Add place ID to feature properties
           if (!feature.properties) feature.properties = {};
           feature.properties.placeId = place._id;
 
-          // Add popup
           layer.bindPopup(`
             <div class="custom-place-popup">
               <h6>${place.name}</h6>
@@ -227,7 +188,6 @@ class CustomPlacesManager {
             </div>
           `);
 
-          // Add click handler
           layer.on("click", () => this.showPlaceStatistics(place._id));
         },
       });
@@ -238,9 +198,6 @@ class CustomPlacesManager {
     }
   }
 
-  /**
-   * Reset drawing state
-   */
   resetDrawing() {
     if (this.currentPolygon) {
       this.map.removeLayer(this.currentPolygon);
@@ -258,9 +215,6 @@ class CustomPlacesManager {
     this.drawingEnabled = false;
   }
 
-  /**
-   * Load places from API
-   */
   async loadPlaces() {
     try {
       const response = await fetch("/api/places");
@@ -273,7 +227,6 @@ class CustomPlacesManager {
 
       places.forEach((place) => {
         if (place?.geometry?.coordinates) {
-          // Ensure proper coordinates structure
           if (!Array.isArray(place.geometry.coordinates[0])) {
             place.geometry.coordinates = [place.geometry.coordinates];
           }
@@ -284,21 +237,13 @@ class CustomPlacesManager {
           console.warn(`Invalid geometry for place: ${place._id || "unknown"}`);
         }
       });
-
-      // Don't load visit statistics automatically on the main page
-      // Statistics will be loaded on-demand when needed
     } catch (error) {
       console.error("Error loading places:", error);
       window.notificationManager.show("Failed to load custom places", "danger");
     }
   }
 
-  /**
-   * Update visit statistics for all places
-   * @param {boolean} force - If true, load statistics even on main page
-   */
   async updateVisitsData(force = false) {
-    // Only load statistics on the Visits page or when explicitly requested
     const isVisitsPage = window.location.pathname.includes("/visits");
     if (!isVisitsPage && !force) {
       console.log("Skipping place statistics on the main page");
@@ -308,10 +253,8 @@ class CustomPlacesManager {
     try {
       const placeIds = Array.from(this.places.keys());
 
-      // Skip if no places
       if (placeIds.length === 0) return;
 
-      // Fetch statistics for all places in parallel
       const results = await Promise.all(
         placeIds.map(async (placeId) => {
           try {
@@ -327,7 +270,6 @@ class CustomPlacesManager {
         }),
       );
 
-      // Update place data with statistics
       results.forEach(({ placeId, stats }) => {
         const place = this.places.get(placeId);
         if (place) place.statistics = stats;
@@ -337,18 +279,11 @@ class CustomPlacesManager {
     }
   }
 
-  /**
-   * Show statistics for a place
-   * @param {string} placeId - Place ID
-   */
   async showPlaceStatistics(placeId) {
-    // This method is only called when a user explicitly clicks on a place
-    // or interacts with the Visits page
     const place = this.places.get(placeId);
     if (!place?.geometry?.coordinates?.length) return;
 
     try {
-      // Fetch fresh statistics - this is fine as it's user-initiated
       const response = await fetch(`/api/places/${placeId}/statistics`);
 
       if (!response.ok) {
@@ -357,12 +292,10 @@ class CustomPlacesManager {
 
       const stats = await response.json();
 
-      // Format date or use placeholder
       const lastVisitDate = stats.lastVisit
         ? new Date(stats.lastVisit).toLocaleDateString()
         : "Never";
 
-      // Create and show popup
       const coordinates = place.geometry.coordinates[0][0];
       if (!coordinates) return;
 
@@ -387,17 +320,12 @@ class CustomPlacesManager {
     }
   }
 
-  /**
-   * Show modal for managing places
-   */
   showManagePlacesModal() {
     const { placesList } = this.elements;
     if (!placesList || !this.managePlacesModal) return;
 
-    // Clear existing list items
     placesList.innerHTML = "";
 
-    // Add places to list
     this.places.forEach((place) => {
       const item = document.createElement("div");
       item.className =
@@ -411,14 +339,9 @@ class CustomPlacesManager {
       placesList.appendChild(item);
     });
 
-    // Show modal
     this.managePlacesModal.show();
   }
 
-  /**
-   * Delete a place
-   * @param {string} placeId - Place ID
-   */
   async deletePlace(placeId) {
     if (!placeId) return;
 
@@ -441,10 +364,8 @@ class CustomPlacesManager {
         throw new Error(errorData.message || "Failed to delete place");
       }
 
-      // Remove from places collection
       this.places.delete(placeId);
 
-      // Remove from map
       this.customPlacesLayer.eachLayer((layer) => {
         if (layer.feature?.properties?.placeId === placeId) {
           this.customPlacesLayer.removeLayer(layer);
@@ -453,7 +374,6 @@ class CustomPlacesManager {
 
       window.notificationManager.show("Place deleted successfully", "success");
 
-      // Refresh modal if open
       if (
         this.managePlacesModal &&
         document
@@ -471,10 +391,6 @@ class CustomPlacesManager {
     }
   }
 
-  /**
-   * Toggle layer visibility
-   * @param {boolean} visible - Whether the layer should be visible
-   */
   toggleVisibility(visible) {
     if (!this.map || !this.customPlacesLayer) return;
 
@@ -486,9 +402,7 @@ class CustomPlacesManager {
   }
 }
 
-// Initialize when DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
-  // Wait for map to be available
   const checkForMap = setInterval(() => {
     const mapElement = document.getElementById("map");
     const mapInstance = window.map;
@@ -499,6 +413,5 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }, 200);
 
-  // Fail-safe to stop checking after 10 seconds
   setTimeout(() => clearInterval(checkForMap), 10000);
 });

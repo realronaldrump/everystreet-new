@@ -1,7 +1,4 @@
-/* flatpickr, bootstrap */
-/**
- * DateUtils: Centralized utilities for consistent date handling
- */
+/* global flatpickr, bootstrap */
 const DateUtils = {
   DEFAULT_FORMAT: "YYYY-MM-DD",
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -309,9 +306,6 @@ const DateUtils = {
   },
 };
 
-/**
- * Centralized error handler
- */
 function handleError(error, context = "", onComplete = null) {
   const errorObj = typeof error === "string" ? new Error(error) : error;
   console.error(`Error in ${context}:`, errorObj);
@@ -348,9 +342,6 @@ function handleError(error, context = "", onComplete = null) {
   return errorObj;
 }
 
-/**
- * NotificationManager - Displays toast notifications
- */
 class NotificationManager {
   constructor(config = {}) {
     this.config = {
@@ -390,7 +381,7 @@ class NotificationManager {
     this.container.appendChild(notification);
 
     if (this.config.animations) {
-      notification.offsetHeight; // Force reflow
+      notification.offsetHeight;
     }
 
     this.notifications.push(notification);
@@ -449,9 +440,6 @@ class NotificationManager {
   }
 }
 
-/**
- * ConfirmationDialog - Display modal confirmation dialogs
- */
 class ConfirmationDialog {
   constructor(config = {}) {
     this.config = {
@@ -573,13 +561,11 @@ class ConfirmationDialog {
   }
 }
 
-// Initialize and expose utility instances
 window.notificationManager =
   window.notificationManager || new NotificationManager();
 window.confirmationDialog =
   window.confirmationDialog || new ConfirmationDialog();
 
-// Export utilities as namespaces
 window.utils = {
   debounce(func, wait = 300) {
     let timeout = null;
@@ -766,11 +752,9 @@ window.dom = {
   },
 };
 
-// Initialize global utility instances
 window.handleError = handleError;
 window.DateUtils = DateUtils;
 
-// DOM Helper utility class
 class DOMHelper {
   static byId(id) {
     return document.getElementById(id);

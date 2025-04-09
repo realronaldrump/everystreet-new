@@ -1,18 +1,11 @@
 /* global config, url */
 
-/**
- * Export functionality - Handles exporting data in various formats
- * Provides improved user feedback and error handling
- */
 "use strict";
 (() => {
-  // Cache DOM elements and state
   const elements = {};
 
-  // Track ongoing exports to prevent duplicate requests
   let activeExports = {};
 
-  // Configuration for export forms
   const EXPORT_CONFIG = {
     trips: {
       id: "export-trips-form",
@@ -54,16 +47,12 @@
     },
   };
 
-  /**
-   * Initialize export functionality
-   */
   function init() {
     cacheElements();
     initEventListeners();
     initDatePickers();
     loadSavedExportSettings();
 
-    // Show/hide CSV options based on initial format selection
     const formatSelect = document.getElementById("adv-format");
     if (formatSelect) {
       const initialFormat = formatSelect.value;
@@ -74,9 +63,6 @@
     }
   }
 
-  /**
-   * Cache DOM elements for better performance
-   */
   function cacheElements() {
     Object.values(EXPORT_CONFIG).forEach((config) => {
       elements[config.id] = document.getElementById(config.id);
@@ -98,18 +84,15 @@
       }
     });
 
-    // Cache validate buttons
     elements.validateButtons = document.querySelectorAll(
       ".validate-location-btn",
     );
 
-    // Cache advanced export elements
     elements.exportAllDates = document.getElementById("export-all-dates");
     elements.saveExportSettings = document.getElementById(
       "save-export-settings",
     );
 
-    // Cache data source checkboxes
     elements.includeTrips = document.getElementById("include-trips");
     elements.includeMatchedTrips = document.getElementById(
       "include-matched-trips",
@@ -118,7 +101,6 @@
       "include-uploaded-trips",
     );
 
-    // Cache data field checkboxes
     elements.includeBasicInfo = document.getElementById("include-basic-info");
     elements.includeLocations = document.getElementById("include-locations");
     elements.includeTelemetry = document.getElementById("include-telemetry");
@@ -126,7 +108,6 @@
     elements.includeMeta = document.getElementById("include-meta");
     elements.includeCustom = document.getElementById("include-custom");
 
-    // Cache CSV options
     elements.csvOptionsContainer = document.getElementById("csv-options");
     elements.includeGpsInCsv = document.getElementById("include-gps-in-csv");
     elements.flattenLocationFields = document.getElementById(
@@ -134,24 +115,18 @@
     );
   }
 
-  /**
-   * Initialize date pickers using DateUtils
-   */
   function initDatePickers() {
-    // Only initialize if DateUtils is available
     if (!window.DateUtils || !window.DateUtils.initDatePicker) {
       console.warn("DateUtils not available for initializing date pickers");
       return;
     }
 
-    // Initialize date inputs with DateUtils
     const dateInputs = document.querySelectorAll('input[type="date"]');
     dateInputs.forEach((input) => {
       if (input.id) {
         window.DateUtils.initDatePicker(`#${input.id}`, {
           maxDate: "today",
           onClose: function (selectedDates, dateStr) {
-            // If this is a start date, update the corresponding end date min value
             if (input.id.includes("start")) {
               const endInputId = input.id.replace("start", "end");
               const endInput = document.getElementById(endInputId);
@@ -164,7 +139,6 @@
       }
     });
 
-    // Set default dates if not already set
     const setDefaultDates = async () => {
       try {
         const dateRange = await window.DateUtils.getDateRangePreset("30days");
@@ -188,15 +162,10 @@
       }
     };
 
-    // Set default dates with a slight delay to allow flatpickr to initialize
     setTimeout(setDefaultDates, 200);
   }
 
-  /**
-   * Initialize event listeners
-   */
   function initEventListeners() {
-    // Set up form submit handlers
     Object.keys(EXPORT_CONFIG).forEach((formKey) => {
       const form = elements[EXPORT_CONFIG[formKey].id];
       if (form) {
@@ -207,7 +176,6 @@
       }
     });
 
-    // Set up location validation buttons
     elements.validateButtons.forEach((button) => {
       button.addEventListener("click", (event) => {
         const targetId = event.currentTarget.dataset.target;
@@ -217,7 +185,6 @@
       });
     });
 
-    // Handle export date checkbox
     if (elements.exportAllDates) {
       elements.exportAllDates.addEventListener("change", (event) => {
         const checked = event.target.checked;
@@ -231,24 +198,17 @@
       });
     }
 
-    // Handle format change to update UI based on format limitations
     const formatSelect = document.getElementById("adv-format");
     if (formatSelect) {
       formatSelect.addEventListener("change", (event) => {
         updateUIBasedOnFormat(event.target.value);
       });
 
-      // Initialize UI based on default format
       updateUIBasedOnFormat(formatSelect.value);
     }
   }
 
-  /**
-   * Update UI elements based on selected format
-   * @param {string} format - Selected export format
-   */
   function updateUIBasedOnFormat(format) {
-    // Get all data field checkboxes
     const checkboxes = [
       elements.includeBasicInfo,
       elements.includeLocations,
@@ -258,7 +218,6 @@
       elements.includeCustom,
     ];
 
-    // Reset all checkboxes (enable all)
     checkboxes.forEach((checkbox) => {
       if (checkbox) {
         checkbox.disabled = false;
@@ -266,16 +225,13 @@
       }
     });
 
-    // Show/hide CSV options based on format
     if (elements.csvOptionsContainer) {
       elements.csvOptionsContainer.style.display =
         format === "csv" ? "block" : "none";
     }
 
-    // Apply format-specific limitations
     switch (format) {
       case "geojson":
-        // GeoJSON always includes geometry and basic info but has limitations on other data
         if (elements.includeGeometry) {
           elements.includeGeometry.checked = true;
           elements.includeGeometry.disabled = true;
@@ -283,7 +239,6 @@
         break;
 
       case "gpx":
-        // GPX has more significant limitations - primarily for geospatial data
         if (elements.includeGeometry) {
           elements.includeGeometry.checked = true;
           elements.includeGeometry.disabled = true;
@@ -308,7 +263,6 @@
         break;
 
       case "shapefile":
-        // Shapefiles are similar to GeoJSON in limitations
         if (elements.includeGeometry) {
           elements.includeGeometry.checked = true;
           elements.includeGeometry.disabled = true;
@@ -322,7 +276,6 @@
         break;
 
       case "csv":
-        // CSV is best for tabular data but not ideal for geometry
         if (elements.includeGeometry) {
           elements.includeGeometry.disabled = true;
           elements.includeGeometry.parentElement.classList.add("text-muted");
@@ -332,12 +285,9 @@
         break;
 
       case "json":
-        // JSON supports all data types
-        // No limitations
         break;
     }
 
-    // Add data fields parameters
     if (elements.includeBasicInfo) {
       url += `&include_basic_info=${elements.includeBasicInfo.checked}`;
     }
@@ -357,7 +307,6 @@
       url += `&include_custom=${elements.includeCustom.checked}`;
     }
 
-    // Add CSV-specific options when format is CSV
     if (format === "csv") {
       if (elements.includeGpsInCsv) {
         url += `&include_gps_in_csv=${elements.includeGpsInCsv.checked}`;
@@ -367,7 +316,6 @@
       }
     }
 
-    // Add date range if not using all dates
     if (elements.exportAllDates && !elements.exportAllDates.checked) {
       const startDate = elements[config.dateStart]?.value;
       const endDate = elements[config.dateEnd]?.value;
@@ -385,21 +333,15 @@
       url += `&start_date=${startDate}&end_date=${endDate}`;
     }
 
-    // Save settings if option is checked
     if (elements.saveExportSettings?.checked) {
       saveExportSettings();
     }
   }
 
-  /**
-   * Handle form submission for export
-   * @param {string} formType - Key identifying which form was submitted
-   */
   async function handleFormSubmit(formType) {
     const config = EXPORT_CONFIG[formType];
     if (!config) return;
 
-    // Prevent duplicate exports
     if (activeExports[formType]) {
       showNotification(
         `Already exporting ${config.name}. Please wait...`,
@@ -411,11 +353,9 @@
     const formElement = elements[config.id];
     if (!formElement) return;
 
-    // Define originalText outside the try block so it's available in finally
     let submitButton = null;
     let originalText = "";
 
-    // Show export in progress
     submitButton = formElement.querySelector('button[type="submit"]');
     if (submitButton) {
       originalText = submitButton.textContent || `Export ${config.name}`;
@@ -430,9 +370,7 @@
 
       let url = "";
 
-      // Build the URL based on form type
       if (formType === "trips" || formType === "matchedTrips") {
-        // Date-based exports
         const startDate = elements[config.dateStart]?.value;
         const endDate = elements[config.dateEnd]?.value;
         const format = elements[config.format]?.value;
@@ -447,7 +385,6 @@
 
         url = `${config.endpoint}?start_date=${startDate}&end_date=${endDate}&format=${format}`;
       } else if (formType === "streets" || formType === "boundary") {
-        // Location-based exports
         const locationInput = elements[config.location];
         const format = elements[config.format]?.value;
 
@@ -460,11 +397,9 @@
           locationData,
         )}&format=${format}`;
       } else if (formType === "advanced") {
-        // Advanced export with configurable options
         const format = elements[config.format]?.value;
         url = `${config.endpoint}?format=${format}`;
 
-        // Add data sources parameters
         if (elements.includeTrips) {
           url += `&include_trips=${elements.includeTrips.checked}`;
         }
@@ -475,7 +410,6 @@
           url += `&include_uploaded_trips=${elements.includeUploadedTrips.checked}`;
         }
 
-        // Add data fields parameters
         if (elements.includeBasicInfo) {
           url += `&include_basic_info=${elements.includeBasicInfo.checked}`;
         }
@@ -495,7 +429,6 @@
           url += `&include_custom=${elements.includeCustom.checked}`;
         }
 
-        // Add CSV-specific options when format is CSV
         if (format === "csv") {
           if (elements.includeGpsInCsv) {
             url += `&include_gps_in_csv=${elements.includeGpsInCsv.checked}`;
@@ -505,7 +438,6 @@
           }
         }
 
-        // Add date range if not using all dates
         if (elements.exportAllDates && !elements.exportAllDates.checked) {
           const startDate = elements[config.dateStart]?.value;
           const endDate = elements[config.dateEnd]?.value;
@@ -523,31 +455,26 @@
           url += `&start_date=${startDate}&end_date=${endDate}`;
         }
 
-        // Save settings if option is checked
         if (elements.saveExportSettings?.checked) {
           saveExportSettings();
         }
       } else {
-        // Simple format-only exports
         const format = elements[config.format]?.value;
         url = `${config.endpoint}?format=${format}`;
       }
 
-      // Create an AbortController for timeout management
       const abortController = new AbortController();
       const timeoutId = setTimeout(() => {
         abortController.abort();
         console.log(
           `Export operation timed out after 120 seconds: ${config.name}`,
         );
-      }, 120000); // 2 minute timeout
+      }, 120000);
 
       try {
-        // Start download with timeout
         await downloadFile(url, config.name, abortController.signal);
         showNotification(`${config.name} export completed`, "success");
       } finally {
-        // Clear timeout regardless of success or failure
         clearTimeout(timeoutId);
       }
     } catch (error) {
@@ -565,9 +492,6 @@
     }
   }
 
-  /**
-   * Save current export settings to localStorage
-   */
   function saveExportSettings() {
     try {
       const settings = {
@@ -596,9 +520,6 @@
     }
   }
 
-  /**
-   * Load saved export settings from localStorage
-   */
   function loadSavedExportSettings() {
     try {
       const savedSettingsJSON = localStorage.getItem("advancedExportSettings");
@@ -606,7 +527,6 @@
 
       const settings = JSON.parse(savedSettingsJSON);
 
-      // Apply data sources settings
       if (settings.dataSources) {
         if (
           elements.includeTrips &&
@@ -630,7 +550,6 @@
         }
       }
 
-      // Apply data fields settings
       if (settings.dataFields) {
         if (
           elements.includeBasicInfo &&
@@ -674,7 +593,6 @@
         }
       }
 
-      // Apply date settings
       if (
         settings.dateSettings &&
         elements.exportAllDates &&
@@ -682,7 +600,6 @@
       ) {
         elements.exportAllDates.checked = settings.dateSettings.exportAllDates;
 
-        // Enable/disable date inputs based on setting
         const startDateInput = document.getElementById("adv-start-date");
         const endDateInput = document.getElementById("adv-end-date");
         if (startDateInput && endDateInput) {
@@ -691,10 +608,8 @@
         }
       }
 
-      // Apply format setting
       if (settings.format && elements["adv-format"]) {
         elements["adv-format"].value = settings.format;
-        // Update UI based on format
         updateUIBasedOnFormat(settings.format);
       }
     } catch (error) {
@@ -702,11 +617,6 @@
     }
   }
 
-  /**
-   * Validate location input
-   * @param {HTMLElement} locationInput - Location input element
-   * @returns {boolean} Whether location is valid
-   */
   function validateLocationInput(locationInput) {
     if (!locationInput) {
       showNotification("Location input not found", "warning");
@@ -727,10 +637,6 @@
     return true;
   }
 
-  /**
-   * Validate a location through the API
-   * @param {string} inputId - ID of location input element
-   */
   async function validateLocation(inputId) {
     const locationInput = document.getElementById(inputId);
 
@@ -739,11 +645,9 @@
       return;
     }
 
-    // Define these variables outside the try block so they're accessible in finally
     let validateButton = null;
     let originalText = "";
 
-    // Show validation in progress
     const form = locationInput.closest("form");
     validateButton = form?.querySelector(".validate-location-btn");
 
@@ -777,22 +681,18 @@
       const data = await response.json();
 
       if (data) {
-        // Store the validated location data
         locationInput.setAttribute("data-location", JSON.stringify(data));
         locationInput.setAttribute(
           "data-display-name",
           data.display_name || data.name || locationInput.value,
         );
 
-        // Update the input value with the canonical name
         locationInput.value =
           data.display_name || data.name || locationInput.value;
 
-        // Style the input to show it's validated
         locationInput.classList.add("is-valid");
         locationInput.classList.remove("is-invalid");
 
-        // Enable submit button in parent form
         const submitButton = form?.querySelector('button[type="submit"]');
         if (submitButton) {
           submitButton.disabled = false;
@@ -813,7 +713,6 @@
         );
       }
     } catch (error) {
-      // Use the centralized error handler if available
       if (window.handleError) {
         window.handleError(error, "validating location");
       } else {
@@ -824,7 +723,6 @@
       locationInput.classList.add("is-invalid");
       locationInput.classList.remove("is-valid");
     } finally {
-      // Reset button state
       if (validateButton) {
         validateButton.disabled = false;
         validateButton.innerHTML = originalText;
@@ -832,14 +730,7 @@
     }
   }
 
-  /**
-   * Download a file from a URL
-   * @param {string} url - URL to download from
-   * @param {string} exportName - Name of the export for user feedback
-   * @param {AbortSignal} [signal] - AbortSignal for timeout control
-   */
   async function downloadFile(url, exportName, signal) {
-    // Add timestamp parameter to URL to prevent caching issues
     const urlWithTimestamp =
       url +
       (url.includes("?") ? "&" : "?") +
@@ -850,8 +741,6 @@
       showNotification(`Requesting ${exportName} data...`, "info");
       console.log(`Requesting export from: ${urlWithTimestamp}`);
 
-      // Show loading indicator if available
-      // Check for various loading indicator implementations
       if (
         window.loadingManager &&
         typeof window.loadingManager.show === "function"
@@ -863,7 +752,6 @@
       ) {
         window.LoadingManager.show(`Exporting ${exportName}...`);
       } else {
-        // Find the loading overlay element directly if it exists
         const loadingOverlay = document.querySelector(".loading-overlay");
         if (loadingOverlay) {
           loadingOverlay.style.display = "flex";
@@ -874,7 +762,6 @@
         }
       }
 
-      // Add fetch options including abort signal for timeout
       const fetchOptions = { signal };
 
       console.log(`Starting fetch for ${exportName} export...`);
@@ -887,7 +774,6 @@
         let errorMsg = `Server error (${response.status})`;
 
         try {
-          // Try to get detailed error message
           const errorText = await response.text();
           console.error(`Server error details for ${exportName}: ${errorText}`);
 
@@ -896,7 +782,7 @@
               const errorJson = JSON.parse(errorText);
               errorMsg = errorJson.detail || errorJson.message || errorText;
             } catch (e) {
-              errorMsg = errorText.substring(0, 100); // Truncate long error messages
+              errorMsg = errorText.substring(0, 100);
             }
           }
         } catch (e) {
@@ -906,35 +792,28 @@
         throw new Error(errorMsg);
       }
 
-      // Get content length if available
       const contentLength = response.headers.get("Content-Length");
       const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
       console.log(
         `Content-Length: ${contentLength}, parsed size: ${totalSize}`,
       );
 
-      // Log headers for debugging
       console.log("Response headers:");
       response.headers.forEach((value, name) => {
         console.log(`${name}: ${value}`);
       });
 
-      // Extract format from URL
       const formatMatch = urlWithTimestamp.match(/format=([^&]+)/);
       const format = formatMatch ? formatMatch[1] : null;
 
-      // Get filename from Content-Disposition header with better parsing
       const contentDisposition = response.headers.get("Content-Disposition");
       let filename = null;
 
       if (contentDisposition) {
-        // Try different regex patterns to match filename
-        // First try quoted filename
         const quotedMatch = contentDisposition.match(/filename="([^"]+)"/);
         if (quotedMatch) {
           filename = quotedMatch[1];
         } else {
-          // Try unquoted filename as fallback
           const unquotedMatch = contentDisposition.match(/filename=([^;]+)/);
           if (unquotedMatch) {
             filename = unquotedMatch[1].trim();
@@ -942,14 +821,12 @@
         }
       }
 
-      // If still no filename, generate one with proper extension based on format
       if (!filename) {
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
         const extension = getExtensionForFormat(format);
         filename = `${exportName}-${timestamp}${extension}`;
       }
 
-      // Ensure filename has the correct extension based on format
       if (format && !filename.endsWith(getExtensionForFormat(format))) {
         filename = `${filename}${getExtensionForFormat(format)}`;
       }
@@ -958,12 +835,10 @@
       console.log(`Starting download of ${filename}...`);
 
       try {
-        // Create a reader to read the stream and keep track of progress
         const reader = response.body.getReader();
         let receivedLength = 0;
         const chunks = [];
 
-        // Function to process chunks
         while (true) {
           const { done, value } = await reader.read();
 
@@ -977,7 +852,6 @@
           chunks.push(value);
           receivedLength += value.length;
 
-          // Log progress periodically (only on significant changes)
           if (
             totalSize &&
             receivedLength % Math.max(totalSize / 10, 1024 * 1024) <
@@ -990,14 +864,12 @@
             );
           }
 
-          // Update progress if we know the total size
           if (totalSize) {
             const progress = Math.min(
               Math.round((receivedLength / totalSize) * 100),
               100,
             );
 
-            // Try to update progress through different possible interfaces
             if (
               window.loadingManager &&
               typeof window.loadingManager.updateProgress === "function"
@@ -1009,7 +881,6 @@
             ) {
               window.LoadingManager.updateProgress(progress);
             } else {
-              // Try to find progress bar element directly
               const progressBar = document.getElementById(
                 "loading-progress-bar",
               );
@@ -1020,7 +891,6 @@
           }
         }
 
-        // Combine chunks into a single Uint8Array
         console.log(`Combining ${chunks.length} chunks into final blob...`);
         const chunksAll = new Uint8Array(receivedLength);
         let position = 0;
@@ -1029,21 +899,18 @@
           position += chunk.length;
         }
 
-        // Convert to blob with proper content type
         const contentType = getContentTypeForFormat(format);
         console.log(`Creating blob with type: ${contentType}`);
         const blob = new Blob([chunksAll], { type: contentType });
         const blobUrl = URL.createObjectURL(blob);
         console.log(`Blob URL created: ${blobUrl.substring(0, 30)}...`);
 
-        // Create and trigger download
         console.log(`Triggering download of ${filename}`);
         const downloadLink = document.createElement("a");
         downloadLink.style.display = "none";
         downloadLink.href = blobUrl;
         downloadLink.download = filename;
 
-        // Explicitly set mimetype attribute if supported by browser
         if ("download" in downloadLink) {
           downloadLink.type = contentType;
         }
@@ -1051,7 +918,6 @@
         document.body.appendChild(downloadLink);
         downloadLink.click();
 
-        // Clean up
         setTimeout(() => {
           document.body.removeChild(downloadLink);
           URL.revokeObjectURL(blobUrl);
@@ -1075,12 +941,10 @@
         );
       }
 
-      // Add more context to the error message
       const errorMsg = `Export failed: ${error.message || "Unknown error"}`;
       showNotification(errorMsg, "error");
       throw error;
     } finally {
-      // Hide loading indicator - checking for all possible implementations
       if (
         window.loadingManager &&
         typeof window.loadingManager.hide === "function"
@@ -1092,7 +956,6 @@
       ) {
         window.LoadingManager.hide();
       } else {
-        // Find the loading overlay element directly if it exists
         const loadingOverlay = document.querySelector(".loading-overlay");
         if (loadingOverlay) {
           loadingOverlay.style.display = "none";
@@ -1101,11 +964,6 @@
     }
   }
 
-  /**
-   * Get file extension for the given format
-   * @param {string} format - Export format
-   * @returns {string} Appropriate file extension with leading dot
-   */
   function getExtensionForFormat(format) {
     if (!format) return ".dat";
 
@@ -1127,11 +985,6 @@
     }
   }
 
-  /**
-   * Get content type for the given format
-   * @param {string} format - Export format
-   * @returns {string} MIME type for the format
-   */
   function getContentTypeForFormat(format) {
     if (!format) return "application/octet-stream";
 
@@ -1153,11 +1006,6 @@
     }
   }
 
-  /**
-   * Show a notification using the global notification manager
-   * @param {string} message - Notification message
-   * @param {string} type - Notification type (success, warning, danger, info)
-   */
   function showNotification(message, type) {
     if (window.notificationManager) {
       window.notificationManager.show(message, type);
@@ -1166,9 +1014,7 @@
     }
   }
 
-  // Initialize on DOM ready
   document.addEventListener("DOMContentLoaded", init);
 
-  // Expose validateLocation function to make it available for inline onclick handlers
   window.validateLocation = validateLocation;
 })();

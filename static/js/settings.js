@@ -33,15 +33,12 @@
       this.configRefreshTimeout = null;
       this.eventSource = null;
 
-      // Set up real-time event source for task updates
       this.setupEventSource();
 
-      // Setup polling as fallback
       this.setupPolling();
     }
 
     setupEventSource() {
-      // Close existing event source if any
       if (this.eventSource) {
         this.eventSource.close();
       }
@@ -53,14 +50,12 @@
           try {
             const updates = JSON.parse(event.data);
 
-            // Process each task update
             Object.entries(updates).forEach(([taskId, update]) => {
               const row = document.querySelector(
                 `tr[data-task-id="${taskId}"]`,
               );
               if (!row) return;
 
-              // Update status cell
               const statusCell = row.querySelector(".task-status");
               if (statusCell) {
                 const currentStatus = statusCell.dataset.status;
@@ -70,13 +65,11 @@
                   statusCell.innerHTML = this.getStatusHTML(newStatus);
                   statusCell.dataset.status = newStatus;
 
-                  // Update run button state
                   const runButton = row.querySelector(".run-now-btn");
                   if (runButton) {
                     runButton.disabled = newStatus === "RUNNING";
                   }
 
-                  // Handle task completion notifications
                   if (
                     currentStatus === "RUNNING" &&
                     (newStatus === "COMPLETED" || newStatus === "FAILED")
@@ -101,20 +94,17 @@
                 }
               }
 
-              // Update last run time
               const lastRunCell = row.querySelector(".task-last-run");
               if (lastRunCell && update.last_run) {
                 lastRunCell.textContent = this.formatDateTime(update.last_run);
               }
 
-              // Update next run time
               const nextRunCell = row.querySelector(".task-next-run");
               if (nextRunCell && update.next_run) {
                 nextRunCell.textContent = this.formatDateTime(update.next_run);
               }
             });
 
-            // Update active tasks map based on latest data
             this.updateActiveTasksMapFromUpdates(updates);
           } catch (error) {
             console.error("Error processing SSE update:", error);
@@ -123,12 +113,10 @@
 
         this.eventSource.onerror = (error) => {
           console.error("SSE connection error:", error);
-          // Try to reconnect after delay
           setTimeout(() => this.setupEventSource(), 5000);
         };
       } catch (error) {
         console.error("Error setting up EventSource:", error);
-        // If EventSource fails, rely on polling
         this.setupPolling();
       }
     }
@@ -136,18 +124,15 @@
     updateActiveTasksMapFromUpdates(updates) {
       const runningTasks = new Set();
 
-      // Add tasks that are currently running
       for (const [taskId, taskData] of Object.entries(updates)) {
         if (taskData.status === "RUNNING") {
           runningTasks.add(taskId);
-          // Track when task started running
           if (!this.activeTasksMap.has(taskId)) {
             this.activeTasksMap.set(taskId, {
               status: "RUNNING",
               startTime: new Date(),
             });
 
-            // Notify about task start
             const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
             if (row) {
               const displayName =
@@ -162,14 +147,11 @@
         }
       }
 
-      // Check for tasks that have finished
       for (const [taskId, taskState] of this.activeTasksMap.entries()) {
         if (!runningTasks.has(taskId) && updates[taskId]) {
           const taskStatus = updates[taskId].status;
           if (taskStatus !== "RUNNING") {
-            // Don't notify if task wasn't previously known to be running
             if (taskState.status === "RUNNING") {
-              // Notify about task completion
               const row = document.querySelector(
                 `tr[data-task-id="${taskId}"]`,
               );
@@ -202,18 +184,15 @@
     }
 
     setupPolling() {
-      // Clear any existing interval
       if (this.pollingInterval) {
         clearInterval(this.pollingInterval);
       }
 
-      // Poll less frequently when we have EventSource
       const pollInterval =
         this.eventSource && this.eventSource.readyState === EventSource.OPEN
           ? 15000
           : 5000;
 
-      // Polling as backup
       this.pollingInterval = setInterval(() => {
         this.loadTaskConfig();
         this.updateTaskHistory();
@@ -235,7 +214,6 @@
 
         this.updateTaskConfigTable(config);
 
-        // Update active tasks map based on current config
         this.updateActiveTasksMap(config);
 
         await this.updateTaskHistory();
@@ -249,15 +227,12 @@
       }
     }
 
-    // Enhanced active task tracking
     updateActiveTasksMap(config) {
-      // Build a set of currently running tasks from latest config
       const runningTasks = new Set();
 
       for (const [taskId, taskConfig] of Object.entries(config.tasks)) {
         if (taskConfig.status === "RUNNING") {
           runningTasks.add(taskId);
-          // Add newly running tasks with timestamp
           if (!this.activeTasksMap.has(taskId)) {
             this.activeTasksMap.set(taskId, {
               status: "RUNNING",
@@ -267,7 +242,6 @@
         }
       }
 
-      // Check for tasks that have recently finished
       const recentlyFinished = [];
       for (const [taskId, taskState] of this.activeTasksMap.entries()) {
         if (!runningTasks.has(taskId)) {
@@ -275,12 +249,10 @@
         }
       }
 
-      // Remove finished tasks
       for (const taskId of recentlyFinished) {
         const displayName = config.tasks[taskId]?.display_name || taskId;
         const status = config.tasks[taskId]?.status || "COMPLETED";
 
-        // Only notify on transitions from RUNNING to COMPLETED/FAILED
         if (
           this.activeTasksMap.get(taskId).status === "RUNNING" &&
           (status === "COMPLETED" || status === "FAILED")
@@ -313,7 +285,6 @@
         const row = document.createElement("tr");
         row.dataset.taskId = taskId;
 
-        // Skip if task has no display_name (likely not a proper task)
         if (!task.display_name) return;
 
         row.innerHTML = `
@@ -415,17 +386,14 @@
       history.forEach((entry) => {
         const row = document.createElement("tr");
 
-        // Handle duration properly - runtime should be in milliseconds
         let durationText = "Unknown";
         if (entry.runtime !== null && entry.runtime !== undefined) {
-          // Handle numbers and strings
           const runtimeMs = parseFloat(entry.runtime);
           if (!isNaN(runtimeMs)) {
             durationText = this.formatDuration(runtimeMs);
           }
         }
 
-        // Better details content based on status
         let detailsContent = "N/A";
         if (entry.error) {
           detailsContent = `<button class="btn btn-sm btn-danger view-error-btn"
@@ -455,7 +423,6 @@
         tbody.appendChild(row);
       });
 
-      // Add event listeners for error buttons
       const errorButtons = tbody.querySelectorAll(".view-error-btn");
       errorButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -465,7 +432,6 @@
       });
     }
 
-    // Escape HTML for security
     escapeHtml(str) {
       if (!str) return "";
       return String(str)
@@ -477,7 +443,6 @@
     }
 
     showErrorModal(errorMessage) {
-      // Create modal if it doesn't exist
       let modal = document.getElementById("errorModal");
       if (!modal) {
         modal = document.createElement("div");
@@ -503,11 +468,9 @@
         document.body.appendChild(modal);
       }
 
-      // Set error content
       const errorContent = modal.querySelector(".error-details");
       errorContent.textContent = errorMessage;
 
-      // Show modal
       const bsModal = new bootstrap.Modal(modal);
       bsModal.show();
     }
@@ -525,7 +488,6 @@
       const pagination = document.createElement("ul");
       pagination.className = "pagination justify-content-center";
 
-      // Previous button
       const prevLi = document.createElement("li");
       prevLi.className = `page-item ${
         this.currentHistoryPage === 1 ? "disabled" : ""
@@ -535,7 +497,6 @@
       }">Previous</a>`;
       pagination.appendChild(prevLi);
 
-      // Page numbers (show up to 5 pages with current page in the middle)
       const startPage = Math.max(1, this.currentHistoryPage - 2);
       const endPage = Math.min(this.historyTotalPages, startPage + 4);
 
@@ -548,7 +509,6 @@
         pagination.appendChild(pageLi);
       }
 
-      // Next button
       const nextLi = document.createElement("li");
       nextLi.className = `page-item ${
         this.currentHistoryPage === this.historyTotalPages ? "disabled" : ""
@@ -560,7 +520,6 @@
 
       paginationContainer.appendChild(pagination);
 
-      // Add event listeners to pagination links
       const pageLinks = paginationContainer.querySelectorAll(".page-link");
       pageLinks.forEach((link) => {
         link.addEventListener("click", (e) => {
@@ -612,7 +571,6 @@
 
     async runTask(taskId) {
       try {
-        // Show loading overlay while starting task
         showLoadingOverlay();
 
         const response = await fetch("/api/background_tasks/manual_run", {
@@ -621,31 +579,24 @@
           body: JSON.stringify({ tasks: [taskId] }),
         });
 
-        // Get the result regardless of response status
         const result = await response.json();
 
-        // Hide loading overlay
         hideLoadingOverlay();
 
         if (!response.ok) {
-          // API returned an error
           throw new Error(result.detail || "Failed to start task");
         }
 
-        // Handle successful API call but potential dependency issues
         if (result.status === "success") {
-          // Check for detailed results from specific tasks
           if (result.results && result.results.length > 0) {
             const taskResult = result.results.find((r) => r.task === taskId);
 
             if (taskResult && !taskResult.success) {
-              // Task couldn't start, likely a dependency issue
               this.showDependencyErrorModal(taskId, taskResult.message);
               return false;
             }
           }
 
-          // If we get here, task started successfully
           this.activeTasksMap.set(taskId, {
             status: "RUNNING",
             startTime: new Date(),
@@ -657,7 +608,6 @@
             "info",
           );
 
-          // Update UI to show running status
           const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
           if (row) {
             const statusCell = row.querySelector(".task-status");
@@ -672,7 +622,6 @@
             }
           }
 
-          // Load the config once immediately after starting
           await this.loadTaskConfig();
 
           return true;
@@ -737,7 +686,6 @@
     }
 
     async submitTaskConfigUpdate(config) {
-      // Show loading overlay while saving config
       showLoadingOverlay();
 
       try {
@@ -762,10 +710,8 @@
 
     async showTaskDetails(taskId) {
       try {
-        // Show loading overlay while fetching details
         showLoadingOverlay();
 
-        // First get the task metadata
         const taskResponse = await fetch(
           `/api/background_tasks/task/${taskId}`,
         );
@@ -908,7 +854,6 @@
 
     async clearTaskHistory() {
       try {
-        // Show loading overlay
         showLoadingOverlay();
 
         const response = await fetch("/api/background_tasks/history/clear", {
@@ -927,7 +872,6 @@
             '<tr><td colspan="6" class="text-center">No task history available</td></tr>';
         }
 
-        // Reset pagination
         this.currentHistoryPage = 1;
         this.historyTotalPages = 1;
         const paginationContainer = document.querySelector(
@@ -954,7 +898,6 @@
     }
 
     showDependencyErrorModal(taskId, errorMessage) {
-      // Create modal if it doesn't exist
       let modal = document.getElementById("dependencyErrorModal");
       if (!modal) {
         modal = document.createElement("div");
@@ -985,17 +928,14 @@
         document.body.appendChild(modal);
       }
 
-      // Set content
       const errorMessageEl = modal.querySelector(".dependency-error-message");
       if (errorMessageEl) {
         errorMessageEl.textContent = errorMessage;
       }
 
-      // Show modal
       const bsModal = new bootstrap.Modal(modal);
       bsModal.show();
 
-      // Refresh task config to show accurate status
       this.loadTaskConfig();
     }
 
@@ -1010,7 +950,6 @@
         this.configRefreshTimeout = null;
       }
 
-      // Close EventSource
       if (this.eventSource) {
         this.eventSource.close();
         this.eventSource = null;
@@ -1018,7 +957,6 @@
     }
   }
 
-  // Make taskManager accessible globally
   window.taskManager = null;
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -1029,10 +967,8 @@
     setupRegeocode();
     setupRemapMatchedTrips();
 
-    // Initial loading of task configuration
     taskManager.loadTaskConfig();
 
-    // Cleanup on page unload
     window.addEventListener("beforeunload", () => {
       if (window.taskManager) {
         window.taskManager.cleanup();
@@ -1073,7 +1009,6 @@
       });
     }
 
-    // Reset Tasks Button Handler
     const resetTasksBtn = document.getElementById("resetTasksBtn");
     if (resetTasksBtn) {
       resetTasksBtn.addEventListener("click", async () => {
@@ -1369,7 +1304,6 @@
       }
 
       try {
-        // Show loading as this can take time
         showLoadingOverlay();
         document.getElementById("remap-status").textContent =
           "Remapping trips...";
@@ -1395,11 +1329,9 @@
       }
     });
 
-    // Use the central DateUtils function
     if (window.DateUtils?.initDatePicker) {
       window.DateUtils.initDatePicker(".datepicker");
     } else {
-      // Fallback to flatpickr directly
       flatpickr(".datepicker", {
         enableTime: false,
         dateFormat: "Y-m-d",

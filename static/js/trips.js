@@ -1,26 +1,16 @@
-"use strict";
-
 /* global L, flatpickr, notificationManager, bootstrap, DateUtils, EveryStreet, confirmationDialog, $ */
 
-/**
- * Creates an editable cell for the DataTable
- * @param {*} data - Cell data
- * @param {string} type - Render type ('display', 'filter', etc.)
- * @param {string} field - Field name
- * @param {string} [inputType='text'] - HTML input type
- * @returns {string} HTML for the editable cell
- */
+"use strict";
+
 function createEditableCell(data, type, field, inputType = "text") {
   if (type !== "display") return data;
 
   const value = data === null || data === undefined ? "" : data;
   let inputAttributes = "";
 
-  // Set specific attributes based on input type
   if (inputType === "number") {
     inputAttributes = 'step="any"';
   } else if (inputType === "datetime-local") {
-    // Convert date to datetime-local format for input using DateUtils
     const dateObj = DateUtils.parseDate(value);
     const localDatetime = dateObj
       ? new Date(dateObj.getTime() - dateObj.getTimezoneOffset() * 60000)
@@ -45,17 +35,12 @@ function createEditableCell(data, type, field, inputType = "text") {
 }
 
 (() => {
-  /**
-   * TripsManager - Manages trips data and UI interactions
-   */
   class TripsManager {
     constructor() {
-      // Initialize properties
       this.tripsTable = null;
       this.selectedTripId = null;
       this.tripsCache = new Map();
 
-      // Configuration
       this.config = {
         tables: {
           order: [[3, "desc"]],
@@ -72,24 +57,16 @@ function createEditableCell(data, type, field, inputType = "text") {
         },
       };
 
-      // Initialize on DOM load
       this.init();
     }
 
-    /**
-     * Initialize the trips manager
-     */
     init() {
       this.initializeTripsTable();
       this.initializeEventListeners();
-      this.fetchTrips(); // Initial load
+      this.fetchTrips();
     }
 
-    /**
-     * Initialize event listeners
-     */
     initializeEventListeners() {
-      // Apply filters button
       const applyFiltersButton = document.getElementById("apply-filters");
       if (applyFiltersButton) {
         applyFiltersButton.addEventListener("click", () =>
@@ -97,44 +74,29 @@ function createEditableCell(data, type, field, inputType = "text") {
         );
       }
 
-      // Date preset buttons
       this.initializeDatePresetButtons();
 
-      // Bulk actions buttons
       this.initializeBulkActionButtons();
 
-      // Table row edit handlers (using event delegation)
       this.initializeTableEditHandlers();
     }
 
-    /**
-     * Initialize date preset buttons
-     */
     initializeDatePresetButtons() {
       document.querySelectorAll(".date-preset").forEach((button) => {
         button.addEventListener("click", (e) => this.handleDatePresetClick(e));
       });
     }
 
-    /**
-     * Handle click on date preset button
-     * @param {Event} e - Click event
-     */
     handleDatePresetClick(e) {
       const range = e.currentTarget.dataset.range;
       this.setDateRange(range);
     }
 
-    /**
-     * Set date range based on preset
-     * @param {string} preset - Date preset
-     */
     setDateRange(preset) {
       if (!preset) return;
 
       DateUtils.getDateRangePreset(preset)
         .then(({ startDate, endDate }) => {
-          // Update date inputs
           const startDateInput = document.getElementById("start-date");
           const endDateInput = document.getElementById("end-date");
 
@@ -152,11 +114,9 @@ function createEditableCell(data, type, field, inputType = "text") {
             }
           }
 
-          // Store in localStorage
           localStorage.setItem("startDate", startDate);
           localStorage.setItem("endDate", endDate);
 
-          // Refresh trip list
           this.fetchTrips();
         })
         .catch((error) => {
@@ -165,9 +125,6 @@ function createEditableCell(data, type, field, inputType = "text") {
         });
     }
 
-    /**
-     * Initialize bulk action buttons
-     */
     initializeBulkActionButtons() {
       const bulkDeleteBtn = document.getElementById("bulk-delete-trips-btn");
       if (bulkDeleteBtn) {
@@ -184,38 +141,27 @@ function createEditableCell(data, type, field, inputType = "text") {
       }
     }
 
-    /**
-     * Initialize table edit event handlers
-     */
     initializeTableEditHandlers() {
       const tableEl = document.getElementById("trips-table");
       if (!tableEl) return;
 
-      // Edit button click
       $(tableEl).on("click", ".edit-trip-btn", (e) => {
         e.preventDefault();
         const row = $(e.currentTarget).closest("tr");
         this.setRowEditMode(row, true);
       });
 
-      // Cancel edit button click
       $(tableEl).on("click", ".cancel-edit-btn", (e) => {
         const row = $(e.currentTarget).closest("tr");
         this.cancelRowEdit(row);
       });
 
-      // Save changes button click
       $(tableEl).on("click", ".save-changes-btn", (e) => {
         const row = $(e.currentTarget).closest("tr");
         this.saveRowChanges(row);
       });
     }
 
-    /**
-     * Set a table row to edit mode
-     * @param {jQuery} row - Row jQuery element
-     * @param {boolean} editMode - Whether to enable edit mode
-     */
     setRowEditMode(row, editMode) {
       row.toggleClass("editing", editMode);
       row.find(".display-value").toggleClass("d-none", editMode);
@@ -224,10 +170,6 @@ function createEditableCell(data, type, field, inputType = "text") {
       row.find(".edit-actions").toggleClass("d-none", !editMode);
     }
 
-    /**
-     * Cancel row edit and restore original values
-     * @param {jQuery} row - Row jQuery element
-     */
     cancelRowEdit(row) {
       const rowData = this.tripsTable.row(row).data();
       row.find(".edit-input").each(function () {
@@ -237,16 +179,11 @@ function createEditableCell(data, type, field, inputType = "text") {
       this.setRowEditMode(row, false);
     }
 
-    /**
-     * Save changes to a row
-     * @param {jQuery} row - Row jQuery element
-     */
     async saveRowChanges(row) {
       try {
         const rowData = this.tripsTable.row(row).data();
         const updatedData = { ...rowData };
 
-        // Collect updated values from inputs
         row.find(".edit-input").each(function () {
           const field = $(this).closest(".editable-cell").data("field");
           let value = $(this).val();
@@ -256,13 +193,11 @@ function createEditableCell(data, type, field, inputType = "text") {
           updatedData[field] = value;
         });
 
-        // Get trip ID
         const tripId = this.getTripId(rowData);
         if (!tripId) {
           throw new Error("Could not determine trip ID");
         }
 
-        // Prepare update payload
         const updatePayload = {
           type: "trips",
           properties: { ...updatedData, transactionId: tripId },
@@ -272,7 +207,6 @@ function createEditableCell(data, type, field, inputType = "text") {
           updatePayload.geometry = rowData.geometry || rowData.gps;
         }
 
-        // Send update to server
         const response = await fetch(`/api/trips/${tripId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -284,7 +218,6 @@ function createEditableCell(data, type, field, inputType = "text") {
           throw new Error(errorData.error || "Failed to update trip");
         }
 
-        // Update the table
         this.tripsTable.row(row).data(updatedData).draw();
         this.setRowEditMode(row, false);
         window.notificationManager.show("Trip updated successfully", "success");
@@ -297,11 +230,6 @@ function createEditableCell(data, type, field, inputType = "text") {
       }
     }
 
-    /**
-     * Extract trip ID from row data
-     * @param {Object} rowData - Row data object
-     * @returns {string|null} Trip ID or null
-     */
     getTripId(rowData) {
       if (rowData.properties?.transactionId) {
         return rowData.properties.transactionId;
@@ -311,9 +239,6 @@ function createEditableCell(data, type, field, inputType = "text") {
       return null;
     }
 
-    /**
-     * Handle apply filters button click
-     */
     handleApplyFilters() {
       const startDate = document.getElementById("start-date").value;
       const endDate = document.getElementById("end-date").value;
@@ -321,11 +246,6 @@ function createEditableCell(data, type, field, inputType = "text") {
       this.fetchTrips();
     }
 
-    /**
-     * Store dates in localStorage
-     * @param {string} startDate - Start date (YYYY-MM-DD)
-     * @param {string} endDate - End date (YYYY-MM-DD)
-     */
     storeDates(startDate, endDate) {
       try {
         localStorage.setItem("startDate", startDate);
@@ -335,9 +255,6 @@ function createEditableCell(data, type, field, inputType = "text") {
       }
     }
 
-    /**
-     * Initialize the trips DataTable
-     */
     initializeTripsTable() {
       const tableEl = document.getElementById("trips-table");
       if (!tableEl) return;
@@ -385,7 +302,6 @@ function createEditableCell(data, type, field, inputType = "text") {
             data: "startLocation",
             title: "Start Location",
             render: (data, type) => {
-              // Handle structured location format
               let displayValue = data;
               if (typeof data === "object" && data !== null) {
                 displayValue = data.formatted_address || "Unknown location";
@@ -397,7 +313,6 @@ function createEditableCell(data, type, field, inputType = "text") {
             data: "destination",
             title: "Destination",
             render: (data, type) => {
-              // Handle structured location format
               let displayValue = data;
               if (typeof data === "object" && data !== null) {
                 displayValue = data.formatted_address || "Unknown destination";
@@ -448,32 +363,20 @@ function createEditableCell(data, type, field, inputType = "text") {
         language: this.config.tables.language,
       });
 
-      // Make the trips table accessible globally
       window.tripsTable = this.tripsTable;
 
-      // Selecting all trips checkbox
       $("#select-all-trips").on("change", (e) => {
         $(".trip-checkbox").prop("checked", e.target.checked);
         this.updateBulkDeleteButton();
       });
 
-      // Individual checkboxes
       $(tableEl).on("change", ".trip-checkbox", () => {
         this.updateBulkDeleteButton();
       });
     }
 
-    /**
-     * Render a date/time field
-     * @param {string} data - Field data
-     * @param {string} type - Render type
-     * @param {Object} row - Row data
-     * @param {string} field - Field name
-     * @returns {string} Formatted date or original data
-     */
     renderDateTime(data, type, row, field) {
       if (type === "display" && data) {
-        // Use DateUtils for consistent date formatting
         const formattedDate = DateUtils.formatForDisplay(data, {
           dateStyle: "medium",
           timeStyle: "short",
@@ -484,11 +387,6 @@ function createEditableCell(data, type, field, inputType = "text") {
       return data;
     }
 
-    /**
-     * Render action buttons for a row
-     * @param {Object} row - Row data
-     * @returns {string} HTML for action buttons
-     */
     renderActionButtons(row) {
       return `
         <div class="btn-group">
@@ -510,17 +408,11 @@ function createEditableCell(data, type, field, inputType = "text") {
       `;
     }
 
-    /**
-     * Update the bulk delete button state
-     */
     updateBulkDeleteButton() {
       const checkedCount = $(".trip-checkbox:checked").length;
       $("#bulk-delete-trips-btn").prop("disabled", checkedCount === 0);
     }
 
-    /**
-     * Delete trips in bulk
-     */
     async bulkDeleteTrips() {
       try {
         const selectedTrips = this.tripsTable
@@ -574,13 +466,9 @@ function createEditableCell(data, type, field, inputType = "text") {
       }
     }
 
-    /**
-     * Refresh geocoding for selected trips
-     */
     async refreshGeocoding() {
       const selectedTrips = [];
 
-      // Collect selected trip IDs
       $(".trip-checkbox:checked").each((_, el) => {
         const rowData = this.tripsTable.row($(el).closest("tr")).data();
         selectedTrips.push(rowData.transactionId);
@@ -630,14 +518,9 @@ function createEditableCell(data, type, field, inputType = "text") {
       }
     }
 
-    /**
-     * Get filter parameters for API requests
-     * @returns {URLSearchParams} URL parameters
-     */
     getFilterParams() {
       const params = new URLSearchParams();
 
-      // Get dates from localStorage or date inputs
       let startDate = localStorage.getItem("startDate");
       let endDate = localStorage.getItem("endDate");
 
@@ -653,9 +536,6 @@ function createEditableCell(data, type, field, inputType = "text") {
       return params;
     }
 
-    /**
-     * Fetch trips data from API
-     */
     async fetchTrips() {
       try {
         if (window.loadingManager) {
@@ -681,7 +561,6 @@ function createEditableCell(data, type, field, inputType = "text") {
           this.formatTripData(trip),
         );
 
-        // Update the DataTable
         this.tripsTable.clear().rows.add(formattedTrips).draw();
 
         if (window.loadingManager) {
@@ -700,17 +579,10 @@ function createEditableCell(data, type, field, inputType = "text") {
       }
     }
 
-    /**
-     * Format trip data for display
-     * @param {Object} trip - Trip data from API
-     * @returns {Object} Formatted trip data
-     */
     formatTripData(trip) {
-      // Process location data to handle structured format
       let startLocation = trip.properties.startLocation;
       let destination = trip.properties.destination;
 
-      // Extract the formatted address from structured location objects
       if (startLocation && typeof startLocation === "object") {
         startLocation = startLocation.formatted_address || "Unknown location";
       }
@@ -735,10 +607,6 @@ function createEditableCell(data, type, field, inputType = "text") {
       };
     }
 
-    /**
-     * Delete a single trip
-     * @param {string} tripId - Trip ID to delete
-     */
     async deleteTrip(tripId) {
       try {
         const confirmed = await confirmationDialog.show({
@@ -776,11 +644,6 @@ function createEditableCell(data, type, field, inputType = "text") {
       }
     }
 
-    /**
-     * Export a trip in the specified format
-     * @param {string} tripId - Trip ID to export
-     * @param {string} format - Export format ('geojson' or 'gpx')
-     */
     exportTrip(tripId, format) {
       const url = `/api/export/trip/${tripId}?format=${format}`;
 
@@ -812,11 +675,9 @@ function createEditableCell(data, type, field, inputType = "text") {
     }
   }
 
-  // Initialize TripsManager on DOM load
   document.addEventListener("DOMContentLoaded", () => {
     const tripsManager = new TripsManager();
 
-    // Export public methods for global access
     window.EveryStreet = window.EveryStreet || {};
     window.EveryStreet.Trips = {
       fetchTrips: () => tripsManager.fetchTrips(),

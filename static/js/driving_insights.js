@@ -3,39 +3,31 @@
 "use strict";
 
 (() => {
-  // Global chart variables
   let tripCountsChart = null;
   let distanceChart = null;
   let fuelConsumptionChart = null;
 
-  // Loading manager reference
   const loadingManager = window.loadingManager || {
     startOperation: () => {},
     finish: () => {},
   };
 
-  // Initialize everything once DOM is ready
   document.addEventListener("DOMContentLoaded", () => {
     initializeEventListeners();
-    // Make sure Chart.js and the date adapter are fully loaded before initializing charts
     if (typeof Chart === "undefined") {
       console.error("Chart.js is not loaded");
       return;
     }
 
-    // Wait briefly to ensure date adapter is registered
     setTimeout(() => {
       initializeCharts();
       initializeDatepickers();
-      // Auto-load insights on page load
       fetchDrivingInsights();
     }, 100);
   });
 
-  //  INITIALIZATION FUNCTIONS
   function initializeCharts() {
     try {
-      // Daily Trips Chart (Line Chart)
       const tripCountsCtx = document
         .getElementById("tripCountsChart")
         ?.getContext("2d");
@@ -59,7 +51,7 @@
             },
             scales: {
               x: {
-                type: "category", // Use category instead of time initially
+                type: "category",
                 title: { display: true, text: "Date", color: "#bb86fc" },
                 ticks: { color: "#bb86fc" },
                 grid: { color: "rgba(187, 134, 252, 0.2)" },
@@ -75,7 +67,6 @@
         });
       }
 
-      // Daily Distance Chart (Bar Chart)
       const distanceCtx = document
         .getElementById("distanceChart")
         ?.getContext("2d");
@@ -104,7 +95,7 @@
             },
             scales: {
               x: {
-                type: "category", // Use category instead of time initially
+                type: "category",
                 title: { display: true, text: "Date", color: "#bb86fc" },
                 ticks: { color: "#bb86fc" },
                 grid: { color: "rgba(187, 134, 252, 0.2)" },
@@ -124,7 +115,6 @@
         });
       }
 
-      // Fuel Consumption Chart (Doughnut Chart)
       const fuelConsumptionCtx = document
         .getElementById("fuelConsumptionChart")
         ?.getContext("2d");
@@ -170,7 +160,6 @@
       }
     } catch (error) {
       console.error("Error initializing charts:", error);
-      // Show error notification
       if (window.notificationManager) {
         window.notificationManager.show(
           `Error initializing charts: ${error.message}`,
@@ -185,7 +174,6 @@
     const endDateEl = document.getElementById("end-date");
 
     if (startDateEl && endDateEl) {
-      // Get DateUtils from window object
       const dateUtils = window.DateUtils;
       if (!dateUtils) {
         console.error("DateUtils not available for date initialization");
@@ -193,7 +181,6 @@
       }
 
       try {
-        // Get saved dates from localStorage or use defaults
         let savedStartDate = localStorage.getItem("startDate");
         let savedEndDate = localStorage.getItem("endDate");
 
@@ -207,13 +194,10 @@
           savedEndDate = dateUtils.formatDate(new Date());
         }
 
-        // Set initial values using DateUtils
         if (startDateEl._flatpickr && endDateEl._flatpickr) {
-          // Update when flatpickr is already initialized
           startDateEl._flatpickr.setDate(savedStartDate);
           endDateEl._flatpickr.setDate(savedEndDate);
         } else {
-          // Initialize date pickers if they don't exist yet
           dateUtils.initDatePicker(startDateEl, {
             defaultDate: savedStartDate,
           });
@@ -226,12 +210,10 @@
   }
 
   function initializeEventListeners() {
-    // Apply filters button
     document
       .getElementById("apply-filters")
       ?.addEventListener("click", fetchDrivingInsights);
 
-    // Quick filter buttons
     document
       .getElementById("filter-7days")
       ?.addEventListener("click", () => setDateRange(7));
@@ -242,13 +224,11 @@
       .getElementById("filter-90days")
       ?.addEventListener("click", () => setDateRange(90));
 
-    // Listen for Modern UI filter changes
     document.addEventListener("filtersApplied", () => {
       fetchDrivingInsights();
     });
   }
 
-  //  UTILITY FUNCTIONS
   function setDateRange(days) {
     try {
       const startDateInput = document.getElementById("start-date");
@@ -262,7 +242,6 @@
         return;
       }
 
-      // Map to preset names used by DateUtils
       let preset;
       switch (days) {
         case 7:
@@ -275,7 +254,6 @@
           preset = "90days";
           break;
         default:
-          // Use DateUtils for custom days calculation
           const endDate = new Date();
           const startDate = new Date();
           startDate.setDate(startDate.getDate() - days);
@@ -289,7 +267,6 @@
           return;
       }
 
-      // Use DateUtils to get the range
       dateUtils
         .getDateRangePreset(preset)
         .then(({ startDate, endDate }) => {
@@ -305,7 +282,6 @@
   }
 
   function updateDateInputs(startInput, endInput, startDate, endDate) {
-    // Update flatpickr instances if available, otherwise update input values
     if (startInput._flatpickr) {
       startInput._flatpickr.setDate(startDate);
     } else {
@@ -318,7 +294,6 @@
       endInput.value = endDate;
     }
 
-    // Store in localStorage
     localStorage.setItem("startDate", startDate);
     localStorage.setItem("endDate", endDate);
   }
@@ -330,7 +305,6 @@
       return new URLSearchParams();
     }
 
-    // Use stored date range or default to last 30 days
     const startDate =
       localStorage.getItem("startDate") ||
       dateUtils.formatDate(
@@ -345,7 +319,7 @@
   function formatIdleDuration(seconds) {
     const dateUtils = window.DateUtils;
     if (!dateUtils) {
-      return "0m 0s"; // Fallback if DateUtils is unavailable
+      return "0m 0s";
     }
     return (
       dateUtils.formatSecondsToHMS(seconds).split(":").slice(0, 2).join("m ") +
@@ -356,7 +330,6 @@
   function formatDateForDisplay(dateStr) {
     if (!dateStr) return "";
 
-    // Simple date formatter that doesn't rely on adapters
     try {
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) return dateStr;
@@ -375,7 +348,6 @@
     loadingManager.startOperation("Loading Insights");
 
     try {
-      // Fetch both general data and analytics data in parallel
       const [generalData, analyticsData] = await Promise.all([
         fetch(`/api/driving-insights?${params}`).then((res) => {
           if (!res.ok) {
@@ -395,13 +367,11 @@
         }),
       ]);
 
-      // Update the UI with the fetched data
       updateSummaryMetrics(generalData);
       updateTripCountsChart(analyticsData);
       updateDistanceChart(analyticsData.daily_distances);
       updateFuelChart(generalData);
 
-      // Show success message
       if (window.notificationManager) {
         window.notificationManager.show(
           "Insights data loaded successfully",
@@ -416,7 +386,6 @@
           "danger",
         );
       }
-      // Reset charts to empty state
       resetCharts();
     } finally {
       loadingManager.finish("Loading Insights");
@@ -424,7 +393,6 @@
   }
 
   function resetCharts() {
-    // Reset all charts to an empty state
     if (tripCountsChart) {
       tripCountsChart.data.datasets = [];
       tripCountsChart.data.labels = [];
@@ -442,7 +410,6 @@
       fuelConsumptionChart.update();
     }
 
-    // Reset summary metrics
     const metrics = {
       "total-trips": "0",
       "total-distance": "0 miles",
@@ -459,7 +426,6 @@
     });
   }
 
-  //  CHART UPDATE FUNCTIONS
   function updateTripCountsChart(data) {
     if (
       !tripCountsChart ||
@@ -470,28 +436,22 @@
       return;
 
     try {
-      // Format dates for display and prepare data arrays
       const labels = [];
       const tripCounts = [];
       const movingAvg = [];
 
-      // Process the data
       data.daily_distances.forEach((d, i, arr) => {
-        // Format date for display
         const dateLabel = formatDateForDisplay(d.date);
         labels.push(dateLabel);
 
-        // Trip count for this day
         tripCounts.push(d.count);
 
-        // Calculate 7-day moving average
         const slice = arr.slice(Math.max(i - 6, 0), i + 1);
         const avg =
           slice.reduce((sum, entry) => sum + entry.count, 0) / slice.length;
         movingAvg.push(Number(avg.toFixed(1)));
       });
 
-      // Update chart data
       tripCountsChart.data.labels = labels;
       tripCountsChart.data.datasets = [
         {
@@ -522,21 +482,16 @@
     if (!distanceChart || !Array.isArray(data) || !data.length) return;
 
     try {
-      // Format dates for display and prepare data arrays
       const labels = [];
       const distances = [];
 
-      // Process the data
       data.forEach((d) => {
-        // Format date for display
         const dateLabel = formatDateForDisplay(d.date);
         labels.push(dateLabel);
 
-        // Distance value
         distances.push(Number(d.distance.toFixed(2)));
       });
 
-      // Update chart data
       distanceChart.data.labels = labels;
       distanceChart.data.datasets = [
         {
@@ -561,7 +516,6 @@
       const fuelConsumed = data.total_fuel_consumed || 0;
       const distance = data.total_distance || 0;
 
-      // Calculate miles per gallon (MPG)
       const mpg = fuelConsumed > 0 ? distance / fuelConsumed : 0;
 
       fuelConsumptionChart.data.datasets[0].data = [fuelConsumed, mpg];
@@ -574,7 +528,6 @@
   function updateSummaryMetrics(data) {
     if (!data) return;
 
-    // Update DOM elements with summary metrics
     const metrics = {
       "total-trips": data.total_trips || 0,
       "total-distance": `${(data.total_distance || 0).toFixed(2)} miles`,
@@ -584,19 +537,16 @@
       "longest-trip": `${(data.longest_trip_distance || 0).toFixed(2)} miles`,
     };
 
-    // Update each metric element
     Object.entries(metrics).forEach(([id, value]) => {
       const el = document.getElementById(id);
       if (el) el.textContent = value;
     });
 
-    // Handle "most visited" element specially due to complex formatting
     const mostVisitedEl = document.getElementById("most-visited");
     if (mostVisitedEl && data.most_visited) {
       try {
         let { _id, count, isCustomPlace } = data.most_visited;
 
-        // Check if _id is already a JSON string and parse it if needed
         if (
           typeof _id === "string" &&
           _id.startsWith("{") &&
@@ -604,19 +554,17 @@
         ) {
           try {
             const parsedObj = JSON.parse(_id);
-            _id = parsedObj; // Replace _id with the parsed object
+            _id = parsedObj;
           } catch (e) {
             console.warn("Failed to parse what looks like a JSON string:", e);
           }
         }
 
-        // Extract place name from _id which might be in different formats
         let placeName = "Unknown";
 
         if (typeof _id === "string") {
           placeName = _id;
         } else if (typeof _id === "object" && _id !== null) {
-          // Handle object format - look for common location properties
           placeName =
             _id.formatted_address ||
             _id.name ||

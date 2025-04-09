@@ -1,11 +1,7 @@
 /* global L, flatpickr, notificationManager, bootstrap, DateUtils, $ */
 
-/**
- * Modern UI - Main UI controller for the application
- */
 "use strict";
 (function () {
-  // Configuration
   const CONFIG = {
     selectors: {
       themeToggle: "#theme-toggle-checkbox",
@@ -47,10 +43,8 @@
     mobileBreakpoint: 768,
   };
 
-  // Application State
   const elements = {};
 
-  // Main Initialization
   function init() {
     try {
       cacheElements();
@@ -63,7 +57,6 @@
       initMapControls();
       setupLegacyCodeBridge();
 
-      // Handle resize events
       window.addEventListener(
         "resize",
         window.utils?.debounce(handleResize, 250) ||
@@ -71,7 +64,6 @@
       );
       handleResize();
 
-      // Initialize map-dependent features AFTER map initialization
       document.addEventListener("mapInitialized", () => {
         console.log("Map initialization detected by modern-ui.js");
         enhanceMapInteraction();
@@ -85,16 +77,13 @@
     }
   }
 
-  // Cache elements for better performance
   function cacheElements() {
     const selectors = CONFIG.selectors;
     const selectorKeys = Object.keys(selectors).filter(
       (key) => typeof selectors[key] === "string",
     );
 
-    // Cache all elements in one loop
     selectorKeys.forEach((key) => {
-      // Ensure we get elements within the filters panel if IDs are ambiguous
       if (key === "startDate" || key === "endDate") {
         elements[`${key}Input`] = document.querySelector(
           `#filters-panel ${selectors[key]}`,
@@ -103,15 +92,13 @@
         elements[key] = document.querySelector(selectors[key]);
       }
     });
-    // Correct element references if needed after potential prefixing
     if (!elements.startDateInput) elements.startDateInput = elements.startDate;
     if (!elements.endDateInput) elements.endDateInput = elements.endDate;
 
-    // These are collections that need special handling
     elements.quickSelectBtns = document.querySelectorAll(".quick-select-btn");
     elements.datepickers = document.querySelectorAll(
       CONFIG.selectors.datepicker,
-    ); // Use CONFIG
+    );
     elements.loadingOverlay = document.querySelector(".loading-overlay");
     elements.progressBar = document.querySelector(
       ".loading-overlay .progress-bar",
@@ -120,23 +107,19 @@
       ".loading-overlay .loading-text",
     );
 
-    // Add missing elements used later
     elements.applyFiltersBtn = document.getElementById("apply-filters");
     elements.resetFiltersBtn = document.getElementById("reset-filters");
   }
 
-  // Initialize Map Controls to Prevent Event Propagation
   function initMapControls() {
     const mapControls =
       elements.mapControls || document.getElementById("map-controls");
     if (!mapControls) return;
 
-    // Apply touch-action CSS to enable vertical scrolling
     mapControls.style.touchAction = "pan-y";
     mapControls.style.webkitOverflowScrolling = "touch";
     mapControls.style.overflowY = "auto";
 
-    // Set up controls toggle functionality
     const controlsToggle = document.getElementById("controls-toggle");
     if (controlsToggle) {
       controlsToggle.addEventListener("click", function () {
@@ -159,7 +142,6 @@
           }
         }
 
-        // Toggle icon
         const icon = this.querySelector("i");
         if (icon) {
           icon.classList.toggle("fa-chevron-up");
@@ -168,7 +150,6 @@
       });
     }
 
-    // Events that should be prevented from propagating to the map
     const events = [
       "mousedown",
       "mouseup",
@@ -183,12 +164,10 @@
       "dragend",
     ];
 
-    // Add event listeners to prevent propagation
     events.forEach((eventType) => {
       mapControls.addEventListener(
         eventType,
         (e) => {
-          // Don't stop propagation from form elements to allow them to work properly
           const target = e.target;
           const isFormElement =
             target.tagName === "INPUT" ||
@@ -200,7 +179,6 @@
             target.closest(".form-check") ||
             target.closest(".nav-item");
 
-          // Allow normal interaction with form elements but prevent map actions
           if (!isFormElement) {
             e.stopPropagation();
           }
@@ -209,23 +187,18 @@
       );
     });
 
-    // Handle touchmove separately - allows scrolling the panel but prevents map interactions
     mapControls.addEventListener(
       "touchmove",
       (e) => {
-        // Allow the default behavior (scrolling) but stop propagation to the map
         e.stopPropagation();
       },
       { passive: true },
     );
 
-    // Set the cursor style to indicate the panel is interactive
     mapControls.style.cursor = "default";
 
-    // Add CSS class to properly handle events
     mapControls.classList.add("map-controls-event-handler");
 
-    // Add CSS to ensure controls are properly isolated from map
     const style = document.createElement("style");
     style.textContent = `
       .map-controls-event-handler {
@@ -250,12 +223,10 @@
     );
   }
 
-  // Theme Toggle Functionality
   function initThemeToggle() {
     const { themeToggle, darkModeToggle } = elements;
     if (!themeToggle && !darkModeToggle) return;
 
-    // Check preferences
     const savedTheme = localStorage.getItem(CONFIG.storage.theme);
     const prefersDarkScheme = window.matchMedia(
       "(prefers-color-scheme: dark)",
@@ -264,10 +235,8 @@
       savedTheme === "light" || (!savedTheme && !prefersDarkScheme);
     const themeName = isLight ? "light" : "dark";
 
-    // Apply theme
     applyTheme(themeName);
 
-    // Set toggle states
     if (themeToggle) {
       themeToggle.checked = isLight;
       themeToggle.addEventListener("change", () => {
@@ -275,7 +244,6 @@
         applyTheme(newTheme);
         localStorage.setItem(CONFIG.storage.theme, newTheme);
 
-        // Sync with app settings dark mode toggle
         if (darkModeToggle) {
           darkModeToggle.checked = newTheme === "dark";
         }
@@ -287,15 +255,12 @@
     }
   }
 
-  // Apply theme to document and map
   function applyTheme(theme) {
     const isLight = theme === "light";
 
-    // Update document
     document.body.classList.toggle(CONFIG.classes.lightMode, isLight);
     document.documentElement.setAttribute("data-bs-theme", theme);
 
-    // Update theme-color meta tag for mobile browsers
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     if (themeColorMeta) {
       themeColorMeta.setAttribute("content", isLight ? "#f8f9fa" : "#121212");
@@ -304,64 +269,52 @@
     updateMapTheme(theme);
   }
 
-  // Update map theme if map exists
   function updateMapTheme(theme) {
     if (!window.map || typeof window.map.eachLayer !== "function") return;
 
-    // Container background
     document.querySelectorAll(".leaflet-container").forEach((container) => {
       container.style.background = theme === "light" ? "#e0e0e0" : "#1a1a1a";
     });
 
-    // Remove existing tile layers
     window.map.eachLayer((layer) => {
       if (layer instanceof L.TileLayer) {
         window.map.removeLayer(layer);
       }
     });
 
-    // Add new tile layer
     const tileUrl = CONFIG.selectors.mapTileUrl[theme];
     L.tileLayer(tileUrl, {
       maxZoom: 19,
       attribution: "",
     }).addTo(window.map);
 
-    // Fix rendering issues
     window.map.invalidateSize();
 
-    // Dispatch map theme change event
     document.dispatchEvent(
       new CustomEvent("mapThemeChanged", { detail: { theme } }),
     );
   }
 
-  // Mobile Drawer Functionality
   function initMobileDrawer() {
     const { mobileDrawer, menuToggle, closeBtn, contentOverlay } = elements;
     if (!mobileDrawer || !menuToggle) return;
 
-    // Close drawer function
     const closeDrawer = () => {
       mobileDrawer.classList.remove(CONFIG.classes.open);
       contentOverlay.classList.remove(CONFIG.classes.visible);
       document.body.style.overflow = "";
     };
 
-    // Open drawer
     menuToggle.addEventListener("click", () => {
       mobileDrawer.classList.add(CONFIG.classes.open);
       contentOverlay.classList.add(CONFIG.classes.visible);
       document.body.style.overflow = "hidden";
     });
 
-    // Close drawer with button
     closeBtn?.addEventListener("click", closeDrawer);
 
-    // Close drawer with overlay
     contentOverlay?.addEventListener("click", closeDrawer);
 
-    // Close drawer with Escape key
     document.addEventListener("keydown", (e) => {
       if (
         e.key === "Escape" &&
@@ -372,22 +325,19 @@
     });
   }
 
-  // Filters Panel Functionality
   function initFilterPanel() {
     const {
       filterToggle,
       filtersPanel,
       contentOverlay,
       filtersClose,
-      applyFiltersBtn, // Use cached element
-      resetFiltersBtn, // Use cached element
-      quickSelectBtns, // Use cached element
+      applyFiltersBtn,
+      resetFiltersBtn,
+      quickSelectBtns,
     } = elements;
 
-    // Add filter indicator
     addFilterIndicator();
 
-    // Toggle filter panel
     if (filterToggle && filtersPanel) {
       filterToggle.addEventListener("click", () => {
         filtersPanel.classList.toggle(CONFIG.classes.open);
@@ -396,7 +346,6 @@
       });
     }
 
-    // Close panel handlers
     const closePanel = () => {
       filtersPanel?.classList.remove(CONFIG.classes.open);
       contentOverlay?.classList.remove(CONFIG.classes.visible);
@@ -405,42 +354,34 @@
     filtersClose?.addEventListener("click", closePanel);
     contentOverlay?.addEventListener("click", closePanel);
 
-    // Handle quick select buttons
     if (quickSelectBtns?.length) {
       quickSelectBtns.forEach((btn) => {
         btn.addEventListener("click", function () {
-          // Use function to access `this`
-          const range = this.dataset.range; // Use `this`
+          const range = this.dataset.range;
           if (!range) return;
 
-          setDateRange(range); // This will now also apply filters
+          setDateRange(range);
 
-          // Update active button state
           quickSelectBtns.forEach((b) =>
             b.classList.remove(CONFIG.classes.active),
           );
-          this.classList.add(CONFIG.classes.active); // Use `this`
+          this.classList.add(CONFIG.classes.active);
         });
       });
     }
 
-    // Apply filters button
     applyFiltersBtn?.addEventListener("click", applyFilters);
 
-    // Reset filters button
     resetFiltersBtn?.addEventListener("click", resetFilters);
   }
 
-  // Initialize all date pickers
   function initDatePickers() {
     const { datepickers, startDateInput, endDateInput } = elements;
 
-    // Get dates from localStorage or use defaults
     const today = DateUtils.getCurrentDate();
     const startDate = localStorage.getItem(CONFIG.storage.startDate) || today;
     const endDate = localStorage.getItem(CONFIG.storage.endDate) || today;
 
-    // Create configuration
     const dateConfig = {
       maxDate: "today",
       disableMobile: true,
@@ -449,7 +390,6 @@
         : "dark",
     };
 
-    // Initialize all date pickers
     if (datepickers?.length) {
       datepickers.forEach((input) => {
         if (!input._flatpickr) {
@@ -458,8 +398,6 @@
       });
     }
 
-    // Set values for the main date filters
-    // Ensure elements are cached before accessing
     if (!elements.startDateInput)
       elements.startDateInput = document.querySelector(
         CONFIG.selectors.startDate,
@@ -482,7 +420,6 @@
     }
   }
 
-  // Add a persistent filter indicator to the header
   function addFilterIndicator() {
     const toolsSection = document.querySelector(".tools-section");
     if (!toolsSection || document.getElementById("filter-indicator")) return;
@@ -496,7 +433,6 @@
       <span class="filter-date-range">Today</span>
     `;
 
-    // Insert before the filters toggle
     const { filtersToggle } = elements;
     if (filtersToggle) {
       toolsSection.insertBefore(indicator, filtersToggle);
@@ -504,7 +440,6 @@
       toolsSection.appendChild(indicator);
     }
 
-    // Add click event to open filters panel
     indicator.addEventListener("click", () => {
       if (elements.filtersPanel && elements.contentOverlay) {
         elements.filtersPanel.classList.add(CONFIG.classes.open);
@@ -512,11 +447,9 @@
       }
     });
 
-    // Initial update
     updateFilterIndicator();
   }
 
-  // Update the filter indicator with current date range
   function updateFilterIndicator() {
     const indicator = document.getElementById("filter-indicator");
     if (!indicator) return;
@@ -531,12 +464,10 @@
       localStorage.getItem(CONFIG.storage.endDate) ||
       DateUtils.getCurrentDate();
 
-    // Format dates for display using DateUtils if available
     const formatDisplayDate = (dateStr) =>
       window.DateUtils?.formatForDisplay(dateStr, { dateStyle: "medium" }) ||
       dateStr;
 
-    // Handle case where dates might be the same
     if (startDate === endDate) {
       rangeSpan.textContent = formatDisplayDate(startDate);
     } else {
@@ -544,10 +475,8 @@
     }
   }
 
-  // Set date range based on preset and apply filters
   function setDateRange(range) {
     const { startDateInput, endDateInput } = elements;
-    // Add a check here to ensure elements exist before proceeding
     if (!startDateInput || !endDateInput) {
       console.error(
         "Date input elements not found in modern-ui.js cache. Cannot set date range.",
@@ -556,24 +485,20 @@
         "UI Error: Date inputs not found.",
         "danger",
       );
-      return; // Exit if elements are missing
+      return;
     }
 
-    // Show loading indicator
     if (window.loadingManager) {
       window.loadingManager.startOperation("DateRangeSet", 100);
     }
 
-    // Use DateUtils
     DateUtils.getDateRangePreset(range)
       .then(({ startDate, endDate }) => {
         if (startDate && endDate) {
-          // Update inputs and localStorage
           updateDateInputs(startDate, endDate);
           localStorage.setItem(CONFIG.storage.startDate, startDate);
           localStorage.setItem(CONFIG.storage.endDate, endDate);
           updateFilterIndicator();
-          // Apply filters immediately after setting range from preset
           applyFilters();
         }
       })
@@ -591,9 +516,7 @@
       });
   }
 
-  // Update all instances of date inputs with the same ID
   function updateDateInputs(startStr, endStr) {
-    // Update the cached start date input
     if (elements.startDateInput) {
       elements.startDateInput.value = startStr;
       if (elements.startDateInput._flatpickr) {
@@ -603,7 +526,6 @@
       console.warn("Cached start date input not found in updateDateInputs");
     }
 
-    // Update the cached end date input
     if (elements.endDateInput) {
       elements.endDateInput.value = endStr;
       if (elements.endDateInput._flatpickr) {
@@ -614,11 +536,9 @@
     }
   }
 
-  // Apply the current filters
   function applyFilters() {
     const { startDateInput, endDateInput, filtersPanel, contentOverlay } =
       elements;
-    // Add check for inputs
     if (!startDateInput || !endDateInput) {
       console.error("Cannot apply filters: Date input elements not found.");
       window.notificationManager?.show(
@@ -628,93 +548,72 @@
       return;
     }
 
-    // Get values safely
     const startDateValue = startDateInput.value;
     const endDateValue = endDateInput.value;
 
-    // Save to localStorage
     localStorage.setItem(CONFIG.storage.startDate, startDateValue);
     localStorage.setItem(CONFIG.storage.endDate, endDateValue);
 
-    // Update the indicator
     updateFilterIndicator();
 
-    // Close the panel
     if (filtersPanel && contentOverlay) {
       filtersPanel.classList.remove(CONFIG.classes.open);
       contentOverlay.classList.remove(CONFIG.classes.visible);
     }
 
-    // Trigger event for data updates
     document.dispatchEvent(
       new CustomEvent("filtersApplied", {
         detail: {
-          startDate: startDateValue, // Use saved value
-          endDate: endDateValue, // Use saved value
+          startDate: startDateValue,
+          endDate: endDateValue,
         },
       }),
     );
 
-    // Show confirmation
     window.notificationManager?.show(
       `Filters applied: ${startDateValue} to ${endDateValue}`,
       "success",
     );
   }
 
-  // Reset filters to today
   function resetFilters() {
     const { quickSelectBtns } = elements;
     const today = new Date().toISOString().split("T")[0];
 
-    // Update inputs using the centralized function
     updateDateInputs(today, today);
 
-    // Save to localStorage
     localStorage.setItem(CONFIG.storage.startDate, today);
     localStorage.setItem(CONFIG.storage.endDate, today);
 
-    // Remove active class from quick select buttons
     if (quickSelectBtns) {
       quickSelectBtns.forEach((btn) =>
         btn.classList.remove(CONFIG.classes.active),
       );
     }
 
-    // Update the indicator
     updateFilterIndicator();
 
-    // Apply the reset filters immediately
     applyFilters();
 
-    // Show notification
     window.notificationManager?.show(
-      "Date filters reset to Today and applied.", // Updated message
+      "Date filters reset to Today and applied.",
       "info",
     );
   }
 
-  // Action Handlers moved to other UI elements
-  // These functions remain as they may be called from other places
-  // in the application
-
-  // Initialize scroll effects
   function initScrollEffects() {
     const { header } = elements;
     if (!header) return;
 
-    // Add shadow to header on scroll
     const scrollHandler = () => {
       header.classList.toggle(CONFIG.classes.scrolled, window.scrollY > 10);
     };
 
     window.addEventListener("scroll", scrollHandler);
-    scrollHandler(); // Initial check
+    scrollHandler();
   }
 
-  // Handle window resize
   function handleResize() {
-    // Close mobile drawer on larger screens
     if (window.innerWidth >= CONFIG.mobileBreakpoint) {
       const { mobileDrawer, contentOverlay } = elements;
       if (mobileDrawer?.classList.contains(CONFIG.classes.open)) {
@@ -725,7 +624,6 @@
     }
   }
 
-  // Simple debounce function if utils not available
   function debounce(func, wait) {
     let timeout;
     return function (...args) {
@@ -734,7 +632,6 @@
     };
   }
 
-  // Refresh map data by calling appropriate functions
   function refreshMapData() {
     if (window.map) {
       if (typeof window.EveryStreet?.App?.fetchTrips === "function") {
@@ -745,14 +642,12 @@
     }
   }
 
-  // Refresh places data
   function refreshPlacesData() {
     if (window.customPlaces?.loadPlaces) {
       window.customPlaces.loadPlaces();
     }
   }
 
-  // Loading Overlay Functions
   function showLoading(message = "Loading...") {
     const { loadingOverlay, loadingText, progressBar } = elements;
     if (!loadingOverlay) return;
@@ -778,9 +673,7 @@
     if (loadingText && message) loadingText.textContent = message;
   }
 
-  // Legacy Code Bridge
   function setupLegacyCodeBridge() {
-    // Bridge to make modern components work with legacy code
     window.modernUI = {
       showLoading: showLoading,
       hideLoading: hideLoading,
@@ -789,16 +682,12 @@
       applyTheme: applyTheme,
     };
 
-    // Enhanced map interaction
     window.addEventListener("load", enhanceMapInteraction);
   }
 
-  // Add enhance map interaction function
   function enhanceMapInteraction() {
-    // Only run on pages with a map
     if (!document.getElementById("map")) return;
 
-    // Map should be initialized by the time this is called
     applyMapEnhancements();
   }
 
@@ -810,10 +699,8 @@
         return;
       }
 
-      // Add smooth zoom feature
       if (map.options) map.options.zoomSnap = 0.5;
 
-      // Enhance zoom controls with tooltips if Bootstrap is available
       const zoomControls = document.querySelectorAll(".leaflet-control-zoom a");
       if (window.bootstrap && window.bootstrap.Tooltip) {
         zoomControls.forEach((control) => {
@@ -833,7 +720,6 @@
         });
       }
 
-      // Add pulse animation to connection status indicator when connected
       const updateConnectionIndicator = () => {
         const statusIndicator = document.querySelector(".status-indicator");
         const statusText = document.querySelector(".status-text");
@@ -851,11 +737,9 @@
         }
       };
 
-      // Check connection status periodically
       updateConnectionIndicator();
       setInterval(updateConnectionIndicator, 3000);
 
-      // Add fading transition for map controls panel
       const controlsToggle = document.getElementById("controls-toggle");
       const mapControls = document.getElementById("map-controls");
 
@@ -870,12 +754,10 @@
           });
         });
 
-        // Show controls fully when hovering
         mapControls.addEventListener("mouseenter", () => {
           mapControls.style.opacity = "1";
         });
 
-        // Reduce opacity slightly when not hovering (if minimized)
         mapControls.addEventListener("mouseleave", () => {
           if (mapControls.classList.contains("minimized")) {
             mapControls.style.opacity = "0.8";
@@ -889,6 +771,5 @@
     }
   }
 
-  // Initialize on DOM content loaded
   document.addEventListener("DOMContentLoaded", init);
 })();

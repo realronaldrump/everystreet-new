@@ -1,27 +1,19 @@
 /* global L, DateUtils */
-/**
- * LiveTripTracker - Tracks and visualizes real-time vehicle location using polling
- * @class
- */
+
 class LiveTripTracker {
-  /**
-   * Creates a new LiveTripTracker instance
-   * @param {L.Map} map - Leaflet map instance
-   */
   constructor(map) {
     if (!map) {
       console.error("LiveTripTracker: Map is required");
       return;
     }
 
-    // Initialize properties
     this.map = map;
     this.activeTrip = null;
     this.polyline = L.polyline([], {
       color: "#00FF00",
       weight: 3,
       opacity: 0.8,
-      zIndex: 1000, // Ensure high z-index for the live trip
+      zIndex: 1000,
     }).addTo(this.map);
 
     this.marker = L.marker([0, 0], {
@@ -33,52 +25,42 @@ class LiveTripTracker {
       zIndexOffset: 1000,
     });
 
-    // Polling state
     this.lastSequence = 0;
-    this.pollingInterval = 2000; // Start with 2 seconds
-    this.maxPollingInterval = 10000; // Max 10 seconds
-    this.minPollingInterval = 500; // Min 0.5 second
+    this.pollingInterval = 2000;
+    this.maxPollingInterval = 10000;
+    this.minPollingInterval = 500;
     this.pollingTimerId = null;
     this.consecutiveErrors = 0;
     this.maxConsecutiveErrors = 5;
     this.isPolling = false;
 
-    // UI elements
     this.statusIndicator = document.querySelector(".status-indicator");
     this.statusText = document.querySelector(".status-text");
     this.activeTripsCountElem = document.querySelector("#active-trips-count");
     this.tripMetricsElem = document.querySelector(".live-trip-metrics");
     this.errorMessageElem = document.querySelector(".error-message");
 
-    // Initialize
     this.initialize();
   }
 
-  /**
-   * Initialize the tracker
-   * @async
-   */
   async initialize() {
     try {
       await this.loadInitialTripData();
       this.startPolling();
 
-      // Ensure live trip always stays on top when map is updated
       document.addEventListener("mapUpdated", () => {
         this.bringLiveTripToFront();
       });
 
-      // Handle page visibility changes to adjust polling
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") {
-          this.decreasePollingInterval(); // Speed up polling when page is visible
-          this.bringLiveTripToFront(); // Ensure live trip is on top when returning to the page
+          this.decreasePollingInterval();
+          this.bringLiveTripToFront();
         } else {
-          this.increasePollingInterval(); // Slow down polling when page is hidden
+          this.increasePollingInterval();
         }
       });
 
-      // Cleanup on page unload
       window.addEventListener("beforeunload", () => {
         this.stopPolling();
       });
@@ -90,10 +72,6 @@ class LiveTripTracker {
     }
   }
 
-  /**
-   * Load initial trip data from API
-   * @async
-   */
   async loadInitialTripData() {
     try {
       console.log("Loading initial trip data");
@@ -132,9 +110,6 @@ class LiveTripTracker {
     }
   }
 
-  /**
-   * Start polling for trip updates
-   */
   startPolling() {
     if (this.isPolling) return;
 
@@ -145,9 +120,6 @@ class LiveTripTracker {
     );
   }
 
-  /**
-   * Stop polling for trip updates
-   */
   stopPolling() {
     if (this.pollingTimerId) {
       clearTimeout(this.pollingTimerId);
@@ -157,10 +129,6 @@ class LiveTripTracker {
     console.log("LiveTripTracker: Stopped polling");
   }
 
-  /**
-   * Poll the server for trip updates
-   * @async
-   */
   async poll() {
     if (!this.isPolling) return;
 
@@ -168,10 +136,8 @@ class LiveTripTracker {
       console.log(`Polling for updates since sequence: ${this.lastSequence}`);
       await this.fetchTripUpdates();
 
-      // Success, reset error counter
       this.consecutiveErrors = 0;
 
-      // Speed up polling when we receive data
       if (this.activeTrip) {
         this.decreasePollingInterval();
       }
@@ -180,24 +146,17 @@ class LiveTripTracker {
       this.consecutiveErrors++;
 
       if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
-        // Too many consecutive errors, show status
         this.updateStatus(false, "Connection lost");
         this.showError("Connection lost. Retrying...");
-        // Increase interval when facing errors
         this.increasePollingInterval();
       }
     } finally {
-      // Schedule next poll with current interval
       this.pollingTimerId = setTimeout(() => {
         this.poll();
       }, this.pollingInterval);
     }
   }
 
-  /**
-   * Fetch trip updates from the server
-   * @async
-   */
   async fetchTripUpdates() {
     console.log(
       `Fetching trip updates with last_sequence=${this.lastSequence}`,
@@ -217,7 +176,6 @@ class LiveTripTracker {
 
     if (data.status === "success") {
       if (data.has_update && data.trip) {
-        // We have new trip data
         console.log(
           `Received trip update with sequence: ${data.trip.sequence}`,
         );
@@ -228,23 +186,18 @@ class LiveTripTracker {
         this.updateStatus(true);
         this.hideError();
 
-        // Set adaptive polling based on new data
         this.setAdaptivePollingInterval(data.trip, true);
       } else if (this.activeTrip && !data.has_update) {
-        // No new updates for existing trip - keep current display
         console.log("No new updates for current trip");
         this.updateStatus(true);
 
-        // Adjust polling based on no new data
         this.setAdaptivePollingInterval(this.activeTrip, false);
       } else if (!this.activeTrip && !data.has_update) {
-        // No active trip at all
         console.log("No active trips found");
         this.clearActiveTrip();
         this.updateActiveTripsCount(0);
         this.updateStatus(true, "No active trips");
 
-        // Slow down polling when no trips
         this.increasePollingInterval(1.2);
       }
     } else {
@@ -253,86 +206,61 @@ class LiveTripTracker {
     }
   }
 
-  /**
-   * Increase polling interval (slow down) with adaptive backoff
-   * @param {number} [factor=1.5] - Multiplication factor for increasing interval
-   */
   increasePollingInterval(factor = 1.5) {
-    // Calculate new interval, but don't exceed max
     const oldInterval = this.pollingInterval;
     this.pollingInterval = Math.min(
       this.pollingInterval * factor,
       this.maxPollingInterval,
     );
 
-    // Only log if there's an actual change
     if (this.pollingInterval !== oldInterval) {
       console.log(
         `LiveTripTracker: Increased polling interval to ${this.pollingInterval}ms`,
       );
     }
 
-    // If we're at max interval and no active trip, consider showing a message
     if (this.pollingInterval >= this.maxPollingInterval && !this.activeTrip) {
       this.updateStatus(true, "Standby mode - waiting for trips");
     }
   }
 
-  /**
-   * Decrease polling interval (speed up) for more responsive updates
-   * @param {number} [factor=0.7] - Multiplication factor for decreasing interval
-   * @param {boolean} [forceMinimum=false] - Whether to force minimum interval
-   */
   decreasePollingInterval(factor = 0.7, forceMinimum = false) {
     const oldInterval = this.pollingInterval;
 
     if (forceMinimum) {
       this.pollingInterval = this.minPollingInterval;
     } else {
-      // More aggressive decrease when we have an active trip
       this.pollingInterval = Math.max(
         this.pollingInterval * factor,
         this.activeTrip ? this.minPollingInterval : this.minPollingInterval * 2,
       );
     }
 
-    // Only log if there's an actual change
     if (this.pollingInterval !== oldInterval) {
       console.log(
         `LiveTripTracker: Decreased polling interval to ${this.pollingInterval}ms`,
       );
     }
 
-    // Update status if we're in active mode
     if (this.activeTrip) {
       this.updateStatus(true, "Connected - tracking active");
     }
   }
 
-  /**
-   * Set adaptive polling interval based on trip status and activity
-   * @param {Object} trip - Current trip data
-   * @param {boolean} hasNewData - Whether we just received new data
-   */
   setAdaptivePollingInterval(trip, hasNewData) {
     if (!trip) {
-      // No active trip, slow polling
       this.increasePollingInterval(1.2);
       return;
     }
 
-    // Check if vehicle is moving based on current speed
-    const isMoving = trip.currentSpeed > 2; // Over 2 mph considered moving
-    const isFastMoving = trip.currentSpeed > 15; // Over 15 mph is fast
+    const isMoving = trip.currentSpeed > 2;
+    const isFastMoving = trip.currentSpeed > 15;
 
     if (isFastMoving && hasNewData) {
-      // Moving vehicle with new data - fastest polling
       this.decreasePollingInterval(0.5, true);
     } else if (isMoving && hasNewData) {
-      // Moving but no new data - medium fast polling
       this.decreasePollingInterval(0.8);
     } else if (isMoving) {
-      // Stationary but updating - medium polling
       this.pollingInterval = Math.max(
         this.minPollingInterval * 1.5,
         Math.min(this.pollingInterval, this.maxPollingInterval / 2),
@@ -343,16 +271,10 @@ class LiveTripTracker {
         Math.min(this.pollingInterval, this.maxPollingInterval / 2),
       );
     } else {
-      // Stationary with no updates - slower polling
       this.increasePollingInterval(1.1);
     }
   }
 
-  /**
-   * Update connection status UI
-   * @param {boolean} connected - Whether connection is established
-   * @param {string} [message] - Optional status message
-   */
   updateStatus(connected, message) {
     if (!this.statusIndicator || !this.statusText) return;
 
@@ -367,10 +289,6 @@ class LiveTripTracker {
       message || (connected ? "Connected" : "Disconnected");
   }
 
-  /**
-   * Show error message
-   * @param {string} message - Error message to display
-   */
   showError(message) {
     if (!this.errorMessageElem) return;
 
@@ -378,19 +296,12 @@ class LiveTripTracker {
     this.errorMessageElem.classList.remove("d-none");
   }
 
-  /**
-   * Hide error message
-   */
   hideError() {
     if (!this.errorMessageElem) return;
 
     this.errorMessageElem.classList.add("d-none");
   }
 
-  /**
-   * Set active trip data and update map with smooth transitions
-   * @param {Object} trip - Trip data
-   */
   setActiveTrip(trip) {
     if (!trip) return;
 
@@ -398,7 +309,6 @@ class LiveTripTracker {
       !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
     const previousTrip = this.activeTrip;
 
-    // If trip is marked as completed, clear it from the map
     if (trip.status === "completed") {
       console.log("Trip is completed, clearing from map");
       this.clearActiveTrip();
@@ -414,21 +324,17 @@ class LiveTripTracker {
       return;
     }
 
-    // Sort coordinates by timestamp for proper path
     const sortedCoords = [...trip.coordinates];
     sortedCoords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    // Create array of LatLng points
     const latLngs = sortedCoords.map((coord) => [coord.lat, coord.lon]);
 
-    // Get the last point for marker positioning
     const lastPoint = latLngs[latLngs.length - 1];
 
-    // For new trips, reset the view and fit bounds
     if (isNewTrip) {
       console.log("New trip detected, resetting view");
       this.polyline.setLatLngs(latLngs);
-      this.polyline.bringToFront(); // Ensure live trip stays on top
+      this.polyline.bringToFront();
 
       if (!this.map.hasLayer(this.marker)) {
         this.marker.addTo(this.map);
@@ -437,45 +343,33 @@ class LiveTripTracker {
       this.marker.setLatLng(lastPoint);
       this.marker.setOpacity(1);
 
-      // Set appropriate map view
       if (latLngs.length > 1) {
         try {
-          // Fit bounds with some padding
           const bounds = L.latLngBounds(latLngs);
           this.map.fitBounds(bounds, { padding: [50, 50] });
         } catch (e) {
           console.error("Error fitting bounds:", e);
-          // Fallback to center on last point
           this.map.setView(lastPoint, 15);
         }
       } else {
-        // Just one point, center on it
         this.map.setView(lastPoint, 15);
       }
-    }
-    // For existing trips, smoothly update
-    else {
-      // Check if we have new coordinates
+    } else {
       const prevCoords = this.polyline.getLatLngs();
 
       if (latLngs.length > prevCoords.length) {
-        // Add new points to existing polyline
         this.polyline.setLatLngs(latLngs);
-        this.polyline.bringToFront(); // Ensure live trip stays on top
+        this.polyline.bringToFront();
 
-        // Smooth marker movement
         if (prevCoords.length > 0) {
           const prevLastPoint = prevCoords[prevCoords.length - 1];
 
-          // Only animate if points are different
           if (
             prevLastPoint[0] !== lastPoint[0] ||
             prevLastPoint[1] !== lastPoint[1]
           ) {
-            // Use Leaflet's built-in animation
             this.marker.setLatLng(lastPoint);
 
-            // Pan map if auto-follow is enabled and point is near edge of view
             if (localStorage.getItem("autoFollowVehicle") === "true") {
               if (!this.map.getBounds().contains(lastPoint)) {
                 this.map.panTo(lastPoint);
@@ -483,24 +377,17 @@ class LiveTripTracker {
             }
           }
         } else {
-          // No previous points, just set marker position
           this.marker.setLatLng(lastPoint);
         }
       }
     }
 
-    // Update marker icon based on speed
     this.updateMarkerIcon(trip.currentSpeed);
   }
 
-  /**
-   * Update marker icon based on vehicle speed
-   * @param {number} speed - Current speed in mph
-   */
   updateMarkerIcon(speed) {
     if (!this.marker) return;
 
-    // Define speed thresholds and corresponding icon classes
     let iconClass = "vehicle-marker";
 
     if (speed === 0) {
@@ -513,7 +400,6 @@ class LiveTripTracker {
       iconClass += " vehicle-fast";
     }
 
-    // Only update if necessary
     if (this.marker.options.icon.options.className !== iconClass) {
       this.marker.setIcon(
         L.divIcon({
@@ -528,9 +414,6 @@ class LiveTripTracker {
     }
   }
 
-  /**
-   * Clear active trip data from map
-   */
   clearActiveTrip() {
     this.activeTrip = null;
     this.polyline.setLatLngs([]);
@@ -540,10 +423,6 @@ class LiveTripTracker {
     }
   }
 
-  /**
-   * Update active trips count in UI
-   * @param {number} count - Number of active trips
-   */
   updateActiveTripsCount(count) {
     if (this.activeTripsCountElem) {
       this.activeTripsCountElem.textContent = count;
@@ -554,10 +433,6 @@ class LiveTripTracker {
     }
   }
 
-  /**
-   * Update trip metrics display
-   * @param {Object} trip - Trip data
-   */
   updateTripMetrics(trip) {
     if (!this.tripMetricsElem || !trip) return;
 
@@ -566,11 +441,8 @@ class LiveTripTracker {
     const endTime = trip.endTime ? new Date(trip.endTime) : null;
     const tripStatus = trip.status || "active";
 
-    // Use formatDurationHMS from DateUtils
     let durationStr = trip.durationFormatted;
     if (!durationStr && startTime) {
-      // If trip is completed, use endTime for duration calculation
-      // Otherwise use lastUpdate or current time
       const endTimeToUse =
         tripStatus === "completed" ? endTime : lastUpdate || new Date();
 
@@ -579,7 +451,6 @@ class LiveTripTracker {
       }
     }
 
-    // Use backend-calculated values if available
     const distance = typeof trip.distance === "number" ? trip.distance : 0;
     const currentSpeed =
       typeof trip.currentSpeed === "number" ? trip.currentSpeed : 0;
@@ -599,20 +470,17 @@ class LiveTripTracker {
         ? trip.hardAccelerationCounts
         : 0;
 
-    // Format start time for display using DateUtils
     let startTimeFormatted = "N/A";
 
     if (trip.startTimeFormatted) {
       startTimeFormatted = trip.startTimeFormatted;
     } else if (startTime) {
       try {
-        // Ensure startTime is a valid Date object
         if (typeof startTime === "string") {
           startTime = new Date(startTime);
         }
 
         if (!isNaN(startTime.getTime())) {
-          // Display both date and time using locale settings
           startTimeFormatted = startTime.toLocaleString(undefined, {
             year: "numeric",
             month: "short",
@@ -628,7 +496,6 @@ class LiveTripTracker {
       }
     }
 
-    // Format metrics for display
     const metrics = {
       "Start Time": startTimeFormatted,
       Duration: durationStr || "0:00:00",
@@ -644,10 +511,8 @@ class LiveTripTracker {
       "Last Update": lastUpdate ? DateUtils.formatTimeAgo(lastUpdate) : "N/A",
     };
 
-    // Log metrics for debugging
     console.log("Displaying metrics:", metrics);
 
-    // Update the UI
     this.tripMetricsElem.innerHTML = Object.entries(metrics)
       .map(
         ([label, value]) => `<div class="metric-row">
@@ -658,50 +523,33 @@ class LiveTripTracker {
       .join("");
   }
 
-  /**
-   * Update the polyline style based on user settings
-   * @param {string} color - Hex color value
-   * @param {number} opacity - Opacity value between 0 and 1
-   */
   updatePolylineStyle(color, opacity) {
     if (!this.polyline) return;
 
-    // Apply new style to the polyline
     this.polyline.setStyle({
       color: color || "#00FF00",
       opacity: parseFloat(opacity) || 0.8,
-      zIndex: 1000, // Ensure high z-index for the live trip
+      zIndex: 1000,
     });
 
-    // If we have an active trip, ensure the polyline is visible
     if (
       this.activeTrip?.coordinates &&
       this.activeTrip.coordinates.length > 0
     ) {
-      // Make sure changes are visible
       this.polyline.redraw();
-      // Ensure polyline stays on top
       this.bringLiveTripToFront();
     }
   }
 
-  /**
-   * Ensures the live trip polyline is always displayed on top of other map layers
-   */
   bringLiveTripToFront() {
     if (this.polyline && this.activeTrip) {
       this.polyline.bringToFront();
     }
   }
 
-  /**
-   * Clean up resources when tracker is no longer needed
-   */
   destroy() {
-    // Stop polling
     this.stopPolling();
 
-    // Remove map layers
     if (this.map) {
       if (this.map.hasLayer(this.polyline)) {
         this.map.removeLayer(this.polyline);
@@ -712,7 +560,6 @@ class LiveTripTracker {
       }
     }
 
-    // Reset UI elements
     this.updateStatus(false, "Disconnected");
     this.updateActiveTripsCount(0);
 
@@ -720,7 +567,6 @@ class LiveTripTracker {
       this.tripMetricsElem.innerHTML = "";
     }
 
-    // Remove event listeners
     document.removeEventListener(
       "visibilitychange",
       this.handleVisibilityChange,
@@ -728,5 +574,4 @@ class LiveTripTracker {
   }
 }
 
-// Export for global usage
 window.LiveTripTracker = LiveTripTracker;
