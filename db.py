@@ -495,7 +495,7 @@ def post_process_deserialize(obj):
     if isinstance(obj, dict):
         if "$oid" in obj and len(obj) == 1:
             try:
-                return ObjectId(obj["$oid"])
+                return str(ObjectId(obj["$oid"]))
             except Exception as oid_err:
                 logger.warning(
                     "Could not convert $oid value '%s' to ObjectId: %s",
