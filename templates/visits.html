@@ -19,6 +19,7 @@
               placeholder="Enter place name"
             />
           </div>
+          <!-- Toggle Custom Places Checkbox (Now Functional) -->
           <div class="form-check mb-3">
             <input
               type="checkbox"
@@ -42,7 +43,7 @@
           <button id="manage-places" class="btn btn-secondary mb-3">
             <i class="fas fa-cog me-1"></i> Manage Places
           </button>
-          <div id="places-list" class="list-group"></div>
+          <!-- Removed unused #places-list div -->
         </div>
       </div>
     </div>
@@ -55,17 +56,21 @@
           <h3 class="h5 mb-0">Places Map</h3>
           <div class="map-controls">
             <div class="btn-group btn-group-sm" role="group">
+              <!-- Zoom to Fit Button (Now Functional) -->
               <button
                 type="button"
                 class="btn btn-outline-secondary"
                 id="zoom-to-fit"
+                title="Zoom to fit all custom places"
               >
                 <i class="fas fa-expand-arrows-alt"></i>
               </button>
+              <!-- Clear Drawing Button (Now Functional) -->
               <button
                 type="button"
                 class="btn btn-outline-secondary"
                 id="clear-drawing"
+                title="Clear current drawing"
               >
                 <i class="fas fa-trash-alt"></i>
               </button>
@@ -82,12 +87,7 @@
       <div class="card bg-dark border-secondary">
         <div class="card-header border-secondary">
           <h3 class="h5 mb-0">Visit Statistics</h3>
-          <button
-            id="toggle-view-btn"
-            class="btn btn-sm btn-outline-secondary float-end"
-          >
-            Show Trips for Selected Place
-          </button>
+          <!-- Removed non-functional #toggle-view-btn -->
         </div>
         <div class="card-body">
           <ul class="nav nav-tabs" id="visitsTab" role="tablist">
@@ -99,6 +99,8 @@
                 data-bs-target="#custom-places-content"
                 type="button"
                 role="tab"
+                aria-controls="custom-places-content"
+                aria-selected="true"
               >
                 Custom Places
               </button>
@@ -111,6 +113,8 @@
                 data-bs-target="#non-custom-places-content"
                 type="button"
                 role="tab"
+                aria-controls="non-custom-places-content"
+                aria-selected="false"
               >
                 Non-Custom Places
               </button>
@@ -121,6 +125,7 @@
               class="tab-pane fade show active"
               id="custom-places-content"
               role="tabpanel"
+              aria-labelledby="custom-places-tab"
             >
               <div class="row">
                 <div class="col-md-6">
@@ -131,6 +136,7 @@
                     <table
                       id="visits-table"
                       class="table table-dark table-striped"
+                      style="width: 100%"
                     >
                       <thead>
                         <tr>
@@ -151,11 +157,13 @@
               class="tab-pane fade"
               id="non-custom-places-content"
               role="tabpanel"
+              aria-labelledby="non-custom-places-tab"
             >
               <div class="table-responsive-lg">
                 <table
                   id="non-custom-visits-table"
                   class="table table-dark table-striped"
+                  style="width: 100%"
                 >
                   <thead>
                     <tr>
@@ -179,7 +187,9 @@
         <div
           class="card-header border-secondary d-flex justify-content-between align-items-center"
         >
-          <h3 class="h5 mb-0">Trips for Selected Place</h3>
+          <h3 class="h5 mb-0">
+            Trips for <span id="selected-place-name">Selected Place</span>
+          </h3>
           <button
             id="back-to-places-btn"
             class="btn btn-sm btn-outline-secondary"
@@ -192,6 +202,7 @@
             <table
               id="trips-for-place-table"
               class="table table-dark table-striped"
+              style="width: 100%"
             >
               <thead>
                 <tr>
@@ -212,24 +223,6 @@
     </div>
   </div>
 </div>
-<!-- Place Details Modal -->
-<div class="modal fade" id="place-details-modal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content bg-dark text-light">
-      <div class="modal-header border-secondary">
-        <h5 class="modal-title">Place Details</h5>
-        <button
-          type="button"
-          class="btn-close btn-close-white"
-          data-bs-dismiss="modal"
-        ></button>
-      </div>
-      <div class="modal-body">
-        <div id="place-details-content"></div>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- Manage Places Modal -->
 <div class="modal fade" id="manage-places-modal" tabindex="-1">
@@ -241,6 +234,7 @@
           type="button"
           class="btn-close btn-close-white"
           data-bs-dismiss="modal"
+          aria-label="Close"
         ></button>
       </div>
       <div class="modal-body">
@@ -248,6 +242,7 @@
           <table
             id="manage-places-table"
             class="table table-dark table-striped"
+            style="width: 100%"
           >
             <thead>
               <tr>
@@ -273,6 +268,7 @@
           type="button"
           class="btn-close btn-close-white"
           data-bs-dismiss="modal"
+          aria-label="Close"
         ></button>
       </div>
       <div class="modal-body">
@@ -315,11 +311,16 @@
           type="button"
           class="btn-close btn-close-white"
           data-bs-dismiss="modal"
+          aria-label="Close"
         ></button>
       </div>
       <div class="modal-body">
         <div id="trip-info" class="mb-3"></div>
-        <div id="trip-map" class="map-container" style="height: 400px"></div>
+        <div
+          id="trip-map-container"
+          class="map-container"
+          style="height: 400px"
+        ></div>
       </div>
     </div>
   </div>
@@ -357,6 +358,24 @@
   }
   .map-container {
     height: 500px;
+    width: 100%;
+    border-radius: 4px;
+    background-color: #333;
+  }
+
+  #trip-map-container {
+    height: 400px;
+  }
+
+  #custom-places-content.hidden,
+  #non-custom-places-content.hidden {
+    display: none;
+  }
+
+  .table {
+    width: 100%;
+    margin-bottom: 1rem;
+    color: #dee2e6;
   }
 
   /* Typography improvements */
@@ -375,7 +394,6 @@
       sans-serif;
   }
 
-  /* Table styling improvements */
   .table-dark {
     border-radius: 8px;
     overflow: hidden;
@@ -385,7 +403,7 @@
     margin-bottom: 1rem;
     background-color: #1e1e1e;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    color: rgba(255, 255, 255, 0.87); /* Improved text color */
+    color: rgba(255, 255, 255, 0.87);
     font-weight: 400;
   }
 
@@ -398,7 +416,7 @@
     font-size: 0.85rem;
     letter-spacing: 0.5px;
     position: relative;
-    color: #e0e0e0; /* Brighter color for headers */
+    color: #e0e0e0;
   }
 
   .table-dark thead th:after {
@@ -431,7 +449,7 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     font-size: 0.95rem;
     font-weight: 400;
-    color: rgba(255, 255, 255, 0.87); /* Standard text color */
+    color: rgba(255, 255, 255, 0.87);
   }
 
   /* Explicitly style table cells that are not links */
@@ -444,7 +462,7 @@
     border-bottom: none;
   }
 
-  .table-responsive {
+  .table-responsive-lg {
     border-radius: 8px;
     margin-top: 15px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
@@ -453,22 +471,25 @@
   }
 
   /* Explicit styling for links vs. regular text */
-  .place-link {
-    color: #bb86fc !important; /* Important to override bootstrap */
+  .place-link,
+  .trip-id-link {
+    color: #bb86fc !important;
     text-decoration: none;
     font-weight: 500;
     transition: all 0.2s ease;
     position: relative;
     padding-bottom: 2px;
-    display: inline-block; /* Better hover area */
+    display: inline-block;
   }
 
-  .place-link:hover {
+  .place-link:hover,
+  .trip-id-link:hover {
     color: #d8b8ff !important;
     text-decoration: none;
   }
 
-  .place-link:after {
+  .place-link:after,
+  .trip-id-link:after {
     content: "";
     position: absolute;
     width: 100%;
@@ -481,7 +502,8 @@
     transition: transform 0.3s ease;
   }
 
-  .place-link:hover:after {
+  .place-link:hover:after,
+  .trip-id-link:hover:after {
     transform: scaleX(1);
   }
 
@@ -490,13 +512,17 @@
     text-align: right;
     font-variant-numeric: tabular-nums;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.9); /* Slightly brighter for numbers */
+    color: rgba(255, 255, 255, 0.9);
   }
 
   .table-dark .date-cell {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
     color: rgba(255, 255, 255, 0.85);
+  }
+  .table-dark .action-cell {
+    text-align: center;
+    white-space: nowrap;
   }
 
   /* Chart typography improvements */
@@ -508,6 +534,8 @@
       "Segoe UI",
       Roboto,
       sans-serif;
+    max-width: 100%;
+    height: auto !important;
   }
 
   /* Tabs styling */
@@ -537,7 +565,6 @@
     border-bottom: 2px solid #bb86fc;
   }
 
-  /* DataTables specific styling */
   .dataTables_wrapper .dataTables_info,
   .dataTables_wrapper .dataTables_paginate {
     margin-top: 15px;
@@ -554,6 +581,7 @@
     color: rgba(255, 255, 255, 0.8) !important;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     transition: all 0.2s ease;
+    padding: 0.4em 0.8em; /* Adjust padding */
   }
 
   .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
@@ -603,6 +631,11 @@
     color: #bb86fc !important;
     border-radius: 4px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Prevent Leaflet Draw tooltips from intercepting map clicks */
+  .leaflet-draw-tooltip {
+    pointer-events: auto;
   }
 </style>
 {% endblock %} {% block extra_js %}

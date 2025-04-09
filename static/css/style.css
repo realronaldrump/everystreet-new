@@ -3072,3 +3072,9 @@ body.light-mode #map-controls strong {
     opacity: 1;
   }
 }
+
+/* Prevent Leaflet Draw tooltips and their children from intercepting map clicks */
+.leaflet-draw-tooltip,
+.leaflet-draw-tooltip * {
+  pointer-events: none !important;
+}

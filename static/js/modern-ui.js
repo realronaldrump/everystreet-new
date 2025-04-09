@@ -694,8 +694,7 @@
   function applyMapEnhancements() {
     try {
       const map = window.map;
-      if (!map || !map.options) {
-        console.warn("Map object or options not available for enhancements.");
+      if (!map || typeof map.eachLayer !== "function" || !map.options) {
         return;
       }
 
