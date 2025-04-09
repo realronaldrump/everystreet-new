@@ -1,4 +1,3 @@
-
 "use strict";
 
 class DrivingNavigation {
@@ -52,7 +51,7 @@ class DrivingNavigation {
       L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         {
-          attribution: '',
+          attribution: "",
           maxZoom: 19,
         },
       ).addTo(this.map);

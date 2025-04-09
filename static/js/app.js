@@ -1,4 +1,3 @@
-
 "use strict";
 
 (function () {
@@ -14,10 +13,10 @@
         streets: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
       },
       tileLayerAttribution: {
-        dark: '',
-        light: '',
-        satellite: '',
-        streets: '',
+        dark: "",
+        light: "",
+        satellite: "",
+        streets: "",
       },
       maxZoom: 19,
       recentTripThreshold: 6 * 60 * 60 * 1000,
