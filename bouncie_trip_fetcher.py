@@ -189,10 +189,12 @@ async def fetch_bouncie_trips_in_range(
                         logger.info(
                             "Stored/Updated trip %s successfully (Map Matched: %s) with ID %s",
                             transaction_id,
-                            "Yes"
-                            if do_map_match
-                            and "matchedGps" in processor.processed_data
-                            else "No",
+                            (
+                                "Yes"
+                                if do_map_match
+                                and "matchedGps" in processor.processed_data
+                                else "No"
+                            ),
                             saved_id,
                         )
                         all_new_trips.append(trip)

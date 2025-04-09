@@ -24,6 +24,12 @@ class LocationModel(BaseModel):
         extra = "allow"
 
 
+class DeleteCoverageAreaModel(BaseModel):
+    """Model for deleting a coverage area, requiring only the display name."""
+
+    display_name: str
+
+
 class TripUpdateModel(BaseModel):
     """Model for trip update data."""
 

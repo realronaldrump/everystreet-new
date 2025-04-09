@@ -1092,8 +1092,48 @@ const STATUS = window.STATUS || {
         );
       } catch (error) {
         console.error("Error deleting coverage area:", error);
+        // Attempt to parse server error detail
+        let detailMessage = error.message;
+
+        // Check if the error might have a response body (like Fetch API errors)
+        // Need to handle potential non-standard error objects or network errors
+        let errorResponse = error.cause || error; // Try to get the underlying Response if available
+
+        try {
+          // Check if we have something that looks like a Response object
+          if (errorResponse && typeof errorResponse.json === "function") {
+            const errorData = await errorResponse.json();
+            if (errorData && errorData.detail) {
+              // Handle FastAPI validation errors which might be an array
+              if (Array.isArray(errorData.detail)) {
+                detailMessage = errorData.detail
+                  .map((err) => `${err.loc?.join(".") || "field"}: ${err.msg}`)
+                  .join("; ");
+              } else {
+                detailMessage = errorData.detail;
+              }
+            }
+          } else if (error.message.includes("Failed to fetch")) {
+            // Handle network errors explicitly
+            detailMessage = "Network error or failed to connect to the server.";
+          } else {
+            // Use the original error message if no detailed info is found
+            // or if it wasn't a fetch-related error.
+            detailMessage = error.message || "An unknown error occurred.";
+          }
+        } catch (parseError) {
+          console.warn(
+            "Could not parse error response body or unexpected error structure:",
+            parseError,
+            error,
+          );
+          // Fallback to the original error message if parsing fails
+          detailMessage =
+            error.message || "Failed to process the error response.";
+        }
+
         this.notificationManager.show(
-          `Error deleting coverage area: ${error.message}`,
+          `Error deleting coverage area '${location.display_name}': ${detailMessage}`,
           "danger",
         );
       }

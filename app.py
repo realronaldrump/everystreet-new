@@ -90,6 +90,7 @@ from models import (
     BulkProcessModel,
     CollectionModel,
     DateRangeModel,
+    DeleteCoverageAreaModel,
     LocationModel,
     NoActiveTripResponse,
     TaskRunModel,
@@ -3441,7 +3442,7 @@ async def get_coverage_areas():
 
 
 @app.post("/api/coverage_areas/delete")
-async def delete_coverage_area(location: LocationModel):
+async def delete_coverage_area(location: DeleteCoverageAreaModel):
     """Delete a coverage area and all associated data."""
     try:
         display_name = location.display_name
@@ -3520,7 +3521,7 @@ async def delete_coverage_area(location: LocationModel):
 
 
 @app.post("/api/coverage_areas/cancel")
-async def cancel_coverage_area(location: LocationModel):
+async def cancel_coverage_area(location: DeleteCoverageAreaModel):
     """Cancel processing of a coverage area."""
     try:
         display_name = location.display_name

@@ -1081,9 +1081,11 @@ async def cleanup_stale_trips_logic(
                 "Found potentially stale trip: %s (_id: %s, lastUpdate: %s)",
                 transaction_id,
                 trip_id,
-                last_update_time.isoformat()
-                if isinstance(last_update_time, datetime)
-                else last_update_time,
+                (
+                    last_update_time.isoformat()
+                    if isinstance(last_update_time, datetime)
+                    else last_update_time
+                ),
             )
 
             trip_to_archive = trip.copy()
