@@ -60,7 +60,7 @@
       window.addEventListener(
         "resize",
         window.utils?.debounce(handleResize, 250) ||
-          debounce(handleResize, 250),
+          window.utils.debounce(handleResize, 250),
       );
       handleResize();
 
@@ -622,14 +622,6 @@
         document.body.style.overflow = "";
       }
     }
-  }
-
-  function debounce(func, wait) {
-    let timeout;
-    return function (...args) {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(this, args), wait);
-    };
   }
 
   function refreshMapData() {

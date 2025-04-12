@@ -96,52 +96,6 @@ const DateUtils = {
     };
   },
 
-  getDateRangeForPreset(preset) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const endDate = new Date(today);
-    endDate.setHours(23, 59, 59, 999);
-
-    let startDate = new Date(today);
-
-    switch (preset) {
-      case "today":
-        break;
-      case "yesterday":
-        startDate.setDate(startDate.getDate() - 1);
-        endDate.setDate(endDate.getDate() - 1);
-        break;
-      case "7days":
-      case "last-week":
-        startDate.setDate(startDate.getDate() - 7);
-        break;
-      case "30days":
-      case "last-month":
-        startDate.setDate(startDate.getDate() - 30);
-        break;
-      case "90days":
-      case "last-quarter":
-        startDate.setDate(startDate.getDate() - 90);
-        break;
-      case "180days":
-      case "last-6-months":
-        startDate.setMonth(startDate.getMonth() - 6);
-        break;
-      case "365days":
-      case "last-year":
-        startDate.setFullYear(startDate.getFullYear() - 1);
-        break;
-      case "all-time":
-        startDate = new Date("2000-01-01");
-        break;
-      default:
-        console.warn(`Unknown date preset: ${preset}`);
-    }
-
-    return { startDate, endDate };
-  },
-
   formatForDisplay(date, options = {}) {
     const dateObj = this.parseDate(date);
     if (!dateObj) return "";
@@ -566,25 +520,15 @@ window.notificationManager =
 window.confirmationDialog =
   window.confirmationDialog || new ConfirmationDialog();
 
+window.handleError = handleError;
+window.DateUtils = DateUtils;
+
 window.utils = {
   debounce(func, wait = 300) {
     let timeout = null;
     return function (...args) {
       clearTimeout(timeout);
       timeout = setTimeout(() => func.apply(this, args), wait);
-    };
-  },
-
-  throttle(func, limit = 300) {
-    let inThrottle = false;
-    return function (...args) {
-      if (!inThrottle) {
-        func.apply(this, args);
-        inThrottle = true;
-        setTimeout(() => {
-          inThrottle = false;
-        }, limit);
-      }
     };
   },
 
@@ -625,170 +569,4 @@ window.utils = {
       return false;
     }
   },
-
-  formatTripMetrics(trip) {
-    if (!trip) return {};
-
-    const startTime = trip.startTime ? new Date(trip.startTime) : null;
-    const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
-    const endTime = trip.endTime ? new Date(trip.endTime) : null;
-    const tripStatus = trip.status || "active";
-
-    let durationStr = trip.durationFormatted;
-    if (!durationStr && startTime) {
-      const endTimeToUse =
-        tripStatus === "completed" ? endTime : lastUpdate || new Date();
-      if (endTimeToUse) {
-        const duration = Math.floor((endTimeToUse - startTime) / 1000);
-        if (duration >= 0) {
-          const hours = Math.floor(duration / 3600);
-          const minutes = Math.floor((duration % 3600) / 60);
-          const seconds = duration % 60;
-          durationStr = `${hours}:${minutes
-            .toString()
-            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-        } else {
-          durationStr = "0:00:00";
-        }
-      }
-    }
-
-    const distance = typeof trip.distance === "number" ? trip.distance : 0;
-    const currentSpeed =
-      typeof trip.currentSpeed === "number" ? trip.currentSpeed : 0;
-    const avgSpeed = typeof trip.avgSpeed === "number" ? trip.avgSpeed : 0;
-    const maxSpeed = typeof trip.maxSpeed === "number" ? trip.maxSpeed : 0;
-    const pointsRecorded = trip.pointsRecorded || trip.coordinates?.length || 0;
-
-    const speedInfo = DateUtils.formatVehicleSpeed(currentSpeed);
-
-    return {
-      startTime: startTime ? DateUtils.formatForDisplay(startTime) : "N/A",
-      duration: durationStr || "0:00:00",
-      distance: `${distance.toFixed(2)} miles`,
-      currentSpeed: speedInfo.formatted,
-      speedStatus: speedInfo.status,
-      avgSpeed: `${avgSpeed.toFixed(1)} mph`,
-      maxSpeed: `${maxSpeed.toFixed(1)} mph`,
-      pointsRecorded,
-      lastUpdate: lastUpdate
-        ? DateUtils.formatTimeAgo(lastUpdate, true)
-        : "N/A",
-      isMoving: currentSpeed > 0,
-      isStopped: currentSpeed === 0,
-      status: tripStatus,
-    };
-  },
-
-  adaptivePolling: {
-    calculateInterval(trip, hasNewData, currentInterval, options = {}) {
-      const config = {
-        minInterval: options.minInterval || 1000,
-        maxInterval: options.maxInterval || 10000,
-        movingFast: options.movingFast || 1000,
-        movingSlow: options.movingSlow || 2000,
-        stationaryActive: options.stationaryActive || 3000,
-        stationaryIdle: options.stationaryIdle || 5000,
-        noTrip: options.noTrip || 7000,
-      };
-
-      if (!trip) return Math.min(currentInterval * 1.2, config.noTrip);
-
-      const isMoving = trip.currentSpeed > 2;
-      const isFastMoving = trip.currentSpeed > 15;
-
-      if (isFastMoving && hasNewData) return config.movingFast;
-      if (isMoving && hasNewData) return config.movingSlow;
-      if (isMoving) return Math.max(currentInterval * 0.8, config.movingSlow);
-      if (hasNewData) return config.stationaryActive;
-      return Math.min(currentInterval * 1.1, config.stationaryIdle);
-    },
-  },
 };
-
-window.dom = {
-  byId(id) {
-    return document.getElementById(id);
-  },
-
-  query(selector, context = document) {
-    return context.querySelector(selector);
-  },
-
-  queryAll(selector, context = document) {
-    return Array.from(context.querySelectorAll(selector));
-  },
-
-  create(tag, attrs = {}, content = null) {
-    const element = document.createElement(tag);
-
-    Object.entries(attrs).forEach(([key, value]) => {
-      if (key === "class" || key === "className") {
-        element.className = value;
-      } else if (key === "style" && typeof value === "object") {
-        Object.assign(element.style, value);
-      } else if (key.startsWith("data-")) {
-        element.setAttribute(key, value);
-      } else {
-        element[key] = value;
-      }
-    });
-
-    if (content) {
-      if (Array.isArray(content)) {
-        content.forEach((item) => {
-          element.appendChild(
-            item instanceof Node ? item : document.createTextNode(String(item)),
-          );
-        });
-      } else if (content instanceof Node) {
-        element.appendChild(content);
-      } else {
-        element.textContent = content;
-      }
-    }
-
-    return element;
-  },
-};
-
-window.handleError = handleError;
-window.DateUtils = DateUtils;
-
-class DOMHelper {
-  static byId(id) {
-    return document.getElementById(id);
-  }
-
-  static query(selector, context = document) {
-    return context.querySelector(selector);
-  }
-
-  static queryAll(selector, context = document) {
-    return context.querySelectorAll(selector);
-  }
-
-  static create(tag, attrs = {}, content = null) {
-    const el = document.createElement(tag);
-
-    for (const [key, value] of Object.entries(attrs)) {
-      if (key === "class" || key === "className") {
-        el.className = value;
-      } else {
-        el.setAttribute(key, value);
-      }
-    }
-
-    if (content) {
-      if (typeof content === "string") {
-        el.innerHTML = content;
-      } else {
-        el.appendChild(content);
-      }
-    }
-
-    return el;
-  }
-}
-
-window.DOMHelper = DOMHelper;

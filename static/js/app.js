@@ -102,10 +102,6 @@
     return false;
   };
 
-  const handleError = (error, context) =>
-    window.handleError?.(error, context) ||
-    console.error(`Error in ${context}:`, error);
-
   const addSingleEventListener = (element, eventType, handler) => {
     const el = typeof element === "string" ? getElement(element) : element;
     if (!el) return false;
@@ -147,17 +143,10 @@
       }
     });
 
-  const debounce =
-    window.utils?.debounce ||
-    ((func, delay) => {
-      let timeout;
-      return (...args) => {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(null, args), delay);
-      };
-    });
-
-  const debouncedUpdateMap = debounce(updateMap, CONFIG.MAP.debounceDelay);
+  const debouncedUpdateMap = window.utils.debounce(
+    updateMap,
+    CONFIG.MAP.debounceDelay,
+  );
 
   const getStartDate = () => {
     const storedDate = getStorageItem(CONFIG.STORAGE_KEYS.startDate);
