@@ -748,7 +748,8 @@ class DrivingNavigation {
       let progress = 0;
       const interval = setInterval(() => {
         progress += 10;
-        if (progress <= 90) { // Stop at 90% until completion
+        if (progress <= 90) {
+          // Stop at 90% until completion
           progressBar.style.width = `${progress}%`;
         } else {
           clearInterval(interval);
