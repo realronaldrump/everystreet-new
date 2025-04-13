@@ -24,4 +24,4 @@ psutil
 redis
 flower
 celery
-google-generativeai
+scikit-learn
