@@ -21,9 +21,7 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
-AUTHORIZED_DEVICES = [
-    d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
-]
+AUTHORIZED_DEVICES = [d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d]
 AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 
 progress_data = {
@@ -82,21 +80,19 @@ async def fetch_trips_for_device(
     url = f"{API_BASE_URL}/trips"
 
     try:
-        async with session.get(
-            url, headers=headers, params=params
-        ) as response:
+        async with session.get(url, headers=headers, params=params) as response:
             response.raise_for_status()
             trips = await response.json()
 
             for trip in trips:
                 if "startTime" in trip:
-                    trip["startTime"] = date_parser.isoparse(
-                        trip["startTime"]
-                    ).replace(tzinfo=timezone.utc)
+                    trip["startTime"] = date_parser.isoparse(trip["startTime"]).replace(
+                        tzinfo=timezone.utc
+                    )
                 if "endTime" in trip:
-                    trip["endTime"] = date_parser.isoparse(
-                        trip["endTime"]
-                    ).replace(tzinfo=timezone.utc)
+                    trip["endTime"] = date_parser.isoparse(trip["endTime"]).replace(
+                        tzinfo=timezone.utc
+                    )
 
             logger.info("Fetched %d trips for device %s", len(trips), imei)
             return trips
@@ -113,15 +109,11 @@ async def fetch_bouncie_trips_in_range(
 ) -> list:
     all_new_trips = []
     total_devices = len(AUTHORIZED_DEVICES)
-    progress_tracker = (
-        task_progress if task_progress is not None else progress_data
-    )
+    progress_tracker = task_progress if task_progress is not None else progress_data
     if progress_tracker is not None:
         progress_tracker["fetch_and_store_trips"]["status"] = "running"
         progress_tracker["fetch_and_store_trips"]["progress"] = 0
-        progress_tracker["fetch_and_store_trips"][
-            "message"
-        ] = "Starting trip fetch"
+        progress_tracker["fetch_and_store_trips"]["message"] = "Starting trip fetch"
     try:
         session = await get_session()
         token = await get_access_token(session)
@@ -165,9 +157,7 @@ async def fetch_bouncie_trips_in_range(
                     )
                     continue
                 try:
-                    processor = TripProcessor(
-                        mapbox_token=mapbox_token, source="api"
-                    )
+                    processor = TripProcessor(mapbox_token=mapbox_token, source="api")
                     processor.set_trip_data(trip)
                     await processor.process(do_map_match=do_map_match)
 
@@ -181,9 +171,7 @@ async def fetch_bouncie_trips_in_range(
                         )
                         continue
 
-                    saved_id = await processor.save(
-                        map_match_result=do_map_match
-                    )
+                    saved_id = await processor.save(map_match_result=do_map_match)
 
                     if saved_id:
                         logger.info(
@@ -216,14 +204,10 @@ async def fetch_bouncie_trips_in_range(
                     device_index / total_devices * 100
                 )
     except Exception as e:
-        logger.error(
-            "Error in fetch_bouncie_trips_in_range: %s", e, exc_info=True
-        )
+        logger.error("Error in fetch_bouncie_trips_in_range: %s", e, exc_info=True)
         if progress_tracker is not None:
             progress_tracker["fetch_and_store_trips"]["status"] = "failed"
-            progress_tracker["fetch_and_store_trips"][
-                "message"
-            ] = f"Error: {e}"
+            progress_tracker["fetch_and_store_trips"]["message"] = f"Error: {e}"
     finally:
         if (
             progress_tracker is not None
