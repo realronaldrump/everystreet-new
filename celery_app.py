@@ -202,10 +202,12 @@ def init_worker(**kwargs):
         _ = db_manager.client
         _ = db_manager.db
         if not db_manager._connection_healthy:
-             # Attempt initialization again explicitly if check failed
-             db_manager._initialize_client()
-             if not db_manager._connection_healthy:
-                 raise ConnectionFailure("DB Manager failed to initialize client in worker.")
+            # Attempt initialization again explicitly if check failed
+            db_manager._initialize_client()
+            if not db_manager._connection_healthy:
+                raise ConnectionFailure(
+                    "DB Manager failed to initialize client in worker."
+                )
         logger.info("DatabaseManager initialized for worker.")
 
         # Initialize live_tracking collections
@@ -213,13 +215,17 @@ def init_worker(**kwargs):
         live_collection = db_manager.get_collection("live_trips")
         archive_collection = db_manager.get_collection("archived_live_trips")
         if live_collection is None or archive_collection is None:
-            raise ConnectionFailure("Failed to get live/archive collections from db_manager in worker.")
+            raise ConnectionFailure(
+                "Failed to get live/archive collections from db_manager in worker."
+            )
         initialize_live_tracking_db(live_collection, archive_collection)
         logger.info("live_tracking collections initialized for worker.")
 
         logger.info("Worker process initialization complete.")
 
     except Exception as e:
-        logger.critical(f"CRITICAL ERROR during worker initialization: {e}", exc_info=True)
+        logger.critical(
+            f"CRITICAL ERROR during worker initialization: {e}", exc_info=True
+        )
         # Raise the exception to potentially stop the worker from starting unhealthy
         raise RuntimeError(f"Worker initialization failed: {e}") from e

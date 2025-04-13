@@ -2353,11 +2353,17 @@ def process_webhook_event_task(self, data: Dict[str, Any]):
             task_name,
             celery_task_id,
             db_err,
-            exc_info=True, # Added exc_info for better debugging
+            exc_info=True,  # Added exc_info for better debugging
         )
         # Ensure retry attributes exist before calling retry
-        if hasattr(self, 'request') and hasattr(self.request, 'retries') and hasattr(self, 'default_retry_delay'):
-            countdown = int(self.default_retry_delay * (2**self.request.retries))
+        if (
+            hasattr(self, "request")
+            and hasattr(self.request, "retries")
+            and hasattr(self, "default_retry_delay")
+        ):
+            countdown = int(
+                self.default_retry_delay * (2**self.request.retries)
+            )
             logger.info(
                 "Retrying task %s in %d seconds due to DB connection error.",
                 celery_task_id,
@@ -2366,12 +2372,17 @@ def process_webhook_event_task(self, data: Dict[str, Any]):
             try:
                 raise self.retry(exc=db_err, countdown=countdown)
             except Exception as retry_exc:
-                logger.critical("Failed to retry task %s: %s", celery_task_id, retry_exc)
+                logger.critical(
+                    "Failed to retry task %s: %s", celery_task_id, retry_exc
+                )
                 # Re-raise original error if retry fails
                 raise db_err from retry_exc
         else:
-             logger.error("Cannot retry task %s as retry context is missing.", celery_task_id)
-             raise db_err # Re-raise if cannot retry
+            logger.error(
+                "Cannot retry task %s as retry context is missing.",
+                celery_task_id,
+            )
+            raise db_err  # Re-raise if cannot retry
 
     except Exception as e:
         end_time = datetime.now(timezone.utc)
@@ -2386,8 +2397,14 @@ def process_webhook_event_task(self, data: Dict[str, Any]):
             exc_info=e,
         )
         # Attempt retry for generic errors too, if context available
-        if hasattr(self, 'request') and hasattr(self.request, 'retries') and hasattr(self, 'default_retry_delay'):
-            countdown = int(self.default_retry_delay * (2**self.request.retries))
+        if (
+            hasattr(self, "request")
+            and hasattr(self.request, "retries")
+            and hasattr(self, "default_retry_delay")
+        ):
+            countdown = int(
+                self.default_retry_delay * (2**self.request.retries)
+            )
             logger.info(
                 "Retrying task %s in %d seconds due to generic error.",
                 celery_task_id,
@@ -2396,8 +2413,15 @@ def process_webhook_event_task(self, data: Dict[str, Any]):
             try:
                 raise self.retry(exc=e, countdown=countdown)
             except Exception as retry_exc:
-                logger.critical("Failed to retry task %s after generic error: %s", celery_task_id, retry_exc)
-                raise e from retry_exc # Re-raise original error if retry fails
+                logger.critical(
+                    "Failed to retry task %s after generic error: %s",
+                    celery_task_id,
+                    retry_exc,
+                )
+                raise e from retry_exc  # Re-raise original error if retry fails
         else:
-            logger.error("Cannot retry task %s for generic error as retry context is missing.", celery_task_id)
-            raise e # Re-raise if cannot retry
+            logger.error(
+                "Cannot retry task %s for generic error as retry context is missing.",
+                celery_task_id,
+            )
+            raise e  # Re-raise if cannot retry
