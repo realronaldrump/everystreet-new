@@ -57,6 +57,116 @@ block head_content %}
     stroke-opacity: 0.6;
     stroke-dasharray: 4, 4;
   }
+  /* New styles for enhanced navigation UI */
+  .progress-container {
+    margin-top: 10px;
+    display: none;
+  }
+  .progress-container.active {
+    display: block;
+  }
+  .progress-bar {
+    height: 8px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+  }
+  .progress-label {
+    font-size: 0.85rem;
+    margin-bottom: 2px;
+  }
+  .route-info-detail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    align-items: center;
+  }
+  .route-info-detail > div {
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+  }
+  .cluster-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 4px;
+  }
+  .route-stats {
+    margin-top: 10px;
+    padding: 8px;
+    background-color: rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+  }
+  .route-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 0.85rem;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    padding: 3px 6px;
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.2);
+  }
+  .legend-color {
+    width: 10px;
+    height: 10px;
+    margin-right: 5px;
+    border-radius: 50%;
+  }
+  .step-indicator {
+    display: flex;
+    justify-content: space-between;
+    margin: 15px 0;
+  }
+  .step {
+    text-align: center;
+    position: relative;
+    flex: 1;
+  }
+  .step:before {
+    content: "";
+    height: 2px;
+    background-color: rgba(255, 255, 255, 0.2);
+    position: absolute;
+    top: 15px;
+    left: 0;
+    right: 0;
+    z-index: 0;
+  }
+  .step:first-child:before {
+    left: 50%;
+  }
+  .step:last-child:before {
+    right: 50%;
+  }
+  .step-circle {
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+    border-radius: 50%;
+    background-color: rgba(var(--bs-dark-rgb), 0.8);
+    margin: 0 auto 5px;
+    position: relative;
+    z-index: 1;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  .step.active .step-circle {
+    background-color: var(--bs-primary);
+    color: white;
+  }
+  .step.completed .step-circle {
+    background-color: var(--bs-success);
+    color: white;
+  }
+  .step-title {
+    font-size: 0.75rem;
+  }
 </style>
 {% endblock %} {% block content %}
 <div class="container-fluid mt-3">
@@ -101,22 +211,52 @@ block head_content %}
               >Auto-Follow Vehicle</label
             >
           </div>
+          
+          <!-- New progress indicator -->
+          <div id="route-progress-container" class="progress-container mt-3">
+            <div class="step-indicator">
+              <div class="step" id="step-clustering">
+                <div class="step-circle">1</div>
+                <div class="step-title">Clustering</div>
+              </div>
+              <div class="step" id="step-optimizing">
+                <div class="step-circle">2</div>
+                <div class="step-title">Optimizing</div>
+              </div>
+              <div class="step" id="step-rendering">
+                <div class="step-circle">3</div>
+                <div class="step-title">Rendering</div>
+              </div>
+            </div>
+            <div class="progress-label">Processing: <span id="processing-status">Preparing...</span></div>
+            <div class="progress">
+              <div id="route-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="info-panel card bg-dark text-white">
         <div class="card-body">
-          <h5 class="card-title">Status & Target</h5>
+          <h5 class="card-title">Navigation Information</h5>
           <div id="status-message" class="mb-2">
             Select an area and find the nearest street.
-          </div>
-          <div id="progress-indicator" class="progress mb-2" style="display: none;">
-            <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" role="progressbar" style="width: 0%" id="route-progress-bar"></div>
           </div>
           <div id="target-info">
             <!-- Target street info will appear here -->
           </div>
-          <div id="route-info" class="mt-2 small text-muted">
+          <div id="route-info" class="mt-2">
             <!-- Route duration/distance will appear here -->
+          </div>
+          
+          <!-- New route details section -->
+          <div id="route-details" class="mt-3" style="display: none;">
+            <h6>Route Details</h6>
+            <div id="route-stats" class="route-stats">
+              <!-- Dynamic route statistics will be shown here -->
+            </div>
+            <div id="route-legend" class="route-legend">
+              <!-- Route color legend will be shown here -->
+            </div>
           </div>
         </div>
       </div>
