@@ -18,6 +18,8 @@ from typing import Any, Dict, List, Optional
 import bson
 import geojson as geojson_module
 import gpxpy
+import httpx
+import numpy as np
 import pytz
 from bson import ObjectId
 from dateutil import parser as dateutil_parser
@@ -39,9 +41,7 @@ from gridfs.errors import NoFile
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from pymongo import GEOSPHERE, IndexModel
 from pymongo.errors import OperationFailure
-import httpx
 from sklearn.cluster import KMeans
-import numpy as np
 
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from coverage_tasks import (
@@ -80,7 +80,6 @@ from export_helpers import (
 from live_tracking import (
     get_active_trip,
     get_trip_updates,
-    handle_bouncie_webhook,
 )
 from live_tracking import (
     initialize_db as initialize_live_tracking_db,
@@ -107,15 +106,16 @@ from tasks import (
     get_all_task_metadata,
     get_task_config,
     manual_run_task,
+    process_webhook_event_task,
     update_task_schedule,
 )
 from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
 from utils import (
+    calculate_circular_average_hour,
     calculate_distance,
     cleanup_session,
     validate_location_osm,
-    calculate_circular_average_hour,
 )
 from visits import init_collections
 from visits import router as visits_router
@@ -2914,9 +2914,100 @@ async def refresh_geocoding_for_trips(trip_ids: List[str]):
 
 @app.post("/webhook/bouncie")
 async def bouncie_webhook(request: Request):
-    """Handle Bouncie webhook data."""
-    data = await request.json()
-    return await handle_bouncie_webhook(data)
+    """
+    Receives webhook events from Bouncie, acknowledges immediately,
+    and schedules background processing via Celery.
+    """
+    try:
+        # Use request.body() for robustness against potential encoding issues
+        # or non-standard content types, although Bouncie sends application/json
+        raw_body = await request.body()
+        try:
+            data = json.loads(raw_body)
+        except json.JSONDecodeError:
+            logger.error(
+                "Failed to parse JSON from Bouncie webhook request body."
+            )
+            # Return 400 if JSON is invalid - Bouncie might retry or log this
+            return JSONResponse(
+                content={"status": "error", "message": "Invalid JSON body"},
+                status_code=400,
+            )
+
+        event_type = data.get("eventType")
+        transaction_id = data.get(
+            "transactionId"
+        )  # May be None for some events
+
+        # Basic validation before queuing
+        if not event_type:
+            logger.warning(
+                "Webhook received with missing eventType. Acknowledging but not queuing. Body: %s",
+                raw_body[:500],
+            )  # Log part of the body
+            # Still return 2xx to satisfy Bouncie
+            return JSONResponse(
+                content={"status": "acknowledged_invalid_event"},
+                status_code=200,
+            )
+
+        logger.info(
+            "Webhook received: Type=%s, TransactionID=%s. Scheduling for background processing.",
+            event_type,
+            transaction_id or "N/A",
+        )
+
+        # Schedule the task with Celery
+        # Pass the raw data dictionary to the task
+        try:
+            process_webhook_event_task.delay(data)
+            logger.debug(
+                "Successfully scheduled task for webhook event: Type=%s, TxID=%s",
+                event_type,
+                transaction_id or "N/A",
+            )
+        except Exception as celery_err:
+            # Handle potential errors during task scheduling (e.g., broker connection issue)
+            error_id = str(uuid.uuid4())
+            logger.exception(
+                "Failed to schedule Celery task for webhook [%s]: Type=%s, TxID=%s, Error: %s",
+                error_id,
+                event_type,
+                transaction_id or "N/A",
+                celery_err,
+            )
+            # Return 500 - Bouncie should retry
+            return JSONResponse(
+                content={
+                    "status": "error",
+                    "message": "Failed to schedule background task",
+                    "error_id": error_id,
+                },
+                status_code=500,
+            )
+
+        # Immediately return a 2xx response (202 Accepted is semantically good)
+        return JSONResponse(
+            content={"status": "acknowledged"}, status_code=202
+        )
+
+    except Exception as e:
+        # Catch unexpected errors during request handling/scheduling
+        error_id = str(uuid.uuid4())
+        logger.exception(
+            "Critical error handling webhook request before queuing [%s]: %s",
+            error_id,
+            e,
+        )
+        # Return 500 - Bouncie will likely retry
+        return JSONResponse(
+            content={
+                "status": "error",
+                "message": "Internal server error",
+                "error_id": error_id,
+            },
+            status_code=500,
+        )
 
 
 @app.get(

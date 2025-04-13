@@ -1,3 +1,5 @@
+# tasks.py
+
 """
 Background tasks implementation using Celery.
 
@@ -28,10 +30,11 @@ from bouncie_trip_fetcher import (
 )
 from celery_app import app as celery_app
 from db import (
+    ConnectionFailure,
     SerializationHelper,
     count_documents_with_retry,
     coverage_metadata_collection,
-    db_manager,
+    db_manager,  # Ensure db_manager is imported
     find_one_with_retry,
     find_with_retry,
     matched_trips_collection,
@@ -41,7 +44,24 @@ from db import (
     trips_collection,
     update_one_with_retry,
 )
-from live_tracking import cleanup_stale_trips_logic
+from live_tracking import (
+    archived_live_trips_collection as archived_live_trips_coll_task,  # Use alias if needed
+)
+
+# Import the processing functions from live_tracking
+from live_tracking import (
+    cleanup_stale_trips_logic,
+    process_trip_data,
+    process_trip_end,
+    process_trip_metrics,
+    process_trip_start,
+)
+from live_tracking import (
+    initialize_db as initialize_live_tracking_db_for_task,  # Use alias if needed
+)
+from live_tracking import (
+    live_trips_collection as live_trips_coll_task,  # Use alias if needed
+)
 from street_coverage_calculation import compute_incremental_coverage
 from trip_processor import TripProcessor, TripState
 from utils import (
@@ -2208,3 +2228,183 @@ async def update_task_schedule(
             "status": "error",
             "message": f"Error updating task schedule: {str(e)}",
         }
+
+
+# --- START OF NEW CELERY TASK DEFINITION ---
+@shared_task(
+    bind=True,
+    name="tasks.process_webhook_event_task",
+    max_retries=3,  # Retry the task processing on failure
+    default_retry_delay=60,  # Wait 60 seconds before retrying
+    time_limit=300,  # Hard time limit for the task (5 minutes)
+    soft_time_limit=240,  # Soft time limit (4 minutes)
+    acks_late=True,  # Acknowledge after task completion/failure
+    queue="default",  # Consider a dedicated 'webhooks' queue if volume is high
+)
+def process_webhook_event_task(self, data: Dict[str, Any]):
+    """
+    Celery task to process Bouncie webhook data asynchronously.
+    """
+    task_name = "process_webhook_event_task"
+    celery_task_id = self.request.id
+    start_time = datetime.now(timezone.utc)
+    event_type = data.get("eventType")
+    transaction_id = data.get("transactionId")  # May be None
+
+    logger.info(
+        "Celery Task %s (%s) started processing webhook: Type=%s, TransactionID=%s",
+        task_name,
+        celery_task_id,
+        event_type or "Unknown",
+        transaction_id or "N/A",
+    )
+
+    # --- Ensure DB is initialized within the Celery worker context ---
+    try:
+        # Ensure the collections are available in the task context
+        # This uses the global db_manager, assuming it's correctly
+        # initialized when the worker starts or lazily connects.
+        if (
+            live_trips_coll_task is None
+            or archived_live_trips_coll_task is None
+        ):
+            logger.warning(
+                "Task %s: Live/Archived collections not initialized, attempting init.",
+                celery_task_id,
+            )
+            # Ensure db_manager itself is ready (might trigger client init if needed)
+            _ = db_manager.db
+            # Now get the collections
+            live_collection = db_manager.get_collection("live_trips")
+            archive_collection = db_manager.get_collection(
+                "archived_live_trips"
+            )
+            initialize_live_tracking_db_for_task(
+                live_collection, archive_collection
+            )
+            # Re-check after initialization attempt
+            # Accessing globals directly might be tricky depending on Celery setup,
+            # re-fetching might be safer if initialization doesn't set the globals reliably
+            # in this context. Let's assume initialize_db sets the needed globals for now.
+            # A more robust pattern might pass collections explicitly or use a class.
+            if (
+                live_trips_coll_task is None
+                or archived_live_trips_coll_task is None
+            ):
+                logger.critical(
+                    "Task %s: Still failed to initialize DB collections after attempt.",
+                    celery_task_id,
+                )
+                raise ConnectionFailure(
+                    "Failed to initialize DB collections within Celery task."
+                )
+
+        # --- Core processing logic (moved from handle_bouncie_webhook) ---
+        if not event_type:
+            logger.error(
+                "Task %s: Missing eventType in webhook data: %s",
+                celery_task_id,
+                data,
+            )
+            return {
+                "status": "error",
+                "message": "Missing eventType",
+            }  # Task result, not HTTP response
+
+        # Bouncie API spec says transactionId is required for trip events
+        if (
+            event_type in ("tripStart", "tripData", "tripMetrics", "tripEnd")
+            and not transaction_id
+        ):
+            logger.error(
+                "Task %s: Missing transactionId for required event type %s: %s",
+                celery_task_id,
+                event_type,
+                data,
+            )
+            return {
+                "status": "error",
+                "message": f"Missing transactionId for {event_type}",
+            }
+
+        # Run the appropriate async processing function using run_async_from_sync
+        # This blocks the Celery worker until the async function completes
+        if event_type == "tripStart":
+            run_async_from_sync(process_trip_start(data))
+        elif event_type == "tripData":
+            run_async_from_sync(process_trip_data(data))
+        elif event_type == "tripMetrics":
+            run_async_from_sync(process_trip_metrics(data))
+        elif event_type == "tripEnd":
+            run_async_from_sync(process_trip_end(data))
+        # Handle other potential Bouncie events if needed
+        elif event_type in ("connect", "disconnect", "battery", "mil"):
+            logger.info(
+                "Task %s: Received non-trip event type: %s. Ignoring for now. Payload: %s",
+                celery_task_id,
+                event_type,
+                data,
+            )
+            # Implement processing for these if required in the future
+        else:
+            logger.warning(
+                "Task %s: Received unknown event type: %s. Payload: %s",
+                celery_task_id,
+                event_type,
+                data,
+            )
+
+        # --- Task Success Logging ---
+        end_time = datetime.now(timezone.utc)
+        runtime = (end_time - start_time).total_seconds() * 1000
+        logger.info(
+            "Celery Task %s (%s) successfully processed webhook: Type=%s, TransactionID=%s in %.0fms",
+            task_name,
+            celery_task_id,
+            event_type,
+            transaction_id or "N/A",
+            runtime,
+        )
+        return {
+            "status": "success",
+            "message": "Event processed successfully",
+        }  # Task result
+
+    except ConnectionFailure as db_err:
+        logger.error(
+            "Task %s (%s): Database connection error during processing: %s",
+            task_name,
+            celery_task_id,
+            db_err,
+        )
+        # Retry the task on connection errors
+        # Exponential backoff: 60s, 120s, 240s
+        countdown = int(self.default_retry_delay * (2**self.request.retries))
+        logger.info(
+            "Retrying task %s in %d seconds due to DB connection error.",
+            celery_task_id,
+            countdown,
+        )
+        raise self.retry(exc=db_err, countdown=countdown)
+    except Exception as e:
+        # --- Task Failure Logging ---
+        end_time = datetime.now(timezone.utc)
+        runtime = (end_time - start_time).total_seconds() * 1000
+        error_msg = f"Unhandled error processing webhook event {event_type or 'Unknown'} (TxID: {transaction_id or 'N/A'})"
+        logger.exception(
+            "Celery Task %s (%s) FAILED processing webhook: %s. Runtime: %.0fms",
+            task_name,
+            celery_task_id,
+            error_msg,
+            runtime,
+            exc_info=e,  # Log the full traceback
+        )
+        # Do not retry for general exceptions by default, only for specific ones like DB errors
+        # Or decide based on exception type if retrying makes sense
+        return {
+            "status": "error",
+            "message": str(e),
+        }  # Task result indicating failure
+
+
+# --- END OF NEW CELERY TASK DEFINITION ---
