@@ -14,7 +14,9 @@ class DrivingNavigation {
     this.autoFollowToggle = document.getElementById("auto-follow-toggle");
 
     // New UI elements
-    this.progressContainer = document.getElementById("route-progress-container");
+    this.progressContainer = document.getElementById(
+      "route-progress-container",
+    );
     this.progressBar = document.getElementById("route-progress-bar");
     this.processingStatus = document.getElementById("processing-status");
     this.routeDetails = document.getElementById("route-details");
@@ -37,8 +39,16 @@ class DrivingNavigation {
     this.clearTripTimeout = null;
     this.currentStep = null;
     this.clusterColors = [
-      "#ff6b6b", "#48dbfb", "#1dd1a1", "#feca57", "#ff9ff3", 
-      "#54a0ff", "#5f27cd", "#ff9f43", "#00d2d3", "#c8d6e5"
+      "#ff6b6b",
+      "#48dbfb",
+      "#1dd1a1",
+      "#feca57",
+      "#ff9ff3",
+      "#54a0ff",
+      "#5f27cd",
+      "#ff9f43",
+      "#00d2d3",
+      "#c8d6e5",
     ];
 
     this.initialize();
@@ -359,7 +369,7 @@ class DrivingNavigation {
       // Show progress for street loading
       this.showProgressContainer();
       this.updateProgress(20, "Fetching undriven streets from database...");
-      
+
       const response = await fetch("/api/undriven_streets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -375,7 +385,7 @@ class DrivingNavigation {
       const geojson = await response.json();
 
       this.updateProgress(80, "Rendering streets on map...");
-      
+
       if (geojson && geojson.features && geojson.features.length > 0) {
         const geoJsonLayer = L.geoJSON(geojson, {
           style: {
@@ -393,12 +403,14 @@ class DrivingNavigation {
         if (bounds.isValid()) {
           this.map.fitBounds(bounds, { padding: [50, 50] });
         }
-        
+
         // Complete progress
         this.updateProgress(100, "Loaded undriven streets!");
         setTimeout(() => this.hideProgressContainer(), 1000);
-        
-        this.setStatus(`Loaded ${geojson.features.length} undriven streets in ${this.selectedLocation.display_name}.`);
+
+        this.setStatus(
+          `Loaded ${geojson.features.length} undriven streets in ${this.selectedLocation.display_name}.`,
+        );
       } else {
         this.hideProgressContainer();
         this.setStatus(
@@ -455,7 +467,7 @@ class DrivingNavigation {
     this.targetInfo.innerHTML = "";
     this.routeInfo.innerHTML = "";
     this.hideRouteDetails();
-    
+
     // Show progress container and set initial state
     this.showProgressContainer();
     this.setActiveStep("clustering");
@@ -472,7 +484,7 @@ class DrivingNavigation {
 
       // Update progress to show request is being sent
       this.updateProgress(30, "Finding the nearest undriven street...");
-      
+
       const response = await fetch("/api/driving-navigation/next-route", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -500,7 +512,7 @@ class DrivingNavigation {
       ) {
         // Update progress to show we're rendering the route
         this.setActiveStep("rendering");
-        
+
         const routeLayer = L.geoJSON(data.route_geometry, {
           style: {
             color: "#76ff03",
@@ -547,7 +559,7 @@ class DrivingNavigation {
           clusters: 1,
           segments: 1,
           duration: data.route_duration_seconds,
-          distance: data.route_distance_meters
+          distance: data.route_distance_meters,
         });
 
         this.bringLiveElementsToFront();
@@ -633,11 +645,11 @@ class DrivingNavigation {
           dashArray: null,
           className: "target-street-segment",
         });
-        
+
         // Add a pulsing effect to make the target street more noticeable
-        if (!document.getElementById('pulsing-target-style')) {
-          const style = document.createElement('style');
-          style.id = 'pulsing-target-style';
+        if (!document.getElementById("pulsing-target-style")) {
+          const style = document.createElement("style");
+          style.id = "pulsing-target-style";
           style.innerHTML = `
             @keyframes pulse-target {
               0% { stroke-opacity: 1; }
@@ -650,13 +662,13 @@ class DrivingNavigation {
           `;
           document.head.appendChild(style);
         }
-        
+
         // If the map view doesn't include the target street, pan to it
         const bounds = layer.getBounds();
         if (bounds && !this.map.getBounds().contains(bounds)) {
           this.map.panTo(bounds.getCenter());
         }
-        
+
         layer.bringToFront();
       }
     });
@@ -683,16 +695,16 @@ class DrivingNavigation {
 
   setStatus(message, isError = false) {
     if (!this.statusMsg) return;
-    
+
     // Format the message with more visual cues
-    const icon = isError 
-      ? '<i class="fas fa-exclamation-triangle text-warning me-2"></i>' 
+    const icon = isError
+      ? '<i class="fas fa-exclamation-triangle text-warning me-2"></i>'
       : '<i class="fas fa-info-circle me-2"></i>';
-      
+
     this.statusMsg.innerHTML = `${icon}${message}`;
     this.statusMsg.classList.toggle("text-danger", isError);
     this.statusMsg.classList.toggle("text-info", !isError);
-    
+
     // Also show a notification for important status changes
     if (isError && notificationManager) {
       notificationManager.show(message, "danger");
@@ -720,7 +732,7 @@ class DrivingNavigation {
     this.targetInfo.innerHTML = "";
     this.routeInfo.innerHTML = "";
     this.hideRouteDetails();
-    
+
     // Show progress container and set initial state
     this.showProgressContainer();
     this.setActiveStep("clustering");
@@ -740,7 +752,7 @@ class DrivingNavigation {
 
       // Update progress to show we're grouping segments
       this.updateProgress(20, "Clustering street segments...");
-      
+
       const response = await fetch("/api/driving-navigation/coverage-route", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -763,7 +775,7 @@ class DrivingNavigation {
       } else if (data.status === "success" && data.route_geometry) {
         // Update progress to show we're rendering the route
         this.setActiveStep("rendering");
-        
+
         const fullRouteLayer = L.layerGroup().addTo(this.routeLayer);
         let routeBounds = L.latLngBounds();
 
@@ -775,7 +787,9 @@ class DrivingNavigation {
         };
 
         // The message contains the info about clusters and segments
-        const clusterInfo = data.message.match(/(\d+) segments across (\d+) clusters/);
+        const clusterInfo = data.message.match(
+          /(\d+) segments across (\d+) clusters/,
+        );
         const segmentCount = clusterInfo ? parseInt(clusterInfo[1]) : 0;
         const clusterCount = clusterInfo ? parseInt(clusterInfo[2]) : 0;
 
@@ -784,10 +798,10 @@ class DrivingNavigation {
           const geometries = data.route_geometry.geometries;
           let clusterIndex = 0;
           let isConnectingRoute = true;
-          
+
           geometries.forEach((geom, index) => {
             let style = {};
-            
+
             if (isConnectingRoute) {
               // This is a connecting route
               style = connectingRouteStyle;
@@ -796,7 +810,8 @@ class DrivingNavigation {
               // This is a cluster or segment within a cluster
               // Use a different color for each cluster to make them visually distinguishable
               style = {
-                color: this.clusterColors[clusterIndex % this.clusterColors.length],
+                color:
+                  this.clusterColors[clusterIndex % this.clusterColors.length],
                 weight: 6,
                 opacity: 0.9,
                 className: `coverage-cluster-${clusterIndex}`,
@@ -808,17 +823,21 @@ class DrivingNavigation {
             const layer = L.geoJSON(geom, { style });
             fullRouteLayer.addLayer(layer);
             routeBounds.extend(layer.getBounds());
-            
+
             // Add a marker at the start of each cluster to show the sequence
-            if (!isConnectingRoute && geom.coordinates && geom.coordinates.length > 0) {
+            if (
+              !isConnectingRoute &&
+              geom.coordinates &&
+              geom.coordinates.length > 0
+            ) {
               const startCoord = geom.coordinates[0];
               const clusterMarker = L.marker([startCoord[1], startCoord[0]], {
                 icon: L.divIcon({
-                  className: 'cluster-marker',
+                  className: "cluster-marker",
                   html: `<div style="background-color:${style.color};color:white;border-radius:50%;width:24px;height:24px;text-align:center;line-height:24px;font-weight:bold;">${clusterIndex}</div>`,
                   iconSize: [24, 24],
-                  iconAnchor: [12, 12]
-                })
+                  iconAnchor: [12, 12],
+                }),
               });
               fullRouteLayer.addLayer(clusterMarker);
             }
@@ -855,26 +874,26 @@ class DrivingNavigation {
         this.setStatus(
           `Full coverage route calculated for ${segmentCount} segments across ${clusterCount} clusters.`,
         );
-        
+
         const locationSource = data.location_source || "unknown";
         this.routeInfo.innerHTML = `
           <div class="card bg-dark p-2 mt-2">
             <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>Coverage Route</h6>
             <div class="route-info-detail">
-              <div><i class="fas fa-clock"></i> ${durationHours > 0 ? `${durationHours}h ` : ''}${durationMinutes}min</div>
+              <div><i class="fas fa-clock"></i> ${durationHours > 0 ? `${durationHours}h ` : ""}${durationMinutes}min</div>
               <div><i class="fas fa-road"></i> ${distanceMiles} mi</div>
               <div><i class="fas fa-layer-group"></i> ${clusterCount} clusters</div>
               <div class="w-100 text-muted small">(Using ${this.formatLocationSource(locationSource)} position)</div>
             </div>
           </div>
         `;
-        
+
         // Add detailed route information
         this.showRouteDetails({
           clusters: clusterCount,
           segments: segmentCount,
           duration: data.total_duration_seconds,
-          distance: data.total_distance_meters
+          distance: data.total_distance_meters,
         });
 
         this.bringLiveElementsToFront();
@@ -922,7 +941,7 @@ class DrivingNavigation {
       this.resetSteps();
     }
   }
-  
+
   hideProgressContainer() {
     if (this.progressContainer) {
       this.progressContainer.classList.remove("active");
@@ -930,7 +949,7 @@ class DrivingNavigation {
       this.processingStatus.textContent = "Preparing...";
     }
   }
-  
+
   updateProgress(percent, status) {
     if (this.progressBar && this.processingStatus) {
       this.progressBar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
@@ -939,18 +958,18 @@ class DrivingNavigation {
       }
     }
   }
-  
+
   resetSteps() {
     this.currentStep = null;
     if (this.stepClustering) this.stepClustering.className = "step";
     if (this.stepOptimizing) this.stepOptimizing.className = "step";
     if (this.stepRendering) this.stepRendering.className = "step";
   }
-  
+
   setActiveStep(step) {
     this.resetSteps();
     this.currentStep = step;
-    
+
     if (step === "clustering") {
       if (this.stepClustering) this.stepClustering.className = "step active";
       this.updateProgress(15, "Grouping street segments into clusters...");
@@ -965,12 +984,12 @@ class DrivingNavigation {
       this.updateProgress(85, "Rendering route on map...");
     }
   }
-  
+
   showRouteDetails(routeData) {
     if (!this.routeDetails || !routeData) return;
-    
+
     this.routeDetails.style.display = "block";
-    
+
     // Generate route statistics
     if (this.routeStats) {
       const clusterCount = routeData.clusters || 1;
@@ -978,15 +997,15 @@ class DrivingNavigation {
       const durationHours = Math.floor(routeData.duration / 3600);
       const durationMinutes = Math.floor((routeData.duration % 3600) / 60);
       const distanceMiles = (routeData.distance * 0.000621371).toFixed(1);
-      
+
       this.routeStats.innerHTML = `
         <div><strong>Clusters:</strong> ${clusterCount}</div>
         <div><strong>Street Segments:</strong> ${segmentCount}</div>
-        <div><strong>Estimated Time:</strong> ${durationHours > 0 ? `${durationHours}h ` : ''}${durationMinutes}min</div>
+        <div><strong>Estimated Time:</strong> ${durationHours > 0 ? `${durationHours}h ` : ""}${durationMinutes}min</div>
         <div><strong>Total Distance:</strong> ${distanceMiles} miles</div>
       `;
     }
-    
+
     // Generate route legend
     if (this.routeLegend) {
       this.routeLegend.innerHTML = `
@@ -1003,10 +1022,14 @@ class DrivingNavigation {
           <span>Current Position</span>
         </div>
       `;
-      
+
       // Add cluster colors to legend if there are multiple clusters
       if (routeData.clusters && routeData.clusters > 1) {
-        for (let i = 0; i < Math.min(routeData.clusters, this.clusterColors.length); i++) {
+        for (
+          let i = 0;
+          i < Math.min(routeData.clusters, this.clusterColors.length);
+          i++
+        ) {
           const clusterItem = document.createElement("div");
           clusterItem.className = "legend-item";
           clusterItem.innerHTML = `
@@ -1018,7 +1041,7 @@ class DrivingNavigation {
       }
     }
   }
-  
+
   hideRouteDetails() {
     if (this.routeDetails) {
       this.routeDetails.style.display = "none";
@@ -1028,11 +1051,11 @@ class DrivingNavigation {
   // Add a method to create a popup with segment information
   createSegmentPopup(segment) {
     if (!segment || !segment.properties) return null;
-    
+
     const props = segment.properties;
-    const streetName = props.street_name || 'Unnamed Street';
-    const segmentId = props.segment_id || 'Unknown';
-    
+    const streetName = props.street_name || "Unnamed Street";
+    const segmentId = props.segment_id || "Unknown";
+
     const popupContent = `
       <div class="segment-popup">
         <h6>${streetName}</h6>
@@ -1045,56 +1068,56 @@ class DrivingNavigation {
         </div>
       </div>
     `;
-    
+
     const popup = L.popup({
-      className: 'segment-info-popup',
-      maxWidth: 200
+      className: "segment-info-popup",
+      maxWidth: 200,
     }).setContent(popupContent);
-    
+
     return popup;
   }
-  
+
   // Add method to make the map more interactive
   setupMapInteractivity() {
     // Add hover effect for undriven streets
-    this.undrivenStreetsLayer.on('mouseover', (e) => {
+    this.undrivenStreetsLayer.on("mouseover", (e) => {
       const layer = e.layer;
       if (!layer.feature || layer === this.targetStreetLayer) return;
-      
+
       layer.setStyle({
         weight: 4,
-        color: '#4dabf7',
-        opacity: 0.8
+        color: "#4dabf7",
+        opacity: 0.8,
       });
-      
+
       if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
         layer.bringToFront();
       }
     });
-    
-    this.undrivenStreetsLayer.on('mouseout', (e) => {
+
+    this.undrivenStreetsLayer.on("mouseout", (e) => {
       const layer = e.layer;
       if (!layer.feature || layer === this.targetStreetLayer) return;
-      
+
       this.undrivenStreetsLayer.resetStyle(layer);
     });
-    
+
     // Add click handler for undriven streets to show info and navigation option
-    this.undrivenStreetsLayer.on('click', (e) => {
+    this.undrivenStreetsLayer.on("click", (e) => {
       const segment = e.layer.feature;
       const popup = this.createSegmentPopup(segment);
       if (popup) {
         e.layer.bindPopup(popup).openPopup();
-        
+
         // Add event listener to the navigate button after popup is open
         setTimeout(() => {
-          const navigateBtn = document.querySelector('.navigate-to-segment');
+          const navigateBtn = document.querySelector(".navigate-to-segment");
           if (navigateBtn) {
-            navigateBtn.addEventListener('click', () => {
-              const segmentId = navigateBtn.getAttribute('data-segment-id');
+            navigateBtn.addEventListener("click", () => {
+              const segmentId = navigateBtn.getAttribute("data-segment-id");
               this.highlightTargetStreet(segmentId);
               e.layer.closePopup();
-              
+
               // Generate a route to this specific segment
               this.findRouteToSegment(segmentId);
             });
@@ -1103,17 +1126,17 @@ class DrivingNavigation {
       }
     });
   }
-  
+
   // Method to find a route to a specific segment
   async findRouteToSegment(segmentId) {
     if (!this.selectedLocation || !segmentId) return;
-    
+
     this.setStatus(`Calculating route to segment #${segmentId}...`);
     this.findBtn.disabled = true;
     this.calcCoverageBtn.disabled = true;
     this.showProgressContainer();
     this.setActiveStep("optimizing");
-    
+
     try {
       // We'll use the same endpoint but pass the specific segment ID
       const requestPayload = {
@@ -1123,22 +1146,22 @@ class DrivingNavigation {
           current_position: this.lastKnownLocation,
         }),
       };
-      
+
       const response = await fetch("/api/driving-navigation/next-route", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestPayload),
       });
-      
+
       const data = await response.json();
-      
+
       // Process response similar to findAndDisplayRoute method
       if (data.status === "success" && data.route_geometry) {
         this.setActiveStep("rendering");
-        
+
         // Clear previous route and display new one
         this.routeLayer.clearLayers();
-        
+
         const routeLayer = L.geoJSON(data.route_geometry, {
           style: {
             color: "#76ff03",
@@ -1147,14 +1170,16 @@ class DrivingNavigation {
             className: "calculated-route",
           },
         }).addTo(this.routeLayer);
-        
+
         // Update UI with route info
         const streetName = data.target_street.street_name || "Selected Street";
         this.setStatus(`Route calculated to ${streetName}.`);
-        
+
         const durationMinutes = Math.round(data.route_duration_seconds / 60);
-        const distanceMiles = (data.route_distance_meters * 0.000621371).toFixed(1);
-        
+        const distanceMiles = (
+          data.route_distance_meters * 0.000621371
+        ).toFixed(1);
+
         this.routeInfo.innerHTML = `
           <div class="card bg-dark p-2 mt-2">
             <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>Route Information</h6>
@@ -1165,13 +1190,13 @@ class DrivingNavigation {
             </div>
           </div>
         `;
-        
+
         // Zoom to show the route
         const bounds = routeLayer.getBounds();
         if (bounds && bounds.isValid()) {
           this.map.fitBounds(bounds, { padding: [70, 70] });
         }
-        
+
         // Complete progress
         this.updateProgress(100, "Route calculation complete!");
         setTimeout(() => this.hideProgressContainer(), 1000);

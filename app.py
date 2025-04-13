@@ -9,14 +9,12 @@ import io
 import json
 import logging
 import os
-import time
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from math import ceil
 from typing import Any, Dict, List, Optional
 
-import aiohttp
 import bson
 import geojson as geojson_module
 import gpxpy
@@ -116,7 +114,6 @@ from update_geo_points import update_geo_points
 from utils import (
     calculate_distance,
     cleanup_session,
-    haversine,
     validate_location_osm,
     calculate_circular_average_hour,
 )
@@ -2327,6 +2324,7 @@ async def export_boundary(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
+
 @app.post("/api/preprocess_streets")
 async def preprocess_streets_route(location_data: LocationModel):
     """Preprocess streets data for a validated location received in the request
@@ -3277,7 +3275,11 @@ async def _mark_segment(
             {"_id": location_id},
             {"location.display_name": 1},
         )
-    ).get("location", {}).get("display_name"):
+    ).get(
+        "location", {}
+    ).get(
+        "display_name"
+    ):
         logger.warning(
             f"Segment {segment_id} found but does not belong to location {location_id_str}. Proceeding anyway."
         )
@@ -3456,9 +3458,7 @@ async def refresh_coverage_stats(location_id: str):
                 default=lambda obj: (
                     obj.isoformat()
                     if isinstance(obj, datetime)
-                    else str(obj)
-                    if isinstance(obj, ObjectId)
-                    else None
+                    else str(obj) if isinstance(obj, ObjectId) else None
                 ),
             )
         )
@@ -3801,7 +3801,9 @@ async def _get_mapbox_optimization_route(
     # Mapbox Optimization API v1 has a limit of 12 coordinates per request
     # Including start point, we can have up to 11 end points
     if len(end_points) > 11:
-        logger.warning("Too many end points for Mapbox API v1, limiting to first 11.")
+        logger.warning(
+            "Too many end points for Mapbox API v1, limiting to first 11."
+        )
         end_points = end_points[:11]
 
     # Prepare coordinates string for the API call
@@ -3815,7 +3817,7 @@ async def _get_mapbox_optimization_route(
         "access_token": mapbox_token,
         "geometries": "geojson",
         "steps": "false",
-        "overview": "full"
+        "overview": "full",
     }
 
     async with httpx.AsyncClient() as client:
@@ -3844,7 +3846,7 @@ async def _get_mapbox_optimization_route(
         return {
             "geometry": geometry,
             "duration": duration,
-            "distance": distance
+            "distance": distance,
         }
 
 
@@ -4036,10 +4038,17 @@ async def get_next_driving_route(request: Request):
         end_points = []
         for street in undriven_streets:
             geometry = street.get("geometry", {})
-            if geometry.get("type") == "LineString" and geometry.get("coordinates"):
+            if geometry.get("type") == "LineString" and geometry.get(
+                "coordinates"
+            ):
                 start_node = geometry["coordinates"][0]
-                if isinstance(start_node, (list, tuple)) and len(start_node) >= 2:
-                    end_points.append((float(start_node[0]), float(start_node[1])))
+                if (
+                    isinstance(start_node, (list, tuple))
+                    and len(start_node) >= 2
+                ):
+                    end_points.append(
+                        (float(start_node[0]), float(start_node[1]))
+                    )
 
         if not end_points:
             return JSONResponse(
@@ -4053,9 +4062,7 @@ async def get_next_driving_route(request: Request):
 
         # Call the Mapbox Optimization API v1 helper function
         optimization_result = await _get_mapbox_optimization_route(
-            current_lon,
-            current_lat,
-            end_points=end_points
+            current_lon, current_lat, end_points=end_points
         )
 
         # Extract the optimized route details
@@ -4064,7 +4071,11 @@ async def get_next_driving_route(request: Request):
         route_distance_meters = optimization_result["distance"]
 
         # Since v1 API doesn't return the exact target street in the same way, we'll assume the first end point is the target
-        target_street = undriven_streets[0].get("properties", {}) if undriven_streets else None
+        target_street = (
+            undriven_streets[0].get("properties", {})
+            if undriven_streets
+            else None
+        )
 
         return JSONResponse(
             content={
@@ -4074,7 +4085,7 @@ async def get_next_driving_route(request: Request):
                 "target_street": target_street,
                 "route_duration_seconds": route_duration_seconds,
                 "route_distance_meters": route_distance_meters,
-                "location_source": location_source
+                "location_source": location_source,
             }
         )
 
@@ -4102,7 +4113,9 @@ async def _get_mapbox_directions_route(
         )
 
     coords_str = f"{start_lon},{start_lat};{end_lon},{end_lat}"
-    directions_url = f"https://api.mapbox.com/directions/v5/mapbox/driving/{coords_str}"
+    directions_url = (
+        f"https://api.mapbox.com/directions/v5/mapbox/driving/{coords_str}"
+    )
     params = {
         "access_token": mapbox_token,
         "geometries": "geojson",
@@ -4144,13 +4157,18 @@ async def _get_mapbox_directions_route(
             "distance": distance,
         }
 
-async def _cluster_segments(segments: List[Dict], max_points_per_cluster: int = 11) -> List[List[Dict]]:
+
+async def _cluster_segments(
+    segments: List[Dict], max_points_per_cluster: int = 11
+) -> List[List[Dict]]:
     """Cluster segments into groups based on geographic proximity."""
     if len(segments) <= max_points_per_cluster:
         return [segments]
 
     # Extract start coordinates for clustering
-    coords = np.array([(seg['start_node'][0], seg['start_node'][1]) for seg in segments])
+    coords = np.array(
+        [(seg["start_node"][0], seg["start_node"][1]) for seg in segments]
+    )
     n_clusters = max(1, len(segments) // max_points_per_cluster)
     kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(coords)
     labels = kmeans.labels_
@@ -4167,11 +4185,14 @@ async def _cluster_segments(segments: List[Dict], max_points_per_cluster: int = 
             final_clusters.append(cluster)
         else:
             for i in range(0, len(cluster), max_points_per_cluster):
-                final_clusters.append(cluster[i:i + max_points_per_cluster])
+                final_clusters.append(cluster[i : i + max_points_per_cluster])
 
     return final_clusters
 
-async def _optimize_route_for_clusters(start_point: tuple, clusters: List[List[Dict]]) -> Dict[str, Any]:
+
+async def _optimize_route_for_clusters(
+    start_point: tuple, clusters: List[List[Dict]]
+) -> Dict[str, Any]:
     """Optimize route for multiple clusters, connecting them with directions."""
     if not clusters:
         raise HTTPException(
@@ -4189,34 +4210,37 @@ async def _optimize_route_for_clusters(start_point: tuple, clusters: List[List[D
             continue
 
         # Optimize route within cluster
-        end_points = [(seg['start_node'][0], seg['start_node'][1]) for seg in cluster]
+        end_points = [
+            (seg["start_node"][0], seg["start_node"][1]) for seg in cluster
+        ]
         cluster_result = await _get_mapbox_optimization_route(
-            current_point[0],
-            current_point[1],
-            end_points=end_points
+            current_point[0], current_point[1], end_points=end_points
         )
 
-        all_geometries.append(cluster_result['geometry'])
-        total_duration += cluster_result['duration']
-        total_distance += cluster_result['distance']
+        all_geometries.append(cluster_result["geometry"])
+        total_duration += cluster_result["duration"]
+        total_distance += cluster_result["distance"]
 
         # Update current point to the last point of the cluster route
-        if cluster_result['geometry'].get('coordinates'):
-            current_point = cluster_result['geometry']['coordinates'][-1]
+        if cluster_result["geometry"].get("coordinates"):
+            current_point = cluster_result["geometry"]["coordinates"][-1]
 
         # If there are more clusters, connect to the next cluster's first point
         if i < len(clusters) - 1 and clusters[i + 1]:
-            next_cluster_first_point = (clusters[i + 1][0]['start_node'][0], clusters[i + 1][0]['start_node'][1])
+            next_cluster_first_point = (
+                clusters[i + 1][0]["start_node"][0],
+                clusters[i + 1][0]["start_node"][1],
+            )
             connection_result = await _get_mapbox_directions_route(
                 current_point[0],
                 current_point[1],
                 next_cluster_first_point[0],
-                next_cluster_first_point[1]
+                next_cluster_first_point[1],
             )
 
-            all_geometries.append(connection_result['geometry'])
-            total_duration += connection_result['duration']
-            total_distance += connection_result['distance']
+            all_geometries.append(connection_result["geometry"])
+            total_duration += connection_result["duration"]
+            total_distance += connection_result["distance"]
 
             current_point = next_cluster_first_point
 
@@ -4226,14 +4250,15 @@ async def _optimize_route_for_clusters(start_point: tuple, clusters: List[List[D
     # Combine geometries into a GeometryCollection or MultiLineString
     combined_geometry = {
         "type": "GeometryCollection",
-        "geometries": all_geometries
+        "geometries": all_geometries,
     }
 
     return {
         "geometry": combined_geometry,
         "duration": total_duration,
-        "distance": total_distance
+        "distance": total_distance,
     }
+
 
 @app.post("/api/driving-navigation/coverage-route")
 async def get_coverage_driving_route(request: Request):
@@ -4485,13 +4510,17 @@ async def get_coverage_driving_route(request: Request):
 
     try:
         # Cluster segments to handle large numbers efficiently
-        clusters = await _cluster_segments(valid_segments, max_points_per_cluster=11)
+        clusters = await _cluster_segments(
+            valid_segments, max_points_per_cluster=11
+        )
         logger.info(
             f"Coverage Route: Clustered {len(valid_segments)} segments into {len(clusters)} clusters for {location_name}."
         )
 
         # Optimize route across clusters
-        optimization_result = await _optimize_route_for_clusters(start_point, clusters)
+        optimization_result = await _optimize_route_for_clusters(
+            start_point, clusters
+        )
 
         # Extract the optimized route details
         optimized_route_geometry = optimization_result["geometry"]
@@ -4848,4 +4877,3 @@ if __name__ == "__main__":
     uvicorn.run(
         "app:app", host="0.0.0.0", port=port, log_level="info", reload=True
     )
-
