@@ -2377,5 +2377,3 @@ def process_webhook_event_task(self, data: Dict[str, Any]):
             "status": "error",
             "message": str(e),
         }
-
-

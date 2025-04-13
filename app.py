@@ -2932,9 +2932,7 @@ async def bouncie_webhook(request: Request):
             )
 
         event_type = data.get("eventType")
-        transaction_id = data.get(
-            "transactionId"
-        )
+        transaction_id = data.get("transactionId")
 
         if not event_type:
             logger.warning(

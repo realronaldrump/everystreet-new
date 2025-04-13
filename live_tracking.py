@@ -110,9 +110,7 @@ async def process_trip_start(data: Dict[str, Any]) -> None:
             data,
         )
         return
-    if (
-        not vin
-    ):
+    if not vin:
         logger.warning(
             "Missing vin in tripStart event for %s.", transaction_id
         )
@@ -804,9 +802,7 @@ async def process_trip_end(data: Dict[str, Any]) -> None:
     trip_to_archive["endTime"] = end_time
     trip_to_archive["endTimeZone"] = end_time_zone
     trip_to_archive["endOdometer"] = end_odometer
-    trip_to_archive["fuelConsumed"] = (
-        fuel_consumed
-    )
+    trip_to_archive["fuelConsumed"] = fuel_consumed
     trip_to_archive["status"] = "completed"
     trip_to_archive["closed_reason"] = "normal"
     trip_to_archive["lastUpdate"] = end_time
