@@ -2088,8 +2088,7 @@ const STATUS = window.STATUS || {
       L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         {
-          attribution:
-            '',
+          attribution: "",
           subdomains: "abcd",
           maxZoom: 20,
           minZoom: 5,
