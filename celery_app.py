@@ -19,6 +19,11 @@ from datetime import timedelta
 from celery import Celery, signals
 from dotenv import load_dotenv
 from kombu import Queue
+from celery.signals import worker_process_init
+
+from db import db_manager
+from live_tracking import initialize_db as initialize_live_tracking_db
+from pymongo.errors import ConnectionFailure
 
 logging.basicConfig(
     level=logging.WARNING,
@@ -184,3 +189,37 @@ def worker_init(**kwargs):
 
     current_time = datetime.now(timezone.utc)
     logger.debug("Worker starting at UTC time: %s", current_time.isoformat())
+
+
+@worker_process_init.connect(weak=False)
+def init_worker(**kwargs):
+    """Initialize database connection and modules for each Celery worker process."""
+    logger.info("Initializing Celery worker process...")
+    try:
+        # Ensure db_manager connects
+        logger.info("Initializing DatabaseManager for worker...")
+        # Accessing the properties should trigger initialization if needed
+        _ = db_manager.client
+        _ = db_manager.db
+        if not db_manager._connection_healthy:
+             # Attempt initialization again explicitly if check failed
+             db_manager._initialize_client()
+             if not db_manager._connection_healthy:
+                 raise ConnectionFailure("DB Manager failed to initialize client in worker.")
+        logger.info("DatabaseManager initialized for worker.")
+
+        # Initialize live_tracking collections
+        logger.info("Initializing live_tracking collections for worker...")
+        live_collection = db_manager.get_collection("live_trips")
+        archive_collection = db_manager.get_collection("archived_live_trips")
+        if live_collection is None or archive_collection is None:
+            raise ConnectionFailure("Failed to get live/archive collections from db_manager in worker.")
+        initialize_live_tracking_db(live_collection, archive_collection)
+        logger.info("live_tracking collections initialized for worker.")
+
+        logger.info("Worker process initialization complete.")
+
+    except Exception as e:
+        logger.critical(f"CRITICAL ERROR during worker initialization: {e}", exc_info=True)
+        # Raise the exception to potentially stop the worker from starting unhealthy
+        raise RuntimeError(f"Worker initialization failed: {e}") from e
