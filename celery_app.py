@@ -11,25 +11,21 @@ can use the `--uid` option when starting Celery workers to specify a different
 user.
 """
 
-import logging
 import os
 import time
 from datetime import timedelta
 
 from celery import Celery, signals
+from celery.signals import worker_process_init
+from celery.utils.log import get_task_logger
 from dotenv import load_dotenv
 from kombu import Queue
-from celery.signals import worker_process_init
+from pymongo.errors import ConnectionFailure
 
 from db import db_manager
 from live_tracking import initialize_db as initialize_live_tracking_db
-from pymongo.errors import ConnectionFailure
 
-logging.basicConfig(
-    level=logging.WARNING,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
+logger = get_task_logger(__name__)
 
 load_dotenv()
 
@@ -156,9 +152,17 @@ app.conf.update(
 def task_failure_handler(sender=None, task_id=None, exception=None, **kwargs):
     task_name = sender.name if sender else "unknown"
     if task_name != "tasks.run_task_scheduler":
-        logger.error("Task %s (%s) failed: %s", task_name, task_id, exception)
+        logger.error(
+            "Task %s (%s) failed: %s",
+            task_name,
+            task_id,
+            exception,
+            exc_info=True,
+        )
     else:
-        logger.warning("Scheduler task (%s) failed: %s", task_id, exception)
+        logger.warning(
+            "Scheduler task (%s) failed: %s", task_id, exception, exc_info=True
+        )
 
 
 @signals.worker_ready.connect
@@ -178,11 +182,6 @@ def beat_init_handler(**kwargs):
     )
 
 
-@signals.setup_logging.connect
-def setup_celery_logging(**kwargs):
-    return True
-
-
 @signals.worker_init.connect
 def worker_init(**kwargs):
     from datetime import datetime, timezone
@@ -196,30 +195,31 @@ def init_worker(**kwargs):
     """Initialize database connection and modules for each Celery worker process."""
     logger.info("Initializing Celery worker process...")
     try:
-        # Ensure db_manager connects
         logger.info("Initializing DatabaseManager for worker...")
-        # Accessing the properties should trigger initialization if needed
         _ = db_manager.client
         _ = db_manager.db
         if not db_manager._connection_healthy:
-            # Attempt initialization again explicitly if check failed
+            logger.warning(
+                "DB Manager connection unhealthy, attempting re-init."
+            )
             db_manager._initialize_client()
             if not db_manager._connection_healthy:
                 raise ConnectionFailure(
-                    "DB Manager failed to initialize client in worker."
+                    "DB Manager failed to establish connection in worker."
                 )
-        logger.info("DatabaseManager initialized for worker.")
+        logger.info("DatabaseManager connection verified for worker.")
 
-        # Initialize live_tracking collections
-        logger.info("Initializing live_tracking collections for worker...")
+        logger.info(
+            "Initializing live_tracking global collections for worker..."
+        )
         live_collection = db_manager.get_collection("live_trips")
         archive_collection = db_manager.get_collection("archived_live_trips")
         if live_collection is None or archive_collection is None:
             raise ConnectionFailure(
-                "Failed to get live/archive collections from db_manager in worker."
+                "Failed to get live/archive collections from db_manager even though connection seems healthy."
             )
         initialize_live_tracking_db(live_collection, archive_collection)
-        logger.info("live_tracking collections initialized for worker.")
+        logger.info("live_tracking global collections initialized for worker.")
 
         logger.info("Worker process initialization complete.")
 
@@ -227,5 +227,6 @@ def init_worker(**kwargs):
         logger.critical(
             f"CRITICAL ERROR during worker initialization: {e}", exc_info=True
         )
-        # Raise the exception to potentially stop the worker from starting unhealthy
-        raise RuntimeError(f"Worker initialization failed: {e}") from e
+        raise RuntimeError(
+            f"Worker initialization failed critically: {e}"
+        ) from e

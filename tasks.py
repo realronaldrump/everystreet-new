@@ -42,21 +42,11 @@ from db import (
     update_one_with_retry,
 )
 from live_tracking import (
-    archived_live_trips_collection as archived_live_trips_coll_task,
-)
-
-from live_tracking import (
     cleanup_stale_trips_logic,
     process_trip_data,
     process_trip_end,
     process_trip_metrics,
     process_trip_start,
-)
-from live_tracking import (
-    initialize_db as initialize_live_tracking_db_for_task,
-)
-from live_tracking import (
-    live_trips_collection as live_trips_coll_task,
 )
 from street_coverage_calculation import compute_incremental_coverage
 from trip_processor import TripProcessor, TripState
@@ -2230,7 +2220,7 @@ async def update_task_schedule(
     bind=True,
     name="tasks.process_webhook_event_task",
     max_retries=3,
-    default_retry_delay=60,
+    default_retry_delay=90,
     time_limit=300,
     soft_time_limit=240,
     acks_late=True,
@@ -2239,6 +2229,7 @@ async def update_task_schedule(
 def process_webhook_event_task(self, data: Dict[str, Any]):
     """
     Celery task to process Bouncie webhook data asynchronously.
+    Obtains DB collections reliably at the start of execution via db_manager.
     """
     task_name = "process_webhook_event_task"
     celery_task_id = self.request.id
@@ -2254,34 +2245,44 @@ def process_webhook_event_task(self, data: Dict[str, Any]):
         transaction_id or "N/A",
     )
 
+    live_collection = None
+    archive_collection = None
+
     try:
-        if (
-            live_trips_coll_task is None
-            or archived_live_trips_coll_task is None
-        ):
+        logger.debug(
+            "Task %s: Attempting to get DB collections via db_manager.",
+            celery_task_id,
+        )
+        _ = db_manager.client
+        if not db_manager._connection_healthy:
             logger.warning(
-                "Task %s: Live/Archived collections not initialized, attempting init.",
+                "Task %s: DB Manager connection unhealthy, attempting re-init.",
                 celery_task_id,
             )
-            _ = db_manager.db
-            live_collection = db_manager.get_collection("live_trips")
-            archive_collection = db_manager.get_collection(
-                "archived_live_trips"
-            )
-            initialize_live_tracking_db_for_task(
-                live_collection, archive_collection
-            )
-            if (
-                live_trips_coll_task is None
-                or archived_live_trips_coll_task is None
-            ):
+            db_manager._initialize_client()
+            if not db_manager._connection_healthy:
                 logger.critical(
-                    "Task %s: Still failed to initialize DB collections after attempt.",
+                    "Task %s: DB Manager re-initialization failed.",
                     celery_task_id,
                 )
                 raise ConnectionFailure(
-                    "Failed to initialize DB collections within Celery task."
+                    "DB Manager connection unhealthy after re-init attempt."
                 )
+
+        live_collection = db_manager.get_collection("live_trips")
+        archive_collection = db_manager.get_collection("archived_live_trips")
+
+        if live_collection is None or archive_collection is None:
+            logger.critical(
+                "Task %s: Failed to obtain required DB collections ('live_trips' or 'archived_live_trips') via db_manager.",
+                celery_task_id,
+            )
+            raise ConnectionFailure(
+                "Failed to obtain DB collections via db_manager."
+            )
+        logger.debug(
+            "Task %s: Successfully obtained DB collections.", celery_task_id
+        )
 
         if not event_type:
             logger.error(
@@ -2289,10 +2290,7 @@ def process_webhook_event_task(self, data: Dict[str, Any]):
                 celery_task_id,
                 data,
             )
-            return {
-                "status": "error",
-                "message": "Missing eventType",
-            }
+            return {"status": "error", "message": "Missing eventType"}
 
         if (
             event_type in ("tripStart", "tripData", "tripMetrics", "tripEnd")
@@ -2310,16 +2308,22 @@ def process_webhook_event_task(self, data: Dict[str, Any]):
             }
 
         if event_type == "tripStart":
-            run_async_from_sync(process_trip_start(data))
+            run_async_from_sync(process_trip_start(data, live_collection))
         elif event_type == "tripData":
-            run_async_from_sync(process_trip_data(data))
+            run_async_from_sync(
+                process_trip_data(data, live_collection, archive_collection)
+            )
         elif event_type == "tripMetrics":
-            run_async_from_sync(process_trip_metrics(data))
+            run_async_from_sync(
+                process_trip_metrics(data, live_collection, archive_collection)
+            )
         elif event_type == "tripEnd":
-            run_async_from_sync(process_trip_end(data))
+            run_async_from_sync(
+                process_trip_end(data, live_collection, archive_collection)
+            )
         elif event_type in ("connect", "disconnect", "battery", "mil"):
             logger.info(
-                "Task %s: Received non-trip event type: %s. Ignoring for now. Payload: %s",
+                "Task %s: Received non-trip event type: %s. Ignoring. Payload: %s",
                 celery_task_id,
                 event_type,
                 data,
@@ -2342,10 +2346,7 @@ def process_webhook_event_task(self, data: Dict[str, Any]):
             transaction_id or "N/A",
             runtime,
         )
-        return {
-            "status": "success",
-            "message": "Event processed successfully",
-        }
+        return {"status": "success", "message": "Event processed successfully"}
 
     except ConnectionFailure as db_err:
         logger.error(
@@ -2353,9 +2354,8 @@ def process_webhook_event_task(self, data: Dict[str, Any]):
             task_name,
             celery_task_id,
             db_err,
-            exc_info=True,  # Added exc_info for better debugging
+            exc_info=False,
         )
-        # Ensure retry attributes exist before calling retry
         if (
             hasattr(self, "request")
             and hasattr(self.request, "retries")
@@ -2370,19 +2370,20 @@ def process_webhook_event_task(self, data: Dict[str, Any]):
                 countdown,
             )
             try:
-                raise self.retry(exc=db_err, countdown=countdown)
+                self.retry(exc=db_err, countdown=countdown)
             except Exception as retry_exc:
                 logger.critical(
-                    "Failed to retry task %s: %s", celery_task_id, retry_exc
+                    "Failed to *initiate* retry for task %s: %s",
+                    celery_task_id,
+                    retry_exc,
                 )
-                # Re-raise original error if retry fails
                 raise db_err from retry_exc
         else:
             logger.error(
-                "Cannot retry task %s as retry context is missing.",
+                "Cannot retry task %s as Celery retry context is missing.",
                 celery_task_id,
             )
-            raise db_err  # Re-raise if cannot retry
+            raise db_err
 
     except Exception as e:
         end_time = datetime.now(timezone.utc)
@@ -2396,7 +2397,6 @@ def process_webhook_event_task(self, data: Dict[str, Any]):
             runtime,
             exc_info=e,
         )
-        # Attempt retry for generic errors too, if context available
         if (
             hasattr(self, "request")
             and hasattr(self.request, "retries")
@@ -2406,22 +2406,23 @@ def process_webhook_event_task(self, data: Dict[str, Any]):
                 self.default_retry_delay * (2**self.request.retries)
             )
             logger.info(
-                "Retrying task %s in %d seconds due to generic error.",
+                "Retrying task %s in %d seconds due to generic error: %s",
                 celery_task_id,
                 countdown,
+                e,
             )
             try:
-                raise self.retry(exc=e, countdown=countdown)
+                self.retry(exc=e, countdown=countdown)
             except Exception as retry_exc:
                 logger.critical(
-                    "Failed to retry task %s after generic error: %s",
+                    "Failed to *initiate* retry for task %s after generic error: %s",
                     celery_task_id,
                     retry_exc,
                 )
-                raise e from retry_exc  # Re-raise original error if retry fails
+                raise e from retry_exc
         else:
             logger.error(
-                "Cannot retry task %s for generic error as retry context is missing.",
+                "Cannot retry task %s for generic error as Celery retry context is missing.",
                 celery_task_id,
             )
-            raise e  # Re-raise if cannot retry
+            raise e
