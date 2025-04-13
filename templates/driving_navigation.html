@@ -211,7 +211,7 @@ block head_content %}
               >Auto-Follow Vehicle</label
             >
           </div>
-          
+
           <!-- New progress indicator -->
           <div id="route-progress-container" class="progress-container mt-3">
             <div class="step-indicator">
@@ -228,9 +228,15 @@ block head_content %}
                 <div class="step-title">Rendering</div>
               </div>
             </div>
-            <div class="progress-label">Processing: <span id="processing-status">Preparing...</span></div>
+            <div class="progress-label">
+              Processing: <span id="processing-status">Preparing...</span>
+            </div>
             <div class="progress">
-              <div id="route-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+              <div
+                id="route-progress-bar"
+                class="progress-bar progress-bar-striped progress-bar-animated"
+                style="width: 0%"
+              ></div>
             </div>
           </div>
         </div>
@@ -247,9 +253,9 @@ block head_content %}
           <div id="route-info" class="mt-2">
             <!-- Route duration/distance will appear here -->
           </div>
-          
+
           <!-- New route details section -->
-          <div id="route-details" class="mt-3" style="display: none;">
+          <div id="route-details" class="mt-3" style="display: none">
             <h6>Route Details</h6>
             <div id="route-stats" class="route-stats">
               <!-- Dynamic route statistics will be shown here -->
