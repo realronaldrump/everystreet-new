@@ -1338,6 +1338,15 @@ class TripProcessor:
                         )
                         matched_gps_data = None
 
+                if matched_gps_data and not self._is_valid_linestring_geojson(
+                    matched_gps_data
+                ):
+                    logger.warning(
+                        "Invalid GeoJSON LineString structure in matchedGps for trip %s. Skipping save to matched_trips_collection.",
+                        transaction_id,
+                    )
+                    matched_gps_data = None
+
                 if matched_gps_data:
                     matched_trip_data = {
                         "transactionId": transaction_id,
@@ -1402,6 +1411,41 @@ class TripProcessor:
         except Exception as e:
             logger.error("Error saving trip: %s", str(e))
             return None
+
+    @staticmethod
+    def _is_valid_linestring_geojson(geojson_data: Any) -> bool:
+        """Checks if the input is a structurally valid GeoJSON LineString dictionary
+        suitable for MongoDB 2dsphere indexing.
+        """
+        if not isinstance(geojson_data, dict):
+            return False
+        if geojson_data.get("type") != "LineString":
+            return False
+
+        coordinates = geojson_data.get("coordinates")
+        if not isinstance(coordinates, list):
+            return False
+        # Must have at least 2 points for a valid LineString
+        if len(coordinates) < 2:
+            return False
+
+        # Check each coordinate pair
+        for point in coordinates:
+            if not isinstance(point, list):
+                return False
+            if len(point) != 2:  # Must be [lon, lat]
+                return False
+            # Check if longitude and latitude are numbers
+            lon, lat = point
+            if not isinstance(lon, (int, float)):
+                return False
+            if not isinstance(lat, (int, float)):
+                return False
+            # Optional: Add strict range checks if needed
+            # if not (-180 <= lon <= 180 and -90 <= lat <= 90):
+            #    return False
+
+        return True
 
     @staticmethod
     def format_idle_time(seconds: Any) -> str:
