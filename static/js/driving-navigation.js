@@ -609,6 +609,7 @@ class DrivingNavigation {
       '<i class="fas fa-spinner fa-spin me-2"></i>Calculating Coverage...';
     this.findBtn.disabled = true;
     this.setStatus("Calculating full coverage route...");
+    this.showProgressBar();
     this.routeLayer.clearLayers();
     this.clearTargetStreetHighlight();
     this.targetInfo.innerHTML = "";
@@ -706,6 +707,7 @@ class DrivingNavigation {
             <div><strong>Total Est:</strong></div>
             <div><i class="fas fa-clock"></i> ${durationMinutes} min</div>
             <div><i class="fas fa-road"></i> ${distanceMiles} mi</div>
+            <div><i class="fas fa-list-ol"></i> ${segmentCount} segments</div>
             <div class="text-muted small">(Using ${this.formatLocationSource(locationSource)} position)</div>
           </div>
         `;
@@ -732,6 +734,44 @@ class DrivingNavigation {
         '<i class="fas fa-road me-2"></i>Calculate Full Coverage Route';
       this.findBtn.disabled = false;
       this.isFetchingCoverageRoute = false;
+      this.hideProgressBar();
+    }
+  }
+
+  showProgressBar() {
+    const progressIndicator = document.getElementById("progress-indicator");
+    const progressBar = document.getElementById("route-progress-bar");
+    if (progressIndicator && progressBar) {
+      progressIndicator.style.display = "block";
+      progressBar.style.width = "0%";
+      // Simulate progress for now since we don't have real progress updates
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 10;
+        if (progress <= 90) { // Stop at 90% until completion
+          progressBar.style.width = `${progress}%`;
+        } else {
+          clearInterval(interval);
+        }
+      }, 500);
+      progressBar.dataset.intervalId = interval;
+    }
+  }
+
+  hideProgressBar() {
+    const progressIndicator = document.getElementById("progress-indicator");
+    const progressBar = document.getElementById("route-progress-bar");
+    if (progressIndicator && progressBar) {
+      progressBar.style.width = "100%";
+      const intervalId = progressBar.dataset.intervalId;
+      if (intervalId) {
+        clearInterval(parseInt(intervalId));
+        delete progressBar.dataset.intervalId;
+      }
+      setTimeout(() => {
+        progressIndicator.style.display = "none";
+        progressBar.style.width = "0%";
+      }, 500);
     }
   }
 
