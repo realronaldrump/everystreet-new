@@ -25,3 +25,4 @@ redis
 flower
 celery
 scikit-learn
+httpx
