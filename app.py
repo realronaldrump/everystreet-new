@@ -2919,8 +2919,6 @@ async def bouncie_webhook(request: Request):
     and schedules background processing via Celery.
     """
     try:
-        # Use request.body() for robustness against potential encoding issues
-        # or non-standard content types, although Bouncie sends application/json
         raw_body = await request.body()
         try:
             data = json.loads(raw_body)
@@ -2928,7 +2926,6 @@ async def bouncie_webhook(request: Request):
             logger.error(
                 "Failed to parse JSON from Bouncie webhook request body."
             )
-            # Return 400 if JSON is invalid - Bouncie might retry or log this
             return JSONResponse(
                 content={"status": "error", "message": "Invalid JSON body"},
                 status_code=400,
@@ -2937,15 +2934,13 @@ async def bouncie_webhook(request: Request):
         event_type = data.get("eventType")
         transaction_id = data.get(
             "transactionId"
-        )  # May be None for some events
+        )
 
-        # Basic validation before queuing
         if not event_type:
             logger.warning(
                 "Webhook received with missing eventType. Acknowledging but not queuing. Body: %s",
                 raw_body[:500],
-            )  # Log part of the body
-            # Still return 2xx to satisfy Bouncie
+            )
             return JSONResponse(
                 content={"status": "acknowledged_invalid_event"},
                 status_code=200,
@@ -2957,8 +2952,6 @@ async def bouncie_webhook(request: Request):
             transaction_id or "N/A",
         )
 
-        # Schedule the task with Celery
-        # Pass the raw data dictionary to the task
         try:
             process_webhook_event_task.delay(data)
             logger.debug(
@@ -2967,7 +2960,6 @@ async def bouncie_webhook(request: Request):
                 transaction_id or "N/A",
             )
         except Exception as celery_err:
-            # Handle potential errors during task scheduling (e.g., broker connection issue)
             error_id = str(uuid.uuid4())
             logger.exception(
                 "Failed to schedule Celery task for webhook [%s]: Type=%s, TxID=%s, Error: %s",
@@ -2976,7 +2968,6 @@ async def bouncie_webhook(request: Request):
                 transaction_id or "N/A",
                 celery_err,
             )
-            # Return 500 - Bouncie should retry
             return JSONResponse(
                 content={
                     "status": "error",
@@ -2986,20 +2977,17 @@ async def bouncie_webhook(request: Request):
                 status_code=500,
             )
 
-        # Immediately return a 2xx response (202 Accepted is semantically good)
         return JSONResponse(
             content={"status": "acknowledged"}, status_code=202
         )
 
     except Exception as e:
-        # Catch unexpected errors during request handling/scheduling
         error_id = str(uuid.uuid4())
         logger.exception(
             "Critical error handling webhook request before queuing [%s]: %s",
             error_id,
             e,
         )
-        # Return 500 - Bouncie will likely retry
         return JSONResponse(
             content={
                 "status": "error",
@@ -3889,15 +3877,12 @@ async def _get_mapbox_optimization_route(
             detail="No end points provided for optimization route.",
         )
 
-    # Mapbox Optimization API v1 has a limit of 12 coordinates per request
-    # Including start point, we can have up to 11 end points
     if len(end_points) > 11:
         logger.warning(
             "Too many end points for Mapbox API v1, limiting to first 11."
         )
         end_points = end_points[:11]
 
-    # Prepare coordinates string for the API call
     coords = [f"{start_lon},{start_lat}"]
     for lon, lat in end_points:
         coords.append(f"{lon},{lat}")
@@ -4125,7 +4110,6 @@ async def get_next_driving_route(request: Request):
         )
 
     try:
-        # Prepare end points for optimization
         end_points = []
         for street in undriven_streets:
             geometry = street.get("geometry", {})
@@ -4151,17 +4135,14 @@ async def get_next_driving_route(request: Request):
                 }
             )
 
-        # Call the Mapbox Optimization API v1 helper function
         optimization_result = await _get_mapbox_optimization_route(
             current_lon, current_lat, end_points=end_points
         )
 
-        # Extract the optimized route details
         route_geometry = optimization_result["geometry"]
         route_duration_seconds = optimization_result["duration"]
         route_distance_meters = optimization_result["distance"]
 
-        # Since v1 API doesn't return the exact target street in the same way, we'll assume the first end point is the target
         target_street = (
             undriven_streets[0].get("properties", {})
             if undriven_streets
@@ -4256,7 +4237,6 @@ async def _cluster_segments(
     if len(segments) <= max_points_per_cluster:
         return [segments]
 
-    # Extract start coordinates for clustering
     coords = np.array(
         [(seg["start_node"][0], seg["start_node"][1]) for seg in segments]
     )
@@ -4264,12 +4244,10 @@ async def _cluster_segments(
     kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(coords)
     labels = kmeans.labels_
 
-    # Group segments by cluster
     clusters = [[] for _ in range(n_clusters)]
     for i, label in enumerate(labels):
         clusters[label].append(segments[i])
 
-    # Further split large clusters if necessary
     final_clusters = []
     for cluster in clusters:
         if len(cluster) <= max_points_per_cluster:
@@ -4300,7 +4278,6 @@ async def _optimize_route_for_clusters(
         if not cluster:
             continue
 
-        # Optimize route within cluster
         end_points = [
             (seg["start_node"][0], seg["start_node"][1]) for seg in cluster
         ]
@@ -4312,11 +4289,9 @@ async def _optimize_route_for_clusters(
         total_duration += cluster_result["duration"]
         total_distance += cluster_result["distance"]
 
-        # Update current point to the last point of the cluster route
         if cluster_result["geometry"].get("coordinates"):
             current_point = cluster_result["geometry"]["coordinates"][-1]
 
-        # If there are more clusters, connect to the next cluster's first point
         if i < len(clusters) - 1 and clusters[i + 1]:
             next_cluster_first_point = (
                 clusters[i + 1][0]["start_node"][0],
@@ -4335,10 +4310,8 @@ async def _optimize_route_for_clusters(
 
             current_point = next_cluster_first_point
 
-        # Add delay to respect rate limits (300 requests per minute = 5 per second)
         await asyncio.sleep(0.2)
 
-    # Combine geometries into a GeometryCollection or MultiLineString
     combined_geometry = {
         "type": "GeometryCollection",
         "geometries": all_geometries,
@@ -4600,7 +4573,6 @@ async def get_coverage_driving_route(request: Request):
         )
 
     try:
-        # Cluster segments to handle large numbers efficiently
         clusters = await _cluster_segments(
             valid_segments, max_points_per_cluster=11
         )
@@ -4608,17 +4580,14 @@ async def get_coverage_driving_route(request: Request):
             f"Coverage Route: Clustered {len(valid_segments)} segments into {len(clusters)} clusters for {location_name}."
         )
 
-        # Optimize route across clusters
         optimization_result = await _optimize_route_for_clusters(
             start_point, clusters
         )
 
-        # Extract the optimized route details
         optimized_route_geometry = optimization_result["geometry"]
         total_duration_seconds = optimization_result["duration"]
         total_distance_meters = optimization_result["distance"]
 
-        # Determine the number of segments covered based on the clusters processed
         segments_covered = sum(len(cluster) for cluster in clusters)
         message = f"Full coverage route generated for {segments_covered} segments across {len(clusters)} clusters."
 
