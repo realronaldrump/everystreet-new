@@ -1458,17 +1458,17 @@ class CoverageCalculator:
                 street_type_stats[highway]["length_m"] += length
 
                 if is_undriveable:
-                    street_type_stats[highway]["undriveable_length_m"] += (
-                        length
-                    )
+                    street_type_stats[highway][
+                        "undriveable_length_m"
+                    ] += length
                 else:
                     final_driveable_length += length
                     if is_driven:
                         final_driven_length += length
                         street_type_stats[highway]["covered"] += 1
-                        street_type_stats[highway]["covered_length_m"] += (
-                            length
-                        )
+                        street_type_stats[highway][
+                            "covered_length_m"
+                        ] += length
                         final_covered_segments_count += 1
 
             final_coverage_percentage = (
