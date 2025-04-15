@@ -4940,7 +4940,6 @@ async def driver_behavior_analytics():
     import collections
     from datetime import datetime
 
-
     from db import trips_collection
 
     trips = await trips_collection.find({}).to_list(length=None)
