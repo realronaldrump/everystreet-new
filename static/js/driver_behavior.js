@@ -99,32 +99,55 @@
   }
 
   function renderTable(trend, labelKey) {
-    const tbody = document.querySelector("#db-trend-table tbody");
+    const table = document.querySelector("#db-trend-table");
+    const tbody = table.querySelector("tbody");
     if (!tbody) return;
-    tbody.innerHTML = "";
-    trend.forEach((row) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${row[labelKey]}</td>
-        <td>${row.trips}</td>
-        <td>${row.distance.toFixed(1)}</td>
-        <td>${row.hardBraking}</td>
-        <td>${row.hardAccel}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-    // Initialize DataTable (destroy if already exists)
-    if ($.fn.DataTable.isDataTable("#db-trend-table")) {
-      $("#db-trend-table").DataTable().destroy();
+
+    // Destroy DataTable if exists
+    if ($.fn.DataTable.isDataTable(table)) {
+      $(table).DataTable().destroy();
     }
-    $("#db-trend-table").DataTable({
-      paging: false,
-      searching: false,
-      info: false,
-      order: [[0, "asc"]],
-      responsive: true,
-      autoWidth: false,
-    });
+
+    // Fade out
+    tbody.classList.add("fade-table-out");
+
+    setTimeout(() => {
+      // Clear tbody
+      tbody.innerHTML = "";
+
+      // Insert new rows
+      trend.forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row[labelKey]}</td>
+          <td>${row.trips}</td>
+          <td>${row.distance.toFixed(1)}</td>
+          <td>${row.hardBraking}</td>
+          <td>${row.hardAccel}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Fade in
+      tbody.classList.remove("fade-table-out");
+      tbody.classList.add("fade-table-in");
+
+      // Re-initialize DataTable after DOM update
+      setTimeout(() => {
+        $(table).DataTable({
+          paging: false,
+          searching: false,
+          info: false,
+          order: [[0, "asc"]],
+          responsive: true,
+          autoWidth: false,
+        });
+        // Remove fade-in class after animation
+        setTimeout(() => {
+          tbody.classList.remove("fade-table-in");
+        }, 200);
+      }, 0);
+    }, 200); // Match fade-out duration
   }
 
   async function main() {

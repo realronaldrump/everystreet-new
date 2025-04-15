@@ -44,6 +44,15 @@
     border-radius: 0.3em;
     padding: 0.25em 0.5em;
   }
+  /* Fade animation for table body */
+  #db-trend-table tbody.fade-table-out {
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+  #db-trend-table tbody.fade-table-in {
+    opacity: 1;
+    transition: opacity 200ms ease;
+  }
 </style>
 <div class="container mt-4">
   <h1 class="mb-4">Driver Behavior Analytics</h1>
