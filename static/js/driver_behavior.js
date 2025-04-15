@@ -31,10 +31,37 @@
     setMetric("db-fuel", data.fuelConsumed, 2);
   }
 
+  // Helper: Convert 'YYYY-Www' to date range string (e.g., '2024-W10' => '2024-03-04 to 2024-03-10')
+  function weekKeyToDateRange(weekKey) {
+    // weekKey: 'YYYY-Www'
+    const match = weekKey.match(/(\d{4})-W(\d{2})/);
+    if (!match) return weekKey;
+    const year = parseInt(match[1], 10);
+    const week = parseInt(match[2], 10);
+    // Get Monday of the week
+    const simple = new Date(year, 0, 1 + (week - 1) * 7);
+    const dow = simple.getDay();
+    const monday = new Date(simple);
+    if (dow <= 4) {
+      // Mon-Thu: go back to Monday
+      monday.setDate(simple.getDate() - simple.getDay() + 1);
+    } else {
+      // Fri-Sun: go forward to next Monday
+      monday.setDate(simple.getDate() + 8 - simple.getDay());
+    }
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    // Format as YYYY-MM-DD
+    const fmt = (d) => d.toISOString().slice(0, 10);
+    return `${fmt(monday)} to ${fmt(sunday)}`;
+  }
+
   function renderTrendChart(canvasId, trend, labelKey) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
-    const labels = trend.map((x) => x[labelKey]);
+    const labels = trend.map((x) =>
+      labelKey === "week" ? weekKeyToDateRange(x[labelKey]) : x[labelKey],
+    );
     const trips = trend.map((x) => x.trips);
     const distance = trend.map((x) => x.distance);
     const hardBraking = trend.map((x) => x.hardBraking);
@@ -118,8 +145,12 @@
       // Insert new rows
       trend.forEach((row) => {
         const tr = document.createElement("tr");
+        const label =
+          labelKey === "week"
+            ? weekKeyToDateRange(row[labelKey])
+            : row[labelKey];
         tr.innerHTML = `
-          <td>${row[labelKey]}</td>
+          <td>${label}</td>
           <td>${row.trips}</td>
           <td>${row.distance.toFixed(1)}</td>
           <td>${row.hardBraking}</td>
