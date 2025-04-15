@@ -4928,6 +4928,116 @@ async def get_trips_in_bounds(
         )
 
 
+@app.get("/driver-behavior", response_class=HTMLResponse)
+async def driver_behavior_page(request: Request):
+    return templates.TemplateResponse("driver_behavior.html", {"request": request})
+
+
+@app.get("/api/driver-behavior")
+async def driver_behavior_analytics():
+    from db import trips_collection
+    from fastapi.encoders import jsonable_encoder
+    from datetime import datetime
+    import calendar
+    import pytz
+    import collections
+
+    # Fetch all trips
+    trips = await trips_collection.find({}).to_list(length=None)
+    if not trips:
+        return {
+            "totalTrips": 0,
+            "totalDistance": 0,
+            "avgSpeed": 0,
+            "maxSpeed": 0,
+            "hardBrakingCounts": 0,
+            "hardAccelerationCounts": 0,
+            "totalIdlingTime": 0,
+            "fuelConsumed": 0,
+            "weekly": [],
+            "monthly": [],
+        }
+
+    def get_field(trip, *names, default=0):
+        for n in names:
+            v = trip.get(n)
+            if v is not None:
+                return v
+        return default
+
+    total_trips = len(trips)
+    total_distance = sum(float(get_field(t, "distance")) or 0 for t in trips)
+    avg_speed = (
+        sum(
+            float(get_field(t, "avgSpeed", "averageSpeed")) or 0
+            for t in trips
+        ) / total_trips
+        if total_trips else 0
+    )
+    max_speed = max(float(get_field(t, "maxSpeed")) or 0 for t in trips)
+    hard_braking = sum(
+        int(get_field(t, "hardBrakingCounts", "hardBrakingCount")) or 0
+        for t in trips
+    )
+    hard_accel = sum(
+        int(get_field(t, "hardAccelerationCounts", "hardAccelerationCount")) or 0
+        for t in trips
+    )
+    idling = sum(
+        float(get_field(t, "totalIdlingTime", "totalIdleDuration")) or 0
+        for t in trips
+    )
+    fuel = sum(float(get_field(t, "fuelConsumed")) or 0 for t in trips)
+
+    # Time trends (weekly/monthly)
+    weekly = collections.defaultdict(lambda: {"trips": 0, "distance": 0, "hardBraking": 0, "hardAccel": 0})
+    monthly = collections.defaultdict(lambda: {"trips": 0, "distance": 0, "hardBraking": 0, "hardAccel": 0})
+    for t in trips:
+        start = t.get("startTime")
+        if not start:
+            continue
+        if isinstance(start, str):
+            try:
+                start = datetime.fromisoformat(start.replace("Z", "+00:00"))
+            except Exception:
+                continue
+        week = start.isocalendar()[1]
+        year = start.year
+        month = start.month
+        # Weekly key: (year, week)
+        wkey = f"{year}-W{week:02d}"
+        mkey = f"{year}-{month:02d}"
+        weekly[wkey]["trips"] += 1
+        weekly[wkey]["distance"] += float(get_field(t, "distance") or 0)
+        weekly[wkey]["hardBraking"] += int(get_field(t, "hardBrakingCounts", "hardBrakingCount") or 0)
+        weekly[wkey]["hardAccel"] += int(get_field(t, "hardAccelerationCounts", "hardAccelerationCount") or 0)
+        monthly[mkey]["trips"] += 1
+        monthly[mkey]["distance"] += float(get_field(t, "distance") or 0)
+        monthly[mkey]["hardBraking"] += int(get_field(t, "hardBrakingCounts", "hardBrakingCount") or 0)
+        monthly[mkey]["hardAccel"] += int(get_field(t, "hardAccelerationCounts", "hardAccelerationCount") or 0)
+
+    # Sort trends
+    weekly_trend = [
+        {"week": k, **v} for k, v in sorted(weekly.items())
+    ]
+    monthly_trend = [
+        {"month": k, **v} for k, v in sorted(monthly.items())
+    ]
+
+    return {
+        "totalTrips": total_trips,
+        "totalDistance": total_distance,
+        "avgSpeed": avg_speed,
+        "maxSpeed": max_speed,
+        "hardBrakingCounts": hard_braking,
+        "hardAccelerationCounts": hard_accel,
+        "totalIdlingTime": idling,
+        "fuelConsumed": fuel,
+        "weekly": weekly_trend,
+        "monthly": monthly_trend,
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
 

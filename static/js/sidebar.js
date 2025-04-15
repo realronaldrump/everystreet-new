@@ -183,4 +183,19 @@
       );
     });
   }
+
+  // Add Driver Behavior Analytics link to sidebar
+  (function () {
+    const sidebar = document.getElementById("sidebar-nav");
+    if (!sidebar) return;
+    // Find the position after driving insights or analytics links
+    const after = sidebar.querySelector("a[href='/driving-insights']") || sidebar.querySelector("a[href='/trips']");
+    const li = document.createElement("li");
+    li.innerHTML = '<a class="nav-link" href="/driver-behavior"><i class="bi bi-bar-chart"></i> Driver Behavior</a>';
+    if (after && after.parentElement && after.parentElement.nextSibling) {
+      after.parentElement.parentElement.insertBefore(li, after.parentElement.nextSibling);
+    } else {
+      sidebar.appendChild(li);
+    }
+  })();
 })();
