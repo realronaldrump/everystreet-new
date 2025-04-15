@@ -532,7 +532,7 @@
       "total-trips": data.total_trips || 0,
       "total-distance": `${(data.total_distance || 0).toFixed(2)} miles`,
       "total-fuel": `${(data.total_fuel_consumed || 0).toFixed(2)} gallons`,
-      "max-speed": `${data.max_speed || 0} mph`,
+      "max-speed": `${(data.max_speed || 0).toFixed(2)} mph`,
       "total-idle": formatIdleDuration(data.total_idle_duration || 0),
       "longest-trip": `${(data.longest_trip_distance || 0).toFixed(2)} miles`,
     };
