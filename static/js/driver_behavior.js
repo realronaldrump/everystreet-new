@@ -13,7 +13,11 @@
 
   function setMetric(id, value, digits = 0) {
     const el = document.getElementById(id);
-    if (el) el.textContent = value !== undefined && value !== null ? Number(value).toFixed(digits) : "-";
+    if (el)
+      el.textContent =
+        value !== undefined && value !== null
+          ? Number(value).toFixed(digits)
+          : "-";
   }
 
   function renderSummary(data) {
@@ -44,7 +48,7 @@
             label: "Trips",
             data: trips,
             backgroundColor: "#007bff88",
-            yAxisID: 'y',
+            yAxisID: "y",
           },
           {
             label: "Distance (mi)",
@@ -53,39 +57,39 @@
             type: "line",
             borderColor: "#28a745",
             fill: false,
-            yAxisID: 'y1',
+            yAxisID: "y1",
           },
           {
             label: "Hard Braking",
             data: hardBraking,
             backgroundColor: "#dc354588",
-            yAxisID: 'y',
+            yAxisID: "y",
           },
           {
             label: "Hard Accel",
             data: hardAccel,
             backgroundColor: "#ffc10788",
-            yAxisID: 'y',
+            yAxisID: "y",
           },
         ],
       },
       options: {
         responsive: true,
         plugins: {
-          legend: { position: 'top' },
+          legend: { position: "top" },
           title: { display: false },
         },
         scales: {
           y: {
-            type: 'linear',
-            position: 'left',
-            title: { display: true, text: 'Count' },
+            type: "linear",
+            position: "left",
+            title: { display: true, text: "Count" },
             beginAtZero: true,
           },
           y1: {
-            type: 'linear',
-            position: 'right',
-            title: { display: true, text: 'Distance (mi)' },
+            type: "linear",
+            position: "right",
+            title: { display: true, text: "Distance (mi)" },
             beginAtZero: true,
             grid: { drawOnChartArea: false },
           },
@@ -110,14 +114,14 @@
       tbody.appendChild(tr);
     });
     // Initialize DataTable (destroy if already exists)
-    if ($.fn.DataTable.isDataTable('#db-trend-table')) {
-      $('#db-trend-table').DataTable().destroy();
+    if ($.fn.DataTable.isDataTable("#db-trend-table")) {
+      $("#db-trend-table").DataTable().destroy();
     }
-    $('#db-trend-table').DataTable({
+    $("#db-trend-table").DataTable({
       paging: false,
       searching: false,
       info: false,
-      order: [[0, 'asc']],
+      order: [[0, "asc"]],
       responsive: true,
       autoWidth: false,
     });
@@ -135,7 +139,8 @@
     renderTrendChart("db-monthly-chart", data.monthly, "month");
 
     // Add toggle for table
-    const tableContainer = document.querySelector("#db-trend-table").parentElement;
+    const tableContainer =
+      document.querySelector("#db-trend-table").parentElement;
     const toggleDiv = document.createElement("div");
     toggleDiv.className = "mb-2";
     toggleDiv.innerHTML = `
@@ -166,4 +171,4 @@
   }
 
   document.addEventListener("DOMContentLoaded", main);
-})(); 
+})();
