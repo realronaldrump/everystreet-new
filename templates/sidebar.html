@@ -67,6 +67,16 @@
         </li>
         <li class="nav-item mb-2">
           <a
+            href="/driver-behavior"
+            class="nav-link text-white d-flex align-items-center {% if request.endpoint == 'driver_behavior_page' %}active{% endif %}"
+            aria-current="{% if request.endpoint == 'driver_behavior_page' %}page{% endif %}"
+          >
+            <i class="fas fa-bar-chart me-2" aria-hidden="true"></i>
+            <span class="nav-link-text">Driver Behavior</span>
+          </a>
+        </li>
+        <li class="nav-item mb-2">
+          <a
             href="/export"
             class="nav-link text-white d-flex align-items-center"
             aria-current="{% if request.endpoint == 'export' %}page{% endif %}"

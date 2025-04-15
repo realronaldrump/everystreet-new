@@ -2,6 +2,49 @@
 {% block title %}Driver Behavior Analytics{% endblock %}
 
 {% block content %}
+<style>
+  /* Table visual improvements */
+  #db-trend-table {
+    font-size: 1.05rem;
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  #db-trend-table thead th {
+    font-size: 1.15rem;
+    font-weight: 600;
+    background: var(--bs-secondary-bg, #23272b);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  #db-trend-table tbody tr {
+    transition: background 0.15s;
+  }
+  #db-trend-table tbody tr:nth-child(even) {
+    background: rgba(255,255,255,0.03);
+  }
+  #db-trend-table tbody tr:hover {
+    background: rgba(0,123,255,0.08);
+  }
+  #db-trend-table td, #db-trend-table th {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    vertical-align: middle;
+  }
+  .card {
+    box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+    border-radius: 0.75rem;
+  }
+  .dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 0.25em 0.75em;
+    margin: 0 0.1em;
+    border-radius: 0.3em;
+  }
+  .dataTables_wrapper .dataTables_filter input {
+    border-radius: 0.3em;
+    padding: 0.25em 0.5em;
+  }
+</style>
 <div class="container mt-4">
   <h1 class="mb-4">Driver Behavior Analytics</h1>
   <div class="row mb-4">

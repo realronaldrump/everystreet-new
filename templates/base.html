@@ -219,6 +219,13 @@
                   ><i class="fas fa-chart-line"></i> <span>Insights</span></a
                 >
               </li>
+              <li
+                class="nav-item {% if request.url.path == '/driver-behavior' %}active{% endif %}"
+              >
+                <a href="/driver-behavior" title="Driver Behavior"
+                  ><i class="fas fa-bar-chart"></i> <span>Driver Behavior</span></a
+                >
+              </li>
               <!-- Driving Navigation Link (Top Level) -->
               <li
                 class="nav-item {% if request.url.path == '/driving-navigation' %}active{% endif %}"
@@ -368,6 +375,13 @@
                 href="/driving-insights"
                 class="{% if request.url.path == '/driving-insights' %}active{% endif %}"
                 ><i class="fas fa-chart-line me-2"></i> Driving Insights</a
+              >
+            </li>
+            <li>
+              <a
+                href="/driver-behavior"
+                class="{% if request.url.path == '/driver-behavior' %}active{% endif %}"
+                ><i class="fas fa-bar-chart me-2"></i> Driver Behavior</a
               >
             </li>
             <li>
