@@ -3352,11 +3352,7 @@ async def _mark_segment(
             {"_id": location_id},
             {"location.display_name": 1},
         )
-    ).get(
-        "location", {}
-    ).get(
-        "display_name"
-    ):
+    ).get("location", {}).get("display_name"):
         logger.warning(
             f"Segment {segment_id} found but does not belong to location {location_id_str}. Proceeding anyway."
         )
@@ -3535,7 +3531,9 @@ async def refresh_coverage_stats(location_id: str):
                 default=lambda obj: (
                     obj.isoformat()
                     if isinstance(obj, datetime)
-                    else str(obj) if isinstance(obj, ObjectId) else None
+                    else str(obj)
+                    if isinstance(obj, ObjectId)
+                    else None
                 ),
             )
         )
