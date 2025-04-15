@@ -1,7 +1,5 @@
-{% extends "base.html" %}
-{% block title %}Driver Behavior Analytics{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Driver Behavior Analytics{% endblock
+%} {% block content %}
 <style>
   /* Table visual improvements */
   #db-trend-table {
@@ -21,18 +19,19 @@
     transition: background 0.15s;
   }
   #db-trend-table tbody tr:nth-child(even) {
-    background: rgba(255,255,255,0.03);
+    background: rgba(255, 255, 255, 0.03);
   }
   #db-trend-table tbody tr:hover {
-    background: rgba(0,123,255,0.08);
+    background: rgba(0, 123, 255, 0.08);
   }
-  #db-trend-table td, #db-trend-table th {
+  #db-trend-table td,
+  #db-trend-table th {
     padding-top: 0.75rem;
     padding-bottom: 0.75rem;
     vertical-align: middle;
   }
   .card {
-    box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
     border-radius: 0.75rem;
   }
   .dataTables_wrapper .dataTables_paginate .paginate_button {
@@ -115,7 +114,7 @@
       </div>
     </div>
   </div>
-  <hr>
+  <hr />
   <div class="row mt-4">
     <div class="col-md-6 mb-4">
       <h5>Weekly Trends</h5>
@@ -129,13 +128,22 @@
   <div class="row mt-4">
     <div class="col-12">
       <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div
+          class="card-header d-flex justify-content-between align-items-center"
+        >
           <h5 class="mb-0">Raw Data Table</h5>
-          <small class="text-muted">Switch between weekly and monthly trends. Sort and search the table below.</small>
+          <small class="text-muted"
+            >Switch between weekly and monthly trends. Sort and search the table
+            below.</small
+          >
         </div>
         <div class="card-body">
           <div class="table-responsive">
-            <table class="table table-striped table-bordered align-middle" id="db-trend-table" style="width:100%">
+            <table
+              class="table table-striped table-bordered align-middle"
+              id="db-trend-table"
+              style="width: 100%"
+            >
               <thead class="table-light">
                 <tr>
                   <th>Period</th>
@@ -154,9 +162,12 @@
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<link
+  rel="stylesheet"
+  href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css"
+/>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="{{ url_for('static', path='js/driver_behavior.js') }}"></script>
-{% endblock %} 
+{% endblock %}

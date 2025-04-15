@@ -4930,19 +4930,19 @@ async def get_trips_in_bounds(
 
 @app.get("/driver-behavior", response_class=HTMLResponse)
 async def driver_behavior_page(request: Request):
-    return templates.TemplateResponse("driver_behavior.html", {"request": request})
+    return templates.TemplateResponse(
+        "driver_behavior.html", {"request": request}
+    )
 
 
 @app.get("/api/driver-behavior")
 async def driver_behavior_analytics():
-    from db import trips_collection
-    from fastapi.encoders import jsonable_encoder
-    from datetime import datetime
-    import calendar
-    import pytz
     import collections
+    from datetime import datetime
 
-    # Fetch all trips
+
+    from db import trips_collection
+
     trips = await trips_collection.find({}).to_list(length=None)
     if not trips:
         return {
@@ -4969,10 +4969,11 @@ async def driver_behavior_analytics():
     total_distance = sum(float(get_field(t, "distance")) or 0 for t in trips)
     avg_speed = (
         sum(
-            float(get_field(t, "avgSpeed", "averageSpeed")) or 0
-            for t in trips
-        ) / total_trips
-        if total_trips else 0
+            float(get_field(t, "avgSpeed", "averageSpeed")) or 0 for t in trips
+        )
+        / total_trips
+        if total_trips
+        else 0
     )
     max_speed = max(float(get_field(t, "maxSpeed")) or 0 for t in trips)
     hard_braking = sum(
@@ -4980,7 +4981,8 @@ async def driver_behavior_analytics():
         for t in trips
     )
     hard_accel = sum(
-        int(get_field(t, "hardAccelerationCounts", "hardAccelerationCount")) or 0
+        int(get_field(t, "hardAccelerationCounts", "hardAccelerationCount"))
+        or 0
         for t in trips
     )
     idling = sum(
@@ -4989,9 +4991,12 @@ async def driver_behavior_analytics():
     )
     fuel = sum(float(get_field(t, "fuelConsumed")) or 0 for t in trips)
 
-    # Time trends (weekly/monthly)
-    weekly = collections.defaultdict(lambda: {"trips": 0, "distance": 0, "hardBraking": 0, "hardAccel": 0})
-    monthly = collections.defaultdict(lambda: {"trips": 0, "distance": 0, "hardBraking": 0, "hardAccel": 0})
+    weekly = collections.defaultdict(
+        lambda: {"trips": 0, "distance": 0, "hardBraking": 0, "hardAccel": 0}
+    )
+    monthly = collections.defaultdict(
+        lambda: {"trips": 0, "distance": 0, "hardBraking": 0, "hardAccel": 0}
+    )
     for t in trips:
         start = t.get("startTime")
         if not start:
@@ -5004,25 +5009,29 @@ async def driver_behavior_analytics():
         week = start.isocalendar()[1]
         year = start.year
         month = start.month
-        # Weekly key: (year, week)
         wkey = f"{year}-W{week:02d}"
         mkey = f"{year}-{month:02d}"
         weekly[wkey]["trips"] += 1
         weekly[wkey]["distance"] += float(get_field(t, "distance") or 0)
-        weekly[wkey]["hardBraking"] += int(get_field(t, "hardBrakingCounts", "hardBrakingCount") or 0)
-        weekly[wkey]["hardAccel"] += int(get_field(t, "hardAccelerationCounts", "hardAccelerationCount") or 0)
+        weekly[wkey]["hardBraking"] += int(
+            get_field(t, "hardBrakingCounts", "hardBrakingCount") or 0
+        )
+        weekly[wkey]["hardAccel"] += int(
+            get_field(t, "hardAccelerationCounts", "hardAccelerationCount")
+            or 0
+        )
         monthly[mkey]["trips"] += 1
         monthly[mkey]["distance"] += float(get_field(t, "distance") or 0)
-        monthly[mkey]["hardBraking"] += int(get_field(t, "hardBrakingCounts", "hardBrakingCount") or 0)
-        monthly[mkey]["hardAccel"] += int(get_field(t, "hardAccelerationCounts", "hardAccelerationCount") or 0)
+        monthly[mkey]["hardBraking"] += int(
+            get_field(t, "hardBrakingCounts", "hardBrakingCount") or 0
+        )
+        monthly[mkey]["hardAccel"] += int(
+            get_field(t, "hardAccelerationCounts", "hardAccelerationCount")
+            or 0
+        )
 
-    # Sort trends
-    weekly_trend = [
-        {"week": k, **v} for k, v in sorted(weekly.items())
-    ]
-    monthly_trend = [
-        {"month": k, **v} for k, v in sorted(monthly.items())
-    ]
+    weekly_trend = [{"week": k, **v} for k, v in sorted(weekly.items())]
+    monthly_trend = [{"month": k, **v} for k, v in sorted(monthly.items())]
 
     return {
         "totalTrips": total_trips,
