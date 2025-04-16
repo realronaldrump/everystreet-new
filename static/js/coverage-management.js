@@ -1218,7 +1218,7 @@ const STATUS = window.STATUS || {
               ${area.location?.display_name || "Unknown Location"}
             </a>
             ${hasError ? `<div class="text-danger small" title="${area.last_error || ""}"><i class="fas fa-exclamation-circle me-1"></i>Error</div>` : ""}
-            ${isCanceled ? `<div class="text-warning small"><i class="fas fa-ban me-1"></i>Canceled</div>` : ""}
+            ${isCanceled ? '<div class="text-warning small"><i class="fas fa-ban me-1"></i>Canceled</div>' : ""}
             ${isProcessing ? `<div class="text-primary small"><i class="fas fa-spinner fa-spin me-1"></i>${this.formatStageName(status)}...</div>` : ""}
           </td>
           <td data-label="Total Length" class="text-end">${totalLengthMiles}</td>
@@ -1880,8 +1880,8 @@ const STATUS = window.STATUS || {
         dashboardLocationName.textContent = "Error Loading Data";
         mapContainer.innerHTML = `<div class="alert alert-danger p-4"><strong>Error:</strong> ${error.message}</div>`;
         chartContainer.innerHTML = "";
-        statsContainer.innerHTML = `<div class="text-danger p-2">Failed to load stats.</div>`;
-        streetTypeCoverageEl.innerHTML = `<div class="text-danger p-2">Failed to load breakdown.</div>`;
+        statsContainer.innerHTML = '<div class="text-danger p-2">Failed to load stats.</div>';
+        streetTypeCoverageEl.innerHTML = '<div class="text-danger p-2">Failed to load breakdown.</div>';
         this.notificationManager.show(
           `Error loading dashboard: ${error.message}`,
           "danger",
@@ -2360,10 +2360,10 @@ const STATUS = window.STATUS || {
           <strong>ID:</strong> ${segmentId}
         </small>
         <div class="street-actions mt-2 d-flex flex-wrap gap-2">
-          ${!props.driven ? `<button class="btn btn-sm btn-outline-success mark-driven-btn">Mark Driven</button>` : ""}
-          ${props.driven ? `<button class="btn btn-sm btn-outline-danger mark-undriven-btn">Mark Undriven</button>` : ""}
-          ${!props.undriveable ? `<button class="btn btn-sm btn-outline-warning mark-undriveable-btn">Mark Undriveable</button>` : ""}
-          ${props.undriveable ? `<button class="btn btn-sm btn-outline-info mark-driveable-btn">Mark Driveable</button>` : ""}
+          ${!props.driven ? '<button class="btn btn-sm btn-outline-success mark-driven-btn">Mark Driven</button>' : ""}
+          ${props.driven ? '<button class="btn btn-sm btn-outline-danger mark-undriven-btn">Mark Undriven</button>' : ""}
+          ${!props.undriveable ? '<button class="btn btn-sm btn-outline-warning mark-undriveable-btn">Mark Undriveable</button>' : ""}
+          ${props.undriveable ? '<button class="btn btn-sm btn-outline-info mark-driveable-btn">Mark Driveable</button>' : ""}
         </div>
       `;
       return popupContent;

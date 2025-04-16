@@ -847,7 +847,7 @@
         "info",
       );
       console.log(
-        `[fetchUndrivenStreets] Sending POST request to /api/undriven_streets with location:`,
+        "[fetchUndrivenStreets] Sending POST request to /api/undriven_streets with location:",
         location,
       );
 
@@ -1138,7 +1138,7 @@
     `;
 
     if (isMatched) {
-      html += `<button class="btn btn-sm btn-danger delete-matched-trip">Delete Match</button>`;
+      html += '<button class="btn btn-sm btn-danger delete-matched-trip">Delete Match</button>';
     } else {
       html += `
           <button class="btn btn-sm btn-primary rematch-trip">Rematch</button>
@@ -1146,7 +1146,7 @@
       `;
     }
 
-    html += `</div></div>`;
+    html += "</div></div>";
     return html;
   }
 
@@ -1499,7 +1499,7 @@
           ) {
             dropdown.selectedIndex = i;
             if (
-              localStorage.getItem(`layer_visible_undrivenStreets`) === "true"
+              localStorage.getItem("layer_visible_undrivenStreets") === "true"
             ) {
               fetchUndrivenStreets();
             }
