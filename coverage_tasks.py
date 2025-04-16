@@ -110,9 +110,7 @@ def collect_street_type_stats(
     return result
 
 
-async def process_coverage_calculation(
-    location: Dict[str, Any], task_id: str
-) -> None:
+async def process_coverage_calculation(location: Dict[str, Any], task_id: str) -> None:
     """Orchestrates the full coverage calculation process in the background.
 
     Delegates the core calculation, progress updates, and result handling to
@@ -422,14 +420,9 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
                 }
             },
         )
-        calculation_result = await compute_coverage_for_location(
-            location, task_id
-        )
+        calculation_result = await compute_coverage_for_location(location, task_id)
 
-        if (
-            calculation_result is None
-            or calculation_result.get("status") == "error"
-        ):
+        if calculation_result is None or calculation_result.get("status") == "error":
             overall_status = "error"
             final_error = (
                 calculation_result.get(

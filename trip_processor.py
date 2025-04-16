@@ -339,9 +339,7 @@ class TripProcessor:
             self.processed_data = self.trip_data.copy()
 
             self.processed_data["validated_at"] = datetime.now(timezone.utc)
-            self.processed_data["validation_status"] = (
-                TripState.VALIDATED.value
-            )
+            self.processed_data["validation_status"] = TripState.VALIDATED.value
 
             self._set_state(TripState.VALIDATED)
             logger.debug(
@@ -453,9 +451,7 @@ class TripProcessor:
 
             if "totalIdleDuration" in self.processed_data:
                 self.processed_data["totalIdleDurationFormatted"] = (
-                    self.format_idle_time(
-                        self.processed_data["totalIdleDuration"]
-                    )
+                    self.format_idle_time(self.processed_data["totalIdleDuration"])
                 )
 
             self._set_state(TripState.PROCESSED)
@@ -502,9 +498,7 @@ class TripProcessor:
             return None
 
     @staticmethod
-    def _extract_coords_from_geometry(
-        geometry, fallback_coords, transaction_id
-    ):
+    def _extract_coords_from_geometry(geometry, fallback_coords, transaction_id):
         """Extract a simple [lng, lat] point from various geometry types."""
         if not geometry or "coordinates" not in geometry:
             return fallback_coords
@@ -572,9 +566,7 @@ class TripProcessor:
             )
 
             start_coord = self.processed_data["startGeoPoint"]["coordinates"]
-            end_coord = self.processed_data["destinationGeoPoint"][
-                "coordinates"
-            ]
+            end_coord = self.processed_data["destinationGeoPoint"]["coordinates"]
 
             start_pt = Point(start_coord[0], start_coord[1])
             end_pt = Point(end_coord[0], end_coord[1])
@@ -600,9 +592,7 @@ class TripProcessor:
                 start_place = await self.get_place_at_point(start_pt)
                 if start_place:
                     structured_start = LOCATION_SCHEMA.copy()
-                    structured_start["formatted_address"] = start_place.get(
-                        "name", ""
-                    )
+                    structured_start["formatted_address"] = start_place.get("name", "")
 
                     for component in [
                         "address",
@@ -613,13 +603,13 @@ class TripProcessor:
                     ]:
                         if component in start_place:
                             if component == "address":
-                                structured_start["address_components"][
-                                    "street"
-                                ] = start_place[component]
+                                structured_start["address_components"]["street"] = (
+                                    start_place[component]
+                                )
                             else:
-                                structured_start["address_components"][
-                                    component
-                                ] = start_place[component]
+                                structured_start["address_components"][component] = (
+                                    start_place[component]
+                                )
 
                     if "geometry" in start_place:
                         extracted_coords = self._extract_coords_from_geometry(
@@ -630,12 +620,8 @@ class TripProcessor:
                             ],
                             transaction_id,
                         )
-                        structured_start["coordinates"]["lng"] = (
-                            extracted_coords[0]
-                        )
-                        structured_start["coordinates"]["lat"] = (
-                            extracted_coords[1]
-                        )
+                        structured_start["coordinates"]["lng"] = extracted_coords[0]
+                        structured_start["coordinates"]["lat"] = extracted_coords[1]
                     else:
                         structured_start["coordinates"]["lng"] = start_coord[0]
                         structured_start["coordinates"]["lat"] = start_coord[1]
@@ -674,9 +660,9 @@ class TripProcessor:
                                 our_key,
                             ) in component_mapping.items():
                                 if nominatim_key in addr:
-                                    structured_start["address_components"][
-                                        our_key
-                                    ] = addr[nominatim_key]
+                                    structured_start["address_components"][our_key] = (
+                                        addr[nominatim_key]
+                                    )
 
                         structured_start["coordinates"]["lng"] = start_coord[0]
                         structured_start["coordinates"]["lat"] = start_coord[1]
@@ -687,9 +673,7 @@ class TripProcessor:
                 end_place = await self.get_place_at_point(end_pt)
                 if end_place:
                     structured_dest = LOCATION_SCHEMA.copy()
-                    structured_dest["formatted_address"] = end_place.get(
-                        "name", ""
-                    )
+                    structured_dest["formatted_address"] = end_place.get("name", "")
 
                     for component in [
                         "address",
@@ -700,13 +684,13 @@ class TripProcessor:
                     ]:
                         if component in end_place:
                             if component == "address":
-                                structured_dest["address_components"][
-                                    "street"
-                                ] = end_place[component]
+                                structured_dest["address_components"]["street"] = (
+                                    end_place[component]
+                                )
                             else:
-                                structured_dest["address_components"][
-                                    component
-                                ] = end_place[component]
+                                structured_dest["address_components"][component] = (
+                                    end_place[component]
+                                )
 
                     if "geometry" in end_place:
                         extracted_coords = self._extract_coords_from_geometry(
@@ -717,12 +701,8 @@ class TripProcessor:
                             ],
                             transaction_id,
                         )
-                        structured_dest["coordinates"]["lng"] = (
-                            extracted_coords[0]
-                        )
-                        structured_dest["coordinates"]["lat"] = (
-                            extracted_coords[1]
-                        )
+                        structured_dest["coordinates"]["lng"] = extracted_coords[0]
+                        structured_dest["coordinates"]["lat"] = extracted_coords[1]
                     else:
                         structured_dest["coordinates"]["lng"] = end_coord[0]
                         structured_dest["coordinates"]["lat"] = end_coord[1]
@@ -760,9 +740,9 @@ class TripProcessor:
                                 our_key,
                             ) in component_mapping.items():
                                 if nominatim_key in addr:
-                                    structured_dest["address_components"][
-                                        our_key
-                                    ] = addr[nominatim_key]
+                                    structured_dest["address_components"][our_key] = (
+                                        addr[nominatim_key]
+                                    )
 
                         structured_dest["coordinates"]["lng"] = end_coord[0]
                         structured_dest["coordinates"]["lat"] = end_coord[1]
@@ -868,24 +848,19 @@ class TripProcessor:
                     transaction_id,
                     error_msg,
                 )
-                self.errors["map_match"] = (
-                    f"Map matching API failed: {error_msg}"
-                )
+                self.errors["map_match"] = f"Map matching API failed: {error_msg}"
                 return True
 
             validated_matched_gps = None
-            if match_result_api.get("matchings") and match_result_api[
-                "matchings"
-            ][0].get("geometry"):
+            if match_result_api.get("matchings") and match_result_api["matchings"][
+                0
+            ].get("geometry"):
                 matched_geometry = match_result_api["matchings"][0]["geometry"]
                 geom_type = matched_geometry.get("type")
                 geom_coords = matched_geometry.get("coordinates")
 
                 if geom_type == "LineString":
-                    if (
-                        not isinstance(geom_coords, list)
-                        or len(geom_coords) < 2
-                    ):
+                    if not isinstance(geom_coords, list) or len(geom_coords) < 2:
                         logger.warning(
                             "Map match for trip %s returned LineString with < 2 points. Discarding matchedGps.",
                             transaction_id,
@@ -1059,17 +1034,13 @@ class TripProcessor:
                             await asyncio.sleep(wait_time)
 
                         try:
-                            async with session.get(
-                                url, params=params
-                            ) as response:
+                            async with session.get(url, params=params) as response:
                                 if response.status == 429:
                                     logger.warning(
                                         "Received 429 Too Many Requests. Attempt=%d",
                                         retry_attempt,
                                     )
-                                    retry_after = response.headers.get(
-                                        "Retry-After"
-                                    )
+                                    retry_after = response.headers.get("Retry-After")
                                     wait_time = (
                                         float(retry_after)
                                         if retry_after is not None
@@ -1171,9 +1142,7 @@ class TripProcessor:
                 if len(chunk_coords) < 2:
                     return []
                 if len(chunk_coords) > 100:
-                    logger.error(
-                        "match_chunk received >100 coords unexpectedly."
-                    )
+                    logger.error("match_chunk received >100 coords unexpectedly.")
                     return []
                 try:
                     data = await call_mapbox_api(chunk_coords)
@@ -1190,12 +1159,10 @@ class TripProcessor:
                     )
 
                     if "invalid coordinates" in msg.lower():
-                        filtered_coords = filter_invalid_coordinates(
+                        filtered_coords = filter_invalid_coordinates(chunk_coords)
+                        if len(filtered_coords) >= 2 and len(filtered_coords) < len(
                             chunk_coords
-                        )
-                        if len(filtered_coords) >= 2 and len(
-                            filtered_coords
-                        ) < len(chunk_coords):
+                        ):
                             logger.info(
                                 "Retrying with %d filtered coordinates",
                                 len(filtered_coords),
@@ -1224,10 +1191,7 @@ class TripProcessor:
                     )
                     matched_first = await match_chunk(first_half, depth + 1)
                     matched_second = await match_chunk(second_half, depth + 1)
-                    if (
-                        matched_first is not None
-                        and matched_second is not None
-                    ):
+                    if matched_first is not None and matched_second is not None:
                         if (
                             matched_first
                             and matched_second
@@ -1363,9 +1327,7 @@ class TripProcessor:
                             (end_sub - start_sub),
                         )
                         new_coords = (
-                            new_coords[:start_sub]
-                            + local_match
-                            + new_coords[end_sub:]
+                            new_coords[:start_sub] + local_match + new_coords[end_sub:]
                         )
                         offset += len(local_match) - (end_sub - start_sub)
                         fix_count += 1
@@ -1481,9 +1443,7 @@ class TripProcessor:
                         "destination": trip_to_save.get("destination"),
                         "maxSpeed": trip_to_save.get("maxSpeed"),
                         "averageSpeed": trip_to_save.get("averageSpeed"),
-                        "hardBrakingCount": trip_to_save.get(
-                            "hardBrakingCount"
-                        ),
+                        "hardBrakingCount": trip_to_save.get("hardBrakingCount"),
                         "hardAccelerationCount": trip_to_save.get(
                             "hardAccelerationCount"
                         ),
@@ -1493,9 +1453,7 @@ class TripProcessor:
                     }
 
                     matched_trip_data = {
-                        k: v
-                        for k, v in matched_trip_data.items()
-                        if v is not None
+                        k: v for k, v in matched_trip_data.items() if v is not None
                     }
 
                     try:
@@ -1522,9 +1480,7 @@ class TripProcessor:
                 collection.name,
             )
 
-            saved_doc = await collection.find_one(
-                {"transactionId": transaction_id}
-            )
+            saved_doc = await collection.find_one({"transactionId": transaction_id})
 
             return str(saved_doc["_id"]) if saved_doc else None
 
