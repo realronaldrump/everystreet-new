@@ -39,9 +39,7 @@ if not REDIS_URL:
     redis_user = os.getenv("REDISUSER", "default")
 
     if redis_host and redis_password:
-        REDIS_URL = (
-            f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
-        )
+        REDIS_URL = f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
     else:
         raise ValueError(
             "REDIS_URL environment variable is not set and cannot be constructed! "
@@ -217,9 +215,7 @@ def init_worker(**kwargs):
         _ = db_manager.client
         _ = db_manager.db
         if not db_manager._connection_healthy:
-            logger.warning(
-                "DB Manager connection unhealthy, attempting re-init."
-            )
+            logger.warning("DB Manager connection unhealthy, attempting re-init.")
             db_manager._initialize_client()
             if not db_manager._connection_healthy:
                 raise ConnectionFailure(
@@ -227,9 +223,7 @@ def init_worker(**kwargs):
                 )
         logger.info("DatabaseManager connection verified for worker.")
 
-        logger.info(
-            "Initializing live_tracking global collections for worker..."
-        )
+        logger.info("Initializing live_tracking global collections for worker...")
         live_collection = db_manager.get_collection("live_trips")
         archive_collection = db_manager.get_collection("archived_live_trips")
         if live_collection is None or archive_collection is None:
@@ -246,6 +240,4 @@ def init_worker(**kwargs):
             f"CRITICAL ERROR during worker initialization: {e}",
             exc_info=True,
         )
-        raise RuntimeError(
-            f"Worker initialization failed critically: {e}"
-        ) from e
+        raise RuntimeError(f"Worker initialization failed critically: {e}") from e

@@ -307,9 +307,7 @@ async def process_trip_data(
         )
         return
 
-    existing_coords: List[Dict[str, Any]] = (
-        trip_doc.get("coordinates", []) or []
-    )
+    existing_coords: List[Dict[str, Any]] = trip_doc.get("coordinates", []) or []
     all_coords_map: Dict[str, Dict[str, Any]] = {}
     for c in existing_coords:
         ts = c.get("timestamp")
@@ -356,9 +354,7 @@ async def process_trip_data(
             _parse_mongo_date_dict(start_time)
             if isinstance(start_time, dict)
             else (
-                _parse_iso_datetime(start_time)
-                if isinstance(start_time, str)
-                else None
+                _parse_iso_datetime(start_time) if isinstance(start_time, str) else None
             )
         )
         if not isinstance(start_time, datetime):
@@ -371,9 +367,7 @@ async def process_trip_data(
 
     last_point_time = sorted_unique_coords[-1].get("timestamp")
     duration_seconds = 0.0
-    if isinstance(start_time, datetime) and isinstance(
-        last_point_time, datetime
-    ):
+    if isinstance(start_time, datetime) and isinstance(last_point_time, datetime):
         duration_seconds = max(
             0.0,
             (last_point_time - start_time).total_seconds(),
@@ -491,14 +485,10 @@ async def process_trip_data(
     if duration_seconds > 0:
         duration_hours = duration_seconds / 3600
         avg_speed_mph = (
-            full_trip_distance_miles / duration_hours
-            if duration_hours > 0
-            else 0.0
+            full_trip_distance_miles / duration_hours if duration_hours > 0 else 0.0
         )
     elif valid_speeds_for_avg_mph:
-        avg_speed_mph = sum(valid_speeds_for_avg_mph) / len(
-            valid_speeds_for_avg_mph
-        )
+        avg_speed_mph = sum(valid_speeds_for_avg_mph) / len(valid_speeds_for_avg_mph)
         logger.info(
             "Calculated fallback average speed %.1f mph for trip %s based on %d segments (duration was %.1fs).",
             avg_speed_mph,
@@ -897,9 +887,7 @@ async def process_trip_end(
             _parse_mongo_date_dict(start_time)
             if isinstance(start_time, dict)
             else (
-                _parse_iso_datetime(start_time)
-                if isinstance(start_time, str)
-                else None
+                _parse_iso_datetime(start_time) if isinstance(start_time, str) else None
             )
         )
 
@@ -1073,9 +1061,7 @@ async def get_active_trip(
         Dict: The raw active trip document from MongoDB, or None.
     """
     if live_trips_collection_global is None:
-        logger.error(
-            "Live trips collection global not initialized in get_active_trip"
-        )
+        logger.error("Live trips collection global not initialized in get_active_trip")
         return None
 
     query: Dict[str, Any] = {"status": "active"}
@@ -1119,9 +1105,7 @@ async def get_active_trip(
 
     if active_trip_doc:
         trip_seq = active_trip_doc.get("sequence", "N/A")
-        if "_id" in active_trip_doc and isinstance(
-            active_trip_doc["_id"], ObjectId
-        ):
+        if "_id" in active_trip_doc and isinstance(active_trip_doc["_id"], ObjectId):
             active_trip_doc["_id"] = str(active_trip_doc["_id"])
 
         logger.debug(
@@ -1323,9 +1307,7 @@ async def get_trip_updates(
               or current_sequence if no update but an active trip exists.
     """
     if live_trips_collection_global is None:
-        logger.error(
-            "Live trips collection global not initialized in get_trip_updates"
-        )
+        logger.error("Live trips collection global not initialized in get_trip_updates")
         return {
             "status": "error",
             "has_update": False,
@@ -1355,9 +1337,7 @@ async def get_trip_updates(
     )
 
     try:
-        active_trip_update = await get_active_trip(
-            since_sequence=client_sequence
-        )
+        active_trip_update = await get_active_trip(since_sequence=client_sequence)
 
         if active_trip_update:
             current_server_seq = active_trip_update.get("sequence", 0)
@@ -1380,12 +1360,10 @@ async def get_trip_updates(
             }
         else:
             try:
-                any_active_trip_doc = (
-                    await live_trips_collection_global.find_one(
-                        {"status": "active"},
-                        projection={"sequence": 1},
-                        sort=[("sequence", -1)],
-                    )
+                any_active_trip_doc = await live_trips_collection_global.find_one(
+                    {"status": "active"},
+                    projection={"sequence": 1},
+                    sort=[("sequence", -1)],
                 )
             except Exception as find_err:
                 logger.error(
