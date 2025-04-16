@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import statistics
+import threading
 from typing import Any, Coroutine, Dict, List, Optional, Tuple, TypeVar
 
 import aiohttp
@@ -274,45 +275,36 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
 
 def run_async_from_sync(coro: Coroutine[Any, Any, T]) -> T:
     """
-    Runs an async coroutine from a synchronous context, managing the event loop.
-
-    This is crucial for calling async functions (like motor operations)
-    from synchronous Celery tasks without encountering 'Event loop is closed' errors.
-    It gets the current thread's loop or creates one if needed, and runs the
-    coroutine until completion using loop.run_until_complete. Unlike asyncio.run(),
-    it doesn't close the loop afterwards, allowing libraries like motor to
-    clean up properly.
+    Runs an async coroutine in a fresh event loop on a separate thread.
+    This avoids interfering with any running event loop in the current thread,
+    and ensures the loop is cleanly closed afterward.
 
     Args:
-        coro: The awaitable coroutine to execute.
+        coro: The coroutine to run.
 
     Returns:
-        The result of the coroutine.
+        The coroutine's result.
     """
-    try:
-        loop = asyncio.get_event_loop_policy().get_event_loop()
-        logger.debug(
-            "Reusing existing event loop for sync-to-async execution."
-        )
-    except RuntimeError:
-        logger.debug(
-            "No event loop found, creating a new one for sync-to-async execution."
-        )
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    result: dict[str, T] = {}
+    error: dict[str, BaseException] = {}
 
-    if loop.is_closed():
-        logger.warning("Event loop was closed. Creating a new one.")
+    def _runner():
         loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        try:
+            result["value"] = loop.run_until_complete(coro)
+        except Exception as e:
+            error["exc"] = e
+        finally:
+            loop.close()
 
-    try:
-        return loop.run_until_complete(coro)
-    except Exception:
-        logger.error(
-            "Exception occurred during run_until_complete", exc_info=True
-        )
-        raise
+    thread = threading.Thread(target=_runner, daemon=True)
+    thread.start()
+    thread.join()
+
+    if "exc" in error:
+        raise error["exc"]
+
+    return result["value"]
 
 
 def calculate_circular_average_hour(hours_list: List[float]) -> float:
