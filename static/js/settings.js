@@ -573,10 +573,10 @@
       try {
         showLoadingOverlay();
 
-        const response = await fetch("/api/background_tasks/manual_run", {
+        const response = await fetch("/api/background_tasks/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tasks: [taskId] }),
+          body: JSON.stringify([taskId]),
         });
 
         const result = await response.json();

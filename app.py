@@ -106,6 +106,8 @@ from tasks import (
     manual_run_task,
     process_webhook_event_task,
     update_task_schedule,
+    get_all_task_metadata,
+    TaskPriority,
 )
 from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
@@ -470,6 +472,57 @@ async def update_background_tasks_config(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
+
+
+@app.get("/api/background_tasks/config")
+async def get_background_tasks_config():
+     """Get the current configuration of background tasks."""
+     try:
+         config = await get_task_config()
+         task_metadata = await get_all_task_metadata()
+ 
+         for task_id, task_def in task_metadata.items():
+             if task_id not in config.get("tasks", {}):
+                 config.setdefault("tasks", {})[task_id] = {}
+ 
+             task_config = config["tasks"][task_id]
+ 
+             task_config["display_name"] = task_def.get(
+                 "display_name", "Unknown Task"
+             )
+             task_config["description"] = task_def.get("description", "")
+             task_config["priority"] = task_def.get(
+                 "priority", TaskPriority.MEDIUM.name
+             )
+ 
+             task_config["status"] = task_config.get("status", "IDLE")
+             task_config["interval_minutes"] = task_config.get(
+                 "interval_minutes",
+                 task_def.get("default_interval_minutes"),
+             )
+ 
+             for ts_field in [
+                 "last_run",
+                 "next_run",
+                 "start_time",
+                 "end_time",
+                 "last_updated",
+             ]:
+                 if ts_field in task_config and task_config[ts_field]:
+                     task_config[ts_field] = (
+                         task_config[ts_field]
+                         if isinstance(task_config[ts_field], str)
+                         else task_config[ts_field].isoformat()
+                     )
+ 
+         return config
+     except Exception as e:
+         logger.exception("Error getting task configuration: %s", str(e))
+         raise HTTPException(
+             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+         )
+ 
+ 
 
 
 @app.post("/api/background_tasks/pause")
