@@ -92,11 +92,11 @@ async def fetch_trips_for_device(
                 if "startTime" in trip:
                     trip["startTime"] = date_parser.isoparse(
                         trip["startTime"]
-                    ).replace(tzinfo=timezone.utc)
+                    ).astimezone(timezone.utc)
                 if "endTime" in trip:
                     trip["endTime"] = date_parser.isoparse(
                         trip["endTime"]
-                    ).replace(tzinfo=timezone.utc)
+                    ).astimezone(timezone.utc)
 
             logger.info("Fetched %d trips for device %s", len(trips), imei)
             return trips

@@ -225,7 +225,7 @@ def parse_time(time_value):
     if isinstance(time_value, str):
         time_value = dateutil_parser.isoparse(time_value)
     if time_value.tzinfo is None:
-        time_value = time_value.replace(tzinfo=timezone.utc)
+        time_value = time_value.astimezone(timezone.utc)
     return time_value
 
 

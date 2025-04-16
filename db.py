@@ -516,7 +516,7 @@ def post_process_deserialize(obj):
                         date_val.replace("Z", "+00:00")
                     )
                     if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
+                        dt = dt.astimezone(timezone.utc)
                     return dt.astimezone(timezone.utc)
                 elif isinstance(date_val, (int, float)):
                     if abs(date_val) > 2e9:
@@ -561,7 +561,7 @@ class SerializationHelper:
         if dt is None:
             return None
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.astimezone(timezone.utc)
         return dt.isoformat().replace("+00:00", "Z")
 
     @staticmethod
@@ -671,7 +671,7 @@ def parse_query_date(
     try:
         dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.astimezone(timezone.utc)
         dt = dt.astimezone(timezone.utc)
 
         if end_of_day:

@@ -869,7 +869,7 @@ async def reset_task_states():
                 )
             else:
                 if start_time.tzinfo is None:
-                    start_time = start_time.replace(tzinfo=timezone.utc)
+                    start_time = start_time.astimezone(timezone.utc)
 
                 runtime = now - start_time
                 if runtime > stuck_threshold:
@@ -1208,9 +1208,9 @@ async def get_trips(request: Request):
                 if isinstance(et, str):
                     et = dateutil_parser.isoparse(et)
                 if st.tzinfo is None:
-                    st = st.replace(tzinfo=timezone.utc)
+                    st = st.astimezone(timezone.utc)
                 if et.tzinfo is None:
-                    et = et.replace(tzinfo=timezone.utc)
+                    et = et.astimezone(timezone.utc)
 
                 geom = trip.get("gps")
                 if isinstance(geom, str):

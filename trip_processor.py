@@ -324,7 +324,7 @@ class TripProcessor:
                 if isinstance(val, str):
                     dt = parser.isoparse(val)
                     if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
+                        dt = dt.astimezone(timezone.utc)
                     self.processed_data[key] = dt
 
             gps_data = self.processed_data.get("gps")

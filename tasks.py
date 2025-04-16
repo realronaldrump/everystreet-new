@@ -334,7 +334,7 @@ async def check_dependencies(task_id: str) -> Dict[str, Any]:
                         pass
 
                 if last_updated and last_updated.tzinfo is None:
-                    last_updated = last_updated.replace(tzinfo=timezone.utc)
+                    last_updated = last_updated.astimezone(timezone.utc)
 
                 if last_updated and (
                     datetime.now(timezone.utc) - last_updated
@@ -1746,7 +1746,7 @@ async def run_task_scheduler_async(self) -> None:
                     pass
 
             if last_run and last_run.tzinfo is None:
-                last_run = last_run.replace(tzinfo=timezone.utc)
+                last_run = last_run.astimezone(timezone.utc)
 
             is_due = False
             if last_run is None:
@@ -1892,7 +1892,7 @@ async def get_all_task_metadata() -> Dict[str, Any]:
 
             if last_run and interval_minutes and interval_minutes > 0:
                 if last_run.tzinfo is None:
-                    last_run = last_run.replace(tzinfo=timezone.utc)
+                    last_run = last_run.astimezone(timezone.utc)
                 estimated_next_run = last_run + timedelta(
                     minutes=interval_minutes
                 )

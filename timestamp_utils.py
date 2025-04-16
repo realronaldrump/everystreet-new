@@ -23,7 +23,7 @@ def parse_bouncie_timestamp(ts: str) -> Optional[datetime]:
     try:
         parsed_time = parser.isoparse(ts)
         if parsed_time.tzinfo is None:
-            parsed_time = parsed_time.replace(tzinfo=timezone.utc)
+            parsed_time = parsed_time.astimezone(timezone.utc)
         return parsed_time
     except Exception as e:
         logger.warning("Failed to parse timestamp '%s': %s", ts, e)

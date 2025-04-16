@@ -36,7 +36,7 @@ def _parse_iso_datetime(timestamp_str: Optional[str]) -> Optional[datetime]:
         dt = datetime.fromisoformat(timestamp_str)
 
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.astimezone(timezone.utc)
         else:
             dt = dt.astimezone(timezone.utc)
         return dt
