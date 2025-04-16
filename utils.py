@@ -169,9 +169,7 @@ def validate_trip_data(trip: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
 
 
 @retry_async(max_retries=3, retry_delay=2.0)
-async def reverse_geocode_nominatim(
-    lat: float, lon: float
-) -> Optional[Dict[str, Any]]:
+async def reverse_geocode_nominatim(lat: float, lon: float) -> Optional[Dict[str, Any]]:
     """Reverse geocode coordinates using OSM Nominatim."""
     url = "https://nominatim.openstreetmap.org/reverse"
     params = {
@@ -221,9 +219,7 @@ def haversine(
     elif unit == "km":
         radius = EARTH_RADIUS_KM
     else:
-        raise ValueError(
-            "Invalid unit specified. Use 'meters', 'miles', or 'km'."
-        )
+        raise ValueError("Invalid unit specified. Use 'meters', 'miles', or 'km'.")
 
     distance = radius * c
     return distance
@@ -245,9 +241,7 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
         Total distance in miles
     """
     total_distance_meters = 0.0
-    coords: list[list[float]] = (
-        coordinates if isinstance(coordinates, list) else []
-    )
+    coords: list[list[float]] = coordinates if isinstance(coordinates, list) else []
 
     if not coords or not isinstance(coords[0], list):
         logger.warning("Invalid coordinates format for distance calculation.")
@@ -257,9 +251,7 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
         try:
             lon1, lat1 = coords[i]
             lon2, lat2 = coords[i + 1]
-            total_distance_meters += haversine(
-                lon1, lat1, lon2, lat2, unit="meters"
-            )
+            total_distance_meters += haversine(lon1, lat1, lon2, lat2, unit="meters")
         except (TypeError, ValueError, IndexError) as e:
             logger.warning(
                 "Skipping coordinate pair due to error: %s - Pair: %s, %s",
@@ -291,9 +283,7 @@ def run_async_from_sync(coro: Coroutine[Any, Any, T]) -> T:
     """
     try:
         loop = asyncio.get_event_loop_policy().get_event_loop()
-        logger.debug(
-            "Reusing existing event loop for sync-to-async execution."
-        )
+        logger.debug("Reusing existing event loop for sync-to-async execution.")
     except RuntimeError:
         logger.debug(
             "No event loop found, creating a new one for sync-to-async execution."
@@ -309,9 +299,7 @@ def run_async_from_sync(coro: Coroutine[Any, Any, T]) -> T:
     try:
         return loop.run_until_complete(coro)
     except Exception:
-        logger.error(
-            "Exception occurred during run_until_complete", exc_info=True
-        )
+        logger.error("Exception occurred during run_until_complete", exc_info=True)
         raise
 
 
