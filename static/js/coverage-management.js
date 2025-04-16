@@ -1880,8 +1880,10 @@ const STATUS = window.STATUS || {
         dashboardLocationName.textContent = "Error Loading Data";
         mapContainer.innerHTML = `<div class="alert alert-danger p-4"><strong>Error:</strong> ${error.message}</div>`;
         chartContainer.innerHTML = "";
-        statsContainer.innerHTML = '<div class="text-danger p-2">Failed to load stats.</div>';
-        streetTypeCoverageEl.innerHTML = '<div class="text-danger p-2">Failed to load breakdown.</div>';
+        statsContainer.innerHTML =
+          '<div class="text-danger p-2">Failed to load stats.</div>';
+        streetTypeCoverageEl.innerHTML =
+          '<div class="text-danger p-2">Failed to load breakdown.</div>';
         this.notificationManager.show(
           `Error loading dashboard: ${error.message}`,
           "danger",
