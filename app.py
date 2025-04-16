@@ -529,14 +529,22 @@ async def update_background_tasks_config(
 async def pause_background_tasks(minutes: int = 30):
     """Pause all background tasks for a specified duration."""
     try:
-        await update_task_schedule({"globalDisable": True})
-
+        result = await update_task_schedule(
+            {"globalDisable": True, "pauseMinutes": minutes}
+        )
+        if result.get("status") != "success":
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result.get("message", "Failed to pause tasks"),
+            )
         return {
             "status": "success",
             "message": f"Background tasks paused for {minutes} minutes",
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception("Error pausing tasks: %s", str(e))
+        logger.exception("Error pausing tasks: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
