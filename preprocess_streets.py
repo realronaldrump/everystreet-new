@@ -96,123 +96,21 @@ def get_dynamic_utm_crs(latitude: float, longitude: float) -> pyproj.CRS:
         return pyproj.CRS(f"EPSG:{fallback_crs_epsg}")
 
 
-async def fetch_osm_data(
-    location: Dict[str, Any], streets_only: bool = True
-) -> Dict[str, Any]:
-    """Fetch OSM data from Overpass API for a given location.
-
-    If streets_only is True, filters out non-vehicular ways, parking lots,
-    private roads, and certain service roads using an enhanced Overpass query.
-    """
-    area_id = int(location["osm_id"])
-    if location["osm_type"] == "relation":
-        area_id += 3600000000
-
-    if streets_only:
-        query = f"""
-        [out:json][timeout:180];
-        // Define the search area based on OSM ID
-        area({area_id})->.searchArea;
-        (
-          // Initial selection: Ways with a highway tag in the area
-          way["highway"](area.searchArea)
-          // Exclude non-vehicular highway types
-          ["highway"!~"{EXCLUDED_HIGHWAY_TYPES_REGEX}"]
-          // Exclude features tagged primarily as parking areas
-          ["amenity"!="parking"]
-          // Exclude ways with explicitly restricted access tags
-          ["access"!~"{EXCLUDED_ACCESS_TYPES_REGEX}"]
-          // Exclude ways where motor vehicles are explicitly forbidden
-          ["motor_vehicle"!="no"]
-          // Exclude ways marked as generally impassable
-          ["impassable"!="yes"]
-          // Store these candidates
-          ->.potential_ways;
-
-          // Identify specific service ways to exclude (parking aisles, driveways)
-          // These often represent non-drivable parts of parking lots or private property
-          way(area.searchArea)["highway"="service"]["service"~"{EXCLUDED_SERVICE_TYPES_REGEX}"]
-          ->.unwanted_service_ways;
-
-          // Final result: potential ways MINUS unwanted service ways
-          (
-            way.potential_ways; - way.unwanted_service_ways;
-          );
-        );
-        // Recurse down to nodes to get geometry data for the final set of ways
-        (._;>;);
-        out geom; // Output geometry
-        """
-        logger.info(
-            "Using enhanced Overpass query to exclude non-drivable/private ways for preprocessing."
-        )
-    else:
-        query = f"""
-        [out:json][timeout=60];
-        ({location["osm_type"]}({location["osm_id"]});
-        >;
-        );
-        out geom;
-        """
-
-    timeout = aiohttp.ClientTimeout(total=240)
-    retry_count = 3
-    current_try = 0
-
-    while current_try < retry_count:
+async def fetch_osm_data(query: str, timeout: int = 30) -> Dict[str, Any]:
+    """Fetch OSM data via Overpass API, with proper cleanup and error propagation."""
+    async with aiohttp.ClientSession() as session:
         try:
-            async with (
-                aiohttp.ClientSession(timeout=timeout) as session,
-                session.get(OVERPASS_URL, params={"data": query}) as response,
-            ):
-                response.raise_for_status()
-                osm_data = await response.json()
-                logger.info(
-                    "Successfully fetched OSM data for %s.",
-                    location["display_name"],
-                )
-                return osm_data
-        except aiohttp.ClientResponseError as http_err:
-            current_try += 1
-            logger.warning(
-                "Overpass API error (Attempt %d/%d) for %s: %s - %s",
-                current_try,
-                retry_count,
-                location["display_name"],
-                http_err.status,
-                http_err.message,
-            )
-            try:
-                error_body = await http_err.response.text()
-                logger.warning("Overpass error body: %s", error_body[:500])
-            except Exception:
-                pass
-            if current_try >= retry_count or http_err.status == 400:
-                logger.error(
-                    "Failed to fetch OSM data for %s after %d tries due to HTTP error.",
-                    location["display_name"],
-                    retry_count,
-                )
-                raise http_err
-            await asyncio.sleep(2**current_try)
+            async with session.post(
+                OVERPASS_URL, data=query, timeout=timeout
+            ) as resp:
+                resp.raise_for_status()
+                return await resp.json()
+        except asyncio.TimeoutError as e:
+            logger.error("Timeout fetching OSM data: %s", e)
+            raise
         except aiohttp.ClientError as e:
-            current_try += 1
-            logger.warning(
-                "Error fetching OSM data (Attempt %d/%d) for %s: %s. Retrying...",
-                current_try,
-                retry_count,
-                location["display_name"],
-                e,
-            )
-            if current_try >= retry_count:
-                logger.error(
-                    "Failed to fetch OSM data for %s after %d tries: %s",
-                    location["display_name"],
-                    retry_count,
-                    e,
-                )
-                raise
-            await asyncio.sleep(2**current_try)
+            logger.error("HTTP error fetching OSM data: %s", e)
+            raise
 
 
 def substring(

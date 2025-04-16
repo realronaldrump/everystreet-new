@@ -1059,7 +1059,7 @@
       stopAllBtn.addEventListener("click", async () => {
         try {
           showLoadingOverlay();
-          const response = await fetch("/api/background_tasks/stop_all", {
+          const response = await fetch("/api/background_tasks/stop", {
             method: "POST",
           });
 

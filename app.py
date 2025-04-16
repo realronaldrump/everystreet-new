@@ -31,6 +31,7 @@ from fastapi import (
     Query,
     Request,
     UploadFile,
+    Body,
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
@@ -94,16 +95,13 @@ from models import (
     DeleteCoverageAreaModel,
     LocationModel,
     NoActiveTripResponse,
-    TaskRunModel,
     TripUpdateModel,
     ValidateLocationModel,
 )
 from osm_utils import generate_geojson_osm
 from tasks import (
     TASK_METADATA,
-    TaskPriority,
     TaskStatus,
-    get_all_task_metadata,
     get_task_config,
     manual_run_task,
     process_webhook_event_task,
@@ -167,8 +165,6 @@ task_config_collection = db_manager.db["task_config"]
 task_history_collection = db_manager.db["task_history"]
 progress_collection = db_manager.db["progress_status"]
 osm_data_collection = db_manager.db["osm_data"]
-
-init_collections(places_collection, trips_collection)
 
 
 async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
@@ -451,55 +447,6 @@ async def get_undriven_streets(location: LocationModel):
         )
 
 
-@app.get("/api/background_tasks/config")
-async def get_background_tasks_config():
-    """Get the current configuration of background tasks."""
-    try:
-        config = await get_task_config()
-        task_metadata = await get_all_task_metadata()
-
-        for task_id, task_def in task_metadata.items():
-            if task_id not in config.get("tasks", {}):
-                config.setdefault("tasks", {})[task_id] = {}
-
-            task_config = config["tasks"][task_id]
-
-            task_config["display_name"] = task_def.get(
-                "display_name", "Unknown Task"
-            )
-            task_config["description"] = task_def.get("description", "")
-            task_config["priority"] = task_def.get(
-                "priority", TaskPriority.MEDIUM.name
-            )
-
-            task_config["status"] = task_config.get("status", "IDLE")
-            task_config["interval_minutes"] = task_config.get(
-                "interval_minutes",
-                task_def.get("default_interval_minutes"),
-            )
-
-            for ts_field in [
-                "last_run",
-                "next_run",
-                "start_time",
-                "end_time",
-                "last_updated",
-            ]:
-                if ts_field in task_config and task_config[ts_field]:
-                    task_config[ts_field] = (
-                        task_config[ts_field]
-                        if isinstance(task_config[ts_field], str)
-                        else task_config[ts_field].isoformat()
-                    )
-
-        return config
-    except Exception as e:
-        logger.exception("Error getting task configuration: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
 @app.post("/api/background_tasks/config")
 async def update_background_tasks_config(
     data: BackgroundTasksConfigModel,
@@ -563,14 +510,21 @@ async def resume_background_tasks():
         )
 
 
-@app.post("/api/background_tasks/stop_all")
+@app.post("/api/background_tasks/stop")
 async def stop_all_background_tasks():
     """Stop all currently running background tasks."""
     try:
-        await update_task_schedule({"globalDisable": True})
+        result = await update_task_schedule({"globalDisable": True})
+        if result.get("status") != "success":
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result.get("message", "Failed to stop tasks"),
+            )
         return {"status": "success", "message": "All background tasks stopped"}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception("Error stopping all tasks: %s", str(e))
+        logger.exception("Error stopping all tasks: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -580,15 +534,18 @@ async def stop_all_background_tasks():
 async def enable_all_background_tasks():
     """Enable all background tasks."""
     try:
-        tasks_update = {}
-
-        for task_id in TASK_METADATA:
-            tasks_update[task_id] = {"enabled": True}
-
-        await update_task_schedule({"tasks": tasks_update})
+        tasks_update = {tid: {"enabled": True} for tid in TASK_METADATA}
+        result = await update_task_schedule({"tasks": tasks_update})
+        if result.get("status") != "success":
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result.get("message", "Failed to enable tasks"),
+            )
         return {"status": "success", "message": "All background tasks enabled"}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception("Error enabling all tasks: %s", str(e))
+        logger.exception("Error enabling all tasks: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -598,76 +555,52 @@ async def enable_all_background_tasks():
 async def disable_all_background_tasks():
     """Disable all background tasks."""
     try:
-        tasks_update = {}
-
-        for task_id in TASK_METADATA:
-            tasks_update[task_id] = {"enabled": False}
-
-        await update_task_schedule({"tasks": tasks_update})
+        tasks_update = {tid: {"enabled": False} for tid in TASK_METADATA}
+        result = await update_task_schedule({"tasks": tasks_update})
+        if result.get("status") != "success":
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result.get("message", "Failed to disable tasks"),
+            )
         return {
             "status": "success",
             "message": "All background tasks disabled",
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception("Error disabling all tasks: %s", str(e))
+        logger.exception("Error disabling all tasks: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
 
-@app.post("/api/background_tasks/manual_run")
-async def manually_run_tasks(data: TaskRunModel):
-    """Manually trigger execution of specified tasks."""
-    try:
-        tasks_to_run = data.tasks
-
-        if not tasks_to_run:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No tasks specified to run",
-            )
-
-        if "ALL" in tasks_to_run:
-            result = await manual_run_task("ALL")
-            if result["status"] == "success":
-                return result
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result["message"],
-            )
+@app.post("/api/background_tasks/run")
+async def manual_run_tasks(tasks_to_run: List[str] = Body(...)):
+    """Manually trigger one or more background tasks."""
+    if not tasks_to_run:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No tasks specified to run",
+        )
+    results = []
+    for task_id in tasks_to_run:
+        if task_id == "ALL":
+            res = await manual_run_task("ALL")
+        elif task_id in TASK_METADATA:
+            res = await manual_run_task(task_id)
         else:
-            results = []
-            for task_id in tasks_to_run:
-                if task_id in TASK_METADATA:
-                    result = await manual_run_task(task_id)
-                    results.append(
-                        {
-                            "task": task_id,
-                            "success": result["status"] == "success",
-                            "message": result["message"],
-                            "task_id": result.get("task_id"),
-                        }
-                    )
-                else:
-                    results.append(
-                        {
-                            "task": task_id,
-                            "success": False,
-                            "message": "Unknown task",
-                        }
-                    )
-
-            return {
-                "status": "success",
-                "message": f"Triggered {len(results)} tasks",
-                "results": results,
+            res = {"status": "error", "message": "Unknown task"}
+        success = res.get("status") == "success"
+        results.append(
+            {
+                "task": task_id,
+                "success": success,
+                "message": res.get("message"),
+                "task_id": res.get("task_id"),
             }
-
-    except Exception as e:
-        logger.exception("Error in manually_run_tasks: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
+    return {"status": "success", "results": results}
 
 
 @app.get("/api/background_tasks/task/{task_id}")

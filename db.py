@@ -591,7 +591,7 @@ class SerializationHelper:
             fallback_result = {}
             for key, value in doc.items():
                 if isinstance(value, ObjectId):
-                    fallback_result[key] = str(value)
+                    fallback_result[key] = value
                 elif isinstance(value, datetime):
                     fallback_result[key] = (
                         SerializationHelper.serialize_datetime(value)
@@ -820,9 +820,15 @@ async def find_one_with_retry(
             return await collection.find_one(query, projection, sort=sort)
         return await collection.find_one(query, projection)
 
-    return await db_manager.execute_with_retry(
-        _operation, operation_name=f"find_one on {collection.name}"
-    )
+    try:
+        return await db_manager.execute_with_retry(
+            _operation, operation_name=f"find_one on {collection.name}"
+        )
+    except Exception as e:
+        logger.error(
+            "find_one_with_retry failed on %s: %s", collection.name, str(e)
+        )
+        raise
 
 
 async def find_with_retry(
