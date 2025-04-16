@@ -1138,7 +1138,8 @@
     `;
 
     if (isMatched) {
-      html += '<button class="btn btn-sm btn-danger delete-matched-trip">Delete Match</button>';
+      html +=
+        '<button class="btn btn-sm btn-danger delete-matched-trip">Delete Match</button>';
     } else {
       html += `
           <button class="btn btn-sm btn-primary rematch-trip">Rematch</button>
