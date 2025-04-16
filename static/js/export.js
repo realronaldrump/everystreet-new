@@ -478,7 +478,7 @@
         clearTimeout(timeoutId);
       }
     } catch (error) {
-      console.error(`Export error:`, error);
+      console.error("Export error:", error);
       showNotification(
         `Export failed: ${error.message || "Unknown error"}`,
         "error",

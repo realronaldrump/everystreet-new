@@ -1410,12 +1410,12 @@
         } catch (error) {
           console.error("Error processing trip geometry for map:", error);
           document.getElementById("trip-info").innerHTML +=
-            `<div class="alert alert-danger mt-2">Error displaying trip route.</div>`;
+            '<div class="alert alert-danger mt-2">Error displaying trip route.</div>';
         }
       } else {
         // No route data, maybe show start/end points if available?
         document.getElementById("trip-info").innerHTML +=
-          `<div class="alert alert-warning mt-2">No route data available for this trip.</div>`;
+          '<div class="alert alert-warning mt-2">No route data available for this trip.</div>';
         // Set a default view if no geometry
         this.tripViewMap.setView([37.0902, -95.7129], 4);
       }
