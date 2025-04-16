@@ -795,13 +795,9 @@ class TripProcessor:
                             )
                             validated_matched_gps = {
                                 "type": "Point",
-                                "coordinates": geom_coords[
-                                    0
-                                ],
+                                "coordinates": geom_coords[0],
                             }
-                        elif (
-                            len(geom_coords) >= 2
-                        ):
+                        elif len(geom_coords) >= 2:
                             validated_matched_gps = matched_geometry
                         else:
                             logger.warning(
