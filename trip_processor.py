@@ -690,13 +690,11 @@ class TripProcessor:
         try:
             transaction_id = self.trip_data.get("transactionId", "unknown")
 
-            # Ensure the trip is in the correct state before proceeding
             if self.state not in [
                 TripState.GEOCODED,
                 TripState.PROCESSED,
                 TripState.VALIDATED,
             ]:
-                # If not geocoded yet, attempt to process up to that point first
                 if self.state in [
                     TripState.NEW,
                     TripState.VALIDATED,
@@ -705,18 +703,15 @@ class TripProcessor:
                     logger.info(
                         f"Trip {transaction_id} not geocoded, attempting pre-processing before map matching."
                     )
-                    await self.geocode()  # Try geocoding first
+                    await self.geocode()
                     if self.state != TripState.GEOCODED:
                         logger.warning(
                             "Cannot map match trip %s: Failed pre-requisite geocoding step (Current state: %s)",
                             transaction_id,
                             self.state.value,
                         )
-                        # Optionally set state to FAILED here if map matching is essential
-                        # self._set_state(TripState.FAILED, "Pre-requisite geocoding failed")
-                        return False  # Indicate map matching wasn't performed successfully
+                        return False
                 else:
-                    # If in another state (e.g., FAILED), log and exit
                     logger.warning(
                         "Cannot map match trip %s in current state: %s",
                         transaction_id,
@@ -731,11 +726,9 @@ class TripProcessor:
                     "No Mapbox token provided, skipping map matching for trip %s",
                     transaction_id,
                 )
-                # Don't fail the whole process, just skip map matching step
-                # Keep the current state (likely GEOCODED)
-                return True  # Indicate the step was handled (by skipping)
+                return True
 
-            gps_data = self.processed_data.get("gps")  # Use processed_data
+            gps_data = self.processed_data.get("gps")
             if isinstance(gps_data, str):
                 try:
                     gps_data = json.loads(gps_data)
@@ -753,13 +746,10 @@ class TripProcessor:
                     transaction_id,
                     len(coords),
                 )
-                # Don't fail, just skip matching
-                return True  # Step handled by skipping
+                return True
 
-            # --- Perform Map Matching ---
             match_result_api = await self._map_match_coordinates(coords)
 
-            # --- Process Map Matching Result ---
             if match_result_api.get("code") != "Ok":
                 error_msg = match_result_api.get(
                     "message", "Unknown map matching error from API"
@@ -769,16 +759,12 @@ class TripProcessor:
                     transaction_id,
                     error_msg,
                 )
-                # Decide if this is fatal or if we continue without matched data
-                # For now, let's not fail the whole trip, just log the error
-                # and don't set matchedGps. The state remains GEOCODED.
                 self.errors["map_match"] = (
                     f"Map matching API failed: {error_msg}"
                 )
-                return True  # Step handled, although matching failed
+                return True
 
-            # --- START: VALIDATION OF RETURNED GEOMETRY ---
-            validated_matched_gps = None  # Initialize
+            validated_matched_gps = None
             if match_result_api.get("matchings") and match_result_api[
                 "matchings"
             ][0].get("geometry"):
@@ -795,12 +781,9 @@ class TripProcessor:
                             "Map match for trip %s returned LineString with < 2 points. Discarding matchedGps.",
                             transaction_id,
                         )
-                        # validated_matched_gps remains None
                     else:
-                        # Check if start and end points are identical
                         start_point = tuple(geom_coords[0])
 
-                        # Check if *all* points are identical (more robust)
                         all_identical = all(
                             tuple(p) == start_point for p in geom_coords[1:]
                         )
@@ -814,23 +797,20 @@ class TripProcessor:
                                 "type": "Point",
                                 "coordinates": geom_coords[
                                     0
-                                ],  # Use the single unique coordinate
+                                ],
                             }
                         elif (
                             len(geom_coords) >= 2
-                        ):  # It's a valid LineString according to spec (>=2 distinct points or >2 points total)
+                        ):
                             validated_matched_gps = matched_geometry
                         else:
-                            # This case should theoretically not be reached if all_identical is false and len >= 2
                             logger.warning(
                                 "Map match for trip %s returned ambiguous LineString. Discarding. Coords: %s",
                                 transaction_id,
-                                geom_coords[:5],  # Log first few points
+                                geom_coords[:5],
                             )
-                            # validated_matched_gps remains None
 
                 elif geom_type == "Point":
-                    # If Mapbox returns a Point, accept it as valid
                     if isinstance(geom_coords, list) and len(geom_coords) == 2:
                         validated_matched_gps = matched_geometry
                     else:
@@ -850,7 +830,6 @@ class TripProcessor:
                     "Map match result for trip %s missing 'matchings' or 'geometry'.",
                     transaction_id,
                 )
-            # --- END: VALIDATION OF RETURNED GEOMETRY ---
 
             if validated_matched_gps:
                 self.processed_data["matchedGps"] = validated_matched_gps
@@ -866,9 +845,8 @@ class TripProcessor:
                     "No valid matchedGps data to save for trip %s.",
                     transaction_id,
                 )
-                # State remains GEOCODED if matching failed validation
 
-            return True  # Step handled successfully (either matched or skipped/failed validation gracefully)
+            return True
 
         except Exception as e:
             error_message = f"Unexpected map matching error: {str(e)}"
@@ -877,7 +855,7 @@ class TripProcessor:
                 self.trip_data.get("transactionId", "unknown"),
             )
             self._set_state(TripState.FAILED, error_message)
-            return False  # Indicate failure
+            return False
 
     def _initialize_projections(self, coords: List[List[float]]) -> None:
         """Initialize projections for map matching.
@@ -1425,25 +1403,19 @@ class TripProcessor:
         coordinates = geojson_data.get("coordinates")
         if not isinstance(coordinates, list):
             return False
-        # Must have at least 2 points for a valid LineString
         if len(coordinates) < 2:
             return False
 
-        # Check each coordinate pair
         for point in coordinates:
             if not isinstance(point, list):
                 return False
-            if len(point) != 2:  # Must be [lon, lat]
+            if len(point) != 2:
                 return False
-            # Check if longitude and latitude are numbers
             lon, lat = point
             if not isinstance(lon, (int, float)):
                 return False
             if not isinstance(lat, (int, float)):
                 return False
-            # Optional: Add strict range checks if needed
-            # if not (-180 <= lon <= 180 and -90 <= lat <= 90):
-            #    return False
 
         return True
 

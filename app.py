@@ -500,7 +500,27 @@ async def get_background_tasks_config():
                  "interval_minutes",
                  task_def.get("default_interval_minutes"),
              )
- 
+
+             
+             import datetime
+             last_run = task_config.get("last_run")
+             interval = task_config.get("interval_minutes")
+             enabled = task_config.get("enabled", True)
+             next_run = None
+             if enabled and interval and interval > 0 and last_run:
+                 try:
+                     if isinstance(last_run, str):
+                         last_run_dt = datetime.datetime.fromisoformat(last_run.replace("Z", "+00:00"))
+                     else:
+                         last_run_dt = last_run
+                     if last_run_dt.tzinfo is None:
+                         last_run_dt = last_run_dt.replace(tzinfo=datetime.timezone.utc)
+                     next_run_dt = last_run_dt + datetime.timedelta(minutes=interval)
+                     next_run = next_run_dt.isoformat()
+                 except Exception:
+                     next_run = None
+             task_config["next_run"] = next_run
+
              for ts_field in [
                  "last_run",
                  "next_run",
