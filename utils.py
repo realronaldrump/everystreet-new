@@ -4,7 +4,6 @@ import json
 import logging
 import math
 import statistics
-import threading
 from typing import Any, Coroutine, Dict, List, Optional, Tuple, TypeVar
 
 import aiohttp
