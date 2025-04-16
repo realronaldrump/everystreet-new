@@ -178,34 +178,25 @@ async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
         trip: Trip data dictionary
         source: The source of the trip ('upload', 'upload_gpx', 'upload_geojson')
     """
-    try:
-        processor = TripProcessor(
-            mapbox_token=MAPBOX_ACCESS_TOKEN, source=source
-        )
-        processor.set_trip_data(trip)
+    gps_data = trip.get("gps")
+    if isinstance(gps_data, str):
+        try:
+            gps_data = json.loads(gps_data)
+            trip["gps"] = gps_data
+        except json.JSONDecodeError as e:
+            logger.warning(
+                "Invalid GPS data for trip %s",
+                trip.get("transactionId", "unknown"),
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid GPS JSON for trip {trip.get('transactionId', 'unknown')}",
+            ) from e
 
-        gps_data = trip.get("gps")
-        if isinstance(gps_data, str):
-            try:
-                gps_data = json.loads(gps_data)
-                processor.processed_data["gps"] = gps_data
-            except json.JSONDecodeError:
-                logger.warning(
-                    "Invalid GPS data for trip %s",
-                    trip.get("transactionId", "unknown"),
-                )
-                return
-
-        await processor.process(do_map_match=False)
-        await processor.save()
-
-    except bson.errors.DuplicateKeyError:
-        logger.warning(
-            "Duplicate trip ID %s; skipping.", trip.get("transactionId")
-        )
-    except Exception:
-        logger.exception("process_and_store_trip error")
-        raise
+    processor = TripProcessor(mapbox_token=MAPBOX_ACCESS_TOKEN, source=source)
+    processor.set_trip_data(trip)
+    await processor.process(do_map_match=False)
+    await processor.save()
 
 
 async def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
