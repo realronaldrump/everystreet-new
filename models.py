@@ -118,7 +118,7 @@ class TripDataModel(BaseModel):
     duration: Optional[float] = None
     pointsRecorded: Optional[int] = None
     sequence: Optional[int] = None
-    totalIdlingTime: Optional[int] = None
+    totalIdlingTime: Optional[float] = None
     hardBrakingCounts: Optional[int] = None
     hardAccelerationCounts: Optional[int] = None
     fuelConsumed: Optional[float] = None
