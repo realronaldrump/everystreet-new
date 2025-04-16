@@ -10,7 +10,11 @@ from typing import Any, Dict, Optional
 
 from bson import ObjectId
 from dateutil import parser as dateutil_parser
-from fastapi import APIRouter, HTTPException, status
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    status,
+)
 from pydantic import BaseModel
 from shapely.geometry import shape
 
@@ -39,7 +43,10 @@ class CustomPlace:
     """A utility class for user-defined places."""
 
     def __init__(
-        self, name: str, geometry: dict, created_at: Optional[datetime] = None
+        self,
+        name: str,
+        geometry: dict,
+        created_at: Optional[datetime] = None,
     ):
         """Initialize a CustomPlace.
 
@@ -82,7 +89,9 @@ class CustomPlace:
         else:
             created = datetime.now(timezone.utc)
         return CustomPlace(
-            name=data["name"], geometry=data["geometry"], created_at=created
+            name=data["name"],
+            geometry=data["geometry"],
+            created_at=created,
         )
 
 
@@ -107,7 +116,10 @@ async def get_places():
     """Get all custom places."""
     places = await find_with_retry(places_collection, {})
     return [
-        {"_id": str(p["_id"]), **CustomPlace.from_dict(p).to_dict()}
+        {
+            "_id": str(p["_id"]),
+            **CustomPlace.from_dict(p).to_dict(),
+        }
         for p in places
     ]
 
@@ -119,7 +131,10 @@ async def create_place(place: PlaceModel):
     result = await insert_one_with_retry(
         places_collection, place_obj.to_dict()
     )
-    return {"_id": str(result.inserted_id), **place_obj.to_dict()}
+    return {
+        "_id": str(result.inserted_id),
+        **place_obj.to_dict(),
+    }
 
 
 @router.delete("/places/{place_id}")
@@ -127,13 +142,18 @@ async def delete_place(place_id: str):
     """Delete a custom place."""
     try:
         await delete_one_with_retry(
-            places_collection, {"_id": ObjectId(place_id)}
+            places_collection,
+            {"_id": ObjectId(place_id)},
         )
-        return {"status": "success", "message": "Place deleted"}
+        return {
+            "status": "success",
+            "message": "Place deleted",
+        }
     except Exception as e:
         logger.exception("Error deleting place: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -149,11 +169,13 @@ async def update_place(place_id: str, update_data: PlaceUpdateModel):
     """Update a custom place (name and/or geometry)."""
     try:
         place = await find_one_with_retry(
-            places_collection, {"_id": ObjectId(place_id)}
+            places_collection,
+            {"_id": ObjectId(place_id)},
         )
         if not place:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Place not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Place not found",
             )
 
         update_fields = {}
@@ -163,7 +185,10 @@ async def update_place(place_id: str, update_data: PlaceUpdateModel):
             update_fields["geometry"] = update_data.geometry
 
         if not update_fields:
-            return {"_id": place_id, **CustomPlace.from_dict(place).to_dict()}
+            return {
+                "_id": place_id,
+                **CustomPlace.from_dict(place).to_dict(),
+            }
 
         from db import update_one_with_retry
 
@@ -174,7 +199,8 @@ async def update_place(place_id: str, update_data: PlaceUpdateModel):
         )
 
         updated_place = await find_one_with_retry(
-            places_collection, {"_id": ObjectId(place_id)}
+            places_collection,
+            {"_id": ObjectId(place_id)},
         )
         return {
             "_id": place_id,
@@ -183,7 +209,8 @@ async def update_place(place_id: str, update_data: PlaceUpdateModel):
     except Exception as e:
         logger.exception("Error updating place: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -234,11 +261,13 @@ async def get_place_statistics(place_id: str):
     """Get statistics about visits to a place."""
     try:
         place = await find_one_with_retry(
-            places_collection, {"_id": ObjectId(place_id)}
+            places_collection,
+            {"_id": ObjectId(place_id)},
         )
         if not place:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Place not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Place not found",
             )
 
         ended_at_place_query = {
@@ -266,10 +295,12 @@ async def get_place_statistics(place_id: str):
         }
 
         trips_ending_at_place = await find_with_retry(
-            trips_collection, ended_at_place_query
+            trips_collection,
+            ended_at_place_query,
         )
         trips_starting_from_place = await find_with_retry(
-            trips_collection, started_from_place_query
+            trips_collection,
+            started_from_place_query,
         )
 
         timeline = []
@@ -283,7 +314,8 @@ async def get_place_statistics(place_id: str):
                     is_at_place = trip.get(
                         "startPlaceId"
                     ) == place_id or is_point_in_place(
-                        trip.get("startGeoPoint"), place["geometry"]
+                        trip.get("startGeoPoint"),
+                        place["geometry"],
                     )
                     timeline.append(
                         {
@@ -300,7 +332,8 @@ async def get_place_statistics(place_id: str):
                     is_at_place = trip.get(
                         "destinationPlaceId"
                     ) == place_id or is_point_in_place(
-                        trip.get("destinationGeoPoint"), place["geometry"]
+                        trip.get("destinationGeoPoint"),
+                        place["geometry"],
                     )
                     timeline.append(
                         {
@@ -371,8 +404,14 @@ async def get_place_statistics(place_id: str):
             else 0
         )
 
-        first_visit = min((v["start"] for v in visits), default=None)
-        last_visit = max((v["start"] for v in visits), default=None)
+        first_visit = min(
+            (v["start"] for v in visits),
+            default=None,
+        )
+        last_visit = max(
+            (v["start"] for v in visits),
+            default=None,
+        )
 
         return {
             "totalVisits": total_visits,
@@ -386,9 +425,14 @@ async def get_place_statistics(place_id: str):
         }
 
     except Exception as e:
-        logger.exception("Error place stats %s: %s", place_id, str(e))
+        logger.exception(
+            "Error place stats %s: %s",
+            place_id,
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -397,11 +441,13 @@ async def get_trips_for_place(place_id: str):
     """Get trips that visited a specific place."""
     try:
         place = await find_one_with_retry(
-            places_collection, {"_id": ObjectId(place_id)}
+            places_collection,
+            {"_id": ObjectId(place_id)},
         )
         if not place:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Place not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Place not found",
             )
 
         ended_at_place_query = {
@@ -429,10 +475,12 @@ async def get_trips_for_place(place_id: str):
         }
 
         trips_ending_at_place = await find_with_retry(
-            trips_collection, ended_at_place_query
+            trips_collection,
+            ended_at_place_query,
         )
         trips_starting_from_place = await find_with_retry(
-            trips_collection, started_from_place_query
+            trips_collection,
+            started_from_place_query,
         )
 
         trips_by_id = {
@@ -451,7 +499,8 @@ async def get_trips_for_place(place_id: str):
                     is_at_place = trip.get(
                         "startPlaceId"
                     ) == place_id or is_point_in_place(
-                        trip.get("startGeoPoint"), place["geometry"]
+                        trip.get("startGeoPoint"),
+                        place["geometry"],
                     )
                     timeline.append(
                         {
@@ -468,7 +517,8 @@ async def get_trips_for_place(place_id: str):
                     is_at_place = trip.get(
                         "destinationPlaceId"
                     ) == place_id or is_point_in_place(
-                        trip.get("destinationGeoPoint"), place["geometry"]
+                        trip.get("destinationGeoPoint"),
+                        place["geometry"],
                     )
                     timeline.append(
                         {
@@ -567,16 +617,25 @@ async def get_trips_for_place(place_id: str):
                 }
             )
 
-        trips_data.sort(key=lambda x: x["endTime"], reverse=True)
+        trips_data.sort(
+            key=lambda x: x["endTime"],
+            reverse=True,
+        )
 
-        return {"trips": trips_data, "name": place["name"]}
+        return {
+            "trips": trips_data,
+            "name": place["name"],
+        }
 
     except Exception as e:
         logger.exception(
-            "Error getting trips for place %s: %s", place_id, str(e)
+            "Error getting trips for place %s: %s",
+            place_id,
+            str(e),
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -587,7 +646,10 @@ async def get_non_custom_places_visits():
         pipeline = [
             {
                 "$match": {
-                    "destinationPlaceName": {"$exists": True, "$ne": None}
+                    "destinationPlaceName": {
+                        "$exists": True,
+                        "$ne": None,
+                    }
                 }
             },
             {
@@ -610,7 +672,8 @@ async def get_non_custom_places_visits():
             last_visit = doc["lastVisit"]
 
             existing = next(
-                (p for p in places_data if p["name"] == place_name), None
+                (p for p in places_data if p["name"] == place_name),
+                None,
             )
             if existing:
                 existing["visitCount"] += visit_count
@@ -625,7 +688,10 @@ async def get_non_custom_places_visits():
                     }
                 )
 
-        places_data.sort(key=lambda x: x["visitCount"], reverse=True)
+        places_data.sort(
+            key=lambda x: x["visitCount"],
+            reverse=True,
+        )
 
         for place in places_data:
             place["lastVisit"] = SerializationHelper.serialize_datetime(
@@ -634,7 +700,165 @@ async def get_non_custom_places_visits():
 
         return {"places": places_data}
     except Exception as e:
-        logger.exception("Error getting non-custom places visits: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        logger.exception(
+            "Error getting non-custom places visits: %s",
+            str(e),
         )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get("/places/statistics")
+async def get_all_places_statistics():
+    """Get statistics for all custom places in a single call (efficient bulk version)."""
+    try:
+        places = await find_with_retry(places_collection, {})
+        if not places:
+            return []
+        results = []
+        # Pre-fetch all trips once for efficiency
+        all_trips = await find_with_retry(
+            trips_collection,
+            {
+                "$or": [
+                    {
+                        "destinationPlaceId": {
+                            "$in": [str(p["_id"]) for p in places]
+                        }
+                    },
+                    {"startPlaceId": {"$in": [str(p["_id"]) for p in places]}},
+                ]
+            },
+        )
+        # Group trips by place
+        from collections import defaultdict
+
+        trips_by_place = defaultdict(list)
+        for trip in all_trips:
+            # For each place, check if trip starts or ends there
+            for place in places:
+                pid = str(place["_id"])
+                is_start = trip.get("startPlaceId") == pid
+                is_end = trip.get("destinationPlaceId") == pid
+                # Optionally, also check geoWithin if needed (for polygons)
+                if is_start or is_end:
+                    trips_by_place[pid].append(trip)
+        for place in places:
+            pid = str(place["_id"])
+            name = place["name"]
+            place_trips = trips_by_place.get(pid, [])
+            # Build timeline as in single stats endpoint
+            timeline = []
+            for trip in place_trips:
+                trip_id = str(trip["_id"])
+                if "startTime" in trip and trip["startTime"]:
+                    start_time = parse_time(trip["startTime"])
+                    if start_time:
+                        is_at_place = trip.get("startPlaceId") == pid
+                        timeline.append(
+                            {
+                                "time": start_time,
+                                "type": "start",
+                                "trip_id": trip_id,
+                                "is_at_place": is_at_place,
+                            }
+                        )
+                if "endTime" in trip and trip["endTime"]:
+                    end_time = parse_time(trip["endTime"])
+                    if end_time:
+                        is_at_place = trip.get("destinationPlaceId") == pid
+                        timeline.append(
+                            {
+                                "time": end_time,
+                                "type": "end",
+                                "trip_id": trip_id,
+                                "is_at_place": is_at_place,
+                            }
+                        )
+            timeline = sorted(timeline, key=lambda x: x["time"])
+            visits = []
+            current_visit_start = None
+            last_visit_end = None
+            for i, event in enumerate(timeline):
+                if event["type"] == "end" and event["is_at_place"]:
+                    current_visit_start = event["time"]
+                    visit_end = None
+                    for j in range(i + 1, len(timeline)):
+                        if timeline[j]["type"] == "start":
+                            visit_end = timeline[j]["time"]
+                            break
+                    time_since_last = None
+                    if (
+                        last_visit_end is not None
+                        and current_visit_start is not None
+                    ):
+                        time_since_last = (
+                            current_visit_start - last_visit_end
+                        ).total_seconds()
+                    duration = None
+                    if (
+                        visit_end is not None
+                        and current_visit_start is not None
+                    ):
+                        duration = (
+                            visit_end - current_visit_start
+                        ).total_seconds()
+                    visits.append(
+                        {
+                            "start": current_visit_start,
+                            "end": visit_end,
+                            "duration": duration,
+                            "time_since_last": time_since_last,
+                        }
+                    )
+                if event["type"] == "start" and event["is_at_place"]:
+                    last_visit_end = event["time"]
+            total_visits = len(visits)
+            durations = [
+                v["duration"] for v in visits if v["duration"] is not None
+            ]
+            time_between_visits = [
+                v["time_since_last"]
+                for v in visits
+                if v["time_since_last"] is not None
+            ]
+            avg_duration = sum(durations) / len(durations) if durations else 0
+            avg_time_between = (
+                sum(time_between_visits) / len(time_between_visits)
+                if time_between_visits
+                else 0
+            )
+            first_visit = min(
+                (v["start"] for v in visits),
+                default=None,
+            )
+            last_visit = max(
+                (v["start"] for v in visits),
+                default=None,
+            )
+            results.append(
+                {
+                    "_id": pid,
+                    "name": name,
+                    "totalVisits": total_visits,
+                    "averageTimeSpent": format_duration(avg_duration),
+                    "firstVisit": SerializationHelper.serialize_datetime(
+                        first_visit
+                    ),
+                    "lastVisit": SerializationHelper.serialize_datetime(
+                        last_visit
+                    ),
+                    "averageTimeSinceLastVisit": (
+                        avg_time_between / 3600 if avg_time_between else 0
+                    ),
+                }
+            )
+        return results
+    except Exception as e:
+        logger.exception(
+            "Error in get_all_places_statistics: %s",
+            str(e),
+        )
+        raise HTTPException(status_code=500, detail=str(e))

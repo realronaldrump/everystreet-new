@@ -595,13 +595,7 @@
     }
 
     async updateVisitsData() {
-      // --- N+1 Fetch Warning ---
-      // This function currently makes one API call per custom place to get statistics.
-      // For a large number of places, this is inefficient (N+1 problem).
-      // Consider modifying the backend API (e.g., /api/places or a new /api/places/statistics)
-      // to return all places with their statistics in a single call.
-      // --- End Warning ---
-
+      // Now uses efficient bulk statistics endpoint
       this.loadingManager.addSubOperation(
         "Initializing Visits Page",
         "Fetching Stats",
@@ -624,49 +618,21 @@
         );
         return;
       }
-
-      const statsPromises = placeEntries.map(async ([id, place], index) => {
-        try {
-          const response = await fetch(`/api/places/${id}/statistics`);
-          if (!response.ok) {
-            console.warn(
-              `Failed to fetch statistics for place ${place.name} (${id}): ${response.statusText}`,
-            );
-            return null; // Return null on error for this place
-          }
-          const stats = await response.json();
-          // Update progress (approximate)
-          const progress = ((index + 1) / placeEntries.length) * 100;
-          this.loadingManager.updateSubOperation(
-            "Initializing Visits Page",
-            "Fetching Stats",
-            progress,
-          );
-          return {
-            _id: id,
-            name: place.name,
-            totalVisits: stats.totalVisits || 0,
-            firstVisit: stats.firstVisit,
-            lastVisit: stats.lastVisit,
-            avgTimeSpent: stats.averageTimeSpent || "N/A", // Use API response directly
-            // Add other stats if needed by tables/chart
-          };
-        } catch (error) {
-          console.error(
-            `Error fetching statistics for place ${place.name} (${id}):`,
-            error,
-          );
-          return null; // Return null on fetch error
-        }
-      });
-
       try {
-        const results = await Promise.all(statsPromises);
-        const validResults = results.filter((result) => result !== null); // Filter out errors
-
+        const response = await fetch("/api/places/statistics");
+        if (!response.ok) throw new Error("Failed to fetch place statistics");
+        const statsList = await response.json();
         // Sort results alphabetically by name for consistent chart/table order
-        validResults.sort((a, b) => a.name.localeCompare(b.name));
-
+        statsList.sort((a, b) => a.name.localeCompare(b.name));
+        // For compatibility with table/chart, map averageTimeSpent to avgTimeSpent
+        const validResults = statsList.map((d) => ({
+          _id: d._id,
+          name: d.name,
+          totalVisits: d.totalVisits,
+          firstVisit: d.firstVisit,
+          lastVisit: d.lastVisit,
+          avgTimeSpent: d.averageTimeSpent || "N/A",
+        }));
         if (this.visitsChart) {
           this.visitsChart.data.labels = validResults.map((d) => d.name);
           this.visitsChart.data.datasets[0].data = validResults.map(
@@ -674,12 +640,11 @@
           );
           this.visitsChart.update();
         }
-
         if (this.visitsTable) {
           this.visitsTable.clear().rows.add(validResults).draw();
         }
       } catch (error) {
-        console.error("Error processing place statistics:", error);
+        console.error("Error updating place statistics:", error);
         window.notificationManager?.show(
           "Error updating place statistics",
           "danger",

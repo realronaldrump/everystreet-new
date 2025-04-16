@@ -12,7 +12,9 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List
 
-from motor.motor_asyncio import AsyncIOMotorCollection
+from motor.motor_asyncio import (
+    AsyncIOMotorCollection,
+)
 from pymongo import UpdateOne
 
 from db import db_manager
@@ -42,7 +44,10 @@ async def update_geo_points(
     Returns:
         int: Number of documents updated
     """
-    logger.info("Starting GeoPoint update for collection: %s", collection.name)
+    logger.info(
+        "Starting GeoPoint update for collection: %s",
+        collection.name,
+    )
     updated_count = 0
     semaphore = asyncio.Semaphore(max_concurrent_batches)
 
@@ -58,7 +63,8 @@ async def update_geo_points(
             return await collection.count_documents(query)
 
         total_docs = await db_manager.execute_with_retry(
-            get_count, operation_name=f"count_documents in {collection.name}"
+            get_count,
+            operation_name=f"count_documents in {collection.name}",
         )
 
         logger.info(
@@ -71,7 +77,8 @@ async def update_geo_points(
             return 0
 
         async def process_batch(
-            batch_docs: List[Dict[str, Any]], batch_num: int
+            batch_docs: List[Dict[str, Any]],
+            batch_num: int,
         ) -> int:
             async with semaphore:
                 try:
@@ -89,7 +96,10 @@ async def update_geo_points(
                                 except json.JSONDecodeError:
                                     logger.warning(
                                         "Invalid JSON in 'gps' for document %s",
-                                        doc.get("_id", "?"),
+                                        doc.get(
+                                            "_id",
+                                            "?",
+                                        ),
                                     )
                                     continue
 
@@ -182,7 +192,8 @@ async def update_geo_points(
             )
 
         cursor = await db_manager.execute_with_retry(
-            get_cursor, operation_name=f"get cursor for {collection.name}"
+            get_cursor,
+            operation_name=f"get cursor for {collection.name}",
         )
 
         current_batch = []
@@ -194,7 +205,10 @@ async def update_geo_points(
                 if len(current_batch) >= batch_size:
                     batch_num += 1
                     batch_tasks.append(
-                        process_batch(current_batch.copy(), batch_num)
+                        process_batch(
+                            current_batch.copy(),
+                            batch_num,
+                        )
                     )
                     current_batch = []
 
@@ -247,7 +261,9 @@ if __name__ == "__main__":
     import os
     import sys
 
-    from motor.motor_asyncio import AsyncIOMotorClient
+    from motor.motor_asyncio import (
+        AsyncIOMotorClient,
+    )
 
     MONGO_URI = os.environ.get("MONGO_URI")
     if not MONGO_URI:
@@ -266,7 +282,10 @@ if __name__ == "__main__":
         if collection_name in collections:
             asyncio.run(update_geo_points(collections[collection_name]))
         else:
-            logger.error("Invalid collection name: %s", collection_name)
+            logger.error(
+                "Invalid collection name: %s",
+                collection_name,
+            )
             print(f"Valid collection names: {', '.join(collections.keys())}")
             sys.exit(1)
     else:

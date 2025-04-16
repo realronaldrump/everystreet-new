@@ -11,7 +11,10 @@ from datetime import datetime, timedelta, timezone
 import aiohttp
 from dateutil import parser as date_parser
 
-from trip_processor import TripProcessor, TripState
+from trip_processor import (
+    TripProcessor,
+    TripState,
+)
 from utils import get_session
 
 logger = logging.getLogger(__name__)
@@ -40,7 +43,9 @@ progress_data = {
 }
 
 
-async def get_access_token(session: aiohttp.ClientSession) -> str:
+async def get_access_token(
+    session: aiohttp.ClientSession,
+) -> str:
     """Get an access token from the Bouncie API using OAuth."""
     payload = {
         "client_id": CLIENT_ID,
@@ -72,7 +77,10 @@ async def fetch_trips_for_device(
     end_dt: datetime,
 ) -> list:
     """Fetch trips for a single device between start_dt and end_dt."""
-    headers = {"Authorization": token, "Content-Type": "application/json"}
+    headers = {
+        "Authorization": token,
+        "Content-Type": "application/json",
+    }
     params = {
         "imei": imei,
         "gps-format": "geojson",
@@ -98,10 +106,18 @@ async def fetch_trips_for_device(
                         trip["endTime"]
                     ).astimezone(timezone.utc)
 
-            logger.info("Fetched %d trips for device %s", len(trips), imei)
+            logger.info(
+                "Fetched %d trips for device %s",
+                len(trips),
+                imei,
+            )
             return trips
     except Exception as e:
-        logger.error("Error fetching trips for device %s: %s", imei, e)
+        logger.error(
+            "Error fetching trips for device %s: %s",
+            imei,
+            e,
+        )
         return []
 
 
@@ -145,9 +161,16 @@ async def fetch_bouncie_trips_in_range(
             raw_fetched_trips_for_device = []
             current_start = start_dt
             while current_start < end_dt:
-                current_end = min(current_start + timedelta(days=7), end_dt)
+                current_end = min(
+                    current_start + timedelta(days=7),
+                    end_dt,
+                )
                 raw_trips_chunk = await fetch_trips_for_device(
-                    session, token, imei, current_start, current_end
+                    session,
+                    token,
+                    imei,
+                    current_start,
+                    current_end,
                 )
                 raw_fetched_trips_for_device.extend(raw_trips_chunk)
                 current_start = current_end
@@ -166,7 +189,8 @@ async def fetch_bouncie_trips_in_range(
                     continue
                 try:
                     processor = TripProcessor(
-                        mapbox_token=mapbox_token, source="api"
+                        mapbox_token=mapbox_token,
+                        source="api",
                     )
                     processor.set_trip_data(trip)
                     await processor.process(do_map_match=do_map_match)
@@ -217,7 +241,9 @@ async def fetch_bouncie_trips_in_range(
                 )
     except Exception as e:
         logger.error(
-            "Error in fetch_bouncie_trips_in_range: %s", e, exc_info=True
+            "Error in fetch_bouncie_trips_in_range: %s",
+            e,
+            exc_info=True,
         )
         if progress_tracker is not None:
             progress_tracker["fetch_and_store_trips"]["status"] = "failed"

@@ -8,7 +8,13 @@ streets.
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+)
 
 import aiohttp
 import geopandas as gpd
@@ -48,7 +54,10 @@ async def process_elements(
         if e["type"] == "way":
             geometry = e.get("geometry", [])
             if not geometry:
-                logger.debug("Skipping way %s: No geometry data", e.get("id"))
+                logger.debug(
+                    "Skipping way %s: No geometry data",
+                    e.get("id"),
+                )
                 continue
 
             coords = [(n["lon"], n["lat"]) for n in geometry]
@@ -101,7 +110,8 @@ async def process_elements(
 
 
 async def generate_geojson_osm(
-    location: Dict[str, Any], streets_only: bool = False
+    location: Dict[str, Any],
+    streets_only: bool = False,
 ) -> Tuple[Optional[Dict], Optional[str]]:
     """Generate GeoJSON data from OpenStreetMap for a location.
 
@@ -120,7 +130,10 @@ async def generate_geojson_osm(
             and "osm_id" in location
             and "osm_type" in location
         ):
-            return None, "Invalid location data format"
+            return (
+                None,
+                "Invalid location data format",
+            )
 
         osm_type_label = "streets" if streets_only else "boundary"
         area_id = int(location["osm_id"])
@@ -177,7 +190,10 @@ async def generate_geojson_osm(
                 osm_type_label,
                 location.get("display_name", "Unknown"),
             )
-            return {"type": "FeatureCollection", "features": []}, None
+            return {
+                "type": "FeatureCollection",
+                "features": [],
+            }, None
 
         gdf = gpd.GeoDataFrame.from_features(features)
         if "geometry" not in gdf.columns and features:
@@ -199,7 +215,10 @@ async def generate_geojson_osm(
             if bson_size_estimate <= 16793598:
                 existing_data = await find_one_with_retry(
                     osm_data_collection,
-                    {"location": location, "type": osm_type_label},
+                    {
+                        "location": location,
+                        "type": osm_type_label,
+                    },
                 )
 
                 if existing_data:
@@ -215,7 +234,10 @@ async def generate_geojson_osm(
                     )
                     logger.info(
                         "Updated cached OSM data for %s, type: %s",
-                        location.get("display_name", "Unknown"),
+                        location.get(
+                            "display_name",
+                            "Unknown",
+                        ),
                         osm_type_label,
                     )
                 else:
@@ -231,7 +253,10 @@ async def generate_geojson_osm(
                     )
                     logger.info(
                         "Stored OSM data to cache for %s, type: %s",
-                        location.get("display_name", "Unknown"),
+                        location.get(
+                            "display_name",
+                            "Unknown",
+                        ),
                         osm_type_label,
                     )
             else:
@@ -257,7 +282,10 @@ async def generate_geojson_osm(
         logger.error(error_detail, exc_info=True)
         try:
             error_body = await http_err.response.text()
-            logger.error("Overpass error body: %s", error_body[:500])
+            logger.error(
+                "Overpass error body: %s",
+                error_body[:500],
+            )
         except Exception:
             pass
         return None, error_detail

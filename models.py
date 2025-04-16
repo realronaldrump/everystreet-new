@@ -6,9 +6,20 @@ API response structures across the application.
 """
 
 from datetime import datetime
-from typing import Annotated, Any, Dict, List, Optional, Union
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 
-from pydantic import BaseModel, BeforeValidator, Field
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    Field,
+)
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
@@ -152,5 +163,6 @@ class NoActiveTripResponse(BaseModel):
 
 
 ActiveTripResponseUnion = Union[
-    ActiveTripSuccessResponse, NoActiveTripResponse
+    ActiveTripSuccessResponse,
+    NoActiveTripResponse,
 ]

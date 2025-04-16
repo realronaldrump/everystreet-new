@@ -18,7 +18,9 @@ from db import (
     find_one_with_retry,
     update_one_with_retry,
 )
-from preprocess_streets import preprocess_streets as async_preprocess_streets
+from preprocess_streets import (
+    preprocess_streets as async_preprocess_streets,
+)
 from street_coverage_calculation import (
     compute_coverage_for_location,
     compute_incremental_coverage,
@@ -31,7 +33,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def collect_street_type_stats(features: List[Dict]) -> List[Dict[str, Any]]:
+def collect_street_type_stats(
+    features: List[Dict],
+) -> List[Dict[str, Any]]:
     """
     Collect statistics about street types and their coverage from GeoJSON features.
 
@@ -77,7 +81,10 @@ def collect_street_type_stats(features: List[Dict]) -> List[Dict[str, Any]]:
                 street_types[street_type]["covered_length"] += length
 
     result = []
-    for street_type, stats in street_types.items():
+    for (
+        street_type,
+        stats,
+    ) in street_types.items():
         coverage_pct = (
             (stats["covered_length"] / stats["driveable_length"] * 100)
             if stats["driveable_length"] > 0
@@ -96,7 +103,10 @@ def collect_street_type_stats(features: List[Dict]) -> List[Dict[str, Any]]:
             }
         )
 
-    result.sort(key=lambda x: x["total_length_m"], reverse=True)
+    result.sort(
+        key=lambda x: x["total_length_m"],
+        reverse=True,
+    )
     return result
 
 
@@ -301,7 +311,9 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
     """
     display_name = location.get("display_name", "Unknown Location")
     logger.info(
-        "Starting full area processing task %s for %s", task_id, display_name
+        "Starting full area processing task %s for %s",
+        task_id,
+        display_name,
     )
     overall_status = "processing"
 
@@ -363,7 +375,8 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
 
         if preprocessing_status == "error":
             error_msg = metadata.get(
-                "last_error", "Preprocessing failed (unknown reason)"
+                "last_error",
+                "Preprocessing failed (unknown reason)",
             )
             logger.error(
                 "Task %s: Preprocessing failed for %s: %s",
@@ -419,7 +432,10 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
         ):
             overall_status = "error"
             final_error = (
-                calculation_result.get("last_error", "Calculation failed")
+                calculation_result.get(
+                    "last_error",
+                    "Calculation failed",
+                )
                 if calculation_result
                 else "Calculation function returned None"
             )

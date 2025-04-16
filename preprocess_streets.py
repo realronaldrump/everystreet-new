@@ -10,9 +10,18 @@ import gc
 import logging
 import math
 import multiprocessing
-from concurrent.futures import ProcessPoolExecutor, TimeoutError
+from concurrent.futures import (
+    ProcessPoolExecutor,
+    TimeoutError,
+)
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+)
 
 import aiohttp
 import pyproj
@@ -101,7 +110,9 @@ async def fetch_osm_data(query: str, timeout: int = 30) -> Dict[str, Any]:
     async with aiohttp.ClientSession() as session:
         try:
             async with session.post(
-                OVERPASS_URL, data=query, timeout=timeout
+                OVERPASS_URL,
+                data=query,
+                timeout=timeout,
             ) as resp:
                 resp.raise_for_status()
                 return await resp.json()
@@ -109,7 +120,10 @@ async def fetch_osm_data(query: str, timeout: int = 30) -> Dict[str, Any]:
             logger.error("Timeout fetching OSM data: %s", e)
             raise
         except aiohttp.ClientError as e:
-            logger.error("HTTP error fetching OSM data: %s", e)
+            logger.error(
+                "HTTP error fetching OSM data: %s",
+                e,
+            )
             raise
 
 
@@ -186,7 +200,13 @@ def substring(
             )
             if (
                 not segment_coords
-                or LineString([segment_coords[-1], end_point]).length > 1e-6
+                or LineString(
+                    [
+                        segment_coords[-1],
+                        end_point,
+                    ]
+                ).length
+                > 1e-6
             ):
                 segment_coords.append(end_point)
             break
@@ -202,7 +222,13 @@ def substring(
 
     if len(segment_coords) >= 2:
         if (
-            LineString([segment_coords[0], segment_coords[-1]]).length < 1e-6
+            LineString(
+                [
+                    segment_coords[0],
+                    segment_coords[-1],
+                ]
+            ).length
+            < 1e-6
             and len(segment_coords) == 2
         ):
             return None
@@ -219,7 +245,8 @@ def substring(
 
 
 def segment_street(
-    line: LineString, segment_length_meters: float = SEGMENT_LENGTH_METERS
+    line: LineString,
+    segment_length_meters: float = SEGMENT_LENGTH_METERS,
 ) -> List[LineString]:
     """Split a linestring (in UTM) into segments of approximately
     segment_length_meters."""
@@ -231,7 +258,8 @@ def segment_street(
     start_distance = 0.0
     while start_distance < total_length - 1e-6:
         end_distance = min(
-            start_distance + segment_length_meters, total_length
+            start_distance + segment_length_meters,
+            total_length,
         )
         seg = substring(line, start_distance, end_distance)
         if seg is not None and seg.length > 1e-6:
@@ -277,7 +305,8 @@ def process_element_parallel(
             return []
 
         segments = segment_street(
-            projected_line, segment_length_meters=SEGMENT_LENGTH_METERS
+            projected_line,
+            segment_length_meters=SEGMENT_LENGTH_METERS,
         )
 
         features = []
@@ -287,7 +316,9 @@ def process_element_parallel(
             segment_wgs84 = transform(proj_to_wgs84, segment_utm)
             if not segment_wgs84.is_valid or segment_wgs84.is_empty:
                 logger.warning(
-                    "Skipping invalid/empty segment %s-%d", osm_id, i
+                    "Skipping invalid/empty segment %s-%d",
+                    osm_id,
+                    i,
                 )
                 continue
 
@@ -319,7 +350,10 @@ def process_element_parallel(
     except Exception as e:
         osm_id_str = element_data.get("osm_id", "UNKNOWN_ID")
         logger.error(
-            "Error processing element %s: %s", osm_id_str, e, exc_info=True
+            "Error processing element %s: %s",
+            osm_id_str,
+            e,
+            exc_info=True,
         )
         return []
 
@@ -396,7 +430,11 @@ async def process_osm_data(
         with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
             loop = asyncio.get_event_loop()
             tasks = [
-                loop.run_in_executor(executor, process_element_parallel, data)
+                loop.run_in_executor(
+                    executor,
+                    process_element_parallel,
+                    data,
+                )
                 for data in process_data
             ]
 
@@ -404,7 +442,8 @@ async def process_osm_data(
             for i, future in enumerate(asyncio.as_completed(tasks)):
                 try:
                     segment_features = await asyncio.wait_for(
-                        future, timeout=PROCESS_TIMEOUT
+                        future,
+                        timeout=PROCESS_TIMEOUT,
                     )
                     if segment_features:
                         batch_to_insert.extend(segment_features)
@@ -413,7 +452,10 @@ async def process_osm_data(
                             length = feature.get("properties", {}).get(
                                 "segment_length"
                             )
-                            if isinstance(length, (int, float)):
+                            if isinstance(
+                                length,
+                                (int, float),
+                            ):
                                 total_length += length
                             else:
                                 logger.warning(
@@ -423,7 +465,8 @@ async def process_osm_data(
                     if len(batch_to_insert) >= BATCH_SIZE:
                         try:
                             await streets_collection.insert_many(
-                                batch_to_insert, ordered=False
+                                batch_to_insert,
+                                ordered=False,
                             )
                             processed_segments_count += len(batch_to_insert)
                             logger.info(
@@ -437,7 +480,10 @@ async def process_osm_data(
                             gc.collect()
                             await asyncio.sleep(0.05)
                         except BulkWriteError as bwe:
-                            write_errors = bwe.details.get("writeErrors", [])
+                            write_errors = bwe.details.get(
+                                "writeErrors",
+                                [],
+                            )
                             dup_keys = [
                                 e
                                 for e in write_errors
@@ -473,7 +519,9 @@ async def process_osm_data(
                     )
                 except Exception as e:
                     logger.error(
-                        "Error processing element future: %s", e, exc_info=True
+                        "Error processing element future: %s",
+                        e,
+                        exc_info=True,
                     )
 
                 if (i + 1) % (max(1, len(tasks) // 20)) == 0:
@@ -487,7 +535,8 @@ async def process_osm_data(
             if batch_to_insert:
                 try:
                     await streets_collection.insert_many(
-                        batch_to_insert, ordered=False
+                        batch_to_insert,
+                        ordered=False,
                     )
                     processed_segments_count += len(batch_to_insert)
                     logger.info(
@@ -585,7 +634,9 @@ async def process_osm_data(
         raise
 
 
-async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
+async def preprocess_streets(
+    validated_location: Dict[str, Any],
+) -> None:
     """
     Preprocess street data for a validated location:
     Fetch filtered OSM data (excluding non-drivable/private ways),
@@ -593,14 +644,21 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
     """
     location_name = validated_location["display_name"]
     try:
-        logger.info("Starting street preprocessing for %s", location_name)
+        logger.info(
+            "Starting street preprocessing for %s",
+            location_name,
+        )
 
         center_lat = None
         center_lon = None
         try:
             center_lat = float(validated_location.get("lat"))
             center_lon = float(validated_location.get("lon"))
-        except (TypeError, ValueError, AttributeError):
+        except (
+            TypeError,
+            ValueError,
+            AttributeError,
+        ):
             logger.warning(
                 "Location %s is missing valid lat/lon. Cannot determine dynamic UTM.",
                 location_name,
@@ -629,10 +687,14 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
         )
 
         project_to_utm_dynamic = pyproj.Transformer.from_crs(
-            WGS84, dynamic_utm_crs, always_xy=True
+            WGS84,
+            dynamic_utm_crs,
+            always_xy=True,
         ).transform
         project_to_wgs84_dynamic = pyproj.Transformer.from_crs(
-            dynamic_utm_crs, WGS84, always_xy=True
+            dynamic_utm_crs,
+            WGS84,
+            always_xy=True,
         ).transform
 
         await update_one_with_retry(
@@ -657,11 +719,13 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
         )
 
         logger.info(
-            "Clearing existing street segments for %s...", location_name
+            "Clearing existing street segments for %s...",
+            location_name,
         )
         try:
             delete_result = await delete_many_with_retry(
-                streets_collection, {"properties.location": location_name}
+                streets_collection,
+                {"properties.location": location_name},
             )
             logger.info(
                 "Deleted %d existing segments for %s.",
@@ -682,11 +746,17 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
                 location_name,
             )
             osm_data = await asyncio.wait_for(
-                fetch_osm_data(validated_location, streets_only=True),
+                fetch_osm_data(
+                    validated_location,
+                    streets_only=True,
+                ),
                 timeout=300,
             )
         except asyncio.TimeoutError:
-            logger.error("Timeout fetching OSM data for %s", location_name)
+            logger.error(
+                "Timeout fetching OSM data for %s",
+                location_name,
+            )
             await update_one_with_retry(
                 coverage_metadata_collection,
                 {"location.display_name": location_name},
@@ -756,7 +826,10 @@ async def preprocess_streets(validated_location: Dict[str, Any]) -> None:
             )
 
         except asyncio.TimeoutError:
-            logger.error("Timeout processing OSM data for %s", location_name)
+            logger.error(
+                "Timeout processing OSM data for %s",
+                location_name,
+            )
             await update_one_with_retry(
                 coverage_metadata_collection,
                 {"location.display_name": location_name},

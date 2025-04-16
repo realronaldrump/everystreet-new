@@ -18,7 +18,14 @@ from concurrent.futures import (
     TimeoutError,
 )
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+)
 
 import bson.json_util
 import numpy as np
@@ -34,7 +41,12 @@ from pymongo.errors import (
     OperationFailure,
 )
 from shapely.errors import GEOSException
-from shapely.geometry import LineString, MultiPoint, box, shape
+from shapely.geometry import (
+    LineString,
+    MultiPoint,
+    box,
+    shape,
+)
 from shapely.ops import transform
 
 from db import (
@@ -107,7 +119,9 @@ def process_trip_worker(
             utm_proj = pyproj.CRS.from_string(utm_proj_string)
             wgs84_proj = pyproj.CRS.from_string(wgs84_proj_string)
             project_to_utm = pyproj.Transformer.from_crs(
-                wgs84_proj, utm_proj, always_xy=True
+                wgs84_proj,
+                utm_proj,
+                always_xy=True,
             ).transform
         except pyproj.exceptions.CRSError as e:
             logger.error(
@@ -133,12 +147,18 @@ def process_trip_worker(
 
             try:
                 trip_line_wgs84 = LineString(trip_coords)
-                trip_line_utm = transform(project_to_utm, trip_line_wgs84)
+                trip_line_utm = transform(
+                    project_to_utm,
+                    trip_line_wgs84,
+                )
                 trip_buffer_utm = trip_line_utm.buffer(match_buffer)
                 trip_buffer_bounds = trip_buffer_utm.bounds
                 trip_bbox_np = np.array(trip_buffer_bounds)
 
-                for seg_id, street_utm_geom in street_utm_geoms.items():
+                for (
+                    seg_id,
+                    street_utm_geom,
+                ) in street_utm_geoms.items():
                     if (
                         not street_utm_geom
                         or seg_id not in street_utm_bboxes_np
@@ -165,7 +185,11 @@ def process_trip_worker(
                     ):
                         results[trip_index].add(seg_id)
 
-            except (GEOSException, ValueError, TypeError) as trip_proc_err:
+            except (
+                GEOSException,
+                ValueError,
+                TypeError,
+            ) as trip_proc_err:
                 logger.warning(
                     f"Worker {worker_pid}: Error processing trip at index {trip_index}: {trip_proc_err}"
                 )
@@ -192,7 +216,11 @@ def process_trip_worker(
 
 
 class CoverageCalculator:
-    def __init__(self, location: Dict[str, Any], task_id: str) -> None:
+    def __init__(
+        self,
+        location: Dict[str, Any],
+        task_id: str,
+    ) -> None:
         self.location = location
         self.location_name = location.get("display_name", "Unknown Location")
         self.task_id = task_id
@@ -216,7 +244,10 @@ class CoverageCalculator:
         self.trip_worker_sub_batch: int = TRIP_WORKER_SUB_BATCH
         self.process_pool: Optional[ProcessPoolExecutor] = None
         self.max_workers = int(
-            os.getenv("MAX_COVERAGE_WORKERS", str(MAX_WORKERS_DEFAULT))
+            os.getenv(
+                "MAX_COVERAGE_WORKERS",
+                str(MAX_WORKERS_DEFAULT),
+            )
         )
         logger.info(
             "CoverageCalculator configured with max_workers=%d",
@@ -239,7 +270,12 @@ class CoverageCalculator:
 
         if bbox and len(bbox) == 4:
             try:
-                min_lat, max_lat, min_lon, max_lon = map(float, bbox)
+                (
+                    min_lat,
+                    max_lat,
+                    min_lon,
+                    max_lon,
+                ) = map(float, bbox)
                 if (
                     -90 <= min_lat <= 90
                     and -90 <= max_lat <= 90
@@ -276,7 +312,9 @@ class CoverageCalculator:
         try:
             self.utm_proj = pyproj.CRS(f"EPSG:{epsg_code}")
             self.project_to_utm = pyproj.Transformer.from_crs(
-                WGS84, self.utm_proj, always_xy=True
+                WGS84,
+                self.utm_proj,
+                always_xy=True,
             ).transform
             logger.info(
                 "Task %s: Initialized UTM projection for %s: EPSG:%d (Zone %d%s)",
@@ -299,7 +337,11 @@ class CoverageCalculator:
             ) from e
 
     async def update_progress(
-        self, stage: str, progress: float, message: str = "", error: str = ""
+        self,
+        stage: str,
+        progress: float,
+        message: str = "",
+        error: str = "",
     ) -> None:
         """Updates the progress document in MongoDB."""
         try:
@@ -307,7 +349,10 @@ class CoverageCalculator:
             newly_covered_driveable_length = 0.0
             newly_covered_driveable_count = 0
 
-            for rtree_id, info in self.streets_lookup.items():
+            for (
+                rtree_id,
+                info,
+            ) in self.streets_lookup.items():
                 if (
                     info["segment_id"] in self.newly_covered_segments
                     and info["segment_id"] not in self.initial_covered_segments
@@ -331,7 +376,10 @@ class CoverageCalculator:
             enhanced_metrics = {
                 "total_trips_to_process": self.total_trips_to_process,
                 "processed_trips": self.processed_trips_count,
-                "total_length_m": round(self.total_length_calculated, 2),
+                "total_length_m": round(
+                    self.total_length_calculated,
+                    2,
+                ),
                 "driveable_length_m": round(self.total_driveable_length, 2),
                 "covered_length_m": round(current_covered_length, 2),
                 "coverage_percentage": round(coverage_pct, 2),
@@ -365,7 +413,9 @@ class CoverageCalculator:
             )
         except Exception as e:
             logger.error(
-                "Task %s: Error updating progress: %s", self.task_id, e
+                "Task %s: Error updating progress: %s",
+                self.task_id,
+                e,
             )
 
     async def initialize_workers(self) -> None:
@@ -404,10 +454,17 @@ class CoverageCalculator:
             self.process_pool = None
             try:
                 logger.info(
-                    "Task %s: Shutting down process pool...", self.task_id
+                    "Task %s: Shutting down process pool...",
+                    self.task_id,
                 )
-                pool.shutdown(wait=True, cancel_futures=False)
-                logger.info("Task %s: Process pool shut down.", self.task_id)
+                pool.shutdown(
+                    wait=True,
+                    cancel_futures=False,
+                )
+                logger.info(
+                    "Task %s: Process pool shut down.",
+                    self.task_id,
+                )
             except Exception as e:
                 logger.error(
                     "Task %s: Error shutting down process pool: %s",
@@ -415,7 +472,9 @@ class CoverageCalculator:
                     e,
                 )
 
-    async def build_spatial_index_and_stats(self) -> bool:
+    async def build_spatial_index_and_stats(
+        self,
+    ) -> bool:
         """Loads streets, builds R-tree index, precomputes UTM geometries/bboxes, and calculates initial stats."""
         logger.info(
             "Task %s: Building spatial index and precomputing geometries for %s...",
@@ -451,14 +510,17 @@ class CoverageCalculator:
                 f"Task {self.task_id}: UTM projection not initialized before indexing."
             )
             await self.update_progress(
-                "error", 0, "Projection Error during indexing setup"
+                "error",
+                0,
+                "Projection Error during indexing setup",
             )
             return False
 
         streets_query = {"properties.location": self.location_name}
         try:
             total_streets_count = await count_documents_with_retry(
-                streets_collection, streets_query
+                streets_collection,
+                streets_query,
             )
         except Exception as e:
             logger.error(
@@ -468,7 +530,9 @@ class CoverageCalculator:
                 e,
             )
             await self.update_progress(
-                "error", 0, f"Failed to count streets: {e}"
+                "error",
+                0,
+                f"Failed to count streets: {e}",
             )
             return False
 
@@ -504,7 +568,8 @@ class CoverageCalculator:
 
         try:
             async for street_batch in batch_cursor(
-                streets_cursor, self.street_index_batch_size
+                streets_cursor,
+                self.street_index_batch_size,
             ):
                 if not self.project_to_utm:
                     raise ValueError(
@@ -518,7 +583,10 @@ class CoverageCalculator:
                         props = street.get("properties", {})
                         segment_id = props.get("segment_id")
                         geometry_data = street.get("geometry")
-                        is_undriveable = props.get("undriveable", False)
+                        is_undriveable = props.get(
+                            "undriveable",
+                            False,
+                        )
 
                         if not segment_id or not geometry_data:
                             continue
@@ -528,7 +596,10 @@ class CoverageCalculator:
                         )
 
                         geom_wgs84 = shape(geometry_data)
-                        geom_utm = transform(self.project_to_utm, geom_wgs84)
+                        geom_utm = transform(
+                            self.project_to_utm,
+                            geom_wgs84,
+                        )
                         segment_length_m = geom_utm.length
 
                         if segment_length_m <= 0.1:
@@ -543,12 +614,16 @@ class CoverageCalculator:
                         self.streets_lookup[rtree_idx_counter] = {
                             "segment_id": segment_id,
                             "length_m": segment_length_m,
-                            "highway": props.get("highway", "unknown"),
+                            "highway": props.get(
+                                "highway",
+                                "unknown",
+                            ),
                             "driven": is_driven,
                             "undriveable": is_undriveable,
                         }
                         self.streets_index.insert(
-                            rtree_idx_counter, geom_wgs84.bounds
+                            rtree_idx_counter,
+                            geom_wgs84.bounds,
                         )
                         rtree_idx_counter += 1
 
@@ -559,7 +634,11 @@ class CoverageCalculator:
                                 self.initial_driven_length += segment_length_m
                                 self.initial_covered_segments.add(segment_id)
 
-                    except (GEOSException, ValueError, TypeError) as e:
+                    except (
+                        GEOSException,
+                        ValueError,
+                        TypeError,
+                    ) as e:
                         logger.warning(
                             f"Task {self.task_id}: Error processing street geom (Seg ID: {segment_id or 'N/A'}): {e}. Skipping segment."
                         )
@@ -613,7 +692,9 @@ class CoverageCalculator:
                 exc_info=True,
             )
             await self.update_progress(
-                "error", 5, f"Error building spatial index: {e}"
+                "error",
+                5,
+                f"Error building spatial index: {e}",
             )
             return False
         finally:
@@ -652,14 +733,20 @@ class CoverageCalculator:
                 max(lons),
                 max(lats),
             )
-        except (TypeError, IndexError, ValueError):
+        except (
+            TypeError,
+            IndexError,
+            ValueError,
+        ):
             logger.debug(
                 "Could not extract coordinates for trip bounding box calculation."
             )
             return None
 
     @staticmethod
-    def _is_valid_trip(gps_data: Any) -> Tuple[bool, List[Any]]:
+    def _is_valid_trip(
+        gps_data: Any,
+    ) -> Tuple[bool, List[Any]]:
         """Validates GPS data structure and basic coordinate validity."""
         try:
             if isinstance(gps_data, (dict, list)):
@@ -719,7 +806,12 @@ class CoverageCalculator:
         bbox = self.location.get("boundingbox")
         if bbox and len(bbox) == 4:
             try:
-                min_lat, max_lat, min_lon, max_lon = map(float, bbox)
+                (
+                    min_lat,
+                    max_lat,
+                    min_lon,
+                    max_lon,
+                ) = map(float, bbox)
                 if (
                     -90 <= min_lat <= 90
                     and -90 <= max_lat <= 90
@@ -729,7 +821,10 @@ class CoverageCalculator:
                     and min_lon <= max_lon
                 ):
                     location_bbox_wgs84 = box(
-                        min_lon, min_lat, max_lon, max_lat
+                        min_lon,
+                        min_lat,
+                        max_lon,
+                        max_lat,
                     )
                     logger.info(
                         "Task %s: Location BBox (LonMin, LatMin, LonMax, LatMax): [%f, %f, %f, %f]",
@@ -789,15 +884,20 @@ class CoverageCalculator:
             )
         else:
             await self.update_progress(
-                "processing_trips", 52, "Processing all available trips"
+                "processing_trips",
+                52,
+                "Processing all available trips",
             )
 
         await self.update_progress(
-            "processing_trips", 53, "Counting trips matching criteria"
+            "processing_trips",
+            53,
+            "Counting trips matching criteria",
         )
         try:
             self.total_trips_to_process = await count_documents_with_retry(
-                trips_collection, base_trip_filter
+                trips_collection,
+                base_trip_filter,
             )
             logger.info(
                 "Task %s: Found %d potential trips matching initial filter.",
@@ -818,7 +918,9 @@ class CoverageCalculator:
                 str(base_trip_filter)[:500],
             )
             await self.update_progress(
-                "error", 50, f"Error counting trips: {e.details}"
+                "error",
+                50,
+                f"Error counting trips: {e.details}",
             )
             return False
         except Exception as e:
@@ -829,7 +931,9 @@ class CoverageCalculator:
                 exc_info=True,
             )
             await self.update_progress(
-                "error", 50, f"Error counting trips: {e}"
+                "error",
+                50,
+                f"Error counting trips: {e}",
             )
             return False
 
@@ -840,7 +944,9 @@ class CoverageCalculator:
                 self.location_name,
             )
             await self.update_progress(
-                "processing_trips", 90, "No new trips found to process"
+                "processing_trips",
+                90,
+                "No new trips found to process",
             )
             return True
 
@@ -892,7 +998,10 @@ class CoverageCalculator:
                                 trip_bbox = box(*trip_bbox_coords)
                                 if location_bbox_wgs84.intersects(trip_bbox):
                                     valid_trips_for_processing.append(
-                                        (trip_id, coords)
+                                        (
+                                            trip_id,
+                                            coords,
+                                        )
                                     )
                                 else:
                                     processed_trip_ids_set.add(trip_id)
@@ -901,7 +1010,10 @@ class CoverageCalculator:
                                     f"Task {self.task_id}: Could not calculate bounding box for valid trip {trip_id}. Processing anyway."
                                 )
                                 valid_trips_for_processing.append(
-                                    (trip_id, coords)
+                                    (
+                                        trip_id,
+                                        coords,
+                                    )
                                 )
                         else:
                             valid_trips_for_processing.append(
@@ -919,7 +1031,10 @@ class CoverageCalculator:
                     continue
 
                 all_batch_coords = []
-                for _, coords in valid_trips_for_processing:
+                for (
+                    _,
+                    coords,
+                ) in valid_trips_for_processing:
                     all_batch_coords.extend(coords)
 
                 batch_candidate_segment_ids = set()
@@ -939,11 +1054,18 @@ class CoverageCalculator:
                         for idx in candidate_indices:
                             if idx in self.streets_lookup:
                                 street_info = self.streets_lookup[idx]
-                                if not street_info.get("undriveable", False):
+                                if not street_info.get(
+                                    "undriveable",
+                                    False,
+                                ):
                                     batch_candidate_segment_ids.add(
                                         street_info["segment_id"]
                                     )
-                    except (GEOSException, ValueError, TypeError) as e:
+                    except (
+                        GEOSException,
+                        ValueError,
+                        TypeError,
+                    ) as e:
                         logger.warning(
                             f"Task {self.task_id}: Error finding candidates for batch {batch_num}: {e}. Skipping worker processing for this batch."
                         )
@@ -965,7 +1087,8 @@ class CoverageCalculator:
 
                 batch_candidate_utm_geoms: Dict[str, Any] = {}
                 batch_candidate_utm_bboxes: Dict[
-                    str, Tuple[float, float, float, float]
+                    str,
+                    Tuple[float, float, float, float],
                 ] = {}
                 missing_geoms = []
 
@@ -1003,7 +1126,11 @@ class CoverageCalculator:
                     seg_ids = list(batch_candidate_utm_geoms.keys())
                     geom_chunks = []
                     bbox_chunks = []
-                    for i in range(0, len(seg_ids), chunk_size):
+                    for i in range(
+                        0,
+                        len(seg_ids),
+                        chunk_size,
+                    ):
                         chunk_seg_ids = seg_ids[i : i + chunk_size]
                         geom_chunks.append(
                             {
@@ -1036,8 +1163,14 @@ class CoverageCalculator:
                     sub_batch_coords = [coords for _, coords in trip_sub_batch]
                     sub_batch_trip_ids = [tid for tid, _ in trip_sub_batch]
 
-                    for chunk_idx, (geom_chunk, bbox_chunk) in enumerate(
-                        zip(geom_chunks, bbox_chunks)
+                    for chunk_idx, (
+                        geom_chunk,
+                        bbox_chunk,
+                    ) in enumerate(
+                        zip(
+                            geom_chunks,
+                            bbox_chunks,
+                        )
                     ):
                         if not geom_chunk or not sub_batch_coords:
                             continue
@@ -1077,7 +1210,10 @@ class CoverageCalculator:
                                     trip_idx_in_sub_batch,
                                     matched_segment_ids,
                                 ) in result_map.items():
-                                    if isinstance(matched_segment_ids, set):
+                                    if isinstance(
+                                        matched_segment_ids,
+                                        set,
+                                    ):
                                         valid_new_segments = {
                                             seg_id
                                             for seg_id in matched_segment_ids
@@ -1126,7 +1262,8 @@ class CoverageCalculator:
                                         matched_segment_ids,
                                     ) in result_map.items():
                                         if isinstance(
-                                            matched_segment_ids, set
+                                            matched_segment_ids,
+                                            set,
                                         ):
                                             valid_new_segments = {
                                                 seg_id
@@ -1153,7 +1290,10 @@ class CoverageCalculator:
                                     pending_futures_map[future] = (
                                         original_trip_sub_batch
                                     )
-                                except (CancelledError, Exception) as e:
+                                except (
+                                    CancelledError,
+                                    Exception,
+                                ) as e:
                                     logger.error(
                                         f"Task {self.task_id}: Future failed: {type(e).__name__}. NOT marking trips as processed."
                                     )
@@ -1219,7 +1359,10 @@ class CoverageCalculator:
                         return_when=asyncio.ALL_COMPLETED,
                     )
 
-                    for i, wrapped_done_future in enumerate(done):
+                    for (
+                        i,
+                        wrapped_done_future,
+                    ) in enumerate(done):
                         original_future = remaining_futures[i]
                         original_trip_sub_batch = pending_futures_map.pop(
                             original_future, []
@@ -1229,8 +1372,14 @@ class CoverageCalculator:
                         ]
                         try:
                             result_map = wrapped_done_future.result()
-                            for trip_idx, matched_ids in result_map.items():
-                                if isinstance(matched_ids, set):
+                            for (
+                                trip_idx,
+                                matched_ids,
+                            ) in result_map.items():
+                                if isinstance(
+                                    matched_ids,
+                                    set,
+                                ):
                                     valid_new_segments = {
                                         seg_id
                                         for seg_id in matched_ids
@@ -1246,13 +1395,19 @@ class CoverageCalculator:
                                 original_trip_sub_batch
                             )
 
-                        except (CancelledError, Exception) as e:
+                        except (
+                            CancelledError,
+                            Exception,
+                        ) as e:
                             logger.error(
                                 f"Task {self.task_id}: Final future processing error: {type(e).__name__}. NOT marking trips."
                             )
                             failed_futures_count += 1
 
-                    for i, wrapped_pending_future in enumerate(pending):
+                    for (
+                        i,
+                        wrapped_pending_future,
+                    ) in enumerate(pending):
                         original_future = remaining_futures[i]
                         original_trip_sub_batch = pending_futures_map.pop(
                             original_future, []
@@ -1277,9 +1432,10 @@ class CoverageCalculator:
                     logger.error(
                         f"Task {self.task_id}: Error during final asyncio.wait: {wait_err}"
                     )
-                    for future, batch_data in list(
-                        pending_futures_map.items()
-                    ):
+                    for (
+                        future,
+                        batch_data,
+                    ) in list(pending_futures_map.items()):
                         failed_futures_count += 1
                         try:
                             future.cancel()
@@ -1322,7 +1478,9 @@ class CoverageCalculator:
                 exc_info=True,
             )
             await self.update_progress(
-                "error", 50, f"Error processing trips: {e}"
+                "error",
+                50,
+                f"Error processing trips: {e}",
             )
             return False
         finally:
@@ -1340,7 +1498,10 @@ class CoverageCalculator:
         for seg_id in self.newly_covered_segments:
             if seg_id not in self.initial_covered_segments:
                 street_info = None
-                for rtree_id, info in self.streets_lookup.items():
+                for (
+                    rtree_id,
+                    info,
+                ) in self.streets_lookup.items():
                     if info["segment_id"] == seg_id:
                         street_info = info
                         break
@@ -1366,7 +1527,11 @@ class CoverageCalculator:
             update_timestamp = datetime.now(timezone.utc)
             try:
                 max_update_batch = 10000
-                for i in range(0, len(segment_list), max_update_batch):
+                for i in range(
+                    0,
+                    len(segment_list),
+                    max_update_batch,
+                ):
                     segment_batch = segment_list[i : i + max_update_batch]
                     current_batch_num = i // max_update_batch + 1
                     total_batches = (
@@ -1410,14 +1575,18 @@ class CoverageCalculator:
                     exc_info=True,
                 )
                 await self.update_progress(
-                    "error", 90, f"Error updating DB: {e}"
+                    "error",
+                    90,
+                    f"Error updating DB: {e}",
                 )
         else:
             logger.info(
                 f"Task {self.task_id}: No new driveable segments to mark as driven for {self.location_name}."
             )
             await self.update_progress(
-                "finalizing", 95, "No new segments to update in DB."
+                "finalizing",
+                95,
+                "No new segments to update in DB.",
             )
 
         await self.update_progress(
@@ -1446,7 +1615,10 @@ class CoverageCalculator:
                 segments_to_update_in_db
             )
 
-            for rtree_id, street_info in self.streets_lookup.items():
+            for (
+                rtree_id,
+                street_info,
+            ) in self.streets_lookup.items():
                 segment_id = street_info["segment_id"]
                 length = street_info["length_m"]
                 highway = street_info["highway"]
@@ -1478,7 +1650,10 @@ class CoverageCalculator:
             )
 
             final_street_types = []
-            for highway_type, stats in street_type_stats.items():
+            for (
+                highway_type,
+                stats,
+            ) in street_type_stats.items():
                 type_driveable_length = (
                     stats["length_m"] - stats["undriveable_length_m"]
                 )
@@ -1494,17 +1669,23 @@ class CoverageCalculator:
                         "covered_segments": stats["covered"],
                         "total_length_m": round(stats["length_m"], 2),
                         "covered_length_m": round(
-                            stats["covered_length_m"], 2
+                            stats["covered_length_m"],
+                            2,
                         ),
-                        "driveable_length_m": round(type_driveable_length, 2),
+                        "driveable_length_m": round(
+                            type_driveable_length,
+                            2,
+                        ),
                         "undriveable_length_m": round(
-                            stats["undriveable_length_m"], 2
+                            stats["undriveable_length_m"],
+                            2,
                         ),
                         "coverage_percentage": round(coverage_pct, 2),
                     }
                 )
             final_street_types.sort(
-                key=lambda x: x["total_length_m"], reverse=True
+                key=lambda x: x["total_length_m"],
+                reverse=True,
             )
 
             coverage_stats = {
@@ -1528,7 +1709,9 @@ class CoverageCalculator:
                 exc_info=True,
             )
             await self.update_progress(
-                "error", 95, f"Error calculating stats: {e}"
+                "error",
+                95,
+                f"Error calculating stats: {e}",
             )
             return None
 
@@ -1578,7 +1761,9 @@ class CoverageCalculator:
                 exc_info=True,
             )
             await self.update_progress(
-                "error", 97, f"Failed to update metadata: {e}"
+                "error",
+                97,
+                f"Failed to update metadata: {e}",
             )
 
         final_result = {
@@ -1591,7 +1776,9 @@ class CoverageCalculator:
         }
 
         await self.update_progress(
-            "complete_stats", 98, "Coverage statistics calculation complete."
+            "complete_stats",
+            98,
+            "Coverage statistics calculation complete.",
         )
         logger.info(
             "Task %s: Finalization complete for %s.",
@@ -1617,7 +1804,9 @@ class CoverageCalculator:
 
         try:
             await self.update_progress(
-                "initializing", 0, f"Initializing {run_type} calculation..."
+                "initializing",
+                0,
+                f"Initializing {run_type} calculation...",
             )
 
             try:
@@ -1629,7 +1818,9 @@ class CoverageCalculator:
                     proj_err,
                 )
                 await self.update_progress(
-                    "error", 0, f"Projection Error: {proj_err}"
+                    "error",
+                    0,
+                    f"Projection Error: {proj_err}",
                 )
                 return None
 
@@ -1658,7 +1849,8 @@ class CoverageCalculator:
                 )
                 asyncio.create_task(
                     generate_and_store_geojson(
-                        self.location_name, self.task_id
+                        self.location_name,
+                        self.task_id,
                     )
                 )
                 return final_stats
@@ -1680,9 +1872,15 @@ class CoverageCalculator:
                         and "trip_ids" in metadata["processed_trips"]
                     ):
                         trip_ids_data = metadata["processed_trips"]["trip_ids"]
-                        if isinstance(trip_ids_data, (list, set)):
+                        if isinstance(
+                            trip_ids_data,
+                            (list, set),
+                        ):
                             processed_trip_ids_set = set(
-                                map(str, trip_ids_data)
+                                map(
+                                    str,
+                                    trip_ids_data,
+                                )
                             )
                             logger.info(
                                 "Task %s: Loaded %d previously processed trip IDs for incremental run.",
@@ -1729,7 +1927,11 @@ class CoverageCalculator:
                 logger.error(
                     f"Task {self.task_id}: Finalization failed for {self.location_name}."
                 )
-                await self.update_progress("error", 99, "Finalization failed")
+                await self.update_progress(
+                    "error",
+                    99,
+                    "Finalization failed",
+                )
                 await coverage_metadata_collection.update_one(
                     {"location.display_name": self.location_name},
                     {
@@ -1749,7 +1951,9 @@ class CoverageCalculator:
                     f"Task {self.task_id}: Calculation completed with error: {calculation_error}"
                 )
                 await self.update_progress(
-                    "error", 100, f"Completed with error: {calculation_error}"
+                    "error",
+                    100,
+                    f"Completed with error: {calculation_error}",
                 )
                 await coverage_metadata_collection.update_one(
                     {"location.display_name": self.location_name},
@@ -1768,7 +1972,8 @@ class CoverageCalculator:
                 )
                 asyncio.create_task(
                     generate_and_store_geojson(
-                        self.location_name, self.task_id
+                        self.location_name,
+                        self.task_id,
                     )
                 )
             elif calculation_error:
@@ -1800,7 +2005,11 @@ class CoverageCalculator:
                 e,
                 exc_info=True,
             )
-            await self.update_progress("error", 0, f"Unhandled error: {e}")
+            await self.update_progress(
+                "error",
+                0,
+                f"Unhandled error: {e}",
+            )
             try:
                 await coverage_metadata_collection.update_one(
                     {"location.display_name": self.location_name},
@@ -1877,7 +2086,12 @@ async def compute_coverage_for_location(
         error_msg = (
             f"Full calculation timed out after {PROCESS_TIMEOUT_OVERALL}s"
         )
-        logger.error("Task %s: %s for %s.", task_id, error_msg, location_name)
+        logger.error(
+            "Task %s: %s for %s.",
+            task_id,
+            error_msg,
+            location_name,
+        )
         await progress_collection.update_one(
             {"_id": task_id},
             {
@@ -1989,7 +2203,12 @@ async def compute_incremental_coverage(
 
     except asyncio.TimeoutError:
         error_msg = f"Incremental calculation timed out after {PROCESS_TIMEOUT_INCREMENTAL}s"
-        logger.error("Task %s: %s for %s.", task_id, error_msg, location_name)
+        logger.error(
+            "Task %s: %s for %s.",
+            task_id,
+            error_msg,
+            location_name,
+        )
         await progress_collection.update_one(
             {"_id": task_id},
             {
@@ -2094,7 +2313,7 @@ async def generate_and_store_geojson(
 
     fs: AsyncIOMotorGridFSBucket = db_manager.gridfs_bucket
     safe_location_name = "".join(
-        c if c.isalnum() or c in ["_", "-"] else "_" for c in location_name
+        (c if c.isalnum() or c in ["_", "-"] else "_") for c in location_name
     )
     gridfs_filename = f"{safe_location_name}_streets.geojson"
 
@@ -2302,7 +2521,10 @@ async def generate_and_store_geojson(
 
     except Exception as e:
         error_msg = f"Error during GeoJSON generation/storage: {e}"
-        logger.error(f"Task {task_id}: {error_msg}", exc_info=True)
+        logger.error(
+            f"Task {task_id}: {error_msg}",
+            exc_info=True,
+        )
         if upload_stream and not upload_stream.closed:
             try:
                 await upload_stream.abort()

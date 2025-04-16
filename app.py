@@ -35,16 +35,24 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from gridfs.errors import NoFile
-from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+from motor.motor_asyncio import (
+    AsyncIOMotorGridFSBucket,
+)
 from pymongo import GEOSPHERE, IndexModel
 from pymongo.errors import OperationFailure
 from sklearn.cluster import KMeans
 
-from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
+from bouncie_trip_fetcher import (
+    fetch_bouncie_trips_in_range,
+)
 from coverage_tasks import (
     collect_street_type_stats,
     process_area,
@@ -109,7 +117,10 @@ from tasks import (
     get_all_task_metadata,
     TaskPriority,
 )
-from trip_processor import TripProcessor, TripState
+from trip_processor import (
+    TripProcessor,
+    TripState,
+)
 from update_geo_points import update_geo_points
 from utils import (
     calculate_circular_average_hour,
@@ -129,7 +140,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Street Coverage Tracker")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory="static"),
+    name="static",
+)
 templates = Jinja2Templates(directory="templates")
 
 origins = ["*"]
@@ -191,13 +206,18 @@ async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
                 detail=f"Invalid GPS JSON for trip {trip.get('transactionId', 'unknown')}",
             ) from e
 
-    processor = TripProcessor(mapbox_token=MAPBOX_ACCESS_TOKEN, source=source)
+    processor = TripProcessor(
+        mapbox_token=MAPBOX_ACCESS_TOKEN,
+        source=source,
+    )
     processor.set_trip_data(trip)
     await processor.process(do_map_match=False)
     await processor.save()
 
 
-async def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
+async def process_geojson_trip(
+    geojson_data: dict,
+) -> Optional[List[dict]]:
     """Process GeoJSON trip data into trip dictionaries.
 
     Args:
@@ -215,7 +235,8 @@ async def process_geojson_trip(geojson_data: dict) -> Optional[List[dict]]:
             stime_str = props.get("start_time")
             etime_str = props.get("end_time")
             tid = props.get(
-                "transaction_id", f"geojson-{int(datetime.now().timestamp())}"
+                "transaction_id",
+                f"geojson-{int(datetime.now().timestamp())}",
             )
             stime_parsed = (
                 dateutil_parser.isoparse(stime_str)
@@ -273,11 +294,15 @@ async def settings_page(request: Request):
     return templates.TemplateResponse("settings.html", {"request": request})
 
 
-@app.get("/driving-insights", response_class=HTMLResponse)
+@app.get(
+    "/driving-insights",
+    response_class=HTMLResponse,
+)
 async def driving_insights_page(request: Request):
     """Render driving insights page."""
     return templates.TemplateResponse(
-        "driving_insights.html", {"request": request}
+        "driving_insights.html",
+        {"request": request},
     )
 
 
@@ -299,23 +324,35 @@ async def upload_page(request: Request):
     return templates.TemplateResponse("upload.html", {"request": request})
 
 
-@app.get("/coverage-management", response_class=HTMLResponse)
-async def coverage_management_page(request: Request):
+@app.get(
+    "/coverage-management",
+    response_class=HTMLResponse,
+)
+async def coverage_management_page(
+    request: Request,
+):
     """Render coverage management page."""
     return templates.TemplateResponse(
-        "coverage_management.html", {"request": request}
+        "coverage_management.html",
+        {"request": request},
     )
 
 
 @app.get("/database-management")
-async def database_management_page(request: Request):
+async def database_management_page(
+    request: Request,
+):
     """Render database management page with statistics."""
     try:
         db_stats = await db_manager.db.command("dbStats")
-        storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
+        storage_used_mb = round(
+            db_stats["dataSize"] / (1024 * 1024),
+            2,
+        )
         storage_limit_mb = 512
         storage_usage_percent = round(
-            (storage_used_mb / storage_limit_mb) * 100, 2
+            (storage_used_mb / storage_limit_mb) * 100,
+            2,
         )
         collections_info = []
         collection_names = [
@@ -329,7 +366,10 @@ async def database_management_page(request: Request):
                 {
                     "name": collection_name,
                     "document_count": stats["count"],
-                    "size_mb": round(stats["size"] / (1024 * 1024), 2),
+                    "size_mb": round(
+                        stats["size"] / (1024 * 1024),
+                        2,
+                    ),
                 }
             )
         return templates.TemplateResponse(
@@ -343,9 +383,13 @@ async def database_management_page(request: Request):
             },
         )
     except Exception as e:
-        logger.exception("Error loading database management page: %s", str(e))
+        logger.exception(
+            "Error loading database management page: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -357,17 +401,27 @@ async def app_settings_page(request: Request):
     )
 
 
-@app.get("/driving-navigation", response_class=HTMLResponse)
-async def driving_navigation_page(request: Request):
+@app.get(
+    "/driving-navigation",
+    response_class=HTMLResponse,
+)
+async def driving_navigation_page(
+    request: Request,
+):
     """Render the driving navigation page."""
     return templates.TemplateResponse(
         "driving_navigation.html",
-        {"request": request, "MAPBOX_ACCESS_TOKEN": MAPBOX_ACCESS_TOKEN},
+        {
+            "request": request,
+            "MAPBOX_ACCESS_TOKEN": MAPBOX_ACCESS_TOKEN,
+        },
     )
 
 
 @app.post("/api/undriven_streets")
-async def get_undriven_streets(location: LocationModel):
+async def get_undriven_streets(
+    location: LocationModel,
+):
     """Get undriven streets for a specific location.
 
     Args:
@@ -380,7 +434,8 @@ async def get_undriven_streets(location: LocationModel):
     try:
         location_name = location.display_name
         logger.info(
-            "Request received for undriven streets for '%s'.", location_name
+            "Request received for undriven streets for '%s'.",
+            location_name,
         )
 
         coverage_metadata = await find_one_with_retry(
@@ -412,7 +467,10 @@ async def get_undriven_streets(location: LocationModel):
 
         if count == 0:
             return JSONResponse(
-                content={"type": "FeatureCollection", "features": []}
+                content={
+                    "type": "FeatureCollection",
+                    "features": [],
+                }
             )
 
         features = []
@@ -423,7 +481,10 @@ async def get_undriven_streets(location: LocationModel):
                 if "geometry" in street_doc and "properties" in street_doc:
                     features.append(street_doc)
 
-        content_to_return = {"type": "FeatureCollection", "features": features}
+        content_to_return = {
+            "type": "FeatureCollection",
+            "features": features,
+        }
         return JSONResponse(
             content=json.loads(bson.json_util.dumps(content_to_return))
         )
@@ -458,19 +519,29 @@ async def update_background_tasks_config(
         result = await update_task_schedule(data.dict(exclude_unset=True))
 
         if result.get("status") != "success":
-            logger.error("Failed to update task schedule: %r", result)
+            logger.error(
+                "Failed to update task schedule: %r",
+                result,
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=result.get("message", "Unknown error"),
             )
-        return {"status": "success", "message": "Configuration updated"}
+        return {
+            "status": "success",
+            "message": "Configuration updated",
+        }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Error updating task configuration: %s", e)
+        logger.exception(
+            "Error updating task configuration: %s",
+            e,
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -481,7 +552,10 @@ async def get_background_tasks_config():
         config = await get_task_config()
         task_metadata = await get_all_task_metadata()
 
-        for task_id, task_def in task_metadata.items():
+        for (
+            task_id,
+            task_def,
+        ) in task_metadata.items():
             if task_id not in config.get("tasks", {}):
                 config.setdefault("tasks", {})[task_id] = {}
 
@@ -492,7 +566,8 @@ async def get_background_tasks_config():
             )
             task_config["description"] = task_def.get("description", "")
             task_config["priority"] = task_def.get(
-                "priority", TaskPriority.MEDIUM.name
+                "priority",
+                TaskPriority.MEDIUM.name,
             )
 
             task_config["status"] = task_config.get("status", "IDLE")
@@ -537,29 +612,44 @@ async def get_background_tasks_config():
                 if ts_field in task_config and task_config[ts_field]:
                     task_config[ts_field] = (
                         task_config[ts_field]
-                        if isinstance(task_config[ts_field], str)
+                        if isinstance(
+                            task_config[ts_field],
+                            str,
+                        )
                         else task_config[ts_field].isoformat()
                     )
 
         return config
     except Exception as e:
-        logger.exception("Error getting task configuration: %s", str(e))
+        logger.exception(
+            "Error getting task configuration: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.post("/api/background_tasks/pause")
-async def pause_background_tasks(minutes: int = 30):
+async def pause_background_tasks(
+    minutes: int = 30,
+):
     """Pause all background tasks for a specified duration."""
     try:
         result = await update_task_schedule(
-            {"globalDisable": True, "pauseMinutes": minutes}
+            {
+                "globalDisable": True,
+                "pauseMinutes": minutes,
+            }
         )
         if result.get("status") != "success":
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.get("message", "Failed to pause tasks"),
+                detail=result.get(
+                    "message",
+                    "Failed to pause tasks",
+                ),
             )
         return {
             "status": "success",
@@ -570,7 +660,8 @@ async def pause_background_tasks(minutes: int = 30):
     except Exception as e:
         logger.exception("Error pausing tasks: %s", e)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -579,11 +670,15 @@ async def resume_background_tasks():
     """Resume all paused background tasks."""
     try:
         await update_task_schedule({"globalDisable": False})
-        return {"status": "success", "message": "Background tasks resumed"}
+        return {
+            "status": "success",
+            "message": "Background tasks resumed",
+        }
     except Exception as e:
         logger.exception("Error resuming tasks: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -595,15 +690,22 @@ async def stop_all_background_tasks():
         if result.get("status") != "success":
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.get("message", "Failed to stop tasks"),
+                detail=result.get(
+                    "message",
+                    "Failed to stop tasks",
+                ),
             )
-        return {"status": "success", "message": "All background tasks stopped"}
+        return {
+            "status": "success",
+            "message": "All background tasks stopped",
+        }
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("Error stopping all tasks: %s", e)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -616,15 +718,22 @@ async def enable_all_background_tasks():
         if result.get("status") != "success":
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.get("message", "Failed to enable tasks"),
+                detail=result.get(
+                    "message",
+                    "Failed to enable tasks",
+                ),
             )
-        return {"status": "success", "message": "All background tasks enabled"}
+        return {
+            "status": "success",
+            "message": "All background tasks enabled",
+        }
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("Error enabling all tasks: %s", e)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -637,7 +746,10 @@ async def disable_all_background_tasks():
         if result.get("status") != "success":
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.get("message", "Failed to disable tasks"),
+                detail=result.get(
+                    "message",
+                    "Failed to disable tasks",
+                ),
             )
         return {
             "status": "success",
@@ -648,12 +760,15 @@ async def disable_all_background_tasks():
     except Exception as e:
         logger.exception("Error disabling all tasks: %s", e)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.post("/api/background_tasks/run")
-async def manual_run_tasks(tasks_to_run: List[str] = Body(...)):
+async def manual_run_tasks(
+    tasks_to_run: List[str] = Body(...),
+):
     """Manually trigger one or more background tasks."""
     if not tasks_to_run:
         raise HTTPException(
@@ -667,7 +782,10 @@ async def manual_run_tasks(tasks_to_run: List[str] = Body(...)):
         elif task_id in TASK_METADATA:
             res = await manual_run_task(task_id)
         else:
-            res = {"status": "error", "message": "Unknown task"}
+            res = {
+                "status": "error",
+                "message": "Unknown task",
+            }
         success = res.get("status") == "success"
         results.append(
             {
@@ -677,7 +795,10 @@ async def manual_run_tasks(tasks_to_run: List[str] = Body(...)):
                 "task_id": res.get("task_id"),
             }
         )
-    return {"status": "success", "results": results}
+    return {
+        "status": "success",
+        "results": results,
+    }
 
 
 @app.get("/api/background_tasks/task/{task_id}")
@@ -728,7 +849,8 @@ async def get_task_details(task_id: str):
             "status": task_config.get("status", "IDLE"),
             "enabled": task_config.get("enabled", True),
             "interval_minutes": task_config.get(
-                "interval_minutes", task_def["default_interval_minutes"]
+                "interval_minutes",
+                task_def["default_interval_minutes"],
             ),
             "last_run": SerializationHelper.serialize_datetime(
                 task_config.get("last_run")
@@ -748,10 +870,13 @@ async def get_task_details(task_id: str):
 
     except Exception as e:
         logger.exception(
-            "Error getting task details for %s: %s", task_id, str(e)
+            "Error getting task details for %s: %s",
+            task_id,
+            str(e),
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -791,9 +916,13 @@ async def get_task_history(page: int = 1, limit: int = 10):
             "total_pages": ceil(total_count / limit),
         }
     except Exception as e:
-        logger.exception("Error fetching task history: %s", str(e))
+        logger.exception(
+            "Error fetching task history: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -807,9 +936,13 @@ async def clear_task_history():
             "message": f"Cleared {result.deleted_count} task history entries",
         }
     except Exception as e:
-        logger.exception("Error clearing task history: %s", str(e))
+        logger.exception(
+            "Error clearing task history: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -826,7 +959,10 @@ async def reset_task_states():
         tasks_config = config.get("tasks", {})
         updates = {}
 
-        for task_id, task_info in tasks_config.items():
+        for (
+            task_id,
+            task_info,
+        ) in tasks_config.items():
             if task_info.get("status") != TaskStatus.RUNNING.value:
                 continue
 
@@ -848,7 +984,10 @@ async def reset_task_states():
                         "%Y-%m-%dT%H:%M:%S",
                     ):
                         try:
-                            start_time = datetime.strptime(start_time_any, fmt)
+                            start_time = datetime.strptime(
+                                start_time_any,
+                                fmt,
+                            )
                             break
                         except ValueError:
                             continue
@@ -930,9 +1069,13 @@ async def reset_task_states():
             "history_reset_count": history_reset_count,
         }
     except Exception as e:
-        logger.exception("Error resetting task states: %s", str(e))
+        logger.exception(
+            "Error resetting task states: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -950,7 +1093,10 @@ async def background_tasks_sse(request: Request):
                 config = await get_task_config()
 
                 updates = {}
-                for task_id, task_config in config.get("tasks", {}).items():
+                for (
+                    task_id,
+                    task_config,
+                ) in config.get("tasks", {}).items():
                     status = task_config.get("status", "IDLE")
                     updates[task_id] = {
                         "status": status,
@@ -992,7 +1138,10 @@ async def get_edit_trips(
 ):
     """Get trips for editing."""
     try:
-        if trip_type not in ["trips", "matched_trips"]:
+        if trip_type not in [
+            "trips",
+            "matched_trips",
+        ]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid trip type",
@@ -1010,10 +1159,16 @@ async def get_edit_trips(
             SerializationHelper.serialize_trip(trip) for trip in trips
         ]
 
-        return {"status": "success", "trips": serialized_trips}
+        return {
+            "status": "success",
+            "trips": serialized_trips,
+        }
 
     except Exception as e:
-        logger.exception("Error fetching trips for editing: %s", str(e))
+        logger.exception(
+            "Error fetching trips for editing: %s",
+            str(e),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
@@ -1095,13 +1250,18 @@ async def update_trip(trip_id: str, data: TripUpdateModel):
                         pass
 
             if "properties" in trip:
-                updated_props = {**trip["properties"], **props}
+                updated_props = {
+                    **trip["properties"],
+                    **props,
+                }
                 update_fields["properties"] = updated_props
             else:
                 update_fields.update(props)
 
         result = await update_one_with_retry(
-            collection, {"_id": trip["_id"]}, {"$set": update_fields}
+            collection,
+            {"_id": trip["_id"]},
+            {"$set": update_fields},
         )
 
         if not result.modified_count:
@@ -1113,25 +1273,39 @@ async def update_trip(trip_id: str, data: TripUpdateModel):
         return {"message": "Trip updated"}
 
     except Exception as e:
-        logger.exception("Error updating trip %s: %s", trip_id, str(e))
+        logger.exception(
+            "Error updating trip %s: %s",
+            trip_id,
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.post("/api/street_coverage")
-async def get_street_coverage(location: LocationModel):
+async def get_street_coverage(
+    location: LocationModel,
+):
     """Calculate street coverage for a location."""
     try:
         task_id = str(uuid.uuid4())
         asyncio.create_task(
             process_coverage_calculation(location.dict(), task_id)
         )
-        return {"task_id": task_id, "status": "processing"}
+        return {
+            "task_id": task_id,
+            "status": "processing",
+        }
     except Exception as e:
-        logger.exception("Error in street coverage calculation: %s", str(e))
+        logger.exception(
+            "Error in street coverage calculation: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -1141,7 +1315,8 @@ async def get_coverage_status(task_id: str):
     progress = await find_one_with_retry(progress_collection, {"_id": task_id})
     if not progress:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found",
         )
     if progress.get("stage") == "error":
         raise HTTPException(
@@ -1163,7 +1338,9 @@ async def get_coverage_status(task_id: str):
 
 
 @app.post("/api/street_coverage/incremental")
-async def get_incremental_street_coverage(location: LocationModel):
+async def get_incremental_street_coverage(
+    location: LocationModel,
+):
     """Update street coverage incrementally, processing only new trips since
     last update."""
     try:
@@ -1171,13 +1348,18 @@ async def get_incremental_street_coverage(location: LocationModel):
         asyncio.create_task(
             process_incremental_coverage_calculation(location.dict(), task_id)
         )
-        return {"task_id": task_id, "status": "processing"}
+        return {
+            "task_id": task_id,
+            "status": "processing",
+        }
     except Exception as e:
         logger.exception(
-            "Error in incremental street coverage calculation: %s", str(e)
+            "Error in incremental street coverage calculation: %s",
+            str(e),
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -1222,7 +1404,10 @@ async def get_trips(request: Request):
                     "startTime": st.astimezone(timezone.utc).isoformat(),
                     "endTime": et.astimezone(timezone.utc).isoformat(),
                     "distance": float(trip.get("distance", 0)),
-                    "timeZone": trip.get("timeZone", "America/Chicago"),
+                    "timeZone": trip.get(
+                        "timeZone",
+                        "America/Chicago",
+                    ),
                     "maxSpeed": float(trip.get("maxSpeed", 0)),
                     "startLocation": trip.get("startLocation", "N/A"),
                     "destination": trip.get("destination", "N/A"),
@@ -1240,7 +1425,8 @@ async def get_trips(request: Request):
                 }
 
                 feature = geojson_module.Feature(
-                    geometry=geom, properties=props
+                    geometry=geom,
+                    properties=props,
                 )
                 features.append(feature)
             except Exception as e:
@@ -1254,7 +1440,10 @@ async def get_trips(request: Request):
         fc = geojson_module.FeatureCollection(features)
         return JSONResponse(content=fc)
     except Exception as e:
-        logger.exception("Error in /api/trips endpoint: %s", str(e))
+        logger.exception(
+            "Error in /api/trips endpoint: %s",
+            str(e),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve trips",
@@ -1273,16 +1462,45 @@ async def get_driving_insights(request: Request):
                 "$group": {
                     "_id": None,
                     "total_trips": {"$sum": 1},
-                    "total_distance": {"$sum": {"$ifNull": ["$distance", 0]}},
-                    "total_fuel_consumed": {
-                        "$sum": {"$ifNull": ["$fuelConsumed", 0]}
+                    "total_distance": {
+                        "$sum": {
+                            "$ifNull": [
+                                "$distance",
+                                0,
+                            ]
+                        }
                     },
-                    "max_speed": {"$max": {"$ifNull": ["$maxSpeed", 0]}},
+                    "total_fuel_consumed": {
+                        "$sum": {
+                            "$ifNull": [
+                                "$fuelConsumed",
+                                0,
+                            ]
+                        }
+                    },
+                    "max_speed": {
+                        "$max": {
+                            "$ifNull": [
+                                "$maxSpeed",
+                                0,
+                            ]
+                        }
+                    },
                     "total_idle_duration": {
-                        "$sum": {"$ifNull": ["$totalIdleDuration", 0]}
+                        "$sum": {
+                            "$ifNull": [
+                                "$totalIdleDuration",
+                                0,
+                            ]
+                        }
                     },
                     "longest_trip_distance": {
-                        "$max": {"$ifNull": ["$distance", 0]}
+                        "$max": {
+                            "$ifNull": [
+                                "$distance",
+                                0,
+                            ]
+                        }
                     },
                 }
             },
@@ -1304,7 +1522,8 @@ async def get_driving_insights(request: Request):
         ]
 
         trips_mv = await aggregate_with_retry(
-            trips_collection, pipeline_most_visited
+            trips_collection,
+            pipeline_most_visited,
         )
 
         combined = {
@@ -1338,9 +1557,13 @@ async def get_driving_insights(request: Request):
 
         return JSONResponse(content=combined)
     except Exception as e:
-        logger.exception("Error in get_driving_insights: %s", str(e))
+        logger.exception(
+            "Error in get_driving_insights: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -1357,23 +1580,49 @@ async def get_metrics(request: Request):
             {
                 "$addFields": {
                     "numericDistance": {
-                        "$ifNull": [{"$toDouble": "$distance"}, 0.0]
+                        "$ifNull": [
+                            {"$toDouble": "$distance"},
+                            0.0,
+                        ]
                     },
                     "numericMaxSpeed": {
-                        "$ifNull": [{"$toDouble": "$maxSpeed"}, 0.0]
+                        "$ifNull": [
+                            {"$toDouble": "$maxSpeed"},
+                            0.0,
+                        ]
                     },
                     "duration_seconds": {
                         "$cond": {
                             "if": {
                                 "$and": [
-                                    {"$ifNull": ["$startTime", None]},
-                                    {"$ifNull": ["$endTime", None]},
-                                    {"$lt": ["$startTime", "$endTime"]},
+                                    {
+                                        "$ifNull": [
+                                            "$startTime",
+                                            None,
+                                        ]
+                                    },
+                                    {
+                                        "$ifNull": [
+                                            "$endTime",
+                                            None,
+                                        ]
+                                    },
+                                    {
+                                        "$lt": [
+                                            "$startTime",
+                                            "$endTime",
+                                        ]
+                                    },
                                 ]
                             },
                             "then": {
                                 "$divide": [
-                                    {"$subtract": ["$endTime", "$startTime"]},
+                                    {
+                                        "$subtract": [
+                                            "$endTime",
+                                            "$startTime",
+                                        ]
+                                    },
                                     1000,
                                 ]
                             },
@@ -1381,7 +1630,10 @@ async def get_metrics(request: Request):
                         }
                     },
                     "startHourUTC": {
-                        "$hour": {"date": "$startTime", "timezone": "UTC"}
+                        "$hour": {
+                            "date": "$startTime",
+                            "timezone": "UTC",
+                        }
                     },
                 }
             },
@@ -1399,24 +1651,55 @@ async def get_metrics(request: Request):
                 "$project": {
                     "_id": 0,
                     "total_trips": 1,
-                    "total_distance": {"$ifNull": ["$total_distance", 0.0]},
-                    "max_speed": {"$ifNull": ["$max_speed", 0.0]},
-                    "total_duration_seconds": {
-                        "$ifNull": ["$total_duration_seconds", 0.0]
+                    "total_distance": {
+                        "$ifNull": [
+                            "$total_distance",
+                            0.0,
+                        ]
                     },
-                    "start_hours_utc": {"$ifNull": ["$start_hours_utc", []]},
+                    "max_speed": {
+                        "$ifNull": [
+                            "$max_speed",
+                            0.0,
+                        ]
+                    },
+                    "total_duration_seconds": {
+                        "$ifNull": [
+                            "$total_duration_seconds",
+                            0.0,
+                        ]
+                    },
+                    "start_hours_utc": {
+                        "$ifNull": [
+                            "$start_hours_utc",
+                            [],
+                        ]
+                    },
                     "avg_distance": {
                         "$cond": {
-                            "if": {"$gt": ["$total_trips", 0]},
+                            "if": {
+                                "$gt": [
+                                    "$total_trips",
+                                    0,
+                                ]
+                            },
                             "then": {
-                                "$divide": ["$total_distance", "$total_trips"]
+                                "$divide": [
+                                    "$total_distance",
+                                    "$total_trips",
+                                ]
                             },
                             "else": 0.0,
                         }
                     },
                     "avg_speed": {
                         "$cond": {
-                            "if": {"$gt": ["$total_duration_seconds", 0]},
+                            "if": {
+                                "$gt": [
+                                    "$total_duration_seconds",
+                                    0,
+                                ]
+                            },
                             "then": {
                                 "$divide": [
                                     "$total_distance",
@@ -1460,7 +1743,10 @@ async def get_metrics(request: Request):
             )
 
             base_date = datetime.now(timezone.utc).replace(
-                hour=0, minute=0, second=0, microsecond=0
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
             )
             avg_utc_dt = base_date + timedelta(hours=avg_hour_utc_float)
 
@@ -1501,7 +1787,8 @@ async def get_metrics(request: Request):
     except Exception as e:
         logger.exception("Error in get_metrics: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -1520,22 +1807,35 @@ async def api_fetch_trips():
             else datetime.now(timezone.utc) - timedelta(days=7)
         )
         end_date = datetime.now(timezone.utc)
-        logger.info("Fetching trips from %s to %s", start_date, end_date)
-        await fetch_bouncie_trips_in_range(
-            start_date, end_date, do_map_match=False
+        logger.info(
+            "Fetching trips from %s to %s",
+            start_date,
+            end_date,
         )
-        return {"status": "success", "message": "New trips fetched & stored."}
+        await fetch_bouncie_trips_in_range(
+            start_date,
+            end_date,
+            do_map_match=False,
+        )
+        return {
+            "status": "success",
+            "message": "New trips fetched & stored.",
+        }
     except Exception as e:
         logger.exception("Error fetching trips: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.post("/api/fetch_trips_range")
-async def api_fetch_trips_range(data: DateRangeModel):
+async def api_fetch_trips_range(
+    data: DateRangeModel,
+):
     """Apply a date range filter to retrieve trips from the database.
-    This does NOT fetch new trips from Bouncie API."""
+    This does NOT fetch new trips from Bouncie API.
+    """
     try:
         start_date = parse_query_date(data.start_date)
         end_date = parse_query_date(data.end_date, end_of_day=True)
@@ -1546,15 +1846,24 @@ async def api_fetch_trips_range(data: DateRangeModel):
             )
 
         logger.info(
-            "Date range filter applied: %s to %s", start_date, end_date
+            "Date range filter applied: %s to %s",
+            start_date,
+            end_date,
         )
 
-        return {"status": "success", "message": "Date range filter applied."}
+        return {
+            "status": "success",
+            "message": "Date range filter applied.",
+        }
 
     except Exception as e:
-        logger.exception("Error applying date range filter: %s", str(e))
+        logger.exception(
+            "Error applying date range filter: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -1567,11 +1876,18 @@ async def api_fetch_trips_last_hour():
         await fetch_bouncie_trips_in_range(
             start_date, now_utc, do_map_match=True
         )
-        return {"status": "success", "message": "Hourly trip fetch completed."}
+        return {
+            "status": "success",
+            "message": "Hourly trip fetch completed.",
+        }
     except Exception as e:
-        logger.exception("Error fetching trips from last hour: %s", str(e))
+        logger.exception(
+            "Error fetching trips from last hour: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -1589,7 +1905,8 @@ async def process_single_trip(
 
         if not trip:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found",
             )
 
         source = trip.get("source", "unknown")
@@ -1638,14 +1955,21 @@ async def process_single_trip(
         }
 
     except Exception as e:
-        logger.exception("Error processing trip %s: %s", trip_id, str(e))
+        logger.exception(
+            "Error processing trip %s: %s",
+            trip_id,
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.post("/api/bulk_process_trips")
-async def bulk_process_trips(data: BulkProcessModel):
+async def bulk_process_trips(
+    data: BulkProcessModel,
+):
     """Process multiple trips in bulk with configurable options."""
     try:
         query = data.query
@@ -1731,9 +2055,13 @@ async def bulk_process_trips(data: BulkProcessModel):
             "results": results,
         }
     except Exception as e:
-        logger.exception("Error in bulk_process_trips: %s", str(e))
+        logger.exception(
+            "Error in bulk_process_trips: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -1745,7 +2073,8 @@ async def get_trip_status(trip_id: str):
 
         if not trip:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found",
             )
 
         status_info = {
@@ -1779,10 +2108,13 @@ async def get_trip_status(trip_id: str):
 
     except Exception as e:
         logger.exception(
-            "Error getting trip status for %s: %s", trip_id, str(e)
+            "Error getting trip status for %s: %s",
+            trip_id,
+            str(e),
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -1804,7 +2136,8 @@ async def export_geojson(request: Request):
     except Exception as e:
         logger.exception("Error exporting GeoJSON: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -1817,19 +2150,23 @@ async def export_gpx(request: Request):
 
         if not trips:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="No trips found."
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No trips found.",
             )
 
         return await export_gpx_response(trips, "trips")
     except Exception as e:
         logger.exception("Error exporting GPX: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.post("/api/validate_location")
-async def validate_location(data: ValidateLocationModel):
+async def validate_location(
+    data: ValidateLocationModel,
+):
     """Validate a location using OpenStreetMap."""
     validated = await validate_location_osm(data.location, data.locationType)
     return validated
@@ -1837,7 +2174,8 @@ async def validate_location(data: ValidateLocationModel):
 
 @app.post("/api/generate_geojson")
 async def generate_geojson_endpoint(
-    location: LocationModel, streets_only: bool = False
+    location: LocationModel,
+    streets_only: bool = False,
 ):
     """Generate GeoJSON for a location using the imported function."""
     geojson_data, err = await generate_geojson_osm(
@@ -1846,7 +2184,8 @@ async def generate_geojson_endpoint(
     if geojson_data:
         return geojson_data
     raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST, detail=err or "Unknown error"
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=err or "Unknown error",
     )
 
 
@@ -1875,7 +2214,10 @@ async def map_match_trips_endpoint(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid date format",
                 )
-            query["startTime"] = {"$gte": parsed_start, "$lte": parsed_end}
+            query["startTime"] = {
+                "$gte": parsed_start,
+                "$lte": parsed_end,
+            }
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1896,7 +2238,8 @@ async def map_match_trips_endpoint(
             try:
                 source = trip.get("source", "unknown")
                 processor = TripProcessor(
-                    mapbox_token=MAPBOX_ACCESS_TOKEN, source=source
+                    mapbox_token=MAPBOX_ACCESS_TOKEN,
+                    source=source,
                 )
                 processor.set_trip_data(trip)
                 await processor.process(do_map_match=True)
@@ -1926,9 +2269,13 @@ async def map_match_trips_endpoint(
         }
 
     except Exception as e:
-        logger.exception("Error in map_match_trips endpoint: %s", str(e))
+        logger.exception(
+            "Error in map_match_trips endpoint: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -1968,16 +2315,23 @@ async def get_matched_trips(request: Request):
                         "startLocation": trip.get("startLocation", "N/A"),
                         "maxSpeed": float(trip.get("maxSpeed", 0)),
                         "averageSpeed": (
-                            float(trip.get("averageSpeed", 0))
+                            float(
+                                trip.get(
+                                    "averageSpeed",
+                                    0,
+                                )
+                            )
                             if trip.get("averageSpeed") is not None
                             else None
                         ),
                         "hardBrakingCount": trip.get("hardBrakingCount", 0),
                         "hardAccelerationCount": trip.get(
-                            "hardAccelerationCount", 0
+                            "hardAccelerationCount",
+                            0,
                         ),
                         "totalIdleDurationFormatted": trip.get(
-                            "totalIdleDurationFormatted", None
+                            "totalIdleDurationFormatted",
+                            None,
                         ),
                         "source": trip.get("source", "unknown"),
                     },
@@ -1994,14 +2348,20 @@ async def get_matched_trips(request: Request):
         fc = geojson_module.FeatureCollection(features)
         return JSONResponse(content=fc)
     except Exception as e:
-        logger.exception("Error in get_matched_trips: %s", str(e))
+        logger.exception(
+            "Error in get_matched_trips: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.post("/api/matched_trips/delete")
-async def delete_matched_trips(data: DateRangeModel):
+async def delete_matched_trips(
+    data: DateRangeModel,
+):
     """Delete matched trips within a date range."""
     try:
         start_date = parse_query_date(data.start_date)
@@ -2019,24 +2379,41 @@ async def delete_matched_trips(data: DateRangeModel):
             current_start = start_date
             while current_start < end_date:
                 current_end = min(
-                    current_start + timedelta(days=interval_days), end_date
+                    current_start + timedelta(days=interval_days),
+                    end_date,
                 )
                 result = await delete_many_with_retry(
                     matched_trips_collection,
-                    {"startTime": {"$gte": current_start, "$lt": current_end}},
+                    {
+                        "startTime": {
+                            "$gte": current_start,
+                            "$lt": current_end,
+                        }
+                    },
                 )
                 total_deleted_count += result.deleted_count
                 current_start = current_end
         else:
             result = await delete_many_with_retry(
                 matched_trips_collection,
-                {"startTime": {"$gte": start_date, "$lte": end_date}},
+                {
+                    "startTime": {
+                        "$gte": start_date,
+                        "$lte": end_date,
+                    }
+                },
             )
             total_deleted_count = result.deleted_count
 
-        return {"status": "success", "deleted_count": total_deleted_count}
+        return {
+            "status": "success",
+            "deleted_count": total_deleted_count,
+        }
     except Exception as e:
-        logger.exception("Error in delete_matched_trips: %s", str(e))
+        logger.exception(
+            "Error in delete_matched_trips: %s",
+            str(e),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting matched trips: {e}",
@@ -2044,11 +2421,17 @@ async def delete_matched_trips(data: DateRangeModel):
 
 
 @app.post("/api/matched_trips/remap")
-async def remap_matched_trips(data: Optional[DateRangeModel] = None):
+async def remap_matched_trips(
+    data: Optional[DateRangeModel] = None,
+):
     """Remap matched trips, optionally within a date range."""
     try:
         if not data:
-            data = DateRangeModel(start_date="", end_date="", interval_days=0)
+            data = DateRangeModel(
+                start_date="",
+                end_date="",
+                interval_days=0,
+            )
 
         if data.interval_days > 0:
             start_date = datetime.now(timezone.utc) - timedelta(
@@ -2067,12 +2450,22 @@ async def remap_matched_trips(data: Optional[DateRangeModel] = None):
 
         await delete_many_with_retry(
             matched_trips_collection,
-            {"startTime": {"$gte": start_date, "$lte": end_date}},
+            {
+                "startTime": {
+                    "$gte": start_date,
+                    "$lte": end_date,
+                }
+            },
         )
 
         trips_list = await find_with_retry(
             trips_collection,
-            {"startTime": {"$gte": start_date, "$lte": end_date}},
+            {
+                "startTime": {
+                    "$gte": start_date,
+                    "$lte": end_date,
+                }
+            },
         )
 
         processed_count = 0
@@ -2080,7 +2473,8 @@ async def remap_matched_trips(data: Optional[DateRangeModel] = None):
             try:
                 source = trip.get("source", "unknown")
                 processor = TripProcessor(
-                    mapbox_token=MAPBOX_ACCESS_TOKEN, source=source
+                    mapbox_token=MAPBOX_ACCESS_TOKEN,
+                    source=source,
                 )
                 processor.set_trip_data(trip)
                 await processor.process(do_map_match=True)
@@ -2099,7 +2493,10 @@ async def remap_matched_trips(data: Optional[DateRangeModel] = None):
         }
 
     except Exception as e:
-        logger.exception("Error in remap_matched_trips: %s", str(e))
+        logger.exception(
+            "Error in remap_matched_trips: %s",
+            str(e),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error re-matching trips: {e}",
@@ -2108,17 +2505,20 @@ async def remap_matched_trips(data: Optional[DateRangeModel] = None):
 
 @app.get("/api/export/trip/{trip_id}")
 async def export_single_trip(
-    trip_id: str, fmt: str = Query("geojson", description="Export format")
+    trip_id: str,
+    fmt: str = Query("geojson", description="Export format"),
 ):
     """Export a single trip by ID."""
     try:
         t = await find_one_with_retry(
-            trips_collection, {"transactionId": trip_id}
+            trips_collection,
+            {"transactionId": trip_id},
         )
 
         if not t:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found",
             )
 
         start_date = t.get("startTime")
@@ -2130,13 +2530,19 @@ async def export_single_trip(
         return await create_export_response([t], fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         )
 
     except Exception as e:
-        logger.exception("Error exporting trip %s: %s", trip_id, str(e))
+        logger.exception(
+            "Error exporting trip %s: %s",
+            trip_id,
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -2154,15 +2560,24 @@ async def delete_matched_trip(trip_id: str):
             },
         )
         if result.deleted_count:
-            return {"status": "success", "message": "Deleted matched trip"}
+            return {
+                "status": "success",
+                "message": "Deleted matched trip",
+            }
 
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trip not found",
         )
     except Exception as e:
-        logger.exception("Error deleting matched trip %s: %s", trip_id, str(e))
+        logger.exception(
+            "Error deleting matched trip %s: %s",
+            trip_id,
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -2180,25 +2595,34 @@ async def export_all_trips(
         if fmt == "json":
             return JSONResponse(
                 content=json.loads(
-                    json.dumps(all_trips, default=default_serializer)
+                    json.dumps(
+                        all_trips,
+                        default=default_serializer,
+                    )
                 )
             )
 
         return await create_export_response(all_trips, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         )
     except Exception as e:
-        logger.exception("Error exporting all trips: %s", str(e))
+        logger.exception(
+            "Error exporting all trips: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.get("/api/export/trips")
 async def export_trips_within_range(
-    request: Request, fmt: str = Query("geojson", description="Export format")
+    request: Request,
+    fmt: str = Query("geojson", description="Export format"),
 ):
     """Export trips within a date range."""
     try:
@@ -2218,19 +2642,25 @@ async def export_trips_within_range(
         return await create_export_response(all_trips, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         )
 
     except Exception as e:
-        logger.exception("Error exporting trips within range: %s", str(e))
+        logger.exception(
+            "Error exporting trips within range: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.get("/api/export/matched_trips")
 async def export_matched_trips_within_range(
-    request: Request, fmt: str = Query("geojson", description="Export format")
+    request: Request,
+    fmt: str = Query("geojson", description="Export format"),
 ):
     """Export matched trips within a date range."""
     try:
@@ -2250,18 +2680,26 @@ async def export_matched_trips_within_range(
         return await create_export_response(matched, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         )
     except Exception as e:
-        logger.exception("Error exporting matched trips: %s", str(e))
+        logger.exception(
+            "Error exporting matched trips: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.get("/api/export/streets")
 async def export_streets(
-    location: str = Query(..., description="Location data in JSON format"),
+    location: str = Query(
+        ...,
+        description="Location data in JSON format",
+    ),
     fmt: str = Query("geojson", description="Export format"),
 ):
     """Export streets data for a location."""
@@ -2288,18 +2726,26 @@ async def export_streets(
         return await create_export_response(data, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         )
     except Exception as e:
-        logger.exception("Error exporting streets data: %s", str(e))
+        logger.exception(
+            "Error exporting streets data: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.get("/api/export/boundary")
 async def export_boundary(
-    location: str = Query(..., description="Location data in JSON format"),
+    location: str = Query(
+        ...,
+        description="Location data in JSON format",
+    ),
     fmt: str = Query("geojson", description="Export format"),
 ):
     """Export boundary data for a location."""
@@ -2326,18 +2772,25 @@ async def export_boundary(
         return await create_export_response(data, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         )
 
     except Exception as e:
-        logger.exception("Error exporting boundary data: %s", str(e))
+        logger.exception(
+            "Error exporting boundary data: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.post("/api/preprocess_streets")
-async def preprocess_streets_route(location_data: LocationModel):
+async def preprocess_streets_route(
+    location_data: LocationModel,
+):
     """Preprocess streets data for a validated location received in the request
     body.
 
@@ -2385,17 +2838,27 @@ async def preprocess_streets_route(location_data: LocationModel):
 
         task_id = str(uuid.uuid4())
         asyncio.create_task(process_area(validated_location_dict, task_id))
-        return {"status": "success", "task_id": task_id}
+        return {
+            "status": "success",
+            "task_id": task_id,
+        }
 
     except Exception as e:
         logger.exception(
-            "Error in preprocess_streets_route for %s: %s", display_name, e
+            "Error in preprocess_streets_route for %s: %s",
+            display_name,
+            e,
         )
         try:
             if display_name:
                 await coverage_metadata_collection.update_one(
                     {"location.display_name": display_name},
-                    {"$set": {"status": "error", "last_error": str(e)}},
+                    {
+                        "$set": {
+                            "status": "error",
+                            "last_error": str(e),
+                        }
+                    },
                 )
         except Exception as db_err:
             logger.error(
@@ -2404,12 +2867,15 @@ async def preprocess_streets_route(location_data: LocationModel):
                 db_err,
             )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.get("/api/street_segment/{segment_id}")
-async def get_street_segment_details(segment_id: str):
+async def get_street_segment_details(
+    segment_id: str,
+):
     """Get details for a specific street segment."""
     try:
         segment = await find_one_with_retry(
@@ -2424,9 +2890,13 @@ async def get_street_segment_details(segment_id: str):
             )
         return segment
     except Exception as e:
-        logger.exception("Error fetching segment details: %s", str(e))
+        logger.exception(
+            "Error fetching segment details: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -2435,7 +2905,9 @@ async def get_last_trip_point():
     """Get coordinates of the last point in the most recent trip."""
     try:
         most_recent = await find_one_with_retry(
-            trips_collection, {}, sort=[("endTime", -1)]
+            trips_collection,
+            {},
+            sort=[("endTime", -1)],
         )
 
         if not most_recent:
@@ -2450,7 +2922,10 @@ async def get_last_trip_point():
 
         return {"lastPoint": gps_data["coordinates"][-1]}
     except Exception as e:
-        logger.exception("Error get_last_trip_point: %s", str(e))
+        logger.exception(
+            "Error get_last_trip_point: %s",
+            str(e),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve last trip point",
@@ -2465,7 +2940,8 @@ async def get_single_trip(trip_id: str):
 
         if not trip:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found",
             )
 
         return {
@@ -2488,15 +2964,18 @@ async def delete_trip(trip_id: str):
 
         if not trip:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found",
             )
 
         result = await delete_one_with_retry(
-            trips_collection, {"transactionId": trip_id}
+            trips_collection,
+            {"transactionId": trip_id},
         )
 
         matched_delete_result = await delete_one_with_retry(
-            matched_trips_collection, {"transactionId": trip_id}
+            matched_trips_collection,
+            {"transactionId": trip_id},
         )
 
         if result.deleted_count == 1:
@@ -2529,7 +3008,9 @@ async def get_first_trip_date():
     """Get the date of the earliest trip in the database."""
     try:
         earliest_trip = await find_one_with_retry(
-            trips_collection, {}, sort=[("startTime", 1)]
+            trips_collection,
+            {},
+            sort=[("startTime", 1)],
         )
 
         if not earliest_trip or not earliest_trip.get("startTime"):
@@ -2548,14 +3029,20 @@ async def get_first_trip_date():
             )
         }
     except Exception as e:
-        logger.exception("get_first_trip_date error: %s", str(e))
+        logger.exception(
+            "get_first_trip_date error: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.post("/api/upload_gpx")
-async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
+async def upload_gpx_endpoint(
+    files: List[UploadFile] = File(...),
+):
     """Upload GPX or GeoJSON files and process them into the trips
     collection."""
     try:
@@ -2614,7 +3101,9 @@ async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
                             success_count += 1
                 except Exception as gpx_err:
                     logger.error(
-                        "Error processing GPX file %s: %s", filename, gpx_err
+                        "Error processing GPX file %s: %s",
+                        filename,
+                        gpx_err,
                     )
                     continue
 
@@ -2625,11 +3114,15 @@ async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
                     if trips_to_process:
                         for trip_dict in trips_to_process:
                             await process_and_store_trip(
-                                trip_dict, source="upload_geojson"
+                                trip_dict,
+                                source="upload_geojson",
                             )
                             success_count += 1
                 except json.JSONDecodeError:
-                    logger.warning("Invalid GeoJSON: %s", filename)
+                    logger.warning(
+                        "Invalid GeoJSON: %s",
+                        filename,
+                    )
                     continue
                 except Exception as geojson_err:
                     logger.error(
@@ -2640,7 +3133,8 @@ async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
                     continue
             else:
                 logger.warning(
-                    "Skipping unhandled file extension: %s", filename
+                    "Skipping unhandled file extension: %s",
+                    filename,
                 )
 
         return {
@@ -2650,12 +3144,15 @@ async def upload_gpx_endpoint(files: List[UploadFile] = File(...)):
     except Exception as e:
         logger.exception("Error upload_gpx: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.post("/api/upload")
-async def upload_files(files: List[UploadFile] = File(...)):
+async def upload_files(
+    files: List[UploadFile] = File(...),
+):
     """Upload GPX or GeoJSON files and process them into the trips
     collection."""
     try:
@@ -2674,7 +3171,11 @@ async def upload_files(files: List[UploadFile] = File(...)):
                             if not seg.points or len(seg.points) < 2:
                                 continue
                             coords = [
-                                [p.longitude, p.latitude] for p in seg.points
+                                [
+                                    p.longitude,
+                                    p.latitude,
+                                ]
+                                for p in seg.points
                             ]
                             times = [p.time for p in seg.points if p.time]
                             if not times:
@@ -2696,7 +3197,8 @@ async def upload_files(files: List[UploadFile] = File(...)):
                                 "source": "upload_gpx",
                             }
                             await process_and_store_trip(
-                                trip_dict, source="upload_gpx"
+                                trip_dict,
+                                source="upload_gpx",
                             )
                             count += 1
                 except Exception as gpx_err:
@@ -2714,11 +3216,15 @@ async def upload_files(files: List[UploadFile] = File(...)):
                     if trips:
                         for t in trips:
                             await process_and_store_trip(
-                                t, source="upload_geojson"
+                                t,
+                                source="upload_geojson",
                             )
                             count += 1
                 except json.JSONDecodeError:
-                    logger.warning("Invalid geojson: %s", filename)
+                    logger.warning(
+                        "Invalid geojson: %s",
+                        filename,
+                    )
                     continue
                 except Exception as geojson_err:
                     logger.error(
@@ -2728,11 +3234,15 @@ async def upload_files(files: List[UploadFile] = File(...)):
                     )
                     continue
 
-        return {"status": "success", "message": f"Processed {count} trips"}
+        return {
+            "status": "success",
+            "message": f"Processed {count} trips",
+        }
     except Exception as e:
         logger.exception("Error uploading files: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -2774,11 +3284,18 @@ async def get_trip_analytics(request: Request):
             for r in res:
                 date_key = r["_id"]["date"]
                 if date_key not in daily_data:
-                    daily_data[date_key] = {"distance": 0, "count": 0}
+                    daily_data[date_key] = {
+                        "distance": 0,
+                        "count": 0,
+                    }
                 daily_data[date_key]["distance"] += r["totalDistance"]
                 daily_data[date_key]["count"] += r["tripCount"]
             return [
-                {"date": d, "distance": v["distance"], "count": v["count"]}
+                {
+                    "date": d,
+                    "distance": v["distance"],
+                    "count": v["count"],
+                }
                 for d, v in sorted(daily_data.items())
             ]
 
@@ -2806,12 +3323,15 @@ async def get_trip_analytics(request: Request):
     except Exception as e:
         logger.exception("Error trip analytics: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.post("/update_geo_points")
-async def update_geo_points_route(collection_name: str):
+async def update_geo_points_route(
+    collection_name: str,
+):
     """Update geo points for all trips in a collection."""
     if collection_name != "trips":
         raise HTTPException(
@@ -2825,7 +3345,10 @@ async def update_geo_points_route(collection_name: str):
         await update_geo_points(collection)
         return {"message": f"GeoPoints updated for {collection_name}"}
     except Exception as e:
-        logger.exception("Error in update_geo_points_route: %s", str(e))
+        logger.exception(
+            "Error in update_geo_points_route: %s",
+            str(e),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating GeoPoints: {e}",
@@ -2862,7 +3385,10 @@ async def regeocode_all_trips():
 
         return {"message": "All trips re-geocoded successfully."}
     except Exception as e:
-        logger.exception("Error in regeocode_all_trips: %s", str(e))
+        logger.exception(
+            "Error in regeocode_all_trips: %s",
+            str(e),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error re-geocoding trips: {e}",
@@ -2870,7 +3396,9 @@ async def regeocode_all_trips():
 
 
 @app.post("/api/trips/refresh_geocoding")
-async def refresh_geocoding_for_trips(trip_ids: List[str]):
+async def refresh_geocoding_for_trips(
+    trip_ids: List[str],
+):
     """Refresh geocoding for specific trips."""
     if not trip_ids:
         raise HTTPException(
@@ -2883,12 +3411,14 @@ async def refresh_geocoding_for_trips(trip_ids: List[str]):
     for trip_id in trip_ids:
         try:
             trip = await find_one_with_retry(
-                trips_collection, {"transactionId": trip_id}
+                trips_collection,
+                {"transactionId": trip_id},
             )
             if trip:
                 source = trip.get("source", "unknown")
                 processor = TripProcessor(
-                    mapbox_token=MAPBOX_ACCESS_TOKEN, source=source
+                    mapbox_token=MAPBOX_ACCESS_TOKEN,
+                    source=source,
                 )
                 processor.set_trip_data(trip)
                 await processor.validate()
@@ -2907,12 +3437,15 @@ async def refresh_geocoding_for_trips(trip_ids: List[str]):
                     failed_count += 1
             else:
                 logger.warning(
-                    "Trip not found for geocoding refresh: %s", trip_id
+                    "Trip not found for geocoding refresh: %s",
+                    trip_id,
                 )
                 failed_count += 1
         except Exception as e:
             logger.error(
-                "Error refreshing geocoding for trip %s: %s", trip_id, str(e)
+                "Error refreshing geocoding for trip %s: %s",
+                trip_id,
+                str(e),
             )
             failed_count += 1
 
@@ -2938,7 +3471,10 @@ async def bouncie_webhook(request: Request):
                 "Failed to parse JSON from Bouncie webhook request body."
             )
             return JSONResponse(
-                content={"status": "error", "message": "Invalid JSON body"},
+                content={
+                    "status": "error",
+                    "message": "Invalid JSON body",
+                },
                 status_code=400,
             )
 
@@ -2987,7 +3523,8 @@ async def bouncie_webhook(request: Request):
             )
 
         return JSONResponse(
-            content={"status": "acknowledged"}, status_code=202
+            content={"status": "acknowledged"},
+            status_code=202,
         )
 
     except Exception as e:
@@ -3028,13 +3565,16 @@ async def active_trip_endpoint():
             active_trip_doc.get("transactionId", "unknown"),
         )
         return ActiveTripSuccessResponse(
-            trip=active_trip_doc, server_time=datetime.now(timezone.utc)
+            trip=active_trip_doc,
+            server_time=datetime.now(timezone.utc),
         )
 
     except Exception as e:
         error_id = str(uuid.uuid4())
         logger.exception(
-            "Internal error fetching active trip [%s]: %s", error_id, str(e)
+            "Internal error fetching active trip [%s]: %s",
+            error_id,
+            str(e),
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -3056,7 +3596,10 @@ async def trip_updates_endpoint(last_sequence: int = Query(0, ge=0)):
         Dict: Contains status, has_update flag, and trip data if available
     """
     try:
-        logger.info("Fetching trip updates since sequence %d", last_sequence)
+        logger.info(
+            "Fetching trip updates since sequence %d",
+            last_sequence,
+        )
 
         if not db_manager._connection_healthy:
             logger.error("Database connection is unhealthy")
@@ -3080,7 +3623,8 @@ async def trip_updates_endpoint(last_sequence: int = Query(0, ge=0)):
             )
         else:
             logger.info(
-                "No trip updates found since sequence %d", last_sequence
+                "No trip updates found since sequence %d",
+                last_sequence,
             )
 
         updates["server_time"] = datetime.now(timezone.utc).isoformat()
@@ -3089,7 +3633,9 @@ async def trip_updates_endpoint(last_sequence: int = Query(0, ge=0)):
     except Exception as e:
         error_id = str(uuid.uuid4())
         logger.exception(
-            "Error in trip_updates endpoint [%s]: %s", error_id, str(e)
+            "Error in trip_updates endpoint [%s]: %s",
+            error_id,
+            str(e),
         )
 
         error_message = str(e)
@@ -3137,13 +3683,19 @@ async def clear_collection(data: CollectionModel):
         }
 
     except Exception as e:
-        logger.exception("Error clearing collection: %s", str(e))
+        logger.exception(
+            "Error clearing collection: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
-async def _recalculate_coverage_stats(location_id: ObjectId) -> Optional[Dict]:
+async def _recalculate_coverage_stats(
+    location_id: ObjectId,
+) -> Optional[Dict]:
     """Internal helper to recalculate stats for a coverage area based on streets_collection."""
     try:
         coverage_area = await find_one_with_retry(
@@ -3171,7 +3723,12 @@ async def _recalculate_coverage_stats(location_id: ObjectId) -> Optional[Dict]:
                     "driveable_length": {
                         "$sum": {
                             "$cond": [
-                                {"$eq": ["$properties.undriveable", True]},
+                                {
+                                    "$eq": [
+                                        "$properties.undriveable",
+                                        True,
+                                    ]
+                                },
                                 0,
                                 "$properties.segment_length",
                             ]
@@ -3180,7 +3737,12 @@ async def _recalculate_coverage_stats(location_id: ObjectId) -> Optional[Dict]:
                     "driven_length": {
                         "$sum": {
                             "$cond": [
-                                {"$eq": ["$properties.driven", True]},
+                                {
+                                    "$eq": [
+                                        "$properties.driven",
+                                        True,
+                                    ]
+                                },
                                 "$properties.segment_length",
                                 0,
                             ]
@@ -3247,7 +3809,10 @@ async def _recalculate_coverage_stats(location_id: ObjectId) -> Optional[Dict]:
                     street_types_summary[stype]["covered"] += 1
 
             final_street_types = []
-            for stype, data in street_types_summary.items():
+            for (
+                stype,
+                data,
+            ) in street_types_summary.items():
                 type_driveable_length = (
                     data["length"] - data["undriveable_length"]
                 )
@@ -3267,7 +3832,10 @@ async def _recalculate_coverage_stats(location_id: ObjectId) -> Optional[Dict]:
                         "undriveable_length": data["undriveable_length"],
                     }
                 )
-            final_street_types.sort(key=lambda x: x["length"], reverse=True)
+            final_street_types.sort(
+                key=lambda x: x["length"],
+                reverse=True,
+            )
 
             stats = {
                 "total_length": total_length,
@@ -3301,7 +3869,8 @@ async def _recalculate_coverage_stats(location_id: ObjectId) -> Optional[Dict]:
             )
 
         updated_coverage_area = await find_one_with_retry(
-            coverage_metadata_collection, {"_id": location_id}
+            coverage_metadata_collection,
+            {"_id": location_id},
         )
         if updated_coverage_area:
             updated_coverage_area["_id"] = str(updated_coverage_area["_id"])
@@ -3315,7 +3884,8 @@ async def _recalculate_coverage_stats(location_id: ObjectId) -> Optional[Dict]:
 
     except Exception as e:
         logger.error(
-            f"Error recalculating stats for {location_id}: {e}", exc_info=True
+            f"Error recalculating stats for {location_id}: {e}",
+            exc_info=True,
         )
         await update_one_with_retry(
             coverage_metadata_collection,
@@ -3331,27 +3901,36 @@ async def _recalculate_coverage_stats(location_id: ObjectId) -> Optional[Dict]:
 
 
 async def _mark_segment(
-    location_id_str: str, segment_id: str, updates: Dict, action_name: str
+    location_id_str: str,
+    segment_id: str,
+    updates: Dict,
+    action_name: str,
 ):
     """Helper function to mark a street segment."""
     if not location_id_str or not segment_id:
         raise HTTPException(
-            status_code=400, detail="Missing location_id or segment_id"
+            status_code=400,
+            detail="Missing location_id or segment_id",
         )
 
     try:
         location_id = ObjectId(location_id_str)
     except Exception:
         raise HTTPException(
-            status_code=400, detail="Invalid location_id format"
+            status_code=400,
+            detail="Invalid location_id format",
         )
 
     segment_doc = await find_one_with_retry(
-        streets_collection, {"properties.segment_id": segment_id}
+        streets_collection,
+        {"properties.segment_id": segment_id},
     )
 
     if not segment_doc:
-        raise HTTPException(status_code=404, detail="Street segment not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Street segment not found",
+        )
 
     if segment_doc.get("properties", {}).get(
         "location_id"
@@ -3402,11 +3981,16 @@ async def _mark_segment(
         },
     )
 
-    return {"success": True, "message": f"Segment marked as {action_name}"}
+    return {
+        "success": True,
+        "message": f"Segment marked as {action_name}",
+    }
 
 
 @app.post("/api/street_segments/mark_driven")
-async def mark_street_segment_as_driven(request: Request):
+async def mark_street_segment_as_driven(
+    request: Request,
+):
     """Mark a street segment as manually driven."""
     try:
         data = await request.json()
@@ -3420,7 +4004,12 @@ async def mark_street_segment_as_driven(request: Request):
             "manually_marked_undriveable": False,
             "manually_marked_driveable": False,
         }
-        return await _mark_segment(location_id, segment_id, updates, "driven")
+        return await _mark_segment(
+            location_id,
+            segment_id,
+            updates,
+            "driven",
+        )
     except HTTPException as http_exc:
         logger.error(
             f"Error marking driven (HTTP {http_exc.status_code}): {http_exc.detail}"
@@ -3428,13 +4017,16 @@ async def mark_street_segment_as_driven(request: Request):
         raise http_exc
     except Exception as e:
         logger.error(
-            f"Error marking street segment as driven: {e}", exc_info=True
+            f"Error marking street segment as driven: {e}",
+            exc_info=True,
         )
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/street_segments/mark_undriven")
-async def mark_street_segment_as_undriven(request: Request):
+async def mark_street_segment_as_undriven(
+    request: Request,
+):
     """Mark a street segment as manually undriven (not driven)."""
     try:
         data = await request.json()
@@ -3446,7 +4038,10 @@ async def mark_street_segment_as_undriven(request: Request):
             "manually_marked_driven": False,
         }
         return await _mark_segment(
-            location_id, segment_id, updates, "undriven"
+            location_id,
+            segment_id,
+            updates,
+            "undriven",
         )
     except HTTPException as http_exc:
         logger.error(
@@ -3455,13 +4050,16 @@ async def mark_street_segment_as_undriven(request: Request):
         raise http_exc
     except Exception as e:
         logger.error(
-            f"Error marking street segment as undriven: {e}", exc_info=True
+            f"Error marking street segment as undriven: {e}",
+            exc_info=True,
         )
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/street_segments/mark_undriveable")
-async def mark_street_segment_as_undriveable(request: Request):
+async def mark_street_segment_as_undriveable(
+    request: Request,
+):
     """Mark a street segment as undriveable (cannot be driven)."""
     try:
         data = await request.json()
@@ -3476,7 +4074,10 @@ async def mark_street_segment_as_undriveable(request: Request):
             "manually_marked_undriven": False,
         }
         return await _mark_segment(
-            location_id, segment_id, updates, "undriveable"
+            location_id,
+            segment_id,
+            updates,
+            "undriveable",
         )
     except HTTPException as http_exc:
         logger.error(
@@ -3485,13 +4086,16 @@ async def mark_street_segment_as_undriveable(request: Request):
         raise http_exc
     except Exception as e:
         logger.error(
-            f"Error marking street segment as undriveable: {e}", exc_info=True
+            f"Error marking street segment as undriveable: {e}",
+            exc_info=True,
         )
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/street_segments/mark_driveable")
-async def mark_street_segment_as_driveable(request: Request):
+async def mark_street_segment_as_driveable(
+    request: Request,
+):
     """Mark a street segment as driveable (removing undriveable status)."""
     try:
         data = await request.json()
@@ -3503,7 +4107,10 @@ async def mark_street_segment_as_driveable(request: Request):
             "manually_marked_undriveable": False,
         }
         return await _mark_segment(
-            location_id, segment_id, updates, "driveable"
+            location_id,
+            segment_id,
+            updates,
+            "driveable",
         )
     except HTTPException as http_exc:
         logger.error(
@@ -3512,13 +4119,16 @@ async def mark_street_segment_as_driveable(request: Request):
         raise http_exc
     except Exception as e:
         logger.error(
-            f"Error marking street segment as driveable: {e}", exc_info=True
+            f"Error marking street segment as driveable: {e}",
+            exc_info=True,
         )
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/coverage_areas/{location_id}/refresh_stats")
-async def refresh_coverage_stats(location_id: str):
+async def refresh_coverage_stats(
+    location_id: str,
+):
     """Refresh statistics for a coverage area after manual street modifications."""
     logger.info(
         f"Received request to refresh stats for location_id: {location_id}"
@@ -3527,7 +4137,8 @@ async def refresh_coverage_stats(location_id: str):
         obj_location_id = ObjectId(location_id)
     except Exception:
         raise HTTPException(
-            status_code=400, detail="Invalid location_id format"
+            status_code=400,
+            detail="Invalid location_id format",
         )
 
     try:
@@ -3537,16 +4148,20 @@ async def refresh_coverage_stats(location_id: str):
 
         if updated_coverage_data is None:
             raise HTTPException(
-                status_code=500, detail="Failed to recalculate statistics"
+                status_code=500,
+                detail="Failed to recalculate statistics",
             )
 
         serialized_data = json.loads(
             json.dumps(
-                {"success": True, "coverage": updated_coverage_data},
+                {
+                    "success": True,
+                    "coverage": updated_coverage_data,
+                },
                 default=lambda obj: (
                     obj.isoformat()
                     if isinstance(obj, datetime)
-                    else str(obj) if isinstance(obj, ObjectId) else None
+                    else (str(obj) if isinstance(obj, ObjectId) else None)
                 ),
             )
         )
@@ -3581,10 +4196,12 @@ async def get_coverage_areas():
                     "_id": str(area["_id"]),
                     "location": area["location"],
                     "total_length": area.get(
-                        "total_length_m", area.get("total_length", 0)
+                        "total_length_m",
+                        area.get("total_length", 0),
                     ),
                     "driven_length": area.get(
-                        "driven_length_m", area.get("driven_length", 0)
+                        "driven_length_m",
+                        area.get("driven_length", 0),
                     ),
                     "coverage_percentage": area.get("coverage_percentage", 0),
                     "last_updated": area.get("last_updated"),
@@ -3596,12 +4213,17 @@ async def get_coverage_areas():
             ],
         }
     except Exception as e:
-        logger.error("Error fetching coverage areas: %s", str(e))
+        logger.error(
+            "Error fetching coverage areas: %s",
+            str(e),
+        )
         return {"success": False, "error": str(e)}
 
 
 @app.post("/api/coverage_areas/delete")
-async def delete_coverage_area(location: DeleteCoverageAreaModel):
+async def delete_coverage_area(
+    location: DeleteCoverageAreaModel,
+):
     """Delete a coverage area and all associated data."""
     try:
         display_name = location.display_name
@@ -3636,7 +4258,8 @@ async def delete_coverage_area(location: DeleteCoverageAreaModel):
 
         try:
             await delete_many_with_retry(
-                progress_collection, {"location": display_name}
+                progress_collection,
+                {"location": display_name},
             )
             logger.info(f"Deleted progress data for {display_name}")
         except Exception as progress_err:
@@ -3646,7 +4269,8 @@ async def delete_coverage_area(location: DeleteCoverageAreaModel):
 
         try:
             await delete_many_with_retry(
-                osm_data_collection, {"location.display_name": display_name}
+                osm_data_collection,
+                {"location.display_name": display_name},
             )
             logger.info(f"Deleted cached OSM data for {display_name}")
         except Exception as osm_err:
@@ -3655,7 +4279,8 @@ async def delete_coverage_area(location: DeleteCoverageAreaModel):
             )
 
         await delete_many_with_retry(
-            streets_collection, {"properties.location": display_name}
+            streets_collection,
+            {"properties.location": display_name},
         )
         logger.info(f"Deleted street segments for {display_name}")
 
@@ -3673,14 +4298,20 @@ async def delete_coverage_area(location: DeleteCoverageAreaModel):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Error deleting coverage area: %s", str(e))
+        logger.exception(
+            "Error deleting coverage area: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
 @app.post("/api/coverage_areas/cancel")
-async def cancel_coverage_area(location: DeleteCoverageAreaModel):
+async def cancel_coverage_area(
+    location: DeleteCoverageAreaModel,
+):
     """Cancel processing of a coverage area."""
     try:
         display_name = location.display_name
@@ -3707,9 +4338,13 @@ async def cancel_coverage_area(location: DeleteCoverageAreaModel):
         }
 
     except Exception as e:
-        logger.exception("Error canceling coverage area: %s", str(e))
+        logger.exception(
+            "Error canceling coverage area: %s",
+            str(e),
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -3732,7 +4367,10 @@ async def get_storage_info():
             "usage_percent": storage_usage_percent,
         }
     except Exception as e:
-        logger.exception("Error getting storage info: %s", str(e))
+        logger.exception(
+            "Error getting storage info: %s",
+            str(e),
+        )
         return {
             "used_mb": 0,
             "limit_mb": 512,
@@ -3742,14 +4380,17 @@ async def get_storage_info():
 
 
 @app.get("/api/coverage_areas/{location_id}")
-async def get_coverage_area_details(location_id: str):
+async def get_coverage_area_details(
+    location_id: str,
+):
     """Get detailed information about a coverage area, fetching GeoJSON from
     GridFS."""
     try:
         coverage_doc = None
         try:
             coverage_doc = await find_one_with_retry(
-                coverage_metadata_collection, {"_id": ObjectId(location_id)}
+                coverage_metadata_collection,
+                {"_id": ObjectId(location_id)},
             )
         except Exception:
             coverage_doc = await find_one_with_retry(
@@ -3758,9 +4399,13 @@ async def get_coverage_area_details(location_id: str):
             )
 
         if not coverage_doc:
-            logger.error("Coverage area not found for id: %s", location_id)
+            logger.error(
+                "Coverage area not found for id: %s",
+                location_id,
+            )
             raise HTTPException(
-                status_code=404, detail="Coverage area not found"
+                status_code=404,
+                detail="Coverage area not found",
             )
 
         location_name = coverage_doc.get("location", {}).get(
@@ -3790,7 +4435,8 @@ async def get_coverage_area_details(location_id: str):
                     geojson_data_bytes.decode("utf-8")
                 )
                 if isinstance(streets_geojson, dict) and isinstance(
-                    streets_geojson.get("features"), list
+                    streets_geojson.get("features"),
+                    list,
                 ):
                     total_streets = len(streets_geojson.get("features", []))
                     needs_reprocessing = False
@@ -3845,7 +4491,7 @@ async def get_coverage_area_details(location_id: str):
                 "street_types": street_types,
                 "status": status,
                 "has_error": status == "error",
-                "error_message": last_error if status == "error" else None,
+                "error_message": (last_error if status == "error" else None),
                 "needs_reprocessing": needs_reprocessing,
             },
         }
@@ -3909,7 +4555,10 @@ async def _get_mapbox_optimization_route(
         response = await client.get(url, params=params)
 
         if response.status_code != 200:
-            logger.error("Mapbox API error: %s", response.text)
+            logger.error(
+                "Mapbox API error: %s",
+                response.text,
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Mapbox API error: {response.text}",
@@ -3917,7 +4566,10 @@ async def _get_mapbox_optimization_route(
 
         data = response.json()
         if data.get("code") != "Ok" or not data.get("trips"):
-            logger.error("Mapbox API returned no valid trips: %s", data)
+            logger.error(
+                "Mapbox API returned no valid trips: %s",
+                data,
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Mapbox API returned no valid trips.",
@@ -3936,7 +4588,9 @@ async def _get_mapbox_optimization_route(
 
 
 @app.post("/api/driving-navigation/next-route")
-async def get_next_driving_route(request: Request):
+async def get_next_driving_route(
+    request: Request,
+):
     """
     Calculates the route from the user's current position to the
     start of the nearest undriven street segment in the specified area using Mapbox Optimization API v1.
@@ -4013,7 +4667,9 @@ async def get_next_driving_route(request: Request):
                     "Live tracking unavailable, falling back to last trip end location"
                 )
                 last_trip = await find_one_with_retry(
-                    trips_collection, {}, sort=[("endTime", -1)]
+                    trips_collection,
+                    {},
+                    sort=[("endTime", -1)],
                 )
 
                 if not last_trip:
@@ -4039,7 +4695,10 @@ async def get_next_driving_route(request: Request):
                             "Using last trip end location: Lat=%s, Lon=%s (Trip ID: %s)",
                             current_lat,
                             current_lon,
-                            last_trip.get("transactionId", "N/A"),
+                            last_trip.get(
+                                "transactionId",
+                                "N/A",
+                            ),
                         )
                     else:
                         raise ValueError(
@@ -4064,7 +4723,11 @@ async def get_next_driving_route(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Error getting position: %s", e, exc_info=True)
+        logger.error(
+            "Error getting position: %s",
+            e,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Could not determine current position: {e}",
@@ -4131,7 +4794,10 @@ async def get_next_driving_route(request: Request):
                     and len(start_node) >= 2
                 ):
                     end_points.append(
-                        (float(start_node[0]), float(start_node[1]))
+                        (
+                            float(start_node[0]),
+                            float(start_node[1]),
+                        )
                     )
 
         if not end_points:
@@ -4145,7 +4811,9 @@ async def get_next_driving_route(request: Request):
             )
 
         optimization_result = await _get_mapbox_optimization_route(
-            current_lon, current_lat, end_points=end_points
+            current_lon,
+            current_lat,
+            end_points=end_points,
         )
 
         route_geometry = optimization_result["geometry"]
@@ -4171,7 +4839,11 @@ async def get_next_driving_route(request: Request):
         )
 
     except Exception as e:
-        logger.error("Error calculating route: %s", e, exc_info=True)
+        logger.error(
+            "Error calculating route: %s",
+            e,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to calculate route: {e}",
@@ -4208,7 +4880,10 @@ async def _get_mapbox_directions_route(
         response = await client.get(directions_url, params=params)
 
         if response.status_code != 200:
-            logger.error("Mapbox Directions API error: %s", response.text)
+            logger.error(
+                "Mapbox Directions API error: %s",
+                response.text,
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Mapbox Directions API error: {response.text}",
@@ -4240,14 +4915,21 @@ async def _get_mapbox_directions_route(
 
 
 async def _cluster_segments(
-    segments: List[Dict], max_points_per_cluster: int = 11
+    segments: List[Dict],
+    max_points_per_cluster: int = 11,
 ) -> List[List[Dict]]:
     """Cluster segments into groups based on geographic proximity."""
     if len(segments) <= max_points_per_cluster:
         return [segments]
 
     coords = np.array(
-        [(seg["start_node"][0], seg["start_node"][1]) for seg in segments]
+        [
+            (
+                seg["start_node"][0],
+                seg["start_node"][1],
+            )
+            for seg in segments
+        ]
     )
     n_clusters = max(1, len(segments) // max_points_per_cluster)
     kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(coords)
@@ -4262,7 +4944,11 @@ async def _cluster_segments(
         if len(cluster) <= max_points_per_cluster:
             final_clusters.append(cluster)
         else:
-            for i in range(0, len(cluster), max_points_per_cluster):
+            for i in range(
+                0,
+                len(cluster),
+                max_points_per_cluster,
+            ):
                 final_clusters.append(cluster[i : i + max_points_per_cluster])
 
     return final_clusters
@@ -4288,10 +4974,16 @@ async def _optimize_route_for_clusters(
             continue
 
         end_points = [
-            (seg["start_node"][0], seg["start_node"][1]) for seg in cluster
+            (
+                seg["start_node"][0],
+                seg["start_node"][1],
+            )
+            for seg in cluster
         ]
         cluster_result = await _get_mapbox_optimization_route(
-            current_point[0], current_point[1], end_points=end_points
+            current_point[0],
+            current_point[1],
+            end_points=end_points,
         )
 
         all_geometries.append(cluster_result["geometry"])
@@ -4334,7 +5026,9 @@ async def _optimize_route_for_clusters(
 
 
 @app.post("/api/driving-navigation/coverage-route")
-async def get_coverage_driving_route(request: Request):
+async def get_coverage_driving_route(
+    request: Request,
+):
     """
     Calculates an efficient route to cover all undriven street segments
     in the specified area, starting from the user's current position using Mapbox Optimization API v1.
@@ -4367,7 +5061,10 @@ async def get_coverage_driving_route(request: Request):
         current_position = data.get("current_position")
 
     except (ValueError, TypeError) as e:
-        logger.error("Error parsing coverage route request data: %s", e)
+        logger.error(
+            "Error parsing coverage route request data: %s",
+            e,
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid request format: {str(e)}",
@@ -4412,7 +5109,9 @@ async def get_coverage_driving_route(request: Request):
                     "Coverage Route: Live tracking unavailable, falling back to last trip end location"
                 )
                 last_trip = await find_one_with_retry(
-                    trips_collection, {}, sort=[("endTime", -1)]
+                    trips_collection,
+                    {},
+                    sort=[("endTime", -1)],
                 )
 
                 if not last_trip:
@@ -4438,7 +5137,10 @@ async def get_coverage_driving_route(request: Request):
                             "Coverage Route: Using last trip end location: Lat=%s, Lon=%s (Trip ID: %s)",
                             current_lat,
                             current_lon,
-                            last_trip.get("transactionId", "N/A"),
+                            last_trip.get(
+                                "transactionId",
+                                "N/A",
+                            ),
                         )
                     else:
                         raise ValueError(
@@ -4466,7 +5168,9 @@ async def get_coverage_driving_route(request: Request):
         raise
     except Exception as e:
         logger.error(
-            "Coverage Route: Error getting position: %s", e, exc_info=True
+            "Coverage Route: Error getting position: %s",
+            e,
+            exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -4544,7 +5248,11 @@ async def get_coverage_driving_route(request: Request):
                     logger.warning(
                         f"Coverage Route: Skipping invalid segment {segment_id} (type: {geom.get('type')}, len: {len(geom.get('coordinates', []))})"
                     )
-            except (TypeError, ValueError, IndexError) as e:
+            except (
+                TypeError,
+                ValueError,
+                IndexError,
+            ) as e:
                 segment_id = street.get("properties", {}).get(
                     "segment_id", "UNKNOWN"
                 )
@@ -4583,7 +5291,8 @@ async def get_coverage_driving_route(request: Request):
 
     try:
         clusters = await _cluster_segments(
-            valid_segments, max_points_per_cluster=11
+            valid_segments,
+            max_points_per_cluster=11,
         )
         logger.info(
             f"Coverage Route: Clustered {len(valid_segments)} segments into {len(clusters)} clusters for {location_name}."
@@ -4630,13 +5339,16 @@ async def get_coverage_driving_route(request: Request):
 async def export_advanced(
     request: Request,
     include_trips: bool = Query(
-        True, description="Include regular trips (now all trips)"
+        True,
+        description="Include regular trips (now all trips)",
     ),
     include_matched_trips: bool = Query(
-        True, description="Include map-matched trips"
+        True,
+        description="Include map-matched trips",
     ),
     include_basic_info: bool = Query(
-        True, description="Include basic trip info"
+        True,
+        description="Include basic trip info",
     ),
     include_locations: bool = Query(True, description="Include location info"),
     include_telemetry: bool = Query(
@@ -4646,10 +5358,12 @@ async def export_advanced(
     include_meta: bool = Query(True, description="Include metadata"),
     include_custom: bool = Query(True, description="Include custom fields"),
     include_gps_in_csv: bool = Query(
-        False, description="Include GPS in CSV export"
+        False,
+        description="Include GPS in CSV export",
     ),
     flatten_location_fields: bool = Query(
-        True, description="Flatten location fields in CSV"
+        True,
+        description="Flatten location fields in CSV",
     ),
     fmt: str = Query("json", description="Export format"),
 ):
@@ -4668,7 +5382,10 @@ async def export_advanced(
             end_date = parse_query_date(end_date_str, end_of_day=True)
             if start_date and end_date:
                 date_filter = {
-                    "startTime": {"$gte": start_date, "$lte": end_date}
+                    "startTime": {
+                        "$gte": start_date,
+                        "$lte": end_date,
+                    }
                 }
 
         trips = []
@@ -4731,7 +5448,10 @@ async def export_advanced(
         if fmt == "json":
             return JSONResponse(
                 content=json.loads(
-                    json.dumps(trips, default=default_serializer)
+                    json.dumps(
+                        trips,
+                        default=default_serializer,
+                    )
                 )
             )
 
@@ -4745,7 +5465,8 @@ async def export_advanced(
     except ValueError as e:
         logger.error("Export error: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         )
 
     except Exception as e:
@@ -4764,7 +5485,8 @@ async def startup_event():
         logger.info("Core database initialized successfully (indexes, etc.).")
 
         initialize_live_tracking_db(
-            live_trips_collection, archived_live_trips_collection
+            live_trips_collection,
+            archived_live_trips_collection,
         )
         logger.info("Live tracking DB collections initialized.")
 
@@ -4780,8 +5502,8 @@ async def startup_event():
         else:
             logger.warning(
                 "Application started in limited mode due to exceeded storage quota (%.2f MB / %d MB)",
-                used_mb if used_mb is not None else -1,
-                limit_mb if limit_mb is not None else -1,
+                (used_mb if used_mb is not None else -1),
+                (limit_mb if limit_mb is not None else -1),
             )
 
         index_name = "matchedGps_2dsphere"
@@ -4792,14 +5514,25 @@ async def startup_event():
                     "Creating 2dsphere index on matched_trips_collection.matchedGps..."
                 )
                 await matched_trips_collection.create_indexes(
-                    [IndexModel([("matchedGps", GEOSPHERE)], name=index_name)]
+                    [
+                        IndexModel(
+                            [
+                                (
+                                    "matchedGps",
+                                    GEOSPHERE,
+                                )
+                            ],
+                            name=index_name,
+                        )
+                    ]
                 )
                 logger.info("Index created successfully.")
             else:
                 logger.debug("2dsphere index on matchedGps already exists.")
         except OperationFailure as e:
             logger.warning(
-                "OperationFailure during matched_trips index creation: %s", e
+                "OperationFailure during matched_trips index creation: %s",
+                e,
             )
             if "GeoJSON LineString must have at least 2 vertices" in str(
                 e
@@ -4862,16 +5595,20 @@ async def internal_error_handler(request: Request, exc):
 @app.get("/api/trips_in_bounds")
 async def get_trips_in_bounds(
     min_lat: float = Query(
-        ..., description="Minimum latitude of the bounding box"
+        ...,
+        description="Minimum latitude of the bounding box",
     ),
     min_lon: float = Query(
-        ..., description="Minimum longitude of the bounding box"
+        ...,
+        description="Minimum longitude of the bounding box",
     ),
     max_lat: float = Query(
-        ..., description="Maximum latitude of the bounding box"
+        ...,
+        description="Maximum latitude of the bounding box",
     ),
     max_lon: float = Query(
-        ..., description="Maximum longitude of the bounding box"
+        ...,
+        description="Maximum longitude of the bounding box",
     ),
 ):
     """Get trip coordinates (from matched_trips) within a given bounding box.
@@ -4927,22 +5664,30 @@ async def get_trips_in_bounds(
                 trip_coordinates.append(trip["matchedGps"]["coordinates"])
 
         logger.info(
-            "Found %d trip segments within bounds", len(trip_coordinates)
+            "Found %d trip segments within bounds",
+            len(trip_coordinates),
         )
         return JSONResponse(content={"trips": trip_coordinates})
 
     except Exception as e:
-        logger.exception("Error in get_trips_in_bounds: %s", str(e))
+        logger.exception(
+            "Error in get_trips_in_bounds: %s",
+            str(e),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve trips within bounds",
         )
 
 
-@app.get("/driver-behavior", response_class=HTMLResponse)
+@app.get(
+    "/driver-behavior",
+    response_class=HTMLResponse,
+)
 async def driver_behavior_page(request: Request):
     return templates.TemplateResponse(
-        "driver_behavior.html", {"request": request}
+        "driver_behavior.html",
+        {"request": request},
     )
 
 
@@ -4987,25 +5732,55 @@ async def driver_behavior_analytics():
     )
     max_speed = max(float(get_field(t, "maxSpeed")) or 0 for t in trips)
     hard_braking = sum(
-        int(get_field(t, "hardBrakingCounts", "hardBrakingCount")) or 0
+        int(
+            get_field(
+                t,
+                "hardBrakingCounts",
+                "hardBrakingCount",
+            )
+        )
+        or 0
         for t in trips
     )
     hard_accel = sum(
-        int(get_field(t, "hardAccelerationCounts", "hardAccelerationCount"))
+        int(
+            get_field(
+                t,
+                "hardAccelerationCounts",
+                "hardAccelerationCount",
+            )
+        )
         or 0
         for t in trips
     )
     idling = sum(
-        float(get_field(t, "totalIdlingTime", "totalIdleDuration")) or 0
+        float(
+            get_field(
+                t,
+                "totalIdlingTime",
+                "totalIdleDuration",
+            )
+        )
+        or 0
         for t in trips
     )
     fuel = sum(float(get_field(t, "fuelConsumed")) or 0 for t in trips)
 
     weekly = collections.defaultdict(
-        lambda: {"trips": 0, "distance": 0, "hardBraking": 0, "hardAccel": 0}
+        lambda: {
+            "trips": 0,
+            "distance": 0,
+            "hardBraking": 0,
+            "hardAccel": 0,
+        }
     )
     monthly = collections.defaultdict(
-        lambda: {"trips": 0, "distance": 0, "hardBraking": 0, "hardAccel": 0}
+        lambda: {
+            "trips": 0,
+            "distance": 0,
+            "hardBraking": 0,
+            "hardAccel": 0,
+        }
     )
     for t in trips:
         start = t.get("startTime")
@@ -5024,19 +5799,37 @@ async def driver_behavior_analytics():
         weekly[wkey]["trips"] += 1
         weekly[wkey]["distance"] += float(get_field(t, "distance") or 0)
         weekly[wkey]["hardBraking"] += int(
-            get_field(t, "hardBrakingCounts", "hardBrakingCount") or 0
+            get_field(
+                t,
+                "hardBrakingCounts",
+                "hardBrakingCount",
+            )
+            or 0
         )
         weekly[wkey]["hardAccel"] += int(
-            get_field(t, "hardAccelerationCounts", "hardAccelerationCount")
+            get_field(
+                t,
+                "hardAccelerationCounts",
+                "hardAccelerationCount",
+            )
             or 0
         )
         monthly[mkey]["trips"] += 1
         monthly[mkey]["distance"] += float(get_field(t, "distance") or 0)
         monthly[mkey]["hardBraking"] += int(
-            get_field(t, "hardBrakingCounts", "hardBrakingCount") or 0
+            get_field(
+                t,
+                "hardBrakingCounts",
+                "hardBrakingCount",
+            )
+            or 0
         )
         monthly[mkey]["hardAccel"] += int(
-            get_field(t, "hardAccelerationCounts", "hardAccelerationCount")
+            get_field(
+                t,
+                "hardAccelerationCounts",
+                "hardAccelerationCount",
+            )
             or 0
         )
 
@@ -5062,5 +5855,9 @@ if __name__ == "__main__":
 
     port = int(os.getenv("PORT", "8080"))
     uvicorn.run(
-        "app:app", host="0.0.0.0", port=port, log_level="info", reload=True
+        "app:app",
+        host="0.0.0.0",
+        port=port,
+        log_level="info",
+        reload=True,
     )

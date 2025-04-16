@@ -23,7 +23,9 @@ from kombu import Queue
 from pymongo.errors import ConnectionFailure
 
 from db import db_manager
-from live_tracking import initialize_db as initialize_live_tracking_db
+from live_tracking import (
+    initialize_db as initialize_live_tracking_db,
+)
 
 logger = get_task_logger(__name__)
 
@@ -49,7 +51,7 @@ if not REDIS_URL:
 
 logger.info(
     "Configuring Celery with broker: %s",
-    REDIS_URL.split("@")[-1] if "@" in REDIS_URL else REDIS_URL,
+    (REDIS_URL.split("@")[-1] if "@" in REDIS_URL else REDIS_URL),
 )
 os.environ["CELERY_BROKER_URL"] = REDIS_URL
 MAX_RETRIES = 10
@@ -77,7 +79,8 @@ def get_redis_connection_with_retry():
             )
             if retry_count < MAX_RETRIES:
                 logger.info(
-                    "Retrying Redis connection in %s seconds...", RETRY_DELAY
+                    "Retrying Redis connection in %s seconds...",
+                    RETRY_DELAY,
                 )
                 time.sleep(RETRY_DELAY)
             else:
@@ -88,7 +91,8 @@ def get_redis_connection_with_retry():
                 raise
         except Exception as e:
             logger.error(
-                "Unexpected error during Redis connection attempt: %s", e
+                "Unexpected error during Redis connection attempt: %s",
+                e,
             )
             raise
 
@@ -97,7 +101,10 @@ get_redis_connection_with_retry()
 
 task_queues = [
     Queue("default", routing_key="default"),
-    Queue("high_priority", routing_key="high_priority"),
+    Queue(
+        "high_priority",
+        routing_key="high_priority",
+    ),
     Queue("low_priority", routing_key="low_priority"),
 ]
 
@@ -149,7 +156,12 @@ app.conf.update(
 
 
 @signals.task_failure.connect
-def task_failure_handler(sender=None, task_id=None, exception=None, **kwargs):
+def task_failure_handler(
+    sender=None,
+    task_id=None,
+    exception=None,
+    **kwargs,
+):
     task_name = sender.name if sender else "unknown"
     if task_name != "tasks.run_task_scheduler":
         logger.error(
@@ -161,7 +173,10 @@ def task_failure_handler(sender=None, task_id=None, exception=None, **kwargs):
         )
     else:
         logger.warning(
-            "Scheduler task (%s) failed: %s", task_id, exception, exc_info=True
+            "Scheduler task (%s) failed: %s",
+            task_id,
+            exception,
+            exc_info=True,
         )
 
 
@@ -187,7 +202,10 @@ def worker_init(**kwargs):
     from datetime import datetime, timezone
 
     current_time = datetime.now(timezone.utc)
-    logger.debug("Worker starting at UTC time: %s", current_time.isoformat())
+    logger.debug(
+        "Worker starting at UTC time: %s",
+        current_time.isoformat(),
+    )
 
 
 @worker_process_init.connect(weak=False)
@@ -225,7 +243,8 @@ def init_worker(**kwargs):
 
     except Exception as e:
         logger.critical(
-            f"CRITICAL ERROR during worker initialization: {e}", exc_info=True
+            f"CRITICAL ERROR during worker initialization: {e}",
+            exc_info=True,
         )
         raise RuntimeError(
             f"Worker initialization failed critically: {e}"

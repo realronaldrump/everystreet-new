@@ -13,7 +13,13 @@ import time
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+)
 
 import aiohttp
 import pyproj
@@ -25,7 +31,10 @@ from db import (
     places_collection,
     trips_collection,
 )
-from utils import haversine, reverse_geocode_nominatim
+from utils import (
+    haversine,
+    reverse_geocode_nominatim,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,14 +73,20 @@ class Config:
 class RateLimiter:
     """Rate limiter for API requests with thread-safe design."""
 
-    def __init__(self, max_requests: int, window_seconds: int):
+    def __init__(
+        self,
+        max_requests: int,
+        window_seconds: int,
+    ):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self.window_start = time.time()
         self.request_count = 0
         self.lock = asyncio.Lock()
 
-    async def check_rate_limit(self) -> Tuple[bool, float]:
+    async def check_rate_limit(
+        self,
+    ) -> Tuple[bool, float]:
         """Check if we're about to exceed rate limit.
 
         Returns (need_to_wait, wait_time_seconds)
@@ -104,7 +119,9 @@ class TripProcessor:
     a state machine approach to track status."""
 
     def __init__(
-        self, mapbox_token: Optional[str] = None, source: str = "api"
+        self,
+        mapbox_token: Optional[str] = None,
+        source: str = "api",
     ):
         """Initialize the trip processor.
 
@@ -128,7 +145,9 @@ class TripProcessor:
         self.project_to_utm = None
 
     def _set_state(
-        self, new_state: TripState, error: Optional[str] = None
+        self,
+        new_state: TripState,
+        error: Optional[str] = None,
     ) -> None:
         """Update the processing state and record it in history.
 
@@ -162,7 +181,9 @@ class TripProcessor:
         self.state = TripState.NEW
         self._set_state(TripState.NEW)
 
-    def get_processing_status(self) -> Dict[str, Any]:
+    def get_processing_status(
+        self,
+    ) -> Dict[str, Any]:
         """Get the current processing status.
 
         Returns:
@@ -186,7 +207,10 @@ class TripProcessor:
             The processed trip data
         """
         if not self.trip_data:
-            self._set_state(TripState.FAILED, "No trip data provided")
+            self._set_state(
+                TripState.FAILED,
+                "No trip data provided",
+            )
             return {}
 
         try:
@@ -227,16 +251,29 @@ class TripProcessor:
         """
         try:
             transaction_id = self.trip_data.get("transactionId", "unknown")
-            logger.debug("Validating trip %s", transaction_id)
+            logger.debug(
+                "Validating trip %s",
+                transaction_id,
+            )
 
-            required = ["transactionId", "startTime", "endTime", "gps"]
+            required = [
+                "transactionId",
+                "startTime",
+                "endTime",
+                "gps",
+            ]
             for field in required:
                 if field not in self.trip_data:
                     error_message = f"Missing required field: {field}"
                     logger.warning(
-                        "Trip %s: %s", transaction_id, error_message
+                        "Trip %s: %s",
+                        transaction_id,
+                        error_message,
                     )
-                    self._set_state(TripState.FAILED, error_message)
+                    self._set_state(
+                        TripState.FAILED,
+                        error_message,
+                    )
                     return False
 
             gps_data = self.trip_data.get("gps")
@@ -246,9 +283,14 @@ class TripProcessor:
                 except json.JSONDecodeError:
                     error_message = "Invalid GPS data format"
                     logger.warning(
-                        "Trip %s: %s", transaction_id, error_message
+                        "Trip %s: %s",
+                        transaction_id,
+                        error_message,
                     )
-                    self._set_state(TripState.FAILED, error_message)
+                    self._set_state(
+                        TripState.FAILED,
+                        error_message,
+                    )
                     return False
 
             if (
@@ -257,20 +299,41 @@ class TripProcessor:
                 or "coordinates" not in gps_data
             ):
                 error_message = "GPS data missing 'type' or 'coordinates'"
-                logger.warning("Trip %s: %s", transaction_id, error_message)
-                self._set_state(TripState.FAILED, error_message)
+                logger.warning(
+                    "Trip %s: %s",
+                    transaction_id,
+                    error_message,
+                )
+                self._set_state(
+                    TripState.FAILED,
+                    error_message,
+                )
                 return False
 
             if not isinstance(gps_data["coordinates"], list):
                 error_message = "GPS coordinates must be a list"
-                logger.warning("Trip %s: %s", transaction_id, error_message)
-                self._set_state(TripState.FAILED, error_message)
+                logger.warning(
+                    "Trip %s: %s",
+                    transaction_id,
+                    error_message,
+                )
+                self._set_state(
+                    TripState.FAILED,
+                    error_message,
+                )
                 return False
 
             if len(gps_data["coordinates"]) < 2:
                 error_message = "GPS coordinates must have at least 2 points"
-                logger.warning("Trip %s: %s", transaction_id, error_message)
-                self._set_state(TripState.FAILED, error_message)
+                logger.warning(
+                    "Trip %s: %s",
+                    transaction_id,
+                    error_message,
+                )
+                self._set_state(
+                    TripState.FAILED,
+                    error_message,
+                )
                 return False
 
             self.processed_data = self.trip_data.copy()
@@ -281,7 +344,10 @@ class TripProcessor:
             )
 
             self._set_state(TripState.VALIDATED)
-            logger.debug("Trip %s validated successfully", transaction_id)
+            logger.debug(
+                "Trip %s validated successfully",
+                transaction_id,
+            )
             return True
 
         except Exception as e:
@@ -315,7 +381,10 @@ class TripProcessor:
                     )
                     return False
 
-            logger.debug("Processing basic data for trip %s", transaction_id)
+            logger.debug(
+                "Processing basic data for trip %s",
+                transaction_id,
+            )
 
             from dateutil import parser
 
@@ -334,13 +403,17 @@ class TripProcessor:
                     self.processed_data["gps"] = gps_data
                 except json.JSONDecodeError:
                     self._set_state(
-                        TripState.FAILED, "Failed to parse GPS data"
+                        TripState.FAILED,
+                        "Failed to parse GPS data",
                     )
                     return False
 
             coords = gps_data.get("coordinates", [])
             if len(coords) < 2:
-                self._set_state(TripState.FAILED, "Insufficient coordinates")
+                self._set_state(
+                    TripState.FAILED,
+                    "Insufficient coordinates",
+                )
                 return False
 
             start_coord = coords[0]
@@ -348,11 +421,17 @@ class TripProcessor:
 
             self.processed_data["startGeoPoint"] = {
                 "type": "Point",
-                "coordinates": [start_coord[0], start_coord[1]],
+                "coordinates": [
+                    start_coord[0],
+                    start_coord[1],
+                ],
             }
             self.processed_data["destinationGeoPoint"] = {
                 "type": "Point",
-                "coordinates": [end_coord[0], end_coord[1]],
+                "coordinates": [
+                    end_coord[0],
+                    end_coord[1],
+                ],
             }
 
             if (
@@ -364,7 +443,11 @@ class TripProcessor:
                     prev = coords[i - 1]
                     curr = coords[i]
                     total_distance += haversine(
-                        prev[0], prev[1], curr[0], curr[1], unit="miles"
+                        prev[0],
+                        prev[1],
+                        curr[0],
+                        curr[1],
+                        unit="miles",
                     )
                 self.processed_data["distance"] = total_distance
 
@@ -377,7 +460,8 @@ class TripProcessor:
 
             self._set_state(TripState.PROCESSED)
             logger.debug(
-                "Completed basic processing for trip %s", transaction_id
+                "Completed basic processing for trip %s",
+                transaction_id,
             )
             return True
 
@@ -391,7 +475,9 @@ class TripProcessor:
             return False
 
     @staticmethod
-    async def get_place_at_point(point: Point) -> Optional[Dict[str, Any]]:
+    async def get_place_at_point(
+        point: Point,
+    ) -> Optional[Dict[str, Any]]:
         """Find a custom place that contains the given point.
 
         Args:
@@ -400,13 +486,19 @@ class TripProcessor:
         Returns:
             Place document if found, None otherwise
         """
-        point_geojson = {"type": "Point", "coordinates": [point.x, point.y]}
+        point_geojson = {
+            "type": "Point",
+            "coordinates": [point.x, point.y],
+        }
         query = {"geometry": {"$geoIntersects": {"$geometry": point_geojson}}}
 
         try:
             return await places_collection.find_one(query)
         except Exception as e:
-            logger.error("Error finding place at point: %s", str(e))
+            logger.error(
+                "Error finding place at point: %s",
+                str(e),
+            )
             return None
 
     @staticmethod
@@ -474,7 +566,10 @@ class TripProcessor:
                 )
                 return False
 
-            logger.debug("Geocoding trip %s", transaction_id)
+            logger.debug(
+                "Geocoding trip %s",
+                transaction_id,
+            )
 
             start_coord = self.processed_data["startGeoPoint"]["coordinates"]
             end_coord = self.processed_data["destinationGeoPoint"][
@@ -495,7 +590,10 @@ class TripProcessor:
                     "postal_code": "",
                     "country": "",
                 },
-                "coordinates": {"lat": 0.0, "lng": 0.0},
+                "coordinates": {
+                    "lat": 0.0,
+                    "lng": 0.0,
+                },
             }
 
             if not self.processed_data.get("startLocation"):
@@ -526,7 +624,10 @@ class TripProcessor:
                     if "geometry" in start_place:
                         extracted_coords = self._extract_coords_from_geometry(
                             start_place["geometry"],
-                            [start_coord[0], start_coord[1]],
+                            [
+                                start_coord[0],
+                                start_coord[1],
+                            ],
                             transaction_id,
                         )
                         structured_start["coordinates"]["lng"] = (
@@ -545,7 +646,8 @@ class TripProcessor:
                     )
                 else:
                     rev_start = await reverse_geocode_nominatim(
-                        start_coord[1], start_coord[0]
+                        start_coord[1],
+                        start_coord[0],
                     )
                     if rev_start:
                         structured_start = LOCATION_SCHEMA.copy()
@@ -609,7 +711,10 @@ class TripProcessor:
                     if "geometry" in end_place:
                         extracted_coords = self._extract_coords_from_geometry(
                             end_place["geometry"],
-                            [end_coord[0], end_coord[1]],
+                            [
+                                end_coord[0],
+                                end_coord[1],
+                            ],
                             transaction_id,
                         )
                         structured_dest["coordinates"]["lng"] = (
@@ -719,7 +824,10 @@ class TripProcessor:
                     )
                     return False
 
-            logger.debug("Starting map matching for trip %s", transaction_id)
+            logger.debug(
+                "Starting map matching for trip %s",
+                transaction_id,
+            )
 
             if not config.mapbox_access_token:
                 logger.warning(
@@ -752,7 +860,8 @@ class TripProcessor:
 
             if match_result_api.get("code") != "Ok":
                 error_msg = match_result_api.get(
-                    "message", "Unknown map matching error from API"
+                    "message",
+                    "Unknown map matching error from API",
                 )
                 logger.error(
                     "Map matching API failed for trip %s: %s",
@@ -871,7 +980,9 @@ class TripProcessor:
             f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84"
         )
         self.project_to_utm = pyproj.Transformer.from_crs(
-            pyproj.CRS("EPSG:4326"), self.utm_proj, always_xy=True
+            pyproj.CRS("EPSG:4326"),
+            self.utm_proj,
+            always_xy=True,
         ).transform
 
     async def _map_match_coordinates(
@@ -907,13 +1018,17 @@ class TripProcessor:
             self._initialize_projections(coordinates)
 
         timeout = aiohttp.ClientTimeout(
-            total=30, connect=10, sock_connect=10, sock_read=20
+            total=30,
+            connect=10,
+            sock_connect=10,
+            sock_read=20,
         )
 
         async with aiohttp.ClientSession(timeout=timeout) as session:
 
             async def call_mapbox_api(
-                coords: List[List[float]], attempt: int = 1
+                coords: List[List[float]],
+                attempt: int = 1,
             ) -> Dict[str, Any]:
                 base_url = "https://api.mapbox.com/matching/v5/mapbox/driving/"
                 coords_str = ";".join(f"{lon},{lat}" for lon, lat in coords)
@@ -928,7 +1043,10 @@ class TripProcessor:
                 min_backoff_seconds = 2
 
                 async with map_match_semaphore:
-                    for retry_attempt in range(1, max_attempts_for_429 + 1):
+                    for retry_attempt in range(
+                        1,
+                        max_attempts_for_429 + 1,
+                    ):
                         (
                             should_wait,
                             wait_time,
@@ -1047,7 +1165,8 @@ class TripProcessor:
                     }
 
             async def match_chunk(
-                chunk_coords: List[List[float]], depth: int = 0
+                chunk_coords: List[List[float]],
+                depth: int = 0,
             ) -> Optional[List[List[float]]]:
                 if len(chunk_coords) < 2:
                     return []
@@ -1061,8 +1180,14 @@ class TripProcessor:
                     if data.get("code") == "Ok" and data.get("matchings"):
                         return data["matchings"][0]["geometry"]["coordinates"]
 
-                    msg = data.get("message", "Mapbox API error (code != Ok)")
-                    logger.warning("Mapbox chunk error: %s", msg)
+                    msg = data.get(
+                        "message",
+                        "Mapbox API error (code != Ok)",
+                    )
+                    logger.warning(
+                        "Mapbox chunk error: %s",
+                        msg,
+                    )
 
                     if "invalid coordinates" in msg.lower():
                         filtered_coords = filter_invalid_coordinates(
@@ -1075,11 +1200,15 @@ class TripProcessor:
                                 "Retrying with %d filtered coordinates",
                                 len(filtered_coords),
                             )
-                            return await match_chunk(filtered_coords, depth)
+                            return await match_chunk(
+                                filtered_coords,
+                                depth,
+                            )
 
                 except Exception as exc:
                     logger.warning(
-                        "Unexpected error in mapbox chunk: %s", str(exc)
+                        "Unexpected error in mapbox chunk: %s",
+                        str(exc),
                     )
 
                 if depth < max_retries and len(chunk_coords) > min_sub_chunk:
@@ -1150,7 +1279,10 @@ class TripProcessor:
             )
 
             final_matched: List[List[float]] = []
-            for cindex, (start_i, end_i) in enumerate(chunk_indices, 1):
+            for cindex, (
+                start_i,
+                end_i,
+            ) in enumerate(chunk_indices, 1):
                 chunk_coords = coordinates[start_i:end_i]
                 logger.debug(
                     "Matching chunk %d/%d with %d coords",
@@ -1162,7 +1294,10 @@ class TripProcessor:
                 if result is None:
                     msg = f"Chunk {cindex} of {len(chunk_indices)} failed map matching."
                     logger.error(msg)
-                    return {"code": "Error", "message": msg}
+                    return {
+                        "code": "Error",
+                        "message": msg,
+                    }
                 if not final_matched:
                     final_matched = result
                 else:
@@ -1176,13 +1311,20 @@ class TripProcessor:
             )
 
             def detect_big_jumps(
-                coords: List[List[float]], threshold_m: float = 200
+                coords: List[List[float]],
+                threshold_m: float = 200,
             ) -> List[int]:
                 suspicious_indices = []
                 for i in range(len(coords) - 1):
                     lon1, lat1 = coords[i]
                     lon2, lat2 = coords[i + 1]
-                    distance = haversine(lon1, lat1, lon2, lat2, unit="meters")
+                    distance = haversine(
+                        lon1,
+                        lat1,
+                        lon2,
+                        lat2,
+                        unit="meters",
+                    )
                     if distance > threshold_m:
                         suspicious_indices.append(i)
                 return suspicious_indices
@@ -1190,7 +1332,10 @@ class TripProcessor:
             max_jump_passes = 2
             pass_count = 0
             while pass_count < max_jump_passes:
-                big_jumps = detect_big_jumps(final_matched, jump_threshold_m)
+                big_jumps = detect_big_jumps(
+                    final_matched,
+                    jump_threshold_m,
+                )
                 if not big_jumps:
                     break
                 logger.info(
@@ -1252,7 +1397,8 @@ class TripProcessor:
             }
 
     async def save(
-        self, map_match_result: Optional[bool] = None
+        self,
+        map_match_result: Optional[bool] = None,
     ) -> Optional[str]:
         """Save the processed trip to the trips collection.
 
@@ -1387,7 +1533,9 @@ class TripProcessor:
             return None
 
     @staticmethod
-    def _is_valid_linestring_geojson(geojson_data: Any) -> bool:
+    def _is_valid_linestring_geojson(
+        geojson_data: Any,
+    ) -> bool:
         """Checks if the input is a structurally valid GeoJSON LineString dictionary
         suitable for MongoDB 2dsphere indexing.
         """
@@ -1428,7 +1576,10 @@ class TripProcessor:
             secs = total_seconds % 60
             return f"{hrs:02d}:{mins:02d}:{secs:02d}"
         except (TypeError, ValueError):
-            logger.error("Invalid input for format_idle_time: %s", seconds)
+            logger.error(
+                "Invalid input for format_idle_time: %s",
+                seconds,
+            )
             return "00:00:00"
 
     @classmethod
@@ -1462,11 +1613,13 @@ class TripProcessor:
 
         if not start_time and len(coords_data) > 0:
             start_time = coords_data[0].get(
-                "timestamp", datetime.now(timezone.utc)
+                "timestamp",
+                datetime.now(timezone.utc),
             )
         if not end_time and len(coords_data) > 0:
             end_time = coords_data[-1].get(
-                "timestamp", datetime.now(timezone.utc)
+                "timestamp",
+                datetime.now(timezone.utc),
             )
 
         if not transaction_id:
@@ -1479,7 +1632,11 @@ class TripProcessor:
             prev = coordinates[i - 1]
             curr = coordinates[i]
             total_distance += haversine(
-                prev[0], prev[1], curr[0], curr[1], unit="miles"
+                prev[0],
+                prev[1],
+                curr[0],
+                curr[1],
+                unit="miles",
             )
 
         trip_data = {
@@ -1487,14 +1644,20 @@ class TripProcessor:
             "startTime": start_time,
             "endTime": end_time,
             "gps": json.dumps(
-                {"type": "LineString", "coordinates": coordinates}
+                {
+                    "type": "LineString",
+                    "coordinates": coordinates,
+                }
             ),
             "distance": total_distance,
             "imei": imei,
             "source": source,
         }
 
-        processor = cls(mapbox_token=mapbox_token, source=source)
+        processor = cls(
+            mapbox_token=mapbox_token,
+            source=source,
+        )
         processor.set_trip_data(trip_data)
         await processor.process(do_map_match=False)
 

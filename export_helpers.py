@@ -39,7 +39,9 @@ def default_serializer(obj: Any) -> str:
     return str(obj)
 
 
-async def create_geojson(trips: List[Dict[str, Any]]) -> str:
+async def create_geojson(
+    trips: List[Dict[str, Any]],
+) -> str:
     """Convert trip dictionaries to a GeoJSON FeatureCollection string.
 
     Args:
@@ -90,10 +92,16 @@ async def create_geojson(trips: List[Dict[str, Any]]) -> str:
                 e,
             )
 
-    fc = {"type": "FeatureCollection", "features": features}
+    fc = {
+        "type": "FeatureCollection",
+        "features": features,
+    }
 
     if not features:
-        logger.warning("No valid features generated from %d trips", len(trips))
+        logger.warning(
+            "No valid features generated from %d trips",
+            len(trips),
+        )
     else:
         logger.info(
             "Created GeoJSON with %d features from %d trips",
@@ -104,7 +112,9 @@ async def create_geojson(trips: List[Dict[str, Any]]) -> str:
     return json.dumps(fc, default=default_serializer)
 
 
-async def create_gpx(trips: List[Dict[str, Any]]) -> str:
+async def create_gpx(
+    trips: List[Dict[str, Any]],
+) -> str:
     """Convert trip dictionaries to a GPX file (XML string).
 
     Args:
@@ -151,14 +161,20 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
             if gps_data.get("type") == "LineString":
                 for coord in gps_data.get("coordinates", []):
                     if len(coord) >= 2:
-                        lon, lat = coord[0], coord[1]
+                        lon, lat = (
+                            coord[0],
+                            coord[1],
+                        )
                         segment.points.append(
                             gpxpy.gpx.GPXTrackPoint(lat, lon)
                         )
             elif gps_data.get("type") == "Point":
                 coords = gps_data.get("coordinates", [])
                 if len(coords) >= 2:
-                    lon, lat = coords[0], coords[1]
+                    lon, lat = (
+                        coords[0],
+                        coords[1],
+                    )
                     segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
 
             if segment.points:
@@ -172,10 +188,15 @@ async def create_gpx(trips: List[Dict[str, Any]]) -> str:
             )
 
     if trip_count == 0:
-        logger.warning("No valid tracks generated from %d trips", len(trips))
+        logger.warning(
+            "No valid tracks generated from %d trips",
+            len(trips),
+        )
     else:
         logger.info(
-            "Created GPX with %d tracks from %d trips", trip_count, len(trips)
+            "Created GPX with %d tracks from %d trips",
+            trip_count,
+            len(trips),
         )
 
     return gpx.to_xml()
@@ -203,8 +224,14 @@ async def create_shapefile(
             buf = io.BytesIO()
             with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
                 for f in os.listdir(tmp_dir):
-                    with open(os.path.join(tmp_dir, f), "rb") as fh:
-                        zf.writestr(f"{output_name}/{f}", fh.read())
+                    with open(
+                        os.path.join(tmp_dir, f),
+                        "rb",
+                    ) as fh:
+                        zf.writestr(
+                            f"{output_name}/{f}",
+                            fh.read(),
+                        )
 
             buf.seek(0)
             return buf
@@ -382,7 +409,9 @@ async def create_export_response(
     raise ValueError(f"Unsupported export format: {fmt}")
 
 
-def extract_date_range_string(query: Dict[str, Any]) -> str:
+def extract_date_range_string(
+    query: Dict[str, Any],
+) -> str:
     """Extract a date range string from a query dictionary for use in
     filenames.
 
@@ -408,7 +437,9 @@ def extract_date_range_string(query: Dict[str, Any]) -> str:
     return datetime.now().strftime("%Y%m%d")
 
 
-def get_location_filename(location: Dict[str, Any]) -> str:
+def get_location_filename(
+    location: Dict[str, Any],
+) -> str:
     """Create a safe filename from a location dictionary.
 
     Args:
@@ -482,7 +513,13 @@ async def process_trip_for_export(
         "speedingEvents",
     ]
 
-    geometry_fields = ["gps", "path", "simplified_path", "route", "geometry"]
+    geometry_fields = [
+        "gps",
+        "path",
+        "simplified_path",
+        "route",
+        "geometry",
+    ]
 
     meta_fields = [
         "deviceId",
@@ -497,7 +534,13 @@ async def process_trip_for_export(
         "updatedAt",
     ]
 
-    custom_fields = ["notes", "tags", "category", "purpose", "customFields"]
+    custom_fields = [
+        "notes",
+        "tags",
+        "category",
+        "purpose",
+        "customFields",
+    ]
 
     all_fields = []
     if include_basic_info:
@@ -604,10 +647,17 @@ async def create_csv_export(
     for trip in trips:
         flat_trip = {}
         for key, value in trip.items():
-            if key in ["gps", "geometry", "path", "simplified_path", "route"]:
+            if key in [
+                "gps",
+                "geometry",
+                "path",
+                "simplified_path",
+                "route",
+            ]:
                 if include_gps_in_csv:
                     flat_trip[key] = json.dumps(
-                        value, default=default_serializer
+                        value,
+                        default=default_serializer,
                     )
                 else:
                     flat_trip[key] = (
@@ -619,7 +669,10 @@ async def create_csv_export(
             ]:
                 pass
             elif isinstance(value, (dict, list)):
-                flat_trip[key] = json.dumps(value, default=default_serializer)
+                flat_trip[key] = json.dumps(
+                    value,
+                    default=default_serializer,
+                )
             elif isinstance(value, datetime):
                 flat_trip[key] = value.isoformat()
             else:
