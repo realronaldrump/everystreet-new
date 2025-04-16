@@ -508,16 +508,18 @@ async def update_background_tasks_config(
     try:
         result = await update_task_schedule(data.dict(exclude_unset=True))
 
-        if result["status"] == "error":
+        if result.get("status") != "success":
+            logger.error("Failed to update task schedule: %r", result)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result["message"],
+                detail=result.get("message", "Unknown error"),
             )
-
         return {"status": "success", "message": "Configuration updated"}
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception("Error updating task configuration: %s", str(e))
+        logger.exception("Error updating task configuration: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
