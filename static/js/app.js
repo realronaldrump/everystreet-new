@@ -730,7 +730,10 @@
       let location;
       try {
         location = JSON.parse(locationSelect.value);
-        showNotification(`[fetchUndrivenStreets] Parsed location object from dropdown: ${JSON.stringify(location, null, 2)}`, "info");
+        showNotification(
+          `[fetchUndrivenStreets] Parsed location object from dropdown: ${JSON.stringify(location, null, 2)}`,
+          "info",
+        );
         if (
           !location ||
           typeof location !== "object" ||
@@ -770,7 +773,10 @@
         body: JSON.stringify(location),
       });
 
-      showNotification(`[fetchUndrivenStreets] Received response status: ${response.status}`, "info");
+      showNotification(
+        `[fetchUndrivenStreets] Received response status: ${response.status}`,
+        "info",
+      );
 
       if (!response.ok) {
         let errorDetail = `HTTP error ${response.status}`;
@@ -782,7 +788,10 @@
       }
 
       const geojson = await response.json();
-      showNotification(`[fetchUndrivenStreets] Received GeoJSON data: ${JSON.stringify(geojson, null, 2)}`, "info");
+      showNotification(
+        `[fetchUndrivenStreets] Received GeoJSON data: ${JSON.stringify(geojson, null, 2)}`,
+        "info",
+      );
 
       if (!geojson.features || geojson.features.length === 0) {
         console.log(
