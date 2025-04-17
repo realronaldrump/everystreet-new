@@ -510,6 +510,16 @@ class DatabaseManager:
                 self._collections = {}
                 self._gridfs_bucket_instance = None
 
+    @property
+    def connection_healthy(self) -> bool:
+        """Public property to check if the database connection is healthy."""
+        return self._connection_healthy
+
+    def ensure_connection(self) -> None:
+        """Public method to ensure the client is initialized and healthy."""
+        if not self._connection_healthy:
+            self._initialize_client()
+
 
 db_manager = DatabaseManager()
 

@@ -2383,13 +2383,13 @@ def process_webhook_event_task(self, data: Dict[str, Any]) -> Dict[str, Any]:
             celery_task_id,
         )
         _ = db_manager.client
-        if not db_manager._connection_healthy:
+        if not db_manager.connection_healthy:
             logger.warning(
                 "Task %s: DB Manager connection unhealthy, attempting re-init.",
                 celery_task_id,
             )
-            db_manager._initialize_client()
-            if not db_manager._connection_healthy:
+            db_manager.ensure_connection()
+            if not db_manager.connection_healthy:
                 logger.critical(
                     "Task %s: DB Manager re-initialization failed.",
                     celery_task_id,
