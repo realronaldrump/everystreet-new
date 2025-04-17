@@ -581,8 +581,6 @@ async def get_background_tasks_config():
                 task_def.get("default_interval_minutes"),
             )
 
-            import datetime
-
             last_run = task_config.get("last_run")
             interval = task_config.get("interval_minutes")
             enabled = task_config.get("enabled", True)

@@ -81,6 +81,7 @@
     },
     dom: {},
     baseLayer: null,
+    geoJsonLayers: {},
   };
 
   const getElement = (selector, useCache = true, context = document) => {
@@ -321,14 +322,8 @@
         })
         .addTo(AppState.map);
 
-      AppState.map.on("zoomend", () => {
-        updateUrlWithMapState();
-        adjustLayerStylesForZoom();
-      });
-
-      AppState.map.on("moveend", () => {
-        updateUrlWithMapState();
-      });
+      AppState.map.on("zoomend", debouncedUpdateUrlWithMapState);
+      AppState.map.on("moveend", debouncedUpdateUrlWithMapState);
 
       document.dispatchEvent(new CustomEvent("mapInitialized"));
 
@@ -368,9 +363,7 @@
     AppState.layerGroup.eachLayer((layer) => {
       if (layer.feature?.properties) {
         let layerName = "trips";
-        if (
-          layer.feature.properties.transactionId?.startsWith("MATCHED-")
-        ) {
+        if (layer.feature.properties.transactionId?.startsWith("MATCHED-")) {
           layerName = "matchedTrips";
         } else if (layer.feature.properties.type === "undriven") {
           layerName = "undrivenStreets";
@@ -449,85 +442,22 @@
   function initializeLayerControls() {
     const layerToggles = getElement("layer-toggles");
     if (!layerToggles) return;
-
-    layerToggles.innerHTML = "";
-
-    Object.entries(AppState.mapLayers).forEach(([name, info]) => {
-      const div = document.createElement("div");
-      div.className = "layer-control";
-      div.dataset.layerName = name;
-
-      div.innerHTML = `
-        <label class="custom-checkbox">
-          <input type="checkbox" id="${name}-toggle" ${
-            info.visible ? "checked" : ""
-          }>
-          <span class="checkmark"></span>
-        </label>
-        <label for="${name}-toggle">${info.name || name}</label>
-      `;
-
-      if (!["customPlaces"].includes(name)) {
-        const colorControl = document.createElement("input");
-        colorControl.type = "color";
-        colorControl.id = `${name}-color`;
-        colorControl.value = info.color;
-        div.appendChild(colorControl);
-
-        const opacityLabel = document.createElement("label");
-        opacityLabel.setAttribute("for", `${name}-opacity`);
-        opacityLabel.textContent = "Opacity:";
-        div.appendChild(opacityLabel);
-
-        const opacitySlider = document.createElement("input");
-        opacitySlider.type = "range";
-        opacitySlider.id = `${name}-opacity`;
-        opacitySlider.min = "0";
-        opacitySlider.max = "1";
-        opacitySlider.step = "0.1";
-        opacitySlider.value = info.opacity;
-        div.appendChild(opacitySlider);
-      }
-
-      layerToggles.appendChild(div);
-    });
-
-    layerToggles.addEventListener("change", (e) => {
-      const target = e.target;
-      if (target.matches('input[type="checkbox"]')) {
-        toggleLayer(target.id.replace("-toggle", ""), target.checked);
-      }
-    });
-
-    layerToggles.addEventListener("input", (e) => {
-      const target = e.target;
-      if (target.matches('input[type="color"]')) {
-        changeLayerColor(target.id.replace("-color", ""), target.value);
-      } else if (target.matches('input[type="range"]')) {
-        changeLayerOpacity(
-          target.id.replace("-opacity", ""),
-          parseFloat(target.value),
-        );
-      }
-    });
-
+    batchLayerControls(layerToggles, AppState.mapLayers);
+    delegateLayerControls(layerToggles);
     updateLayerOrderUI();
   }
 
   function toggleLayer(name, visible) {
     const layerInfo = AppState.mapLayers[name];
     if (!layerInfo) return;
-
     layerInfo.visible = visible;
-
     if (name === "customPlaces" && window.customPlaces) {
       window.customPlaces.toggleVisibility(visible);
     } else if (name === "undrivenStreets" && visible) {
-      fetchUndrivenStreets();
+      lazyFetchUndrivenStreets();
     } else {
       debouncedUpdateMap();
     }
-
     updateLayerOrderUI();
     document.dispatchEvent(
       new CustomEvent("layerVisibilityChanged", {
@@ -551,27 +481,10 @@
   function updateLayerOrderUI() {
     const layerOrderEl = getElement("layer-order");
     if (!layerOrderEl) return;
-
-    layerOrderEl.innerHTML = '<h4 class="h6">Layer Order</h4>';
-
     const visibleLayers = Object.entries(AppState.mapLayers)
       .filter(([, info]) => info.visible && info.layer)
       .sort(([, a], [, b]) => b.order - a.order);
-
-    const ul = document.createElement("ul");
-    ul.id = "layer-order-list";
-    ul.className = "list-group bg-dark";
-
-    visibleLayers.forEach(([name, info]) => {
-      const li = document.createElement("li");
-      li.textContent = info.name || name;
-      li.draggable = true;
-      li.dataset.layer = name;
-      li.className = "list-group-item bg-dark text-white";
-      ul.appendChild(li);
-    });
-
-    layerOrderEl.appendChild(ul);
+    batchLayerOrderUI(layerOrderEl, visibleLayers);
     initializeDragAndDrop();
   }
 
@@ -939,7 +852,7 @@
         info.layer.addTo(AppState.layerGroup);
       } else if (["trips", "matchedTrips"].includes(name)) {
         if (info.layer?.features) {
-          const geoJsonLayer = L.geoJSON(info.layer, {
+          const geoJsonLayer = getOrCreateGeoJsonLayer(name, info.layer, {
             style: (feature) => getTripFeatureStyle(feature, info),
             onEachFeature: (feature, layer) => {
               tripLayers.set(feature.properties.transactionId, layer);
@@ -954,7 +867,7 @@
           geoJsonLayer.addTo(AppState.layerGroup);
         }
       } else if (name === "undrivenStreets" && info.layer?.features) {
-        const geoJsonLayer = L.geoJSON(info.layer, {
+        const geoJsonLayer = getOrCreateGeoJsonLayer(name, info.layer, {
           style: () => ({
             color: info.color,
             weight: 3,
@@ -1408,13 +1321,9 @@
     if (!startDate || !endDate) return;
 
     try {
-      const response = await fetch(
+      const metrics = await cachedFetch(
         `/api/metrics?start_date=${startDate}&end_date=${endDate}&imei=${imei}`,
       );
-      if (!response.ok)
-        throw new Error(`HTTP error! status: ${response.status}`);
-
-      const metrics = await response.json();
       const metricMap = {
         "total-trips": metrics.total_trips,
         "total-distance": metrics.total_distance,
@@ -1442,15 +1351,7 @@
 
   async function fetchCoverageAreas() {
     try {
-      const response = await fetch("/api/coverage_areas");
-
-      if (!response.ok) {
-        throw new Error(
-          `HTTP error fetching coverage areas: ${response.status}`,
-        );
-      }
-
-      const data = await response.json();
+      const data = await cachedFetch("/api/coverage_areas");
       return data.areas || [];
     } catch (error) {
       console.error("Error fetching coverage areas:", error);
@@ -1736,4 +1637,191 @@
     mapMatchTrips,
     fetchTripsInRange,
   };
+
+  // ===================== UTILITY FUNCTIONS =====================
+  function debounce(func, wait) {
+    let timeout;
+    return function (...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
+
+  function throttle(func, limit) {
+    let inThrottle;
+    return function (...args) {
+      if (!inThrottle) {
+        func.apply(this, args);
+        inThrottle = true;
+        setTimeout(() => (inThrottle = false), limit);
+      }
+    };
+  }
+
+  // ===================== API CACHE =====================
+  const apiCache = {};
+  async function cachedFetch(url, options = {}, cacheTime = 10000) {
+    const key = url + JSON.stringify(options);
+    const now = Date.now();
+    if (apiCache[key] && now - apiCache[key].ts < cacheTime) {
+      return apiCache[key].data;
+    }
+    const response = await fetch(url, options);
+    const data = await response.json();
+    apiCache[key] = { data, ts: now };
+    return data;
+  }
+
+  // ===================== DOM BATCHING =====================
+  function batchLayerControls(layerToggles, layers) {
+    const fragment = document.createDocumentFragment();
+    Object.entries(layers).forEach(([name, info]) => {
+      const div = document.createElement("div");
+      div.className = "layer-control";
+      div.dataset.layerName = name;
+      div.innerHTML = `
+        <label class="custom-checkbox">
+          <input type="checkbox" id="${name}-toggle" ${info.visible ? "checked" : ""}>
+          <span class="checkmark"></span>
+        </label>
+        <label for="${name}-toggle">${info.name || name}</label>
+      `;
+      if (!["customPlaces"].includes(name)) {
+        const colorControl = document.createElement("input");
+        colorControl.type = "color";
+        colorControl.id = `${name}-color`;
+        colorControl.value = info.color;
+        div.appendChild(colorControl);
+        const opacityLabel = document.createElement("label");
+        opacityLabel.setAttribute("for", `${name}-opacity`);
+        opacityLabel.textContent = "Opacity:";
+        div.appendChild(opacityLabel);
+        const opacitySlider = document.createElement("input");
+        opacitySlider.type = "range";
+        opacitySlider.id = `${name}-opacity`;
+        opacitySlider.min = "0";
+        opacitySlider.max = "1";
+        opacitySlider.step = "0.1";
+        opacitySlider.value = info.opacity;
+        div.appendChild(opacitySlider);
+      }
+      fragment.appendChild(div);
+    });
+    layerToggles.innerHTML = "";
+    layerToggles.appendChild(fragment);
+  }
+
+  function batchLayerOrderUI(layerOrderEl, visibleLayers) {
+    layerOrderEl.innerHTML = '<h4 class="h6">Layer Order</h4>';
+    const ul = document.createElement("ul");
+    ul.id = "layer-order-list";
+    ul.className = "list-group bg-dark";
+    const fragment = document.createDocumentFragment();
+    visibleLayers.forEach(([name, info]) => {
+      const li = document.createElement("li");
+      li.textContent = info.name || name;
+      li.draggable = true;
+      li.dataset.layer = name;
+      li.className = "list-group-item bg-dark text-white";
+      fragment.appendChild(li);
+    });
+    ul.appendChild(fragment);
+    layerOrderEl.appendChild(ul);
+  }
+
+  // ===================== EVENT DELEGATION =====================
+  function delegateLayerControls(layerToggles) {
+    layerToggles.addEventListener("change", (e) => {
+      const target = e.target;
+      if (target.matches('input[type="checkbox"]')) {
+        toggleLayer(target.id.replace("-toggle", ""), target.checked);
+      }
+    });
+    layerToggles.addEventListener("input", (e) => {
+      const target = e.target;
+      if (target.matches('input[type="color"]')) {
+        changeLayerColor(target.id.replace("-color", ""), target.value);
+      } else if (target.matches('input[type="range"]')) {
+        changeLayerOpacity(
+          target.id.replace("-opacity", ""),
+          parseFloat(target.value),
+        );
+      }
+    });
+  }
+
+  function delegatePopupActions(mapContainer) {
+    mapContainer.addEventListener("click", function (e) {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      const tripActions = btn.closest(".trip-actions");
+      if (!tripActions) return;
+      const tripId = tripActions.dataset.tripId;
+      if (!tripId) return;
+      if (btn.classList.contains("delete-matched-trip")) {
+        handleDeleteMatchedTrip(tripId);
+      } else if (btn.classList.contains("delete-trip")) {
+        handleDeleteTrip(tripId);
+      } else if (btn.classList.contains("rematch-trip")) {
+        handleRematchTrip(tripId);
+      }
+    });
+  }
+
+  // ===================== MAP EVENT OPTIMIZATION =====================
+  const debouncedUpdateUrlWithMapState = debounce(updateUrlWithMapState, 200);
+  const throttledAdjustLayerStylesForZoom = throttle(
+    adjustLayerStylesForZoom,
+    200,
+  );
+
+  // ===================== GEOJSON LAYER OPTIMIZATION =====================
+  function getOrCreateGeoJsonLayer(name, data, options) {
+    if (!AppState.geoJsonLayers[name]) {
+      AppState.geoJsonLayers[name] = L.geoJSON(data, options);
+    } else {
+      AppState.geoJsonLayers[name].clearLayers();
+      AppState.geoJsonLayers[name].addData(data);
+      if (options && options.style) {
+        AppState.geoJsonLayers[name].setStyle(options.style);
+      }
+    }
+    return AppState.geoJsonLayers[name];
+  }
+
+  // ===================== LAZY LOAD UNDRIVEN STREETS =====================
+  let undrivenStreetsLoaded = false;
+  async function lazyFetchUndrivenStreets() {
+    if (!undrivenStreetsLoaded) {
+      undrivenStreetsLoaded = true;
+      return await fetchUndrivenStreets();
+    }
+    return AppState.mapLayers.undrivenStreets.layer;
+  }
+
+  // ===================== KEYBOARD SHORTCUTS =====================
+  window.addEventListener("keydown", function (e) {
+    if (!AppState.map) return;
+    switch (e.key) {
+      case "+":
+      case "=":
+        AppState.map.zoomIn();
+        break;
+      case "-":
+        AppState.map.zoomOut();
+        break;
+      case "ArrowUp":
+        AppState.map.panBy([0, -100]);
+        break;
+      case "ArrowDown":
+        AppState.map.panBy([0, 100]);
+        break;
+      case "ArrowLeft":
+        AppState.map.panBy([-100, 0]);
+        break;
+      case "ArrowRight":
+        AppState.map.panBy([100, 0]);
+        break;
+    }
+  });
 })();
