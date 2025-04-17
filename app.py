@@ -532,7 +532,8 @@ async def update_background_tasks_config(
             "message": "Configuration updated",
         }
 
-    except HTTPException:
+    except HTTPException as exc:
+        logger.warning("HTTPException in update_background_tasks_config: %s", exc, exc_info=True)
         raise
     except Exception as e:
         logger.exception(
@@ -655,7 +656,8 @@ async def pause_background_tasks(
             "status": "success",
             "message": f"Background tasks paused for {minutes} minutes",
         }
-    except HTTPException:
+    except HTTPException as exc:
+        logger.warning("HTTPException in pause_background_tasks: %s", exc, exc_info=True)
         raise
     except Exception as e:
         logger.exception("Error pausing tasks: %s", e)
@@ -699,7 +701,8 @@ async def stop_all_background_tasks():
             "status": "success",
             "message": "All background tasks stopped",
         }
-    except HTTPException:
+    except HTTPException as exc:
+        logger.warning("HTTPException in stop_all_background_tasks: %s", exc, exc_info=True)
         raise
     except Exception as e:
         logger.exception("Error stopping all tasks: %s", e)
@@ -727,7 +730,8 @@ async def enable_all_background_tasks():
             "status": "success",
             "message": "All background tasks enabled",
         }
-    except HTTPException:
+    except HTTPException as exc:
+        logger.warning("HTTPException in enable_all_background_tasks: %s", exc, exc_info=True)
         raise
     except Exception as e:
         logger.exception("Error enabling all tasks: %s", e)
@@ -755,7 +759,8 @@ async def disable_all_background_tasks():
             "status": "success",
             "message": "All background tasks disabled",
         }
-    except HTTPException:
+    except HTTPException as exc:
+        logger.warning("HTTPException in disable_all_background_tasks: %s", exc, exc_info=True)
         raise
     except Exception as e:
         logger.exception("Error disabling all tasks: %s", e)
