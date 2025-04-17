@@ -1,4 +1,4 @@
-/* global L, notificatonManager, DateUtils, Chart */
+/* global L, notificationManager, DateUtils, Chart */
 
 "use strict";
 
@@ -92,7 +92,7 @@ class DrivingNavigation {
 
       setTimeout(() => {
         if (this.map) {
-          window.handleError("Invalidating map size...");
+          window.handleError("Invalidating map size...", "initMap", "info");
           this.map.invalidateSize();
         }
       }, 150);
@@ -123,7 +123,7 @@ class DrivingNavigation {
       this.handleLiveTripClear();
     };
 
-    window.handleError("Live tracking initialized for navigation.");
+    window.handleError("Live tracking initialized for navigation.", "initLiveTracking", "info");
   }
 
   handleLiveTripUpdate(trip) {
@@ -218,7 +218,7 @@ class DrivingNavigation {
     const CLEAR_DELAY_MS = 7000;
 
     this.clearTripTimeout = setTimeout(() => {
-      window.handleError("Executing debounced live trip clear.");
+      window.handleError("Executing debounced live trip clear.", "handleLiveTripClear", "info");
       this.lastKnownLocation = null;
 
       if (this.liveTracker?.marker) {

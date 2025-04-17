@@ -218,8 +218,10 @@
     `;
     document.head.appendChild(style);
 
-    console.info(
+    window.handleError(
       "Map controls initialized and event propagation handlers set up",
+      "initMapControls",
+      "info"
     );
   }
 
@@ -756,9 +758,13 @@
         });
       }
 
-      console.info("Map enhancements applied successfully");
+      window.handleError(
+        "Map enhancements applied successfully",
+        "applyMapEnhancements",
+        "info"
+      );
     } catch (error) {
-      console.warn("Error applying map enhancements:", error);
+      window.handleError(error, "Error applying map enhancements");
     }
   }
 

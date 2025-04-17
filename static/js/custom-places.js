@@ -246,7 +246,7 @@ class CustomPlacesManager {
   async updateVisitsData(force = false) {
     const isVisitsPage = window.location.pathname.includes("/visits");
     if (!isVisitsPage && !force) {
-      window.handleError("Skipping place statistics on the main page");
+      window.handleError("Skipping place statistics on the main page", "updateVisitsData", "info");
       return;
     }
 

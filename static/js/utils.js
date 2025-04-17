@@ -260,33 +260,43 @@ const DateUtils = {
   },
 };
 
-function handleError(error, context = "", onComplete = null) {
+function handleError(error, context = "", level = "error", onComplete = null) {
   const errorObj = typeof error === "string" ? new Error(error) : error;
-  console.error(`Error in ${context}:`, errorObj);
 
-  let userMessage = `Error in ${context}: ${errorObj.message}`;
-
-  if (
-    errorObj.name === "NetworkError" ||
-    errorObj.message.includes("fetch") ||
-    errorObj.message.includes("network")
-  ) {
-    userMessage = "Network error: Please check your connection and try again.";
-  } else if (errorObj.message.includes("timeout")) {
-    userMessage = "The operation timed out. Please try again.";
-  } else if (errorObj.message.includes("permission")) {
-    userMessage = "Permission denied: You don't have access to this resource.";
-  } else if (
-    errorObj.message.includes("not found") ||
-    errorObj.status === 404
-  ) {
-    userMessage = "Resource not found: The requested item doesn't exist.";
-  } else if (errorObj.status >= 500) {
-    userMessage = "Server error: Please try again later.";
+  if (level === "error") {
+    console.error(`Error in ${context}:`, errorObj);
+  } else if (level === "warn") {
+    console.warn(`Warning in ${context}:`, errorObj);
+  } else {
+    console.log(`Info in ${context}:`, errorObj);
   }
 
-  if (window.notificationManager) {
-    window.notificationManager.show(userMessage, "danger");
+  if (level === "error" || level === "warn") {
+    let userMessage = `Error in ${context}: ${errorObj.message}`;
+
+    if (
+      errorObj.name === "NetworkError" ||
+      errorObj.message.includes("fetch") ||
+      errorObj.message.includes("network")
+    ) {
+      userMessage = "Network error: Please check your connection and try again.";
+    } else if (errorObj.message.includes("timeout")) {
+      userMessage = "The operation timed out. Please try again.";
+    } else if (errorObj.message.includes("permission")) {
+      userMessage = "Permission denied: You don't have access to this resource.";
+    } else if (
+      errorObj.message.includes("not found") ||
+      errorObj.status === 404
+    ) {
+      userMessage = "Resource not found: The requested item doesn't exist.";
+    } else if (errorObj.status >= 500) {
+      userMessage = "Server error: Please try again later.";
+    }
+
+    if (window.notificationManager) {
+      const notificationType = level === "error" ? "danger" : "warning";
+      window.notificationManager.show(userMessage, notificationType);
+    }
   }
 
   if (typeof onComplete === "function") {
