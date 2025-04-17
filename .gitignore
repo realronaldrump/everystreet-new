@@ -15,3 +15,5 @@ vibes.md
 .service_pids
 .vscode/settings.json
 sim.html
+node_modules/
+eslint.config.mjs

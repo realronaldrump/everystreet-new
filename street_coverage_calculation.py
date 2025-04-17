@@ -2611,7 +2611,7 @@ async def generate_and_store_geojson(
         )
 
         await upload_stream.close()
-        file_id = upload_stream._id
+        file_id = upload_stream._id  # noqa: PYL-W0212
 
         if file_id:
             logger.info(
