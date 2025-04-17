@@ -368,9 +368,7 @@
     AppState.layerGroup.eachLayer((layer) => {
       if (layer.feature?.properties) {
         let layerName = "trips";
-        if (
-          layer.feature.properties.transactionId?.startsWith("MATCHED-")
-        ) {
+        if (layer.feature.properties.transactionId?.startsWith("MATCHED-")) {
           layerName = "matchedTrips";
         } else if (layer.feature.properties.type === "undriven") {
           layerName = "undrivenStreets";
