@@ -25,13 +25,13 @@ from bson import ObjectId
 from dateutil import parser as dateutil_parser
 from dotenv import load_dotenv
 from fastapi import (
+    Body,
     FastAPI,
     File,
     HTTPException,
     Query,
     Request,
     UploadFile,
-    Body,
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
@@ -109,13 +109,13 @@ from models import (
 from osm_utils import generate_geojson_osm
 from tasks import (
     TASK_METADATA,
+    TaskPriority,
     TaskStatus,
+    get_all_task_metadata,
     get_task_config,
     manual_run_task,
     process_webhook_event_task,
     update_task_schedule,
-    get_all_task_metadata,
-    TaskPriority,
 )
 from trip_processor import (
     TripProcessor,
@@ -1014,7 +1014,9 @@ async def reset_task_states():
                             continue
                     if not start_time:
                         logger.warning(
-                            f"Could not parse start_time string '{start_time_any}' for task {task_id}"
+                            "Could not parse start_time string '%s' for task %s",
+                            start_time_any,
+                            task_id,
                         )
 
             if not start_time:
@@ -3734,7 +3736,8 @@ async def _recalculate_coverage_stats(
             "display_name"
         ):
             logger.error(
-                f"Cannot recalculate stats: Coverage area {location_id} or its display_name not found."
+                "Cannot recalculate stats: Coverage area %s or its display_name not found.",
+                location_id,
             )
             return None
 
@@ -3888,11 +3891,13 @@ async def _recalculate_coverage_stats(
 
         if update_result.modified_count == 0:
             logger.warning(
-                f"Stats recalculated for {location_id}, but metadata document was not modified (maybe no change or error?)."
+                "Stats recalculated for %s, but metadata document was not modified (maybe no change or error?).",
+                location_id,
             )
         else:
             logger.info(
-                f"Successfully recalculated and updated stats for {location_id}."
+                "Successfully recalculated and updated stats for %s.",
+                location_id,
             )
 
         updated_coverage_area = await find_one_with_retry(
@@ -3910,7 +3915,9 @@ async def _recalculate_coverage_stats(
 
     except Exception as e:
         logger.error(
-            f"Error recalculating stats for {location_id}: {e}",
+            "Error recalculating stats for %s: %s",
+            location_id,
+            e,
             exc_info=True,
         )
         await update_one_with_retry(
@@ -3974,7 +3981,9 @@ async def _mark_segment(
         "display_name"
     ):
         logger.warning(
-            f"Segment {segment_id} found but does not belong to location {location_id_str}. Proceeding anyway."
+            "Segment %s found but does not belong to location %s. Proceeding anyway.",
+            segment_id,
+            location_id_str,
         )
 
     update_payload = {
@@ -3993,7 +4002,9 @@ async def _mark_segment(
 
     if result.modified_count == 0:
         logger.info(
-            f"Segment {segment_id} already had the desired state for action '{action_name}'. No DB change made."
+            "Segment %s already had the desired state for action '%s'. No DB change made.",
+            segment_id,
+            action_name,
         )
 
     await update_one_with_retry(
@@ -4038,12 +4049,15 @@ async def mark_street_segment_as_driven(
         )
     except HTTPException as http_exc:
         logger.error(
-            f"Error marking driven (HTTP {http_exc.status_code}): {http_exc.detail}"
+            "Error marking driven (HTTP %s): %s",
+            http_exc.status_code,
+            http_exc.detail,
         )
         raise http_exc
     except Exception as e:
         logger.error(
-            f"Error marking street segment as driven: {e}",
+            "Error marking street segment as driven: %s",
+            e,
             exc_info=True,
         )
         raise HTTPException(status_code=500, detail=str(e))
@@ -4071,7 +4085,9 @@ async def mark_street_segment_as_undriven(
         )
     except HTTPException as http_exc:
         logger.error(
-            f"Error marking undriven (HTTP {http_exc.status_code}): {http_exc.detail}"
+            "Error marking undriven (HTTP %s): %s",
+            http_exc.status_code,
+            http_exc.detail,
         )
         raise http_exc
     except Exception as e:
@@ -4108,12 +4124,15 @@ async def mark_street_segment_as_undriveable(
         )
     except HTTPException as http_exc:
         logger.error(
-            f"Error marking undriveable (HTTP {http_exc.status_code}): {http_exc.detail}"
+            "Error marking undriveable (HTTP %s): %s",
+            http_exc.status_code,
+            http_exc.detail,
         )
         raise http_exc
     except Exception as e:
         logger.error(
-            f"Error marking street segment as undriveable: {e}",
+            "Error marking street segment as undriveable: %s",
+            e,
             exc_info=True,
         )
         raise HTTPException(status_code=500, detail=str(e))
@@ -4141,12 +4160,15 @@ async def mark_street_segment_as_driveable(
         )
     except HTTPException as http_exc:
         logger.error(
-            f"Error marking driveable (HTTP {http_exc.status_code}): {http_exc.detail}"
+            "Error marking driveable (HTTP %s): %s",
+            http_exc.status_code,
+            http_exc.detail,
         )
         raise http_exc
     except Exception as e:
         logger.error(
-            f"Error marking street segment as driveable: {e}",
+            "Error marking street segment as driveable: %s",
+            e,
             exc_info=True,
         )
         raise HTTPException(status_code=500, detail=str(e))
@@ -4158,7 +4180,8 @@ async def refresh_coverage_stats(
 ):
     """Refresh statistics for a coverage area after manual street modifications."""
     logger.info(
-        f"Received request to refresh stats for location_id: {location_id}"
+        "Received request to refresh stats for location_id: %s",
+        location_id,
     )
     try:
         obj_location_id = ObjectId(location_id)
@@ -4197,12 +4220,16 @@ async def refresh_coverage_stats(
 
     except HTTPException as http_exc:
         logger.error(
-            f"HTTP Error refreshing stats for {location_id}: {http_exc.detail}"
+            "HTTP Error refreshing stats for %s: %s",
+            location_id,
+            http_exc.detail,
         )
         raise http_exc
     except Exception as e:
         logger.error(
-            f"Error refreshing coverage stats for {location_id}: {e}",
+            "Error refreshing coverage stats for %s: %s",
+            location_id,
+            e,
             exc_info=True,
         )
         raise HTTPException(
@@ -4276,11 +4303,13 @@ async def delete_coverage_area(
                 fs = AsyncIOMotorGridFSBucket(db_manager.db)
                 await fs.delete(gridfs_id)
                 logger.info(
-                    f"Deleted GridFS file {gridfs_id} for {display_name}"
+                    "Deleted GridFS file %s for %s", gridfs_id, display_name
                 )
             except Exception as gridfs_err:
                 logger.warning(
-                    f"Error deleting GridFS file for {display_name}: {gridfs_err}"
+                    "Error deleting GridFS file for %s: %s",
+                    display_name,
+                    gridfs_err,
                 )
 
         try:
@@ -4544,7 +4573,8 @@ async def _get_mapbox_optimization_route(
     start_lat: float,
     end_points: List[tuple] = None,
 ) -> Dict[str, Any]:
-    """Calls Mapbox Optimization API v1 to get an optimized route for multiple points."""
+    """Calls Mapbox Optimization API v1 to get an optimized route for multiple
+    points."""
     mapbox_token = MAPBOX_ACCESS_TOKEN
     if not mapbox_token:
         logger.error("Mapbox API token not configured.")
@@ -4621,11 +4651,13 @@ async def get_next_driving_route(
 ):
     """
     Calculates the route from the user's current position to the
-    start of the nearest undriven street segment in the specified area using Mapbox Optimization API v1.
+    start of the nearest undriven street segment in the specified area using Mapbox
+    Optimization API v1.
 
     Accepts a JSON payload with:
     - location: The target area location model
-    - current_position: Optional current position {lat, lon} (falls back to live tracking if not provided)
+    - current_position: Optional current position {lat, lon} (falls back to live
+    tracking if not provided)
     """
     try:
         data = await request.json()
@@ -4920,7 +4952,11 @@ async def _get_mapbox_directions_route(
         route_data = response.json()
         if not route_data.get("routes") or len(route_data["routes"]) == 0:
             logger.warning(
-                f"Mapbox API returned no routes for {start_lon},{start_lat} -> {end_lon},{end_lat}"
+                "Mapbox API returned no routes for %s,%s -> %s,%s",
+                start_lon,
+                start_lat,
+                end_lon,
+                end_lat,
             )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -4933,7 +4969,9 @@ async def _get_mapbox_directions_route(
         distance = route.get("distance", 0)
 
         logger.debug(
-            f"Mapbox Route Received: Duration={duration:.1f}s, Distance={distance:.1f}m"
+            "Mapbox Route Received: Duration=%.1fs, Distance=%.1fm",
+            duration,
+            distance,
         )
         return {
             "geometry": geometry,
@@ -5190,8 +5228,6 @@ async def get_coverage_driving_route(
 
         start_point = (current_lon, current_lat)
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(
             "Coverage Route: Error getting position: %s",
@@ -5272,7 +5308,10 @@ async def get_coverage_driving_route(
                     )
                 else:
                     logger.warning(
-                        f"Coverage Route: Skipping invalid segment {segment_id} (type: {geom.get('type')}, len: {len(geom.get('coordinates', []))})"
+                        "Coverage Route: Skipping invalid segment %s (type: %s, len: %d)",
+                        segment_id,
+                        geom.get("type"),
+                        len(geom.get("coordinates", [])),
                     )
             except (
                 TypeError,
@@ -5283,13 +5322,16 @@ async def get_coverage_driving_route(
                     "segment_id", "UNKNOWN"
                 )
                 logger.warning(
-                    f"Coverage Route: Error processing segment {segment_id} data: {e}"
+                    "Coverage Route: Error processing segment %s data: %s",
+                    segment_id,
+                    e,
                 )
                 continue
 
         if not valid_segments:
             logger.warning(
-                f"Coverage Route: No valid undriven segments found in {location_name} after filtering."
+                "Coverage Route: No valid undriven segments found in %s after filtering.",
+                location_name,
             )
             return JSONResponse(
                 content={
@@ -5300,7 +5342,8 @@ async def get_coverage_driving_route(
             )
 
         logger.info(
-            f"Coverage Route: Processing {len(valid_segments)} valid segments."
+            "Coverage Route: Processing %d valid segments.",
+            len(valid_segments),
         )
 
     except Exception as e:
@@ -5321,7 +5364,10 @@ async def get_coverage_driving_route(
             max_points_per_cluster=11,
         )
         logger.info(
-            f"Coverage Route: Clustered {len(valid_segments)} segments into {len(clusters)} clusters for {location_name}."
+            "Coverage Route: Clustered %d segments into %d clusters for %s.",
+            len(valid_segments),
+            len(clusters),
+            location_name,
         )
 
         optimization_result = await _optimize_route_for_clusters(
@@ -5336,8 +5382,11 @@ async def get_coverage_driving_route(
         message = f"Full coverage route generated for {segments_covered} segments across {len(clusters)} clusters."
 
         logger.info(
-            f"Coverage Route: Generated optimized route for {location_name} covering {segments_covered} segments. "
-            f"Total Duration: {total_duration_seconds:.1f}s, Total Distance: {total_distance_meters:.1f}m"
+            "Coverage Route: Generated optimized route for %s covering %d segments. Total Duration: %.1fs, Total Distance: %.1fm",
+            location_name,
+            segments_covered,
+            total_duration_seconds,
+            total_distance_meters,
         )
         return JSONResponse(
             content={
@@ -5352,7 +5401,8 @@ async def get_coverage_driving_route(
 
     except Exception as e:
         logger.error(
-            f"Coverage Route: Error generating optimized route: {e}",
+            "Coverage Route: Error generating optimized route: %s",
+            e,
             exc_info=True,
         )
         raise HTTPException(
@@ -5720,9 +5770,6 @@ async def driver_behavior_page(request: Request):
 @app.get("/api/driver-behavior")
 async def driver_behavior_analytics():
     import collections
-    from datetime import datetime
-
-    from db import trips_collection
 
     trips = await trips_collection.find({}).to_list(length=None)
     if not trips:
