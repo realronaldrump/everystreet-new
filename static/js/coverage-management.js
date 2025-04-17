@@ -3062,9 +3062,7 @@ const STATUS = window.STATUS || {
     clearTripOverlay() {
       if (this.tripsLayerGroup) {
         this.tripsLayerGroup.clearLayers();
-        if (
-          this.coverageMap?.hasLayer(this.tripsLayerGroup)
-        ) {
+        if (this.coverageMap?.hasLayer(this.tripsLayerGroup)) {
         }
         console.log("Trip overlay cleared.");
       }
