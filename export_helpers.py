@@ -151,7 +151,9 @@ async def create_gpx(
             track.name = f"Trip {trip.get('transactionId', 'UNKNOWN')}"
 
             if trip.get("startLocation") and trip.get("destination"):
-                track.description = f"From {trip.get('startLocation')} to {trip.get('destination')}"
+                track.description = (
+                    f"From {trip.get('startLocation')} to {trip.get('destination')}"
+                )
 
             gpx.tracks.append(track)
 
@@ -165,9 +167,7 @@ async def create_gpx(
                             coord[0],
                             coord[1],
                         )
-                        segment.points.append(
-                            gpxpy.gpx.GPXTrackPoint(lat, lon)
-                        )
+                        segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
             elif gps_data.get("type") == "Point":
                 coords = gps_data.get("coordinates", [])
                 if len(coords) >= 2:
@@ -258,9 +258,7 @@ async def export_geojson_response(data, filename: str) -> StreamingResponse:
     return StreamingResponse(
         io.BytesIO(content.encode()),
         media_type="application/geo+json",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}.geojson"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="{filename}.geojson"'},
     )
 
 
@@ -281,16 +279,10 @@ async def export_gpx_response(data, filename: str) -> StreamingResponse:
         for feature in data.get("features", []):
             trips.append(
                 {
-                    "transactionId": feature.get("properties", {}).get(
-                        "id", "unknown"
-                    ),
+                    "transactionId": feature.get("properties", {}).get("id", "unknown"),
                     "gps": feature.get("geometry"),
-                    "startLocation": feature.get("properties", {}).get(
-                        "startLocation"
-                    ),
-                    "destination": feature.get("properties", {}).get(
-                        "destination"
-                    ),
+                    "startLocation": feature.get("properties", {}).get("startLocation"),
+                    "destination": feature.get("properties", {}).get("destination"),
                 }
             )
         content = await create_gpx(trips)
@@ -298,15 +290,11 @@ async def export_gpx_response(data, filename: str) -> StreamingResponse:
     return StreamingResponse(
         io.BytesIO(content.encode()),
         media_type="application/gpx+xml",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}.gpx"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="{filename}.gpx"'},
     )
 
 
-async def export_shapefile_response(
-    geojson_data, filename: str
-) -> StreamingResponse:
+async def export_shapefile_response(geojson_data, filename: str) -> StreamingResponse:
     """Create a StreamingResponse with Shapefile content (ZIP).
 
     Args:
@@ -321,9 +309,7 @@ async def export_shapefile_response(
     return StreamingResponse(
         buffer,
         media_type="application/zip",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}.zip"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="{filename}.zip"'},
     )
 
 
@@ -377,10 +363,7 @@ async def create_export_response(
         from io import StringIO
 
         if not isinstance(data, list):
-            if (
-                isinstance(data, dict)
-                and data.get("type") == "FeatureCollection"
-            ):
+            if isinstance(data, dict) and data.get("type") == "FeatureCollection":
                 trips = []
                 for feature in data.get("features", []):
                     if feature.get("properties"):
@@ -422,14 +405,10 @@ def extract_date_range_string(
         str: Formatted date range string (YYYYMMDD-YYYYMMDD)
     """
     start_date = (
-        query["startTime"].get("$gte")
-        if isinstance(query["startTime"], dict)
-        else None
+        query["startTime"].get("$gte") if isinstance(query["startTime"], dict) else None
     )
     end_date = (
-        query["startTime"].get("$lte")
-        if isinstance(query["startTime"], dict)
-        else None
+        query["startTime"].get("$lte") if isinstance(query["startTime"], dict) else None
     )
 
     if start_date and end_date:
@@ -449,11 +428,7 @@ def get_location_filename(
         str: Safe filename string
     """
     return (
-        location.get("display_name", "")
-        .split(",")[0]
-        .strip()
-        .replace(" ", "_")
-        .lower()
+        location.get("display_name", "").split(",")[0].strip().replace(" ", "_").lower()
     )
 
 
@@ -660,9 +635,7 @@ async def create_csv_export(
                         default=default_serializer,
                     )
                 else:
-                    flat_trip[key] = (
-                        "[Geometry data not included in CSV format]"
-                    )
+                    flat_trip[key] = "[Geometry data not included in CSV format]"
             elif flatten_location_fields and key in [
                 "startLocation",
                 "destination",
@@ -696,24 +669,14 @@ async def create_csv_export(
                     flat_trip["startLocation_street_number"] = addr_comps.get(
                         "street_number", ""
                     )
-                    flat_trip["startLocation_street"] = addr_comps.get(
-                        "street", ""
-                    )
-                    flat_trip["startLocation_city"] = addr_comps.get(
-                        "city", ""
-                    )
-                    flat_trip["startLocation_county"] = addr_comps.get(
-                        "county", ""
-                    )
-                    flat_trip["startLocation_state"] = addr_comps.get(
-                        "state", ""
-                    )
+                    flat_trip["startLocation_street"] = addr_comps.get("street", "")
+                    flat_trip["startLocation_city"] = addr_comps.get("city", "")
+                    flat_trip["startLocation_county"] = addr_comps.get("county", "")
+                    flat_trip["startLocation_state"] = addr_comps.get("state", "")
                     flat_trip["startLocation_postal_code"] = addr_comps.get(
                         "postal_code", ""
                     )
-                    flat_trip["startLocation_country"] = addr_comps.get(
-                        "country", ""
-                    )
+                    flat_trip["startLocation_country"] = addr_comps.get("country", "")
 
                 coords = start_loc.get("coordinates", {})
                 if isinstance(coords, dict):
@@ -737,22 +700,14 @@ async def create_csv_export(
                     flat_trip["destination_street_number"] = addr_comps.get(
                         "street_number", ""
                     )
-                    flat_trip["destination_street"] = addr_comps.get(
-                        "street", ""
-                    )
+                    flat_trip["destination_street"] = addr_comps.get("street", "")
                     flat_trip["destination_city"] = addr_comps.get("city", "")
-                    flat_trip["destination_county"] = addr_comps.get(
-                        "county", ""
-                    )
-                    flat_trip["destination_state"] = addr_comps.get(
-                        "state", ""
-                    )
+                    flat_trip["destination_county"] = addr_comps.get("county", "")
+                    flat_trip["destination_state"] = addr_comps.get("state", "")
                     flat_trip["destination_postal_code"] = addr_comps.get(
                         "postal_code", ""
                     )
-                    flat_trip["destination_country"] = addr_comps.get(
-                        "country", ""
-                    )
+                    flat_trip["destination_country"] = addr_comps.get("country", "")
 
                 coords = dest.get("coordinates", {})
                 if isinstance(coords, dict):
