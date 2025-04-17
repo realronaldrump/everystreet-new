@@ -163,6 +163,7 @@ function createEditableCell(data, type, field, inputType = "text") {
     }
 
     setRowEditMode(row, editMode) {
+      this.tripsTable;
       row.toggleClass("editing", editMode);
       row.find(".display-value").toggleClass("d-none", editMode);
       row.find(".edit-input").toggleClass("d-none", !editMode);
@@ -231,6 +232,7 @@ function createEditableCell(data, type, field, inputType = "text") {
     }
 
     getTripId(rowData) {
+      this.tripsCache;
       if (rowData.properties?.transactionId) {
         return rowData.properties.transactionId;
       } else if (rowData.transactionId) {
@@ -247,6 +249,7 @@ function createEditableCell(data, type, field, inputType = "text") {
     }
 
     storeDates(startDate, endDate) {
+      this.tripsCache;
       try {
         localStorage.setItem("startDate", startDate);
         localStorage.setItem("endDate", endDate);
@@ -376,6 +379,7 @@ function createEditableCell(data, type, field, inputType = "text") {
     }
 
     renderDateTime(data, type, row, field) {
+      this.tripsCache;
       if (type === "display" && data) {
         const formattedDate = DateUtils.formatForDisplay(data, {
           dateStyle: "medium",
@@ -388,6 +392,7 @@ function createEditableCell(data, type, field, inputType = "text") {
     }
 
     renderActionButtons(row) {
+      this.tripsCache;
       return `
         <div class="btn-group">
           <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
@@ -409,6 +414,7 @@ function createEditableCell(data, type, field, inputType = "text") {
     }
 
     updateBulkDeleteButton() {
+      this.tripsCache;
       const checkedCount = $(".trip-checkbox:checked").length;
       $("#bulk-delete-trips-btn").prop("disabled", checkedCount === 0);
     }
@@ -442,6 +448,10 @@ function createEditableCell(data, type, field, inputType = "text") {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ trip_ids: selectedTrips }),
           });
+
+          if (!response.ok) {
+            throw new Error("Network response was not ok");
+          }
 
           const data = await response.json();
 
@@ -502,7 +512,6 @@ function createEditableCell(data, type, field, inputType = "text") {
             throw new Error(errorData.message || "Failed to refresh geocoding");
           }
 
-          const data = await response.json();
           window.notificationManager.show(
             `Successfully refreshed ${selectedTrips.length} trip(s)`,
             "success",
@@ -519,6 +528,7 @@ function createEditableCell(data, type, field, inputType = "text") {
     }
 
     getFilterParams() {
+      this.tripsCache;
       const params = new URLSearchParams();
 
       let startDate = localStorage.getItem("startDate");
@@ -574,12 +584,13 @@ function createEditableCell(data, type, field, inputType = "text") {
         );
 
         if (window.loadingManager) {
-          window.loadingManager.error("Error loading trips: " + error.message);
+          window.loadingManager.error(`Error loading trips: ${error.message}`);
         }
       }
     }
 
     formatTripData(trip) {
+      this.tripsCache;
       let startLocation = trip.properties.startLocation;
       let destination = trip.properties.destination;
 
@@ -594,7 +605,7 @@ function createEditableCell(data, type, field, inputType = "text") {
       return {
         ...trip.properties,
         gps: trip.geometry,
-        startLocation: startLocation,
+        startLocation,
         destination: destination || "N/A",
         isCustomPlace: trip.properties.isCustomPlace || false,
         distance: parseFloat(trip.properties.distance).toFixed(2),
@@ -645,6 +656,7 @@ function createEditableCell(data, type, field, inputType = "text") {
     }
 
     exportTrip(tripId, format) {
+      this.tripsCache;
       const url = `/api/export/trip/${tripId}?format=${format}`;
 
       fetch(url)
@@ -656,14 +668,14 @@ function createEditableCell(data, type, field, inputType = "text") {
         })
         .then((blob) => {
           const blobUrl = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.style.display = "none";
-          a.href = blobUrl;
-          a.download = `trip_${tripId}.${format}`;
-          document.body.appendChild(a);
-          a.click();
+          const downloadLink = document.createElement("a");
+          downloadLink.style.display = "none";
+          downloadLink.href = blobUrl;
+          downloadLink.download = `trip_${tripId}.${format}`;
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
           window.URL.revokeObjectURL(blobUrl);
-          document.body.removeChild(a);
+          document.body.removeChild(downloadLink);
         })
         .catch((error) => {
           console.error("Error exporting trip:", error);
