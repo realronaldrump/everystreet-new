@@ -101,11 +101,6 @@
       window.notificationManager.show(message, type);
       return true;
     }
-    // Fallback: display as alert if notificationManager is not available
-    if (type === "danger" || type === "error") {
-      alert(`${type.toUpperCase()}: ${message}`);
-    }
-    return false;
   };
 
   const addSingleEventListener = (element, eventType, handler) => {
@@ -312,10 +307,12 @@
       };
 
       const defaultBasemap = theme === "light" ? "Light" : "Dark";
-      if (basemaps[defaultBasemap]) {
-        basemaps[defaultBasemap].addTo(AppState.map);
+      if (basemaps.Dark && defaultBasemap === "Dark") {
+        basemaps.Dark.addTo(AppState.map);
+      } else if (basemaps.Light && defaultBasemap === "Light") {
+        basemaps.Light.addTo(AppState.map);
       } else {
-        basemaps["Dark"].addTo(AppState.map);
+        basemaps.Dark.addTo(AppState.map);
       }
 
       L.control
@@ -341,6 +338,8 @@
       return false;
     }
   }
+
+  const debouncedUpdateUrlWithMapState = debounce(updateUrlWithMapState, 200);
 
   function updateUrlWithMapState() {
     if (!AppState.map || !window.history) return;
@@ -375,38 +374,13 @@
         const layerInfo = AppState.mapLayers[layerName];
 
         if (zoom > 14) {
-          let weight = (layerInfo.weight || 1.5) * 1.5;
+          const weight = (layerInfo.weight || 1.5) * 1.5;
           layer.setStyle({ weight });
         } else {
           layer.setStyle({ weight: layerInfo.weight || 1.5 });
         }
       }
     });
-  }
-
-  function updateMapTheme(theme) {
-    if (!AppState.map || !AppState.baseLayer) return;
-
-    const isDark = theme === "dark";
-    const tileUrl = isDark
-      ? CONFIG.MAP.tileLayerUrls.dark
-      : CONFIG.MAP.tileLayerUrls.light;
-    const attribution = isDark
-      ? CONFIG.MAP.tileLayerAttribution.dark
-      : CONFIG.MAP.tileLayerAttribution.light;
-
-    AppState.map.removeLayer(AppState.baseLayer);
-
-    AppState.baseLayer = L.tileLayer(tileUrl, {
-      attribution,
-      maxZoom: CONFIG.MAP.maxZoom,
-    }).addTo(AppState.map);
-
-    if (AppState.baseLayer && AppState.layerGroup) {
-      AppState.baseLayer.bringToBack();
-    }
-
-    refreshTripStyles();
   }
 
   function initializeLiveTracker() {
@@ -542,15 +516,15 @@
 
   async function withLoading(
     operationId,
-    totalWeight = 100,
     operation,
+    totalWeight = 100,
     subOperations = {},
   ) {
     const loadingManager = window.loadingManager || {
-      startOperation: () => {},
-      addSubOperation: () => {},
-      updateSubOperation: () => {},
-      finish: () => {},
+      startOperation: () => undefined,
+      addSubOperation: () => undefined,
+      updateSubOperation: () => undefined,
+      finish: () => undefined,
     };
 
     try {
@@ -636,7 +610,7 @@
     );
   }
 
-  async function updateTripsTable(geojson) {
+  function updateTripsTable(geojson) {
     if (!window.tripsTable) return;
 
     const formattedTrips = geojson.features.map((trip) => ({
@@ -660,14 +634,11 @@
       distance: Number(trip.properties.distance).toFixed(2),
     }));
 
-    return new Promise((resolve) => {
-      if ($.fn.DataTable.isDataTable("#tripsTable")) {
-        window.tripsTable.clear().rows.add(formattedTrips).draw();
-      } else {
-        console.warn("Trips DataTable not initialized yet.");
-      }
-      setTimeout(resolve, 100);
-    });
+    if ($.fn.DataTable.isDataTable("#tripsTable")) {
+      window.tripsTable.clear().rows.add(formattedTrips).draw();
+    } else {
+      showNotification("Trips DataTable not initialized yet.", "warning");
+    }
   }
 
   async function updateMapWithTrips(geojson) {
@@ -685,7 +656,7 @@
     await updateMap();
   }
 
-  async function fetchMatchedTrips() {
+  function fetchMatchedTrips() {
     const startDate = DateUtils.formatDate(
       getStorageItem(CONFIG.STORAGE_KEYS.startDate),
     );
@@ -702,14 +673,18 @@
       start_date: startDate,
       end_date: endDate,
     });
-    const response = await fetch(`/api/matched_trips?${params.toString()}`);
-
-    if (!response.ok)
-      throw new Error(`HTTP error fetching matched trips: ${response.status}`);
-
-    const geojson = await response.json();
-    AppState.mapLayers.matchedTrips.layer = geojson;
-    return geojson;
+    return fetch(`/api/matched_trips?${params.toString()}`)
+      .then((response) => {
+        if (!response.ok)
+          throw new Error(
+            `HTTP error fetching matched trips: ${response.status}`,
+          );
+        return response.json();
+      })
+      .then((geojson) => {
+        AppState.mapLayers.matchedTrips.layer = geojson;
+        return geojson;
+      });
   }
 
   async function fetchUndrivenStreets() {
@@ -727,10 +702,13 @@
         return null;
       }
 
-      let location;
+      let location = null;
       try {
         location = JSON.parse(locationSelect.value);
-        showNotification(`[fetchUndrivenStreets] Parsed location object from dropdown: ${JSON.stringify(location, null, 2)}`, "info");
+        showNotification(
+          `[fetchUndrivenStreets] Parsed location object from dropdown: ${JSON.stringify(location, null, 2)}`,
+          "info",
+        );
         if (
           !location ||
           typeof location !== "object" ||
@@ -770,19 +748,27 @@
         body: JSON.stringify(location),
       });
 
-      showNotification(`[fetchUndrivenStreets] Received response status: ${response.status}`, "info");
+      showNotification(
+        `[fetchUndrivenStreets] Received response status: ${response.status}`,
+        "info",
+      );
 
       if (!response.ok) {
         let errorDetail = `HTTP error ${response.status}`;
         try {
           const errorData = await response.json();
           errorDetail = errorData.detail || errorDetail;
-        } catch (e) {}
+        } catch (e) {
+          /* ignore */
+        }
         throw new Error(errorDetail);
       }
 
       const geojson = await response.json();
-      showNotification(`[fetchUndrivenStreets] Received GeoJSON data: ${JSON.stringify(geojson, null, 2)}`, "info");
+      showNotification(
+        `[fetchUndrivenStreets] Received GeoJSON data: ${JSON.stringify(geojson, null, 2)}`,
+        "info",
+      );
 
       if (!geojson.features || geojson.features.length === 0) {
         console.log(
@@ -1773,7 +1759,6 @@
   }
 
   // ===================== MAP EVENT OPTIMIZATION =====================
-  const debouncedUpdateUrlWithMapState = debounce(updateUrlWithMapState, 200);
   const throttledAdjustLayerStylesForZoom = throttle(
     adjustLayerStylesForZoom,
     200,
