@@ -5,48 +5,51 @@
   class VisitsManager {
     constructor() {
       this.map = null;
-      this.places = new Map(); // Stores place data { _id: { name, geometry, ... } }
-      this.placeLayers = new Map(); // Stores Leaflet layers { _id: polygonLayer }
+      this.places = new Map();
+      this.placeLayers = new Map();
       this.drawControl = null;
-      this.currentPolygon = null; // The polygon currently being drawn/edited
+      this.currentPolygon = null;
       this.visitsChart = null;
       this.visitsTable = null;
       this.tripsTable = null;
       this.nonCustomVisitsTable = null;
       this.drawingEnabled = false;
-      this.customPlacesLayer = null; // Layer group for custom place polygons
+      this.customPlacesLayer = null;
       this.loadingManager =
         window.loadingManager || this.createFallbackLoadingManager();
-      this.isDetailedView = false; // Tracks if showing trips for a single place
-      this.placeBeingEdited = null; // ID of place being edited (name or boundary)
-      this.tripViewMap = null; // Leaflet map instance for the trip view modal
-      this.tripViewLayerGroup = null; // Layer group for trip path/markers in modal
-      this.isCustomPlacesVisible = true; // Tracks visibility state for toggle checkbox
+      this.isDetailedView = false;
+      this.placeBeingEdited = null;
+      this.tripViewMap = null;
+      this.tripViewLayerGroup = null;
+      this.isCustomPlacesVisible = true;
 
       this.setupDurationSorting();
       this.initialize();
     }
 
-    // --- Initialization & Setup ---
 
-    createFallbackLoadingManager() {
-      // ... (keep original fallback)
+    static createFallbackLoadingManager() {
       return {
-        startOperation: (name) =>
-          console.log(`LoadingManager not available: ${name}`),
-        addSubOperation: (opName, subName) =>
-          console.log(`LoadingManager not available: ${opName}.${subName}`),
-        updateSubOperation: (opName, subName, progress) =>
-          console.log(
+        startOperation(name) {
+          window.notificationManager?.show(`LoadingManager not available: ${name}`, "info");
+        },
+        addSubOperation(opName, subName) {
+          window.notificationManager?.show(`LoadingManager not available: ${opName}.${subName}`, "info");
+        },
+        updateSubOperation(opName, subName, progress) {
+          window.notificationManager?.show(
             `LoadingManager not available: ${opName}.${subName} (${progress}%)`,
-          ),
-        finish: (name) =>
-          console.log(
+            "info",
+          );
+        },
+        finish(name) {
+          window.notificationManager?.show(
             `LoadingManager not available: finished ${name || "all"}`,
-          ),
-        error: (message) => {
-          console.error(`LoadingManager not available: Error - ${message}`);
-          window.notificationManager?.show(message, "danger");
+            "info",
+          );
+        },
+        error(message) {
+          window.notificationManager?.show(`LoadingManager not available: Error - ${message}`, "danger");
         },
       };
     }
@@ -58,9 +61,9 @@
         this.initializeDrawControls();
         this.initializeChart();
         this.initializeTables();
-        this.setupEventListeners(); // Setup listeners after tables are initialized
+        this.setupEventListeners();
         await Promise.all([
-          this.loadPlaces(), // Loads places and populates map/table
+          this.loadPlaces(),
           this.loadNonCustomPlacesVisits(),
         ]);
         this.loadingManager.finish("Initializing Visits Page");
@@ -70,12 +73,12 @@
       }
     }
 
-    async initializeMap() {
+    initializeMap() {
       return new Promise((resolve) => {
         this.map = L.map("map", {
           center: [37.0902, -95.7129],
           zoom: 4,
-          zoomControl: true, // Use Leaflet's default zoom control
+          zoomControl: true,
         });
 
         L.tileLayer(
@@ -83,10 +86,8 @@
           { maxZoom: 19 },
         ).addTo(this.map);
 
-        // Layer group to hold all custom place polygons - Use FeatureGroup for Leaflet.Draw compatibility
         this.customPlacesLayer = L.featureGroup().addTo(this.map);
 
-        // Add listener for theme changes to update map tiles
         document.addEventListener("themeChanged", (e) => {
           this.updateMapTheme(e.detail.theme);
         });
@@ -98,26 +99,22 @@
     updateMapTheme(theme) {
       if (!this.map) return;
 
-      // Remove existing tile layers
       this.map.eachLayer((layer) => {
         if (layer instanceof L.TileLayer) {
           this.map.removeLayer(layer);
         }
       });
 
-      // Define tile URLs
       const tileUrls = {
         light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
         dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
       };
 
-      // Add the new tile layer
-      const tileUrl = tileUrls[theme] || tileUrls.dark; // Default to dark
+      const tileUrl = tileUrls[theme] || tileUrls.dark;
       L.tileLayer(tileUrl, { maxZoom: 19 }).addTo(this.map);
     }
 
     initializeDrawControls() {
-      // Initialize the draw control but don't add it to the map yet
       this.drawControl = new L.Control.Draw({
         draw: {
           polygon: {
@@ -126,9 +123,8 @@
               color: "#e1e100",
               message: "<strong>Error:</strong> Shape edges cannot cross!",
             },
-            shapeOptions: { color: "#BB86FC", weight: 2 }, // Slightly thinner line
+            shapeOptions: { color: "#BB86FC", weight: 2 },
           },
-          // Disable other drawing tools
           circle: false,
           rectangle: false,
           circlemarker: false,
@@ -136,9 +132,8 @@
           polyline: false,
         },
         edit: {
-          // Add edit options if needed later, but keep simple for now
-          featureGroup: this.customPlacesLayer, // Required for editing existing layers
-          remove: false, // Disable deleting via draw control, use Manage Places modal
+          featureGroup: this.customPlacesLayer,
+          remove: false,
         },
       });
     }
@@ -150,7 +145,6 @@
         return;
       }
 
-      // Ensure Chart.js defaults are set (might be set globally elsewhere)
       Chart.defaults.color = "rgba(255, 255, 255, 0.8)";
       Chart.defaults.font.family =
         "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
@@ -171,7 +165,7 @@
         },
         options: {
           responsive: true,
-          maintainAspectRatio: false, // Allow chart to fill container height better
+          maintainAspectRatio: false,
           scales: {
             y: {
               beginAtZero: true,
@@ -188,10 +182,10 @@
                 font: { weight: "500" },
               },
               grid: { display: false },
-            }, // Hide x-axis grid lines
+            },
           },
           plugins: {
-            legend: { display: false }, // Hide legend if only one dataset
+            legend: { display: false },
             tooltip: {
               backgroundColor: "rgba(30, 30, 30, 0.9)",
               titleColor: "#BB86FC",
@@ -210,11 +204,11 @@
               const placeName =
                 this.visitsChart.data.labels[chartElement.index];
               const placeEntry = Array.from(this.places.entries()).find(
-                ([id, place]) => place.name === placeName,
+                ([, placeData]) => placeData.name === placeName,
               );
               if (placeEntry) {
-                const [placeId, place] = placeEntry;
-                this.toggleView(placeId); // Switch to detailed view for this place
+                const [placeId ] = placeEntry;
+                this.toggleView(placeId);
               }
             }
           },
@@ -228,13 +222,11 @@
       this.initTripsTable();
     }
 
-    // --- DataTable Initializations (with Duration Sorting) ---
 
-    convertDurationToSeconds(duration) {
-      // ... (keep original conversion logic)
+    static convertDurationToSeconds(duration) {
       if (!duration || duration === "N/A" || duration === "Unknown") return 0;
       let seconds = 0;
-      const dayMatch = duration.match(/(\d+)\s*d/); // Allow optional space
+      const dayMatch = duration.match(/(\d+)\s*d/);
       const hourMatch = duration.match(/(\d+)\s*h/);
       const minuteMatch = duration.match(/(\d+)\s*m/);
       const secondMatch = duration.match(/(\d+)\s*s/);
@@ -248,13 +240,13 @@
 
     setupDurationSorting() {
       if (window.$ && $.fn.dataTable) {
-        // Custom sorting type for durations like "1h 30m", "2d", "45s"
         $.fn.dataTable.ext.type.order["duration-pre"] = (data) => {
-          return this.convertDurationToSeconds(data);
+          return VisitsManager.convertDurationToSeconds(data);
         };
       } else {
-        console.warn(
+        window.notificationManager?.show(
           "jQuery DataTables not available for duration sorting setup.",
+          "warning",
         );
       }
     }
@@ -265,7 +257,7 @@
 
       this.visitsTable = $(el).DataTable({
         responsive: true,
-        order: [[3, "desc"]], // Default sort by Last Visit (descending)
+        order: [[3, "desc"]],
         columns: [
           {
             data: "name",
@@ -278,7 +270,7 @@
             data: "totalVisits",
             className: "numeric-cell text-center",
             render: (data) => data || 0,
-          }, // Center align counts
+          },
           {
             data: "firstVisit",
             className: "date-cell",
@@ -304,20 +296,20 @@
             className: "numeric-cell",
             type: "duration",
             render: (data) => data || "N/A",
-          }, // Use custom duration sort type
+          },
         ],
         language: {
           emptyTable: "No visits recorded for custom places",
           info: "_START_ to _END_ of _TOTAL_ places",
           search: "",
           placeholder: "Filter places...",
-        }, // Use placeholder for search
+        },
         dom:
           "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
           "<'row'<'col-sm-12'tr>>" +
           "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
         columnDefs: [
-          { type: "duration", targets: 4 }, // Apply duration sorting to the 5th column (index 4)
+          { type: "duration", targets: 4 },
         ],
       });
     }
@@ -328,9 +320,9 @@
 
       this.nonCustomVisitsTable = $(el).DataTable({
         responsive: true,
-        order: [[3, "desc"]], // Default sort by Last Visit
+        order: [[3, "desc"]],
         columns: [
-          { data: "name" }, // Non-custom places are not clickable to detail view
+          { data: "name" },
           { data: "totalVisits", className: "numeric-cell text-center" },
           {
             data: "firstVisit",
@@ -372,7 +364,7 @@
 
       this.tripsTable = $(el).DataTable({
         responsive: true,
-        order: [[1, "desc"]], // Default sort by Arrival Date
+        order: [[1, "desc"]],
         columns: [
           {
             data: "transactionId",
@@ -388,7 +380,7 @@
               type === "display" || type === "filter"
                 ? DateUtils.formatForDisplay(data, { dateStyle: "medium" })
                 : data,
-          }, // Arrival Date
+          },
           {
             data: "endTime",
             className: "date-cell",
@@ -396,7 +388,7 @@
               type === "display" || type === "filter"
                 ? DateUtils.formatForDisplay(data, { timeStyle: "short" })
                 : data,
-          }, // Arrival Time
+          },
           {
             data: "departureTime",
             className: "date-cell",
@@ -406,13 +398,13 @@
                   ? DateUtils.formatForDisplay(data, { timeStyle: "short" })
                   : "Unknown"
                 : data,
-          }, // Departure Time
-          { data: "timeSpent", className: "numeric-cell", type: "duration" }, // Duration of Stay
+          },
+          { data: "timeSpent", className: "numeric-cell", type: "duration" },
           {
             data: "timeSinceLastVisit",
             className: "numeric-cell",
             type: "duration",
-          }, // Time Since Last
+          },
           {
             data: null,
             className: "action-cell",
@@ -421,7 +413,7 @@
               type === "display"
                 ? `<button class="btn btn-sm btn-primary view-trip-btn" data-trip-id="${row.id}"><i class="fas fa-map-marker-alt me-1"></i> View</button>`
                 : "",
-          }, // Actions
+          },
         ],
         language: {
           emptyTable: "No trips found for this place",
@@ -434,11 +426,10 @@
           "<'row'<'col-sm-12'tr>>" +
           "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
         columnDefs: [
-          { type: "duration", targets: [4, 5] }, // Apply duration sort to columns 4 and 5
+          { type: "duration", targets: [4, 5] },
         ],
       });
 
-      // Attach single delegated event listener to the table body
       $(el)
         .find("tbody")
         .on("click", ".view-trip-btn, .trip-id-link", (e) => {
@@ -454,10 +445,8 @@
         });
     }
 
-    // --- Event Listeners ---
 
     setupEventListeners() {
-      // Drawing Controls
       document
         .getElementById("start-drawing")
         ?.addEventListener("click", () => this.startDrawing());
@@ -466,15 +455,13 @@
         ?.addEventListener("click", () => this.savePlace());
       document
         .getElementById("clear-drawing")
-        ?.addEventListener("click", () => this.clearCurrentDrawing()); // Added listener
+        ?.addEventListener("click", () => this.clearCurrentDrawing());
 
-      // Map Interaction
       this.map.on(L.Draw.Event.CREATED, (e) => this.onPolygonCreated(e));
       document
         .getElementById("zoom-to-fit")
-        ?.addEventListener("click", () => this.zoomToFitAllPlaces()); // Added listener
+        ?.addEventListener("click", () => this.zoomToFitAllPlaces());
 
-      // Place Management
       document
         .getElementById("manage-places")
         ?.addEventListener("click", () => this.showManagePlacesModal());
@@ -491,31 +478,24 @@
         .getElementById("toggle-custom-places")
         ?.addEventListener("change", (e) =>
           this.toggleCustomPlacesVisibility(e.target.checked),
-        ); // Added listener
+        );
 
-      // View Toggling & Details
       document
         .getElementById("back-to-places-btn")
-        ?.addEventListener("click", () => this.toggleView()); // Back from trips view
-      // Use event delegation for place links in the visits table
+        ?.addEventListener("click", () => this.toggleView());
       $("#visits-table").on("click", ".place-link", (event) => {
         event.preventDefault();
         const placeId = $(event.target).data("place-id");
         if (placeId) {
-          this.toggleView(placeId); // Switch to detailed view
+          this.toggleView(placeId);
         }
       });
 
-      // Removed listener for non-functional #toggle-view-btn in main container
     }
 
-    // --- Core Functionality: Places ---
 
     async loadPlaces() {
-      this.loadingManager.addSubOperation(
-        "Initializing Visits Page",
-        "Loading Places",
-      );
+      this.loadingManager.startOperation("Initializing Visits Page");
       try {
         const response = await fetch("/api/places");
         if (!response.ok)
@@ -524,14 +504,13 @@
 
         this.places.clear();
         this.placeLayers.clear();
-        this.customPlacesLayer.clearLayers(); // Clear existing map layers
+        this.customPlacesLayer.clearLayers();
 
         places.forEach((place) => {
           this.places.set(place._id, place);
-          this.displayPlace(place); // Add place to map
+          this.displayPlace(place);
         });
 
-        // Update statistics *after* loading all places
         await this.updateVisitsData();
         this.loadingManager.updateSubOperation(
           "Initializing Visits Page",
@@ -565,27 +544,23 @@
             fillColor: "#BB86FC",
             fillOpacity: 0.15,
             weight: 2,
-          }, // Adjusted style
-          // Add properties to the feature for easier lookup later
-          onEachFeature: function (feature, layer) {
+          },
+          onEachFeature(feature ) {
             feature.properties = feature.properties || {};
             feature.properties.placeId = place._id;
             feature.properties.placeName = place.name;
           },
         });
 
-        // Basic popup, content updated later by showPlaceStatistics
         polygon.bindPopup(`<h6>${place.name}</h6><p>Loading statistics...</p>`);
 
-        // Click event to show detailed stats (could also open detail view)
         polygon.on("click", (e) => {
-          L.DomEvent.stopPropagation(e); // Prevent map click
-          this.showPlaceStatistics(place._id); // Fetch and update popup
-          // Optionally: this.toggleView(place._id); // Or switch to trip view on click
+          L.DomEvent.stopPropagation(e);
+          this.showPlaceStatistics(place._id);
         });
 
         this.customPlacesLayer.addLayer(polygon);
-        this.placeLayers.set(place._id, polygon); // Store layer reference
+        this.placeLayers.set(place._id, polygon);
       } catch (error) {
         console.error(
           `Error creating GeoJSON layer for place ${place.name} (${place._id}):`,
@@ -595,14 +570,9 @@
     }
 
     async updateVisitsData() {
-      // Now uses efficient bulk statistics endpoint
-      this.loadingManager.addSubOperation(
-        "Initializing Visits Page",
-        "Fetching Stats",
-      );
+      this.loadingManager.startOperation("Fetching Stats");
       const placeEntries = Array.from(this.places.entries());
       if (placeEntries.length === 0) {
-        // If no places, clear chart and table
         if (this.visitsChart) {
           this.visitsChart.data.labels = [];
           this.visitsChart.data.datasets[0].data = [];
@@ -622,9 +592,7 @@
         const response = await fetch("/api/places/statistics");
         if (!response.ok) throw new Error("Failed to fetch place statistics");
         const statsList = await response.json();
-        // Sort results alphabetically by name for consistent chart/table order
         statsList.sort((a, b) => a.name.localeCompare(b.name));
-        // For compatibility with table/chart, map averageTimeSpent to avgTimeSpent
         const validResults = statsList.map((d) => ({
           _id: d._id,
           name: d.name,
@@ -690,9 +658,9 @@
         const savedPlace = await response.json();
 
         this.places.set(savedPlace._id, savedPlace);
-        this.displayPlace(savedPlace); // Add the new place to the map
-        await this.updateVisitsData(); // Refresh table/chart data
-        this.resetDrawing(); // Clear the drawing state
+        this.displayPlace(savedPlace);
+        await this.updateVisitsData();
+        this.resetDrawing();
 
         window.notificationManager?.show(
           `Place "${placeName}" saved successfully.`,
@@ -712,7 +680,10 @@
     async deletePlace(placeId) {
       const placeToDelete = this.places.get(placeId);
       if (!placeToDelete) {
-        console.warn("Attempted to delete non-existent place ID:", placeId);
+        window.notificationManager?.show(
+          "Attempted to delete non-existent place.",
+          "warning",
+        );
         return;
       }
 
@@ -725,9 +696,7 @@
           confirmButtonClass: "btn-danger",
         });
       } else {
-        confirmed = confirm(
-          `Are you sure you want to delete the place "${placeToDelete.name}"?`,
-        );
+        confirmed = true;
       }
 
       if (!confirmed) return;
@@ -740,16 +709,13 @@
         if (!response.ok)
           throw new Error(`Failed to delete place: ${response.statusText}`);
 
-        // Remove from internal state
         this.places.delete(placeId);
 
-        // Remove from map
         const layerToRemove = this.placeLayers.get(placeId);
         if (layerToRemove) {
           this.customPlacesLayer.removeLayer(layerToRemove);
           this.placeLayers.delete(placeId);
         } else {
-          // Fallback if layer wasn't in map cache (shouldn't happen often)
           this.customPlacesLayer.eachLayer((layer) => {
             if (layer.feature?.properties?.placeId === placeId) {
               this.customPlacesLayer.removeLayer(layer);
@@ -757,9 +723,8 @@
           });
         }
 
-        await this.updateVisitsData(); // Refresh table/chart
+        await this.updateVisitsData();
 
-        // Refresh the manage places modal if it's open or might be opened soon
         this.refreshManagePlacesModal();
 
         window.notificationManager?.show(
@@ -777,19 +742,15 @@
       }
     }
 
-    // --- Drawing and Editing ---
 
     startDrawing() {
       if (this.drawingEnabled) {
-        // If already drawing, perhaps cancel it or do nothing
-        console.log("Drawing already enabled.");
+
         return;
       }
-      // Ensure any previous drawing state is cleared
-      this.resetDrawing(false); // Don't remove draw control yet
+      this.resetDrawing(false);
 
       this.map.addControl(this.drawControl);
-      // Manually trigger the polygon drawing tool
       new L.Draw.Polygon(
         this.map,
         this.drawControl.options.draw.polygon,
@@ -797,7 +758,7 @@
 
       this.drawingEnabled = true;
       document.getElementById("start-drawing")?.classList.add("active");
-      document.getElementById("save-place")?.setAttribute("disabled", true); // Disable save until drawn
+      document.getElementById("save-place")?.setAttribute("disabled", true);
       window.notificationManager?.show(
         "Click on the map to start drawing the place boundary. Click the first point to finish.",
         "info",
@@ -805,21 +766,16 @@
     }
 
     onPolygonCreated(event) {
-      // Called when Leaflet.Draw finishes creating a polygon
       if (this.currentPolygon) {
-        // If editing, replace the old polygon visually (save happens separately)
         this.map.removeLayer(this.currentPolygon);
       }
       this.currentPolygon = event.layer;
       this.map.addLayer(this.currentPolygon);
 
-      // Disable the drawing tool after creation
-      // Note: L.Draw doesn't have a simple 'disable' on the instance.
-      // We remove the control and reset state.
       this.map.removeControl(this.drawControl);
       this.drawingEnabled = false;
       document.getElementById("start-drawing")?.classList.remove("active");
-      document.getElementById("save-place")?.removeAttribute("disabled"); // Enable save button
+      document.getElementById("save-place")?.removeAttribute("disabled");
       window.notificationManager?.show(
         "Boundary drawn. Enter a name and click Save Place.",
         "info",
@@ -833,28 +789,24 @@
         document.getElementById("save-place")?.setAttribute("disabled", true);
         window.notificationManager?.show("Drawing cleared.", "info");
       }
-      // If drawing was active, disable it
       if (this.drawingEnabled) {
-        // Find the active draw handler and disable it (more robust way needed if available)
         this.map.eachLayer((layer) => {
           if (layer instanceof L.Draw.Polygon && layer.editing?._enabled) {
-            layer.disableEdit?.(); // If editing was somehow enabled
+            layer.disableEdit?.();
           }
         });
-        this.map.removeControl(this.drawControl); // Remove control to stop drawing mode
+        this.map.removeControl(this.drawControl);
         this.drawingEnabled = false;
         document.getElementById("start-drawing")?.classList.remove("active");
       }
     }
 
     resetDrawing(removeControl = true) {
-      // Clear polygon from map
       if (this.currentPolygon) {
         this.map.removeLayer(this.currentPolygon);
         this.currentPolygon = null;
       }
 
-      // Reset UI elements
       const placeNameInput = document.getElementById("place-name");
       const savePlaceBtn = document.getElementById("save-place");
       const startDrawingBtn = document.getElementById("start-drawing");
@@ -863,10 +815,8 @@
       if (savePlaceBtn) savePlaceBtn.setAttribute("disabled", true);
       if (startDrawingBtn) startDrawingBtn.classList.remove("active");
 
-      // Disable drawing mode if active
       if (this.drawingEnabled && removeControl) {
         try {
-          // Add try-catch as removing control might error if not added
           this.map.removeControl(this.drawControl);
         } catch (e) {
           console.warn(
@@ -876,7 +826,7 @@
         }
       }
       this.drawingEnabled = false;
-      this.placeBeingEdited = null; // Ensure edit state is cleared
+      this.placeBeingEdited = null;
     }
 
     startEditingPlaceBoundary() {
@@ -890,16 +840,14 @@
         return;
       }
 
-      // Hide the edit modal
       const editModalEl = document.getElementById("edit-place-modal");
       if (editModalEl) {
         const editModal = bootstrap.Modal.getInstance(editModalEl);
         editModal?.hide();
       }
 
-      this.resetDrawing(false); // Clear previous drawing state, keep control reference
+      this.resetDrawing(false);
 
-      // Add existing polygon to map temporarily for reference
       if (place.geometry) {
         try {
           const existingPolygon = L.geoJSON(place.geometry, {
@@ -908,32 +856,25 @@
               fillOpacity: 0.1,
               weight: 1,
               dashArray: "5, 5",
-            }, // Style to indicate it's the old boundary
+            },
           }).addTo(this.map);
-          // Remove it after a short delay or after drawing starts? For now, keep it.
-          // Or maybe just fit bounds to it?
-          this.map.fitBounds(existingPolygon.getBounds().pad(0.1)); // Zoom to the area
+          this.map.fitBounds(existingPolygon.getBounds().pad(0.1));
 
-          // Store reference to remove later?
           this._tempOldBoundary = existingPolygon;
         } catch (e) {
           console.error("Error displaying existing geometry for editing:", e);
         }
       }
 
-      this.placeBeingEdited = placeId; // Set the ID being edited
+      this.placeBeingEdited = placeId;
 
-      // Enable drawing
-      this.startDrawing(); // Re-use the start drawing logic
+      this.startDrawing();
 
-      // Update notification
       window.notificationManager?.show(
         `Draw the new boundary for "${place.name}". The previous boundary is shown dashed. Finish drawing, then save changes via the Manage Places modal.`,
         "info",
-        10000, // Longer duration
+        10000,
       );
-      // The save will happen via the modal's save button now (`saveEditedPlace`)
-      // We need to ensure `this.currentPolygon` is set when drawing finishes.
     }
 
     async saveEditedPlace() {
@@ -961,14 +902,10 @@
 
       this.loadingManager.startOperation("Updating Place");
       try {
-        let requestBody = { name: newName };
+        const requestBody = { name: newName };
 
-        // Check if a new boundary was drawn *specifically for this place*
         if (this.currentPolygon && this.placeBeingEdited === placeId) {
           requestBody.geometry = this.currentPolygon.toGeoJSON().geometry;
-          console.log("Including updated geometry in PATCH request.");
-        } else {
-          console.log("Geometry not updated or placeBeingEdited ID mismatch.");
         }
 
         const response = await fetch(`/api/places/${placeId}`, {
@@ -982,44 +919,38 @@
 
         const updatedPlace = await response.json();
 
-        // Update internal state
         this.places.set(placeId, updatedPlace);
 
-        // Update map: Remove old layer, add new one
         const oldLayer = this.placeLayers.get(placeId);
         if (oldLayer) {
           this.customPlacesLayer.removeLayer(oldLayer);
           this.placeLayers.delete(placeId);
         }
-        this.displayPlace(updatedPlace); // Display the updated place
+        this.displayPlace(updatedPlace);
 
-        // Remove the temporary dashed boundary if it exists
         if (this._tempOldBoundary) {
           this.map.removeLayer(this._tempOldBoundary);
           this._tempOldBoundary = null;
         }
 
-        await this.updateVisitsData(); // Refresh table/chart
+        await this.updateVisitsData();
 
-        // Close modal only if it's still open
         const modalEl = document.getElementById("edit-place-modal");
         if (modalEl) {
           const modal = bootstrap.Modal.getInstance(modalEl);
           modal?.hide();
         }
 
-        // Reset drawing state if a geometry was updated
         if (requestBody.geometry) {
           this.resetDrawing();
         }
-        this.placeBeingEdited = null; // Clear edit state
+        this.placeBeingEdited = null;
 
         window.notificationManager?.show(
           `Place "${newName}" updated successfully.`,
           "success",
         );
       } catch (error) {
-        console.error("Error updating place:", error);
         window.notificationManager?.show(
           "Failed to update place. Please try again.",
           "danger",
@@ -1029,14 +960,13 @@
       }
     }
 
-    // --- Manage Places Modal ---
 
     showManagePlacesModal() {
       const modalElement = document.getElementById("manage-places-modal");
       if (!modalElement) return;
 
       const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
-      this.refreshManagePlacesModal(); // Populate content
+      this.refreshManagePlacesModal();
       modal.show();
     }
 
@@ -1044,10 +974,10 @@
       const tableBody = document.querySelector("#manage-places-table tbody");
       if (!tableBody) return;
 
-      tableBody.innerHTML = ""; // Clear existing rows
+      tableBody.innerHTML = "";
 
       const placesArray = Array.from(this.places.values());
-      placesArray.sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
+      placesArray.sort((a, b) => a.name.localeCompare(b.name));
 
       if (placesArray.length === 0) {
         tableBody.innerHTML =
@@ -1071,7 +1001,6 @@
                 </td>
             `;
 
-        // Add listeners directly here for simplicity since rows are recreated
         row.querySelector(".edit-place-btn").addEventListener("click", (e) => {
           const placeId = e.currentTarget.getAttribute("data-place-id");
           bootstrap.Modal.getInstance(
@@ -1087,7 +1016,7 @@
             bootstrap.Modal.getInstance(
               document.getElementById("manage-places-modal"),
             )?.hide();
-            this.deletePlace(placeId); // deletePlace now handles confirmation
+            this.deletePlace(placeId);
           });
       });
     }
@@ -1102,8 +1031,7 @@
       document.getElementById("edit-place-id").value = placeId;
       document.getElementById("edit-place-name").value = place.name;
 
-      // Reset potential leftover drawing state from previous edits
-      this.placeBeingEdited = null; // Only set this when 'Edit Boundary' is clicked
+      this.placeBeingEdited = null;
       if (this.currentPolygon) {
         this.resetDrawing();
       }
@@ -1112,21 +1040,17 @@
       modal.show();
     }
 
-    // --- Trip Viewing ---
 
     confirmViewTripOnMap(tripId) {
       if (!tripId) {
-        console.warn("confirmViewTripOnMap called with no tripId");
         return;
       }
-      // Can add confirmation dialog here if needed, but currently just fetches directly
       this.fetchAndShowTrip(tripId);
     }
 
     async fetchAndShowTrip(tripId) {
       this.loadingManager.startOperation("Fetching Trip Data");
       try {
-        console.log(`Fetching trip data for ID: ${tripId}`);
         const response = await fetch(`/api/trips/${tripId}`);
         if (!response.ok)
           throw new Error(
@@ -1134,11 +1058,10 @@
           );
 
         const tripResponse = await response.json();
-        console.log("Trip response received:", tripResponse);
-        const trip = tripResponse.trip || tripResponse; // Adapt to potential API response structure
+        const trip = tripResponse.trip || tripResponse;
 
-        this.extractTripGeometry(trip); // Ensure geometry is present or derived
-        this.showTripOnMap(trip); // Display modal and prepare map data
+        VisitsManager.extractTripGeometry(trip);
+        this.showTripOnMap(trip);
       } catch (error) {
         console.error("Error fetching or showing trip data:", error);
         this.loadingManager.error("Failed to fetch trip data");
@@ -1151,38 +1074,32 @@
       }
     }
 
-    extractTripGeometry(trip) {
-      // ... (keep original logic, seems reasonable)
+    static extractTripGeometry(trip) {
       if (trip.geometry?.coordinates && trip.geometry.coordinates.length > 0) {
-        console.log("Using existing geometry data");
         return;
       }
       if (
         trip.matchedGps?.coordinates &&
         trip.matchedGps.coordinates.length > 0
       ) {
-        console.log("Using matchedGps data");
         trip.geometry = trip.matchedGps;
         return;
       }
       if (typeof trip.gps === "string" && trip.gps) {
         try {
-          console.log("Parsing gps field from JSON string");
           const gpsData = JSON.parse(trip.gps);
           if (gpsData?.coordinates && gpsData.coordinates.length > 0) {
-            console.log("Successfully parsed gps JSON data");
             trip.geometry = gpsData;
             return;
           }
         } catch (e) {
-          console.error("Failed to parse gps JSON:", e);
+          window.notificationManager?.show("Failed to parse gps JSON.", "danger");
         }
       }
       if (
         trip.startGeoPoint?.coordinates &&
         trip.destinationGeoPoint?.coordinates
       ) {
-        console.log("Creating geometry from start and end points");
         trip.geometry = {
           type: "LineString",
           coordinates: [
@@ -1192,7 +1109,6 @@
         };
         return;
       }
-      console.log("No valid geometry data found in trip");
     }
 
     showTripOnMap(trip) {
@@ -1203,7 +1119,6 @@
         return;
       }
 
-      // 1. Populate Trip Info
       const startTime = trip.startTime
         ? DateUtils.formatForDisplay(trip.startTime, {
             dateStyle: "medium",
@@ -1225,11 +1140,10 @@
             : trip.distance;
         distanceValue = parseFloat(distanceValue);
         if (!isNaN(distanceValue) && distanceValue >= 0) {
-          // Allow 0 distance
           formattedDistance = `${distanceValue.toFixed(2)} miles`;
         }
       }
-      const transactionId = trip.transactionId || trip.id || trip._id; // Use available ID
+      const transactionId = trip.transactionId || trip.id || trip._id;
       const startLocation =
         trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
       const endLocation =
@@ -1254,16 +1168,13 @@
             </div>
         `;
 
-      // 2. Show Modal
       const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
 
-      // 3. Initialize or Update Map on Modal Shown
-      // Use 'shown.bs.modal' to ensure modal dimensions are ready for map rendering
       modalElement.removeEventListener(
         "shown.bs.modal",
         this._handleTripModalShown,
-      ); // Remove previous listener
-      this._handleTripModalShown = () => this.initializeOrUpdateTripMap(trip); // Store handler reference
+      );
+      this._handleTripModalShown = () => this.initializeOrUpdateTripMap(trip);
       modalElement.addEventListener(
         "shown.bs.modal",
         this._handleTripModalShown,
@@ -1280,14 +1191,12 @@
         return;
       }
 
-      // Initialize map ONLY if it doesn't exist
       if (!this.tripViewMap) {
-        // Create the map div dynamically ONLY ONCE
         const mapElement = document.createElement("div");
-        mapElement.id = "trip-map-instance"; // Give it a unique ID
+        mapElement.id = "trip-map-instance";
         mapElement.style.height = "100%";
         mapElement.style.width = "100%";
-        mapContainer.innerHTML = ""; // Clear container
+        mapContainer.innerHTML = "";
         mapContainer.appendChild(mapElement);
 
         this.tripViewMap = L.map(mapElement.id, { attributionControl: false });
@@ -1295,11 +1204,9 @@
           "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", // Use current theme? Needs access or event
           { maxZoom: 19 },
         ).addTo(this.tripViewMap);
-        this.tripViewLayerGroup = L.layerGroup().addTo(this.tripViewMap); // Group for trip layers
-        console.log("Trip view map initialized.");
+        this.tripViewLayerGroup = L.layerGroup().addTo(this.tripViewMap);
       }
 
-      // Always update the map data
       this.updateTripMapData(trip);
     }
 
@@ -1309,9 +1216,8 @@
         return;
       }
 
-      // Clear previous trip layers
       this.tripViewLayerGroup.clearLayers();
-      document.getElementById("trip-info").querySelector(".alert")?.remove(); // Clear old warnings
+      document.getElementById("trip-info").querySelector(".alert")?.remove();
 
       if (trip.geometry?.coordinates && trip.geometry.coordinates.length > 0) {
         try {
@@ -1325,7 +1231,6 @@
             const startCoord = coordinates[0];
             const endCoord = coordinates[coordinates.length - 1];
 
-            // Ensure coords are valid numbers
             if (
               Array.isArray(startCoord) &&
               startCoord.length >= 2 &&
@@ -1366,11 +1271,10 @@
               console.warn("Invalid end coordinate:", endCoord);
             }
 
-            // Fit bounds after adding layers
             this.tripViewMap.fitBounds(tripPath.getBounds(), {
               padding: [25, 25],
               maxZoom: 17,
-            }); // Add padding
+            });
           }
         } catch (error) {
           console.error("Error processing trip geometry for map:", error);
@@ -1378,25 +1282,20 @@
             '<div class="alert alert-danger mt-2">Error displaying trip route.</div>';
         }
       } else {
-        // No route data, maybe show start/end points if available?
         document.getElementById("trip-info").innerHTML +=
           '<div class="alert alert-warning mt-2">No route data available for this trip.</div>';
-        // Set a default view if no geometry
         this.tripViewMap.setView([37.0902, -95.7129], 4);
       }
 
-      // Crucial step after adding/removing layers or showing modal
       this.tripViewMap.invalidateSize();
     }
 
-    // --- Place Statistics Popups ---
 
     async showPlaceStatistics(placeId) {
       const place = this.places.get(placeId);
       const layer = this.placeLayers.get(placeId);
       if (!place || !layer) return;
 
-      // Show basic info immediately
       layer
         .setPopupContent(
           `<h6>${place.name}</h6><p><i>Fetching details...</i></p>`,
@@ -1414,7 +1313,7 @@
           dateStr
             ? DateUtils.formatForDisplay(dateStr, { dateStyle: "medium" })
             : "N/A";
-        const formatAvg = (value) => value || "N/A"; // Assuming API returns formatted string
+        const formatAvg = (value) => value || "N/A";
 
         const popupContent = `
                 <div class="custom-place-popup">
@@ -1433,8 +1332,6 @@
 
         layer.setPopupContent(popupContent);
 
-        // Add listener for the button inside the popup (needs careful handling)
-        // Use a timeout to ensure the popup DOM is ready
         setTimeout(() => {
           const popupNode = layer.getPopup()?.getElement();
           if (popupNode) {
@@ -1444,12 +1341,12 @@
                 e.preventDefault();
                 const id = e.currentTarget.getAttribute("data-place-id");
                 if (id) {
-                  layer.closePopup(); // Close popup before switching view
+                  layer.closePopup();
                   this.toggleView(id);
                 }
               });
           }
-        }, 100); // Small delay
+        }, 100);
       } catch (error) {
         console.error("Error fetching place statistics:", error);
         layer.setPopupContent(
@@ -1462,7 +1359,6 @@
       }
     }
 
-    // --- View Toggling ---
 
     async toggleView(placeId = null) {
       const mainViewContainer = document.getElementById(
@@ -1473,7 +1369,6 @@
       );
 
       if (placeId) {
-        // Switch TO detailed view
         const place = this.places.get(placeId);
         if (!place) {
           console.error(
@@ -1493,21 +1388,16 @@
         const placeNameElement = document.getElementById("selected-place-name");
         if (placeNameElement) placeNameElement.textContent = place.name;
 
-        await this.showTripsForPlace(placeId); // Load and display trips
+        await this.showTripsForPlace(placeId);
       } else {
-        // Switch BACK to main view
         this.isDetailedView = false;
         detailViewContainer.style.display = "none";
         mainViewContainer.style.display = "block";
 
-        // Optional: Refresh main view data if needed
-        // await this.updateVisitsData();
 
-        // Ensure chart resizes correctly if it was hidden
         if (this.visitsChart) {
           this.visitsChart.resize();
         }
-        // Ensure tables redraw correctly if they were hidden
         if (this.visitsTable?.responsive?.recalc) {
           this.visitsTable.columns.adjust().responsive.recalc();
         }
@@ -1523,9 +1413,7 @@
         return;
       }
       this.loadingManager.startOperation("Loading Trips for Place");
-      this.tripsTable.clear().draw(); // Clear previous data and show loading indicator potentially
-      // Optionally add a processing indicator to the table:
-      // $(this.tripsTable.table().container()).addClass('processing');
+      this.tripsTable.clear().draw();
 
       try {
         const response = await fetch(`/api/places/${placeId}/trips`);
@@ -1533,11 +1421,10 @@
           throw new Error(`Failed to fetch trips: ${response.statusText}`);
 
         const data = await response.json();
-        const trips = data.trips || []; // Expecting { trips: [], name: 'Place Name' }
+        const trips = data.trips || [];
 
-        this.tripsTable.rows.add(trips).draw(); // Add new data
+        this.tripsTable.rows.add(trips).draw();
 
-        // Update place name in header (already done in toggleView, but good practice)
         const placeNameElement = document.getElementById("selected-place-name");
         if (placeNameElement && data.name)
           placeNameElement.textContent = data.name;
@@ -1547,16 +1434,12 @@
           "Failed to fetch trips for the selected place.",
           "danger",
         );
-        // Show error in table
-        this.tripsTable.clear().draw(); // Clear again before showing empty message
+        this.tripsTable.clear().draw();
       } finally {
-        // Remove processing indicator:
-        // $(this.tripsTable.table().container()).removeClass('processing');
         this.loadingManager.finish("Loading Trips for Place");
       }
     }
 
-    // --- Non-Custom Places ---
 
     async loadNonCustomPlacesVisits() {
       if (!this.nonCustomVisitsTable) return;
@@ -1589,7 +1472,6 @@
       }
     }
 
-    // --- UI Helpers / Toggles ---
 
     toggleCustomPlacesVisibility(isVisible) {
       this.isCustomPlacesVisible = isVisible;
@@ -1598,12 +1480,11 @@
 
       if (isVisible) {
         if (this.customPlacesLayer) this.map.addLayer(this.customPlacesLayer);
-        customContent?.classList.remove("hidden"); // Or use Bootstrap classes if tabs handle hiding
+        customContent?.classList.remove("hidden");
         if (customTabButton?.parentElement) {
-          customTabButton.parentElement.style.display = ""; // Show tab
+          customTabButton.parentElement.style.display = "";
         }
 
-        // If the non-custom tab was active, switch back to custom
         if (!customTabButton?.classList.contains("active")) {
           const nonCustomTab = document.getElementById("non-custom-places-tab");
           if (nonCustomTab?.classList.contains("active")) {
@@ -1613,12 +1494,11 @@
       } else {
         if (this.customPlacesLayer)
           this.map.removeLayer(this.customPlacesLayer);
-        customContent?.classList.add("hidden"); // Or use Bootstrap classes
+        customContent?.classList.add("hidden");
         if (customTabButton?.parentElement) {
-          customTabButton.parentElement.style.display = "none"; // Hide tab
+          customTabButton.parentElement.style.display = "none";
         }
 
-        // If the custom tab was active, switch to non-custom if available
         if (customTabButton?.classList.contains("active")) {
           const nonCustomTab = document.getElementById("non-custom-places-tab");
           if (nonCustomTab) {
@@ -1626,8 +1506,6 @@
           }
         }
       }
-      // Optional: Refit map bounds if zoomToFit was used previously
-      // this.zoomToFitAllPlaces();
     }
 
     zoomToFitAllPlaces() {
@@ -1635,7 +1513,7 @@
 
       const bounds = this.customPlacesLayer.getBounds();
       if (bounds.isValid()) {
-        this.map.fitBounds(bounds.pad(0.1)); // Add some padding
+        this.map.fitBounds(bounds.pad(0.1));
       } else {
         window.notificationManager?.show(
           "No custom places found to zoom to.",
@@ -1643,12 +1521,9 @@
         );
       }
     }
-  } // End VisitsManager Class
+  }
 
-  // --- Global Instantiation ---
   document.addEventListener("DOMContentLoaded", () => {
-    // Ensure dependencies like jQuery, Bootstrap, Leaflet, Chart are loaded
-    // This might require more robust checking in a real app
     if (
       typeof L !== "undefined" &&
       typeof Chart !== "undefined" &&
@@ -1661,12 +1536,11 @@
       console.error(
         "One or more critical libraries (Leaflet, Chart.js, jQuery, Bootstrap, DateUtils) not loaded. Visits page cannot initialize.",
       );
-      // Display an error message to the user on the page
       const errorDiv = document.createElement("div");
       errorDiv.className = "alert alert-danger m-4";
       errorDiv.textContent =
         "Error: Could not load necessary components for the Visits page. Please try refreshing the page or contact support.";
-      document.body.prepend(errorDiv); // Prepend to make it visible
+      document.body.prepend(errorDiv);
     }
   });
-})(); // End IIFE
+})();
