@@ -142,7 +142,7 @@
               },
               tooltip: {
                 callbacks: {
-                  label: function (context) {
+                  label (context) {
                     const label = context.label || "";
                     const value = context.raw || 0;
                     if (label === "Fuel Consumed") {
@@ -322,8 +322,8 @@
       return "0m 0s";
     }
     return (
-      dateUtils.formatSecondsToHMS(seconds).split(":").slice(0, 2).join("m ") +
-      "s"
+      `${dateUtils.formatSecondsToHMS(seconds).split(":").slice(0, 2).join("m ") 
+      }s`
     );
   }
 

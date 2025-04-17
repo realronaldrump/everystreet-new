@@ -788,7 +788,7 @@ class DrivingNavigation {
         this.setActiveStep("rendering");
 
         const fullRouteLayer = L.layerGroup().addTo(this.routeLayer);
-        let routeBounds = L.latLngBounds();
+        const routeBounds = L.latLngBounds();
 
         const connectingRouteStyle = {
           color: "#76ff03",

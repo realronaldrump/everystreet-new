@@ -2773,7 +2773,7 @@ const STATUS = window.STATUS || {
       this.streetTypeChartInstance = new Chart(ctx, {
         type: "bar",
         data: {
-          labels: labels,
+          labels,
           datasets: [
             {
               label: "Driven",

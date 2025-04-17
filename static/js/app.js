@@ -1354,7 +1354,7 @@
       theme: document.body.classList.contains("light-mode") ? "light" : "dark",
       position: "auto",
       disableMobile: true,
-      onChange: function (selectedDates, dateStr) {
+      onChange (selectedDates, dateStr) {
         const input = this.input;
         const formattedDate = DateUtils.formatDate(dateStr);
         const isStartDate = input.id === "start-date";
@@ -1722,7 +1722,7 @@
       );
       AppState.map.flyTo(targetLatLng, targetZoom, {
         animate: true,
-        duration: duration,
+        duration,
         easeLinearity: 0.25,
       });
     } else {

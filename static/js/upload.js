@@ -221,7 +221,7 @@ class UploadManager {
         }
       } catch (error) {
         console.error("Error handling file:", error);
-        this.loadingManager.error("Error handling file: " + file.name);
+        this.loadingManager.error(`Error handling file: ${  file.name}`);
         reject(error);
       }
     });
@@ -315,7 +315,7 @@ class UploadManager {
       this.state.selectedFiles.push(fileEntry);
     } catch (error) {
       console.error("Error parsing GPX:", error);
-      this.loadingManager.error("Error parsing GPX file: " + file.name);
+      this.loadingManager.error(`Error parsing GPX file: ${  file.name}`);
       window.notificationManager.show(
         `Error parsing ${file.name}: ${error.message}`,
         "danger",
@@ -346,7 +346,7 @@ class UploadManager {
       }
     } catch (error) {
       console.error("Error parsing GeoJSON:", error);
-      this.loadingManager.error("Error parsing GeoJSON file: " + file.name);
+      this.loadingManager.error(`Error parsing GeoJSON file: ${  file.name}`);
       window.notificationManager.show(
         `Error parsing ${file.name}: ${error.message}`,
         "danger",
@@ -383,7 +383,7 @@ class UploadManager {
 
     const fileEntry = {
       file,
-      filename: filename,
+      filename,
       startTime: properties.start_time
         ? new Date(properties.start_time)
         : properties.coordTimes && properties.coordTimes.length > 0
@@ -644,10 +644,10 @@ class UploadManager {
     } catch (error) {
       console.error("Error uploading files:", error);
       window.notificationManager.show(
-        "Error uploading files: " + error.message,
+        `Error uploading files: ${  error.message}`,
         "danger",
       );
-      this.loadingManager.error("Error uploading files: " + error.message);
+      this.loadingManager.error(`Error uploading files: ${  error.message}`);
     } finally {
       if (uploadButton) {
         uploadButton.disabled = false;
@@ -693,7 +693,7 @@ class UploadManager {
         "Error loading trips from server",
         "danger",
       );
-      this.loadingManager.error("Error fetching trips: " + error.message);
+      this.loadingManager.error(`Error fetching trips: ${  error.message}`);
       this.displayUploadSourceTrips([]);
     } finally {
       this.loadingManager.finish();
@@ -852,10 +852,10 @@ class UploadManager {
       }
     } catch (error) {
       window.notificationManager.show(
-        "An unexpected error occurred during bulk deletion: " + error.message,
+        `An unexpected error occurred during bulk deletion: ${  error.message}`,
         "danger",
       );
-      this.loadingManager.error("Error during bulk deletion: " + error.message);
+      this.loadingManager.error(`Error during bulk deletion: ${  error.message}`);
     } finally {
       if (bulkDeleteBtn) bulkDeleteBtn.disabled = false;
       if (this.elements.selectAllCheckbox)
@@ -905,10 +905,10 @@ class UploadManager {
       }
     } catch (error) {
       window.notificationManager.show(
-        "Error deleting trip: " + error.message,
+        `Error deleting trip: ${  error.message}`,
         "danger",
       );
-      this.loadingManager.error("Error deleting trip: " + error.message);
+      this.loadingManager.error(`Error deleting trip: ${  error.message}`);
     } finally {
       this.loadingManager.finish();
     }

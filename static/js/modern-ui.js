@@ -669,11 +669,11 @@
 
   function setupLegacyCodeBridge() {
     window.modernUI = {
-      showLoading: showLoading,
-      hideLoading: hideLoading,
-      updateProgress: updateProgress,
-      setDateRange: setDateRange,
-      applyTheme: applyTheme,
+      showLoading,
+      hideLoading,
+      updateProgress,
+      setDateRange,
+      applyTheme,
     };
 
     window.addEventListener("load", enhanceMapInteraction);

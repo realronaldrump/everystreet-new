@@ -221,7 +221,7 @@
         console.error("Error loading task configuration:", error);
         this.notifier.show(
           "Error",
-          "Failed to load task configuration: " + error.message,
+          `Failed to load task configuration: ${  error.message}`,
           "danger",
         );
       }
@@ -363,7 +363,7 @@
         console.error("Error updating task history:", error);
         this.notifier.show(
           "Error",
-          "Failed to update task history: " + error.message,
+          `Failed to update task history: ${  error.message}`,
           "danger",
         );
       }
@@ -684,7 +684,7 @@
 
       return {
         globalDisable: document.getElementById("globalDisableSwitch")?.checked,
-        tasks: tasks,
+        tasks,
       };
     }
 
@@ -749,7 +749,7 @@
               <p>${
                 this.intervalOptions.find(
                   (opt) => opt.value === taskDetails.interval_minutes,
-                )?.label || taskDetails.interval_minutes + " minutes"
+                )?.label || `${taskDetails.interval_minutes  } minutes`
               }</p>
             </div>
             <div class="mb-3">
@@ -849,7 +849,7 @@
         console.error("Error fetching task details:", error);
         this.notifier.show(
           "Error",
-          "Failed to fetch task details: " + error.message,
+          `Failed to fetch task details: ${  error.message}`,
           "danger",
         );
       }
