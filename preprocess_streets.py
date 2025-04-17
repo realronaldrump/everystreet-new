@@ -10,18 +10,9 @@ import gc
 import logging
 import math
 import multiprocessing
-from concurrent.futures import (
-    ProcessPoolExecutor,
-    TimeoutError,
-)
+from concurrent.futures import ProcessPoolExecutor, TimeoutError
 from datetime import datetime, timezone
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, Callable, Dict, List, Optional
 
 import aiohttp
 import pyproj
@@ -52,9 +43,7 @@ EXCLUDED_HIGHWAY_TYPES_REGEX = (
     "footway|path|steps|pedestrian|bridleway|cycleway|corridor|"
     "platform|raceway|proposed|construction|track"
 )
-EXCLUDED_ACCESS_TYPES_REGEX = (
-    "private|no|customers|delivery|agricultural|forestry"
-)
+EXCLUDED_ACCESS_TYPES_REGEX = "private|no|customers|delivery|agricultural|forestry"
 EXCLUDED_SERVICE_TYPES_REGEX = "parking_aisle|driveway"
 
 
@@ -127,17 +116,10 @@ async def fetch_osm_data(query: str, timeout: int = 30) -> Dict[str, Any]:
             raise
 
 
-def substring(
-    line: LineString, start: float, end: float
-) -> Optional[LineString]:
+def substring(line: LineString, start: float, end: float) -> Optional[LineString]:
     """Return a sub-linestring from 'start' to 'end' along the line (UTM
     coords)."""
-    if (
-        start < 0
-        or end > line.length
-        or start >= end
-        or abs(line.length) < 1e-6
-    ):
+    if start < 0 or end > line.length or start >= end or abs(line.length) < 1e-6:
         return None
 
     coords = list(line.coords)
@@ -212,10 +194,7 @@ def substring(
             break
 
         elif start <= accumulated and current_end_accum <= end:
-            if (
-                not segment_coords
-                or LineString([segment_coords[-1], p1]).length > 1e-6
-            ):
+            if not segment_coords or LineString([segment_coords[-1], p1]).length > 1e-6:
                 segment_coords.append(p1)
 
         accumulated += seg_length
@@ -420,8 +399,7 @@ async def process_osm_data(
                 "project_to_wgs84": project_to_wgs84_func,
             }
             for element in way_elements
-            if element.get("id") is not None
-            and element.get("geometry") is not None
+            if element.get("id") is not None and element.get("geometry") is not None
         ]
 
         processed_segments_count = 0
@@ -449,9 +427,7 @@ async def process_osm_data(
                         batch_to_insert.extend(segment_features)
                         total_segments_count += len(segment_features)
                         for feature in segment_features:
-                            length = feature.get("properties", {}).get(
-                                "segment_length"
-                            )
+                            length = feature.get("properties", {}).get("segment_length")
                             if isinstance(
                                 length,
                                 (int, float),
@@ -485,18 +461,14 @@ async def process_osm_data(
                                 [],
                             )
                             dup_keys = [
-                                e
-                                for e in write_errors
-                                if e.get("code") == 11000
+                                e for e in write_errors if e.get("code") == 11000
                             ]
                             if dup_keys:
                                 logger.warning(
                                     f"Skipped {len(dup_keys)} duplicate segments during batch insert for {location_name}."
                                 )
                             other_errors = [
-                                e
-                                for e in write_errors
-                                if e.get("code") != 11000
+                                e for e in write_errors if e.get("code") != 11000
                             ]
                             if other_errors:
                                 logger.error(
@@ -548,16 +520,12 @@ async def process_osm_data(
                     )
                 except BulkWriteError as bwe:
                     write_errors = bwe.details.get("writeErrors", [])
-                    dup_keys = [
-                        e for e in write_errors if e.get("code") == 11000
-                    ]
+                    dup_keys = [e for e in write_errors if e.get("code") == 11000]
                     if dup_keys:
                         logger.warning(
                             f"Skipped {len(dup_keys)} duplicate segments during final batch insert for {location_name}."
                         )
-                    other_errors = [
-                        e for e in write_errors if e.get("code") != 11000
-                    ]
+                    other_errors = [e for e in write_errors if e.get("code") != 11000]
                     if other_errors:
                         logger.error(
                             f"Non-duplicate BulkWriteError inserting final batch for {location_name}: {other_errors}"
@@ -674,9 +642,7 @@ async def preprocess_streets(
                 },
                 upsert=True,
             )
-            raise ValueError(
-                f"Location {location_name} lacks lat/lon for dynamic UTM."
-            )
+            raise ValueError(f"Location {location_name} lacks lat/lon for dynamic UTM.")
 
         dynamic_utm_crs = get_dynamic_utm_crs(center_lat, center_lon)
         logger.info(
@@ -851,9 +817,7 @@ async def preprocess_streets(
             return
 
     except Exception as e:
-        location_name_safe = validated_location.get(
-            "display_name", "Unknown Location"
-        )
+        location_name_safe = validated_location.get("display_name", "Unknown Location")
         logger.error(
             "Unhandled error during street preprocessing orchestration for %s: %s",
             location_name_safe,
