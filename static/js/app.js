@@ -1441,11 +1441,14 @@
         })
         .then((results) => {
           if (results) {
+            if (AppState.mapLayers.trips?.layer?.features?.length > 0) {
+              zoomToLastTrip();
+            }
             document.dispatchEvent(new CustomEvent("initialDataLoaded"));
           }
         })
         .catch((error) => {
-          handleError(error, "Initialization");
+          handleError(error, "Initialization or ZoomToLastTrip");
         });
     }
   }
@@ -1653,4 +1656,77 @@
         break;
     }
   });
+
+  // Function to animate map to the last point of the most recent trip
+  function zoomToLastTrip(targetZoom = 14, duration = 3) {
+    if (!AppState.map || !AppState.mapLayers.trips?.layer?.features) {
+      console.warn("Cannot zoom to last trip: Map or trips not available.");
+      return;
+    }
+
+    const features = AppState.mapLayers.trips.layer.features;
+    if (features.length === 0) {
+      console.info("No trips available to zoom to.");
+      return;
+    }
+
+    // Sort trips by endTime descending to get the latest
+    const sortedFeatures = [...features].sort((a, b) => {
+      // Ensure properties and endTime exist before accessing
+      const timeA = a.properties?.endTime
+        ? new Date(a.properties.endTime).getTime()
+        : 0;
+      const timeB = b.properties?.endTime
+        ? new Date(b.properties.endTime).getTime()
+        : 0;
+      // Handle potential invalid dates which result in NaN
+      if (isNaN(timeA) || isNaN(timeB)) {
+        console.warn("Invalid date encountered during trip sort.");
+        return isNaN(timeA) ? 1 : -1; // Push invalid dates towards the end
+      }
+      return timeB - timeA; // Descending order
+    });
+
+    const lastTripFeature = sortedFeatures[0];
+
+    if (!lastTripFeature?.geometry?.coordinates) {
+      console.warn("Last trip feature geometry or coordinates missing.");
+      return;
+    }
+
+    let lastCoord;
+    const geomType = lastTripFeature.geometry.type;
+    const coords = lastTripFeature.geometry.coordinates;
+
+    if (geomType === "LineString" && coords.length > 0) {
+      lastCoord = coords[coords.length - 1]; // Get the last coordinate pair [lng, lat]
+    } else if (geomType === "Point") {
+      lastCoord = coords; // [lng, lat]
+    } else {
+      console.warn(
+        `Unsupported geometry type or empty coordinates for zoom: ${geomType}`,
+      );
+      return;
+    }
+
+    // Ensure lastCoord is a valid array of two numbers
+    if (
+      Array.isArray(lastCoord) &&
+      lastCoord.length === 2 &&
+      typeof lastCoord[0] === "number" &&
+      typeof lastCoord[1] === "number"
+    ) {
+      const targetLatLng = [lastCoord[1], lastCoord[0]]; // Convert [lng, lat] to Leaflet's [lat, lng]
+      console.info(
+        `Animating map to last trip at [${targetLatLng.join(", ")}]`,
+      );
+      AppState.map.flyTo(targetLatLng, targetZoom, {
+        animate: true,
+        duration: duration,
+        easeLinearity: 0.25,
+      });
+    } else {
+      console.warn("Could not determine valid coordinates for the last trip.");
+    }
+  }
 })();
