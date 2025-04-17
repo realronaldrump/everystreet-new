@@ -2114,7 +2114,7 @@ async def manual_run_task(
             "message": f"Triggered {len(results)} tasks.",
             "results": results,
         }
-    elif task_id in task_mapping:
+    if task_id in task_mapping:
         logger.info("Manual run requested for task: %s", task_id)
         result = await _send_manual_task(task_id, task_mapping[task_id])
         return {
@@ -2125,12 +2125,11 @@ async def manual_run_task(
             ),
             "task_id": result.get("task_id"),
         }
-    else:
-        logger.error("Manual run requested for unknown task: %s", task_id)
-        return {
-            "status": "error",
-            "message": f"Unknown or non-runnable task ID: {task_id}",
-        }
+    logger.error("Manual run requested for unknown task: %s", task_id)
+    return {
+        "status": "error",
+        "message": f"Unknown or non-runnable task ID: {task_id}",
+    }
 
 
 async def _send_manual_task(
@@ -2329,14 +2328,13 @@ async def update_task_schedule(
                 "message": "Task configuration updated successfully.",
                 "changes": changes,
             }
-        else:
-            logger.info(
-                "Task configuration update requested, but no document was modified (values might be the same)."
-            )
-            return {
-                "status": "success",
-                "message": "No changes applied to task configuration (values may already match).",
-            }
+        logger.info(
+            "Task configuration update requested, but no document was modified (values might be the same)."
+        )
+        return {
+            "status": "success",
+            "message": "No changes applied to task configuration (values may already match).",
+        }
     except Exception as e:
         logger.exception(f"Error updating task schedule: {e}")
         return {

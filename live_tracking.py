@@ -1131,12 +1131,11 @@ async def get_active_trip(
             trip_seq,
         )
         return active_trip_doc
-    else:
-        logger.debug(
-            "No active trip found matching query: %s",
-            query,
-        )
-        return None
+    logger.debug(
+        "No active trip found matching query: %s",
+        query,
+    )
+    return None
 
 
 async def cleanup_stale_trips_logic(
@@ -1378,48 +1377,46 @@ async def get_trip_updates(
                 "has_update": True,
                 "trip": active_trip_update,
             }
-        else:
-            try:
-                any_active_trip_doc = (
-                    await live_trips_collection_global.find_one(
-                        {"status": "active"},
-                        projection={"sequence": 1},
-                        sort=[("sequence", -1)],
-                    )
+        try:
+            any_active_trip_doc = (
+                await live_trips_collection_global.find_one(
+                    {"status": "active"},
+                    projection={"sequence": 1},
+                    sort=[("sequence", -1)],
                 )
-            except Exception as find_err:
-                logger.error(
-                    "Database error checking for any active trip sequence: %s",
-                    find_err,
-                )
-                return {
-                    "status": "success",
-                    "has_update": False,
-                    "message": "No new updates available (error checking current state).",
-                    "current_sequence": client_sequence,
-                }
+            )
+        except Exception as find_err:
+            logger.error(
+                "Database error checking for any active trip sequence: %s",
+                find_err,
+            )
+            return {
+                "status": "success",
+                "has_update": False,
+                "message": "No new updates available (error checking current state).",
+                "current_sequence": client_sequence,
+            }
 
-            if any_active_trip_doc:
-                current_server_seq = any_active_trip_doc.get("sequence", 0)
-                logger.info(
-                    "No *new* updates since sequence %d. Current active trip sequence: %s.",
-                    client_sequence,
-                    current_server_seq,
-                )
-                return {
-                    "status": "success",
-                    "has_update": False,
-                    "message": "No new updates available.",
-                    "current_sequence": current_server_seq,
-                }
-            else:
-                logger.info("No active trips found in the database.")
-                return {
-                    "status": "success",
-                    "has_update": False,
-                    "message": "No active trips currently.",
-                    "current_sequence": 0,
-                }
+        if any_active_trip_doc:
+            current_server_seq = any_active_trip_doc.get("sequence", 0)
+            logger.info(
+                "No *new* updates since sequence %d. Current active trip sequence: %s.",
+                client_sequence,
+                current_server_seq,
+            )
+            return {
+                "status": "success",
+                "has_update": False,
+                "message": "No new updates available.",
+                "current_sequence": current_server_seq,
+            }
+        logger.info("No active trips found in the database.")
+        return {
+            "status": "success",
+            "has_update": False,
+            "message": "No active trips currently.",
+            "current_sequence": 0,
+        }
 
     except Exception as e:
         logger.exception(

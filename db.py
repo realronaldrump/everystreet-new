@@ -556,24 +556,23 @@ def post_process_deserialize(obj):
                         ms_epoch / 1000.0,
                         tz=timezone.utc,
                     )
-                elif isinstance(date_val, str):
+                if isinstance(date_val, str):
                     dt = datetime.fromisoformat(
                         date_val.replace("Z", "+00:00")
                     )
                     if dt.tzinfo is None:
                         dt = dt.astimezone(timezone.utc)
                     return dt.astimezone(timezone.utc)
-                elif isinstance(date_val, (int, float)):
+                if isinstance(date_val, (int, float)):
                     if abs(date_val) > 2e9:
                         return datetime.fromtimestamp(
                             date_val / 1000.0,
                             tz=timezone.utc,
                         )
-                    else:
-                        return datetime.fromtimestamp(
-                            date_val,
-                            tz=timezone.utc,
-                        )
+                    return datetime.fromtimestamp(
+                        date_val,
+                        tz=timezone.utc,
+                    )
                 else:
                     logger.warning(
                         "Unexpected value type within $date dict: %s - Value: %s",
