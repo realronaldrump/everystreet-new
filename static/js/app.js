@@ -101,6 +101,7 @@
       window.notificationManager.show(message, type);
       return true;
     }
+    return false;
   };
 
   const addSingleEventListener = (element, eventType, handler) => {
@@ -236,7 +237,7 @@
   const isMapReady = () =>
     AppState.map && AppState.mapInitialized && AppState.layerGroup;
 
-  async function initializeMap() {
+  function initializeMap() {
     try {
       if (AppState.map) return true;
 
@@ -399,26 +400,6 @@
     }
   }
 
-  async function centerMapOnLastPosition() {
-    try {
-      const response = await fetch("/api/last_trip_point");
-      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-
-      const data = await response.json();
-      if (data.lastPoint && AppState.map) {
-        AppState.map.flyTo([data.lastPoint[1], data.lastPoint[0]], 11, {
-          duration: 2,
-          easeLinearity: 0.25,
-        });
-      } else {
-        AppState.map?.setView([31.55002, -97.123354], 14);
-      }
-    } catch (error) {
-      AppState.map?.setView(CONFIG.MAP.defaultCenter, CONFIG.MAP.defaultZoom);
-      throw error;
-    }
-  }
-
   function initializeLayerControls() {
     const layerToggles = getElement("layer-toggles");
     if (!layerToggles) return;
@@ -545,71 +526,42 @@
   }
 
   async function fetchTrips() {
-    return withLoading(
-      "Fetching and Displaying Trips",
-      async (lm, opId) => {
-        const subOps = {
-          "Fetching Data": 50,
-          "Processing Data": 30,
-          "Displaying Data": 20,
-        };
+    const startDate = getStartDate();
+    const endDate = getEndDate();
 
-        Object.entries(subOps).forEach(([name, weight]) => {
-          lm.addSubOperation(opId, name, weight);
-        });
+    if (!startDate || !endDate) {
+      showNotification("Invalid date range for fetching trips.", "warning");
+      return;
+    }
 
-        const startDate = DateUtils.formatDate(
-          getStorageItem(CONFIG.STORAGE_KEYS.startDate),
-        );
-        const endDate = DateUtils.formatDate(
-          getStorageItem(CONFIG.STORAGE_KEYS.endDate),
-        );
+    if (AppState.dom.startDateInput)
+      AppState.dom.startDateInput.value = startDate;
+    if (AppState.dom.endDateInput) AppState.dom.endDateInput.value = endDate;
 
-        if (!startDate || !endDate) {
-          showNotification("Invalid date range for fetching trips.", "warning");
-          return;
-        }
+    const params = new URLSearchParams({
+      start_date: startDate,
+      end_date: endDate,
+    });
+    const response = await fetch(`/api/trips?${params.toString()}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-        if (AppState.dom.startDateInput)
-          AppState.dom.startDateInput.value = startDate;
-        if (AppState.dom.endDateInput)
-          AppState.dom.endDateInput.value = endDate;
+    const geojson = await response.json();
 
-        lm.updateSubOperation(opId, "Fetching Data", 25);
+    await updateTripsTable(geojson);
+    await updateMapWithTrips(geojson);
 
-        const params = new URLSearchParams({
-          start_date: startDate,
-          end_date: endDate,
-        });
-        const response = await fetch(`/api/trips?${params.toString()}`);
-        if (!response.ok)
-          throw new Error(`HTTP error! status: ${response.status}`);
+    try {
+      await fetchMatchedTrips();
+    } catch (err) {
+      handleError(err, "Fetching Matched Trips");
+    }
 
-        const geojson = await response.json();
-        lm.updateSubOperation(opId, "Fetching Data", 50);
-        lm.updateSubOperation(opId, "Processing Data", 15);
+    await updateMap();
 
-        await updateTripsTable(geojson);
-        await updateMapWithTrips(geojson);
-
-        try {
-          await fetchMatchedTrips();
-        } catch (err) {
-          handleError(err, "Fetching Matched Trips");
-        }
-
-        await updateMap();
-
-        lm.updateSubOperation(opId, "Processing Data", 30);
-        lm.updateSubOperation(opId, "Displaying Data", 20);
-
-        document.dispatchEvent(
-          new CustomEvent("tripsLoaded", {
-            detail: { count: geojson.features.length },
-          }),
-        );
-      },
-      100,
+    document.dispatchEvent(
+      new CustomEvent("tripsLoaded", {
+        detail: { count: geojson.features.length },
+      }),
     );
   }
 
@@ -660,33 +612,20 @@
   }
 
   function fetchMatchedTrips() {
-    const startDate = DateUtils.formatDate(
-      getStorageItem(CONFIG.STORAGE_KEYS.startDate),
-    );
-    const endDate = DateUtils.formatDate(
-      getStorageItem(CONFIG.STORAGE_KEYS.endDate),
-    );
+    const startDate = getStartDate();
+    const endDate = getEndDate();
+    const url = `/api/matched_trips?start_date=${startDate}&end_date=${endDate}`;
 
-    if (!startDate || !endDate) {
-      console.warn("Invalid date range for fetching matched trips");
-      return;
-    }
-
-    const params = new URLSearchParams({
-      start_date: startDate,
-      end_date: endDate,
-    });
-    return fetch(`/api/matched_trips?${params.toString()}`)
-      .then((response) => {
-        if (!response.ok)
-          throw new Error(
-            `HTTP error fetching matched trips: ${response.status}`,
-          );
-        return response.json();
+    cachedFetch(url, {}, 60000)
+      .then((data) => {
+        if (!data) throw new Error("No data received for matched trips");
+        AppState.mapLayers.matchedTrips.visible = true;
+        updateMapWithTrips(data, "matchedTrips");
+        updateLayerOrderUI();
       })
-      .then((geojson) => {
-        AppState.mapLayers.matchedTrips.layer = geojson;
-        return geojson;
+      .catch((error) => {
+        console.error("Error fetching matched trips:", error);
+        handleError("Failed to load matched trips.");
       });
   }
 
@@ -798,11 +737,8 @@
       await updateMap();
       return geojson;
     } catch (error) {
-      handleError(error, "Error fetching undriven streets");
-      showNotification(
-        `Failed to load undriven streets: ${error.message}`,
-        "danger",
-      );
+      console.error("Error fetching undriven streets:", error);
+      handleError("Failed to load undriven streets.");
       AppState.mapLayers.undrivenStreets.visible = false;
       AppState.mapLayers.undrivenStreets.layer = {
         type: "FeatureCollection",
@@ -814,10 +750,9 @@
   }
 
   async function updateMap(fitBounds = false) {
-    if (!isMapReady()) {
-      console.warn("Map not ready for update. Operation deferred.");
-      return;
-    }
+    if (!isMapReady()) return;
+
+    const currentBounds = AppState.map.getBounds();
     AppState.layerGroup.clearLayers();
     const visibleLayers = Object.entries(AppState.mapLayers)
       .filter(
@@ -899,168 +834,69 @@
   }
 
   function handleTripClick(e, feature, layer, info, name) {
-    e.originalEvent._stopped = true;
-    L.DomEvent.stopPropagation(e);
-
-    const clickedId = feature.properties.transactionId;
-    const wasSelected = AppState.selectedTripId === clickedId;
-
-    AppState.selectedTripId = wasSelected ? null : clickedId;
-    AppState.layerGroup.eachLayer((l) => l.closePopup && l.closePopup());
-
-    if (!wasSelected) {
-      layer
-        .bindPopup(createTripPopupContent(feature, name), {
-          className: "trip-popup",
-          maxWidth: 300,
-          autoPan: true,
-        })
-        .openPopup(e.latlng);
-    }
-
+    AppState.selectedTripId = feature.properties.transactionId;
     refreshTripStyles();
-    document.dispatchEvent(
-      new CustomEvent("tripSelected", {
-        detail: {
-          id: wasSelected ? null : clickedId,
-          tripData: wasSelected ? null : feature.properties,
-        },
-      }),
-    );
+    layer.openPopup();
   }
 
   function createTripPopupContent(feature, layerName) {
     const props = feature.properties;
-    const isMatched = layerName === "matchedTrips";
-
-    const tripData = {
-      id: props.tripId || props.id || props.transactionId,
-      startTime: props.startTime || null,
-      endTime: props.endTime || null,
-      distance: typeof props.distance === "number" ? props.distance : null,
-      maxSpeed:
-        props.maxSpeed ||
-        props.max_speed ||
-        (props.properties &&
-          (props.properties.maxSpeed || props.properties.max_speed)) ||
-        null,
-      averageSpeed:
-        props.averageSpeed ||
-        props.average_speed ||
-        (props.properties &&
-          (props.properties.averageSpeed || props.properties.average_speed)) ||
-        null,
-      startLocation: props.startLocation || null,
-      destination: props.destination || null,
-      hardBrakingCount: parseInt(props.hardBrakingCount || 0, 10),
-      hardAccelerationCount: parseInt(props.hardAccelerationCount || 0, 10),
-      totalIdleDurationFormatted: props.totalIdleDurationFormatted || null,
-    };
+    const formatValue = (value, unit = "") =>
+      value !== undefined && value !== null ? `${value}${unit}` : "N/A";
 
     const formatDate = (date) =>
       date
-        ? DateUtils.formatForDisplay(date, {
-            dateStyle: "medium",
-            timeStyle: "short",
+        ? DateUtils.formatDateTime(date, {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
           })
-        : "Unknown";
-    const startTimeDisplay = formatDate(tripData.startTime);
-    const endTimeDisplay = formatDate(tripData.endTime);
-    const distance =
-      tripData.distance !== null
-        ? `${tripData.distance.toFixed(2)} mi`
-        : "Unknown";
-
-    let durationDisplay = "Unknown";
-    if (tripData.startTime && tripData.endTime) {
-      try {
-        const durationMs =
-          new Date(tripData.endTime) - new Date(tripData.startTime);
-        const hours = Math.floor(durationMs / (1000 * 60 * 60));
-        const minutes = Math.floor(
-          (durationMs % (1000 * 60 * 60)) / (1000 * 60),
-        );
-        durationDisplay = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-      } catch (e) {
-        window.handleError(
-          "Error calculating duration",
-          "createTripPopupContent",
-          "warn",
-        );
-      }
-    }
+        : "N/A";
 
     const formatSpeed = (speed) => {
-      if (speed === null || speed === undefined) return "Unknown";
-      const speedValue = parseFloat(speed);
-      return isNaN(speedValue)
-        ? "Unknown"
-        : `${(speedValue * 0.621371).toFixed(1)} mph`;
+      if (speed === undefined || speed === null) return "N/A";
+      // Assuming speed is in m/s, convert to mph
+      const mph = speed * 2.23694;
+      return `${mph.toFixed(1)} mph`;
     };
 
-    const maxSpeed = formatSpeed(tripData.maxSpeed);
-    const avgSpeed = formatSpeed(tripData.averageSpeed);
+    const formatDuration = (durationSeconds) => {
+      if (durationSeconds === undefined || durationSeconds === null)
+        return "N/A";
+      return DateUtils.formatDuration(durationSeconds * 1000); // Expects milliseconds
+    };
 
-    let html = `
-      <div class="trip-popup">
-        <h4>${isMatched ? "Matched Trip" : "Trip"}</h4>
-        <table class="popup-data">
-          <tr><th>Start Time:</th><td>${startTimeDisplay}</td></tr>
-          <tr><th>End Time:</th><td>${endTimeDisplay}</td></tr>
-          <tr><th>Duration:</th><td>${durationDisplay}</td></tr>
-          <tr><th>Distance:</th><td>${distance}</td></tr>
+    const content = `
+      <div class="popup-content">
+        <h4>Trip Details</h4>
+        <p><strong>ID:</strong> ${props.transactionId || "N/A"}</p>
+        <p><strong>Start:</strong> ${formatDate(props.startTime)}</p>
+        <p><strong>End:</strong> ${formatDate(props.endTime)}</p>
+        <p><strong>Distance:</strong> ${formatValue(
+          (props.distance / 1609.34).toFixed(2), // Convert meters to miles
+          " mi",
+        )}</p>
+        <p><strong>Duration:</strong> ${formatDuration(props.duration)}</p>
+        <p><strong>Avg Speed:</strong> ${formatSpeed(props.averageSpeed)}</p>
+        <p><strong>Max Speed:</strong> ${formatSpeed(props.maxSpeed)}</p>
+        ${
+          props.matchedTripId
+            ? `<p><strong>Matched To:</strong> ${props.matchedTripId}</p>`
+            : ""
+        }
+        ${
+          props.points
+            ? `<p><strong>Points:</strong> ${props.points.length}</p>`
+            : ""
+        }
+        <div class="popup-actions">
+          ${createActionButtons(feature, layerName)}
+        </div>
+      </div>
     `;
-
-    if (tripData.startLocation) {
-      const startLocationText =
-        typeof tripData.startLocation === "object"
-          ? tripData.startLocation.formatted_address || "Unknown location"
-          : tripData.startLocation;
-      html += `<tr><th>Start Location:</th><td>${startLocationText}</td></tr>`;
-    }
-
-    if (tripData.destination) {
-      const destinationText =
-        typeof tripData.destination === "object"
-          ? tripData.destination.formatted_address || "Unknown destination"
-          : tripData.destination;
-      html += `<tr><th>Destination:</th><td>${destinationText}</td></tr>`;
-    }
-
-    html += `
-      <tr><th>Max Speed:</th><td>${maxSpeed}</td></tr>
-      <tr><th>Avg Speed:</th><td>${avgSpeed}</td></tr>
-    `;
-
-    if (tripData.totalIdleDurationFormatted) {
-      html += `<tr><th>Idle Time:</th><td>${tripData.totalIdleDurationFormatted}</td></tr>`;
-    }
-
-    if (tripData.hardBrakingCount > 0) {
-      html += `<tr><th>Hard Braking:</th><td>${tripData.hardBrakingCount}</td></tr>`;
-    }
-
-    if (tripData.hardAccelerationCount > 0) {
-      html += `<tr><th>Hard Accel:</th><td>${tripData.hardAccelerationCount}</td></tr>`;
-    }
-
-    html += `
-        </table>
-        <div class="trip-actions" data-trip-id="${tripData.id}">
-    `;
-
-    if (isMatched) {
-      html +=
-        '<button class="btn btn-sm btn-danger delete-matched-trip">Delete Match</button>';
-    } else {
-      html += `
-          <button class="btn btn-sm btn-primary rematch-trip">Rematch</button>
-          <button class="btn btn-sm btn-danger delete-trip">Delete</button>
-      `;
-    }
-
-    html += "</div></div>";
-    return html;
+    return content;
   }
 
   function setupPopupEventListeners(layer, feature) {
