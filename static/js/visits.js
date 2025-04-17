@@ -27,14 +27,19 @@
       this.initialize();
     }
 
-
     static createFallbackLoadingManager() {
       return {
         startOperation(name) {
-          window.notificationManager?.show(`LoadingManager not available: ${name}`, "info");
+          window.notificationManager?.show(
+            `LoadingManager not available: ${name}`,
+            "info",
+          );
         },
         addSubOperation(opName, subName) {
-          window.notificationManager?.show(`LoadingManager not available: ${opName}.${subName}`, "info");
+          window.notificationManager?.show(
+            `LoadingManager not available: ${opName}.${subName}`,
+            "info",
+          );
         },
         updateSubOperation(opName, subName, progress) {
           window.notificationManager?.show(
@@ -49,7 +54,10 @@
           );
         },
         error(message) {
-          window.notificationManager?.show(`LoadingManager not available: Error - ${message}`, "danger");
+          window.notificationManager?.show(
+            `LoadingManager not available: Error - ${message}`,
+            "danger",
+          );
         },
       };
     }
@@ -207,7 +215,7 @@
                 ([, placeData]) => placeData.name === placeName,
               );
               if (placeEntry) {
-                const [placeId ] = placeEntry;
+                const [placeId] = placeEntry;
                 this.toggleView(placeId);
               }
             }
@@ -221,7 +229,6 @@
       this.initNonCustomVisitsTable();
       this.initTripsTable();
     }
-
 
     static convertDurationToSeconds(duration) {
       if (!duration || duration === "N/A" || duration === "Unknown") return 0;
@@ -308,9 +315,7 @@
           "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
           "<'row'<'col-sm-12'tr>>" +
           "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
-        columnDefs: [
-          { type: "duration", targets: 4 },
-        ],
+        columnDefs: [{ type: "duration", targets: 4 }],
       });
     }
 
@@ -425,9 +430,7 @@
           "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
           "<'row'<'col-sm-12'tr>>" +
           "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
-        columnDefs: [
-          { type: "duration", targets: [4, 5] },
-        ],
+        columnDefs: [{ type: "duration", targets: [4, 5] }],
       });
 
       $(el)
@@ -444,7 +447,6 @@
           }
         });
     }
-
 
     setupEventListeners() {
       document
@@ -490,9 +492,7 @@
           this.toggleView(placeId);
         }
       });
-
     }
-
 
     async loadPlaces() {
       this.loadingManager.startOperation("Initializing Visits Page");
@@ -545,7 +545,7 @@
             fillOpacity: 0.15,
             weight: 2,
           },
-          onEachFeature(feature ) {
+          onEachFeature(feature) {
             feature.properties = feature.properties || {};
             feature.properties.placeId = place._id;
             feature.properties.placeName = place.name;
@@ -742,10 +742,8 @@
       }
     }
 
-
     startDrawing() {
       if (this.drawingEnabled) {
-
         return;
       }
       this.resetDrawing(false);
@@ -960,7 +958,6 @@
       }
     }
 
-
     showManagePlacesModal() {
       const modalElement = document.getElementById("manage-places-modal");
       if (!modalElement) return;
@@ -1040,7 +1037,6 @@
       modal.show();
     }
 
-
     confirmViewTripOnMap(tripId) {
       if (!tripId) {
         return;
@@ -1093,7 +1089,10 @@
             return;
           }
         } catch (e) {
-          window.notificationManager?.show("Failed to parse gps JSON.", "danger");
+          window.notificationManager?.show(
+            "Failed to parse gps JSON.",
+            "danger",
+          );
         }
       }
       if (
@@ -1290,7 +1289,6 @@
       this.tripViewMap.invalidateSize();
     }
 
-
     async showPlaceStatistics(placeId) {
       const place = this.places.get(placeId);
       const layer = this.placeLayers.get(placeId);
@@ -1359,7 +1357,6 @@
       }
     }
 
-
     async toggleView(placeId = null) {
       const mainViewContainer = document.getElementById(
         "visits-table-container",
@@ -1393,7 +1390,6 @@
         this.isDetailedView = false;
         detailViewContainer.style.display = "none";
         mainViewContainer.style.display = "block";
-
 
         if (this.visitsChart) {
           this.visitsChart.resize();
@@ -1440,7 +1436,6 @@
       }
     }
 
-
     async loadNonCustomPlacesVisits() {
       if (!this.nonCustomVisitsTable) return;
       this.loadingManager.addSubOperation(
@@ -1471,7 +1466,6 @@
         );
       }
     }
-
 
     toggleCustomPlacesVisibility(isVisible) {
       this.isCustomPlacesVisible = isVisible;
