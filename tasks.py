@@ -1440,10 +1440,10 @@ async def remap_unmatched_trips_async(
 
                 await processor.process(do_map_match=True)
 
-                if (
-                    processor.state == TripState.MAP_MATCHED
-                    or processor.state == TripState.COMPLETED
-                ):
+                if processor.state in {
+                    TripState.MAP_MATCHED,
+                    TripState.COMPLETED,
+                }:
                     save_result = await processor.save(map_match_result=True)
                     if save_result:
                         remap_count += 1
