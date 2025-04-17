@@ -80,7 +80,7 @@ class LiveTripTracker {
 
   async loadInitialTripData() {
     try {
-      window.handleError("Loading initial trip data", "loadInitialTripData");
+      console.info("Loading initial trip data", "loadInitialTripData");
       const response = await fetch("/api/active_trip");
 
       if (!response.ok) {
@@ -88,14 +88,14 @@ class LiveTripTracker {
       }
 
       const data = await response.json();
-      window.handleError(
+      console.info(
         "Initial trip data response: " + JSON.stringify(data),
         "loadInitialTripData",
       );
 
       if (data.status === "success") {
         if (data.has_active_trip && data.trip) {
-          window.handleError(
+          console.info(
             `Found active trip: ${data.trip.transactionId} with sequence: ${data.trip.sequence}`,
             "loadInitialTripData",
           );
@@ -105,13 +105,13 @@ class LiveTripTracker {
           this.lastSequence = data.trip.sequence || 0;
           this.updateStatus(true);
         } else {
-          window.handleError(
+          console.info(
             "No active trips found during initialization",
             "loadInitialTripData",
           );
           this.updateStatus(true, "No active trips");
           this.updateActiveTripsCount(0);
-          window.handleError(
+          console.info(
             "No active trips found during initialization",
             "loadInitialTripData",
           );
@@ -135,7 +135,7 @@ class LiveTripTracker {
 
     this.isPolling = true;
     this.poll();
-    window.handleError(
+    console.info(
       `LiveTripTracker: Started polling (${this.pollingInterval}ms interval)`,
       "startPolling",
     );
@@ -147,14 +147,14 @@ class LiveTripTracker {
       this.pollingTimerId = null;
     }
     this.isPolling = false;
-    window.handleError("LiveTripTracker: Stopped polling", "stopPolling");
+    console.info("LiveTripTracker: Stopped polling", "stopPolling");
   }
 
   async poll() {
     if (!this.isPolling) return;
 
     try {
-      window.handleError(
+      console.info(
         `Polling for updates since sequence: ${this.lastSequence}`,
         "poll",
       );
@@ -182,10 +182,10 @@ class LiveTripTracker {
   }
 
   async fetchTripUpdates() {
-    window.handleError(
+    console.info(
       `Fetching trip updates with last_sequence=${this.lastSequence}`,
     );
-    window.handleError(
+    console.info(
       `Fetching trip updates with last_sequence=${this.lastSequence}`,
       "fetchTripUpdates",
     );
@@ -200,14 +200,14 @@ class LiveTripTracker {
     }
 
     const data = await response.json();
-    window.handleError(
+    console.info(
       "Trip update response: " + JSON.stringify(data),
       "fetchTripUpdates",
     );
 
     if (data.status === "success") {
       if (data.has_update && data.trip) {
-        window.handleError(
+        console.info(
           `Received trip update with sequence: ${data.trip.sequence}`,
           "fetchTripUpdates",
         );
@@ -220,7 +220,7 @@ class LiveTripTracker {
 
         this.setAdaptivePollingInterval(data.trip, true);
       } else if (this.activeTrip && !data.has_update) {
-        window.handleError(
+        console.info(
           "No new updates for current trip",
           "fetchTripUpdates",
         );
@@ -228,7 +228,7 @@ class LiveTripTracker {
 
         this.setAdaptivePollingInterval(this.activeTrip, false);
       } else if (!this.activeTrip && !data.has_update) {
-        window.handleError("No active trips found", "fetchTripUpdates");
+        console.info("No active trips found", "fetchTripUpdates");
         this.clearActiveTrip();
         this.updateActiveTripsCount(0);
         this.updateStatus(true, "No active trips");
@@ -252,8 +252,8 @@ class LiveTripTracker {
     );
 
     if (this.pollingInterval !== oldInterval) {
-      window.handleError(
-        `LiveTripTracker: Increased polling interval to ${this.pollingInterval}ms`,
+      console.info(
+        `LiveTripTracker: Increased polling interval to ${Math.round(this.pollingInterval)}ms`,
         "increasePollingInterval",
       );
     }
@@ -276,8 +276,8 @@ class LiveTripTracker {
     }
 
     if (this.pollingInterval !== oldInterval) {
-      window.handleError(
-        `LiveTripTracker: Decreased polling interval to ${this.pollingInterval}ms`,
+      console.info(
+        `LiveTripTracker: Decreased polling interval to ${Math.round(this.pollingInterval)}ms`,
         "decreasePollingInterval",
       );
     }
@@ -349,7 +349,7 @@ class LiveTripTracker {
       !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
 
     if (trip.status === "completed") {
-      window.handleError(
+      console.info(
         "Trip is completed, clearing from map",
         "setActiveTrip",
       );
@@ -391,7 +391,7 @@ class LiveTripTracker {
         } catch (e) {
           console.error("Error fitting bounds:", e);
           this.map.setView(lastPoint, 15);
-          window.handleError("Error fitting bounds: " + e, "setActiveTrip");
+          console.error("Error fitting bounds: " + e, "setActiveTrip");
         }
       } else {
         this.map.setView(lastPoint, 15);
@@ -557,7 +557,7 @@ class LiveTripTracker {
       startTimeFormatted,
     });
 
-    window.handleError("Displaying metrics:", metrics);
+    console.info("Displaying metrics:", metrics);
 
     this.tripMetricsElem.innerHTML = Object.entries(metrics)
       .map(
@@ -620,21 +620,20 @@ class LiveTripTracker {
       this.bringLiveTripToFront();
     }
 
-    window.handleError(
+    console.info(
       "LiveTripTracker: Polyline style updated",
       "updatePolylineStyle",
     );
   }
 
   bringLiveTripToFront() {
-    if (this.polyline && this.activeTrip) {
+    if (this.polyline && this.map.hasLayer(this.polyline)) {
       this.polyline.bringToFront();
+      console.info("LiveTripTracker: Polyline brought to front", "bringLiveTripToFront");
     }
-
-    window.handleError(
-      "LiveTripTracker: Polyline brought to front",
-      "bringLiveTripToFront",
-    );
+    if (this.marker && this.map.hasLayer(this.marker)) {
+      this.marker.bringToFront();
+    }
   }
 
   destroy() {
@@ -662,7 +661,7 @@ class LiveTripTracker {
       this.handleVisibilityChange,
     );
 
-    window.handleError("LiveTripTracker: Destroyed", "destroy");
+    console.info("LiveTripTracker instance destroyed");
   }
 }
 
