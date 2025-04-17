@@ -161,8 +161,8 @@ class TaskStatusManager:
             cls._instance = TaskStatusManager()
         return cls._instance
 
+    @staticmethod
     async def update_status(
-        self,
         task_id: str,
         status: str,
         error: Optional[str] = None,
