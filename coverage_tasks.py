@@ -9,7 +9,7 @@ asynchronously from API endpoints.
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any
 from collections import defaultdict
 
 from db import (

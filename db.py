@@ -15,12 +15,7 @@ import threading
 from datetime import datetime, timezone
 from typing import (
     Any,
-    Dict,
-    List,
-    Optional,
-    Tuple,
     TypeVar,
-    Union,
 )
 from collections.abc import AsyncIterator, Awaitable, Callable
 
@@ -67,9 +62,9 @@ class DatabaseManager:
         if not getattr(self, "_initialized", False):
             self._client: AsyncIOMotorClient | None = None
             self._db: AsyncIOMotorDatabase | None = None
-            self._gridfs_bucket_instance: None | (
-                AsyncIOMotorGridFSBucket
-            ) = None
+            self._gridfs_bucket_instance: None | (AsyncIOMotorGridFSBucket) = (
+                None
+            )
             self._quota_exceeded = False
             self._connection_healthy = True
             self._db_semaphore = asyncio.Semaphore(10)

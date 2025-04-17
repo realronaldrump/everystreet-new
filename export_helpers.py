@@ -12,7 +12,7 @@ import os
 import tempfile
 import zipfile
 from datetime import datetime
-from typing import Any, Dict, List, Union
+from typing import Any
 
 import geopandas as gpd
 import gpxpy

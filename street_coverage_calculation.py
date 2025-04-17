@@ -1400,14 +1400,17 @@ class CoverageCalculator:
                     )
 
                     message = (
-                        f"Processed {self.processed_trips_count:,}/{
-                            self.total_trips_to_process:,
-                        } trips | "
-                        f"Submitted: {self.submitted_trips_count:,} | "
-                        f"Done OK: {completed_futures_count:,} | Failed: {
-                            failed_futures_count:,
-                        } | Pending: {len(pending_futures_map):,} | "
-                        f"New Segments Found: {new_segments_found_count:,}"
+                        f"Processed {
+                            self.processed_trips_count:,}/{
+                            self.total_trips_to_process:,                        } trips | "
+                        f"Submitted: {
+                            self.submitted_trips_count:,} | "
+                        f"Done OK: {
+                            completed_futures_count:,} | Failed: {
+                            failed_futures_count:,                        } | Pending: {
+                            len(pending_futures_map):,} | "
+                        f"New Segments Found: {
+                                new_segments_found_count:,}"
                     )
 
                     await self.update_progress(
@@ -1752,17 +1755,17 @@ class CoverageCalculator:
                 street_type_stats[highway]["length_m"] += length
 
                 if is_undriveable:
-                    street_type_stats[highway]["undriveable_length_m"] += (
-                        length
-                    )
+                    street_type_stats[highway][
+                        "undriveable_length_m"
+                    ] += length
                 else:
                     final_driveable_length += length
                     if is_driven:
                         final_driven_length += length
                         street_type_stats[highway]["covered"] += 1
-                        street_type_stats[highway]["covered_length_m"] += (
-                            length
-                        )
+                        street_type_stats[highway][
+                            "covered_length_m"
+                        ] += length
                         final_covered_segments_count += 1
 
             final_coverage_percentage = (

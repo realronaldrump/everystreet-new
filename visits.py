@@ -6,7 +6,7 @@ creating, retrieving, and analyzing visit data.
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 from bson import ObjectId
 from dateutil import parser as dateutil_parser

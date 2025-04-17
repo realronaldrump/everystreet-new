@@ -10,7 +10,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 from motor.motor_asyncio import (
     AsyncIOMotorCollection,

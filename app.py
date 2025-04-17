@@ -3975,7 +3975,11 @@ async def _mark_segment(
             {"_id": location_id},
             {"location.display_name": 1},
         )
-    ).get("location", {}).get("display_name"):
+    ).get(
+        "location", {}
+    ).get(
+        "display_name"
+    ):
         logger.warning(
             "Segment %s found but does not belong to location %s. Proceeding anyway.",
             segment_id,
