@@ -220,10 +220,7 @@ class LiveTripTracker {
 
         this.setAdaptivePollingInterval(data.trip, true);
       } else if (this.activeTrip && !data.has_update) {
-        console.info(
-          "No new updates for current trip",
-          "fetchTripUpdates",
-        );
+        console.info("No new updates for current trip", "fetchTripUpdates");
         this.updateStatus(true);
 
         this.setAdaptivePollingInterval(this.activeTrip, false);
@@ -349,10 +346,7 @@ class LiveTripTracker {
       !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
 
     if (trip.status === "completed") {
-      console.info(
-        "Trip is completed, clearing from map",
-        "setActiveTrip",
-      );
+      console.info("Trip is completed, clearing from map", "setActiveTrip");
       this.clearActiveTrip();
       this.updateActiveTripsCount(0);
       this.updateStatus(true, "No active trips");
@@ -629,7 +623,10 @@ class LiveTripTracker {
   bringLiveTripToFront() {
     if (this.polyline && this.map.hasLayer(this.polyline)) {
       this.polyline.bringToFront();
-      console.info("LiveTripTracker: Polyline brought to front", "bringLiveTripToFront");
+      console.info(
+        "LiveTripTracker: Polyline brought to front",
+        "bringLiveTripToFront",
+      );
     }
     if (this.marker && this.map.hasLayer(this.marker)) {
       this.marker.bringToFront();
