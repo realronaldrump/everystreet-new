@@ -1025,7 +1025,8 @@ async def reset_task_states():
                 updates[f"tasks.{task_id}.end_time"] = now
                 reset_count += 1
                 logger.warning(
-                    "Resetting task %s due to missing/invalid start_time.", task_id
+                    "Resetting task %s due to missing/invalid start_time.",
+                    task_id,
                 )
             else:
                 if start_time.tzinfo is None:
@@ -1042,12 +1043,16 @@ async def reset_task_states():
                     updates[f"tasks.{task_id}.end_time"] = now
                     reset_count += 1
                     logger.warning(
-                        "Resetting task %s running since %s.", task_id, start_time
+                        "Resetting task %s running since %s.",
+                        task_id,
+                        start_time,
                     )
                 else:
                     skipped_count += 1
                     logger.info(
-                        "Task %s running for %s, not stuck yet.", task_id, runtime
+                        "Task %s running for %s, not stuck yet.",
+                        task_id,
+                        runtime,
                     )
 
         history_result = await update_many_with_retry(

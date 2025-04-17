@@ -322,6 +322,11 @@
         })
         .addTo(AppState.map);
 
+      const debouncedUpdateUrlWithMapState = debounce(
+        updateUrlWithMapState,
+        200,
+      );
+
       AppState.map.on("zoomend", debouncedUpdateUrlWithMapState);
       AppState.map.on("moveend", debouncedUpdateUrlWithMapState);
 
@@ -338,8 +343,6 @@
       return false;
     }
   }
-
-  const debouncedUpdateUrlWithMapState = debounce(updateUrlWithMapState, 200);
 
   function updateUrlWithMapState() {
     if (!AppState.map || !window.history) return;
@@ -758,9 +761,7 @@
         try {
           const errorData = await response.json();
           errorDetail = errorData.detail || errorDetail;
-        } catch (e) {
-          /* ignore */
-        }
+        } catch (e) {}
         throw new Error(errorDetail);
       }
 
@@ -828,13 +829,12 @@
         info.layer.addTo(AppState.layerGroup);
       } else if (["trips", "matchedTrips"].includes(name)) {
         if (info.layer?.features) {
-          // Add invisible hit area for each trip feature
           info.layer.features.forEach((feature) => {
             const hitLayer = L.geoJSON(feature, {
               style: {
                 color: "#000",
                 opacity: 0,
-                weight: 20, // Large tap area
+                weight: 20,
                 interactive: true,
               },
               onEachFeature: (f, layer) => {
@@ -845,7 +845,6 @@
             });
             hitLayer.addTo(AppState.layerGroup);
           });
-          // Add visible trip lines as before
           const geoJsonLayer = getOrCreateGeoJsonLayer(name, info.layer, {
             style: (feature) => getTripFeatureStyle(feature, info),
             onEachFeature: (feature, layer) => {
@@ -1628,7 +1627,6 @@
     fetchTripsInRange,
   };
 
-  // ===================== UTILITY FUNCTIONS =====================
   function debounce(func, wait) {
     let timeout;
     return function (...args) {
@@ -1648,7 +1646,6 @@
     };
   }
 
-  // ===================== API CACHE =====================
   const apiCache = {};
   async function cachedFetch(url, options = {}, cacheTime = 10000) {
     const key = url + JSON.stringify(options);
@@ -1662,7 +1659,6 @@
     return data;
   }
 
-  // ===================== DOM BATCHING =====================
   function batchLayerControls(layerToggles, layers) {
     const fragment = document.createDocumentFragment();
     Object.entries(layers).forEach(([name, info]) => {
@@ -1719,7 +1715,6 @@
     layerOrderEl.appendChild(ul);
   }
 
-  // ===================== EVENT DELEGATION =====================
   function delegateLayerControls(layerToggles) {
     layerToggles.addEventListener("change", (e) => {
       const target = e.target;
@@ -1758,13 +1753,11 @@
     });
   }
 
-  // ===================== MAP EVENT OPTIMIZATION =====================
   const throttledAdjustLayerStylesForZoom = throttle(
     adjustLayerStylesForZoom,
     200,
   );
 
-  // ===================== GEOJSON LAYER OPTIMIZATION =====================
   function getOrCreateGeoJsonLayer(name, data, options) {
     if (!AppState.geoJsonLayers[name]) {
       AppState.geoJsonLayers[name] = L.geoJSON(data, options);
@@ -1778,7 +1771,6 @@
     return AppState.geoJsonLayers[name];
   }
 
-  // ===================== LAZY LOAD UNDRIVEN STREETS =====================
   let undrivenStreetsLoaded = false;
   async function lazyFetchUndrivenStreets() {
     if (!undrivenStreetsLoaded) {
@@ -1788,7 +1780,6 @@
     return AppState.mapLayers.undrivenStreets.layer;
   }
 
-  // ===================== KEYBOARD SHORTCUTS =====================
   window.addEventListener("keydown", function (e) {
     if (!AppState.map) return;
     switch (e.key) {
