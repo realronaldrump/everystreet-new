@@ -743,7 +743,7 @@
       window.handleError(
         "[fetchUndrivenStreets] Sending POST request to /api/undriven_streets with location:",
         location,
-        "info"
+        "info",
       );
 
       const response = await fetch("/api/undriven_streets", {
@@ -776,7 +776,7 @@
         window.handleError(
           `[fetchUndrivenStreets] No features found in response for ${location.display_name}. Showing notification.`,
           "fetchUndrivenStreets",
-          "info"
+          "info",
         );
         showNotification(
           `No undriven streets found in ${location.display_name}`,
@@ -786,7 +786,7 @@
         window.handleError(
           `[fetchUndrivenStreets] Found ${geojson.features.length} features for ${location.display_name}. Updating map.`,
           "fetchUndrivenStreets",
-          "info"
+          "info",
         );
         showNotification(
           `Loaded ${geojson.features.length} undriven street segments`,
@@ -982,7 +982,11 @@
         );
         durationDisplay = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
       } catch (e) {
-        window.handleError("Error calculating duration", "createTripPopupContent", "warn");
+        window.handleError(
+          "Error calculating duration",
+          "createTripPopupContent",
+          "warn",
+        );
       }
     }
 
@@ -1461,7 +1465,7 @@
       window.handleError(
         "Filters applied event received in app.js:",
         e.detail,
-        "info"
+        "info",
       );
       fetchTrips();
       fetchMetrics();

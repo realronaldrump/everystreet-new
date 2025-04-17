@@ -123,7 +123,11 @@ class DrivingNavigation {
       this.handleLiveTripClear();
     };
 
-    window.handleError("Live tracking initialized for navigation.", "initLiveTracking", "info");
+    window.handleError(
+      "Live tracking initialized for navigation.",
+      "initLiveTracking",
+      "info",
+    );
   }
 
   handleLiveTripUpdate(trip) {
@@ -218,7 +222,11 @@ class DrivingNavigation {
     const CLEAR_DELAY_MS = 7000;
 
     this.clearTripTimeout = setTimeout(() => {
-      window.handleError("Executing debounced live trip clear.", "handleLiveTripClear", "info");
+      window.handleError(
+        "Executing debounced live trip clear.",
+        "handleLiveTripClear",
+        "info",
+      );
       this.lastKnownLocation = null;
 
       if (this.liveTracker?.marker) {
