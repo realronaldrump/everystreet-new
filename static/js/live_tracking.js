@@ -80,7 +80,11 @@ class LiveTripTracker {
 
   async loadInitialTripData() {
     try {
-      window.handleError("Loading initial trip data", "loadInitialTripData", "info");
+      window.handleError(
+        "Loading initial trip data",
+        "loadInitialTripData",
+        "info",
+      );
       const response = await fetch("/api/active_trip");
 
       if (!response.ok) {
@@ -91,7 +95,7 @@ class LiveTripTracker {
       window.handleError(
         "Initial trip data response: " + JSON.stringify(data),
         "loadInitialTripData",
-        "info"
+        "info",
       );
 
       if (data.status === "success") {
@@ -99,7 +103,7 @@ class LiveTripTracker {
           window.handleError(
             `Found active trip: ${data.trip.transactionId} with sequence: ${data.trip.sequence}`,
             "loadInitialTripData",
-            "info"
+            "info",
           );
           this.setActiveTrip(data.trip);
           this.updateActiveTripsCount(1);
@@ -110,14 +114,14 @@ class LiveTripTracker {
           window.handleError(
             "No active trips found during initialization",
             "loadInitialTripData",
-            "info"
+            "info",
           );
           this.updateStatus(true, "No active trips");
           this.updateActiveTripsCount(0);
           window.handleError(
             "No active trips found during initialization",
             "loadInitialTripData",
-            "info"
+            "info",
           );
         }
       } else {
@@ -142,7 +146,7 @@ class LiveTripTracker {
     window.handleError(
       `LiveTripTracker: Started polling (${this.pollingInterval}ms interval)`,
       "startPolling",
-      "info"
+      "info",
     );
   }
 
@@ -152,7 +156,11 @@ class LiveTripTracker {
       this.pollingTimerId = null;
     }
     this.isPolling = false;
-    window.handleError("LiveTripTracker: Stopped polling", "stopPolling", "info");
+    window.handleError(
+      "LiveTripTracker: Stopped polling",
+      "stopPolling",
+      "info",
+    );
   }
 
   async poll() {
@@ -162,7 +170,7 @@ class LiveTripTracker {
       window.handleError(
         `Polling for updates since sequence: ${this.lastSequence}`,
         "poll",
-        "info"
+        "info",
       );
       await this.fetchTripUpdates();
 
@@ -191,7 +199,7 @@ class LiveTripTracker {
     window.handleError(
       `Fetching trip updates with last_sequence=${this.lastSequence}`,
       "fetchTripUpdates",
-      "info"
+      "info",
     );
 
     const response = await fetch(
@@ -207,7 +215,7 @@ class LiveTripTracker {
     window.handleError(
       "Trip update response: " + JSON.stringify(data),
       "fetchTripUpdates",
-      "info"
+      "info",
     );
 
     if (data.status === "success") {
@@ -215,7 +223,7 @@ class LiveTripTracker {
         window.handleError(
           `Received trip update with sequence: ${data.trip.sequence}`,
           "fetchTripUpdates",
-          "info"
+          "info",
         );
         this.setActiveTrip(data.trip);
         this.updateActiveTripsCount(1);
@@ -229,7 +237,7 @@ class LiveTripTracker {
         window.handleError(
           "No new updates for current trip",
           "fetchTripUpdates",
-          "info"
+          "info",
         );
         this.updateStatus(true);
 
@@ -262,7 +270,7 @@ class LiveTripTracker {
       window.handleError(
         `LiveTripTracker: Increased polling interval to ${Math.round(this.pollingInterval)}ms`,
         "increasePollingInterval",
-        "info"
+        "info",
       );
     }
 
@@ -287,7 +295,7 @@ class LiveTripTracker {
       window.handleError(
         `LiveTripTracker: Decreased polling interval to ${Math.round(this.pollingInterval)}ms`,
         "decreasePollingInterval",
-        "info"
+        "info",
       );
     }
 
@@ -358,7 +366,11 @@ class LiveTripTracker {
       !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
 
     if (trip.status === "completed") {
-      window.handleError("Trip is completed, clearing from map", "setActiveTrip", "info");
+      window.handleError(
+        "Trip is completed, clearing from map",
+        "setActiveTrip",
+        "info",
+      );
       this.clearActiveTrip();
       this.updateActiveTripsCount(0);
       this.updateStatus(true, "No active trips");
@@ -563,7 +575,11 @@ class LiveTripTracker {
       startTimeFormatted,
     });
 
-    window.handleError("Displaying metrics:" + JSON.stringify(metrics), "updateTripMetrics", "info");
+    window.handleError(
+      "Displaying metrics:" + JSON.stringify(metrics),
+      "updateTripMetrics",
+      "info",
+    );
 
     this.tripMetricsElem.innerHTML = Object.entries(metrics)
       .map(
@@ -629,7 +645,7 @@ class LiveTripTracker {
     window.handleError(
       "LiveTripTracker: Polyline style updated",
       "updatePolylineStyle",
-      "info"
+      "info",
     );
   }
 
@@ -639,7 +655,7 @@ class LiveTripTracker {
       window.handleError(
         "LiveTripTracker: Polyline brought to front",
         "bringLiveTripToFront",
-        "info"
+        "info",
       );
     }
     if (this.marker && this.map.hasLayer(this.marker)) {

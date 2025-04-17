@@ -221,7 +221,7 @@
     window.handleError(
       "Map controls initialized and event propagation handlers set up",
       "initMapControls",
-      "info"
+      "info",
     );
   }
 
@@ -761,7 +761,7 @@
       window.handleError(
         "Map enhancements applied successfully",
         "applyMapEnhancements",
-        "info"
+        "info",
       );
     } catch (error) {
       window.handleError(error, "Error applying map enhancements");

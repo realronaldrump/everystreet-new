@@ -279,11 +279,13 @@ function handleError(error, context = "", level = "error", onComplete = null) {
       errorObj.message.includes("fetch") ||
       errorObj.message.includes("network")
     ) {
-      userMessage = "Network error: Please check your connection and try again.";
+      userMessage =
+        "Network error: Please check your connection and try again.";
     } else if (errorObj.message.includes("timeout")) {
       userMessage = "The operation timed out. Please try again.";
     } else if (errorObj.message.includes("permission")) {
-      userMessage = "Permission denied: You don't have access to this resource.";
+      userMessage =
+        "Permission denied: You don't have access to this resource.";
     } else if (
       errorObj.message.includes("not found") ||
       errorObj.status === 404
