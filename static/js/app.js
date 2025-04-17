@@ -366,11 +366,10 @@
     const zoom = AppState.map.getZoom();
 
     AppState.layerGroup.eachLayer((layer) => {
-      if (layer.feature && layer.feature.properties) {
+      if (layer.feature?.properties) {
         let layerName = "trips";
         if (
-          layer.feature.properties.transactionId &&
-          layer.feature.properties.transactionId.startsWith("MATCHED-")
+          layer.feature.properties.transactionId?.startsWith("MATCHED-")
         ) {
           layerName = "matchedTrips";
         } else if (layer.feature.properties.type === "undriven") {
@@ -939,7 +938,7 @@
       if (name === "customPlaces" && info.layer instanceof L.LayerGroup) {
         info.layer.addTo(AppState.layerGroup);
       } else if (["trips", "matchedTrips"].includes(name)) {
-        if (info.layer && info.layer.features) {
+        if (info.layer?.features) {
           const geoJsonLayer = L.geoJSON(info.layer, {
             style: (feature) => getTripFeatureStyle(feature, info),
             onEachFeature: (feature, layer) => {

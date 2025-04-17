@@ -693,7 +693,7 @@
       if (map.options) map.options.zoomSnap = 0.5;
 
       const zoomControls = document.querySelectorAll(".leaflet-control-zoom a");
-      if (window.bootstrap && window.bootstrap.Tooltip) {
+      if (window.bootstrap?.Tooltip) {
         zoomControls.forEach((control) => {
           if (control.classList.contains("leaflet-control-zoom-in")) {
             new bootstrap.Tooltip(control, {
