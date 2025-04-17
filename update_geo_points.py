@@ -12,9 +12,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from motor.motor_asyncio import (
-    AsyncIOMotorCollection,
-)
+from motor.motor_asyncio import AsyncIOMotorCollection
 from pymongo import UpdateOne
 
 from db import db_manager
@@ -127,9 +125,7 @@ async def update_geo_points(
                                 }
 
                             if update_fields:
-                                update_fields["geoPointsUpdatedAt"] = (
-                                    datetime.utcnow()
-                                )
+                                update_fields["geoPointsUpdatedAt"] = datetime.utcnow()
                                 batch_updates.append(
                                     UpdateOne(
                                         {"_id": doc["_id"]},
@@ -149,9 +145,7 @@ async def update_geo_points(
                         try:
 
                             async def execute_bulk():
-                                result = await collection.bulk_write(
-                                    batch_updates
-                                )
+                                result = await collection.bulk_write(batch_updates)
                                 return result.modified_count
 
                             modified = await db_manager.execute_with_retry(
@@ -187,9 +181,7 @@ async def update_geo_points(
         batch_tasks = []
 
         async def get_cursor():
-            return collection.find(query, no_cursor_timeout=True).batch_size(
-                batch_size
-            )
+            return collection.find(query, no_cursor_timeout=True).batch_size(batch_size)
 
         cursor = await db_manager.execute_with_retry(
             get_cursor,
@@ -213,9 +205,7 @@ async def update_geo_points(
                     current_batch = []
 
                     if len(batch_tasks) >= max_concurrent_batches * 2:
-                        completed_batch_results = await asyncio.gather(
-                            *batch_tasks
-                        )
+                        completed_batch_results = await asyncio.gather(*batch_tasks)
                         updated_count += sum(completed_batch_results)
                         batch_tasks = []
 
@@ -223,11 +213,7 @@ async def update_geo_points(
                             "Progress: Updated %d/%d documents (%.1f%%)",
                             updated_count,
                             total_docs,
-                            (
-                                (updated_count / total_docs * 100)
-                                if total_docs
-                                else 0
-                            ),
+                            ((updated_count / total_docs * 100) if total_docs else 0),
                         )
 
             if current_batch:
@@ -261,9 +247,7 @@ if __name__ == "__main__":
     import os
     import sys
 
-    from motor.motor_asyncio import (
-        AsyncIOMotorClient,
-    )
+    from motor.motor_asyncio import AsyncIOMotorClient
 
     MONGO_URI = os.environ.get("MONGO_URI")
     if not MONGO_URI:

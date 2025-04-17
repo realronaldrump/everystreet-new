@@ -10,11 +10,7 @@ from typing import Any
 
 from bson import ObjectId
 from dateutil import parser as dateutil_parser
-from fastapi import (
-    APIRouter,
-    HTTPException,
-    status,
-)
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from shapely.geometry import shape
 
@@ -128,9 +124,7 @@ async def get_places():
 async def create_place(place: PlaceModel):
     """Create a new custom place."""
     place_obj = CustomPlace(place.name, place.geometry)
-    result = await insert_one_with_retry(
-        places_collection, place_obj.to_dict()
-    )
+    result = await insert_one_with_retry(places_collection, place_obj.to_dict())
     return {
         "_id": str(result.inserted_id),
         **place_obj.to_dict(),
@@ -285,11 +279,7 @@ async def get_place_statistics(place_id: str):
         started_from_place_query = {
             "$or": [
                 {"startPlaceId": place_id},
-                {
-                    "startGeoPoint": {
-                        "$geoWithin": {"$geometry": place["geometry"]}
-                    }
-                },
+                {"startGeoPoint": {"$geoWithin": {"$geometry": place["geometry"]}}},
             ],
             "startTime": {"$ne": None},
         }
@@ -361,19 +351,14 @@ async def get_place_statistics(place_id: str):
                         break
 
                 time_since_last = None
-                if (
-                    last_visit_end is not None
-                    and current_visit_start is not None
-                ):
+                if last_visit_end is not None and current_visit_start is not None:
                     time_since_last = (
                         current_visit_start - last_visit_end
                     ).total_seconds()
 
                 duration = None
                 if visit_end is not None and current_visit_start is not None:
-                    duration = (
-                        visit_end - current_visit_start
-                    ).total_seconds()
+                    duration = (visit_end - current_visit_start).total_seconds()
 
                 visits.append(
                     {
@@ -388,13 +373,9 @@ async def get_place_statistics(place_id: str):
                 last_visit_end = event["time"]
 
         total_visits = len(visits)
-        durations = [
-            v["duration"] for v in visits if v["duration"] is not None
-        ]
+        durations = [v["duration"] for v in visits if v["duration"] is not None]
         time_between_visits = [
-            v["time_since_last"]
-            for v in visits
-            if v["time_since_last"] is not None
+            v["time_since_last"] for v in visits if v["time_since_last"] is not None
         ]
 
         avg_duration = sum(durations) / len(durations) if durations else 0
@@ -465,11 +446,7 @@ async def get_trips_for_place(place_id: str):
         started_from_place_query = {
             "$or": [
                 {"startPlaceId": place_id},
-                {
-                    "startGeoPoint": {
-                        "$geoWithin": {"$geometry": place["geometry"]}
-                    }
-                },
+                {"startGeoPoint": {"$geoWithin": {"$geometry": place["geometry"]}}},
             ],
             "startTime": {"$ne": None},
         }
@@ -484,8 +461,7 @@ async def get_trips_for_place(place_id: str):
         )
 
         trips_by_id = {
-            str(t["_id"]): t
-            for t in trips_ending_at_place + trips_starting_from_place
+            str(t["_id"]): t for t in trips_ending_at_place + trips_starting_from_place
         }
 
         timeline = []
@@ -549,19 +525,14 @@ async def get_trips_for_place(place_id: str):
                         break
 
                 time_since_last = None
-                if (
-                    last_visit_end is not None
-                    and current_visit_start is not None
-                ):
+                if last_visit_end is not None and current_visit_start is not None:
                     time_since_last = (
                         current_visit_start - last_visit_end
                     ).total_seconds()
 
                 duration = None
                 if visit_end is not None and current_visit_start is not None:
-                    duration = (
-                        visit_end - current_visit_start
-                    ).total_seconds()
+                    duration = (visit_end - current_visit_start).total_seconds()
 
                 visits.append(
                     {
@@ -604,9 +575,7 @@ async def get_trips_for_place(place_id: str):
                         visit["arrival_time"]
                     ),
                     "departureTime": (
-                        SerializationHelper.serialize_datetime(
-                            visit["departure_time"]
-                        )
+                        SerializationHelper.serialize_datetime(visit["departure_time"])
                         if visit["departure_time"]
                         else None
                     ),
@@ -723,11 +692,7 @@ async def get_all_places_statistics():
             trips_collection,
             {
                 "$or": [
-                    {
-                        "destinationPlaceId": {
-                            "$in": [str(p["_id"]) for p in places]
-                        }
-                    },
+                    {"destinationPlaceId": {"$in": [str(p["_id"]) for p in places]}},
                     {"startPlaceId": {"$in": [str(p["_id"]) for p in places]}},
                 ]
             },
@@ -790,21 +755,13 @@ async def get_all_places_statistics():
                             visit_end = timeline[j]["time"]
                             break
                     time_since_last = None
-                    if (
-                        last_visit_end is not None
-                        and current_visit_start is not None
-                    ):
+                    if last_visit_end is not None and current_visit_start is not None:
                         time_since_last = (
                             current_visit_start - last_visit_end
                         ).total_seconds()
                     duration = None
-                    if (
-                        visit_end is not None
-                        and current_visit_start is not None
-                    ):
-                        duration = (
-                            visit_end - current_visit_start
-                        ).total_seconds()
+                    if visit_end is not None and current_visit_start is not None:
+                        duration = (visit_end - current_visit_start).total_seconds()
                     visits.append(
                         {
                             "start": current_visit_start,
@@ -816,13 +773,9 @@ async def get_all_places_statistics():
                 if event["type"] == "start" and event["is_at_place"]:
                     last_visit_end = event["time"]
             total_visits = len(visits)
-            durations = [
-                v["duration"] for v in visits if v["duration"] is not None
-            ]
+            durations = [v["duration"] for v in visits if v["duration"] is not None]
             time_between_visits = [
-                v["time_since_last"]
-                for v in visits
-                if v["time_since_last"] is not None
+                v["time_since_last"] for v in visits if v["time_since_last"] is not None
             ]
             avg_duration = sum(durations) / len(durations) if durations else 0
             avg_time_between = (
@@ -844,12 +797,8 @@ async def get_all_places_statistics():
                     "name": name,
                     "totalVisits": total_visits,
                     "averageTimeSpent": format_duration(avg_duration),
-                    "firstVisit": SerializationHelper.serialize_datetime(
-                        first_visit
-                    ),
-                    "lastVisit": SerializationHelper.serialize_datetime(
-                        last_visit
-                    ),
+                    "firstVisit": SerializationHelper.serialize_datetime(first_visit),
+                    "lastVisit": SerializationHelper.serialize_datetime(last_visit),
                     "averageTimeSinceLastVisit": (
                         avg_time_between / 3600 if avg_time_between else 0
                     ),
