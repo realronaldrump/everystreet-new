@@ -10,6 +10,7 @@ import gc
 import logging
 import math
 import multiprocessing
+from collections.abc import Callable
 from concurrent.futures import (
     ProcessPoolExecutor,
     TimeoutError,
@@ -18,7 +19,6 @@ from datetime import datetime, timezone
 from typing import (
     Any,
 )
-from collections.abc import Callable
 
 import aiohttp
 import pyproj

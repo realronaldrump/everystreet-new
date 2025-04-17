@@ -1,4 +1,4 @@
-/* global config, url */
+/* global */
 
 "use strict";
 (() => {
@@ -142,21 +142,18 @@
     const setDefaultDates = async () => {
       try {
         const dateRange = await window.DateUtils.getDateRangePreset("30days");
-
-        for (const [formKey, config] of Object.entries(EXPORT_CONFIG)) {
+        Object.entries(EXPORT_CONFIG).forEach(([, config]) => {
           if (config.dateStart && config.dateEnd) {
             const startInput = elements[config.dateStart];
             const endInput = elements[config.dateEnd];
-
             if (startInput && !startInput.value && startInput._flatpickr) {
               startInput._flatpickr.setDate(dateRange.startDate);
             }
-
             if (endInput && !endInput.value && endInput._flatpickr) {
               endInput._flatpickr.setDate(dateRange.endDate);
             }
           }
-        }
+        });
       } catch (error) {
         console.warn("Error setting default dates:", error);
       }
@@ -301,7 +298,6 @@
   async function handleFormSubmit(formType) {
     const config = EXPORT_CONFIG[formType];
     if (!config) return;
-
     if (activeExports[formType]) {
       showNotification(
         `Already exporting ${config.name}. Please wait...`,
@@ -309,13 +305,10 @@
       );
       return;
     }
-
     const formElement = elements[config.id];
     if (!formElement) return;
-
     let submitButton = null;
     let originalText = "";
-
     submitButton = formElement.querySelector('button[type="submit"]');
     if (submitButton) {
       originalText = submitButton.textContent || `Export ${config.name}`;
@@ -323,106 +316,10 @@
       submitButton.innerHTML =
         '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Exporting...';
     }
-
     try {
       activeExports[formType] = true;
       showNotification(`Starting ${config.name} export...`, "info");
-
-      let url = "";
-
-      if (formType === "trips" || formType === "matchedTrips") {
-        const startDate = elements[config.dateStart]?.value;
-        const endDate = elements[config.dateEnd]?.value;
-        const format = elements[config.format]?.value;
-
-        if (!startDate || !endDate) {
-          throw new Error("Please select both start and end dates");
-        }
-
-        if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
-          throw new Error("Start date must be before or equal to end date");
-        }
-
-        url = `${config.endpoint}?start_date=${startDate}&end_date=${endDate}&format=${format}`;
-      } else if (formType === "streets" || formType === "boundary") {
-        const locationInput = elements[config.location];
-        const format = elements[config.format]?.value;
-
-        if (!validateLocationInput(locationInput)) {
-          throw new Error("Invalid location. Please validate it first.");
-        }
-
-        const locationData = locationInput.getAttribute("data-location");
-        url = `${config.endpoint}?location=${encodeURIComponent(
-          locationData,
-        )}&format=${format}`;
-      } else if (formType === "advanced") {
-        const format = elements[config.format]?.value;
-        url = `${config.endpoint}?format=${format}`;
-
-        if (elements.includeTrips) {
-          url += `&include_trips=${elements.includeTrips.checked}`;
-        }
-        if (elements.includeMatchedTrips) {
-          url += `&include_matched_trips=${elements.includeMatchedTrips.checked}`;
-        }
-        if (elements.includeUploadedTrips) {
-          url += `&include_uploaded_trips=${elements.includeUploadedTrips.checked}`;
-        }
-
-        if (elements.includeBasicInfo) {
-          url += `&include_basic_info=${elements.includeBasicInfo.checked}`;
-        }
-        if (elements.includeLocations) {
-          url += `&include_locations=${elements.includeLocations.checked}`;
-        }
-        if (elements.includeTelemetry) {
-          url += `&include_telemetry=${elements.includeTelemetry.checked}`;
-        }
-        if (elements.includeGeometry) {
-          url += `&include_geometry=${elements.includeGeometry.checked}`;
-        }
-        if (elements.includeMeta) {
-          url += `&include_meta=${elements.includeMeta.checked}`;
-        }
-        if (elements.includeCustom) {
-          url += `&include_custom=${elements.includeCustom.checked}`;
-        }
-
-        if (format === "csv") {
-          if (elements.includeGpsInCsv) {
-            url += `&include_gps_in_csv=${elements.includeGpsInCsv.checked}`;
-          }
-          if (elements.flattenLocationFields) {
-            url += `&flatten_location_fields=${elements.flattenLocationFields.checked}`;
-          }
-        }
-
-        if (elements.exportAllDates && !elements.exportAllDates.checked) {
-          const startDate = elements[config.dateStart]?.value;
-          const endDate = elements[config.dateEnd]?.value;
-
-          if (!startDate || !endDate) {
-            throw new Error(
-              "Please select both start and end dates or check 'Export all dates'",
-            );
-          }
-
-          if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
-            throw new Error("Start date must be before or equal to end date");
-          }
-
-          url += `&start_date=${startDate}&end_date=${endDate}`;
-        }
-
-        if (elements.saveExportSettings?.checked) {
-          saveExportSettings();
-        }
-      } else {
-        const format = elements[config.format]?.value;
-        url = `${config.endpoint}?format=${format}`;
-      }
-
+      let url = buildExportUrl(formType, config);
       const abortController = new AbortController();
       const timeoutId = setTimeout(() => {
         abortController.abort();
@@ -430,7 +327,6 @@
           `Export operation timed out after 120 seconds: ${config.name}`,
         );
       }, 120000);
-
       try {
         await downloadFile(url, config.name, abortController.signal);
         showNotification(`${config.name} export completed`, "success");
@@ -450,6 +346,90 @@
         submitButton.innerHTML = originalText;
       }
     }
+  }
+
+  function buildExportUrl(formType, config) {
+    let url = "";
+    if (formType === "trips" || formType === "matchedTrips") {
+      const startDate = elements[config.dateStart]?.value;
+      const endDate = elements[config.dateEnd]?.value;
+      const format = elements[config.format]?.value;
+      if (!startDate || !endDate) {
+        throw new Error("Please select both start and end dates");
+      }
+      if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
+        throw new Error("Start date must be before or equal to end date");
+      }
+      url = `${config.endpoint}?start_date=${startDate}&end_date=${endDate}&format=${format}`;
+    } else if (formType === "streets" || formType === "boundary") {
+      const locationInput = elements[config.location];
+      const format = elements[config.format]?.value;
+      if (!validateLocationInput(locationInput)) {
+        throw new Error("Invalid location. Please validate it first.");
+      }
+      const locationData = locationInput.getAttribute("data-location");
+      url = `${config.endpoint}?location=${encodeURIComponent(
+        locationData,
+      )}&format=${format}`;
+    } else if (formType === "advanced") {
+      const format = elements[config.format]?.value;
+      url = `${config.endpoint}?format=${format}`;
+      if (elements.includeTrips) {
+        url += `&include_trips=${elements.includeTrips.checked}`;
+      }
+      if (elements.includeMatchedTrips) {
+        url += `&include_matched_trips=${elements.includeMatchedTrips.checked}`;
+      }
+      if (elements.includeUploadedTrips) {
+        url += `&include_uploaded_trips=${elements.includeUploadedTrips.checked}`;
+      }
+      if (elements.includeBasicInfo) {
+        url += `&include_basic_info=${elements.includeBasicInfo.checked}`;
+      }
+      if (elements.includeLocations) {
+        url += `&include_locations=${elements.includeLocations.checked}`;
+      }
+      if (elements.includeTelemetry) {
+        url += `&include_telemetry=${elements.includeTelemetry.checked}`;
+      }
+      if (elements.includeGeometry) {
+        url += `&include_geometry=${elements.includeGeometry.checked}`;
+      }
+      if (elements.includeMeta) {
+        url += `&include_meta=${elements.includeMeta.checked}`;
+      }
+      if (elements.includeCustom) {
+        url += `&include_custom=${elements.includeCustom.checked}`;
+      }
+      if (format === "csv") {
+        if (elements.includeGpsInCsv) {
+          url += `&include_gps_in_csv=${elements.includeGpsInCsv.checked}`;
+        }
+        if (elements.flattenLocationFields) {
+          url += `&flatten_location_fields=${elements.flattenLocationFields.checked}`;
+        }
+      }
+      if (elements.exportAllDates && !elements.exportAllDates.checked) {
+        const startDate = elements[config.dateStart]?.value;
+        const endDate = elements[config.dateEnd]?.value;
+        if (!startDate || !endDate) {
+          throw new Error(
+            "Please select both start and end dates or check 'Export all dates'",
+          );
+        }
+        if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
+          throw new Error("Start date must be before or equal to end date");
+        }
+        url += `&start_date=${startDate}&end_date=${endDate}`;
+      }
+      if (elements.saveExportSettings?.checked) {
+        saveExportSettings();
+      }
+    } else {
+      const format = elements[config.format]?.value;
+      url = `${config.endpoint}?format=${format}`;
+    }
+    return url;
   }
 
   function saveExportSettings() {
@@ -484,96 +464,86 @@
     try {
       const savedSettingsJSON = localStorage.getItem("advancedExportSettings");
       if (!savedSettingsJSON) return;
-
       const settings = JSON.parse(savedSettingsJSON);
-
-      if (settings.dataSources) {
-        if (
-          elements.includeTrips &&
-          settings.dataSources.includeTrips !== undefined
-        ) {
-          elements.includeTrips.checked = settings.dataSources.includeTrips;
-        }
-        if (
-          elements.includeMatchedTrips &&
-          settings.dataSources.includeMatchedTrips !== undefined
-        ) {
-          elements.includeMatchedTrips.checked =
-            settings.dataSources.includeMatchedTrips;
-        }
-        if (
-          elements.includeUploadedTrips &&
-          settings.dataSources.includeUploadedTrips !== undefined
-        ) {
-          elements.includeUploadedTrips.checked =
-            settings.dataSources.includeUploadedTrips;
-        }
-      }
-
-      if (settings.dataFields) {
-        if (
-          elements.includeBasicInfo &&
-          settings.dataFields.includeBasicInfo !== undefined
-        ) {
-          elements.includeBasicInfo.checked =
-            settings.dataFields.includeBasicInfo;
-        }
-        if (
-          elements.includeLocations &&
-          settings.dataFields.includeLocations !== undefined
-        ) {
-          elements.includeLocations.checked =
-            settings.dataFields.includeLocations;
-        }
-        if (
-          elements.includeTelemetry &&
-          settings.dataFields.includeTelemetry !== undefined
-        ) {
-          elements.includeTelemetry.checked =
-            settings.dataFields.includeTelemetry;
-        }
-        if (
-          elements.includeGeometry &&
-          settings.dataFields.includeGeometry !== undefined
-        ) {
-          elements.includeGeometry.checked =
-            settings.dataFields.includeGeometry;
-        }
-        if (
-          elements.includeMeta &&
-          settings.dataFields.includeMeta !== undefined
-        ) {
-          elements.includeMeta.checked = settings.dataFields.includeMeta;
-        }
-        if (
-          elements.includeCustom &&
-          settings.dataFields.includeCustom !== undefined
-        ) {
-          elements.includeCustom.checked = settings.dataFields.includeCustom;
-        }
-      }
-
-      if (
-        settings.dateSettings &&
-        elements.exportAllDates &&
-        settings.dateSettings.exportAllDates !== undefined
-      ) {
-        elements.exportAllDates.checked = settings.dateSettings.exportAllDates;
-
-        const startDateInput = document.getElementById("adv-start-date");
-        const endDateInput = document.getElementById("adv-end-date");
-        if (startDateInput && endDateInput) {
-          startDateInput.disabled = settings.dateSettings.exportAllDates;
-          endDateInput.disabled = settings.dateSettings.exportAllDates;
-        }
-      }
-
-      if (settings.format && elements["adv-format"]) {
-        elements["adv-format"].value = settings.format;
-        updateUIBasedOnFormat(settings.format);
-      }
+      setDataSources(settings.dataSources);
+      setDataFields(settings.dataFields);
+      setDateSettings(settings.dateSettings);
+      setFormat(settings.format);
     } catch (error) {
       console.warn("Error loading saved export settings:", error);
+    }
+  }
+
+  function setDataSources(dataSources) {
+    if (!dataSources) return;
+    if (elements.includeTrips && dataSources.includeTrips !== undefined) {
+      elements.includeTrips.checked = dataSources.includeTrips;
+    }
+    if (
+      elements.includeMatchedTrips &&
+      dataSources.includeMatchedTrips !== undefined
+    ) {
+      elements.includeMatchedTrips.checked = dataSources.includeMatchedTrips;
+    }
+    if (
+      elements.includeUploadedTrips &&
+      dataSources.includeUploadedTrips !== undefined
+    ) {
+      elements.includeUploadedTrips.checked = dataSources.includeUploadedTrips;
+    }
+  }
+
+  function setDataFields(dataFields) {
+    if (!dataFields) return;
+    if (
+      elements.includeBasicInfo &&
+      dataFields.includeBasicInfo !== undefined
+    ) {
+      elements.includeBasicInfo.checked = dataFields.includeBasicInfo;
+    }
+    if (
+      elements.includeLocations &&
+      dataFields.includeLocations !== undefined
+    ) {
+      elements.includeLocations.checked = dataFields.includeLocations;
+    }
+    if (
+      elements.includeTelemetry &&
+      dataFields.includeTelemetry !== undefined
+    ) {
+      elements.includeTelemetry.checked = dataFields.includeTelemetry;
+    }
+    if (elements.includeGeometry && dataFields.includeGeometry !== undefined) {
+      elements.includeGeometry.checked = dataFields.includeGeometry;
+    }
+    if (elements.includeMeta && dataFields.includeMeta !== undefined) {
+      elements.includeMeta.checked = dataFields.includeMeta;
+    }
+    if (elements.includeCustom && dataFields.includeCustom !== undefined) {
+      elements.includeCustom.checked = dataFields.includeCustom;
+    }
+  }
+
+  function setDateSettings(dateSettings) {
+    if (
+      !dateSettings ||
+      !elements.exportAllDates ||
+      dateSettings.exportAllDates === undefined
+    )
+      return;
+    elements.exportAllDates.checked = dateSettings.exportAllDates;
+    const startDateInput = document.getElementById("adv-start-date");
+    const endDateInput = document.getElementById("adv-end-date");
+    if (startDateInput && endDateInput) {
+      startDateInput.disabled = dateSettings.exportAllDates;
+      endDateInput.disabled = dateSettings.exportAllDates;
+    }
+  }
+
+  function setFormat(format) {
+    if (format && elements["adv-format"]) {
+      elements["adv-format"].value = format;
+      updateUIBasedOnFormat(format);
     }
   }
 
@@ -691,238 +661,223 @@
   }
 
   async function downloadFile(url, exportName, signal) {
-    const urlWithTimestamp = `${url}${
-      url.includes("?") ? "&" : "?"
-    }timestamp=${new Date().getTime()}`;
-
+    const urlWithTimestamp = `${url}${url.includes("?") ? "&" : "?"}timestamp=${new Date().getTime()}`;
     try {
       showNotification(`Requesting ${exportName} data...`, "info");
       window.handleError(`Requesting export from: ${urlWithTimestamp}`);
-
-      if (
-        window.loadingManager &&
-        typeof window.loadingManager.show === "function"
-      ) {
-        window.loadingManager.show(`Exporting ${exportName}...`);
-      } else if (
-        window.LoadingManager &&
-        typeof window.LoadingManager.show === "function"
-      ) {
-        window.LoadingManager.show(`Exporting ${exportName}...`);
-      } else {
-        const loadingOverlay = document.querySelector(".loading-overlay");
-        if (loadingOverlay) {
-          loadingOverlay.style.display = "flex";
-          const loadingText = loadingOverlay.querySelector(".loading-text");
-          if (loadingText) {
-            loadingText.textContent = `Exporting ${exportName}...`;
-          }
-        }
-      }
-
+      showLoading(exportName);
       const fetchOptions = { signal };
-
       window.handleError(`Starting fetch for ${exportName} export...`);
       const response = await fetch(urlWithTimestamp, fetchOptions);
       window.handleError(
         `Received response: status=${response.status}, ok=${response.ok}`,
       );
-
       if (!response.ok) {
         let errorMsg = `Server error (${response.status})`;
-
         try {
           const errorText = await response.text();
           console.error(`Server error details for ${exportName}: ${errorText}`);
-
           if (errorText) {
             try {
               const errorJson = JSON.parse(errorText);
               errorMsg = errorJson.detail || errorJson.message || errorText;
-            } catch (e) {
+            } catch {
               errorMsg = errorText.substring(0, 100);
             }
           }
-        } catch (e) {
-          console.error(`Error parsing server error for ${exportName}:`, e);
+        } catch {
+          // ignore
         }
-
         throw new Error(errorMsg);
       }
-
       const contentLength = response.headers.get("Content-Length");
       const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
       window.handleError(
         `Content-Length: ${contentLength}, parsed size: ${totalSize}`,
       );
-
       window.handleError("Response headers:");
       response.headers.forEach((value, name) => {
         window.handleError(`${name}: ${value}`);
       });
-
       const formatMatch = urlWithTimestamp.match(/format=([^&]+)/);
       const format = formatMatch ? formatMatch[1] : null;
-
       const contentDisposition = response.headers.get("Content-Disposition");
-      let filename = null;
-
-      if (contentDisposition) {
-        const quotedMatch = contentDisposition.match(/filename="([^"]+)"/);
-        if (quotedMatch) {
-          filename = quotedMatch[1];
-        } else {
-          const unquotedMatch = contentDisposition.match(/filename=([^;]+)/);
-          if (unquotedMatch) {
-            filename = unquotedMatch[1].trim();
-          }
-        }
-      }
-
-      if (!filename) {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const extension = getExtensionForFormat(format);
-        filename = `${exportName}-${timestamp}${extension}`;
-      }
-
-      if (format && !filename.endsWith(getExtensionForFormat(format))) {
-        filename = `${filename}${getExtensionForFormat(format)}`;
-      }
-
+      let filename = getFilenameFromHeaders(
+        contentDisposition,
+        exportName,
+        format,
+      );
       showNotification(`Downloading ${filename}...`, "info");
       window.handleError(`Starting download of ${filename}...`);
-
-      try {
-        const reader = response.body.getReader();
-        let receivedLength = 0;
-        const chunks = [];
-
-         
-        while (true) {
-          const { done, value } = await reader.read();
-
-          if (done) {
-            window.handleError(
-              `Finished reading response body, total size: ${receivedLength} bytes`,
-            );
-            break;
-          }
-
-          chunks.push(value);
-          receivedLength += value.length;
-
-          if (
-            totalSize &&
-            receivedLength % Math.max(totalSize / 10, 1024 * 1024) <
-              value.length
-          ) {
-            window.handleError(
-              `Download progress: ${Math.round(
-                (receivedLength / totalSize) * 100,
-              )}% (${receivedLength}/${totalSize} bytes)`,
-            );
-          }
-
-          if (totalSize) {
-            const progress = Math.min(
-              Math.round((receivedLength / totalSize) * 100),
-              100,
-            );
-
-            if (
-              window.loadingManager &&
-              typeof window.loadingManager.updateProgress === "function"
-            ) {
-              window.loadingManager.updateProgress(progress);
-            } else if (
-              window.LoadingManager &&
-              typeof window.LoadingManager.updateProgress === "function"
-            ) {
-              window.LoadingManager.updateProgress(progress);
-            } else {
-              const progressBar = document.getElementById(
-                "loading-progress-bar",
-              );
-              if (progressBar) {
-                progressBar.style.width = `${progress}%`;
-              }
-            }
-          }
-        }
-
-        window.handleError(
-          `Combining ${chunks.length} chunks into final blob...`,
-        );
-        const chunksAll = new Uint8Array(receivedLength);
-        let position = 0;
-        for (const chunk of chunks) {
-          chunksAll.set(chunk, position);
-          position += chunk.length;
-        }
-
-        const contentType = getContentTypeForFormat(format);
-        window.handleError(`Creating blob with type: ${contentType}`);
-        const blob = new Blob([chunksAll], { type: contentType });
-        const blobUrl = URL.createObjectURL(blob);
-        window.handleError(`Blob URL created: ${blobUrl.substring(0, 30)}...`);
-
-        window.handleError(`Triggering download of ${filename}`);
-        const downloadLink = document.createElement("a");
-        downloadLink.style.display = "none";
-        downloadLink.href = blobUrl;
-        downloadLink.download = filename;
-
-        if ("download" in downloadLink) {
-          downloadLink.type = contentType;
-        }
-
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-
-        setTimeout(() => {
-          document.body.removeChild(downloadLink);
-          URL.revokeObjectURL(blobUrl);
-          window.handleError(`Download cleanup completed for ${filename}`);
-        }, 100);
-
-        showNotification(`Successfully exported ${filename}`, "success");
-      } catch (streamError) {
-        console.error(
-          `Error processing download stream for ${exportName}:`,
-          streamError,
-        );
-        throw new Error(`Error while downloading: ${streamError.message}`);
-      }
+      await processDownloadStream(
+        response,
+        filename,
+        format,
+        totalSize,
+        exportName,
+      );
     } catch (error) {
       console.error(`Export error for ${exportName}:`, error);
-
       if (error.name === "AbortError") {
         throw new Error(
           "Export timed out. The file might be too large or the server is busy.",
         );
       }
-
       const errorMsg = `Export failed: ${error.message || "Unknown error"}`;
       showNotification(errorMsg, "error");
       throw error;
     } finally {
-      if (
-        window.loadingManager &&
-        typeof window.loadingManager.hide === "function"
-      ) {
-        window.loadingManager.hide();
-      } else if (
-        window.LoadingManager &&
-        typeof window.LoadingManager.hide === "function"
-      ) {
-        window.LoadingManager.hide();
-      } else {
-        const loadingOverlay = document.querySelector(".loading-overlay");
-        if (loadingOverlay) {
-          loadingOverlay.style.display = "none";
+      hideLoading();
+    }
+  }
+
+  function showLoading(exportName) {
+    if (
+      window.loadingManager &&
+      typeof window.loadingManager.show === "function"
+    ) {
+      window.loadingManager.show(`Exporting ${exportName}...`);
+    } else if (
+      window.LoadingManager &&
+      typeof window.LoadingManager.show === "function"
+    ) {
+      window.LoadingManager.show(`Exporting ${exportName}...`);
+    } else {
+      const loadingOverlay = document.querySelector(".loading-overlay");
+      if (loadingOverlay) {
+        loadingOverlay.style.display = "flex";
+        const loadingText = loadingOverlay.querySelector(".loading-text");
+        if (loadingText) {
+          loadingText.textContent = `Exporting ${exportName}...`;
         }
       }
     }
+  }
+
+  function hideLoading() {
+    if (
+      window.loadingManager &&
+      typeof window.loadingManager.hide === "function"
+    ) {
+      window.loadingManager.hide();
+    } else if (
+      window.LoadingManager &&
+      typeof window.LoadingManager.hide === "function"
+    ) {
+      window.LoadingManager.hide();
+    } else {
+      const loadingOverlay = document.querySelector(".loading-overlay");
+      if (loadingOverlay) {
+        loadingOverlay.style.display = "none";
+      }
+    }
+  }
+
+  function getFilenameFromHeaders(contentDisposition, exportName, format) {
+    let filename = null;
+    if (contentDisposition) {
+      const quotedMatch = contentDisposition.match(/filename="([^"]+)"/);
+      if (quotedMatch) {
+        filename = quotedMatch[1];
+      } else {
+        const unquotedMatch = contentDisposition.match(/filename=([^;]+)/);
+        if (unquotedMatch) {
+          filename = unquotedMatch[1].trim();
+        }
+      }
+    }
+    if (!filename) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const extension = getExtensionForFormat(format);
+      filename = `${exportName}-${timestamp}${extension}`;
+    }
+    if (format && !filename.endsWith(getExtensionForFormat(format))) {
+      filename = `${filename}${getExtensionForFormat(format)}`;
+    }
+    return filename;
+  }
+
+  async function processDownloadStream(
+    response,
+    filename,
+    format,
+    totalSize,
+    exportName,
+  ) {
+    const reader = response.body.getReader();
+    let receivedLength = 0;
+    const chunks = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        window.handleError(
+          `Finished reading response body, total size: ${receivedLength} bytes`,
+        );
+        break;
+      }
+      chunks.push(value);
+      receivedLength += value.length;
+      if (
+        totalSize &&
+        receivedLength % Math.max(totalSize / 10, 1024 * 1024) < value.length
+      ) {
+        window.handleError(
+          `Download progress: ${Math.round(
+            (receivedLength / totalSize) * 100,
+          )}% (${receivedLength}/${totalSize} bytes)`,
+        );
+      }
+      if (totalSize) {
+        const progress = Math.min(
+          Math.round((receivedLength / totalSize) * 100),
+          100,
+        );
+        if (
+          window.loadingManager &&
+          typeof window.loadingManager.updateProgress === "function"
+        ) {
+          window.loadingManager.updateProgress(progress);
+        } else if (
+          window.LoadingManager &&
+          typeof window.LoadingManager.updateProgress === "function"
+        ) {
+          window.LoadingManager.updateProgress(progress);
+        } else {
+          const progressBar = document.getElementById("loading-progress-bar");
+          if (progressBar) {
+            progressBar.style.width = `${progress}%`;
+          }
+        }
+      }
+    }
+    window.handleError(`Combining ${chunks.length} chunks into final blob...`);
+    const chunksAll = new Uint8Array(receivedLength);
+    let position = 0;
+    for (const chunk of chunks) {
+      chunksAll.set(chunk, position);
+      position += chunk.length;
+    }
+    const contentType = getContentTypeForFormat(format);
+    window.handleError(`Creating blob with type: ${contentType}`);
+    const blob = new Blob([chunksAll], { type: contentType });
+    const blobUrl = URL.createObjectURL(blob);
+    window.handleError(`Blob URL created: ${blobUrl.substring(0, 30)}...`);
+    window.handleError(`Triggering download of ${filename}`);
+    const downloadLink = document.createElement("a");
+    downloadLink.style.display = "none";
+    downloadLink.href = blobUrl;
+    downloadLink.download = filename;
+    if ("download" in downloadLink) {
+      downloadLink.type = contentType;
+    }
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    setTimeout(() => {
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(blobUrl);
+      window.handleError(`Download cleanup completed for ${filename}`);
+    }, 100);
+    showNotification(`Successfully exported ${filename}`, "success");
   }
 
   function getExtensionForFormat(format) {

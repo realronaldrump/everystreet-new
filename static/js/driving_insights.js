@@ -8,8 +8,12 @@
   let fuelConsumptionChart = null;
 
   const loadingManager = window.loadingManager || {
-    startOperation: () => {},
-    finish: () => {},
+    startOperation: (op) => {
+      window.handleError && window.handleError(`Loading started: ${op}`);
+    },
+    finish: (op) => {
+      window.handleError && window.handleError(`Loading finished: ${op}`);
+    },
   };
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -142,7 +146,7 @@
               },
               tooltip: {
                 callbacks: {
-                  label (context) {
+                  label(context) {
                     const label = context.label || "";
                     const value = context.raw || 0;
                     if (label === "Fuel Consumed") {
@@ -242,7 +246,8 @@
         return;
       }
 
-      let preset;
+      let preset = null;
+      let endDate, startDate;
       switch (days) {
         case 7:
           preset = "7days";
@@ -254,10 +259,9 @@
           preset = "90days";
           break;
         default:
-          const endDate = new Date();
-          const startDate = new Date();
+          endDate = new Date();
+          startDate = new Date();
           startDate.setDate(startDate.getDate() - days);
-
           updateDateInputs(
             startDateInput,
             endDateInput,
@@ -321,10 +325,11 @@
     if (!dateUtils) {
       return "0m 0s";
     }
-    return (
-      `${dateUtils.formatSecondsToHMS(seconds).split(":").slice(0, 2).join("m ") 
-      }s`
-    );
+    return `${dateUtils
+      .formatSecondsToHMS(seconds)
+      .split(":")
+      .slice(0, 2)
+      .join("m ")}s`;
   }
 
   function formatDateForDisplay(dateStr) {
@@ -528,6 +533,11 @@
   function updateSummaryMetrics(data) {
     if (!data) return;
 
+    setSummaryMetricElements(data);
+    renderMostVisited(data, document.getElementById("most-visited"));
+  }
+
+  function setSummaryMetricElements(data) {
     const metrics = {
       "total-trips": data.total_trips || 0,
       "total-distance": `${(data.total_distance || 0).toFixed(2)} miles`,
@@ -536,54 +546,61 @@
       "total-idle": formatIdleDuration(data.total_idle_duration || 0),
       "longest-trip": `${(data.longest_trip_distance || 0).toFixed(2)} miles`,
     };
-
     Object.entries(metrics).forEach(([id, value]) => {
       const el = document.getElementById(id);
       if (el) el.textContent = value;
     });
+  }
 
-    const mostVisitedEl = document.getElementById("most-visited");
-    if (mostVisitedEl && data.most_visited) {
-      try {
-        let { _id, count, isCustomPlace } = data.most_visited;
-
-        if (
-          typeof _id === "string" &&
-          _id.startsWith("{") &&
-          _id.includes("formatted_address")
-        ) {
-          try {
-            const parsedObj = JSON.parse(_id);
-            _id = parsedObj;
-          } catch (e) {
-            console.warn("Failed to parse what looks like a JSON string:", e);
-          }
-        }
-
-        let placeName = "Unknown";
-
-        if (typeof _id === "string") {
-          placeName = _id;
-        } else if (typeof _id === "object" && _id !== null) {
-          placeName =
-            _id.formatted_address ||
-            _id.name ||
-            _id.place_name ||
-            _id.placeName ||
-            _id.location ||
-            _id.address ||
-            (typeof _id.toString === "function" ? _id.toString() : "Unknown");
-        }
-
-        mostVisitedEl.innerHTML = `${placeName} ${
-          isCustomPlace ? '<span class="badge bg-primary">Custom</span>' : ""
-        } (${count} visits)`;
-      } catch (error) {
-        console.error("Error formatting most visited location:", error);
-        mostVisitedEl.textContent = "Error displaying most visited location";
-      }
-    } else if (mostVisitedEl) {
+  function renderMostVisited(data, mostVisitedEl) {
+    if (!mostVisitedEl) return;
+    if (!data.most_visited) {
       mostVisitedEl.textContent = "-";
+      return;
     }
+    try {
+      let { _id, count, isCustomPlace } = data.most_visited;
+      _id = parseMostVisitedId(_id);
+      const placeName = getMostVisitedPlaceName(_id);
+      mostVisitedEl.innerHTML = `${placeName} ${
+        isCustomPlace ? '<span class="badge bg-primary">Custom</span>' : ""
+      } (${count} visits)`;
+    } catch (error) {
+      console.error("Error formatting most visited location:", error);
+      mostVisitedEl.textContent = "Error displaying most visited location";
+    }
+  }
+
+  function parseMostVisitedId(_id) {
+    if (
+      typeof _id === "string" &&
+      _id.startsWith("{") &&
+      _id.includes("formatted_address")
+    ) {
+      try {
+        return JSON.parse(_id);
+      } catch (e) {
+        console.warn("Failed to parse what looks like a JSON string:", e);
+        return _id;
+      }
+    }
+    return _id;
+  }
+
+  function getMostVisitedPlaceName(_id) {
+    if (typeof _id === "string") {
+      return _id;
+    } else if (typeof _id === "object" && _id !== null) {
+      return (
+        _id.formatted_address ||
+        _id.name ||
+        _id.place_name ||
+        _id.placeName ||
+        _id.location ||
+        _id.address ||
+        (typeof _id.toString === "function" ? _id.toString() : "Unknown")
+      );
+    }
+    return "Unknown";
   }
 })();
