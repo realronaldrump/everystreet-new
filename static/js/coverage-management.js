@@ -959,7 +959,7 @@ const STATUS = window.STATUS || {
         try {
           if (errorResponse && typeof errorResponse.json === "function") {
             const errorData = await errorResponse.json();
-            if (errorData && errorData.detail) {
+            if (errorData?.detail) {
               if (Array.isArray(errorData.detail)) {
                 detailMessage = errorData.detail
                   .map((err) => `${err.loc?.join(".") || "field"}: ${err.msg}`)
@@ -3063,8 +3063,7 @@ const STATUS = window.STATUS || {
       if (this.tripsLayerGroup) {
         this.tripsLayerGroup.clearLayers();
         if (
-          this.coverageMap &&
-          this.coverageMap.hasLayer(this.tripsLayerGroup)
+          this.coverageMap?.hasLayer(this.tripsLayerGroup)
         ) {
         }
         console.log("Trip overlay cleared.");

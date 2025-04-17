@@ -202,8 +202,7 @@ class DrivingNavigation {
     }
 
     if (
-      this.findBtn &&
-      this.findBtn.disabled &&
+      this.findBtn?.disabled &&
       this.findBtn.dataset.disabledReason === "no-location" &&
       this.selectedLocation
     ) {
@@ -313,7 +312,7 @@ class DrivingNavigation {
     this.areaSelect.innerHTML = '<option value="">Select an area...</option>';
 
     this.coverageAreas.forEach((area) => {
-      if (area.location && area.location.display_name) {
+      if (area.location?.display_name) {
         const option = document.createElement("option");
         option.value = JSON.stringify(area.location);
         option.textContent = area.location.display_name;
@@ -389,7 +388,7 @@ class DrivingNavigation {
 
       this.updateProgress(80, "Rendering streets on map...");
 
-      if (geojson && geojson.features && geojson.features.length > 0) {
+      if (geojson?.features && geojson.features.length > 0) {
         const geoJsonLayer = L.geoJSON(geojson, {
           style: {
             color: "#00BFFF",
@@ -596,11 +595,11 @@ class DrivingNavigation {
             boundsToFit = routeLayer.getBounds();
           }
 
-          if (boundsToFit && boundsToFit.isValid()) {
+          if (boundsToFit?.isValid()) {
             this.map.fitBounds(boundsToFit, { padding: [70, 70] });
           } else {
             console.warn("Could not determine valid bounds to fit the map.");
-            if (data.target_street && data.target_street.start_coords) {
+            if (data.target_street?.start_coords) {
               this.map.setView(
                 [
                   data.target_street.start_coords[1],
@@ -1196,7 +1195,7 @@ class DrivingNavigation {
 
         // Zoom to show the route
         const bounds = routeLayer.getBounds();
-        if (bounds && bounds.isValid()) {
+        if (bounds?.isValid()) {
           this.map.fitBounds(bounds, { padding: [70, 70] });
         }
 
