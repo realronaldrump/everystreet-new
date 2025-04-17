@@ -832,9 +832,7 @@
       console.warn("Map not ready for update. Operation deferred.");
       return;
     }
-
     AppState.layerGroup.clearLayers();
-
     const visibleLayers = Object.entries(AppState.mapLayers)
       .filter(
         ([, info]) =>
@@ -844,14 +842,30 @@
             info.layer instanceof L.LayerGroup),
       )
       .sort(([, a], [, b]) => a.order - b.order);
-
     const tripLayers = new Map();
-
     for (const [name, info] of visibleLayers) {
       if (name === "customPlaces" && info.layer instanceof L.LayerGroup) {
         info.layer.addTo(AppState.layerGroup);
       } else if (["trips", "matchedTrips"].includes(name)) {
         if (info.layer?.features) {
+          // Add invisible hit area for each trip feature
+          info.layer.features.forEach((feature) => {
+            const hitLayer = L.geoJSON(feature, {
+              style: {
+                color: "#000",
+                opacity: 0,
+                weight: 20, // Large tap area
+                interactive: true,
+              },
+              onEachFeature: (f, layer) => {
+                layer.on("click", (e) =>
+                  handleTripClick(e, f, layer, info, name),
+                );
+              },
+            });
+            hitLayer.addTo(AppState.layerGroup);
+          });
+          // Add visible trip lines as before
           const geoJsonLayer = getOrCreateGeoJsonLayer(name, info.layer, {
             style: (feature) => getTripFeatureStyle(feature, info),
             onEachFeature: (feature, layer) => {
@@ -890,17 +904,13 @@
         geoJsonLayer.addTo(AppState.layerGroup);
       }
     }
-
     if (AppState.selectedTripId && tripLayers.has(AppState.selectedTripId)) {
       tripLayers.get(AppState.selectedTripId)?.bringToFront();
     }
-
     if (fitBounds) {
       fitMapBounds();
     }
-
     AppState.map.invalidateSize();
-
     document.dispatchEvent(new CustomEvent("mapUpdated"));
   }
 
