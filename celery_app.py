@@ -60,7 +60,7 @@ RETRY_DELAY = 5
 
 def get_redis_connection_with_retry():
     import redis
-    from redis.exceptions import ConnectionError
+    from redis.exceptions import ConnectionError as RedisConnectionError
 
     retry_count = 0
     while retry_count < MAX_RETRIES:
@@ -68,8 +68,8 @@ def get_redis_connection_with_retry():
             r = redis.from_url(REDIS_URL)
             r.ping()
             logger.info("Successfully connected to Redis broker.")
-            return True
-        except ConnectionError as e:
+            return
+        except RedisConnectionError as e:
             retry_count += 1
             logger.warning(
                 "Redis connection failed (attempt %d/%d): %s",
@@ -216,12 +216,12 @@ def init_worker(**kwargs):
         logger.info("Initializing DatabaseManager for worker...")
         _ = db_manager.client
         _ = db_manager.db
-        if not db_manager._connection_healthy:
+        if not db_manager.connection_healthy:
             logger.warning(
                 "DB Manager connection unhealthy, attempting re-init."
             )
-            db_manager._initialize_client()
-            if not db_manager._connection_healthy:
+            db_manager.ensure_connection()
+            if not db_manager.connection_healthy:
                 raise ConnectionFailure(
                     "DB Manager failed to establish connection in worker."
                 )
