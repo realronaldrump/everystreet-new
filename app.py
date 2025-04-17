@@ -533,7 +533,11 @@ async def update_background_tasks_config(
         }
 
     except HTTPException as exc:
-        logger.warning("HTTPException in update_background_tasks_config: %s", exc, exc_info=True)
+        logger.warning(
+            "HTTPException in update_background_tasks_config: %s",
+            exc,
+            exc_info=True,
+        )
         raise
     except Exception as e:
         logger.exception(
@@ -657,7 +661,9 @@ async def pause_background_tasks(
             "message": f"Background tasks paused for {minutes} minutes",
         }
     except HTTPException as exc:
-        logger.warning("HTTPException in pause_background_tasks: %s", exc, exc_info=True)
+        logger.warning(
+            "HTTPException in pause_background_tasks: %s", exc, exc_info=True
+        )
         raise
     except Exception as e:
         logger.exception("Error pausing tasks: %s", e)
@@ -702,7 +708,11 @@ async def stop_all_background_tasks():
             "message": "All background tasks stopped",
         }
     except HTTPException as exc:
-        logger.warning("HTTPException in stop_all_background_tasks: %s", exc, exc_info=True)
+        logger.warning(
+            "HTTPException in stop_all_background_tasks: %s",
+            exc,
+            exc_info=True,
+        )
         raise
     except Exception as e:
         logger.exception("Error stopping all tasks: %s", e)
@@ -731,7 +741,11 @@ async def enable_all_background_tasks():
             "message": "All background tasks enabled",
         }
     except HTTPException as exc:
-        logger.warning("HTTPException in enable_all_background_tasks: %s", exc, exc_info=True)
+        logger.warning(
+            "HTTPException in enable_all_background_tasks: %s",
+            exc,
+            exc_info=True,
+        )
         raise
     except Exception as e:
         logger.exception("Error enabling all tasks: %s", e)
@@ -760,7 +774,11 @@ async def disable_all_background_tasks():
             "message": "All background tasks disabled",
         }
     except HTTPException as exc:
-        logger.warning("HTTPException in disable_all_background_tasks: %s", exc, exc_info=True)
+        logger.warning(
+            "HTTPException in disable_all_background_tasks: %s",
+            exc,
+            exc_info=True,
+        )
         raise
     except Exception as e:
         logger.exception("Error disabling all tasks: %s", e)
@@ -4301,6 +4319,7 @@ async def delete_coverage_area(
         }
 
     except HTTPException:
+        logger.warning("HTTPException in delete_coverage_area", exc_info=True)
         raise
     except Exception as e:
         logger.exception(
@@ -5035,16 +5054,12 @@ async def get_coverage_driving_route(
     request: Request,
 ):
     """
-    Calculates an efficient route to cover all undriven street segments
-    in the specified area, starting from the user's current position using Mapbox Optimization API v1.
-    Handles large areas by clustering segments and optimizing routes per cluster.
+    Calculates the route from the user's current position to the
+    start of the nearest undriven street segment in the specified area using Mapbox Optimization API v1.
 
     Accepts a JSON payload with:
     - location: The target area location model
     - current_position: Optional current position {lat, lon} (falls back to live tracking if not provided)
-
-    Returns a GeoJSON GeometryCollection representing the route,
-    along with total duration and distance for the optimized route.
     """
     try:
         data = await request.json()
@@ -5066,10 +5081,7 @@ async def get_coverage_driving_route(
         current_position = data.get("current_position")
 
     except (ValueError, TypeError) as e:
-        logger.error(
-            "Error parsing coverage route request data: %s",
-            e,
-        )
+        logger.error("Error parsing request data: %s", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid request format: {str(e)}",
@@ -5085,16 +5097,19 @@ async def get_coverage_driving_route(
             current_lat = float(current_position["lat"])
             current_lon = float(current_position["lon"])
             location_source = "client-provided"
+
             logger.info(
-                "Coverage Route: Using client-provided location: Lat=%s, Lon=%s",
+                "Using client-provided location: Lat=%s, Lon=%s",
                 current_lat,
                 current_lon,
             )
+
         else:
             logger.info(
-                "Coverage Route: No position provided, falling back to live tracking"
+                "No position provided in request, falling back to live tracking data"
             )
             active_trip_data = await get_active_trip()
+
             if (
                 active_trip_data
                 and active_trip_data.get("coordinates")
@@ -5105,13 +5120,13 @@ async def get_coverage_driving_route(
                 current_lon = latest_coord_point["lon"]
                 location_source = "live-tracking"
                 logger.info(
-                    "Coverage Route: Using live tracking location: Lat=%s, Lon=%s",
+                    "Using live tracking location: Lat=%s, Lon=%s",
                     current_lat,
                     current_lon,
                 )
             else:
                 logger.info(
-                    "Coverage Route: Live tracking unavailable, falling back to last trip end location"
+                    "Live tracking unavailable, falling back to last trip end location"
                 )
                 last_trip = await find_one_with_retry(
                     trips_collection,
@@ -5122,7 +5137,7 @@ async def get_coverage_driving_route(
                 if not last_trip:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Coverage Route: Current position not provided, live location unavailable, and no previous trips found.",
+                        detail="Current position not provided, live location unavailable, and no previous trips found.",
                     )
 
                 try:
@@ -5139,7 +5154,7 @@ async def get_coverage_driving_route(
                         current_lat = float(last_coord[1])
                         location_source = "last-trip-end"
                         logger.info(
-                            "Coverage Route: Using last trip end location: Lat=%s, Lon=%s (Trip ID: %s)",
+                            "Using last trip end location: Lat=%s, Lon=%s (Trip ID: %s)",
                             current_lat,
                             current_lon,
                             last_trip.get(
@@ -5149,7 +5164,7 @@ async def get_coverage_driving_route(
                         )
                     else:
                         raise ValueError(
-                            "Coverage Route: Invalid or empty geometry in last trip"
+                            "Invalid or empty geometry in last trip"
                         )
                 except (
                     json.JSONDecodeError,
@@ -5158,13 +5173,13 @@ async def get_coverage_driving_route(
                     IndexError,
                 ) as e:
                     logger.error(
-                        "Coverage Route: Failed to extract end location from last trip %s: %s",
+                        "Failed to extract end location from last trip %s: %s",
                         last_trip.get("transactionId", "N/A"),
                         e,
                     )
                     raise HTTPException(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail="Coverage Route: Failed to determine starting location from last trip.",
+                        detail="Failed to determine starting location from last trip.",
                     )
 
         start_point = (current_lon, current_lat)

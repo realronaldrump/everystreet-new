@@ -1,3 +1,6 @@
+/* global L, notificatonManager, DateUtils, Chart */
+
+
 "use strict";
 
 class DrivingNavigation {

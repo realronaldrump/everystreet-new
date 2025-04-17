@@ -1,3 +1,5 @@
+/* global handleError , DateUtils, L, Chart */
+
 "use strict";
 
 (function () {

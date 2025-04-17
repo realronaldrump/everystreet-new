@@ -1,4 +1,5 @@
-// Driver Behavior Analytics JS
+/* global Chart */
+
 (function () {
   async function fetchBehaviorData() {
     try {

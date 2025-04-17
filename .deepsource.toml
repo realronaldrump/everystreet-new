@@ -4,7 +4,7 @@ version = 1
 name = "javascript"
 
   [analyzers.meta]
-  environment = ["browser"]
+  environment = ["browser", "jquery"]
 
 [[analyzers]]
 name = "python"
