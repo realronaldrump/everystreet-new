@@ -95,8 +95,9 @@ class CustomPlace:
         )
 
 
-places_collection = None
-trips_collection = None
+class Collections:
+    places = None
+    trips = None
 
 
 def init_collections(places_coll, trips_coll):
@@ -106,15 +107,14 @@ def init_collections(places_coll, trips_coll):
         places_coll: MongoDB collection for places
         trips_coll: MongoDB collection for trips
     """
-    global places_collection, trips_collection
-    places_collection = places_coll
-    trips_collection = trips_coll
+    Collections.places = places_coll
+    Collections.trips = trips_coll
 
 
 @router.get("/places")
 async def get_places():
     """Get all custom places."""
-    places = await find_with_retry(places_collection, {})
+    places = await find_with_retry(Collections.places, {})
     return [
         {
             "_id": str(p["_id"]),
@@ -129,7 +129,7 @@ async def create_place(place: PlaceModel):
     """Create a new custom place."""
     place_obj = CustomPlace(place.name, place.geometry)
     result = await insert_one_with_retry(
-        places_collection, place_obj.to_dict()
+        Collections.places, place_obj.to_dict()
     )
     return {
         "_id": str(result.inserted_id),
@@ -142,7 +142,7 @@ async def delete_place(place_id: str):
     """Delete a custom place."""
     try:
         await delete_one_with_retry(
-            places_collection,
+            Collections.places,
             {"_id": ObjectId(place_id)},
         )
         return {
@@ -169,7 +169,7 @@ async def update_place(place_id: str, update_data: PlaceUpdateModel):
     """Update a custom place (name and/or geometry)."""
     try:
         place = await find_one_with_retry(
-            places_collection,
+            Collections.places,
             {"_id": ObjectId(place_id)},
         )
         if not place:
@@ -193,13 +193,13 @@ async def update_place(place_id: str, update_data: PlaceUpdateModel):
         from db import update_one_with_retry
 
         await update_one_with_retry(
-            places_collection,
+            Collections.places,
             {"_id": ObjectId(place_id)},
             {"$set": update_fields},
         )
 
         updated_place = await find_one_with_retry(
-            places_collection,
+            Collections.places,
             {"_id": ObjectId(place_id)},
         )
         return {
@@ -261,7 +261,7 @@ async def get_place_statistics(place_id: str):
     """Get statistics about visits to a place."""
     try:
         place = await find_one_with_retry(
-            places_collection,
+            Collections.places,
             {"_id": ObjectId(place_id)},
         )
         if not place:
@@ -295,11 +295,11 @@ async def get_place_statistics(place_id: str):
         }
 
         trips_ending_at_place = await find_with_retry(
-            trips_collection,
+            Collections.trips,
             ended_at_place_query,
         )
         trips_starting_from_place = await find_with_retry(
-            trips_collection,
+            Collections.trips,
             started_from_place_query,
         )
 
@@ -441,7 +441,7 @@ async def get_trips_for_place(place_id: str):
     """Get trips that visited a specific place."""
     try:
         place = await find_one_with_retry(
-            places_collection,
+            Collections.places,
             {"_id": ObjectId(place_id)},
         )
         if not place:
@@ -475,11 +475,11 @@ async def get_trips_for_place(place_id: str):
         }
 
         trips_ending_at_place = await find_with_retry(
-            trips_collection,
+            Collections.trips,
             ended_at_place_query,
         )
         trips_starting_from_place = await find_with_retry(
-            trips_collection,
+            Collections.trips,
             started_from_place_query,
         )
 
@@ -663,7 +663,7 @@ async def get_non_custom_places_visits():
             {"$limit": 30},
         ]
 
-        results = await aggregate_with_retry(trips_collection, pipeline)
+        results = await aggregate_with_retry(Collections.trips, pipeline)
         places_data = []
 
         for doc in results:
@@ -712,15 +712,16 @@ async def get_non_custom_places_visits():
 
 @router.get("/places/statistics")
 async def get_all_places_statistics():
-    """Get statistics for all custom places in a single call (efficient bulk version)."""
+    """Get statistics for all custom places in a single call
+    (efficient bulk version)."""
     try:
-        places = await find_with_retry(places_collection, {})
+        places = await find_with_retry(Collections.places, {})
         if not places:
             return []
         results = []
         # Pre-fetch all trips once for efficiency
         all_trips = await find_with_retry(
-            trips_collection,
+            Collections.trips,
             {
                 "$or": [
                     {
