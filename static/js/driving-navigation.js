@@ -1,4 +1,4 @@
-/* global L, notificationManager, DateUtils, Chart */
+/* global L, notificationManager, DateUtils, Chart, LiveTripTracker */
 
 "use strict";
 
