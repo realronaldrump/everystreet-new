@@ -557,7 +557,7 @@ class LiveTripTracker {
       startTimeFormatted,
     });
 
-    console.log("Displaying metrics:", metrics);
+    window.handleError("Displaying metrics:", metrics);
 
     this.tripMetricsElem.innerHTML = Object.entries(metrics)
       .map(

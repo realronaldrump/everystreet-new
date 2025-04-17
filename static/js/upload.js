@@ -560,7 +560,9 @@ class UploadManager {
   removeFile(index) {
     if (index >= 0 && index < this.state.selectedFiles.length) {
       const removedFile = this.state.selectedFiles.splice(index, 1);
-      console.log(`Removed file ${removedFile[0]?.filename} from selection.`);
+      window.handleError(
+        `Removed file ${removedFile[0]?.filename} from selection.`,
+      );
       this.updateFileList();
       this.updatePreviewMap();
       this.updateStats();

@@ -466,7 +466,7 @@
       const abortController = new AbortController();
       const timeoutId = setTimeout(() => {
         abortController.abort();
-        console.log(
+        window.handleError(
           `Export operation timed out after 120 seconds: ${config.name}`,
         );
       }, 120000);
@@ -739,7 +739,7 @@
 
     try {
       showNotification(`Requesting ${exportName} data...`, "info");
-      console.log(`Requesting export from: ${urlWithTimestamp}`);
+      window.handleError(`Requesting export from: ${urlWithTimestamp}`);
 
       if (
         window.loadingManager &&
@@ -764,9 +764,9 @@
 
       const fetchOptions = { signal };
 
-      console.log(`Starting fetch for ${exportName} export...`);
+      window.handleError(`Starting fetch for ${exportName} export...`);
       const response = await fetch(urlWithTimestamp, fetchOptions);
-      console.log(
+      window.handleError(
         `Received response: status=${response.status}, ok=${response.ok}`,
       );
 
@@ -794,13 +794,13 @@
 
       const contentLength = response.headers.get("Content-Length");
       const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
-      console.log(
+      window.handleError(
         `Content-Length: ${contentLength}, parsed size: ${totalSize}`,
       );
 
-      console.log("Response headers:");
+      window.handleError("Response headers:");
       response.headers.forEach((value, name) => {
-        console.log(`${name}: ${value}`);
+        window.handleError(`${name}: ${value}`);
       });
 
       const formatMatch = urlWithTimestamp.match(/format=([^&]+)/);
@@ -832,7 +832,7 @@
       }
 
       showNotification(`Downloading ${filename}...`, "info");
-      console.log(`Starting download of ${filename}...`);
+      window.handleError(`Starting download of ${filename}...`);
 
       try {
         const reader = response.body.getReader();
@@ -843,7 +843,7 @@
           const { done, value } = await reader.read();
 
           if (done) {
-            console.log(
+            window.handleError(
               `Finished reading response body, total size: ${receivedLength} bytes`,
             );
             break;
@@ -857,7 +857,7 @@
             receivedLength % Math.max(totalSize / 10, 1024 * 1024) <
               value.length
           ) {
-            console.log(
+            window.handleError(
               `Download progress: ${Math.round(
                 (receivedLength / totalSize) * 100,
               )}% (${receivedLength}/${totalSize} bytes)`,
@@ -891,7 +891,9 @@
           }
         }
 
-        console.log(`Combining ${chunks.length} chunks into final blob...`);
+        window.handleError(
+          `Combining ${chunks.length} chunks into final blob...`,
+        );
         const chunksAll = new Uint8Array(receivedLength);
         let position = 0;
         for (const chunk of chunks) {
@@ -900,12 +902,12 @@
         }
 
         const contentType = getContentTypeForFormat(format);
-        console.log(`Creating blob with type: ${contentType}`);
+        window.handleError(`Creating blob with type: ${contentType}`);
         const blob = new Blob([chunksAll], { type: contentType });
         const blobUrl = URL.createObjectURL(blob);
-        console.log(`Blob URL created: ${blobUrl.substring(0, 30)}...`);
+        window.handleError(`Blob URL created: ${blobUrl.substring(0, 30)}...`);
 
-        console.log(`Triggering download of ${filename}`);
+        window.handleError(`Triggering download of ${filename}`);
         const downloadLink = document.createElement("a");
         downloadLink.style.display = "none";
         downloadLink.href = blobUrl;
@@ -921,7 +923,7 @@
         setTimeout(() => {
           document.body.removeChild(downloadLink);
           URL.revokeObjectURL(blobUrl);
-          console.log(`Download cleanup completed for ${filename}`);
+          window.handleError(`Download cleanup completed for ${filename}`);
         }, 100);
 
         showNotification(`Successfully exported ${filename}`, "success");
@@ -1010,7 +1012,7 @@
     if (window.notificationManager) {
       window.notificationManager.show(message, type);
     } else {
-      console.log(`${type.toUpperCase()}: ${message}`);
+      window.handleError(`${type.toUpperCase()}: ${message}`);
     }
   }
 

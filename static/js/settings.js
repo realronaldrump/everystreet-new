@@ -10,7 +10,7 @@
           if (window.notificationManager) {
             window.notificationManager.show(`${title}: ${message}`, type);
           } else {
-            console.log(`${type.toUpperCase()}: ${title} - ${message}`);
+            window.handleError(`${type.toUpperCase()}: ${title} - ${message}`);
           }
         },
       };

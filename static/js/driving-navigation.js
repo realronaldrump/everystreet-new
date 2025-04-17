@@ -92,7 +92,7 @@ class DrivingNavigation {
 
       setTimeout(() => {
         if (this.map) {
-          console.log("Invalidating map size...");
+          window.handleError("Invalidating map size...");
           this.map.invalidateSize();
         }
       }, 150);
@@ -123,7 +123,7 @@ class DrivingNavigation {
       this.handleLiveTripClear();
     };
 
-    console.log("Live tracking initialized for navigation.");
+    window.handleError("Live tracking initialized for navigation.");
   }
 
   handleLiveTripUpdate(trip) {
@@ -218,7 +218,7 @@ class DrivingNavigation {
     const CLEAR_DELAY_MS = 7000;
 
     this.clearTripTimeout = setTimeout(() => {
-      console.log("Executing debounced live trip clear.");
+      window.handleError("Executing debounced live trip clear.");
       this.lastKnownLocation = null;
 
       if (this.liveTracker?.marker) {
@@ -454,7 +454,7 @@ class DrivingNavigation {
       return;
     }
     if (this.isFetchingRoute || this.isFetchingCoverageRoute) {
-      console.log("Route fetch already in progress.");
+      window.handleError("Route fetch already in progress.");
       return;
     }
 
@@ -481,7 +481,7 @@ class DrivingNavigation {
         }),
       };
 
-      console.log("Sending route request with payload:", requestPayload);
+      window.handleError("Sending route request with payload:", requestPayload);
 
       // Update progress to show request is being sent
       this.updateProgress(30, "Finding the nearest undriven street...");
@@ -535,7 +535,9 @@ class DrivingNavigation {
         `;
 
         const locationSource = data.location_source || "unknown";
-        console.log(`Route calculated using '${locationSource}' location data`);
+        window.handleError(
+          `Route calculated using '${locationSource}' location data`,
+        );
 
         this.setStatus(`Route calculated. Head towards ${streetName}.`);
 
@@ -718,7 +720,7 @@ class DrivingNavigation {
       return;
     }
     if (this.isFetchingRoute || this.isFetchingCoverageRoute) {
-      console.log("Another route fetch is already in progress.");
+      window.handleError("Another route fetch is already in progress.");
       return;
     }
 
@@ -746,7 +748,7 @@ class DrivingNavigation {
         }),
       };
 
-      console.log(
+      window.handleError(
         "Sending coverage route request with payload:",
         requestPayload,
       );

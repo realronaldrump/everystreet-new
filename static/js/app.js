@@ -740,7 +740,7 @@
         `Loading undriven streets for ${location.display_name}...`,
         "info",
       );
-      console.log(
+      window.handleError(
         "[fetchUndrivenStreets] Sending POST request to /api/undriven_streets with location:",
         location,
       );
@@ -772,7 +772,7 @@
       );
 
       if (!geojson.features || geojson.features.length === 0) {
-        console.log(
+        window.handleError(
           `[fetchUndrivenStreets] No features found in response for ${location.display_name}. Showing notification.`,
         );
         showNotification(
@@ -780,7 +780,7 @@
           "info",
         );
       } else {
-        console.log(
+        window.handleError(
           `[fetchUndrivenStreets] Found ${geojson.features.length} features for ${location.display_name}. Updating map.`,
         );
         showNotification(
@@ -977,7 +977,7 @@
         );
         durationDisplay = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
       } catch (e) {
-        console.log("Error calculating duration", e);
+        window.handleError("Error calculating duration", e);
       }
     }
 
@@ -1453,7 +1453,7 @@
     }
 
     document.addEventListener("filtersApplied", (e) => {
-      console.log("Filters applied event received in app.js:", e.detail);
+      window.handleError("Filters applied event received in app.js:", e.detail);
       fetchTrips();
       fetchMetrics();
     });

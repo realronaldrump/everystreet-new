@@ -65,7 +65,7 @@
       handleResize();
 
       document.addEventListener("mapInitialized", () => {
-        console.log("Map initialization detected by modern-ui.js");
+        window.handleError("Map initialization detected by modern-ui.js");
         enhanceMapInteraction();
       });
     } catch (error) {
@@ -218,7 +218,7 @@
     `;
     document.head.appendChild(style);
 
-    console.log(
+    window.handleError(
       "Map controls initialized and event propagation handlers set up",
     );
   }
@@ -756,7 +756,7 @@
         });
       }
 
-      console.log("Map enhancements applied successfully");
+      window.handleError("Map enhancements applied successfully");
     } catch (error) {
       console.warn("Error applying map enhancements:", error);
     }

@@ -199,7 +199,7 @@ endblock %} {% block content %}
           "success",
         );
       } else {
-        console.log("Settings saved successfully");
+        window.handleError("Settings saved successfully");
       }
 
       // Update any active elements

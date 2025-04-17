@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (window.notificationManager) {
       window.notificationManager.show(message, type);
     } else {
-      console.log(`${type.toUpperCase()}: ${message}`);
+      window.handleError(`${type.toUpperCase()}: ${message}`);
     }
   }
 
