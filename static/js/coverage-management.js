@@ -103,7 +103,10 @@ const STATUS = window.STATUS || {
       };
       this.confirmationDialog = window.confirmationDialog || {
         show: (options) => {
-          console.warn("ConfirmationDialog fallback used. Ensure utils.js loads before coverage-management.js.", options);
+          console.warn(
+            "ConfirmationDialog fallback used. Ensure utils.js loads before coverage-management.js.",
+            options,
+          );
           return Promise.resolve(false);
         },
       };
@@ -305,7 +308,10 @@ const STATUS = window.STATUS || {
                 if (locationData) this.cancelProcessing(locationData);
                 break;
               default:
-                this.notificationManager.show(`Unknown table action: ${action}`, "warning");
+                this.notificationManager.show(
+                  `Unknown table action: ${action}`,
+                  "warning",
+                );
             }
           } else if (targetLink) {
             e.preventDefault();
@@ -1084,7 +1090,10 @@ const STATUS = window.STATUS || {
               data.error || data.message || "Coverage calculation failed",
             );
           } else if (data.stage === STATUS.CANCELED) {
-            this.notificationManager.show(`Task ${taskId} was canceled.`, "warning");
+            this.notificationManager.show(
+              `Task ${taskId} was canceled.`,
+              "warning",
+            );
             this.activeTaskIds.delete(taskId);
             throw new Error("Task was canceled");
           }
@@ -1107,7 +1116,7 @@ const STATUS = window.STATUS || {
           retries++;
         } catch (error) {
           this.notificationManager.show(
-             `Error polling coverage progress for task ${taskId}: ${error.message}`,
+            `Error polling coverage progress for task ${taskId}: ${error.message}`,
             "danger",
           );
           this.updateModalContent({
@@ -1127,7 +1136,7 @@ const STATUS = window.STATUS || {
       }
 
       this.notificationManager.show(
-        `Polling for task ${taskId} timed out after ${maxRetries * 5 / 60} minutes.`,
+        `Polling for task ${taskId} timed out after ${(maxRetries * 5) / 60} minutes.`,
         "danger",
       );
       this.updateModalContent({
@@ -2105,7 +2114,10 @@ const STATUS = window.STATUS || {
       if (coverage.streets_geojson) {
         this.addStreetsToMap(coverage.streets_geojson);
       } else {
-        this.notificationManager.show("No streets_geojson data found in coverage object.", "warning");
+        this.notificationManager.show(
+          "No streets_geojson data found in coverage object.",
+          "warning",
+        );
         this.mapBounds = null;
       }
 
@@ -2191,7 +2203,10 @@ const STATUS = window.STATUS || {
       this.currentFilter = "all";
 
       if (!geojson || !geojson.features || geojson.features.length === 0) {
-        this.notificationManager.show("No street features found in GeoJSON data.", "warning");
+        this.notificationManager.show(
+          "No street features found in GeoJSON data.",
+          "warning",
+        );
         this.mapBounds = this.coverageMap.getBounds();
         this.streetsGeoJsonLayer = null;
         return;
@@ -2257,7 +2272,10 @@ const STATUS = window.STATUS || {
           layer.on("popupopen", (e) => {
             const popupEl = e.popup.getElement();
             if (!popupEl) {
-              this.notificationManager.show("Popup element not found on open.", "danger");
+              this.notificationManager.show(
+                "Popup element not found on open.",
+                "danger",
+              );
               return;
             }
 
@@ -2330,7 +2348,9 @@ const STATUS = window.STATUS || {
       const streetName = props.name || props.street_name || "Unnamed Street";
       const streetType =
         props.highway || props.inferred_highway_type || "unknown";
-      const lengthMiles = CoverageManager.distanceInUserUnits(props.segment_length_m || 0);
+      const lengthMiles = CoverageManager.distanceInUserUnits(
+        props.segment_length_m || 0,
+      );
       const status = props.driven ? "Driven" : "Not Driven";
       const segmentId = props.segment_id || "N/A";
 
@@ -2372,7 +2392,10 @@ const STATUS = window.STATUS || {
               color: "#ff5252",
             });
           } catch (fallbackError) {
-            this.notificationManager.show(`Fallback style reset failed: ${fallbackError}`, "warning");
+            this.notificationManager.show(
+              `Fallback style reset failed: ${fallbackError}`,
+              "warning",
+            );
           }
         }
         this.highlightedLayer = null;
@@ -2399,7 +2422,10 @@ const STATUS = window.STATUS || {
               color: "#ff5252",
             });
           } catch (fallbackError) {
-            this.notificationManager.show(`Fallback hover style reset failed: ${fallbackError}`, "warning");
+            this.notificationManager.show(
+              `Fallback hover style reset failed: ${fallbackError}`,
+              "warning",
+            );
           }
         }
         this.hoverHighlightLayer = null;
@@ -2420,7 +2446,9 @@ const STATUS = window.STATUS || {
       const streetName = props.name || props.street_name || "Unnamed Street";
       const streetType =
         props.highway || props.inferred_highway_type || "unknown";
-      const lengthMiles = CoverageManager.distanceInUserUnits(props.segment_length_m || 0);
+      const lengthMiles = CoverageManager.distanceInUserUnits(
+        props.segment_length_m || 0,
+      );
       const status = props.driven ? "Driven" : "Not Driven";
       const segmentId = props.segment_id || "N/A";
 
@@ -2637,7 +2665,8 @@ const STATUS = window.STATUS || {
     }
 
     async refreshCoverageStats() {
-      if (!this.selectedLocation || !this.selectedLocation._id) return undefined;
+      if (!this.selectedLocation || !this.selectedLocation._id)
+        return undefined;
 
       try {
         const locationId = this.selectedLocation._id;
@@ -2683,7 +2712,7 @@ const STATUS = window.STATUS || {
       } else if (this.coverageMap) {
         this.coverageMap.setView([31.55, -97.15], 11);
         this.notificationManager.show(
-           "Map bounds invalid or not set, using default view.",
+          "Map bounds invalid or not set, using default view.",
           "warning",
         );
       }
@@ -2725,7 +2754,9 @@ const STATUS = window.STATUS || {
         parseDist(CoverageManager.distanceInUserUnits(t.covered_length_m || 0)),
       );
       const driveableLengths = topTypes.map((t) =>
-        parseDist(CoverageManager.distanceInUserUnits(t.driveable_length_m || 0)),
+        parseDist(
+          CoverageManager.distanceInUserUnits(t.driveable_length_m || 0),
+        ),
       );
       const notDrivenLengths = driveableLengths.map((total, i) =>
         parseFloat(Math.max(0, total - drivenLengths[i]).toFixed(2)),
@@ -2908,12 +2939,17 @@ const STATUS = window.STATUS || {
             try {
               layer.setStyle(layer.originalStyle);
             } catch (e) {
-              this.notificationManager.show(`Style reset failed on add during filter: ${e}`, "warning");
+              this.notificationManager.show(
+                `Style reset failed on add during filter: ${e}`,
+                "warning",
+              );
             }
             this.streetLayers.addLayer(layer);
           }
           if (layer === this.highlightedLayer) {
-            layer.setStyle(CoverageManager.styleStreet(layer.feature, false, true));
+            layer.setStyle(
+              CoverageManager.styleStreet(layer.feature, false, true),
+            );
             layer.bringToFront();
           }
           visibleCount++;
@@ -2930,7 +2966,10 @@ const STATUS = window.STATUS || {
             try {
               layer.setStyle(layer.originalStyle);
             } catch (e) {
-              this.notificationManager.show(`Style reset failed on removal during filter: ${e}`, "warning");
+              this.notificationManager.show(
+                `Style reset failed on removal during filter: ${e}`,
+                "warning",
+              );
             }
             this.streetLayers.removeLayer(layer);
           }
@@ -3073,7 +3112,7 @@ const STATUS = window.STATUS || {
       const boundsArea = Math.abs(ne.lng - sw.lng) * Math.abs(ne.lat - sw.lat);
       if (boundsArea > 5) {
         this.notificationManager.show(
-           "Map area too large, zoom in further to view trip overlays.",
+          "Map area too large, zoom in further to view trip overlays.",
           "info",
         );
         this.clearTripOverlay();
@@ -3127,7 +3166,8 @@ const STATUS = window.STATUS || {
 
   document.addEventListener("DOMContentLoaded", () => {
     if (typeof L === "undefined" || typeof Chart === "undefined") {
-      const errorMessage = "Error: Required libraries (Leaflet, Chart.js) failed to load. Map and chart functionality will be unavailable.";
+      const errorMessage =
+        "Error: Required libraries (Leaflet, Chart.js) failed to load. Map and chart functionality will be unavailable.";
       const errorContainer = document.getElementById("alerts-container");
       if (errorContainer) {
         const errorDiv = document.createElement("div");
@@ -3143,4 +3183,3 @@ const STATUS = window.STATUS || {
     window.coverageManager = new CoverageManager();
   });
 })();
-
