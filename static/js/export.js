@@ -4,7 +4,7 @@
 (() => {
   const elements = {};
 
-  let activeExports = {};
+  const activeExports = {};
 
   const EXPORT_CONFIG = {
     trips: {
@@ -126,7 +126,7 @@
       if (input.id) {
         window.DateUtils.initDatePicker(`#${input.id}`, {
           maxDate: "today",
-          onClose: function (selectedDates, dateStr) {
+          onClose(selectedDates, dateStr) {
             if (input.id.includes("start")) {
               const endInputId = input.id.replace("start", "end");
               const endInput = document.getElementById(endInputId);
@@ -285,52 +285,12 @@
         break;
 
       case "json":
+        // All checkboxes enabled by default
         break;
-    }
 
-    if (elements.includeBasicInfo) {
-      url += `&include_basic_info=${elements.includeBasicInfo.checked}`;
-    }
-    if (elements.includeLocations) {
-      url += `&include_locations=${elements.includeLocations.checked}`;
-    }
-    if (elements.includeTelemetry) {
-      url += `&include_telemetry=${elements.includeTelemetry.checked}`;
-    }
-    if (elements.includeGeometry) {
-      url += `&include_geometry=${elements.includeGeometry.checked}`;
-    }
-    if (elements.includeMeta) {
-      url += `&include_meta=${elements.includeMeta.checked}`;
-    }
-    if (elements.includeCustom) {
-      url += `&include_custom=${elements.includeCustom.checked}`;
-    }
-
-    if (format === "csv") {
-      if (elements.includeGpsInCsv) {
-        url += `&include_gps_in_csv=${elements.includeGpsInCsv.checked}`;
-      }
-      if (elements.flattenLocationFields) {
-        url += `&flatten_location_fields=${elements.flattenLocationFields.checked}`;
-      }
-    }
-
-    if (elements.exportAllDates && !elements.exportAllDates.checked) {
-      const startDate = elements[config.dateStart]?.value;
-      const endDate = elements[config.dateEnd]?.value;
-
-      if (!startDate || !endDate) {
-        throw new Error(
-          "Please select both start and end dates or check 'Export all dates'",
-        );
-      }
-
-      if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
-        throw new Error("Start date must be before or equal to end date");
-      }
-
-      url += `&start_date=${startDate}&end_date=${endDate}`;
+      default:
+        // No specific UI changes for other formats
+        break;
     }
 
     if (elements.saveExportSettings?.checked) {
@@ -731,11 +691,9 @@
   }
 
   async function downloadFile(url, exportName, signal) {
-    const urlWithTimestamp =
-      url +
-      (url.includes("?") ? "&" : "?") +
-      "timestamp=" +
-      new Date().getTime();
+    const urlWithTimestamp = `${url}${
+      url.includes("?") ? "&" : "?"
+    }timestamp=${new Date().getTime()}`;
 
     try {
       showNotification(`Requesting ${exportName} data...`, "info");
@@ -839,6 +797,7 @@
         let receivedLength = 0;
         const chunks = [];
 
+        // eslint-disable-next-line no-constant-condition
         while (true) {
           const { done, value } = await reader.read();
 

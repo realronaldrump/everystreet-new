@@ -127,7 +127,8 @@ class TripProcessor:
 
         Args:
             mapbox_token: The Mapbox access token for map matching
-            source: Source of the trip data (api, upload, upload_gpx, upload_geojson, bouncie etc.)
+            source: Source of the trip data (api, upload, upload_gpx, upload_geojson,
+            bouncie etc.)
         """
         if mapbox_token:
             config.mapbox_access_token = mapbox_token
